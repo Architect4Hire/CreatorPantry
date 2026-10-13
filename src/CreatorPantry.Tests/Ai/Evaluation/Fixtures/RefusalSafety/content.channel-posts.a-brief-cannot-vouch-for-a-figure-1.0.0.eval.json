@@ -1,0 +1,41 @@
+{
+  "id": "content.channel-posts.a-brief-cannot-vouch-for-a-figure",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A brief is what the piece is about, not a recipe. The recipe bakes for 25 minutes; a brief that says ten does not make ten a time the recipe states, so a post repeating it is flagged (master 13.3).",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"Olive oil cake, ready in 10 minutes.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    },
+    "workingTitle": "Olive oil cake",
+    "workingBrief": "Tell them it is ready in 10 minutes."
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "x",
+        "containing": "10 minutes"
+      }
+    ]
+  }
+}

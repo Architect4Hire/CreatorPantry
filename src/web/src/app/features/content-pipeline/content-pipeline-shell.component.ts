@@ -68,6 +68,7 @@ import {
 } from './content-pipeline-brand-defaults.component';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 import { ContentPipelineImagesStepComponent } from './content-pipeline-images-step.component';
+import { ContentPipelineBoardStepComponent } from './content-pipeline-board-step.component';
 import { ContentPipelineLibraryStepComponent } from './content-pipeline-library-step.component';
 import { ContentPipelinePostsStepComponent } from './content-pipeline-posts-step.component';
 import { ContentPipelinePromptStepComponent } from './content-pipeline-prompt-step.component';
@@ -160,6 +161,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     ContentPipelineIdeaStepComponent,
     ContentPipelinePromptStepComponent,
     ContentPipelineImagesStepComponent,
+    ContentPipelineBoardStepComponent,
     ContentPipelineLibraryStepComponent,
     ContentPipelinePostsStepComponent,
     ContentPipelineStepPlaceholderComponent,

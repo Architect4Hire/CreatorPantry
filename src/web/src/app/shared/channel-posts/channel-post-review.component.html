@@ -1,6 +1,7 @@
 <article class="post" [attr.aria-labelledby]="idPrefix() + '-heading'" [attr.data-status]="channel().status">
   <header class="head">
-    <h4 class="name" [id]="idPrefix() + '-heading'">{{ channelName() }}</h4>
+    <!-- h3: a card sits under its section's h2 on both screens, and a level is never skipped. -->
+    <h3 class="name" [id]="idPrefix() + '-heading'">{{ channelName() }}</h3>
 
     <p class="marks">
       <cp-status-pill [tone]="statusTone()">{{ statusWord() }}</cp-status-pill>
@@ -135,6 +136,17 @@
     <!-- Offered whatever the state, and to a reader who may not write: copying takes nothing away. -->
     <button cpButton type="button" variant="text" size="sm" (click)="emit({ kind: 'copy' })">
       {{ copied() ? 'Copied' : 'Copy' }}
+    </button>
+    <!-- Named for the channel, because a row of cards each offering "Download" reads alike to a screen reader. -->
+    <button
+      cpButton
+      type="button"
+      variant="text"
+      size="sm"
+      [attr.aria-label]="'Download the ' + channelName() + ' post as text'"
+      (click)="emit({ kind: 'download' })"
+    >
+      Download
     </button>
   </div>
 </article>

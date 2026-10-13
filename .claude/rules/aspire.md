@@ -66,6 +66,23 @@ developer with no Venice account turns it off once:
 dotnet user-secrets set "Venice:Images" "false" --project src/CreatorPantry.AppHost
 ```
 
+A sixth is the opposite case: `buffer-api-key`, a Buffer API key for publishing (13.9, INT-030). It is **off by
+default** — `Buffer:Publishing` is `false` in the AppHost's `appsettings.json` — so no machine is prompted for
+it. A Buffer key is one person's Buffer account, which is why it is never configured alone: `Buffer:WorkspaceId`
+must hold the id of the one workspace that account belongs to — its id, not its slug, because a free slug can
+be claimed by creating a workspace with that name — and every other workspace reads "not configured" exactly
+as it would on a machine with no key. The API alone takes it, as the connection string `publishing-buffer`:
+
+```
+dotnet user-secrets set "Buffer:Publishing" "true" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Buffer:WorkspaceId" "<workspace id>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:buffer-api-key" "<value>" --project src/CreatorPantry.AppHost
+```
+
+A machine that supplies the whole thing as `ConnectionStrings:publishing-buffer` —
+`Endpoint=https://api.buffer.com;Key=<key>;Workspace=<workspace id>` — is not prompted. A missing or half-made one is
+no provider, never a host that will not start.
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider

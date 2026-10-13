@@ -96,7 +96,7 @@ internal sealed class ChannelPostsAiTaskHandler(
         {
             return Failure(
                 AiFailureCategory.DomainInvalid,
-                "There is nothing to write a post about yet. Give this piece of work a title, a recipe or a concept first.");
+                "There is nothing to write a post about yet. Give this piece of work a title, a brief, a recipe or a concept first.");
         }
 
         if (package.Recipes.Any(recipe =>
@@ -198,6 +198,7 @@ internal sealed class ChannelPostsAiTaskHandler(
     /// </remarks>
     private static bool HasSomethingToWriteFrom(CreativeContextPackage package) =>
         package.Words?.WorkingTitle is not null
+        || package.Words?.WorkingBrief is not null
         || package.Words?.PictureBrief is not null
         || package.Recipes.Count > 0
         || package.Concepts.Count > 0

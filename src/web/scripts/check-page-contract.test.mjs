@@ -63,6 +63,8 @@ test('facts, stepper, chip and toolbar-field: the library owns each', () => {
   assert.deepEqual(rules(stylesheetViolations('.facts { margin: 0; } .fact dt { font-size: 1rem; }')), ['facts', 'facts']);
   assert.deepEqual(rules(stylesheetViolations('.step-list { margin: 0; }')), ['stepper']);
   assert.deepEqual(rules(stylesheetViolations('.chip { cursor: pointer; }')), ['chip']);
+  assert.deepEqual(rules(stylesheetViolations('.board { display: flex; } .lane { flex: 1; }')), ['board', 'board']);
+  assert.deepEqual(stylesheetViolations('.board-card-title { margin: 0; } .columns { display: grid; }'), []);
   assert.deepEqual(rules(stylesheetViolations('.search-field input { border: 0; }')), ['toolbar-field']);
   assert.deepEqual(rules(stylesheetViolations("input[type='search'] { border: 0; }")), ['toolbar-field']);
   assert.deepEqual(stylesheetViolations('.steps-disclosure summary { font-weight: 700; } .chip-note { margin: 0; }'), []);

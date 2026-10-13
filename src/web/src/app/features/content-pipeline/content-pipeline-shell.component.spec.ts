@@ -31,6 +31,7 @@ import { ChannelPostService } from '../../services/channel-post.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { FakeCreativeContextService } from '../../services/creative-context.fake';
+import { ContentBoardService } from '../../services/content-board.service';
 import { CreativeContextService } from '../../services/creative-context.service';
 import { DamAssetService } from '../../services/dam-asset.service';
 import { GeneratedImageService } from '../../services/generated-image.service';
@@ -186,6 +187,10 @@ async function create(
         useValue: { session: signal<SessionState>({ status: 'authenticated', displayName: 'Rae' }).asReadonly() },
       },
       { provide: CreativeContextService, useValue: server },
+      {
+        provide: ContentBoardService,
+        useValue: { pipelineCard: () => of({ status: 'none' }), commitPipeline: () => of({ status: 'unavailable' }) },
+      },
       { provide: RecipeService, useValue: library },
       // The reference panel's library picker and linked-asset card. Nothing here chooses a library picture, so
       // the library is empty: an unreachable one would put a second "Try again" on the page.

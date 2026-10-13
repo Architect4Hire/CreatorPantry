@@ -272,6 +272,7 @@ else
 }
 
 AddImages();
+AddPublishing();
 
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
 var web = builder.AddProject<Projects.CreatorPantry_Web>("web", launchProfileName: "https")
@@ -355,6 +356,64 @@ bool HasSuppliedDeployment() =>
     !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("chat"))
     || !string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("embeddings"))
     || builder.Configuration.GetValue("Foundry:LocalCli", false);
+
+// Publishing is Buffer (13.9, INT-030), and unlike the model providers it is OFF by default: most machines have
+// no Buffer account, and a Buffer API key is one person's Buffer account, so there is no value that would be
+// right to prompt everyone for.
+//
+//   dotnet user-secrets set "Buffer:Publishing" "true" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Buffer:WorkspaceId" "<the id of the workspace that Buffer account belongs to>" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Parameters:buffer-api-key" "<value>" --project src/CreatorPantry.AppHost
+//
+// Buffer:WorkspaceId is required with it and is not a secret. It is what stops every workspace on a
+// deployment from seeing, and later posting to, one person's Buffer channels: the key is used for that one
+// workspace and every other reads "not configured". It is the workspace's id — the `id` in GET
+// /api/v1/workspaces — and deliberately not its slug: a slug is made from a name a user chooses, so a free one
+// could be claimed by creating a workspace called that. The API reads all three back as one connection
+// string, `publishing-buffer`; a whole one supplied as ConnectionStrings:publishing-buffer —
+// "Endpoint=https://api.buffer.com;Key=<key>;Workspace=<workspace id>" — takes precedence. With neither, the API
+// starts without a publishing provider and says so.
+void AddPublishing()
+{
+    const string Name = "publishing-buffer";
+    IResourceBuilder<IResourceWithConnectionString> publishing;
+
+    if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(Name)))
+    {
+        // Named, not copied, for the reason AddImages gives: the key is never a literal in the app model.
+        publishing = builder.AddConnectionString(Name);
+    }
+    else if (builder.Configuration.GetValue("Buffer:Publishing", false))
+    {
+        var bufferKey = builder.AddParameter("buffer-api-key", secret: true)
+            .WithDescription(
+                "A **Buffer API key** (Buffer → Settings → API), used to read the publishing profiles of the one "
+                + "workspace named by `Buffer:WorkspaceId`. Tick *Save to user secret* so it is not asked for "
+                + "again. It is never written to source control, logged, or returned by the API.",
+                enableMarkdown: true);
+
+        var endpoint = Required("Buffer:Endpoint").TrimEnd('/');
+        // Checked here, where the mistake is made, rather than left for the API to read as "no provider".
+        var workspace = Guid.TryParse(Required("Buffer:WorkspaceId"), out var workspaceId) && workspaceId != Guid.Empty
+            ? workspaceId.ToString("D")
+            : throw new InvalidOperationException(
+                "'Buffer:WorkspaceId' must be a workspace's id (a GUID), not its slug or its name.");
+
+        publishing = builder.AddConnectionString(
+            Name, ReferenceExpression.Create($"Endpoint={endpoint};Key={bufferKey};Workspace={workspace}"));
+    }
+    else
+    {
+        return;
+    }
+
+    // The API only: the worker has no publishing job until the ledger and its reconciliation exist.
+    api.WithReference(publishing);
+
+    string Required(string key) => builder.Configuration[key]?.Trim() is { Length: > 0 } value
+        ? value
+        : throw new InvalidOperationException($"'{key}' is required when Buffer:Publishing is true.");
+}
 
 // Images are Venice.ai (B-15 as amended for Venice), not a Foundry deployment, so they are decided here on
 // their own rather than inside any of the three branches above: whichever way chat and embeddings arrive, the

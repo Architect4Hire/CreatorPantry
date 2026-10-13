@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+.degraded,
+.outcome {
+  margin-top: var(--cp-space-3);
+}
+
+cp-list-shell {
+  margin-top: var(--cp-space-6);
+}
+
+.how {
+  margin: 0 0 var(--cp-space-4);
+  font-size: var(--cp-font-size-sm);
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+/* The date sits among the toolbar's selects, so it is held to their width rather than a form field's. */
+.date-filter {
+  max-width: 12rem;
+}
+
+.result-summary {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+/* A card can be picked up anywhere on it; the cursor says so. Its link and its button keep their own. */
+li[cdkDrag] {
+  cursor: grab;
+}
+
+/* Where the card will land, shown as the card itself, faded. */
+.cdk-drag-placeholder {
+  opacity: 0.4;
+}
+
+/* The card in hand. It is lifted out of its list while it is dragged, so it draws no list marker. */
+.cdk-drag-preview {
+  list-style: none;
+  border-radius: var(--cp-radius-lg);
+  box-shadow: var(--cp-shadow-lg);
+  cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The card settling into place, and its neighbours making room. Nothing moves on its own otherwise. */
+  .cdk-drag-animating,
+  .cdk-drop-list-dragging li:not(.cdk-drag-placeholder) {
+    transition: transform var(--cp-duration-normal) var(--cp-ease);
+  }
+}

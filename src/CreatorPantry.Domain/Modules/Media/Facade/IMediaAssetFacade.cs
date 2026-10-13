@@ -104,6 +104,28 @@ public interface IMediaAssetFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Soft-deletes one asset as part of another module's command that a creator has already confirmed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same deletion as <see cref="SoftDeleteAsync"/>, under the same rules: the Editor role, the asset's own
+    /// concurrency token, a tombstone and no deleted bytes, and the same report of what still points at the
+    /// asset. It exists because a view model does not cross a module boundary, so a caller in another module
+    /// hands over the two values it has rather than this module's request type.
+    /// </para>
+    /// <para>
+    /// <strong>The confirmation is the caller's to have taken.</strong> This must only be reached from a
+    /// command whose own request carried an explicit instruction to remove this asset — never as a side effect
+    /// of deleting something else.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<MediaAssetDeletionServiceModel>> SoftDeleteConfirmedAsync(
+        string userId,
+        Guid mediaAssetId,
+        string? expectedConcurrencyToken,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Opens a live asset's current version, for rendering (DAM-006) or for download (DAM-007).
     /// </summary>
     /// <remarks>
@@ -335,6 +357,17 @@ internal sealed class MediaAssetFacade(
 
     private static IdempotentOutcome<MediaAssetDetailServiceModel> RefusedPatch(OperationError error) =>
         new(OperationResult<MediaAssetDetailServiceModel>.Failure(error), Replayed: false);
+
+    public Task<OperationResult<MediaAssetDeletionServiceModel>> SoftDeleteConfirmedAsync(
+        string userId,
+        Guid mediaAssetId,
+        string? expectedConcurrencyToken,
+        CancellationToken cancellationToken) =>
+        SoftDeleteAsync(
+            userId,
+            mediaAssetId,
+            new DeleteMediaAssetViewModel { Confirmed = true, ExpectedConcurrencyToken = expectedConcurrencyToken },
+            cancellationToken);
 
     public Task<OperationResult<MediaAssetDeletionServiceModel>> SoftDeleteAsync(
         string userId,

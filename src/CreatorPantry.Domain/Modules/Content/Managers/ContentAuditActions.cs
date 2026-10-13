@@ -31,6 +31,29 @@ public static class ContentAuditActions
     /// </remarks>
     public const string WeeklyThemeDeleted = "content.weekly_theme.deleted";
 
+    public const string ContentCardResourceType = "ContentCard";
+
+    /// <summary>A card was put on the board (13.6). The summary names its column and never its title.</summary>
+    public const string ContentCardCreated = "content.card.created";
+
+    /// <summary>A card's fields were edited (13.6a). The summary names which fields, never what they say.</summary>
+    public const string ContentCardUpdated = "content.card.updated";
+
+    /// <summary>A card changed column (13.6b). The summary names the two columns and never the note.</summary>
+    public const string ContentCardMoved = "content.card.moved";
+
+    /// <summary>
+    /// A card was deleted (13.6c), and its movement history with it. The entry is what remains: the summary
+    /// names the column it was in and how often it had moved, and never anything the creator wrote.
+    /// </summary>
+    public const string ContentCardDeleted = "content.card.deleted";
+
+    /// <summary>
+    /// A recipe package was put on the board as a card (13.7). The summary counts what was pinned and says
+    /// whether it is blocked or was allowed to stand; it names no title and quotes no text.
+    /// </summary>
+    public const string ContentCardPackaged = "content.card.packaged";
+
     public const string CreativeContextResourceType = "CreativeContext";
 
     public const string CreativeContextCreated = "content.creative_context.created";

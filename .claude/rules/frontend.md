@@ -48,6 +48,12 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
   line or a Previous/Next pager for one is a defect. On a card: state as `cp-status-pill` then kind as
   `cp-badge` in the badges slot, measured and dated values as inline facts, the creator's words as the
   description. A few fixed answers filter with chips; many, or server-read ones, with a select.
+- A library whose things are each in one of a few named, ordered states is a board: the same head, toolbar and
+  list shell, with `[cpBoard]` of `cp-board-column` where the card grid would be. It is not a fourth shape. A
+  move has two paths that send the same request — a drag, and a control on every card that names the column and
+  the place from the keyboard — and a move that can only be dragged is a defect. The order, the counts and which
+  moves are allowed are the server's: the page shows a move at once, and puts the card back and says so when the
+  answer is no. `ContentBoardComponent` is the reference; `src/web/DESIGN-SYSTEM.md` has the rules.
 - A page about one record, or a settings page, is a detail page: `cp-page-head` with one `cpBackLink` to the
   page it sits under — its text that page's route title, never "Back to…", present in every state, absent on
   a top-level page — then one fixed place for messages, then a column of `cp-topic-card` with each action at

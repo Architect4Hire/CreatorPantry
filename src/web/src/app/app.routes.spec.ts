@@ -8,6 +8,8 @@ import { AppShellComponent } from './shell/app-shell.component';
 import { PlaceholderSectionComponent } from './shell/placeholder-section.component';
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
 import { ImageStudioComponent } from './features/image-studio/image-studio.component';
+import { SocialStudioComponent } from './features/social-studio/social-studio.component';
+import { socialStudioCanDeactivateGuard } from './features/social-studio/social-studio.guard';
 import { LandingComponent } from './features/landing/landing.component';
 import { QuickRecipeComponent } from './features/quick-recipe/quick-recipe.component';
 import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
@@ -17,6 +19,8 @@ import { WorkspaceSettingsComponent } from './features/workspace-settings/worksp
 import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
+import { ContentBoardComponent } from './features/content-board/content-board.component';
+import { ContentCardDetailComponent } from './features/content-board/content-card-detail.component';
 import { DamAssetDetailComponent } from './features/dam/dam-asset-detail.component';
 import { damAssetDetailCanDeactivateGuard } from './features/dam/dam-asset-detail.guard';
 import { DamLibraryComponent } from './features/dam/dam-library.component';
@@ -123,8 +127,10 @@ describe('app routes', () => {
         route.path !== 'brand' &&
         route.path !== 'workflows' &&
         route.path !== 'image-studio' &&
+        route.path !== 'social-studio' &&
         route.path !== 'dam' &&
         route.path !== 'prompt-library' &&
+        route.path !== 'content-board' &&
         route.path !== 'settings',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
@@ -141,6 +147,29 @@ describe('app routes', () => {
     expect(await settingsRoute.children![1].loadComponent!()).toBe(ThemedDaysComponent);
     expect(settingsRoute.children![1].canDeactivate).toEqual([themedDaysCanDeactivateGuard]);
     expect(settingsRoute.children![1].data?.['title']).toBe('Themed days');
+
+    // 'content-board' is the board (13.8), no longer a placeholder: the board at its index, wide because it
+    // sets four columns side by side, and one card's own page beside it. Neither is guarded: a move is sent as
+    // it is made, and the two forms that hold an edit ask before they are closed.
+    const board = workspaceRoute.children!.find((route) => route.path === 'content-board')!;
+    const boardRoutes = (await board.loadChildren!()) as Routes;
+    expect(boardRoutes.map((route) => route.path)).toEqual(['', ':cardId']);
+    expect(await boardRoutes[0].loadComponent!()).toBe(ContentBoardComponent);
+    expect(boardRoutes[0].data).toEqual({ title: 'Content Board', pageWidth: 'wide' });
+    expect(await boardRoutes[1].loadComponent!()).toBe(ContentCardDetailComponent);
+    expect(boardRoutes.every((route) => route.canDeactivate === undefined)).toBe(true);
+
+    // 'social-studio' is Social Studio (13.3), no longer a placeholder. The same two addresses as the Image
+    // Studio. Both are guarded, unlike its: a post edited and not saved is kept on the device, which is not
+    // the same as saved to the workspace, so leaving with one says so.
+    const socialStudio = workspaceRoute.children!.find((route) => route.path === 'social-studio')!;
+    expect(socialStudio.children!.map((route) => route.path)).toEqual(['', 'context/:contextId']);
+    for (const route of socialStudio.children!) {
+      expect(await route.loadComponent!()).toBe(SocialStudioComponent);
+      expect(route.canDeactivate).toEqual([socialStudioCanDeactivateGuard]);
+      expect(route.data?.['title']).toBe('Social Studio');
+    }
+    expect(socialStudio.children![0].pathMatch).toBe('full');
 
     // 'image-studio' is the Image Studio (12.10c), no longer a placeholder. One page at two addresses: its
     // index, and `context/:contextId` for a studio opened with a creative context (AF.1.4). No guard on

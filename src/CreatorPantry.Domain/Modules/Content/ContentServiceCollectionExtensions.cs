@@ -87,6 +87,17 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IValidator<SavePromptRecordViewModel>, SavePromptRecordViewModelValidator>();
         services.AddScoped<IValidator<PromptSearchViewModel>, PromptSearchViewModelValidator>();
 
+        services.AddScoped<IContentCardRepository, ContentCardRepository>();
+        services.AddScoped<IContentCardDataLayer, ContentCardDataLayer>();
+        services.AddScoped<IContentCardBusiness, ContentCardBusiness>();
+        services.AddScoped<IContentCardFacade, ContentCardFacade>();
+        services.AddScoped<IValidator<ContentCardListViewModel>, ContentCardListViewModelValidator>();
+        services.AddScoped<IValidator<CreateContentCardViewModel>, CreateContentCardViewModelValidator>();
+        services.AddScoped<IValidator<UpdateContentCardViewModel>, UpdateContentCardViewModelValidator>();
+        services.AddScoped<IValidator<MoveContentCardViewModel>, MoveContentCardViewModelValidator>();
+        services.AddScoped<IValidator<DeleteContentCardViewModel>, DeleteContentCardViewModelValidator>();
+        services.AddScoped<IValidator<CreateRecipePackageViewModel>, CreateRecipePackageViewModelValidator>();
+
         services.AddScoped<ICreativeContextRepository, CreativeContextRepository>();
         services.AddScoped<ICreativeContextDataLayer, CreativeContextDataLayer>();
         services.AddScoped<ICreativeContextBusiness, CreativeContextBusiness>();

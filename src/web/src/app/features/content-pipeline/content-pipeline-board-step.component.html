@@ -1,0 +1,45 @@
+@switch (phase()) {
+  @case ('loading') {
+    <p class="cp-muted" role="status">Checking your board…</p>
+  }
+  @case ('unavailable') {
+    <cp-notice tone="error" role="alert">
+      Your board couldn't be read just now, so this step cannot say whether this run is already on it. Nothing
+      has been lost.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="retryRead()">Try again</button>
+    </cp-notice>
+  }
+  @default {
+    @if (card(); as onBoard) {
+      <!-- The end state: read from the server, so it is as true on a visit next week as it is now. -->
+      <cp-notice tone="success" role="status">
+        This run is on your board as “{{ onBoard.title }}”, in {{ columnLabel() }}.
+        <a [routerLink]="cardLink()">Open the card</a>
+      </cp-notice>
+      @if (unsavedNote(); as sentence) {
+        <p class="cp-muted">{{ sentence }}</p>
+      }
+    } @else {
+      <p class="cp-muted">
+        Put this run on your content board as one card, linked to this piece of work, its recipe, its posts and
+        the first picture you saved. It plans the work; it does not schedule or publish anything.
+      </p>
+
+      @if (savedCount() === 0) {
+        <cp-notice role="note">Save at least one of the pictures you kept to your library to add this run to your board.</cp-notice>
+      } @else if (unsavedNote(); as sentence) {
+        <p class="cp-muted">{{ sentence }}</p>
+      }
+
+      @if (problem(); as sentence) {
+        <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
+      }
+
+      <div class="cp-actions">
+        <button cpButton type="button" variant="primary" [disabled]="!canCommit()" (click)="commit()">
+          {{ committing() ? 'Adding to your board…' : problem() ? 'Try again' : 'Add to your board' }}
+        </button>
+      </div>
+    }
+  }
+}

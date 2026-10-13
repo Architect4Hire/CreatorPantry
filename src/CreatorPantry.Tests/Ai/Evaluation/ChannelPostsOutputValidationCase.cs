@@ -165,7 +165,7 @@ internal sealed class ChannelPostsOutputValidationCase : IAiEvaluationCase
             AiTaskType.ChannelPosts,
             Guid.NewGuid(),
             ContextVersion: null,
-            new CreativeContextWords(input.WorkingTitle, PictureBrief: null),
+            new CreativeContextWords(input.WorkingTitle, PictureBrief: null, input.WorkingBrief),
             Channels: [],
             Day: null,
             recipes,
@@ -214,7 +214,8 @@ internal sealed class ChannelPostsOutputValidationCase : IAiEvaluationCase
         string ExpectedSchemaVersion,
         IReadOnlyList<string>? RequestedChannels,
         string? WorkingTitle = null,
-        RecipeInput? Recipe = null);
+        RecipeInput? Recipe = null,
+        string? WorkingBrief = null);
 
     private sealed record RecipeInput(
         string Title,

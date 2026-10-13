@@ -114,7 +114,7 @@ describe('ChannelPostReviewComponent', () => {
   // ---- what a creator reads --------------------------------------------------------------------------
 
   it('names the channel as a creator calls it, as the card’s own heading', async () => {
-    expect(el.querySelector('h4')?.textContent?.trim()).toBe('Instagram');
+    expect(el.querySelector('h3')?.textContent?.trim()).toBe('Instagram');
     expect(el.querySelector('article')?.getAttribute('aria-labelledby')).toBe('cp-channel-post-heading');
   });
 

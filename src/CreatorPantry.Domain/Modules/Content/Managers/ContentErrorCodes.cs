@@ -86,6 +86,68 @@ public static class ContentErrorCodes
     /// </remarks>
     public const string PromptCursorInvalid = "content.prompt.cursor.invalid";
 
+    /// <summary>
+    /// No such card in this workspace — which is also the answer for a card another workspace owns, so a card id
+    /// cannot be used to ask what a neighbour's board holds. Carries no field errors: the id came from the route.
+    /// </summary>
+    public const string CardNotFound = "content.card.not_found";
+
+    /// <summary>The card failed shape validation, or names a channel or a cooking code that is not offered. Carries field errors.</summary>
+    public const string CardInvalid = "content.card.invalid";
+
+    /// <summary>The caller's role may read the board but not change it.</summary>
+    public const string CardForbidden = "content.card.forbidden";
+
+    /// <summary>
+    /// A record the card points at cannot be linked: it is not in this workspace, or can no longer be used.
+    /// One answer for both, so a card cannot be used to ask what a neighbour owns. Carries field errors.
+    /// </summary>
+    public const string CardLineageUnprocessable = "content.card.lineage.unprocessable";
+
+    /// <summary>
+    /// The card has changed since the read this edit was composed against. Nothing was written: keep what the
+    /// creator typed, read the card again, and send the edit again.
+    /// </summary>
+    public const string CardStale = "content.card.stale.conflict";
+
+    /// <summary>
+    /// The card named as the place to move to is not in the target column of this board — it does not exist,
+    /// is in another column, is the card being moved, or belongs to another workspace. One answer for all of
+    /// them. Carries field errors.
+    /// </summary>
+    public const string CardMoveUnprocessable = "content.card.move.unprocessable";
+
+    /// <summary>
+    /// The card's linked picture could not be removed as asked — its token is out of date, or it cannot be
+    /// removed just now. Nothing was deleted, the card included: read the picture again and decide again.
+    /// </summary>
+    public const string CardLinkedAssetConflict = "content.card.linked_asset.conflict";
+
+    /// <summary>
+    /// A record the package pins cannot be pinned: it is not in this workspace, can no longer be used, or is
+    /// not the approved version. Nothing was created. Carries field errors, and never tells a record that
+    /// belongs to another workspace from one that does not exist.
+    /// </summary>
+    public const string CardPackageUnprocessable = "content.card.package.unprocessable";
+
+    /// <summary>
+    /// A Content Pipeline run cannot be put on the board yet: it has no picture saved to the library. Nothing
+    /// was created. Carries a field error naming <c>keepers</c>.
+    /// </summary>
+    public const string CardPipelineUnprocessable = "content.card.pipeline.unprocessable";
+
+    /// <summary>The card could not be written just then and nothing was. Safe to try again.</summary>
+    public const string CardNotSaved = "content.card.conflict";
+
+    /// <summary>The board query cannot be run as described. Carries field errors.</summary>
+    public const string CardListInvalid = "content.card.list.invalid";
+
+    /// <summary>
+    /// The cursor was issued for a different workspace or a different set of filters. Its own code, for
+    /// <see cref="PromptCursorInvalid"/>'s reason: it is the one refusal a paging client can act on by itself.
+    /// </summary>
+    public const string CardCursorInvalid = "content.card.cursor.invalid";
+
     /// <summary>The creative context failed shape validation. Carries field errors.</summary>
     public const string CreativeContextInvalid = "content.creative_context.invalid";
 

@@ -518,6 +518,9 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
         Assert.True(sections.HasFlag(CreativeContextSections.Concept));
         Assert.True(sections.HasFlag(CreativeContextSections.Pictures));
 
+        // A few typed lines can be all a post is written from (master 13.3).
+        Assert.True(sections.HasFlag(CreativeContextSections.WorkingBrief));
+
         // The channels to write are the request's, and a saved image prompt is words for a renderer.
         Assert.False(sections.HasFlag(CreativeContextSections.Channels));
         Assert.False(sections.HasFlag(CreativeContextSections.Prompts));
@@ -2191,7 +2194,7 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
         await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
         await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage);
 
-        foreach (var task in new[] { AiTaskType.ImagePrompt, AiTaskType.PhotographyConcept, AiTaskType.ChannelPosts })
+        foreach (var task in new[] { AiTaskType.ImagePrompt, AiTaskType.PhotographyConcept })
         {
             var package = await AssembleAsync(WorkspaceA, context.Id, task);
 
@@ -2201,6 +2204,41 @@ public sealed class CreativeContextPackageTests : IAsyncDisposable
             Assert.DoesNotContain("A headnote.", Rendered(package), StringComparison.Ordinal);
             Assert.DoesNotContain("only an article", Rendered(package), StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public async Task Posts_are_shown_the_working_brief_and_still_none_of_the_accepted_copy()
+    {
+        var context = await ContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, context, "My cookbook is out on Friday and the first chapter is bread.");
+        var recipe = await RecipeAsync(WorkspaceA);
+        await ReferRecipeAsync(WorkspaceA, context, recipe);
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Editorial, EditorialPackage);
+        await AcceptAsync(WorkspaceA, recipe.RecipeId, recipe.VersionId, ContentPackageKind.Seo, SeoPackage);
+
+        var package = await AssembleAsync(WorkspaceA, context.Id, AiTaskType.ChannelPosts);
+
+        Assert.Equal("My cookbook is out on Friday and the first chapter is bread.", package.Words!.WorkingBrief);
+        Assert.Contains("\"briefTheCreatorIsWorkingFrom\":\"My cookbook is out", Rendered(package), StringComparison.Ordinal);
+
+        // Accepted editorial and SEO copy stay a long-form writer's.
+        Assert.Null(Assert.Single(package.Recipes).Editorial);
+        Assert.Null(package.Recipes[0].Seo);
+        Assert.DoesNotContain("A headnote.", Rendered(package), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_neighbours_working_brief_never_reaches_this_workspaces_posts()
+    {
+        var mine = await ContextAsync(WorkspaceA);
+        await SetWorkingBriefAsync(WorkspaceA, mine, "Workspace A's brief.");
+        var theirs = await ContextAsync(WorkspaceB);
+        await SetWorkingBriefAsync(WorkspaceB, theirs, "Workspace B's brief.");
+
+        var package = await AssembleAsync(WorkspaceA, mine.Id, AiTaskType.ChannelPosts);
+
+        Assert.Equal("Workspace A's brief.", package.Words!.WorkingBrief);
+        Assert.DoesNotContain("Workspace B", Rendered(package), StringComparison.Ordinal);
     }
 
     [Fact]

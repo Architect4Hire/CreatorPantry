@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
+using CreatorPantry.Domain.Modules.Publishing.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
@@ -574,6 +575,32 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>Write-once with its revision: one recipe version the document was written against.</remarks>
     public DbSet<LongFormRevisionRecipePin> LongFormRevisionRecipePins => Set<LongFormRevisionRecipePin>();
 
+    /// <remarks>
+    /// One piece of planned work on the workspace's content board (13.4). A plan and never a delivery: it
+    /// carries no provider state, and its lineage points at records the workspace already owns.
+    /// </remarks>
+    public DbSet<ContentCard> ContentCards => Set<ContentCard>();
+
+    /// <inheritdoc cref="ContentCards"/>
+    /// <remarks>
+    /// Write-once — <see cref="ImmutableRecordInterceptor"/> refuses every update and delete. One row per time a
+    /// card entered a column; a reorder within a column writes none. Leaves only with its card.
+    /// </remarks>
+    public DbSet<CardMoveHistory> CardMoveHistory => Set<CardMoveHistory>();
+
+    /// <inheritdoc cref="ContentCards"/>
+    /// <remarks>
+    /// Write-once: the exact recipe, editorial, social and asset versions a card's recipe package was put
+    /// together from. Pins, never copies.
+    /// </remarks>
+    public DbSet<RecipeContentPackageLink> RecipeContentPackageLinks => Set<RecipeContentPackageLink>();
+
+    /// <inheritdoc cref="RecipeContentPackageLinks"/>
+    public DbSet<RecipeContentPackageLinkAsset> RecipeContentPackageLinkAssets => Set<RecipeContentPackageLinkAsset>();
+
+    /// <inheritdoc cref="RecipeContentPackageLinks"/>
+    public DbSet<RecipeContentPackageLinkChannel> RecipeContentPackageLinkChannels => Set<RecipeContentPackageLinkChannel>();
+
     /// <summary>One request to generate images from one prompt (IMG-003).</summary>
     /// <remarks>
     /// Metadata only. The files live in private staging storage under the opaque key each image carries, and
@@ -622,6 +649,21 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <inheritdoc cref="MediaAssets"/>
     /// <remarks>Links the shared <see cref="WorkspaceTags"/> vocabulary, not a tag table of its own.</remarks>
     public DbSet<MediaAssetTag> MediaAssetTags => Set<MediaAssetTag>();
+
+    /// <summary>The places a workspace can publish to (PUB-001). Workspace-owned.</summary>
+    /// <remarks>
+    /// Provider-neutral: no provider identifier is on this row. What a provider calls a profile is in
+    /// <see cref="ExternalPublishingProfileReferences"/> and nowhere else.
+    /// </remarks>
+    public DbSet<PublishingProfile> PublishingProfiles => Set<PublishingProfile>();
+
+    /// <summary>The integration records mapping a provider's profile to <see cref="PublishingProfiles"/>.</summary>
+    /// <remarks>The only table holding a publishing provider's identifiers. Never returned by a facade.</remarks>
+    public DbSet<ExternalPublishingProfileReference> ExternalPublishingProfileReferences =>
+        Set<ExternalPublishingProfileReference>();
+
+    /// <summary>When each workspace's publishing provider was last asked, and how that went.</summary>
+    public DbSet<PublishingProviderSync> PublishingProviderSyncs => Set<PublishingProviderSync>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

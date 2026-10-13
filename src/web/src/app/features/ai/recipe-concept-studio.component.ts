@@ -96,6 +96,12 @@ export const CONCEPT_HANDOFF_DESTINATIONS: readonly HandoffDestination[] = [
     detail: 'Opens the Content Pipeline to build posts around it.',
     route: HANDOFF_ROUTES.contentPipeline,
   },
+  {
+    key: 'social-studio',
+    label: 'Write posts',
+    detail: 'Opens Social Studio to write posts about this idea.',
+    route: HANDOFF_ROUTES.socialStudio,
+  },
 ];
 
 const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment.";

@@ -167,8 +167,8 @@ public sealed class ModuleBoundaryTests
         // picked up the wrong tree — bin/obj, or the whole solution — rather than growth. 12.9b crossed the
         // old ceiling of 1000 honestly, so it was raised rather than the files not counted.
         Assert.InRange(files.Count, 150, 1400);
-        // Eleven since 12.6 added Media.
-        Assert.Equal(11, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        // Twelve since 13.9 added Publishing.
+        Assert.Equal(12, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.

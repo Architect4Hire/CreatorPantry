@@ -183,6 +183,12 @@
                   [session]="session"
                   (announced)="onAnnounced($event)"
                 />
+                <!-- The run's last act (13.7a): one card on the board, made by the server from this work. -->
+                <cp-content-pipeline-board-step
+                  [workspaceSlug]="workspaceSlug()"
+                  [session]="session"
+                  (announced)="onAnnounced($event)"
+                />
               }
               @default {
                 <cp-content-pipeline-step-placeholder [step]="step" />

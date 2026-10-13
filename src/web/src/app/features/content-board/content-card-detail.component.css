@@ -1,0 +1,44 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+/* The page is a grid whose gap is already the space a page head carries beneath it. */
+cp-page-head {
+  margin-bottom: 0;
+}
+
+.plain {
+  margin: 0;
+}
+
+/* The creator's own line breaks are part of what they wrote, so they are kept; a long unbroken run still wraps. */
+.description,
+.note {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.history {
+  display: grid;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding-left: var(--cp-space-5);
+}
+
+.history li {
+  display: grid;
+  gap: var(--cp-space-1);
+}
+
+.when {
+  font-size: var(--cp-font-size-sm);
+}
+
+.note {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}

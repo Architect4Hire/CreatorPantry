@@ -27,8 +27,11 @@ import {
   ChannelPostDecision,
   ChannelPostPackage,
   channelPostCopyText,
+  channelPostFileName,
+  channelPostSetText,
 } from '../../models/channel-post.models';
 import { ClipboardService } from '../../core/clipboard.service';
+import { TextDownloadService } from '../../core/text-download.service';
 import { AiAllowanceState } from '../../services/ai-usage.service';
 import { ChannelPostService, ChannelPostWriteOutcome } from '../../services/channel-post.service';
 import { AiAllowanceNoticeComponent } from '../ai-allowance-notice/ai-allowance-notice.component';
@@ -65,6 +68,9 @@ export function emptyChannelPostRunState(): ChannelPostRunState {
 export interface ChannelPostRunWording {
   /** Under the first section's heading: what asking for posts here means. */
   readonly chooseIntro: string;
+  /** Said in place of the channel list while there is no piece of work to write for, with the way on. */
+  readonly noWork: string;
+  /** Said once to a member who may read and copy posts here but not write them. */
   readonly forbidden: string;
   /** The second section's heading, over the cards. */
   readonly reviewHeading: string;
@@ -75,6 +81,8 @@ export interface ChannelPostRunWording {
 export const PIPELINE_CHANNEL_POST_WORDING: ChannelPostRunWording = {
   chooseIntro:
     'Pick where these words are going. Your usual channels are already ticked; add or drop any of them. Each channel gets its own post, written to that channel’s own length.',
+  noWork:
+    'There is nothing to write about yet. Go back and give this piece of work a title, a recipe or an idea first.',
   forbidden:
     'You do not have permission to write posts in this workspace. Ask an Owner or Editor to run this step.',
   reviewHeading: 'Read them through',
@@ -131,6 +139,7 @@ interface ChannelCard {
 export class ChannelPostRunComponent {
   private readonly service = inject(ChannelPostService);
   private readonly clipboard = inject(ClipboardService);
+  private readonly downloads = inject(TextDownloadService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly workspaceSlug = input.required<string>();
@@ -166,6 +175,16 @@ export class ChannelPostRunComponent {
    * owns the switch and shows it; this only carries the answer on the request.
    */
   readonly applyDayNotes = input(true);
+  /**
+   * False where the creator may read and copy but not write — a Viewer. Asking, editing, writing again and
+   * every decision are then not offered, here or on a card, and the run says why once.
+   */
+  readonly canWrite = input(true);
+  /**
+   * What the piece of work is called, for naming a downloaded file. Empty where it has no name, which the file
+   * name allows for.
+   */
+  readonly workName = input('');
 
   readonly changed = output<ChannelPostRunState>();
   /** The creator asked for one picture to be read, so the posts can be written to it. */
@@ -194,6 +213,9 @@ export class ChannelPostRunComponent {
 
   /** The channel whose words are on the clipboard, or null. One at a time, as the button says. */
   protected readonly copiedChannel = signal<string | null>(null);
+
+  /** True once the whole set landed on the clipboard, until something else is copied or asked for. */
+  protected readonly copiedAll = signal(false);
 
   /** The channels the current request is writing, so their cards can say so while it runs. */
   private readonly writing = signal<readonly string[]>([]);
@@ -269,6 +291,32 @@ export class ChannelPostRunComponent {
         );
       });
     });
+
+    // A request that ended without posts. Said where the creator is looking and let go of, so no card goes on
+    // saying it is being written and a refresh does not pick the same dead request back up.
+    effect(() => {
+      const phase = this.tracker.phase();
+      if (phase.kind !== 'failed' && phase.kind !== 'gone') return;
+
+      untracked(() => {
+        const problem =
+          phase.kind === 'gone'
+            ? REQUEST_PROBLEMS['gone']
+            : (FAILED_PROBLEMS[phase.operation.failureCategory ?? ''] ?? FAILED_PROBLEMS['']);
+
+        // The channels that were asked for and still have no post are ticked again, so asking a second time
+        // is one press rather than choosing them all over again.
+        const asked = this.writing();
+
+        this.writing.set([]);
+        if (this.chosen().length === 0) this.chosen.set(this.withoutWritten(asked));
+        this.requestProblem.set(problem);
+        this.announced.emit(problem);
+        if (this.state().requestId !== null) {
+          this.changed.emit({ ...this.state(), requestId: null, requestedChannelKeys: [] });
+        }
+      });
+    });
   }
 
   /** Every channel with a post, newest activity first — which is the order a creator last worked in. */
@@ -293,8 +341,11 @@ export class ChannelPostRunComponent {
   /** True once this piece of work has at least one post, which is when the second section exists. */
   protected readonly hasPosts = computed(() => this.cards().length > 0);
 
-  /** The chooser is shown before the first post, and afterwards only when the creator asks for it. */
-  protected readonly showChooser = computed(() => !this.hasPosts() || this.choosing());
+  /**
+   * The chooser is shown before the first post, and afterwards only when the creator asks for it — and never
+   * to someone who may not ask.
+   */
+  protected readonly showChooser = computed(() => this.canWrite() && (!this.hasPosts() || this.choosing()));
 
   /**
    * What the chooser offers: every active channel this work has no post for.
@@ -395,9 +446,71 @@ export class ChannelPostRunComponent {
       case 'regenerate':
         await this.send([channelKey]);
         return;
+      case 'download':
+        this.download(channelKey);
+        return;
       default:
         await this.copy(channelKey);
     }
+  }
+
+  /** Copy every channel's words as one piece of text, each headed by its channel's name. */
+  protected async copyAll(): Promise<void> {
+    const copied = await this.clipboard.copy(this.setText());
+
+    if (this.gone) return;
+
+    this.copiedChannel.set(null);
+    this.copiedAll.set(copied);
+    this.announced.emit(
+      copied
+        ? 'All the posts were copied.'
+        : 'Your browser would not let us copy. Select the words and copy them yourself.',
+    );
+  }
+
+  /** Save every channel's words as one plain-text file, made here from what is on screen. */
+  protected downloadAll(): void {
+    this.reportDownload(this.downloads.save(channelPostFileName(this.workName(), 'posts'), this.setText()));
+  }
+
+  /** Save one channel's words as a plain-text file. */
+  private download(channelKey: string): void {
+    const channel = this.channelOf(channelKey);
+    if (channel === null) return;
+
+    const name = this.channelNames().get(channelKey) ?? channelKey;
+    const text = channelPostSetText([
+      { channelName: name, text: channelPostCopyText(channel, this.state().unsaved[channelKey] ?? null) },
+    ]);
+
+    this.reportDownload(this.downloads.save(channelPostFileName(this.workName(), name), text));
+  }
+
+  private reportDownload(saved: boolean): void {
+    this.announced.emit(
+      saved
+        ? 'The file is on its way to your downloads.'
+        : 'Your browser would not let us make a file. Copying the posts instead will work.',
+    );
+  }
+
+  /**
+   * The whole set as text, in the order the cards are in.
+   *
+   * Each channel by the copying rule and no other: the open edit, then what was accepted, then the newest.
+   * Nothing is read from the server for this — it is what the creator is looking at.
+   */
+  private setText(): string {
+    const names = this.channelNames();
+    const unsaved = this.state().unsaved;
+
+    return channelPostSetText(
+      (this.packageSignal()?.channels ?? []).map((channel) => ({
+        channelName: names.get(channel.channelKey) ?? channel.channelKey,
+        text: channelPostCopyText(channel, unsaved[channel.channelKey] ?? null),
+      })),
+    );
   }
 
   /** The creator's words for one channel, as a new revision. Their words stay in the box if it fails. */
@@ -467,6 +580,7 @@ export class ChannelPostRunComponent {
 
     this.requestProblem.set('');
     this.copiedChannel.set(null);
+    this.copiedAll.set(false);
     this.writing.set(channelKeys);
 
     const requestId = await this.tracker.submit(() =>
@@ -499,6 +613,7 @@ export class ChannelPostRunComponent {
     if (this.gone) return;
 
     this.copiedChannel.set(copied ? channelKey : null);
+    this.copiedAll.set(false);
     this.announced.emit(
       copied ? 'Copied.' : 'Your browser would not let us copy. Select the words and copy them yourself.',
     );
@@ -508,6 +623,7 @@ export class ChannelPostRunComponent {
     this.packageSignal.set(null);
     this.busy.set(new Map());
     this.copiedChannel.set(null);
+    this.copiedAll.set(false);
     this.loadFailed.set(false);
 
     if (contextId === null) {
@@ -614,4 +730,19 @@ const REQUEST_PROBLEMS: Readonly<Record<string, string>> = {
   refused: 'That piece of work could not be written for. It may have been removed.',
   gone: 'That request is no longer there. Asking again is the way on.',
   unavailable: 'Your posts could not be asked for just now. Trying again is safe — it will not write two sets.',
+};
+
+/**
+ * What a request that ran and wrote nothing says, by the category the server gave it. The server sends no
+ * sentence of its own for a failed run, so the things a creator can act on are named and the rest is one
+ * honest line.
+ */
+const FAILED_PROBLEMS: Readonly<Record<string, string>> = {
+  DomainInvalid:
+    'These posts could not be written from what this piece of work holds. It may have nothing to write about yet, or the recipe it names may have a newer version. Check what the posts are about, then ask again.',
+  SafetyBlocked:
+    'These posts were not written, because the request was declined. Change what they are about, then ask again.',
+  Quota: 'Your AI allowance did not cover writing these posts.',
+  AccountSuspended: 'AI is switched off for this account, so these posts were not written.',
+  '': 'The posts could not be written this time. Nothing was lost, and asking again is safe.',
 };

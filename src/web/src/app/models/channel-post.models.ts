@@ -184,6 +184,43 @@ export function channelPostCopyText(channel: ChannelPostChannel, unsavedBody: st
   return (channel.accepted ?? channel.latest).body;
 }
 
+/** One channel's words on their way out of CreatorPantry: what a creator calls the channel, and the text. */
+export interface ChannelPostTextEntry {
+  readonly channelName: string;
+  readonly text: string;
+}
+
+/** The line set between two posts in a copied or downloaded set. Plain characters, and no channel's markup. */
+const CHANNEL_POST_SET_RULE = '----------------------------------------';
+
+/**
+ * Several channels' words as one piece of plain text, for copying a whole set or downloading it.
+ *
+ * Each post is headed by its channel's name on a line of its own, so a creator pasting the set somewhere can
+ * tell which words go where. **Plain text and nothing else**: no markdown, no HTML and no provider's own
+ * markup — the text is whatever {@link channelPostCopyText} chose for each channel, exactly as written.
+ */
+export function channelPostSetText(entries: readonly ChannelPostTextEntry[]): string {
+  return entries.map((entry) => `${entry.channelName}\n\n${entry.text}`).join(`\n\n${CHANNEL_POST_SET_RULE}\n\n`) + '\n';
+}
+
+/**
+ * A file name for downloaded posts: what the piece is called, made safe for a file system, and `.txt`.
+ *
+ * Letters and digits of any script are kept; everything else becomes one hyphen. A name with nothing usable in
+ * it falls back to `posts`, so the browser is never handed an empty name.
+ */
+export function channelPostFileName(...parts: readonly string[]): string {
+  const slug = parts
+    .map((part) => part.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, ''))
+    .filter((part) => part !== '')
+    .join('-')
+    .slice(0, 80)
+    .replace(/-+$/, '');
+
+  return `${slug === '' ? 'posts' : slug}.txt`;
+}
+
 /** True when these are words a model wrote and the creator has not replaced or accepted them yet. */
 export function isGeneratedAwaitingReview(channel: ChannelPostChannel): boolean {
   return channel.status === 'Proposed' && channel.latest.source === 'AiGenerated';

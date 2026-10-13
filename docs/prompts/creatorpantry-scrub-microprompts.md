@@ -5547,20 +5547,59 @@ BEHAVIOR: Show output schema and platform rules, wait for approval, implement ta
 fixtures for limits, claims, missing source, injection, staleness, and workspace isolation.
 ```
 
-### 13.3 Social Studio UI - skip
+### 13.3 Social Studio UI
+
+*Rewritten 2026-10-13 against AF.6 (`creatorpantry-ai-fluency-scrub-prompts.md`), which built everything this
+screen stands on: the post package (AF.6.1), channel writing profiles (AF.6.2), the `content.channel-posts`
+capability (AF.6.3), the request, edit and disposition routes (AF.6.4), and — written for this prompt to
+reuse — the shared `cp-channel-post-run` composition in `src/web/src/app/shared/channel-posts/` (AF.6.5,
+AF.6.6). The seven fixed outputs are gone (B-27): posts are written for the channels the creator picks. This
+prompt is a web slice; `social-studio` is still a placeholder route and a nav item that leads nowhere.*
+
+*What makes it a different screen from the Content Pipeline's posts step: the pipeline reaches posts after an
+idea, a prompt and pictures. Social Studio is the way to write posts for something that already exists — a
+recipe, a saved prompt, a picture in the library, or a few typed lines — without running the pipeline.*
 
 ```text
-SCOPE: Build SOCIAL-UI-001 through 004: choose saved/pasted prompt or brief, channel/theme, generate,
-review seven outputs independently, show counts/limit status, edit, copy, and download individual/full
-packages.
-CONSTRAINT: creatorpantry-design-system, new-component, and add-content-feature skills.
-RESTRICTION: Pasted/uploaded text is untrusted and does not become canonical source automatically.
-Copy/download uses accepted edits, not stale raw generation.
-BEHAVIOR: Plan state and accessibility, wait for approval, implement with component/contract tests and
-run design-review.
+SCOPE: Build SOCIAL-UI-001 through 004 as the Social Studio page, replacing the placeholder at
+`social-studio`. Say what the posts are about — a recipe, a saved prompt, a library picture, or a typed
+brief — optionally a themed day, then choose channels, generate, and review each channel on its own: body,
+count against the limit, generated marker, edit, regenerate, accept, copy. Add copy-all and a plain-text
+download of one post or the whole set. Open on an existing piece of work at
+`social-studio/context/:contextId`, add that route to HANDOFF_ROUTES, and offer "Write posts" from the
+"Use this in…" controls that already hand work elsewhere. List the workspace's recent post sets so one can
+be reopened.
+CONSTRAINT: SOCIAL-UI-001 through 004; AF.6.1–AF.6.6 and B-27; .claude/rules/frontend.md, design-system.md
+and content.md; creatorpantry-design-system, new-component, and add-content-feature skills. Posts belong to
+a CreativeContext: starting here creates one through the existing `creative-contexts` routes
+(`From` reference, working title, working brief, channel keys, day, theme) and everything after that is
+`channel-post-requests` and `creative-contexts/{contextId}/posts`. Reuse `cp-channel-post-run` with a Social
+Studio `ChannelPostRunWording`, `CreativeContextSession`, `cp-recipe-picker`, `dam-asset-picker`,
+`cp-day-notes-notice`, the allowance notice, and `ClipboardService`. Image Studio is the reference for a
+studio page that opens with or without a context.
+RESTRICTION: No second copy of channel choosing, limit reading, the generated marker, or per-channel
+review — a difference between the two screens is a sentence in the wording, or it goes into the shared
+composition for both. No new endpoint, entity, or capability: in the plan, confirm from the code what the
+`content.channel-posts` grounding package actually carries for each starting point (a typed brief and a
+saved prompt especially); if one would reach the model as nothing, stop and report rather than widen the
+server here. Typed and pasted text is untrusted prompt content and never becomes a recipe, a prompt record,
+or any other canonical source. Nothing appears accepted automatically. Copy and download use the open edit,
+then the accepted text, then the newest — never a stale raw generation — and the download is assembled in
+the browser from what the server last returned, with channel names and no provider markup. An unsaved edit
+survives a failed save, a regeneration of another channel, and navigation, with the standard warning. Limit
+status is conveyed by more than colour. A Viewer reads and copies but cannot generate, edit, or decide.
+Workspace comes from the route only. No scheduling, board card, or publishing (13.4 onward).
+UTILIZATION: design-review after implementation; workspace-isolation-auditor if the recent-sets list reads
+anything the pipeline does not already read.
+BEHAVIOR: Show the page shape and states (first use, starting point chosen, generating, reviewing, reopened,
+stale source, allowance exhausted, view-only, degraded channel list, error), the grounding finding above,
+and what the recent-sets list shows without printing creator content it has no summary for; wait for
+approval; implement with component, contract, accessibility, and error-path specs, including a
+two-workspace spec proving a context id from another workspace opens as not found; run `npm test` so the
+page-contract check passes, then design-review.
 ```
 
-### 13.3a Content Pipeline social step
+### 13.3a Content Pipeline social step - skip
 
 *Superseded by AF.6.5 (`creatorpantry-ai-fluency-scrub-prompts.md`). Kept for the record; do not run.*
 

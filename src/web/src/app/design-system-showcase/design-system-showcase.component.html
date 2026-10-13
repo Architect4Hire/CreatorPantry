@@ -502,6 +502,38 @@
     </ul>
   </section>
 
+  <section aria-labelledby="board-heading">
+    <h2 id="board-heading">Board</h2>
+    <p class="section-note">
+      A library whose things are sorted into a few named, ordered columns. <code>cpBoard</code> sets the
+      columns side by side and moves them below one another as the space narrows, so the page never scrolls
+      sideways. Each <code>cp-board-column</code> is a region named by its heading, says its count in words,
+      and holds the feature's own list. Moving a card — by pointer or by keyboard — is the feature's.
+    </p>
+    <div cpBoard>
+      <cp-board-column heading="To do" [count]="2" [countLabel]="['card', 'cards']" [headingLevel]="3">
+        <ul aria-label="To do">
+          <li><cp-card>Soda bread, autumn</cp-card></li>
+          <li><cp-card>A title long enough to wrap onto a second line inside its column</cp-card></li>
+        </ul>
+        <button cpBoardColumnFooter cpButton variant="secondary" size="sm" type="button">Load more</button>
+      </cp-board-column>
+      <cp-board-column heading="In process" [count]="1" [countLabel]="['card', 'cards']" [headingLevel]="3">
+        <ul aria-label="In process">
+          <li><cp-card>Weeknight ramen</cp-card></li>
+        </ul>
+      </cp-board-column>
+      <cp-board-column heading="Ready for review" [count]="0" [countLabel]="['card', 'cards']" [headingLevel]="3">
+        <p class="cp-muted">Nothing here yet.</p>
+      </cp-board-column>
+      <cp-board-column heading="Approved" [count]="1" [countLabel]="['card', 'cards']" [headingLevel]="3">
+        <ul aria-label="Approved">
+          <li><cp-card>Lemon tart</cp-card></li>
+        </ul>
+      </cp-board-column>
+    </div>
+  </section>
+
   <section aria-labelledby="media-card-heading">
     <h2 id="media-card-heading">Media card</h2>
     <p class="section-note">

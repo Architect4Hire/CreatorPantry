@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Observable, of } from 'rxjs';
 
 import { ClipboardService } from '../../core/clipboard.service';
+import { TextDownloadService } from '../../core/text-download.service';
 import { ContentChannel } from '../../models/brand-profile.models';
 import { AiProposalStatus } from '../../models/ai-proposal.models';
 import {
@@ -147,6 +148,17 @@ class FakeChannelPostService {
   }
 }
 
+/** Records what would have been saved, so no test writes a file to a developer's disk. */
+class FakeDownloads {
+  answer = true;
+  readonly saved: { readonly fileName: string; readonly text: string }[] = [];
+
+  save(fileName: string, text: string): boolean {
+    this.saved.push({ fileName, text });
+    return this.answer;
+  }
+}
+
 class FakeClipboard {
   answer = true;
   readonly copied: string[] = [];
@@ -167,6 +179,8 @@ class FakeClipboard {
     [channelDefaults]="defaults()"
     [allowance]="allowance()"
     [applyDayNotes]="applyDayNotes()"
+    [canWrite]="canWrite()"
+    [workName]="workName()"
     (changed)="onChanged($event)"
     (announced)="said.push($event)"
   />`,
@@ -178,6 +192,8 @@ class HostComponent {
   readonly defaults = signal<readonly string[]>([]);
   readonly allowance = signal<AiAllowanceState>(HEALTHY);
   readonly applyDayNotes = signal(true);
+  readonly canWrite = signal(true);
+  readonly workName = signal('');
 
   readonly said: string[] = [];
 
@@ -192,6 +208,7 @@ let host: HostComponent;
 let el: HTMLElement;
 let service: FakeChannelPostService;
 let clipboard: FakeClipboard;
+let downloads: FakeDownloads;
 
 async function settle(): Promise<void> {
   fixture.detectChanges();
@@ -280,12 +297,14 @@ describe('ChannelPostRunComponent', () => {
   beforeEach(async () => {
     service = new FakeChannelPostService();
     clipboard = new FakeClipboard();
+    downloads = new FakeDownloads();
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
         { provide: ChannelPostService, useValue: service },
         { provide: ClipboardService, useValue: clipboard },
+        { provide: TextDownloadService, useValue: downloads },
       ],
     }).compileComponents();
 
@@ -652,5 +671,174 @@ describe('ChannelPostRunComponent', () => {
 
     expect(cards().length).toBe(0);
     expect(el.querySelector('input[type="checkbox"]')).not.toBeNull();
+  });
+
+  // ---- a request that wrote nothing ------------------------------------------------------------------
+
+  it('says why when a request ran and wrote nothing, and stops following it', async () => {
+    service.watchOutcome = { status: 'found', operation: { ...operation('Failed'), failureCategory: 'DomainInvalid' } };
+    service.requestOutcome = { status: 'accepted', operation: operation('Requested'), replayed: false };
+    tick('instagram');
+    await settle();
+
+    await click('Write the post');
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('nothing to write about yet');
+    expect(host.said.some((sentence) => sentence.includes('could not be written'))).toBeTrue();
+    // Let go of, so a refresh does not pick the same dead request back up.
+    expect(host.state().requestId).toBeNull();
+    expect(button('Write the post')).not.toBeNull();
+  });
+
+  it('reports a post that could not be written again on the page, where the chooser is not showing', async () => {
+    service.packageOutcome = { status: 'found', package: pkg([channel('instagram')]) };
+    host.contextId.set('ctx-8');
+    await settle();
+
+    service.watchOutcome = { status: 'found', operation: operation('Failed') };
+    await clickIn('instagram', 'Write it again');
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('could not be written this time');
+    expect(text()).not.toContain('Writing this one again');
+  });
+
+  // ---- the whole set: copy and download --------------------------------------------------------------
+
+  describe('taking the whole set away', () => {
+    const accepted = revision({ id: 'rev-accepted', body: 'The words I accepted.', source: 'CreatorEdit' });
+
+    beforeEach(async () => {
+      service.packageOutcome = {
+        status: 'found',
+        package: pkg([
+          // Accepted words with a newer raw generation after them: the generation must never be what leaves.
+          channel('instagram', {
+            status: 'Proposed',
+            accepted,
+            latest: revision({ id: 'rev-new', body: 'A newer draft nobody chose.' }),
+          }),
+          channel('pinterest', { latest: revision({ id: 'rev-pin', body: 'The newest pin words.' }) }),
+          channel('blog', { latest: revision({ id: 'rev-blog', body: 'Saved blog words.' }) }),
+        ]),
+      };
+      host.contextId.set('ctx-9');
+      host.workName.set('Olive Oil Cake!');
+      // An edit that is open and unsaved, which outranks everything the server holds for that channel.
+      host.state.set({ ...emptyChannelPostRunState(), unsaved: { blog: 'Blog words I am still typing.' } });
+      await settle();
+    });
+
+    it('copies every channel under its name: the open edit, then what was accepted, then the newest', async () => {
+      await click('Copy all');
+
+      const copied = clipboard.copied.at(-1)!;
+
+      expect(copied).toContain('Instagram\n\nThe words I accepted.');
+      expect(copied).toContain('Pinterest\n\nThe newest pin words.');
+      expect(copied).toContain('Blog\n\nBlog words I am still typing.');
+      expect(copied).not.toContain('A newer draft nobody chose.');
+      expect(copied).not.toContain('Saved blog words.');
+      expect(button('Copied all')).not.toBeNull();
+      expect(host.said).toContain('All the posts were copied.');
+    });
+
+    it('says so when the browser will not copy, rather than claiming it did', async () => {
+      clipboard.answer = false;
+
+      await click('Copy all');
+
+      expect(button('Copy all')).not.toBeNull();
+      expect(host.said.at(-1)).toContain('would not let us copy');
+    });
+
+    it('downloads the set as plain text made from what is on screen, with no markup and no further read', async () => {
+      const readsBefore = service.reads;
+
+      await click('Download all as text');
+
+      const file = downloads.saved.at(-1)!;
+
+      expect(file.fileName).toBe('olive-oil-cake-posts.txt');
+      expect(file.text).toContain('Instagram\n\nThe words I accepted.');
+      expect(file.text).toContain('Blog\n\nBlog words I am still typing.');
+      expect(file.text).not.toContain('A newer draft nobody chose.');
+      expect(file.text).not.toMatch(/[<>#*`]|\]\(/);
+      expect(service.reads).toBe(readsBefore);
+    });
+
+    it('downloads one channel on its own, named for that channel', async () => {
+      await clickIn('pinterest', 'Download');
+
+      const file = downloads.saved.at(-1)!;
+
+      expect(file.fileName).toBe('olive-oil-cake-pinterest.txt');
+      expect(file.text).toBe('Pinterest\n\nThe newest pin words.\n');
+    });
+
+    it('says so when a file could not be made', async () => {
+      downloads.answer = false;
+
+      await click('Download all as text');
+
+      expect(host.said.at(-1)).toContain('would not let us make a file');
+    });
+
+    it('names each card’s download for its channel, so a row of them does not read alike', () => {
+      const labels = cards().map((card) =>
+        Array.from(card.querySelectorAll('button'))
+          .find((node) => node.textContent?.trim() === 'Download')
+          ?.getAttribute('aria-label'),
+      );
+
+      expect(labels).toEqual([
+        'Download the Instagram post as text',
+        'Download the Pinterest post as text',
+        'Download the Blog post as text',
+      ]);
+    });
+  });
+
+  // ---- a reader who may not write --------------------------------------------------------------------
+
+  describe('for a member who may read but not write', () => {
+    beforeEach(async () => {
+      host.canWrite.set(false);
+      service.packageOutcome = { status: 'found', package: pkg([channel('instagram'), channel('pinterest')]) };
+      host.contextId.set('ctx-10');
+      await settle();
+    });
+
+    it('says once what they may do, and offers no way to ask, edit or decide', () => {
+      expect(text()).toContain('do not have permission to write posts');
+      expect(el.querySelector('input[type="checkbox"]')).toBeNull();
+
+      for (const label of ['Write the posts', 'Write another channel', 'Accept', 'Edit', 'Not this one', 'Write it again']) {
+        expect(button(label)).withContext(label).toBeNull();
+      }
+    });
+
+    it('still lets them read every post, copy one, copy all and download', async () => {
+      expect(cards().length).toBe(2);
+      expect(text()).toContain('Olive oil cake, still warm.');
+
+      await clickIn('instagram', 'Copy');
+      await click('Copy all');
+      await click('Download all as text');
+
+      expect(clipboard.copied.length).toBe(2);
+      expect(downloads.saved.length).toBe(1);
+      expect(service.requests.length).toBe(0);
+      expect(service.edits.length).toBe(0);
+      expect(service.decisions.length).toBe(0);
+    });
+
+    it('says there are no posts rather than offering to write some', async () => {
+      service.packageOutcome = { status: 'found', package: null };
+      host.contextId.set('ctx-11');
+      await settle();
+
+      expect(text()).toContain('No posts have been written for this yet.');
+      expect(el.querySelector('input[type="checkbox"]')).toBeNull();
+    });
   });
 });

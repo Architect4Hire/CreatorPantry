@@ -1,0 +1,181 @@
+<cp-page-head
+  [heading]="pageTitle"
+  lede="The work you have planned, from an idea to approved. Move a card as the work moves; nothing here schedules or publishes anything."
+>
+  <button cpPageHeadActions cpButton type="button" variant="primary" (click)="openCreate()">New card</button>
+</cp-page-head>
+
+<cp-toolbar ariaLabel="Board filters" [loading]="state.loading()">
+  <cp-select-field cpToolbarFilters label="Filter by channel">
+    <select name="channel" [disabled]="channelPhase() !== 'ready'" (change)="setChannel($event)">
+      <option value="" [selected]="filters().channel === null">All channels</option>
+      @for (option of channelOptions(); track option.key) {
+        <option [value]="option.key" [selected]="option.key === filters().channel">{{ option.label }}</option>
+      }
+    </select>
+  </cp-select-field>
+
+  <cp-select-field cpToolbarFilters label="Filter by planned weekday">
+    <select name="day" (change)="setDay($event)">
+      <option value="" [selected]="filters().day === null">Any weekday</option>
+      @for (day of days; track day) {
+        <option [value]="day" [selected]="day === filters().day">{{ day }}</option>
+      }
+    </select>
+  </cp-select-field>
+
+  <cp-field cpToolbarFilters class="date-filter" label="Planned on" forId="content-board-date">
+    <input id="content-board-date" type="date" name="date" [value]="filters().date ?? ''" (change)="setDate($event)" />
+  </cp-field>
+
+  @if (hasActiveFilters()) {
+    <button cpButton cpToolbarActions variant="text" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
+@if (channelPhase() === 'unavailable') {
+  <cp-notice class="degraded" tone="warning" role="status">
+    Channel names couldn't be loaded, so the channel filter is off for now. Your cards are still listed.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="retryChannels()">Try again</button>
+  </cp-notice>
+}
+
+<!-- Always present, so what a move or a new card just did is announced reliably. A move that was not made is
+     an alert; one that was is said politely. -->
+<cp-notice
+  class="outcome"
+  [attr.role]="messageFailed() ? 'alert' : 'status'"
+  [quiet]="message() === ''"
+  [tone]="messageFailed() ? 'error' : 'success'"
+  >{{ message() }}</cp-notice
+>
+
+<cp-list-shell heading="Cards" [state]="listShellState()" [errorMessage]="errorMessage" emptyMessage="No cards yet.">
+  <div cpListShellActions>
+    @if (listShellState() === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    @if (hasActiveFilters()) {
+      <cp-empty-state
+        title="No cards match these filters"
+        description="Try a different channel or day, or clear the filters to see the whole board."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="Nothing planned yet"
+        description="A card is one piece of work you mean to do. Add one here, or finish a Content Pipeline run and put it on the board from its last step."
+        variant="first-use"
+        icon="▥"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="primary" type="button" (click)="openCreate()">New card</button>
+        </div>
+      </cp-empty-state>
+    }
+  </div>
+
+  <p class="cp-muted how">
+    Drag a card to move it, or use its Move button to choose a column and a place from the keyboard.
+  </p>
+
+  <div cpBoard cdkDropListGroup>
+    @for (column of state.columns(); track column.column) {
+      <cp-board-column
+        [heading]="columnLabels[column.column]"
+        [count]="column.count"
+        [countLabel]="cardNouns"
+        [headingLevel]="3"
+        [busy]="column.phase === 'loading' || column.loadingMore"
+      >
+        @if (column.phase === 'unavailable') {
+          <cp-notice tone="error" role="alert">
+            This column couldn't be loaded.
+            <button
+              cpButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              [attr.aria-label]="'Try loading ' + columnLabels[column.column] + ' again'"
+              (click)="retryColumn(column.column)"
+            >
+              Try again
+            </button>
+          </cp-notice>
+        } @else {
+          @if (column.cards.length === 0) {
+            <p class="cp-muted empty">{{ emptyText() }}</p>
+          }
+
+          <!-- A list even when empty: it is what a card is dropped onto. -->
+          <ul
+            cdkDropList
+            role="list"
+            [attr.aria-label]="columnLabels[column.column] + ' cards'"
+            [cdkDropListData]="column.column"
+            [cdkDropListDisabled]="state.moving() !== null"
+            (cdkDropListDropped)="onDrop($event)"
+          >
+            @for (card of column.cards; track card.id) {
+              <li cdkDrag [cdkDragData]="card" [attr.data-card-id]="card.id">
+                <cp-content-board-card
+                  [card]="card"
+                  [workspaceSlug]="workspaceSlug()"
+                  [channels]="channels()"
+                  [saving]="state.moving() === card.id"
+                  [locked]="state.moving() !== null"
+                  (moveRequested)="openMove($event)"
+                />
+              </li>
+            }
+          </ul>
+        }
+
+        @if (column.moreFailed) {
+          <cp-notice cpBoardColumnFooter tone="error" role="alert">Couldn't load more. The cards above are still here.</cp-notice>
+        }
+        @if (column.nextCursor !== null) {
+          <button
+            cpBoardColumnFooter
+            cpButton
+            variant="secondary"
+            size="sm"
+            type="button"
+            [disabled]="column.loadingMore"
+            [attr.aria-label]="'Load more ' + columnLabels[column.column] + ' cards'"
+            (click)="loadMore(column.column)"
+          >
+            {{ column.loadingMore ? 'Loading more…' : column.moreFailed ? 'Try again' : 'Load more' }}
+          </button>
+        }
+      </cp-board-column>
+    }
+  </div>
+
+  <div cpListShellPagination>
+    <p class="result-summary" role="status" aria-live="polite">{{ resultSummary() }}</p>
+  </div>
+</cp-list-shell>
+
+<cp-content-card-create-dialog
+  [open]="creating()"
+  [workspaceSlug]="workspaceSlug()"
+  [channels]="channels()"
+  (created)="onCreated($event)"
+  (closed)="closeCreate()"
+/>
+
+<cp-content-card-move-dialog
+  [card]="movingCard()"
+  [columns]="state.columns()"
+  (moved)="onMoveChosen($event)"
+  (closed)="closeMove()"
+/>

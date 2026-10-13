@@ -242,8 +242,13 @@ public static class CreativeContextPackageSelection
         // channels to write are the request's, stated in the task, and a second list would be a second answer
         // to "which channels". Not saved image prompts: a prompt describes a picture to a renderer, and its
         // words are not the creator's about their food.
+        //
+        // The working brief too (master 13.3): Social Studio writes posts for a few typed lines with no recipe
+        // or picture behind them, and those lines are this field. A piece that came through the Content
+        // Pipeline carries the brief its picture was planned from here, which is also what the piece is about.
         AiTaskType.ChannelPosts =>
             CreativeContextSections.WorkingTitle
+            | CreativeContextSections.WorkingBrief
             | CreativeContextSections.PictureBrief
             | CreativeContextSections.Day
             | CreativeContextSections.DayNotes

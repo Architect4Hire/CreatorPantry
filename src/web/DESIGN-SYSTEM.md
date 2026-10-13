@@ -58,6 +58,19 @@ A page has one `h1`, and `CpPageHeadComponent` prints it; the shell prints none.
 
 A library is a list, and `CpCardGridComponent` lays that list out: `cpCardGrid` on the page's own `<ul>`, one `<li>` per card. It fits as many columns as the frame allows and drops to one at a narrow width or high zoom, because the floor is `min(16rem, 100%)` and never wider than its container. It fills rather than fits, so a library with two things in it shows two card-sized cards. Raise `minColumn` for cards that need more room to be read; do not set a column count.
 
+### A board: a library in columns
+
+Some libraries are sorted before they are listed: every thing in them is in exactly one of a few named, ordered states, and the page is about moving things between those. That is still a library — the same head, the same toolbar, the same list shell — whose list is laid out by `[cpBoard]` instead of `ul[cpCardGrid]`. It is not a fourth shape.
+
+- **`[cpBoard]`** goes on the page's own element and sets its `cp-board-column` children side by side in the order they are written. Columns that do not fit move below, four across to two by two to one, so the page never scrolls sideways; `minColumn` (default `15rem`) widens the floor. A route that holds a board asks for `pageWidth: 'wide'`.
+- **`cp-board-column`** is a region named by its `heading`. `count` is the number of things in the column including any not yet loaded, shown as a figure and read with `countLabel`'s noun ("3 cards"). The default slot takes the feature's own `<ul>`, one `<li>` per card; `[cpBoardColumnFooter]` takes "Load more". `busy` sets `aria-busy` while the column is read or changed.
+- **The card in a column** is a `cp-card` holding an `article`: the title as the link at the heading level below the column's, state as `cp-status-pill` then kind as `cp-badge`, measured and dated values as `dl[cpFacts]` with `layout="inline"`, and its actions last in `.cp-actions`. It is not a `cp-media-card`, whose picture panel is for a library shown by its pictures.
+- **Moving is the feature's, and has two paths.** A pointer drag, with whatever the feature uses for it, and a control on every card that does the same thing from the keyboard: it names the column and the place. The second is the complete path and the first is a shortcut for it; a move that can only be dragged is a defect (SC 2.5.7). Every move is announced in a polite live region, in words: what moved, where to, and whether it was kept.
+- **A column that is empty says why,** in a sentence the feature projects: nothing here yet, or nothing matches the filters. The heading and a count of zero stay.
+- **The order and the rules are the server's.** A board shows the order it was given and asks for a move; it does not decide which moves are allowed or where a card ends up. When the answer is "no" the card goes back and the page says so.
+
+`ContentBoardComponent` is the reference.
+
 ### A card for one thing in a library
 
 `CpMediaCardComponent` is one thing shown by its picture. The picture is the feature's own component, projected, because the feature authorises and loads it; where there is none a tinted panel holds the same 4:3 shape with a glyph, so a row of cards stays even. The title is the link and the card is not: one link named by the title is what a screen reader should find. Facts go inline under the badges, and an action that does not open the thing goes last.
@@ -213,6 +226,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `card-grid` | a stylesheet styles `.grid`, `.card-grid` or `.cards`, or lays out a `repeat(auto-fill, …)` or `repeat(auto-fit, …)` grid | `ul[cpCardGrid]`; `cp-field-row` for short fields; `dl[cpFacts]` for terms and values |
 | `facts` | a stylesheet styles `.facts` or `.fact` | `dl[cpFacts]` of `div[cpFact]` |
 | `toolbar-field` | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field` | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label |
+| `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |

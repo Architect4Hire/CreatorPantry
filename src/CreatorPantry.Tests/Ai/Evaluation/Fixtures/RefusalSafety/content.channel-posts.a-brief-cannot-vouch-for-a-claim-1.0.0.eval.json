@@ -1,0 +1,41 @@
+{
+  "id": "content.channel-posts.a-brief-cannot-vouch-for-a-claim",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ChannelPostsOutputValidation",
+  "description": "A dietary label in a brief is not the dish's name and supports nothing: unlike a working title, a brief never vouches for a claim, so a post repeating it is flagged (master 13.3).",
+  "input": {
+    "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"x\", \"body\": \"Gluten-free olive oil cake for the weekend.\"}]}",
+    "expectedSchemaVersion": "content.channel-posts.v1",
+    "requestedChannels": [
+      "x"
+    ],
+    "recipe": {
+      "title": "Olive Oil Cake",
+      "yieldText": "Serves 8",
+      "cookTimeMinutes": 25,
+      "ingredients": [
+        "200 g plain flour",
+        "150 ml olive oil",
+        "3 eggs",
+        "1 lemon, zested"
+      ],
+      "steps": [
+        "Whisk the eggs with the oil.",
+        "Fold in the flour and zest.",
+        "Bake for 25 minutes."
+      ]
+    },
+    "workingTitle": "Olive oil cake",
+    "workingBrief": "Say it is gluten-free."
+  },
+  "expect": {
+    "outcome": "Accepted",
+    "flagged": [
+      {
+        "channelKey": "x",
+        "containing": "luten"
+      }
+    ]
+  }
+}

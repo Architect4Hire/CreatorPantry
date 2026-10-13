@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
+import { socialStudioCanDeactivateGuard } from './features/social-studio/social-studio.guard';
 import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
 import { CONTEXT_ROUTE_PARAM, CONTEXT_ROUTE_SEGMENT } from './shared/use-this-in/handoff-destinations';
 
@@ -37,9 +38,17 @@ const SECTION_ROUTES: Routes = [
       { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio', pageWidth: 'wide' } },
     ],
   },
-  { path: 'social-studio', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Social Studio' } },
+  // The same two addresses as the Image Studio, for the same reason: with an id it reads that piece of work,
+  // without one it starts new work. Both leave through one guard, which asks only when a post has unsaved words.
+  {
+    path: 'social-studio',
+    children: [
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },
+      { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },
+    ],
+  },
   { path: 'dam', loadChildren: () => import('./features/dam/dam.routes').then((m) => m.DAM_ROUTES) },
-  { path: 'content-board', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Content Board' } },
+  { path: 'content-board', loadChildren: () => import('./features/content-board/content-board.routes').then((m) => m.CONTENT_BOARD_ROUTES) },
   { path: 'prompt-library', loadChildren: () => import('./features/prompt-library/prompt-library.routes').then((m) => m.PROMPT_LIBRARY_ROUTES) },
   // 'settings' is the workspace's own settings page plus the pages it links to, so the nav item stays active
   // on both — the same reason 'workflows' owns its journeys.

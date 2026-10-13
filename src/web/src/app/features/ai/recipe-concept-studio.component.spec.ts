@@ -963,17 +963,18 @@ describe('RecipeConceptStudioComponent', () => {
       expect(handoff()).toBeNull();
     }));
 
-    it('offers a picture and a content run, in that order, under their own heading', fakeAsync(() => {
+    it('offers a picture, a content run and posts, in that order, under their own heading', fakeAsync(() => {
       chooseFirst();
 
       expect(handoff()!.querySelector('.heading')?.textContent).toBe('Or use this concept in…');
       expect(handoffButtons().map((button) => button.textContent?.trim())).toEqual([
         'Make a picture',
         'Start a content run',
+        'Write posts',
       ]);
     }));
 
-    it('keeps drafting the recipe as the one primary action, ahead of the other two', fakeAsync(() => {
+    it('keeps drafting the recipe as the one primary action, ahead of the others', fakeAsync(() => {
       chooseFirst();
 
       const selection = element().querySelector('.studio-selection')!;
@@ -985,7 +986,11 @@ describe('RecipeConceptStudioComponent', () => {
       // First in the region, so it is first in reading order and first in the tab order.
       const all = Array.from(selection.querySelectorAll('button'));
       expect(all[0].textContent?.trim()).toBe('Draft this recipe');
-      expect(all.slice(1).map((button) => button.textContent?.trim())).toEqual(['Make a picture', 'Start a content run']);
+      expect(all.slice(1).map((button) => button.textContent?.trim())).toEqual([
+        'Make a picture',
+        'Start a content run',
+        'Write posts',
+      ]);
     }));
 
     it('hands over the chosen concept by id, and carries only what the destination asks for', fakeAsync(() => {

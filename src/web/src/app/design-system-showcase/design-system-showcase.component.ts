@@ -9,6 +9,8 @@ import {
   CpButtonSize,
   CpButtonVariant,
   CpCardComponent,
+  CpBoardColumnComponent,
+  CpBoardComponent,
   CpCardGridComponent,
   CpCheckboxComponent,
   CpChipComponent,
@@ -67,6 +69,8 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
   imports: [
     CpPageHeadComponent,
     CpBackLinkComponent,
+    CpBoardColumnComponent,
+    CpBoardComponent,
     CpCardGridComponent,
     CpMediaCardComponent,
     CpTopicCardComponent,

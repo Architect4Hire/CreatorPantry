@@ -24,6 +24,16 @@
     </cp-form-section>
   }
 
+  <!-- Said once, in place of a refusal behind every button: a reader may read and copy, and nothing else. -->
+  @if (!canWrite()) {
+    <cp-notice role="note">{{ wording().forbidden }}</cp-notice>
+  }
+
+  <!-- Outside the chooser, because a post written again fails here too and the chooser is then not showing. -->
+  @if (requestProblem(); as problem) {
+    <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+  }
+
   @if (showChooser()) {
     <cp-form-section
       heading="Choose where they go"
@@ -31,10 +41,7 @@
       [sectionId]="sectionIdPrefix() + '-choose'"
     >
       @if (creativeContextId() === null) {
-        <cp-notice tone="warning" role="status">
-          There is nothing to write about yet. Go back and give this piece of work a title, a recipe or an
-          idea first.
-        </cp-notice>
+        <cp-notice tone="warning" role="status">{{ wording().noWork }}</cp-notice>
       } @else if (options().length === 0) {
         <cp-notice role="note">
           Every channel you write for already has a post here. Writing one again is on the post itself.
@@ -49,10 +56,6 @@
           (valueChange)="onChosen($event)"
           [idPrefix]="sectionIdPrefix() + '-channel'"
         />
-      }
-
-      @if (requestProblem(); as problem) {
-        <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
       }
 
       @switch (tracker.phase().kind) {
@@ -117,6 +120,7 @@
               [channel]="card.channel"
               [channelName]="card.name"
               [busy]="card.busy"
+              [canWrite]="canWrite()"
               [canRegenerate]="!blocked()"
               [copied]="card.copied"
               [idPrefix]="sectionIdPrefix() + '-' + card.channel.channelKey"
@@ -126,15 +130,23 @@
         }
       </ul>
 
-      @if (!showChooser() && options().length > 0) {
-        <div class="cp-actions">
+      <!-- The whole set, by the same rule as one post: the open edit, then what was accepted, then the newest.
+           Offered to a reader too — copying and saving a file take nothing away. -->
+      <div class="cp-actions">
+        @if (canWrite() && !showChooser() && options().length > 0) {
           <button cpButton type="button" variant="secondary" (click)="openChooser()">Write another channel</button>
-        </div>
-      }
+        }
+        <button cpButton type="button" variant="text" (click)="copyAll()">
+          {{ copiedAll() ? 'Copied all' : 'Copy all' }}
+        </button>
+        <button cpButton type="button" variant="text" (click)="downloadAll()">Download all as text</button>
+      </div>
     </cp-form-section>
   } @else if (loadFailed()) {
     <cp-notice tone="error" role="alert">
       Your posts couldn't be read just now. Nothing has been lost — try again in a moment.
     </cp-notice>
+  } @else if (!canWrite()) {
+    <p class="cp-muted">No posts have been written for this yet.</p>
   }
 }

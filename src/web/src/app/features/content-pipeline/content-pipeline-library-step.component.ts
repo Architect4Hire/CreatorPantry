@@ -94,8 +94,8 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
  * immutable and declares its own provenance, so it is assembled from the generation that drafted it rather
  * than claimed; where that cannot be done the picture is still saved and the reason is on screen.
  *
- * **No board card and no scheduling.** Those are a separate decision about publishing, and they stay with
- * master 13.7a.
+ * **No board card and no scheduling.** The card is the step below this one,
+ * `ContentPipelineBoardStepComponent` (13.7a); scheduling is nobody's yet.
  */
 @Component({
   selector: 'cp-content-pipeline-library-step',

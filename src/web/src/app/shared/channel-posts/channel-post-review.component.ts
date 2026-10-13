@@ -47,7 +47,8 @@ export type ChannelPostIntent =
   | { readonly kind: 'reject' }
   | { readonly kind: 'reaffirm' }
   | { readonly kind: 'regenerate' }
-  | { readonly kind: 'copy' };
+  | { readonly kind: 'copy' }
+  | { readonly kind: 'download' };
 
 /** How each status reads, as a word and as a pill tone with a glyph of its own. */
 const STATUS_WORDS: Readonly<Record<string, string>> = {

@@ -112,7 +112,7 @@ public enum CreativeContextPictureDescriptionSource
 /// <summary>The creator's own words for the piece. Untrusted prompt content, like everything a creator types.</summary>
 /// <param name="WorkingBrief">
 /// The brief the creator chose to work from, as they last left it (LF.1.4). Carried only for a task that writes
-/// from it; null for every other task and when they have not chosen one.
+/// from it — long-form and channel posts; null for every other task and when they have not chosen one.
 /// </param>
 public sealed record CreativeContextWords(string? WorkingTitle, string? PictureBrief, string? WorkingBrief = null);
 

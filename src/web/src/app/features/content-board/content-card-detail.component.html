@@ -1,0 +1,199 @@
+<!-- One head for every state, so the page always has exactly one h1 and it is always in the same place. -->
+<cp-page-head [heading]="headTitle()">
+  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="boardLink()">Content Board</a>
+  <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+  <ng-container ngProjectAs="[cpPageHeadBadges]">
+    @if (detail(); as shown) {
+      <cp-status-pill [tone]="publishing().tone">{{ publishing().label }}</cp-status-pill>
+      <cp-badge>{{ columnLabel() }}</cp-badge>
+      @if (channelName(); as channel) {
+        <cp-badge tone="blue">{{ channel }}</cp-badge>
+      }
+      @if (shown.card.hasPackage) {
+        <cp-badge tone="purple">Recipe package</cp-badge>
+      }
+    }
+  </ng-container>
+</cp-page-head>
+
+@switch (state().status) {
+  @case ('loading') {
+    <cp-card><p class="plain" role="status">Loading the card…</p></cp-card>
+  }
+  @case ('not_found') {
+    <cp-card>
+      <cp-notice tone="error" role="alert">We couldn't find this card. It may have been deleted.</cp-notice>
+    </cp-card>
+  }
+  @case ('deleted') {
+    <cp-card>
+      <cp-notice tone="success" role="status">
+        The card was deleted. Nothing it pointed at was removed.
+        <a [routerLink]="boardLink()">Back to the board</a>
+      </cp-notice>
+    </cp-card>
+  }
+  @case ('error') {
+    <cp-card>
+      <cp-notice tone="error" role="alert">
+        The card couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retry()">Try again</button>
+      </cp-notice>
+    </cp-card>
+  }
+  @case ('ready') {
+    @if (detail(); as shown) {
+      <!-- Always present, so what the page just did is announced reliably. -->
+      <cp-notice class="outcome" role="status" tone="success" [quiet]="notice() === ''">{{ notice() }}</cp-notice>
+
+      @if (problem(); as sentence) {
+        <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
+      }
+
+      <cp-topic-card heading="The plan" headingId="content-card-plan-heading">
+        @if (shown.description; as description) {
+          <p class="description">{{ description }}</p>
+        } @else {
+          <p class="plain cp-muted">No notes on this card yet.</p>
+        }
+
+        <dl cpFacts>
+          <div cpFact label="Column">{{ columnLabel() }}</div>
+          <div cpFact label="Channel">{{ channelName() || 'No channel in particular' }}</div>
+          <div cpFact label="Planned for">
+            @if (shown.card.plannedDate; as planned) {
+              <!-- A calendar date, not an instant: read in UTC so it is the same day in every zone. -->
+              {{ planned | date: 'fullDate' : 'UTC' }}
+            } @else {
+              No date
+            }
+          </div>
+          <div cpFact label="Created">{{ shown.card.createdAt | date: 'medium' }}</div>
+          <div cpFact label="Last changed">{{ shown.card.updatedAt | date: 'medium' }}</div>
+        </dl>
+
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton type="button" variant="secondary" (click)="openEdit($event)">Edit card</button>
+          <a cpButton variant="secondary" [routerLink]="boardLink()">Move it on the board</a>
+        </div>
+      </cp-topic-card>
+
+      <cp-topic-card heading="What it points at" headingId="content-card-lineage-heading">
+        @if (lineage().length === 0) {
+          <p class="plain cp-muted">
+            This card points at nothing yet. A card put on the board from a Content Pipeline run links its
+            recipe, picture, prompt and posts.
+          </p>
+        } @else {
+          <p class="plain cp-muted">The card links to these; it holds no copy of them.</p>
+          <dl cpFacts>
+            @for (row of lineage(); track row.entry.kind + row.entry.id) {
+              <div cpFact [label]="row.noun">
+                @if (row.link; as link) {
+                  <a [routerLink]="link">{{ row.text }}</a>
+                } @else {
+                  {{ row.text }}
+                }
+                @if (row.pinned) {
+                  <span class="cp-muted"> · {{ row.pinned }}</span>
+                }
+                @if (!row.entry.available) {
+                  <cp-status-pill tone="warning">No longer available</cp-status-pill>
+                }
+              </div>
+            }
+          </dl>
+        }
+      </cp-topic-card>
+
+      <cp-topic-card heading="Posts" headingId="content-card-posts-heading">
+        @if (postsLink()) {
+          <p class="plain">
+            @if (hasPosts()) {
+              Posts have been written for this piece of work. Read, edit and accept them in Social Studio.
+            } @else {
+              No accepted posts are linked to this card yet. Write them for this piece of work in Social Studio.
+            }
+          </p>
+        } @else {
+          <p class="plain cp-muted">
+            This card was not made from a piece of work, so there are no posts to open from it.
+          </p>
+        }
+
+        <!-- Its own block: a slot is only filled by a block with one root. -->
+        @if (postsLink(); as link) {
+          <div cpTopicCardActions class="cp-actions">
+            <a cpButton variant="secondary" [routerLink]="link">{{ hasPosts() ? 'Open the posts' : 'Write posts' }}</a>
+          </div>
+        }
+      </cp-topic-card>
+
+      <cp-topic-card heading="Publishing" headingId="content-card-publishing-heading">
+        <p class="plain"><cp-status-pill [tone]="publishing().tone">{{ publishing().label }}</cp-status-pill></p>
+        @if (shown.card.publishing; as delivered) {
+          <dl cpFacts>
+            <div cpFact label="Publications">{{ delivered.publicationCount }}</div>
+            <div cpFact label="Published">{{ delivered.publishedCount }}</div>
+            @if (delivered.lastPublishedAt; as last) {
+              <div cpFact label="Last published">{{ last | date: 'medium' }}</div>
+            }
+          </dl>
+        } @else {
+          <p class="plain cp-muted">
+            Nothing has been scheduled or published for this card. Its column says where your work stands, not
+            whether anything went out.
+          </p>
+        }
+      </cp-topic-card>
+
+      <cp-topic-card heading="History" headingId="content-card-history-heading">
+        @if (shown.historyTruncated) {
+          <p class="plain cp-muted">
+            Showing the latest {{ shown.history.length }} of {{ shown.card.moveCount + 1 }} entries.
+          </p>
+        }
+        <ol class="history" aria-label="Where this card has been, oldest first">
+          @for (move of shown.history; track move.sequence) {
+            <li>
+              <p class="plain">
+                @if (move.fromColumn; as from) {
+                  Moved from {{ columnName(from) }} to {{ columnName(move.toColumn) }}
+                } @else {
+                  Created in {{ columnName(move.toColumn) }}
+                }
+              </p>
+              <p class="plain cp-muted when">{{ move.occurredAt | date: 'medium' }}</p>
+              @if (move.note; as note) {
+                <p class="note">{{ note }}</p>
+              }
+            </li>
+          }
+        </ol>
+      </cp-topic-card>
+
+      <cp-topic-card heading="Delete this card" headingId="content-card-delete-heading">
+        <p class="plain">
+          Deleting takes the card and its history off the board for everyone in this workspace. Its recipe,
+          picture, prompt and posts stay exactly as they are.
+        </p>
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton type="button" variant="danger" [disabled]="deleting()" (click)="remove()">
+            {{ deleting() ? 'Deleting…' : 'Delete card' }}
+          </button>
+        </div>
+      </cp-topic-card>
+
+      <cp-content-card-edit-drawer
+        [open]="editing()"
+        [workspaceSlug]="workspaceSlug()"
+        [detail]="shown"
+        [channels]="channels()"
+        (saved)="onSaved($event)"
+        (stale)="onEditStale()"
+        (gone)="onGone()"
+        (closed)="closeEdit()"
+      />
+    }
+  }
+}

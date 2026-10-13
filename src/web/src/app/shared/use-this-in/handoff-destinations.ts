@@ -32,6 +32,9 @@ export const HANDOFF_ROUTES = {
   /** `image-studio/context/:contextId` */
   imageStudio: (contextId: string): readonly string[] => ['image-studio', CONTEXT_ROUTE_SEGMENT, contextId],
 
+  /** `social-studio/context/:contextId` — posts for a piece of work that already exists (master 13.3). */
+  socialStudio: (contextId: string): readonly string[] => ['social-studio', CONTEXT_ROUTE_SEGMENT, contextId],
+
   /** `workflows/content-pipeline/context/:contextId`, which opens at the pipeline's first step. */
   contentPipeline: (contextId: string): readonly string[] => [
     'workflows',

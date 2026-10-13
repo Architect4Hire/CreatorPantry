@@ -5760,6 +5760,866 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/content-cards": {
+      "get": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Reads the content board of the workspace named by the route, a page at a time.",
+        "description": "Every member including a Viewer may read. **The board has one order, so there is no \u0060sort\u0060 parameter**:\ncolumn \u2014 \u0060ToDo\u0060, \u0060InProcess\u0060, \u0060ReadyForReview\u0060, \u0060Approved\u0060 \u2014 then each card\u0027s place in its column. Two\ncards that share a place are ordered by id, which is what keeps a page boundary from repeating one and\nskipping the other. The place itself is not published; the order of \u0060items\u0060 is the order.\n\n\u0060channel\u0060, \u0060day\u0060, \u0060date\u0060 and \u0060column\u0060 each narrow the board and combine with AND. \u0060day\u0060 is a weekday by\nname and matches the weekday of a card\u0027s planned date; \u0060date\u0060 is \u0060yyyy-MM-dd\u0060 and matches it exactly; a\ncard with no planned date matches neither. A \u0060channel\u0060 naming no channel at all is an empty page rather\nthan an error \u2014 a read keeps answering for keys the catalogue has retired, because a card that stored\none is still on the board. A filter that cannot be read answers \u0060400 content.card.list.invalid\u0060.\n\n**Paging is by keyset cursor.** Pass a page\u0027s \u0060nextCursor\u0060 back as \u0060cursor\u0060; it is null on the last\npage. A cursor is bound to the workspace and the filters it was issued for, and one replayed against\nanother answers \u0060400 content.card.cursor.invalid\u0060 rather than a plausible page from the wrong place.\n\u0060limit\u0060 outside 1\u2013100 is clamped, not refused.\n\n\u0060columns\u0060 lists every column the request could match \u2014 all four, or the one named by \u0060column\u0060 \u2014 with\nhow many cards it holds under the same filters, across every page; an empty column is listed with zero.\n\n**Each row is a summary.** \u0060descriptionPreview\u0060 is cut server-side and \u0060descriptionLength\u0060 is the full\nlength; \u0060lineage\u0060 carries ids only, and their names come from the detail route. \u0060moveCount\u0060 counts the\ntimes the card changed column \u2014 putting it in a different place in the same column is not a move.\n\u0060concurrencyToken\u0060 is what an edit or a move quotes. **\u0060publishing\u0060 is always null today**: no\npublication record exists yet, and a card says nothing about delivery on its own. No row carries a\npicture, an address for one, or any provider\u0027s data. The response is \u0060no-store\u0060: it is\nworkspace-private creator content.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "description": "One content channel key, such as instagram. A key no channel has, or one retired since a card stored it, is an empty page rather than an error.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "day",
+            "in": "query",
+            "description": "A weekday by name, such as Friday: cards planned for any date falling on it. A card with no planned date matches no day.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "One planned date as yyyy-MM-dd, matched exactly. A calendar date in the workspace\u0027s own zone, as it was entered.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "column",
+            "in": "query",
+            "description": "One column: ToDo, InProcess, ReadyForReview or Approved. Leave it out to read the whole board in column order.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Puts a new card on the content board of the workspace named by the route.",
+        "description": "Contributor and above; a Viewer is refused with \u0060403 content.card.forbidden\u0060. Only \u0060title\u0060 is required.\n\u0060column\u0060 defaults to \u0060ToDo\u0060. **A new card goes to the bottom of its column**, and its creation is its\nfirst history entry. \u0060plannedDate\u0060 is \u0060yyyy-MM-dd\u0060; the card\u0027s \u0060plannedDay\u0060 is that date\u0027s own weekday\nand cannot be sent.\n\n\u0060channelKey\u0060 must be a channel the catalogue offers now, and \u0060cuisineCode\u0060, \u0060dishTypeCode\u0060 and\n\u0060methodCode\u0060 must be codes the cooking vocabulary holds; one that is not, like any field that cannot be\nread, answers \u0060400 content.card.invalid\u0060 naming it.\n\n**Every linked record must be this workspace\u0027s own.** \u0060creativeContextId\u0060, \u0060recipeId\u0060 and\n\u0060recipeVersionId\u0060, \u0060promptRecordId\u0060, \u0060mediaAssetId\u0060 and \u0060mediaAssetVersionNumber\u0060, and \u0060socialPackageId\u0060\nare each checked through the record\u0027s owner before anything is written. One that cannot be linked\nanswers \u0060422 content.card.lineage.unprocessable\u0060 naming the field \u2014 **the same answer whether the\nrecord never existed, has been archived or removed, or belongs to another workspace**, so a card cannot\nbe used to ask what a neighbour owns. A version sent without its recipe or picture is a \u0060400\u0060.\n\n**Nothing is half-written.** The card, its first history entry and its audit entry are one write; on\nany refusal there is no card. \u0060409 content.card.conflict\u0060 means the write did not happen and is safe to\nsend again.\n\nWith an \u0060Idempotency-Key\u0060, a repeat of the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and creates nothing more; the same key with a different body is refused.\nWithout a key, two identical requests are two cards.\n\nAnswers \u0060201\u0060 with the card in full \u2014 the detail route\u0027s shape \u2014 and its \u0060Location\u0060. The response is\n\u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Send one to make a retry safe.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentCard"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentCard"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContentCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/content-cards/{cardId}": {
+      "get": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Reads one card of the workspace named by the route, in full.",
+        "description": "Every member including a Viewer may read. \u0060card\u0060 is the list\u0027s row for this card; beside it are the\nwhole \u0060description\u0060, the records it points at, its movement history and its recipe package.\n\n**\u0060lineage\u0060 names what the card points at.** Each entry has a \u0060kind\u0060, an \u0060id\u0060, the pinned version where\nthere is one, and a \u0060label\u0060 where the record has a name this route can read \u2014 a recipe\u0027s title, a piece\nof work\u0027s working title, a saved prompt\u0027s label. \u0060available\u0060 is false when the record can no longer be\nread: the card still says what it pointed at rather than failing to open. A picture is named by id and\nversion only \u2014 no bytes, no address, no title.\n\n**\u0060history\u0060 is oldest first**, by \u0060sequence\u0060; the first entry is the card\u0027s creation and has no\n\u0060fromColumn\u0060. At most the latest 100 moves are returned and \u0060historyTruncated\u0060 says when there were\nmore; \u0060card.moveCount\u0060 is the true count either way. No entry says who moved the card: membership ids\nnever leave the server.\n\n\u0060package\u0060 is null for a card with no recipe package. When present it is pins only \u2014 the exact recipe\nversion, editorial revision, posts and picture versions it was put together from \u2014 and its \u0060window\u0060 is\nwhat the creator asked for, which schedules nothing.\n\nAn unknown id answers \u0060404 content.card.not_found\u0060. **Another workspace\u0027s card answers exactly that \u2014\nthe same code, the same message, the same body** \u2014 so a card id cannot be used to ask what a neighbour\nowns. That is not two branches written to match: the workspace query filter means the server never sees\nthe other row at all. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "path",
+            "description": "The card to read. Constrained to a Guid, so a malformed id never reaches this action: routing answers\n404 with the edge\u0027s generic \u0060not_found\u0060 code rather than this module\u0027s.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Edits a card\u0027s fields. Only what the patch mentions changes.",
+        "description": "Contributor and above. **A field left out is untouched; a field sent with a value is set; a field sent\nas \u0060null\u0060 is cleared.** \u0060title\u0060 may be changed but not cleared. \u0060plannedDay\u0060 is not a field of the request\nand is ignored if sent: it is the planned date\u0027s own weekday, re-derived when the date changes and\ncleared when the date is.\n\n**A patch does not move a card.** Sending \u0060column\u0060 answers \u0060400\u0060 naming it; a card changes column\nthrough the move route, which is what records the move.\n\n\u0060expectedConcurrencyToken\u0060 is required. When the card has changed since that read the answer is\n\u0060409 content.card.stale.conflict\u0060 and **nothing is written** \u2014 keep what the creator typed, read the\ncard again, and send again. A token that could never have been issued is a \u0060400\u0060. A patch that changes\nnothing writes nothing and returns the same token.\n\nOnly a *newly chosen* \u0060channelKey\u0060 or cooking code is checked against what is offered now: one the card\nalready holds stays valid after it is retired, so an unrelated edit never fails because of it.\n\n**Nothing is unlinked unless its field is sent as \u0060null\u0060.** \u0060creativeContextId\u0060, \u0060recipeId\u0060,\n\u0060promptRecordId\u0060, \u0060mediaAssetId\u0060 and \u0060socialPackageId\u0060 can each be set, replaced or cleared, and no\npatch unlinks one it did not mention. **A version pin is never dropped as a side effect**: clearing or\nreplacing a recipe or picture the card pins a version of answers \u0060400\u0060 unless \u0060recipeVersionId\u0060 or\n\u0060mediaAssetVersionNumber\u0060 is sent in the same patch \u2014 a version of the new record, or \u0060null\u0060 to drop\nthe pin. A newly linked record is checked exactly as on create, and one that cannot be linked answers\n\u0060422 content.card.lineage.unprocessable\u0060 \u2014 the same answer whether it never existed, can no longer be\nused, or belongs to another workspace. A record the card already points at is not re-checked.\n\nAn unknown card and another workspace\u0027s card both answer \u0060404 content.card.not_found\u0060, identically.\nAnswers \u0060200\u0060 with the card in full and its new \u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "path",
+            "description": "The card to edit.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContentCard"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContentCard"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContentCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Deletes a card from the content board.",
+        "description": "Requires the **Editor** role, where adding, editing and moving a card require Contributor: a deletion\ntakes finished planning away from every collaborator rather than contributing to it.\n\n**What is deleted with the card:** its movement history, and its recipe package \u2014 the record of which\nversions were put together, not the things themselves. **What is never deleted with it:** the recipe,\nthe piece of work, the saved prompt and the posts it pointed at. They are exactly as they were.\n\n**A picture is never removed from the library unless you say so.** \u0060linkedAsset\u0060 left out, or \u0060Keep\u0060,\nleaves the card\u0027s linked picture untouched. \u0060Remove\u0060 removes it too, and requires\n\u0060linkedAssetConcurrencyToken\u0060 \u2014 the picture\u0027s own \u0060concurrencyToken\u0060, so you have read what you are\nremoving. That removal is the library\u0027s own: the picture gains a tombstone, **no bytes are deleted**,\nand anything else pointing at it keeps pointing. Only the card\u0027s own linked picture is ever in question\n\u2014 never the pictures pinned in its recipe package. \u0060Remove\u0060 on a card with no linked picture answers\n\u0060400\u0060.\n\n\u0060confirmed\u0060 must be \u0060true\u0060, and \u0060expectedConcurrencyToken\u0060 is required: \u0060409\ncontent.card.stale.conflict\u0060 means the card changed since you read it and **nothing was deleted**.\n\n**\u0060Idempotency-Key\u0060 is required**, and the deletion is one transaction: if the picture cannot be\nremoved as asked \u2014 its token is out of date, say \u2014 the answer is \u0060409\ncontent.card.linked_asset.conflict\u0060 and **the card is not deleted either**. Repeating the request with\nthe same key returns the first answer with \u0060Idempotent-Replayed: true\u0060 and deletes nothing more; the\nsame key with a different body or a different card is refused. Without the key a second request could\nonly ever answer \u0022not found\u0022, about a card you have just deleted.\n\nThe response says what was deleted and carries none of the creator\u0027s words: the \u0060column\u0060 the card was\nin, its \u0060moveCount\u0060, whether a package went with it, and \u0060linkedAsset\u0060 \u2014 \u0060outcome\u0060 is \u0060None\u0060, \u0060Kept\u0060 or\n\u0060Removed\u0060, \u0060otherCardCount\u0060 is how many other cards still point at the picture, and for a removed\npicture \u0060affected\u0060 counts what else now points at it. Counts only: nothing here names a recipe.\n\nAn unknown card and another workspace\u0027s card both answer \u0060404 content.card.not_found\u0060, identically.\nThe response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "path",
+            "description": "The card to delete.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Makes the deletion one transaction and lets a retry learn what happened.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteContentCard"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteContentCard"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteContentCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDeletion"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDeletion"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/content-cards/{cardId}/move": {
+      "post": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Moves a card to a column and a place in it.",
+        "description": "Contributor and above. \u0060column\u0060 is required and names where the card should be \u2014 another column, or\nthe one it is already in to give it a new place there. \u0060beforeCardId\u0060 names the card it goes\nimmediately before, which must be in \u0060column\u0060; left out, the card goes to the bottom. A place is named\nby a neighbour rather than a number, so it means the same whatever filters a board is showing.\n\n**Only a change of column is a move.** It adds one entry to the card\u0027s \u0060history\u0060 \u2014 the column it left,\nthe column it entered, the \u0060note\u0060 and when \u2014 and raises \u0060moveCount\u0060. **A new place in the same column\nadds none**, so the history never shows a transition that did not happen; a \u0060note\u0060 sent with one\nanswers \u0060400\u0060 naming it, because there is no move to keep it on.\n\n\u0060expectedConcurrencyToken\u0060 is required. \u0060409 content.card.stale.conflict\u0060 means the card \u2014 or a card\nthat had to be re-spaced to make room \u2014 changed first, and **nothing was written**: read the board\nagain and send the move again. A token that could never have been issued is a \u0060400\u0060. A card that is\nalready exactly there is left alone and keeps its token.\n\n**The move is one write.** The card\u0027s new place, any re-spacing of the column around it, the history\nentry and the audit entry happen together or not at all.\n\nA \u0060beforeCardId\u0060 that is not in the target column answers \u0060422 content.card.move.unprocessable\u0060 \u2014\n**the same answer whether that card does not exist, is in another column, is the card being moved, or\nbelongs to another workspace**. An unknown card and another workspace\u0027s card both answer\n\u0060404 content.card.not_found\u0060, identically.\n\nAnswers \u0060200\u0060 with the card in full and its new \u0060concurrencyToken\u0060. Making room can change the\n\u0060concurrencyToken\u0060 of other cards in the column, though never what they say. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "path",
+            "description": "The card to move.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContentCard"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContentCard"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveContentCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/content-cards/recipe-packages": {
+      "post": {
+        "tags": [
+          "ContentCards"
+        ],
+        "summary": "Puts a recipe package on the board as a card.",
+        "description": "Contributor and above. Creates one card for one recipe, pinned to **the exact versions you name**:\n\u0060recipeVersionId\u0060 (required), \u0060editorialRevisionId\u0060, a \u0060socialRevisionId\u0060 per channel, and a\n\u0060versionNumber\u0060 per picture. The server checks each one; it never goes and finds something newer than\nwhat you were looking at. **Nothing is copied** \u2014 the package is ids and version pins, and the records\nstay where they are.\n\n**A pin that cannot be made refuses the whole request** with \u0060422\ncontent.card.package.unprocessable\u0060, naming the field, and nothing is created:\n\n- a record that cannot be found or can no longer be used \u2014 **the same answer whether it never existed,\n  was removed, or belongs to another workspace**;\n- a version that is not the approved one: a recipe version that is neither approved nor marked ready,\n  an editorial revision that is not the accepted one for this recipe, a post that is not the accepted\n  one for that channel of that piece of work.\n\n\u0060creativeContextId\u0060 is required when any channel pins a post, because a post belongs to a piece of\nwork. A channel may be named with no post pinned.\n\n**A source that was approved but has since moved does not refuse the request \u2014 it blocks the package.**\nThe card is created, and \u0060package.needsReview\u0060 lists why: the recipe has a newer version, the editorial\nor a post has been marked as needing review, or one of them was written against a different version of\nthe recipe. \u0060package.blocked\u0060 is then true. These are worked out from the pinned records each time the\ncard is read, so a package that was clear when you made it becomes blocked if a source moves later.\n\n**\u0060allowNeedsReview: true\u0060 lets such a package stand.** It takes the Editor role (\u0060403\u0060 otherwise) and\nis recorded with who allowed it and when; \u0060package.needsReview\u0060 still lists the reasons, and \u0060blocked\u0060\nis false. **An allowance covers the reasons that were there when it was given, and no others**: if a\ndifferent source moves later, the package is blocked again. It records nothing when there is nothing\nto allow.\n\n\u0060window\u0060 is the local start and end you mean, with no offset. It is converted with the workspace\u0027s time\nzone from brand settings and stored both ways; a workspace with no time zone answers \u0060422\u0060 naming\n\u0060window\u0060, and so does a local time that the clocks skip in that zone. A window is an intention: it\nschedules nothing.\n\n\u0060title\u0060 defaults to the recipe\u0027s title and \u0060column\u0060 to \u0060ToDo\u0060. The card goes to the bottom of its\ncolumn and its creation is its first history entry.\n\n**\u0060Idempotency-Key\u0060 is required.** The card, its history entry, the package and every pin are one\nwrite: all of it or none. Repeating the request with the same key returns the first card with\n\u0060Idempotent-Replayed: true\u0060; the same key with a different body is refused.\n\nAnswers \u0060201\u0060 with the card in full and its \u0060Location\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the list route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required. Makes the package one transaction and a retry safe.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipePackage"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipePackage"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRecipePackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/content-seeds": {
       "get": {
         "tags": [
@@ -5891,6 +6751,211 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/creative-contexts/{contextId}/board-card": {
+      "get": {
+        "tags": [
+          "CreativeContextBoardCard"
+        ],
+        "summary": "Reads the card the Content Pipeline put on the board for one piece of work.",
+        "description": "Every member including a Viewer may read. Answers the card in full \u2014 the card detail route\u0027s shape.\n\n**\u0060404 content.card.not_found\u0060 means the work has no such card**, and is the answer a resumed run reads\nas \u0022not on the board yet\u0022. It is also, word for word, the answer for a piece of work that does not\nexist and for one another workspace owns: this route cannot be used to ask whether either is there.\nCards a creator put on the board by hand for the same work are not this card and are not returned.\nThe response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "CreativeContextBoardCard"
+        ],
+        "summary": "Puts a Content Pipeline run on the content board as one card.",
+        "description": "Contributor and above; a Viewer is refused with \u0060403 content.card.forbidden\u0060. **There is no body.**\nThe card is made from what the piece of work holds now: it links the work, the recipe the work is about\nand the version it pinned, the work\u0027s posts when at least one channel\u0027s post stands accepted, the first\nkept picture that is in the library, and the prompt saved with that picture. Its title is the work\u0027s\nworking title, or the recipe\u0027s. It goes to the bottom of \u0060ToDo\u0060. Nothing is copied, and **nothing is\nscheduled or published**: a card is a plan.\n\n**This is the last step of a run, and it saves nothing but the card.** Each kept picture is saved to\nthe library, with its prompt, by the keep route \u2014 once each, however often that is repeated. So a run\nthat stopped part-way is finished by sending again whatever has not been done: no step undoes another,\nand no partial state is wrong.\n\n**Safe to send again, at any time, with no key.** A piece of work has at most one such card, and the\ndatabase keeps that rule. The first call answers \u0060201\u0060 with the card and its \u0060Location\u0060; every later\ncall \u2014 a retry after a lost response, a resumed run a week on, a second request racing the first \u2014\nanswers \u0060200\u0060 with that same card and writes nothing. Deleting the card frees the work to be put on\nthe board again; so does an edit that points the card at a different piece of work.\n\nA work with no picture saved to the library answers \u0060422 content.card.pipeline.unprocessable\u0060 naming\n\u0060keepers\u0060. A recipe that has been archived, a pinned version that can no longer be read and posts that\nare not accepted are left off the card rather than refusing it.\n\nAn unknown piece of work answers \u0060404 content.creative_context.not_found\u0060, and so \u2014 identically \u2014 does\none another workspace owns, and an archived one that has no card yet. A work archived after its card\nwas made still answers \u0060200\u0060 with that card: a repeat is told what happened. \u0060409 content.card.conflict\u0060 means the write did not\nhappen and is safe to send again. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the read route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contextId",
+            "in": "path",
+            "description": "The piece of work the run is about.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentCardDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -13370,6 +14435,72 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/publishing/profiles": {
+      "get": {
+        "tags": [
+          "PublishingProfiles"
+        ],
+        "summary": "Reads the places the workspace named by the route can publish to.",
+        "description": "Every member including a Viewer may read. **This route always answers \u0060200\u0060.** What the publishing\nprovider did is \u0060connection.status\u0060, and the profiles last read are listed whatever it says:\n\n- \u0060Connected\u0060 \u2014 the provider answered; \u0060profiles\u0060 is as it gave them.\n- \u0060NotConfigured\u0060 \u2014 no provider is set up for this workspace. Not an error: planning, export and\n  download all still work. \u0060connection.providerKey\u0060 is null.\n- \u0060CredentialRejected\u0060 \u2014 the provider refused the configured key. An operator has to replace it.\n- \u0060RateLimited\u0060 \u2014 the provider is throttling. \u0060connection.retryAfterSeconds\u0060 says how long until it is\n  asked again.\n- \u0060Unavailable\u0060 \u2014 the provider could not be reached or did not answer usefully.\n\n**A profile\u0027s \u0060id\u0060 is CreatorPantry\u0027s own.** No provider identifier, credential, header or error text\nis ever returned: \u0060providerKey\u0060 is a stable name such as \u0060buffer\u0060, and \u0060platform\u0060 is CreatorPantry\u0027s\nvocabulary for the network \u2014 a network it does not know is \u0060Other\u0060. \u0060timeZoneId\u0060 is an IANA zone or\nnull. \u0060status\u0060 is \u0060Ready\u0060, \u0060NeedsReconnecting\u0060 (reconnect it at the provider) or \u0060Locked\u0060; a profile\nthe provider no longer lists is left out.\n\n**The provider is asked sparingly**, because its quota is small. \u0060refresh=true\u0060 asks again, but not\nmore than once a minute and never while the provider is throttling; when it is not asked, the answer\nis the last one, and \u0060connection.lastCheckedAt\u0060 says when that was. **A refresh takes the Contributor\nrole.** A Viewer who sends it is not refused: they get the last read, exactly as without it.\n\nA provider key belongs to one workspace, named to the server by its id. **Every other workspace reads \u0060NotConfigured\u0060, exactly as on a\ndeployment with no provider at all**, so this route cannot be used to learn that a neighbour has one.\nThe response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refresh",
+            "in": "query",
+            "description": "\u0060true\u0060 to ask the publishing provider now instead of serving a recent read. Left out, a read up to\nfifteen minutes old is served from storage. Honoured for a Contributor and above; ignored for a Viewer.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingProfiles"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingProfiles"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishingProfiles"
                 }
               }
             }
@@ -24739,6 +25870,49 @@
           }
         }
       },
+      "CardMove": {
+        "required": [
+          "sequence",
+          "fromColumn",
+          "toColumn",
+          "note",
+          "occurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "fromColumn": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardColumn"
+              }
+            ]
+          },
+          "toColumn": {
+            "$ref": "#/components/schemas/ContentCardColumn"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ChangePassword": {
         "type": "object",
         "properties": {
@@ -24827,6 +26001,720 @@
             "type": "string"
           },
           "token": {
+            "type": "string"
+          }
+        }
+      },
+      "ContentCardAffectedContent": {
+        "required": [
+          "recipeCount",
+          "brandProfileCount",
+          "testAttachmentCount",
+          "any"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "brandProfileCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "testAttachmentCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "any": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContentCardColumn": {
+        "enum": [
+          "ToDo",
+          "InProcess",
+          "ReadyForReview",
+          "Approved"
+        ],
+        "type": "string"
+      },
+      "ContentCardColumnCount": {
+        "required": [
+          "column",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "column": {
+            "$ref": "#/components/schemas/ContentCardColumn"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ContentCardDeletion": {
+        "required": [
+          "id",
+          "column",
+          "moveCount",
+          "hadPackage",
+          "deletedAt",
+          "linkedAsset"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "column": {
+            "$ref": "#/components/schemas/ContentCardColumn"
+          },
+          "moveCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hadPackage": {
+            "type": "boolean"
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "linkedAsset": {
+            "$ref": "#/components/schemas/ContentCardLinkedAsset"
+          }
+        }
+      },
+      "ContentCardDetail": {
+        "required": [
+          "card",
+          "description",
+          "lineage",
+          "history",
+          "historyTruncated",
+          "package"
+        ],
+        "type": "object",
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/ContentCardSummary"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lineage": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardLineage"
+            }
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardMove"
+            }
+          },
+          "historyTruncated": {
+            "type": "boolean"
+          },
+          "package": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardPackage"
+              }
+            ]
+          }
+        }
+      },
+      "ContentCardLineage": {
+        "required": [
+          "kind",
+          "id",
+          "versionId",
+          "versionNumber",
+          "label",
+          "available"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ContentCardLineageKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContentCardLineageIds": {
+        "required": [
+          "creativeContextId",
+          "recipeId",
+          "recipeVersionId",
+          "promptRecordId",
+          "mediaAssetId",
+          "mediaAssetVersionNumber",
+          "socialPackageId"
+        ],
+        "type": "object",
+        "properties": {
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "socialPackageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ContentCardLineageKind": {
+        "enum": [
+          "CreativeContext",
+          "Recipe",
+          "PromptRecord",
+          "MediaAsset",
+          "SocialPackage"
+        ],
+        "type": "string"
+      },
+      "ContentCardLinkedAsset": {
+        "required": [
+          "outcome",
+          "mediaAssetId",
+          "alreadyRemoved",
+          "otherCardCount",
+          "affected"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/ContentCardLinkedAssetOutcome"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "alreadyRemoved": {
+            "type": "boolean"
+          },
+          "otherCardCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "affected": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardAffectedContent"
+              }
+            ]
+          }
+        }
+      },
+      "ContentCardLinkedAssetAction": {
+        "enum": [
+          "Keep",
+          "Remove"
+        ],
+        "type": "string"
+      },
+      "ContentCardLinkedAssetOutcome": {
+        "enum": [
+          "None",
+          "Kept",
+          "Removed"
+        ],
+        "type": "string"
+      },
+      "ContentCardPackage": {
+        "required": [
+          "recipeId",
+          "recipeVersionId",
+          "editorialProposalId",
+          "editorialRevisionId",
+          "socialPackageId",
+          "assets",
+          "channels",
+          "window",
+          "needsReview",
+          "needsReviewAllowedAt",
+          "blocked",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "editorialProposalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "editorialRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "socialPackageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardPackageAsset"
+            }
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardPackageChannel"
+            }
+          },
+          "window": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardPackageWindow"
+              }
+            ]
+          },
+          "needsReview": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardPackageReview"
+            }
+          },
+          "needsReviewAllowedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContentCardPackageAsset": {
+        "required": [
+          "mediaAssetId",
+          "versionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ContentCardPackageChannel": {
+        "required": [
+          "channelKey",
+          "socialPackageChannelId",
+          "socialRevisionId"
+        ],
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": "string"
+          },
+          "socialPackageChannelId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "socialRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "ContentCardPackageReview": {
+        "required": [
+          "reason",
+          "channelKey"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "$ref": "#/components/schemas/ContentCardPackageReviewReason"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ContentCardPackageReviewReason": {
+        "enum": [
+          "RecipeVersionSuperseded",
+          "RecipeUnavailable",
+          "EditorialNeedsReview",
+          "EditorialForAnotherRecipeVersion",
+          "PostNeedsReview",
+          "PostForAnotherRecipeVersion"
+        ],
+        "type": "string"
+      },
+      "ContentCardPackageWindow": {
+        "required": [
+          "startsAt",
+          "endsAt",
+          "timeZoneId",
+          "localStartsAt",
+          "localEndsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "localStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "localEndsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ContentCardPage": {
+        "required": [
+          "items",
+          "nextCursor",
+          "columns"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentCardColumnCount"
+            }
+          }
+        }
+      },
+      "ContentCardPublishing": {
+        "required": [
+          "publicationCount",
+          "publishedCount",
+          "lastPublishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "publicationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "publishedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastPublishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ContentCardSummary": {
+        "required": [
+          "id",
+          "title",
+          "descriptionPreview",
+          "descriptionLength",
+          "column",
+          "channelKey",
+          "plannedDate",
+          "plannedDay",
+          "cuisineCode",
+          "dishTypeCode",
+          "methodCode",
+          "lineage",
+          "moveCount",
+          "hasPackage",
+          "publishing",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "descriptionPreview": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "descriptionLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "column": {
+            "$ref": "#/components/schemas/ContentCardColumn"
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plannedDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "plannedDay": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "cuisineCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dishTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "methodCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lineage": {
+            "$ref": "#/components/schemas/ContentCardLineageIds"
+          },
+          "moveCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hasPackage": {
+            "type": "boolean"
+          },
+          "publishing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardPublishing"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
             "type": "string"
           }
         }
@@ -25354,6 +27242,115 @@
           }
         }
       },
+      "CreateContentCard": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "column": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardColumn"
+              }
+            ]
+          },
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plannedDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "cuisineCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dishTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "methodCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "socialPackageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "CreateCreativeContext": {
         "type": "object",
         "properties": {
@@ -25688,6 +27685,89 @@
             "items": {
               "$ref": "#/components/schemas/RecipeIngredientGroupInput"
             }
+          }
+        }
+      },
+      "CreateRecipePackage": {
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "editorialRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "channels": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipePackageChannelInput"
+            }
+          },
+          "assets": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipePackageAssetInput"
+            }
+          },
+          "window": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecipePackageWindowInput"
+              }
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "column": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardColumn"
+              }
+            ]
+          },
+          "allowNeedsReview": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -26367,6 +28447,40 @@
           "Saturday"
         ],
         "type": "string"
+      },
+      "DeleteContentCard": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Must be true. States that a person confirmed this deletion; a request without it is refused."
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "linkedAsset": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardLinkedAssetAction"
+              }
+            ]
+          },
+          "linkedAssetConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "DeleteMediaAsset": {
         "type": "object",
@@ -29301,6 +31415,40 @@
         ],
         "type": "string"
       },
+      "MoveContentCard": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "column": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentCardColumn"
+              }
+            ]
+          },
+          "beforeCardId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "MyWorkspaceMembership": {
         "required": [
           "workspaceId",
@@ -29993,6 +32141,144 @@
             "format": "date-time"
           }
         }
+      },
+      "PublishingConnection": {
+        "required": [
+          "providerKey",
+          "status",
+          "lastCheckedAt",
+          "lastSucceededAt",
+          "retryAfterSeconds"
+        ],
+        "type": "object",
+        "properties": {
+          "providerKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublishingConnectionStatus"
+          },
+          "lastCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastSucceededAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "retryAfterSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PublishingConnectionStatus": {
+        "enum": [
+          "Connected",
+          "NotConfigured",
+          "CredentialRejected",
+          "RateLimited",
+          "Unavailable"
+        ],
+        "type": "string"
+      },
+      "PublishingPlatform": {
+        "enum": [
+          "Other",
+          "Instagram",
+          "Facebook",
+          "X",
+          "LinkedIn",
+          "Pinterest",
+          "TikTok",
+          "YouTube",
+          "Mastodon",
+          "Bluesky",
+          "Threads",
+          "WhatsApp"
+        ],
+        "type": "string"
+      },
+      "PublishingProfile": {
+        "required": [
+          "id",
+          "providerKey",
+          "platform",
+          "displayName",
+          "timeZoneId",
+          "status",
+          "lastSeenAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerKey": {
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/PublishingPlatform"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublishingProfileStatus"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PublishingProfiles": {
+        "required": [
+          "connection",
+          "profiles"
+        ],
+        "type": "object",
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/PublishingConnection"
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublishingProfile"
+            }
+          }
+        }
+      },
+      "PublishingProfileStatus": {
+        "enum": [
+          "Ready",
+          "NeedsReconnecting",
+          "Locked",
+          "Removed"
+        ],
+        "type": "string"
       },
       "PutLongFormFraming": {
         "type": "object",
@@ -31355,6 +33641,76 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "RecipePackageAssetInput": {
+        "required": [
+          "mediaAssetId",
+          "versionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "RecipePackageChannelInput": {
+        "required": [
+          "channelKey",
+          "socialRevisionId"
+        ],
+        "type": "object",
+        "properties": {
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "socialRevisionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "RecipePackageWindowInput": {
+        "required": [
+          "localStartsAt",
+          "localEndsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "localStartsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "localEndsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -35014,6 +37370,112 @@
           }
         }
       },
+      "UpdateContentCard": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "column": {},
+          "channelKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plannedDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "cuisineCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dishTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "methodCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creativeContextId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "promptRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "socialPackageId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "UpdateRecipe": {
         "type": "object",
         "properties": {
@@ -35828,7 +38290,13 @@
       "name": "ChannelPostRequests"
     },
     {
+      "name": "ContentCards"
+    },
+    {
       "name": "ContentSeeds"
+    },
+    {
+      "name": "CreativeContextBoardCard"
     },
     {
       "name": "CreativeContextPosts"
@@ -35874,6 +38342,9 @@
     },
     {
       "name": "ProposalExplanationRequests"
+    },
+    {
+      "name": "PublishingProfiles"
     },
     {
       "name": "RecipeAdaptationRequests"
