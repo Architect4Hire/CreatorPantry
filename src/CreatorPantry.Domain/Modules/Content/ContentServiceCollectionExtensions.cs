@@ -92,6 +92,12 @@ public static class ContentServiceCollectionExtensions
         services.AddScoped<IContentCardBusiness, ContentCardBusiness>();
         services.AddScoped<IContentCardFacade, ContentCardFacade>();
 
+        // The dashboard's reads of the board (13.11).
+        services.AddScoped<IContentDashboardRepository, ContentDashboardRepository>();
+        services.AddScoped<IContentDashboardDataLayer, ContentDashboardDataLayer>();
+        services.AddScoped<IContentDashboardBusiness, ContentDashboardBusiness>();
+        services.AddScoped<IContentDashboardFacade, ContentDashboardFacade>();
+
         // The id check another module makes before it writes a row naming a card (13.10a).
         services.AddScoped<IContentCardLookupBusiness, ContentCardLookupBusiness>();
         services.AddScoped<IContentCardLookupFacade, ContentCardLookupFacade>();

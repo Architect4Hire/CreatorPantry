@@ -429,7 +429,12 @@ export class RecipeEditorComponent {
     // Reads the saved version's export summary, which a recipe being created does not have yet.
     { id: 'publish', label: 'Publish', disabled: this.isCreateMode },
   ];
-  readonly selectedAreaId = signal('edit');
+  /**
+   * The area the recipe opens on: `?area=` when it names one this recipe can show (the dashboard links a
+   * blocked recipe straight to Readiness and a test issue to Test kitchen), and Edit otherwise. Read once, as
+   * the page opens — it is where the creator lands, not a setting the address keeps in step with.
+   */
+  readonly selectedAreaId = signal(this.openingArea());
 
   /**
    * Why three of the four areas are greyed out before the first save, said in words beside them.
@@ -1078,6 +1083,14 @@ export class RecipeEditorComponent {
     };
     window.addEventListener('beforeunload', beforeUnloadHandler);
     this.destroyRef.onDestroy(() => window.removeEventListener('beforeunload', beforeUnloadHandler));
+  }
+
+  /** The `?area=` the page was opened with, when it is an area this recipe offers; Edit otherwise. */
+  private openingArea(): string {
+    const asked = this.route.snapshot.queryParamMap.get('area');
+    const area = this.areas.find((candidate) => candidate.id === asked && !candidate.disabled);
+
+    return area?.id ?? 'edit';
   }
 
   /**

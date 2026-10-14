@@ -63,8 +63,8 @@ import { channelNameOf, publishingStatusOf } from './content-board-presentation'
 
       <dl cpFacts layout="inline">
         @if (card().plannedDate; as planned) {
-          <!-- A calendar date, not an instant: read in UTC so it is the same day in every zone. -->
-          <div cpFact label="Planned">{{ planned | date: 'EEE, MMM d, y' : 'UTC' }}</div>
+          <!-- A calendar day, not an instant: read and shown as UTC midnight so it is that day for every reader. A bare date would be read as local midnight, a day out east of UTC. -->
+          <div cpFact label="Planned">{{ planned + 'T00:00:00Z' | date: 'EEE, MMM d, y' : 'UTC' }}</div>
         }
         <div cpFact label="Moves">{{ card().moveCount }}</div>
       </dl>

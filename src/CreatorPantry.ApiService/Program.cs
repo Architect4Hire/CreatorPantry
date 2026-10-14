@@ -19,6 +19,8 @@ using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
+using CreatorPantry.Domain.Modules.Dashboard;
+using CreatorPantry.Domain.Modules.Workflows;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Publishing;
 using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
@@ -105,6 +107,14 @@ builder.Services.AddMediaModule();
 // that with Buffer only when this host has been handed a key and the workspace it belongs to.
 builder.Services.AddPublishingModule();
 builder.Services.AddBufferPublishing(builder.Configuration);
+
+// The workspace dashboard (13.11): a read-only projection that asks each module above through its facade, the
+// readiness seam included, so it is registered after all of them. The worker has no dashboard.
+builder.Services.AddDashboardModule();
+
+// Guided-workflow runs (13A.5). Starting one checks its starting record through the recipe, media and content
+// modules and reads the brand profile for the workspace's time zone, so it is registered after all of them.
+builder.Services.AddWorkflowsModule();
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

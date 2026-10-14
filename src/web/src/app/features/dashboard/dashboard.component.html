@@ -1,0 +1,365 @@
+<cp-page-head [heading]="pageTitle" lede="What needs you, what is coming up, and where your work stands.">
+  @if (dashboard()) {
+    <!-- Never disabled: a focused control that disables itself drops focus to the page. A second press while a
+         refresh is running is simply ignored, and the button says it is running. -->
+    <button cpPageHeadActions cpButton type="button" variant="secondary" [attr.aria-disabled]="refreshing() ? 'true' : null" (click)="refresh()">
+      {{ refreshing() ? 'Refreshing…' : 'Refresh' }}
+    </button>
+  }
+</cp-page-head>
+
+<!-- The one place for what is true of the whole page. Always present, so a refresh's outcome is announced. -->
+<cp-notice class="outcome" role="status" [quiet]="message() === ''" [tone]="messageTone()">{{ message() }}</cp-notice>
+
+@switch (state().status) {
+  @case ('loading') {
+    <cp-card><p class="plain" role="status">Loading your dashboard…</p></cp-card>
+  }
+  @case ('not_found') {
+    <cp-card><cp-notice tone="error" role="alert">This workspace could not be found.</cp-notice></cp-card>
+  }
+  @case ('error') {
+    <cp-card>
+      <cp-notice tone="error" role="alert">
+        Your dashboard couldn't be loaded just now. Nothing has been lost.
+        <button cpButton type="button" variant="secondary" size="sm" aria-label="Try loading your dashboard again" (click)="refresh()">
+          Try again
+        </button>
+      </cp-notice>
+    </cp-card>
+  }
+  @case ('ready') {
+    @if (dashboard(); as shown) {
+      <p class="cp-muted plain updated">
+        Read at {{ when(shown.generatedAt, 'time') }} · today is {{ day(shown.today, 'long') }}
+        @if (!shown.timeZoneId) {
+          (in UTC — set your time zone in Brand settings)
+        }
+      </p>
+
+      @if (firstUse()) {
+        <cp-topic-card heading="Get started" headingId="dashboard-start-heading">
+          <p class="plain">
+            Nothing here yet. Start a recipe, or plan a piece of work on the board, and this page will keep track of
+            what needs you.
+          </p>
+          <div cpTopicCardActions class="cp-actions">
+            <a cpButton variant="primary" [routerLink]="link('recipes', 'new')">Start a recipe</a>
+            <a cpButton variant="secondary" [routerLink]="link('content-board')">Open the board</a>
+          </div>
+        </cp-topic-card>
+      }
+
+      <ul cpCardGrid minColumn="22rem" aria-label="Your workspace at a glance" class="topics">
+        <!-- 1. What needs the creator now. -->
+        <li>
+          <cp-topic-card heading="Publishing that needs you" headingId="dashboard-attention-heading">
+            @if (data(shown.publishing); as attention) {
+              @if (attention.needsAttentionCount === 0) {
+                <p class="plain cp-muted">No post failed or is waiting on you.</p>
+              } @else {
+                <p class="plain count">
+                  <strong>{{ attention.needsAttentionCount }}</strong>
+                  {{ attention.needsAttentionCount === 1 ? 'post needs' : 'posts need' }} a look.
+                </p>
+                <ul class="items" aria-label="Posts that need a look">
+                  @for (item of attention.needsAttention; track item.id) {
+                    <li>
+                      @if (item.contentCardId; as cardId) {
+                        <a [routerLink]="link('content-board', cardId)">{{ postTitle(item) }}</a>
+                      } @else {
+                        <span class="name">{{ postTitle(item) }}</span>
+                      }
+                      <span class="tags">
+                        <cp-status-pill [tone]="publishingWords[item.status].tone">{{ publishingWords[item.status].label }}</cp-status-pill>
+                        <cp-badge tone="blue">{{ platformName(item.platform) }}</cp-badge>
+                      </span>
+                      <dl cpFacts layout="inline">
+                        <div cpFact label="For">{{ when(item.scheduledAt, 'dayTime') }}</div>
+                      </dl>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'publishing' }" />
+            }
+          </cp-topic-card>
+        </li>
+
+        <li>
+          <cp-topic-card heading="Readiness blockers" headingId="dashboard-readiness-heading">
+            @if (data(shown.readinessBlockers); as readiness) {
+              @if (readiness.evaluated === 0 && readiness.unevaluated === 0) {
+                <p class="plain cp-muted">No recipes in progress to check.</p>
+              } @else {
+                @if (readiness.evaluated > 0) {
+                  <p class="plain cp-muted">
+                    Checked {{ readiness.evaluated === 1 ? 'the recipe' : 'the ' + readiness.evaluated + ' recipes' }} you changed most recently.
+                  </p>
+                }
+                @if (readiness.blocked.length === 0 && readiness.evaluated > 0) {
+                  <p class="plain">{{ readiness.evaluated === 1 ? 'It is not blocked.' : 'None of them is blocked.' }}</p>
+                } @else if (readiness.blocked.length > 0) {
+                  <ul class="items" aria-label="Blocked recipes">
+                    @for (recipe of readiness.blocked; track recipe.recipeId) {
+                      <li>
+                        <a
+                          [routerLink]="link('recipes', recipe.recipeId)"
+                          [queryParams]="{ area: 'readiness' }"
+                          [attr.aria-label]="'Readiness of ' + recipe.title"
+                          >{{ recipe.title }}</a
+                        >
+                        <span class="tags">
+                          <cp-status-pill tone="error">
+                            {{ recipe.blockerCount === 1 ? '1 blocker' : recipe.blockerCount + ' blockers' }}
+                          </cp-status-pill>
+                        </span>
+                        <ul class="reasons" [attr.aria-label]="'What blocks ' + recipe.title">
+                          @for (blocker of recipe.blockers; track blocker.ruleId) {
+                            <li>{{ blocker.summary }}</li>
+                          }
+                        </ul>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (readiness.unevaluated > 0) {
+                  <p class="plain cp-muted">
+                    {{ readiness.unevaluated === 1 ? 'One recipe' : readiness.unevaluated + ' recipes' }} couldn't be checked just now.
+                  </p>
+                }
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'readiness' }" />
+            }
+          </cp-topic-card>
+        </li>
+
+        <li>
+          <cp-topic-card heading="Test kitchen follow-ups" headingId="dashboard-tests-heading">
+            @if (data(shown.testFollowUps); as tests) {
+              @if (tests.open === 0) {
+                <p class="plain cp-muted">No test issues are waiting to be resolved.</p>
+              } @else {
+                <dl cpFacts layout="inline">
+                  <div cpFact label="Open">{{ tests.open }}</div>
+                  <div cpFact label="Blocking">{{ tests.blocking }}</div>
+                  <div cpFact label="Major">{{ tests.major }}</div>
+                  <div cpFact label="Minor">{{ tests.minor }}</div>
+                </dl>
+                <ul class="items" aria-label="Test issues to look at first">
+                  @for (issue of tests.recent; track issue.issueId) {
+                    <li>
+                      <a [routerLink]="link('recipes', issue.recipeId)" [queryParams]="{ area: 'tests' }">{{ issue.title }}</a>
+                      <span class="tags">
+                        <cp-status-pill [tone]="severityWords[issue.severity].tone">{{ severityWords[issue.severity].label }}</cp-status-pill>
+                      </span>
+                      <dl cpFacts layout="inline">
+                        <div cpFact label="Recipe">{{ issue.recipeTitle }}</div>
+                        <div cpFact label="Tested">{{ when(issue.testedAt, 'day') }}</div>
+                      </dl>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'test follow-ups' }" />
+            }
+          </cp-topic-card>
+        </li>
+
+        <li>
+          <cp-topic-card heading="AI proposals to review" headingId="dashboard-proposals-heading">
+            @if (data(shown.aiProposals); as proposals) {
+              @if (proposals.awaitingDecision === 0) {
+                <p class="plain cp-muted">No proposals are waiting for you.</p>
+              } @else {
+                <p class="plain count">
+                  <strong>{{ proposals.awaitingDecision }}</strong>
+                  {{ proposals.awaitingDecision === 1 ? 'proposal is' : 'proposals are' }} waiting for you to accept or reject.
+                </p>
+                <ul class="items" aria-label="Proposals waiting for you">
+                  @for (proposal of proposals.recent; track proposal.operationId) {
+                    <li>
+                      @if (proposal.recipeId; as recipeId) {
+                        <a [routerLink]="link('recipes', recipeId)">{{ proposal.recipeTitle ?? 'A recipe' }}</a>
+                      } @else {
+                        <span class="name">{{ aiTaskLabel(proposal.taskType) }}</span>
+                      }
+                      <span class="tags">
+                        <cp-badge tone="purple">{{ aiTaskLabel(proposal.taskType) }}</cp-badge>
+                      </span>
+                      <dl cpFacts layout="inline">
+                        <div cpFact label="Ready">{{ when(proposal.proposedAt, 'dayTime') }}</div>
+                      </dl>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'AI proposals' }" />
+            }
+          </cp-topic-card>
+        </li>
+
+        <!-- 2. What is coming up. -->
+        <li>
+          <cp-topic-card heading="Coming up" headingId="dashboard-upcoming-heading">
+            @if (data(shown.upcoming); as upcoming) {
+              <p class="plain cp-muted">{{ day(upcoming.from, 'short') }} to {{ day(upcoming.through, 'short') }}</p>
+              @if (upcoming.cardCount === 0 && upcoming.postCount === 0) {
+                <p class="plain cp-muted">Nothing planned or scheduled in the next two weeks.</p>
+              } @else {
+                <dl cpFacts layout="inline">
+                  <div cpFact label="Planned cards">{{ upcoming.cardCount }}</div>
+                  <div cpFact label="Scheduled posts">{{ upcoming.postCount }}</div>
+                </dl>
+                @if (upcoming.cards.length > 0) {
+                  <ul class="items" aria-label="Planned cards, soonest first">
+                    @for (card of upcoming.cards; track card.id) {
+                      <li>
+                        <a [routerLink]="link('content-board', card.id)">{{ card.title }}</a>
+                        <span class="tags">
+                          <cp-badge>{{ columnLabels[card.column] }}</cp-badge>
+                        </span>
+                        <dl cpFacts layout="inline">
+                          <div cpFact label="Planned">{{ day(card.plannedDate, 'weekday') }}</div>
+                        </dl>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (upcoming.posts.length > 0) {
+                  <ul class="items" aria-label="Scheduled posts, soonest first">
+                    @for (post of upcoming.posts; track post.id) {
+                      <li>
+                        @if (post.contentCardId; as cardId) {
+                          <a [routerLink]="link('content-board', cardId)">{{ postTitle(post) }}</a>
+                        } @else {
+                          <span class="name">{{ postTitle(post) }}</span>
+                        }
+                        <span class="tags">
+                          <cp-status-pill [tone]="publishingWords[post.status].tone">{{ publishingWords[post.status].label }}</cp-status-pill>
+                          <cp-badge tone="blue">{{ platformName(post.platform) }}</cp-badge>
+                        </span>
+                        <dl cpFacts layout="inline">
+                          <div cpFact label="Goes out">{{ when(post.scheduledAt, 'dayTime') }}</div>
+                        </dl>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'what is coming up' }" />
+            }
+          </cp-topic-card>
+        </li>
+
+        <!-- 3. Where the work stands. -->
+        <li>
+          <cp-topic-card heading="Recipes in progress" headingId="dashboard-recipes-heading">
+            @if (data(shown.recipesInProgress); as recipes) {
+              <dl cpFacts layout="inline">
+                @for (count of recipes.counts; track count.status) {
+                  <div cpFact [label]="recipeStatusLabels[count.status]">{{ count.count }}</div>
+                }
+              </dl>
+              @if (recipes.recent.length === 0) {
+                <p class="plain cp-muted">No recipes in progress.</p>
+              } @else {
+                <ul class="items" aria-label="Recipes changed most recently">
+                  @for (recipe of recipes.recent; track recipe.id) {
+                    <li>
+                      <a [routerLink]="link('recipes', recipe.id)">{{ recipe.title }}</a>
+                      <span class="tags">
+                        <cp-badge>{{ recipeStatusLabels[recipe.status] }}</cp-badge>
+                      </span>
+                      <dl cpFacts layout="inline">
+                        <div cpFact label="Changed">{{ when(recipe.updatedAt, 'day') }}</div>
+                      </dl>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'recipes in progress' }" />
+            }
+            <div cpTopicCardActions class="cp-actions">
+              <a cpButton variant="secondary" size="sm" [routerLink]="link('recipes')">All recipes</a>
+            </div>
+          </cp-topic-card>
+        </li>
+
+        <li>
+          <cp-topic-card heading="Content board" headingId="dashboard-board-heading">
+            @if (data(shown.board); as board) {
+              <dl cpFacts layout="inline">
+                @for (column of board.columns; track column.column) {
+                  <div cpFact [label]="columnLabels[column.column]">{{ column.count }}</div>
+                }
+                <div cpFact label="In all">{{ board.total }}</div>
+              </dl>
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'the board' }" />
+            }
+            <div cpTopicCardActions class="cp-actions">
+              <a cpButton variant="secondary" size="sm" [routerLink]="link('content-board')">Open the board</a>
+            </div>
+          </cp-topic-card>
+        </li>
+
+        <li>
+          <cp-topic-card heading="Recently added pictures" headingId="dashboard-uploads-heading">
+            @if (data(shown.recentUploads); as uploads) {
+              @if (uploads.length === 0) {
+                <p class="plain cp-muted">Nothing in the library yet.</p>
+              } @else {
+                <ul class="items" aria-label="Pictures added most recently">
+                  @for (upload of uploads; track upload.id) {
+                    <li>
+                      <a [routerLink]="link('dam', upload.id)">{{ upload.title }}</a>
+                      @if (upload.kind; as kind) {
+                        <span class="tags">
+                          <cp-badge>{{ kindLabels[kind] }}</cp-badge>
+                        </span>
+                      }
+                      <dl cpFacts layout="inline">
+                        <div cpFact label="Added">{{ when(upload.createdAt, 'day') }}</div>
+                      </dl>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ng-container [ngTemplateOutlet]="unavailable" [ngTemplateOutletContext]="{ $implicit: 'recent pictures' }" />
+            }
+            <div cpTopicCardActions class="cp-actions">
+              <a cpButton variant="secondary" size="sm" [routerLink]="link('dam')">Open the library</a>
+            </div>
+          </cp-topic-card>
+        </li>
+      </ul>
+    }
+  }
+}
+
+<!-- What a topic says when its part of the dashboard could not be read. The rest of the page is unaffected.
+     The retry reads the whole dashboard again, and is named for the part that needs it. -->
+<ng-template #unavailable let-name>
+  <cp-notice tone="warning" role="status">
+    This couldn't be read just now.
+    <button
+      cpButton
+      type="button"
+      variant="secondary"
+      size="sm"
+      [attr.aria-label]="'Try reading ' + name + ' again'"
+      [attr.aria-disabled]="refreshing() ? 'true' : null"
+      (click)="refresh()"
+    >
+      Try again
+    </button>
+  </cp-notice>
+</ng-template>

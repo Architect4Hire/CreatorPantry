@@ -63,6 +63,12 @@ public static class AiServiceCollectionExtensions
         // gate in behind it.
         services.AddScoped<IAiProposalLookupBusiness, AiProposalLookupBusiness>();
         services.AddScoped<IAiProposalLookupFacade, AiProposalLookupFacade>();
+
+        // The dashboard's read of proposals awaiting a decision (13.11).
+        services.AddScoped<IAiDashboardRepository, AiDashboardRepository>();
+        services.AddScoped<IAiDashboardDataLayer, AiDashboardDataLayer>();
+        services.AddScoped<IAiDashboardBusiness, AiDashboardBusiness>();
+        services.AddScoped<IAiDashboardFacade, AiDashboardFacade>();
         services.AddScoped<IAiConceptLookupBusiness, AiConceptLookupBusiness>();
         services.AddScoped<IAiConceptLookupFacade, AiConceptLookupFacade>();
 

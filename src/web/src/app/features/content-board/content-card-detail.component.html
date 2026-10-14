@@ -62,8 +62,8 @@
           <div cpFact label="Channel">{{ channelName() || 'No channel in particular' }}</div>
           <div cpFact label="Planned for">
             @if (shown.card.plannedDate; as planned) {
-              <!-- A calendar date, not an instant: read in UTC so it is the same day in every zone. -->
-              {{ planned | date: 'fullDate' : 'UTC' }}
+              <!-- A calendar day, not an instant: read and shown as UTC midnight so it is that day for every reader. A bare date would be read as local midnight, a day out east of UTC. -->
+              {{ planned + 'T00:00:00Z' | date: 'fullDate' : 'UTC' }}
             } @else {
               No date
             }

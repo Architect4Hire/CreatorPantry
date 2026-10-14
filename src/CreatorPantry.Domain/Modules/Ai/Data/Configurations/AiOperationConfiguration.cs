@@ -140,6 +140,13 @@ internal sealed class AiOperationConfiguration : IEntityTypeConfiguration<AiOper
         builder.HasIndex(operation => new { operation.WorkspaceId, operation.RecipeId, operation.StatusChangedAt })
             .HasDatabaseName("IX_AiOperations_Workspace_Recipe_StatusChangedAt");
 
+        // The workspace's operations in one state, newest first: the dashboard's "proposals awaiting a decision"
+        // (13.11) is a count and the top five of Status = Proposed. Without it both scan every operation the
+        // workspace has ever made, which only grows.
+        builder.HasIndex(operation => new { operation.WorkspaceId, operation.Status, operation.StatusChangedAt, operation.Id })
+            .IsDescending(false, false, true, true)
+            .HasDatabaseName("IX_AiOperations_Workspace_Status_StatusChanged");
+
         // Deliberately NOT workspace-leading, and the only index in the schema that is not.
         //
         // This is the queue-claim seek. A worker looks for Requested work across every workspace, because it

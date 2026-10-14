@@ -20,6 +20,7 @@ import { SignInComponent } from './features/sign-in/sign-in.component';
 import { SignUpComponent } from './features/sign-up/sign-up.component';
 import { ConfirmEmailComponent } from './features/confirm-email/confirm-email.component';
 import { ContentBoardComponent } from './features/content-board/content-board.component';
+import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { ContentCardDetailComponent } from './features/content-board/content-card-detail.component';
 import { DamAssetDetailComponent } from './features/dam/dam-asset-detail.component';
 import { damAssetDetailCanDeactivateGuard } from './features/dam/dam-asset-detail.guard';
@@ -131,6 +132,7 @@ describe('app routes', () => {
         route.path !== 'dam' &&
         route.path !== 'prompt-library' &&
         route.path !== 'content-board' &&
+        route.path !== 'dashboard' &&
         route.path !== 'settings',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
@@ -147,6 +149,12 @@ describe('app routes', () => {
     expect(await settingsRoute.children![1].loadComponent!()).toBe(ThemedDaysComponent);
     expect(settingsRoute.children![1].canDeactivate).toEqual([themedDaysCanDeactivateGuard]);
     expect(settingsRoute.children![1].data?.['title']).toBe('Themed days');
+
+    // 'dashboard' is the dashboard (13.12), no longer a placeholder, and still where '' redirects to.
+    const dashboard = workspaceRoute.children!.find((route) => route.path === 'dashboard')!;
+    expect(await dashboard.loadComponent!()).toBe(DashboardComponent);
+    expect(dashboard.data?.['title']).toBe('Dashboard');
+    expect(workspaceRoute.children!.find((route) => route.path === '')?.redirectTo).toBe('dashboard');
 
     // 'content-board' is the board (13.8), no longer a placeholder: the board at its index, wide because it
     // sets four columns side by side, and one card's own page beside it. Neither is guarded: a move is sent as

@@ -8,7 +8,7 @@ import { themedDaysCanDeactivateGuard } from './features/workspace-settings/them
 import { CONTEXT_ROUTE_PARAM, CONTEXT_ROUTE_SEGMENT } from './shared/use-this-in/handoff-destinations';
 
 const SECTION_ROUTES: Routes = [
-  { path: 'dashboard', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'Dashboard' } },
+  { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent), data: { title: 'Dashboard' } },
   // 'workflows' is the hub plus the guided journeys it lists, so the Workflows nav item stays active while
   // one is running (RouterLinkActive matches the subtree) — the same reason 'brand' owns its setup wizard.
   {

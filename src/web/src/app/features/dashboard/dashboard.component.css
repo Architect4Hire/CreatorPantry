@@ -1,0 +1,65 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+/* The page is a grid whose gap is already the space a page head carries beneath it. */
+cp-page-head {
+  margin-bottom: 0;
+}
+
+.plain {
+  margin: 0;
+}
+
+.updated {
+  font-size: var(--cp-font-size-sm);
+}
+
+/* Each topic card fills its grid cell, so a row of cards ends level. */
+.topics > li {
+  display: grid;
+}
+
+.count strong {
+  font-size: var(--cp-font-size-lg);
+}
+
+/* A short list of things, each a link with its state beside it. Not cards: they live inside one. */
+.items {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.items > li {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* An item's name: a link where it has somewhere to go, at the 40px every other target in the product is. */
+.items a,
+.items .name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  font-weight: 600;
+}
+
+/* The pills and badges that say what an item is and where it stands. Its values are an inline facts list. */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+.reasons {
+  margin: 0;
+  padding-left: var(--cp-space-5);
+  font-size: var(--cp-font-size-sm);
+}

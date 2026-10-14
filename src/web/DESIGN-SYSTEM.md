@@ -148,6 +148,21 @@ The four libraries are the references: `DamLibraryComponent` for cards with pict
 
 `BrandSettingsComponent`, `BrandGuideEditorComponent`, `WorkspaceSettingsComponent` and `ThemedDaysComponent` are the references.
 
+**A dashboard** is a detail page about the workspace (`DashboardComponent`). It keeps that shape's head — no
+back link, because it is top-level — and its one place for what is true of the whole page (when it was read,
+and which day "today" is). The one difference: its topics are many and short, so its `cp-topic-card`s sit in a
+`ul[cpCardGrid]` (`minColumn="22rem"`) rather than one column, two or three across on a wide screen and one on a
+phone, ordered from what needs the creator now to what is worth a glance.
+
+- **Every number is the server's.** A dashboard shows the counts its read model gives and derives none — no
+  total added up in the browser — and draws no chart that does not change a decision.
+- **Each topic stands alone.** A topic whose part of the read model could not be read keeps its card and says so
+  inside it with a way to try again; the others are untouched. An empty topic says what empty means in its own
+  words.
+- **Every item opens where it can be dealt with**, by its title: a blocked recipe on its Readiness tab
+  (`?area=readiness`), a test issue on Test kitchen (`?area=tests`), a post on its card. An item with nowhere of
+  its own to go is listed without a link.
+
 ### The third shape: a flow
 
 A flow takes the creator through a piece of work in order, keeping what they enter as they go (`ContentPipelineShellComponent`, `BrandSetupShellComponent`):

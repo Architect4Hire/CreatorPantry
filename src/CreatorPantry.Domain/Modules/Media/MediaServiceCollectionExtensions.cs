@@ -84,6 +84,12 @@ public static class MediaServiceCollectionExtensions
         services.AddScoped<IMediaAssetLookupBusiness, MediaAssetLookupBusiness>();
         services.AddScoped<IMediaAssetLookupFacade, MediaAssetLookupFacade>();
 
+        // The dashboard's read of what was added most recently (13.11).
+        services.AddScoped<IMediaDashboardRepository, MediaDashboardRepository>();
+        services.AddScoped<IMediaDashboardDataLayer, MediaDashboardDataLayer>();
+        services.AddScoped<IMediaDashboardBusiness, MediaDashboardBusiness>();
+        services.AddScoped<IMediaDashboardFacade, MediaDashboardFacade>();
+
         // Stored picture analyses (AF.3.4): what a model saw in a picture, kept so it need not look twice.
         services.AddScoped<IMediaPictureAnalysisRepository, MediaPictureAnalysisRepository>();
         services.AddScoped<IMediaPictureAnalysisDataLayer, MediaPictureAnalysisDataLayer>();

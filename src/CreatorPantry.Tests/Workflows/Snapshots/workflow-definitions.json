@@ -1,0 +1,955 @@
+{
+  "assets.organize@1": {
+    "key": "assets.organize",
+    "version": 1,
+    "goal": "Organize your pictures",
+    "description": "Add a picture to your library, or pick one already there, and describe it so you can find it again.",
+    "expectedOutcome": "A picture in your library, described and tagged so you can find it again.",
+    "prerequisites": [],
+    "startsFrom": [
+      "MediaAsset"
+    ],
+    "steps": [
+      {
+        "key": "add",
+        "title": "Upload a picture or choose one",
+        "help": "Your original is kept exactly as you uploaded it.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "assets.library",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "MediaAsset"
+          ]
+        }
+      },
+      {
+        "key": "describe",
+        "title": "Describe it",
+        "help": "Say what is in the picture, for people who cannot see it and for search.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "assets.detail",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "tag",
+        "title": "Tag it",
+        "help": "Pick from your tags so it turns up when you look for it later.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "assets.detail",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "note-use",
+        "title": "Note where you used it",
+        "help": "Keep track of where it has already appeared.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "assets.detail",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "social.create",
+        "why": "Write posts that use it."
+      },
+      {
+        "workflow": "images.create",
+        "why": "Make more pictures in the same style."
+      }
+    ]
+  },
+  "brand.voice@1": {
+    "key": "brand.voice",
+    "version": 1,
+    "goal": "Create my brand voice",
+    "description": "Answer a few questions and share some of your writing, and get a guide to how you sound.",
+    "expectedOutcome": "A brand guide that sounds like you, switched on so new writing uses it.",
+    "prerequisites": [],
+    "startsFrom": [],
+    "steps": [
+      {
+        "key": "set-up",
+        "title": "Tell us how you sound",
+        "help": "A few questions about what you make and who it is for. You can stop and come back at any point.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "brand.setup",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "BrandStyleGuide"
+          ]
+        }
+      },
+      {
+        "key": "examples",
+        "title": "Add writing you're proud of",
+        "help": "A few pieces you wrote help the guide sound like you. Your originals are never changed.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "brand.examples",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "review",
+        "title": "Read your guide and change anything",
+        "help": "It is your guide. Change any word that does not sound like you.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "brand.guide-edit",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "try",
+        "title": "Try it on a real piece",
+        "help": "See a short piece written with your guide before you decide.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "brand.test-drive",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "switch-on",
+        "title": "Switch it on",
+        "help": "From now on, new writing follows this guide. The workspace Owner makes this choice, and can switch back.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "brand.switch-on",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "brandGuideIsActive": true
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "content.blog-and-seo",
+        "why": "Write your first piece in your own voice."
+      },
+      {
+        "workflow": "social.create",
+        "why": "Write posts that sound like you."
+      }
+    ]
+  },
+  "content.blog-and-seo@1": {
+    "key": "content.blog-and-seo",
+    "version": 1,
+    "goal": "Write a blog post or newsletter",
+    "description": "Plan a full article or newsletter issue, write it section by section, and accept it when it reads right.",
+    "expectedOutcome": "A finished article or newsletter you have accepted, with search suggestions and a copy to download.",
+    "prerequisites": [],
+    "startsFrom": [],
+    "steps": [
+      {
+        "key": "about",
+        "title": "Choose what it's about",
+        "help": "Start from one of your recipes or from an idea of your own.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "long-form.start",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "CreativeContext",
+            "LongFormDraft"
+          ]
+        }
+      },
+      {
+        "key": "outline",
+        "title": "Agree the plan",
+        "help": "Read the outline and change anything before any of it is written.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "long-form.outline",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "longFormDraftStatusIn": [
+            "Outlined",
+            "Writing",
+            "Assembled",
+            "Accepted",
+            "NeedsReview"
+          ]
+        }
+      },
+      {
+        "key": "write",
+        "title": "Write it",
+        "help": "Write each section yourself or ask for a first go, then edit it however you like.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "long-form.write",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "longFormDraftStatusIn": [
+            "Assembled",
+            "Accepted",
+            "NeedsReview"
+          ]
+        }
+      },
+      {
+        "key": "accept",
+        "title": "Read it and accept it",
+        "help": "Read the whole piece. Accepting keeps this exact text as the finished one.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "long-form.review",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "longFormDraftStatusIn": [
+            "Accepted"
+          ]
+        }
+      },
+      {
+        "key": "search",
+        "title": "Get search suggestions",
+        "help": "Suggested titles and descriptions to help people find it. They are suggestions only, never promises about ranking.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "long-form.search-suggestions",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "download",
+        "title": "Download it",
+        "help": "Take a copy to paste into your blog or newsletter tool.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "long-form.download",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "images.create",
+        "why": "Make pictures to go with it."
+      },
+      {
+        "workflow": "social.create",
+        "why": "Tell your followers it is out."
+      }
+    ]
+  },
+  "images.create@1": {
+    "key": "images.create",
+    "version": 1,
+    "goal": "Create food images",
+    "description": "Plan a picture of your food, make a few, and keep the ones you like in your library.",
+    "expectedOutcome": "Pictures you chose, kept in your library, and the best one on your recipe if you like.",
+    "prerequisites": [],
+    "startsFrom": [
+      "Recipe"
+    ],
+    "steps": [
+      {
+        "key": "about",
+        "title": "Choose what the picture is for",
+        "help": "A recipe or an idea. Your brand's look is used unless you change it.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "images.studio",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "CreativeContext"
+          ]
+        }
+      },
+      {
+        "key": "plan",
+        "title": "Plan the picture",
+        "help": "Describe the scene, or start from a suggestion. You can change every word before anything is made.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "images.studio-context",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "make-and-keep",
+        "title": "Make pictures and keep the best",
+        "help": "You see what it will use up before anything is made. Keep the ones you like; the rest are not saved.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "images.studio-context",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "MediaAsset"
+          ]
+        }
+      },
+      {
+        "key": "lead-picture",
+        "title": "Use it as your recipe's lead picture",
+        "help": "Put your favourite at the top of the recipe.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "recipes.lead-picture",
+          "alternatives": []
+        },
+        "prerequisites": [
+          {
+            "resourceLinked": "Recipe"
+          }
+        ],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.media.heroMissing"
+          ]
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "social.create",
+        "why": "Write posts to go with your pictures."
+      },
+      {
+        "workflow": "assets.organize",
+        "why": "Describe and tag them so you can find them again."
+      }
+    ]
+  },
+  "planning.day-and-week@1": {
+    "key": "planning.day-and-week",
+    "version": 1,
+    "goal": "Plan my day and week",
+    "description": "Jot down what needs doing, pick what to do today, and lay out the rest of the week.",
+    "expectedOutcome": "A short list for today and a plan for the week, kept apart from your content board.",
+    "unavailableReason": "Your day and week planner isn't built yet.",
+    "prerequisites": [],
+    "startsFrom": [],
+    "steps": [
+      {
+        "key": "capture",
+        "title": "Jot down what needs doing",
+        "help": "One line each. Details can wait.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "planning.day",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "WorkTask"
+          ]
+        }
+      },
+      {
+        "key": "today",
+        "title": "Pick what to do today",
+        "help": "Choose a few things for today. Anything else stays on your list.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "planning.day",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "WorkTask"
+          ]
+        }
+      },
+      {
+        "key": "week",
+        "title": "Lay out your week",
+        "help": "Spread the rest across the days ahead.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "planning.week",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      }
+    ],
+    "nextSuggestions": []
+  },
+  "publishing.plan-and-publish@1": {
+    "key": "publishing.plan-and-publish",
+    "version": 1,
+    "goal": "Plan and publish content",
+    "description": "Choose something from your board, pick when it goes out in your own time zone, and confirm it.",
+    "expectedOutcome": "A post booked for the time you chose in your own time zone, and a clear answer on whether it went through.",
+    "prerequisites": [],
+    "startsFrom": [
+      "ContentCard"
+    ],
+    "steps": [
+      {
+        "key": "choose",
+        "title": "Choose what to publish",
+        "help": "Pick a card from your board.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "board.library",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "ContentCard"
+          ]
+        }
+      },
+      {
+        "key": "check",
+        "title": "Check it's ready",
+        "help": "Read the words and look at the picture one last time.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "board.card",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "schedule",
+        "title": "Pick a time and schedule it",
+        "help": "Times are in your workspace's time zone. You confirm before anything is sent, and an Editor makes the booking.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "board.schedule",
+          "alternatives": []
+        },
+        "prerequisites": [
+          {
+            "workspaceFact": "SchedulingZoneSet"
+          }
+        ],
+        "completionRule": {
+          "resourceLinked": [
+            "PublishingRecord"
+          ]
+        }
+      },
+      {
+        "key": "confirm",
+        "title": "Check it went through",
+        "help": "See whether the booking was taken. If we couldn't tell, we say so and tell you what to do next.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "board.card",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "publishingRecordStatusIn": [
+            "Scheduled",
+            "Published"
+          ]
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "social.create",
+        "why": "Write the next batch of posts."
+      }
+    ]
+  },
+  "recipe.create@1": {
+    "key": "recipe.create",
+    "version": 1,
+    "goal": "Create a recipe",
+    "description": "Write a recipe yourself or start from a first draft, then fill in what a recipe needs before you test it.",
+    "expectedOutcome": "A recipe in your library with its ingredients, method, yield and time filled in, ready to test.",
+    "prerequisites": [],
+    "startsFrom": [],
+    "steps": [
+      {
+        "key": "start",
+        "title": "Start your recipe",
+        "help": "Write it yourself, or get a first draft to change however you like. Nothing becomes your recipe until you keep it.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.new",
+          "alternatives": [
+            "recipes.draft-with-help"
+          ]
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "Recipe"
+          ]
+        }
+      },
+      {
+        "key": "ingredients",
+        "title": "Check your ingredients",
+        "help": "List everything that goes in, in your own words. We keep exactly what you write.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.edit",
+          "alternatives": []
+        },
+        "prerequisites": [
+          {
+            "stepCompleted": "start"
+          }
+        ],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.ingredients.present"
+          ]
+        }
+      },
+      {
+        "key": "method",
+        "title": "Check your method",
+        "help": "Write the steps in the order you cook them, so someone else could follow along.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.edit",
+          "alternatives": []
+        },
+        "prerequisites": [
+          {
+            "stepCompleted": "start"
+          }
+        ],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.instructions.present"
+          ]
+        }
+      },
+      {
+        "key": "yield-and-time",
+        "title": "What it makes and how long it takes",
+        "help": "Say how much it makes or how many it serves, and how long it takes, so readers can plan.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.edit",
+          "alternatives": []
+        },
+        "prerequisites": [
+          {
+            "stepCompleted": "start"
+          }
+        ],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.yield.stated",
+            "recipe.time.stated"
+          ]
+        }
+      },
+      {
+        "key": "try-sizes",
+        "title": "Try it at another size",
+        "help": "See the amounts for a bigger or smaller batch. Nothing changes in your recipe unless you choose to keep it.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "recipes.scale-preview",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "recipe.test-and-approve",
+        "why": "Cook it, note what happened, and approve it when it is right."
+      },
+      {
+        "workflow": "content.blog-and-seo",
+        "why": "Turn it into a blog post people can find."
+      },
+      {
+        "workflow": "images.create",
+        "why": "Make pictures of the finished dish."
+      }
+    ]
+  },
+  "recipe.improve@1": {
+    "key": "recipe.improve",
+    "version": 1,
+    "goal": "Improve a recipe",
+    "description": "Change a recipe you already have, yourself or with suggestions you approve one by one.",
+    "expectedOutcome": "Your recipe with the changes you chose, saved as a new version, and the earlier one kept.",
+    "prerequisites": [],
+    "startsFrom": [
+      "Recipe"
+    ],
+    "steps": [
+      {
+        "key": "choose",
+        "title": "Choose the recipe",
+        "help": "Pick the recipe from your library.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.library",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "Recipe"
+          ]
+        }
+      },
+      {
+        "key": "change",
+        "title": "Make your changes",
+        "help": "Ask for suggestions or change it yourself. Nothing changes until you say yes, and your own words stay as you wrote them.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.suggest-changes",
+          "alternatives": [
+            "recipes.edit"
+          ]
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "recipeSavedDuringRun": true
+        }
+      },
+      {
+        "key": "decide",
+        "title": "Decide on every suggestion",
+        "help": "Say yes or no to anything still waiting, and read any safety note before you go on.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.edit",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.ai.changesPending",
+            "recipe.ai.safetyCautionOutstanding"
+          ]
+        }
+      },
+      {
+        "key": "compare",
+        "title": "Compare with before",
+        "help": "See exactly what changed. Every earlier version is kept, so you can go back.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "recipes.history",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "try-sizes",
+        "title": "Try it at another size",
+        "help": "See the amounts for a bigger or smaller batch. Nothing changes in your recipe unless you choose to keep it.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "recipes.scale-preview",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "recipe.test-and-approve",
+        "why": "Cook the new version and approve it when it is right."
+      },
+      {
+        "workflow": "content.blog-and-seo",
+        "why": "Tell your readers what changed."
+      }
+    ]
+  },
+  "recipe.test-and-approve@1": {
+    "key": "recipe.test-and-approve",
+    "version": 1,
+    "goal": "Test and approve a recipe",
+    "description": "Cook it, write down what happened, fix what went wrong, and give it the final yes.",
+    "expectedOutcome": "A recipe you have cooked, fixed and approved, with your test notes kept.",
+    "prerequisites": [],
+    "startsFrom": [
+      "Recipe"
+    ],
+    "steps": [
+      {
+        "key": "choose",
+        "title": "Choose the recipe",
+        "help": "Pick the recipe from your library.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.library",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "Recipe"
+          ]
+        }
+      },
+      {
+        "key": "basics",
+        "title": "Fill in the basics",
+        "help": "A recipe needs its ingredients, method, yield and time before it can be tested.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.edit",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.ingredients.present",
+            "recipe.instructions.present",
+            "recipe.yield.stated",
+            "recipe.time.stated"
+          ]
+        }
+      },
+      {
+        "key": "cook",
+        "title": "Cook it and note what happened",
+        "help": "Make it from the recipe as written, then say how it turned out and anything that went wrong.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.test-kitchen",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.testing.currentVersionUntested"
+          ]
+        }
+      },
+      {
+        "key": "fix",
+        "title": "Sort out what went wrong",
+        "help": "Fix the recipe or close each problem you noted. If a test failed, cook it again once it is fixed.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.test-kitchen",
+          "alternatives": [
+            "recipes.edit"
+          ]
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "readinessRulesMet": [
+            "recipe.testing.lastOutcomeFailed",
+            "recipe.testing.blockingIssueOutstanding"
+          ]
+        }
+      },
+      {
+        "key": "send-for-review",
+        "title": "Send it for review",
+        "help": "Say it is ready, and see anything still in the way first.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.readiness",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "recipeStatusIn": [
+            "ReadyForReview",
+            "Approved"
+          ]
+        }
+      },
+      {
+        "key": "approve",
+        "title": "Approve it",
+        "help": "Someone with Editor access gives it the final yes. Approving keeps this exact version.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "recipes.approve",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "recipeStatusIn": [
+            "Approved"
+          ]
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "content.blog-and-seo",
+        "why": "Share the finished recipe in a blog post."
+      },
+      {
+        "workflow": "images.create",
+        "why": "Make pictures of the finished dish."
+      },
+      {
+        "workflow": "social.create",
+        "why": "Tell your followers it is ready."
+      }
+    ]
+  },
+  "social.create@1": {
+    "key": "social.create",
+    "version": 1,
+    "goal": "Create social posts",
+    "description": "Write a post for each of your channels about one recipe or idea, and choose the ones you like.",
+    "expectedOutcome": "Posts you approved for each channel, with a picture, ready for your board.",
+    "prerequisites": [],
+    "startsFrom": [],
+    "steps": [
+      {
+        "key": "about",
+        "title": "Choose what it's about",
+        "help": "A recipe or an idea. Your brand's voice and channels are used unless you change them.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "social.studio",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "CreativeContext"
+          ]
+        }
+      },
+      {
+        "key": "write",
+        "title": "Write and choose your posts",
+        "help": "Each channel gets its own post, kept within its length. Edit any of them, then keep the ones you like.",
+        "requirement": "Required",
+        "capability": {
+          "primary": "social.studio-context",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "socialPostAccepted": true
+        }
+      },
+      {
+        "key": "picture",
+        "title": "Pick a picture to go with them",
+        "help": "Choose one from your library.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "social.studio-context",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "acknowledged": true
+        }
+      },
+      {
+        "key": "board",
+        "title": "Add it to your content board",
+        "help": "Put it on your board so you can plan when it goes out. Nothing is posted yet.",
+        "requirement": "Optional",
+        "capability": {
+          "primary": "board.library",
+          "alternatives": []
+        },
+        "prerequisites": [],
+        "completionRule": {
+          "resourceLinked": [
+            "ContentCard"
+          ]
+        }
+      }
+    ],
+    "nextSuggestions": [
+      {
+        "workflow": "publishing.plan-and-publish",
+        "why": "Pick a time and schedule your posts."
+      }
+    ]
+  }
+}

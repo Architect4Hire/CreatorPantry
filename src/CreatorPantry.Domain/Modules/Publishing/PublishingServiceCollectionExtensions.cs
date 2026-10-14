@@ -33,6 +33,12 @@ public static class PublishingServiceCollectionExtensions
         services.AddScoped<IPublishingProfileBusiness, PublishingProfileBusiness>();
         services.AddScoped<IPublishingProfileFacade, PublishingProfileFacade>();
 
+        // The dashboard's read of the ledger (13.11).
+        services.AddScoped<IPublishingDashboardRepository, PublishingDashboardRepository>();
+        services.AddScoped<IPublishingDashboardDataLayer, PublishingDashboardDataLayer>();
+        services.AddScoped<IPublishingDashboardBusiness, PublishingDashboardBusiness>();
+        services.AddScoped<IPublishingDashboardFacade, PublishingDashboardFacade>();
+
         // The ledger seam (PUB-002).
         services.AddScoped<IPublishingRecordRepository, PublishingRecordRepository>();
         services.AddScoped<IPublishingRecordDataLayer, PublishingRecordDataLayer>();

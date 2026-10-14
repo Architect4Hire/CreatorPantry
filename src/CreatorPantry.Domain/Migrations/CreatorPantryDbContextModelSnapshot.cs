@@ -445,6 +445,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("WorkspaceId", "RecipeId", "StatusChangedAt")
                         .HasDatabaseName("IX_AiOperations_Workspace_Recipe_StatusChangedAt");
 
+                    b.HasIndex("WorkspaceId", "Status", "StatusChangedAt", "Id")
+                        .IsDescending(false, false, true, true)
+                        .HasDatabaseName("IX_AiOperations_Workspace_Status_StatusChanged");
+
                     b.ToTable("AiOperations", null, t =>
                         {
                             t.HasCheckConstraint("CK_AiOperations_Attempts_NotNegative", "Attempts >= 0");
@@ -6937,6 +6941,241 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("FoodCategories", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("AbandonedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("AssignedMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("CompletedStepCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrentStepKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("DefinitionKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("DefinitionVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastRoute")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("ReplacedByRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SkippedStepCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StepCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_WorkflowRuns_Workspace_Id");
+
+                    b.HasIndex("WorkspaceId", "ReplacedByRunId")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_ReplacedBy")
+                        .HasFilter("ReplacedByRunId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "DefinitionKey", "DefinitionVersion")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_Definition_Version");
+
+                    b.HasIndex("WorkspaceId", "Status", "UpdatedAt")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_Status_Updated");
+
+                    b.HasIndex("WorkspaceId", "AssignedMembershipId", "Status", "UpdatedAt")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_Assignee_Status_Updated")
+                        .HasFilter("AssignedMembershipId IS NOT NULL");
+
+                    b.HasIndex("WorkspaceId", "CreatedByMembershipId", "Status", "UpdatedAt")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_Creator_Status_Updated");
+
+                    b.ToTable("WorkflowRuns", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowRuns_AbandonedAt_Status", "(Status = 3 AND AbandonedAt IS NOT NULL) OR (Status <> 3 AND AbandonedAt IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_CompletedAt_Status", "(Status = 2 AND CompletedAt IS NOT NULL) OR (Status <> 2 AND CompletedAt IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_CurrentStep_NotBlank", "CurrentStepKey IS NULL OR trim(CurrentStepKey) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_CurrentStep_Status", "(Status = 1 AND CurrentStepKey IS NOT NULL) OR (Status = 2 AND CurrentStepKey IS NULL) OR Status = 3");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_DefinitionKey_NotBlank", "trim(DefinitionKey) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_DefinitionVersion_Positive", "DefinitionVersion >= 1");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_LastRoute_Relative", "LastRoute IS NULL OR (trim(LastRoute) <> '' AND LastRoute NOT LIKE '/%' AND LastRoute NOT LIKE '%:%' AND LastRoute NOT LIKE '%\\%' AND LastRoute NOT LIKE '%..%')");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_Progress_Bounded", "CompletedStepCount >= 0 AND SkippedStepCount >= 0 AND CompletedStepCount + SkippedStepCount <= StepCount");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_ReplacedBy_Abandoned", "ReplacedByRunId IS NULL OR Status = 3");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_Status_Range", "Status >= 1 AND Status <= 3");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_StepCount_Positive", "StepCount >= 1");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_Title_NotBlank", "trim(Title) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRunLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("LinkedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ResourceKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("WorkflowRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "ResourceKind", "ResourceId")
+                        .HasDatabaseName("IX_WorkflowRunLinks_Workspace_Resource");
+
+                    b.HasIndex("WorkspaceId", "WorkflowRunId", "ResourceKind", "ResourceId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkflowRunLinks_Workspace_Run_Resource");
+
+                    b.ToTable("WorkflowRunLinks", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowRunLinks_ResourceKind_Range", "ResourceKind >= 1 AND ResourceKind <= 8");
+
+                            t.HasCheckConstraint("CK_WorkflowRunLinks_StepKey_NotBlank", "StepKey IS NULL OR trim(StepKey) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowStepRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CompletedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DraftResourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DraftResourceKind")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("DraftSavedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SkipReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("SkippedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("SkippedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StepKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("WorkflowRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "WorkflowRunId", "StepKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkflowStepRuns_Workspace_Run_StepKey");
+
+                    b.ToTable("WorkflowStepRuns", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_Completed_Recorded", "(Status = 3 AND CompletedAt IS NOT NULL AND CompletedByMembershipId IS NOT NULL) OR (Status <> 3 AND CompletedAt IS NULL AND CompletedByMembershipId IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_DraftKind_Range", "DraftResourceKind IS NULL OR (DraftResourceKind >= 1 AND DraftResourceKind <= 8)");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_Draft_Whole", "(DraftResourceKind IS NULL AND DraftResourceId IS NULL AND DraftSavedAt IS NULL) OR (DraftResourceKind IS NOT NULL AND DraftResourceId IS NOT NULL AND DraftSavedAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_NotStarted_NoStart", "Status <> 1 OR StartedAt IS NULL");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_SkipReason_NotBlank", "SkipReason IS NULL OR trim(SkipReason) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_Skipped_Recorded", "(Status = 4 AND SkippedAt IS NOT NULL AND SkippedByMembershipId IS NOT NULL) OR (Status <> 4 AND SkippedAt IS NULL AND SkippedByMembershipId IS NULL AND SkipReason IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_Status_Range", "Status >= 1 AND Status <= 4");
+
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_StepKey_NotBlank", "trim(StepKey) <> ''");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -8742,6 +8981,35 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasOne("CreatorPantry.Domain.Modules.Vocabulary.Data.Entities.EquipmentType", null)
                         .WithMany()
                         .HasForeignKey("VocabularyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRun", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRunLink", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRun", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkflowRunId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowStepRun", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Workflows.Data.Entities.WorkflowRun", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkflowRunId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

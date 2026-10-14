@@ -86,8 +86,7 @@ internal sealed class IdempotencyDataLayer(CreatorPantryDbContext context, IIdem
                     return IdempotencyAttempt<T>.Ran(result);
                 }
 
-                record.ResultJson = serializeResult(result.Value!);
-                await records.SaveAsync(cancellationToken);
+                await records.SaveResultAsync(record, serializeResult(result.Value!), cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 return IdempotencyAttempt<T>.Ran(result);
             }

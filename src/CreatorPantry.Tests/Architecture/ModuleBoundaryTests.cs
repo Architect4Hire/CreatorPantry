@@ -167,8 +167,8 @@ public sealed class ModuleBoundaryTests
         // picked up the wrong tree — bin/obj, or the whole solution — rather than growth. 12.9b crossed the
         // old ceiling of 1000 honestly, so it was raised rather than the files not counted.
         Assert.InRange(files.Count, 150, 1400);
-        // Twelve since 13.9 added Publishing.
-        Assert.Equal(12, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        // Fourteen since 13A.1 added Workflows.
+        Assert.Equal(14, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.
@@ -287,9 +287,17 @@ public sealed class ModuleBoundaryTests
     {
         var moduleRoot = Path.Combine(DomainRoot(), "Modules", module);
 
+        if (ContractOnlyModules.Contains(module))
+        {
+            Assert.True(Directory.Exists(Path.Combine(moduleRoot, "Managers")), $"{module} has no Managers area");
+            return;
+        }
+
         var required = ModulesUnderConstruction.Contains(module)
             ? (string[])["Data", "Managers"]
-            : ["Facade", "Business", "Data", "Managers"];
+            : ProjectionModules.Contains(module)
+                ? ["Facade", "Business", "Managers"]
+                : ["Facade", "Business", "Data", "Managers"];
 
         Assert.All(
             required,
@@ -326,8 +334,73 @@ public sealed class ModuleBoundaryTests
     /// <c>AiUsage</c> is here for the same reason: 9A.1 lands the account usage ledger's entity and
     /// configuration, and its facade arrives in 9A.4 with the recording seam that the AI module calls.
     /// </para>
+    /// <para>
+    /// <c>Workflows</c> passed through here: listed from 13A.2, when its run entities landed before any seam read
+    /// them, and removed in 13A.5 when the start command gave it a facade and the full shape applied.
+    /// </para>
     /// </remarks>
     private static readonly string[] ModulesUnderConstruction = [];
+
+    /// <summary>
+    /// Modules that own no table: their business composes other modules' facades and stores nothing, so a
+    /// data layer would have nothing to compose. Each is listed by name with the reason, and
+    /// <see cref="A_projection_module_really_owns_no_data"/> fails the moment one grows a Data area.
+    /// </summary>
+    /// <remarks>
+    /// <c>Dashboard</c> (13.11): the workspace at a glance, a read-only projection over the recipe, AI,
+    /// content, media, publishing and brand modules, each asked through its own facade.
+    /// </remarks>
+    private static readonly string[] ProjectionModules = ["Dashboard"];
+
+    /// <summary>
+    /// Modules that so far are only a contract: types in a Managers area and nothing that runs — no table, no
+    /// seam, no composition root. Each is listed by name with the reason, and
+    /// <see cref="A_contract_only_module_really_is_only_a_contract"/> fails the moment one grows a Facade,
+    /// Business or Data area, so it has to move to the list that enforces more.
+    /// </summary>
+    /// <remarks>
+    /// Empty now. <c>Workflows</c> was here from 13A.1, when it was the WorkflowDefinition contract alone, and
+    /// moved to <see cref="ModulesUnderConstruction"/> when 13A.2 gave it a Data area.
+    /// </remarks>
+    private static readonly string[] ContractOnlyModules = [];
+
+    [Fact]
+    public void A_contract_only_module_really_is_only_a_contract()
+    {
+        foreach (var module in ContractOnlyModules)
+        {
+            var root = Path.Combine(DomainRoot(), "Modules", module);
+            Assert.True(Directory.Exists(root), $"{module} is listed as a contract-only module but does not exist");
+
+            foreach (var area in new[] { "Facade", "Business", "Data" })
+            {
+                Assert.False(
+                    Directory.Exists(Path.Combine(root, area)),
+                    $"{module} has a {area} area, so it is no longer only a contract; move it to the list that fits");
+            }
+
+            Assert.False(
+                Directory.EnumerateFiles(root, "*ServiceCollectionExtensions.cs").Any(),
+                $"{module} has a composition root, so it is no longer only a contract; move it to the list that fits");
+        }
+    }
+
+    [Fact]
+    public void A_projection_module_really_owns_no_data()
+    {
+        foreach (var module in ProjectionModules)
+        {
+            var root = Path.Combine(DomainRoot(), "Modules", module);
+            Assert.True(Directory.Exists(root), $"{module} is listed as a projection module but does not exist");
+            Assert.False(Directory.Exists(Path.Combine(root, "Data")), $"{module} has a Data area, so it is no longer a projection");
+            Assert.DoesNotContain(
+                DomainFiles(),
+                file => file.Module == module
+                    && file.DomainUsings.Any(used => used.EndsWith(".Data", StringComparison.Ordinal)
+                        || used.EndsWith(".Data.Entities", StringComparison.Ordinal)
+                        || used == $"{Root}.Managers.Persistence"));
+        }
+    }
 
     [Fact]
     public void No_module_is_still_listed_as_under_construction_once_it_has_a_facade()

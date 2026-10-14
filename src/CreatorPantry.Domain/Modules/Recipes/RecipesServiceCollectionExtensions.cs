@@ -44,6 +44,12 @@ public static class RecipesServiceCollectionExtensions
         services.AddScoped<IRecipeTestRunBusiness, RecipeTestRunBusiness>();
         services.AddScoped<IRecipeReadinessBusiness, RecipeReadinessBusiness>();
         services.AddScoped<IRecipeFacade, RecipeFacade>();
+
+        // The dashboard's reads (13.11): counts and capped lists, nothing else.
+        services.AddScoped<IRecipeDashboardRepository, RecipeDashboardRepository>();
+        services.AddScoped<IRecipeDashboardDataLayer, RecipeDashboardDataLayer>();
+        services.AddScoped<IRecipeDashboardBusiness, RecipeDashboardBusiness>();
+        services.AddScoped<IRecipeDashboardFacade, RecipeDashboardFacade>();
         services.AddScoped<IRecipeTestRunFacade, RecipeTestRunFacade>();
 
         // RCPUB-005: a recipe's own asset links, and the pictures attached to a recorded test.

@@ -12,7 +12,8 @@ public interface IIdempotencyRepository
 
     Task<StoredIdempotentResult?> FindAsync(IdempotencyScope scope, CancellationToken cancellationToken);
 
-    Task SaveAsync(CancellationToken cancellationToken);
+    /// <summary>Writes the operation's result onto the claimed record, tracked or not.</summary>
+    Task SaveResultAsync(IdempotencyRecord record, string resultJson, CancellationToken cancellationToken);
 }
 
 internal sealed class IdempotencyRepository(CreatorPantryDbContext context) : IIdempotencyRepository
@@ -50,7 +51,21 @@ internal sealed class IdempotencyRepository(CreatorPantryDbContext context) : II
             .Select(record => new StoredIdempotentResult(record.FingerprintHash, record.ResultJson))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+    public Task SaveResultAsync(IdempotencyRecord record, string resultJson, CancellationToken cancellationToken)
+    {
+        // An operation that lost a race may clear the change tracker and still succeed, answering with the winner's
+        // result; that detaches the claimed record too. Re-attached, the result is written — otherwise the
+        // placeholder would commit and every replay of the key would answer with an empty body.
+        if (context.Entry(record).State == EntityState.Detached)
+        {
+            context.IdempotencyRecords.Attach(record);
+        }
+
+        record.ResultJson = resultJson;
+        context.Entry(record).Property(row => row.ResultJson).IsModified = true;
+
+        return context.SaveChangesAsync(cancellationToken);
+    }
 
     private IQueryable<IdempotencyRecord> InScope(IdempotencyScope scope) =>
         context.IdempotencyRecords.Where(record =>

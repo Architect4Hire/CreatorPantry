@@ -11,6 +11,7 @@ using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Workflows.Data.Entities;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Audit;
@@ -688,6 +689,23 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// to a provider, holding outcomes only: no request body, no response body, no header, no credential.
     /// </remarks>
     public DbSet<PublishingDeliveryAttempt> PublishingDeliveryAttempts => Set<PublishingDeliveryAttempt>();
+
+    /// <remarks>
+    /// One creator's progress through one pinned workflow definition version (13A.2, FLOW-002). State and
+    /// pointers only — never a copy of the recipe, article or picture the journey touched.
+    /// </remarks>
+    public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
+
+    /// <inheritdoc cref="WorkflowRuns"/>
+    /// <remarks>One row per step of the run's pinned definition, written only together with its run.</remarks>
+    public DbSet<WorkflowStepRun> WorkflowStepRuns => Set<WorkflowStepRun>();
+
+    /// <inheritdoc cref="WorkflowRuns"/>
+    /// <remarks>
+    /// A record the run started from or produced, by kind and id. Not a foreign key, so a run can neither
+    /// cascade into a recipe nor stand in the way of archiving one.
+    /// </remarks>
+    public DbSet<WorkflowRunLink> WorkflowRunLinks => Set<WorkflowRunLink>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

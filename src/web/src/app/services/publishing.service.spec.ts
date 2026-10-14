@@ -246,14 +246,14 @@ describe('PublishingService', () => {
 
       // Each code at the status its route actually answers with, so the test cannot pass on a mapping that
       // only works for one of them.
-      const status =
+      const httpStatus =
         code.endsWith('.unprocessable') || code === 'idempotency.key_reused'
           ? 422
           : code === 'publishing.schedule.forbidden'
             ? 403
             : 409;
 
-      http.expectOne(RECORDS).flush(problem(code, { publishingRecordId: 'rec-9' }), { status, statusText: 'nope' });
+      http.expectOne(RECORDS).flush(problem(code, { publishingRecordId: 'rec-9' }), { status: httpStatus, statusText: 'nope' });
 
       expect((await scheduling).status).toBe(status);
     });

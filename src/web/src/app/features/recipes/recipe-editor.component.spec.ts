@@ -519,6 +519,28 @@ describe('RecipeEditorComponent', () => {
       expect(tabButton(harness.routeNativeElement!, 'Publish')?.disabled).toBeFalse();
     });
 
+    it('opens on the area the address names, so a link can land where the fix is', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+
+      const readiness = await createHarness('/cozy-fall/recipes/r1?area=readiness', recipeService);
+      expect(readiness.component.selectedAreaId()).toBe('readiness');
+
+      const tests = await createHarness('/cozy-fall/recipes/r1?area=tests', recipeService);
+      expect(tests.component.selectedAreaId()).toBe('tests');
+    });
+
+    it('opens on Edit when the address names no area, an unknown one, or one this recipe cannot show yet', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+
+      expect((await createHarness('/cozy-fall/recipes/r1', recipeService)).component.selectedAreaId()).toBe('edit');
+      expect((await createHarness('/cozy-fall/recipes/r1?area=nowhere', recipeService)).component.selectedAreaId()).toBe('edit');
+
+      // A recipe being created has no readiness to show: the tab is disabled, so it is not opened on.
+      expect((await createHarness('/cozy-fall/recipes/new?area=readiness', recipeService)).component.selectedAreaId()).toBe('edit');
+    });
+
     it('shows the readiness check on the Readiness tab, with the status the server reported', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: { ...RECIPE_DETAIL, status: 'ReadyForReview' } });

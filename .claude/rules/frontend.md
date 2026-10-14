@@ -61,6 +61,9 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
   stylesheet is a defect, and so are tabs used to file one record's topics. A form one Save writes stays one
   card of `cp-form-section`s with its save state beside its Save; a topic card neither replaces nor wraps a
   form section.
+- The dashboard is a detail page about the workspace whose topic cards sit in `ul[cpCardGrid]`, most urgent
+  first. It shows the read model's counts and derives none, keeps an unreadable topic's card with a notice in
+  it, and links each item to where it is dealt with. `DashboardComponent` is the reference.
 - A page that takes the creator through steps in order is a flow: `cp-page-head` with no action, then the
   flow's `cp-progress` over a `cp-stepper` beside one wide `cp-topic-card` headed by the step's name, which
   holds the shell's legend, the step's `cp-form-section`s, the save status and Back / Continue. A step change
