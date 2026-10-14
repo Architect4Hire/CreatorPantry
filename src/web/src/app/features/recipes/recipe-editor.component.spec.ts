@@ -952,34 +952,41 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('#recipe-serving-count')!.closest('cp-tab-panel')!.hasAttribute('hidden')).toBeTrue();
     });
 
-    it('keeps the General sections in one column at every width, in order', async () => {
+    it('lays the General sections out in two columns once the editor is wide, one when it is not, in the same order', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
       const ids = ['section-details', 'section-notes', 'section-timing', 'section-yield'];
       const box = (id: string) => root.querySelector('#' + id)!.getBoundingClientRect();
-      const trackCount = () => {
-        const value = getComputedStyle(root.querySelector('.tab-sections')!).gridTemplateColumns;
+      const trackCount = (selector: string) => {
+        const value = getComputedStyle(root.querySelector(selector)!).gridTemplateColumns;
         return value === 'none' || value === '' ? 0 : value.split(/\s+/).length;
       };
 
-      for (const width of ['96rem', '40rem']) {
+      for (const width of ['96rem', '72rem']) {
         root.style.width = width;
         harness.detectChanges();
 
-        // One above the other: the nav is for finding your place down a long tab, so the tab must be long.
-        expect(trackCount()).withContext(`columns at ${width}`).toBe(1);
-        for (let index = 1; index < ids.length; index += 1) {
-          expect(box(ids[index]).top)
-            .withContext(`${ids[index]} at ${width}`)
-            .toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
-        }
+        expect(trackCount('.tab-sections')).withContext(`columns at ${width}`).toBe(2);
+        // Details on the left; the other three stacked on the right, each under the one before.
+        expect(box('section-details').left).toBeLessThan(box('section-notes').left);
+        expect(Math.abs(box('section-notes').left - box('section-timing').left)).toBeLessThan(1);
+        expect(Math.abs(box('section-timing').left - box('section-yield').left)).toBeLessThan(1);
+        expect(box('section-notes').bottom).toBeLessThanOrEqual(box('section-timing').top + 1);
+        expect(box('section-timing').bottom).toBeLessThanOrEqual(box('section-yield').top + 1);
       }
 
-      const domOrder = Array.from(root.querySelectorAll('.tab-sections section[id^="section-"]')).map(
-        (section) => section.id,
-      );
+      // Placed, not reordered: the order a keyboard or a screen reader meets them in has not changed.
+      const domOrder = Array.from(root.querySelectorAll('.tab-sections section[id^="section-"]')).map((section) => section.id);
       expect(domOrder).toEqual(ids);
+
+      // Narrow — a phone, or 200% zoom. One column, in order.
+      root.style.width = '40rem';
+      harness.detectChanges();
+      expect(trackCount('.tab-sections')).withContext('columns at 40rem').toBe(1);
+      for (let index = 1; index < ids.length; index += 1) {
+        expect(box(ids[index]).top).withContext(ids[index]).toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
+      }
     });
 
     describe('the General tab nav', () => {
@@ -1023,63 +1030,126 @@ describe('RecipeEditorComponent', () => {
         expect(harness.routeNativeElement!.ownerDocument.location.hash).toBe('');
       });
 
-      it('scrolls an off-screen section to the top of the screen, smoothly', async () => {
+      it('asks for a smooth scroll to the section', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+        const scroll = spyOn(Element.prototype, 'scrollIntoView');
+
+        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
+        harness.detectChanges();
+
+        // The request, not the animation: a browser window in the background does not run a smooth scroll's
+        // frames, so a test that waited for it to arrive would be a test of the window.
+        expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      });
+
+      it('jumps without animation, and does arrive, for someone who has asked for reduced motion', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
         root.style.width = '40rem';
         harness.detectChanges();
+        window.scrollTo(0, 0);
         const yieldSection = root.querySelector<HTMLElement>('#section-yield')!;
-        // Karma's window is tall enough to show the whole tab, so push the section well below the fold: a jump
-        // is only a jump when there is somewhere to go.
+        // Karma's window is tall enough to show the whole tab, so push the section well below the fold.
         yieldSection.style.marginTop = `${window.innerHeight * 2}px`;
+        spyOn(window, 'matchMedia').and.returnValue({ matches: true } as MediaQueryList);
         const scroll = spyOn(Element.prototype, 'scrollIntoView').and.callThrough();
 
-        expect(yieldSection.getBoundingClientRect().top)
-          .withContext('before the jump')
-          .toBeGreaterThan(window.innerHeight);
-        navLinksOf(root)
-          .find((link) => link.textContent?.trim() === 'Yield')!
-          .click();
-        harness.detectChanges();
-
-        expect(scroll).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-        // It arrives rather than lands, so wait for it. Not for the section's top to reach the top of the
-        // screen: it is the last section, so the page may end before it can get there.
-        await waitUntil(() => yieldSection.getBoundingClientRect().top < window.innerHeight, 3000);
-      });
-
-      it('jumps without animation for someone who has asked for reduced motion', async () => {
-        const recipeService = recipeServiceSpy();
-        const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        const root = harness.routeNativeElement!;
-        spyOn(window, 'matchMedia').and.returnValue({ matches: true } as MediaQueryList);
-        const scroll = spyOn(Element.prototype, 'scrollIntoView');
-
-        navLinksOf(root)
-          .find((link) => link.textContent?.trim() === 'Notes')!
-          .click();
+        expect(yieldSection.getBoundingClientRect().top).withContext('before the jump').toBeGreaterThan(window.innerHeight);
+        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
         harness.detectChanges();
 
         expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+        // Instant, so it has arrived by the time the click returns.
+        expect(yieldSection.getBoundingClientRect().top).withContext('after the jump').toBeLessThan(window.innerHeight);
+      });
+
+      it('follows the creator down the page: the section under the top of the screen is the current one', async () => {
+        // An IntersectionObserver reports on the browser's rendering frames, and a window that is minimised or
+        // fully covered does not draw any. That is the window, not the editor, so say so instead of failing.
+        if (document.visibilityState !== 'visible') {
+          pending('the test browser window is not visible, so no rendering frames run to report intersections');
+          return;
+        }
+
+        const recipeService = recipeServiceSpy();
+        const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+        // One column: side by side the sections share a height and there is no "one under the top" to follow.
+        root.style.width = '40rem';
+        harness.detectChanges();
+        window.scrollTo(0, 0);
+        const current = () =>
+          navLinksOf(root).filter((link) => link.getAttribute('aria-current') === 'true').map((link) => link.textContent?.trim());
+        // Karma's window is tall enough to show the whole tab, so space the sections a screen apart: the spy
+        // is only meaningful when there is somewhere to scroll.
+        for (const id of ['section-notes', 'section-timing', 'section-yield']) {
+          root.querySelector<HTMLElement>('#' + id)!.style.marginTop = `${window.innerHeight}px`;
+        }
+        const until = async (name: string) => {
+          const started = Date.now();
+          for (;;) {
+            harness.detectChanges();
+            if (current().length === 1 && current()[0] === name) return;
+            if (Date.now() - started > 4000) throw new Error(`the nav never marked ${name}; it marks ${current()}`);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+        };
+
+        // Scrolled by the page, not by the nav: nothing here has been clicked. Instant, so it does not depend on
+        // a background window drawing frames.
+        root.querySelector('#section-timing')!.scrollIntoView({ block: 'start', behavior: 'instant' });
+        await until('Timing');
+
+        root.querySelector('#section-details')!.scrollIntoView({ block: 'start', behavior: 'instant' });
+        await until('Details');
+      });
+
+      it('says in the nav how many problems a refused save left in each section', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.createRecipe.and.resolveTo({
+          status: 'validation_failed',
+          fieldErrors: { title: ['Title is too long.'], servingSize: ['A serving cannot be larger than the batch.'] },
+        });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+        expect(navLinksOf(root).map((link) => link.textContent?.trim())).toEqual(['Details', 'Notes', 'Timing', 'Yield']);
+
+        component.title.set('Weeknight Chili');
+        await component.save();
+        harness.detectChanges();
+
+        // Said in the item as a second line, in words, so nothing depends on a colour.
+        const lines = navLinksOf(root).map((link) => [
+          link.querySelector('.label')?.textContent?.trim(),
+          link.querySelector('.detail')?.textContent?.trim() ?? null,
+        ]);
+        expect(lines).toEqual([
+          ['Details', '1 problem'],
+          ['Notes', null],
+          ['Timing', null],
+          ['Yield', '1 problem'],
+        ]);
       });
 
       it('keeps the highlight on the section asked for while the page scrolls past the ones between', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
+        // One column: side by side the sections share a height and there is no "one under the top" to follow.
+        root.style.width = '40rem';
+        harness.detectChanges();
+        window.scrollTo(0, 0);
         for (const id of ['section-notes', 'section-timing', 'section-yield']) {
           root.querySelector<HTMLElement>('#' + id)!.style.marginTop = `${window.innerHeight}px`;
         }
         const current = () =>
-          navLinksOf(root)
-            .filter((link) => link.getAttribute('aria-current') === 'true')
-            .map((link) => link.textContent?.trim());
+          navLinksOf(root).filter((link) => link.getAttribute('aria-current') === 'true').map((link) => link.textContent?.trim());
         const seen = new Set<string>();
 
-        navLinksOf(root)
-          .find((link) => link.textContent?.trim() === 'Yield')!
-          .click();
+        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
         const started = Date.now();
         while (Date.now() - started < 1200) {
           harness.detectChanges();
@@ -1091,61 +1161,52 @@ describe('RecipeEditorComponent', () => {
         expect(Array.from(seen)).toEqual(['Yield']);
       });
 
-      it('is a gutter beside the sections on a wide editor and a row above them on a narrow one', async () => {
+      it('is a row above the sections on a narrow editor, and is not shown once the sections are in two columns', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
-        const layout = () => root.querySelector('.general-layout')!;
         const nav = () => root.querySelector<HTMLElement>('.general-nav')!;
-        const trackCount = () => {
-          const value = getComputedStyle(layout()).gridTemplateColumns;
-          return value === 'none' || value === '' ? 0 : value.split(/\s+/).length;
-        };
-
-        root.style.width = '96rem';
-        harness.detectChanges();
-        expect(trackCount()).withContext('columns at 96rem').toBe(2);
-        expect(getComputedStyle(nav()).position).toBe('sticky');
-        expect(getComputedStyle(nav().querySelector('ul')!).flexDirection).toBe('column');
-        // Beside, not above: the first section starts to the right of the nav.
-        expect(root.querySelector('#section-details')!.getBoundingClientRect().left).toBeGreaterThan(
-          nav().getBoundingClientRect().right - 1,
-        );
 
         root.style.width = '40rem';
         harness.detectChanges();
-        expect(trackCount()).withContext('columns at 40rem').toBe(1);
-        expect(getComputedStyle(nav()).position).toBe('static');
-        expect(root.querySelector('#section-details')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-          nav().getBoundingClientRect().bottom - 1,
-        );
+        expect(getComputedStyle(nav()).display).withContext('shown at 40rem').not.toBe('none');
+        // Above the sections, not beside them.
+        expect(root.querySelector('#section-details')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(nav().getBoundingClientRect().bottom - 1);
         for (const link of navLinksOf(root)) {
           expect(link.getBoundingClientRect().height).withContext(link.textContent!).toBeGreaterThanOrEqual(40);
+        }
+
+        // Two columns put nearly the whole tab on screen, so there is nothing left to navigate to.
+        for (const width of ['64rem', '72rem', '96rem']) {
+          root.style.width = width;
+          harness.detectChanges();
+          expect(getComputedStyle(nav()).display).withContext(`hidden at ${width}`).toBe('none');
         }
       });
     });
 
-    it('keeps every row of short fields inside the line the other fields keep to, and gives equal quantities one width', async () => {
+    it('keeps every row of short fields inside its column, and gives equal quantities one width', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
-      // The showcase test target loads no token sheet, so give the editor the two tokens the rows measure with.
+      // The showcase test target loads no token sheet, so give the editor the tokens the rows measure with.
       root.style.setProperty('--cp-measure-field', '40rem');
       root.style.setProperty('--cp-space-4', '1rem');
+      root.style.setProperty('--cp-space-8', '2rem');
       root.style.width = '96rem';
       harness.detectChanges();
       revealMeasuredBatch(harness);
 
       const box = (selector: string) => root.querySelector(selector)!.getBoundingClientRect();
       const fieldOf = (selector: string) => root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect();
-      const edge = Math.round(fieldOf('#recipe-title').right);
+      const sectionRight = (selector: string) => root.querySelector(selector)!.closest('section[id^="section-"]')!.getBoundingClientRect().right;
 
-      // The right edge of the form is the title's. Nothing in Timing or Yield goes past it — Total time used to.
-      for (const selector of ['#recipe-prep-time', '#recipe-rest-time', '#recipe-total-time', '#recipe-serving-count', '#recipe-yield-quantity', '#recipe-serving-size']) {
-        expect(Math.round(fieldOf(selector).right)).withContext(selector).toBeLessThanOrEqual(edge + 1);
+      // The right edge is the section's own. Nothing in Timing or Yield goes past it — Total time used to.
+      for (const selector of ['#recipe-prep-time', '#recipe-rest-time', '#recipe-total-time', '#recipe-serving-count', '#recipe-yield-quantity', '#recipe-serving-size', '#recipe-yield-text']) {
+        expect(Math.round(fieldOf(selector).right)).withContext(selector).toBeLessThanOrEqual(Math.round(sectionRight(selector)) + 1);
       }
 
-      // The same quarter of the line, wherever it appears, and on the same left edge where they stack.
+      // The same quarter of the column, wherever it appears, and on the same left edge where they stack.
       const prep = box('#recipe-prep-time');
       for (const selector of ['#recipe-cook-time', '#recipe-rest-time', '#recipe-serving-count', '#recipe-yield-quantity', '#recipe-serving-size']) {
         expect(Math.abs(box(selector).width - prep.width)).withContext(selector).toBeLessThan(1.5);
@@ -1154,11 +1215,10 @@ describe('RecipeEditorComponent', () => {
       expect(Math.abs(box('#recipe-serving-count').left - box('#recipe-total-time').left)).toBeLessThan(1.5);
       expect(Math.abs(box('#recipe-yield-quantity').left - prep.left)).toBeLessThan(1.5);
 
-      // The yield wording takes the other three, on the same line, and stops where the form's line does.
+      // The yield wording takes the other three, on the same line.
       const text = box('#recipe-yield-text');
       expect(Math.abs(text.width - (prep.width * 3 + 32))).toBeLessThan(1.5);
       expect(Math.abs(text.top - box('#recipe-serving-count').top)).toBeLessThan(1.5);
-      expect(Math.round(fieldOf('#recipe-yield-text').right)).toBeLessThanOrEqual(edge + 1);
     });
 
     it('gives a lone quantity the whole width of the form on a narrow screen, as wide as the fields around it', async () => {
@@ -1167,7 +1227,7 @@ describe('RecipeEditorComponent', () => {
       const root = harness.routeNativeElement!;
       root.style.setProperty('--cp-measure-field', '40rem');
       root.style.setProperty('--cp-space-4', '1rem');
-      root.style.width = '24rem';
+      root.style.width = '22rem';
       harness.detectChanges();
 
       const fieldWidth = (selector: string) => root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect().width;
@@ -3533,9 +3593,10 @@ describe('RecipeEditorComponent', () => {
       typeInto(`#ingredient-group-title-${first.key}`, 'For the cake');
       typeInto(`#ingredient-group-title-${second.key}`, 'For the streusel');
 
+      // The toolbar's own "Add ingredient" comes first, so the second group's is the third of them.
       const addToSecond = Array.from(root().querySelectorAll<HTMLButtonElement>('button')).filter(
         (button) => button.textContent?.trim() === 'Add ingredient',
-      )[1];
+      )[2];
       addToSecond.click();
       harness.detectChanges();
       const rowKey = component.editedIngredientGroups()[1].ingredients[0].key;

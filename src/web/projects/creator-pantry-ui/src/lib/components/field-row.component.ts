@@ -94,10 +94,18 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
        * own wording and the serving count). Wide enough for three tracks, which is when it can have them; below
        * that a row is a phone's or a zoomed window's and the field has the whole row, see cp-stack-narrow.
        */
-      @container (min-width: 30rem) {
+      @container (min-width: 24rem) {
         :host(.cp-field-row--fixed) ::ng-deep > .cp-span-3 {
           grid-column: span 3;
         }
+      }
+
+      /*
+       * A child that takes the whole row at every width, for a field that belongs on a line of its own beneath
+       * the others (an ingredient line's preparation note).
+       */
+      :host(.cp-field-row--fixed) ::ng-deep > .cp-span-full {
+        grid-column: 1 / -1;
       }
 
       /*
@@ -106,7 +114,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
        * follows it would otherwise sit in half a row of its own. Opt-in, because a row of quantities such as
        * Timing is better as two across than as four stacked.
        */
-      @container (width < 30rem) {
+      @container (width < 24rem) {
         :host(.cp-field-row--fixed) ::ng-deep > .cp-stack-narrow {
           grid-column: 1 / -1;
         }
@@ -118,7 +126,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
        * There it takes the whole row, the same width as the field above it and the hint under it. With room
        * for the columns it stays one of them, which is the point of the count.
        */
-      @container (max-width: 30rem) {
+      @container (width < 24rem) {
         :host(.cp-field-row--fixed) ::ng-deep > :only-child {
           grid-column: 1 / -1;
         }
@@ -133,7 +141,7 @@ export class CpFieldRowComponent {
 
   /**
    * Holds the row to the form's measure and divides it into this many equal columns. Leave it unset for a row
-   * that shares whatever width it is given. A child with the `cp-span-2` or `cp-span-3` class takes that many columns while there is room for them, and one with `cp-stack-narrow` takes the whole row below 30rem.
+   * that shares whatever width it is given. A child with the `cp-span-2` or `cp-span-3` class takes that many columns while there is room for them, one with `cp-span-full` takes the whole row, and one with `cp-stack-narrow` takes the whole row below 24rem.
    */
   readonly columns = input<number | null>(null);
 }

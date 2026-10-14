@@ -1,5 +1,8 @@
 <div class="toolbar">
   <button cpButton type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
+  <!-- Ahead of the group button: grouping is opt-in, and the way to a plain list should not be the one a creator
+       has to discover under an empty state. -->
+  <button cpButton variant="secondary" type="button" (click)="addRow()">Add ingredient</button>
   <button cpButton variant="secondary" type="button" (click)="addGroup()">Add ingredient group</button>
 </div>
 
@@ -144,7 +147,7 @@
               </cp-field>
             }
 
-            <cp-field-row class="row-fields" minColumn="10rem">
+            <cp-field-row class="row-fields" [columns]="4" minColumn="6.5rem">
               <cp-field label="Quantity" [forId]="'row-quantity-' + row.key">
                 <input
                   [id]="'row-quantity-' + row.key"
@@ -173,7 +176,7 @@
               <!-- Server-filtered, so `filterLocally` is off: the ingredient catalogue is too large to hold in
                    a browser, and filtering the search's own answers again would hide matches it found by
                    alias. -->
-              <cp-field label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
+              <cp-field class="cp-span-2" label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
                 <cp-combobox
                   [inputId]="'row-ingredient-' + row.key"
                   [options]="ingredientOptionsFor(row.key)"
@@ -190,7 +193,7 @@
                 </cp-combobox>
               </cp-field>
 
-              <cp-field label="Preparation note" [forId]="'row-prep-' + row.key">
+              <cp-field class="cp-span-full" label="Preparation note" [forId]="'row-prep-' + row.key">
                 <input
                   [id]="'row-prep-' + row.key"
                   type="text"

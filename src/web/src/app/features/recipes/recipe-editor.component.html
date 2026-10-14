@@ -491,7 +491,7 @@
                   <cp-notice id="recipe-total-time-overflow" tone="warning">{{ note }}</cp-notice>
                 }
 
-                <cp-field-row [columns]="4" minColumn="8rem">
+                <cp-field-row [columns]="4" minColumn="6.5rem">
                   <cp-field
                     label="Prep time"
                     forId="recipe-prep-time"
@@ -578,7 +578,7 @@
                 heading="Yield"
                 intro="What the recipe makes. Your own wording is the yield; the numbers are additional, and only needed for scaling."
               >
-                <cp-field-row [columns]="4" minColumn="8rem">
+                <cp-field-row [columns]="4" minColumn="6.5rem">
                   <cp-field
                     class="cp-span-3 cp-stack-narrow"
                     label="Yield, in your own words"
@@ -622,7 +622,7 @@
                 <!-- Offered rather than presented, the way a step's duration is: see measuredBatchRevealed. Open on its
              own for a recipe that already records any of the three, or one a save was refused over. -->
                 @if (measuredBatchOpen()) {
-                  <cp-field-row [columns]="4" minColumn="8rem">
+                  <cp-field-row [columns]="4" minColumn="6.5rem">
                     <cp-field
                       label="Batch yield"
                       forId="recipe-yield-quantity"
@@ -716,7 +716,7 @@
                   </cp-field-row>
                 } @else {
                   <div class="step-reveal">
-                    <button cpButton variant="text" size="sm" type="button" (click)="revealMeasuredBatch()">
+                    <button cpButton variant="text" type="button" (click)="revealMeasuredBatch()">
                       + Add a measured batch (for scaling)
                     </button>
                   </div>
@@ -880,7 +880,7 @@
                               <button
                                 cpButton
                                 variant="text"
-                                size="sm"
+                                
                                 type="button"
                                 [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
                                 (click)="revealStepDuration(group.key, step.key)"

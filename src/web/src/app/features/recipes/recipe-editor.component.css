@@ -74,7 +74,7 @@ cp-tab-panel:not([hidden]) {
   gap: var(--cp-space-2);
   margin: 0;
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
 }
 
 .area-lock-icon {
@@ -94,11 +94,21 @@ cp-tab-panel:not([hidden]) {
   min-width: 0;
 }
 
-/* The General tab: a nav over its sections, and the sections. One column by default, with the nav a wrapping
-   row above them — the narrow layout, and the one 200% zoom lands on. Wide enough for a gutter and a column
-   at their full measure, the nav becomes a sticky list beside them, as it is beside the Instructions groups
-   below. Sections stay one above the other at every width: the nav is for finding your place in a long tab,
-   and a layout that put the whole tab on screen at once would leave it nothing to do. */
+/* The General tab. Narrow — a phone, or 200% zoom — it is one column of sections with a nav over them, a wrapping
+   row of links to each. From 64rem the sections go into two columns, which is what a card that wide has to put
+   in the space: the long section (Details) takes the left column for its full height and the rest stack in the
+   right, so the form reads as the words about the recipe on one side and its facts on the other. At that width
+   nearly the whole tab is on screen at once and there is nowhere left to navigate to, so the nav goes: it is
+   for finding your place in a column long enough to scroll.
+
+   Placement, not reordering: the DOM, and so the tab and reading order, is Details, Notes, Timing, Yield at
+   every width. The last row is the flexible one so that a left column taller than the right one stretches that
+   row and not the gaps between the right-hand sections. Written for at most three sections after the first:
+   a fourth would need another `auto` row.
+
+   Keyed to the editor's own width, like the rest of this file, so it answers a narrowed window and 200% zoom
+   alike. `display: none` and not a removed element, so the nav is out of the accessibility tree while it is
+   hidden and back, with its state, the moment the editor narrows. */
 .general-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -107,14 +117,24 @@ cp-tab-panel:not([hidden]) {
 }
 
 @container cp-editor (min-width: 64rem) {
-  .general-layout {
-    grid-template-columns: 12rem minmax(0, 1fr);
+  .general-nav {
+    display: none;
   }
 
-  .general-nav {
-    position: sticky;
-    top: var(--cp-space-4);
-    --cp-anchor-nav-direction: column;
+  .tab-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: var(--cp-space-8);
+    align-items: start;
+  }
+
+  .tab-sections > :first-child {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+
+  .tab-sections > :nth-child(n + 2) {
+    grid-column: 2;
   }
 }
 
@@ -189,17 +209,19 @@ cp-tab-panel:not([hidden]) {
   display: inline-flex;
   align-items: center;
   gap: var(--cp-space-1);
-  padding: 0 var(--cp-space-2);
-  min-height: 1.75rem;
+  padding: 0 0 0 var(--cp-space-3);
+  min-height: 2.25rem;
+  border: 1px solid var(--cp-border-strong);
   border-radius: var(--cp-radius-full);
-  background: var(--cp-surface-subtle);
+  background: var(--cp-surface-raised);
   color: var(--cp-text);
-  font-size: var(--cp-font-size-xs);
-  transition: background var(--cp-duration-fast) var(--cp-ease);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
 }
 
 .tag-chip:hover {
-  background: var(--cp-surface-raised);
+  border-color: var(--cp-primary-text);
 }
 
 .tag-chip button {
@@ -212,7 +234,7 @@ cp-tab-panel:not([hidden]) {
   background: transparent;
   color: var(--cp-text-muted);
   cursor: pointer;
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
   line-height: 1;
   transition: color var(--cp-duration-fast) var(--cp-ease);
 }
@@ -316,7 +338,7 @@ cp-tab-panel:not([hidden]) {
 .required-legend {
   margin: 0 0 var(--cp-space-3);
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
 }
 
 .required-legend span[aria-hidden='true'] {

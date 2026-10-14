@@ -562,7 +562,9 @@ describe('RecipeIngredientEditorComponent', () => {
       buttonLabelled(fixture, 'Add ingredient')!.click();
       fixture.detectChanges();
 
-      // Wide enough for a gutter, if there were anything to put in one.
+      // Wide enough for a gutter, if there were anything to put in one. The showcase test target loads no token
+      // sheet, so give the row the one token its column arithmetic reads.
+      element.style.setProperty('--cp-space-4', '1rem');
       element.style.width = '70rem';
       fixture.detectChanges();
 
@@ -582,15 +584,17 @@ describe('RecipeIngredientEditorComponent', () => {
         Array.from(root.querySelector('.row-fields')!.querySelectorAll<HTMLElement>(':scope > cp-field')).map((field) =>
           Math.round(field.getBoundingClientRect().top),
         );
+      // Quantity, unit and ingredient share a line; the preparation note has the line beneath them to itself.
+      const lineOf = (tops: number[]) => ({ together: new Set(tops.slice(0, 3)).size, noteBelow: tops[3] > tops[0] });
       expect(fieldTops(element).length).withContext('the four fields of the row').toBe(4);
-      expect(new Set(fieldTops(element)).size).withContext('distinct field rows').toBe(1);
+      expect(lineOf(fieldTops(element))).withContext('quantity, unit and ingredient on one line, the note below').toEqual({ together: 1, noteBelow: true });
 
       // Same for a single titled group: still no nav, still the full width.
       fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
       fixture.detectChanges();
       expect(nav(fixture)).toBeNull();
       expect(trackCount(element.querySelector('.grouped-layout')!)).withContext('columns for one group').toBe(1);
-      expect(new Set(fieldTops(element)).size).withContext('distinct field rows, one group').toBe(1);
+      expect(lineOf(fieldTops(element))).withContext('the same for one group').toEqual({ together: 1, noteBelow: true });
     });
 
     it('collapses to one column at a narrow width, with every item still a full target', async () => {

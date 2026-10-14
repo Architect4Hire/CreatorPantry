@@ -1,4 +1,5 @@
-:root, [data-cp-theme='light'] {
+:root,
+[data-cp-theme='light'] {
   color-scheme: light;
   --cp-bg: #faf7ef;
   --cp-surface: #ffffff;
@@ -13,6 +14,7 @@
   --cp-primary-hover: #146137;
   --cp-primary-ink: #ffffff;
   --cp-primary-soft: #def2e2;
+  --cp-primary-text: var(--cp-primary);
   --cp-pink: #c81457;
   --cp-pink-soft: #fbe3ec;
   --cp-orange: #b8500a;
@@ -26,10 +28,10 @@
      before it existed; a semantic intent that is missing belongs in both themes, not in each caller. */
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   --cp-ink-on-accent: #ffffff;
-  --cp-scrim: rgba(3,9,7,.66);
+  --cp-scrim: rgba(3, 9, 7, 0.66);
   --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
-  --cp-shadow-sm: 0 5px 18px rgba(29,48,36,.07);
-  --cp-shadow-lg: 0 22px 60px rgba(29,48,36,.13);
+  --cp-shadow-sm: 0 5px 18px rgba(29, 48, 36, 0.07);
+  --cp-shadow-lg: 0 22px 60px rgba(29, 48, 36, 0.13);
 }
 
 [data-cp-theme='dark'] {
@@ -47,6 +49,7 @@
   --cp-primary-hover: #72e7ad;
   --cp-primary-ink: #062417;
   --cp-primary-soft: #153d2e;
+  --cp-primary-text: var(--cp-primary);
   --cp-pink: #ff6fa0;
   --cp-pink-soft: #3c2029;
   --cp-orange: #ff9d4d;
@@ -58,10 +61,10 @@
   --cp-danger: #ff7a68;
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   --cp-ink-on-accent: #0b120f;
-  --cp-scrim: rgba(0,0,0,.66);
+  --cp-scrim: rgba(0, 0, 0, 0.66);
   --cp-focus: color-mix(in srgb, var(--cp-primary) 42%, transparent);
-  --cp-shadow-sm: 0 7px 22px rgba(0,0,0,.22);
-  --cp-shadow-lg: 0 28px 70px rgba(0,0,0,.42);
+  --cp-shadow-sm: 0 7px 22px rgba(0, 0, 0, 0.22);
+  --cp-shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.42);
 }
 
 /* Paper is light whatever the screen was. Browsers leave backgrounds off a print by default, so a dark
@@ -85,6 +88,7 @@
     --cp-primary-hover: #146137;
     --cp-primary-ink: #ffffff;
     --cp-primary-soft: #def2e2;
+    --cp-primary-text: var(--cp-primary);
     --cp-pink: #c81457;
     --cp-pink-soft: #fbe3ec;
     --cp-orange: #b8500a;
@@ -96,9 +100,9 @@
     --cp-danger: #b3261e;
     --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
     --cp-ink-on-accent: #ffffff;
-    --cp-scrim: rgba(3,9,7,.66);
+    --cp-scrim: rgba(3, 9, 7, 0.66);
     --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
-    --cp-shadow-sm: 0 5px 18px rgba(29,48,36,.07);
-    --cp-shadow-lg: 0 22px 60px rgba(29,48,36,.13);
+    --cp-shadow-sm: 0 5px 18px rgba(29, 48, 36, 0.07);
+    --cp-shadow-lg: 0 22px 60px rgba(29, 48, 36, 0.13);
   }
 }

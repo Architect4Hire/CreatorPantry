@@ -270,15 +270,25 @@ what a form is: a single column of controls at a readable width, with the rest o
 them. Empty space to the right of a field is the layout working, not a gap to fill — a control stretched to a
 card's full width is harder to scan and no easier to fill in.
 
-**A long form carries a section nav.** The rule above is about fields, and it stands: they stack one per line at
-the measure. What makes a form a dozen fields long hard to use is its length, so it carries a `cp-anchor-nav`
-over its sections — a sticky gutter beside them when there is room, a wrapping row above them when there is
-not. `RecipeEditorComponent`'s General tab is the reference. The nav scrolls to a section and focuses it,
-follows the reader down the page, and says in words how many problems a refused save left in each section,
-which matters because that section may be several screens away. Every section stays rendered, so jumping
-mounts nothing and loses no edit. A short form needs no nav. Do not lay the sections out side by side to fill
-the card: that puts the whole form on screen at once and leaves a nav nothing to do. Space beside a column is
-still the layout working; the nav is for finding your place, not for filling the card.
+**A long form carries a section nav, and a wide one swaps it for two columns.** The rule above is about fields,
+and it stands: they stack one per line at the measure. What makes a form a dozen fields long hard to use is its
+length, so in a single column it carries a `cp-anchor-nav` over its sections, a wrapping row of links above them.
+`RecipeEditorComponent`'s General tab is the reference. The nav scrolls to a section and focuses it, follows the
+reader down the page, and says in words how many problems a refused save left in each section, which matters
+because that section may be several screens away. Every section stays rendered, so jumping mounts nothing and
+loses no edit.
+
+On a card wide enough that one column would leave a column's width empty down the whole page, the *sections* sit
+side by side instead, fields still stacked inside each: the long section takes one column for its full height and
+the rest stack in the other. There the nav is hidden, because the whole form is on screen and a nav that only
+repeats what is visible is clutter. The DOM order is unchanged, so the tab and reading order are the order they
+are written in, and below the editor's own width threshold (a container query, so it answers a narrowed window and
+200% zoom alike) it is one column with its nav again. Do this for a form that needs it, not by default: a short
+form is better as a single column.
+
+Type in a form is deliberate: a field's label is `--cp-font-size-sm` bold, its hint and error `--cp-font-size-sm`
+regular, and a section's intro `--cp-font-size-md`. A hint at the extra-small size read as fine print next to the
+label it explains; that is not a size to go back to.
 
 A `cp-field-row` is the exception, not the tool for tidying a long form. It is for values that are short *and*
 read as one set: three durations, a quantity and its unit. Prose, lists and anything with a `textarea` stay

@@ -68,7 +68,7 @@ let cpFormSectionUid = 0;
         margin: 0;
         max-width: var(--cp-measure-prose);
         color: var(--cp-text-muted);
-        font-size: var(--cp-font-size-sm);
+        font-size: var(--cp-font-size-md);
       }
 
       /* Tightened only when it actually follows the heading — with a problem between them it is a paragraph

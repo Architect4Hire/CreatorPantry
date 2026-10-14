@@ -60,10 +60,13 @@ export interface CpAnchorNavItem {
     :host { display:block; }
     ul { display:flex; flex-wrap:wrap; flex-direction:var(--cp-anchor-nav-direction, row); gap:var(--cp-space-1); margin:0; padding:0; list-style:none; }
     a { display:flex; flex-direction:column; justify-content:center; min-height:2.5rem; padding:var(--cp-space-1) var(--cp-space-3); border-radius:var(--cp-radius-md); color:var(--cp-text-muted); font:600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans); text-decoration:none; }
-    a:hover { color:var(--cp-text); background:var(--cp-surface-subtle); }
+    /* Only where there is a pointer to hover with. On a touch screen a tapped link stays :hover until the next tap
+       elsewhere, so the link just jumped to kept its hover background after the page had scrolled on, and read as
+       a second "current" item beside the real one. */
+    @media (hover: hover) { a:hover { color:var(--cp-text); background:var(--cp-surface-subtle); } }
     /* The current destination is named by aria-current for assistive tech; the colour and background are the
        visual half of the same fact, never the only carrier of it. */
-    a[aria-current='true'] { color:var(--cp-primary); background:var(--cp-surface-subtle); }
+    a[aria-current='true'] { color:var(--cp-primary-text); background:var(--cp-surface-subtle); }
     .label { overflow-wrap:anywhere; }
     .detail { font-weight:400; font-size:var(--cp-font-size-xs); color:var(--cp-text-muted); }
   `],
