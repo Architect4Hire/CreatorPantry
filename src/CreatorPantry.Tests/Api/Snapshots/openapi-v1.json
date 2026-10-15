@@ -22501,13 +22501,162 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/workflow-runs/{runId}/steps/{stepKey}/save-and-exit": {
+      "post": {
+        "tags": [
+          "WorkflowRuns"
+        ],
+        "summary": "Saves where the creator is on the run\u0027s current step, so they can leave and carry on later.",
+        "description": "The run\u0027s owner, the person it is for, or an Editor and above; anyone else answers\n\u0060403 workflows.run.forbidden\u0060, and a Viewer is refused by the route with \u0060403 forbidden\u0060.\n\n**Leaving is not a status.** The run stays \u0060InProgress\u0060 on the step it is on: nothing is completed, skipped\nor abandoned, and no step moves. \u0060updatedAt\u0060 is when it was saved.\n\n**The draft.** Send \u0060draft\u0060 when the step\u0027s last draft may not have reached the run \u2014 an autosave still on\nits way. It follows the draft save\u0027s rules exactly: a kind the step does not take is a \u0060400\u0060, and a record this\nworkspace does not have answers \u0060422 workflows.step.draft.unprocessable\u0060, the same answer another workspace\u0027s\ngets. Leave it out to keep the draft the step holds; a save and exit never clears one.\n\n**Where to carry on.** Send \u0060capabilityKey\u0060 \u2014 one of the step\u0027s actions, as \u0060nextAction\u0060 lists them \u2014 and the\nserver stores the route that action opens for this run, filled from the run\u0027s own records, as \u0060lastRoute\u0060.\nNo address is taken from the client. \u0060resumeRoute\u0060 then leads back there until the run moves to another step:\ncompleting, skipping or going back clears it. An action this step does not offer is a \u0060400\u0060; one not built\nyet, or whose page needs a record the run does not hold, answers \u0060422 workflows.run.last_route.unprocessable\u0060.\nLeave it out to keep the route the run holds.\n\n**Safe to repeat.** A save and exit whose draft and route the run already holds writes nothing and answers\n\u0060200\u0060 as the run stands, whatever the token \u2014 and so does a duplicate that loses a race to the first. No\n\u0060Idempotency-Key\u0060 is needed. A token is still required on every call, and a missing or malformed one is a\n\u0060400\u0060. Any other must send the token last read; a stale one answers \u0060409 workflows.run.conflict\u0060 carrying\n\u0060currentConcurrencyToken\u0060, the draft the step holds now and the run\u0027s \u0060lastRoute\u0060, and nothing is written.\n\n**Which answer wins**, when more than one applies: a malformed request (\u0060400\u0060), the run (\u0060404\u0060), who may change\nit (\u0060403\u0060), the step (\u0060404\u0060), a finished run (\u0060409\u0060), a step that is not current (\u0060409\u0060), an action the step\ndoes not offer (\u0060400\u0060), an action with no page (\u0060422\u0060), nothing to change (\u0060200\u0060), a step already done or\npassed over (\u0060409\u0060), a draft of the wrong kind (\u0060400\u0060), a stale token (\u0060409\u0060), and a draft not found (\u0060422\u0060).\n\nThe answer is the run as stored after the save, sent only once it is committed. Codes:\n\u0060workflows.run.not_in_progress.conflict\u0060, \u0060workflows.step.not_current.conflict\u0060 (with \u0060currentStepKey\u0060),\n\u0060workflows.step.already_done.conflict\u0060, \u0060workflows.step.not_found\u0060, \u0060workflows.run.not_found\u0060 \u2014 the same for\nan unknown run and another workspace\u0027s.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the start route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "description": "The run.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "stepKey",
+            "in": "path",
+            "description": "The step being left, which must be the one the run is on.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAndExitWorkflowRun"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAndExitWorkflowRun"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveAndExitWorkflowRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/workflow-runs/{runId}/steps/{stepKey}/completion": {
       "post": {
         "tags": [
           "WorkflowRuns"
         ],
         "summary": "Completes the run\u0027s current step, once the server finds it done.",
-        "description": "The run\u0027s owner, the person it is for, or an Editor and above, as for a draft.\n\n**Not a claim \u2014 a question.** The server checks the step\u0027s own rule against the modules that own the work: a\nfresh readiness evaluation, the recipe\u0027s or the piece\u0027s state as stored, whether the guide is switched on,\nwhether a post was kept, the publishing ledger\u0027s own state (an outcome still uncertain never counts). Nothing\nhere changes any of those, so no step completes that the domain would not already call done. When the rule is\nnot met the answer is \u0060422 workflows.step.incomplete.unprocessable\u0060 with \u0060missing\u0060 \u2014 what stands in the way,\nin plain words \u2014 and nothing is written.\n\n**Results.** A step whose job is to make a record \u2014 start a recipe, keep a picture, file a piece \u2014 is done when\nit names that record: in \u0060results\u0060, or, left out, by the step\u0027s saved draft, or else by the record of that\nkind the run already holds (so a step reopened by Back completes again on what it made the first time). Each is checked first: one this\nworkspace does not have answers \u0060422 workflows.step.result.unprocessable\u0060, the same answer another workspace\u0027s\ngets (and says so when it was the draft\u0027s), and a kind the step does not make is a \u0060400\u0060. Naming a record the\nrun already holds makes it the run\u0027s latest of its kind again.\n\n**What it moves, together:** the step is completed, its results are linked to the run (once each), the run\u0027s\nprogress counts it, and the run moves on to the next step not yet done or passed over. On the last one the run\nwaits on the last step of its version and \u0060nextAction\u0060 is null; finishing the run is a separate command. \u0060readyToComplete\u0060 is true\nas soon as every *required* step is done \u2014 an optional step may still be open, and \u0060nextAction\u0060 then offers\nit. The answer is the run as stored after the save.\n\n**Safe to repeat.** A step already complete answers \u0060200\u0060 as the run stands, with nothing written, whatever\nresults are sent and however far the run has moved since \u2014 and so does a duplicate that loses a race to the\nfirst. The request must still be well formed: a token is required on every call, and a missing or malformed\none is a \u0060400\u0060. Any other completion must send the token last read; a stale one answers\n\u0060409 workflows.run.conflict\u0060 with \u0060currentConcurrencyToken\u0060.\n\n**Which answer wins**, when more than one applies: the run (\u0060404\u0060), who may change it (\u0060403\u0060), the step\n(\u0060404\u0060), a step already complete (\u0060200\u0060), a finished run, a step that is not current, a step passed over (each\n\u0060409\u0060 \u2014 the last is \u0060workflows.step.already_done.conflict\u0060, and Back reopens it), a result of the wrong kind\n(\u0060400\u0060), a stale token (\u0060409\u0060), a result not found (\u0060422\u0060), and the rule not met (\u0060422\u0060).\n\nA finished run answers \u0060409 workflows.run.not_in_progress.conflict\u0060; a step that is not the current one,\n\u0060409 workflows.step.not_current.conflict\u0060 with \u0060currentStepKey\u0060; a step the run\u0027s version does not have,\n\u0060404 workflows.step.not_found\u0060; an unknown run and another workspace\u0027s, \u0060404 workflows.run.not_found\u0060.",
+        "description": "The run\u0027s owner, the person it is for, or an Editor and above, as for a draft.\n\n**Not a claim \u2014 a question.** The server checks the step\u0027s own rule against the modules that own the work: a\nfresh readiness evaluation, the recipe\u0027s or the piece\u0027s state as stored, whether the guide is switched on,\nwhether a post was kept, the publishing ledger\u0027s own state (an outcome still uncertain never counts). Nothing\nhere changes any of those, so no step completes that the domain would not already call done. When the rule is\nnot met the answer is \u0060422 workflows.step.incomplete.unprocessable\u0060 with \u0060missing\u0060 \u2014 what stands in the way,\nin plain words \u2014 and nothing is written.\n\n**Results.** A step whose job is to make a record \u2014 start a recipe, keep a picture, file a piece \u2014 is done when\nit names that record: in \u0060results\u0060, or, left out, by the step\u0027s saved draft, or else by the record of that\nkind the run already holds (so a step reopened by Back completes again on what it made the first time). Each is checked first: one this\nworkspace does not have answers \u0060422 workflows.step.result.unprocessable\u0060, the same answer another workspace\u0027s\ngets (and says so when it was the draft\u0027s), and a kind the step does not make is a \u0060400\u0060. Naming a record the\nrun already holds makes it the run\u0027s latest of its kind again.\n\n**What it moves, together:** the step is completed, its results are linked to the run (once each), the run\u0027s\nprogress counts it, the run moves on to the next step not yet done or passed over, and its \u0060lastRoute\u0060 is\ncleared so \u0022Continue\u0022 goes there. On the last one the run\nwaits on the last step of its version and \u0060nextAction\u0060 is null; finishing the run is a separate command. \u0060readyToComplete\u0060 is true\nas soon as every *required* step is done \u2014 an optional step may still be open, and \u0060nextAction\u0060 then offers\nit. The answer is the run as stored after the save.\n\n**Safe to repeat.** A step already complete answers \u0060200\u0060 as the run stands, with nothing written, whatever\nresults are sent and however far the run has moved since \u2014 and so does a duplicate that loses a race to the\nfirst. The request must still be well formed: a token is required on every call, and a missing or malformed\none is a \u0060400\u0060. Any other completion must send the token last read; a stale one answers\n\u0060409 workflows.run.conflict\u0060 with \u0060currentConcurrencyToken\u0060.\n\n**Which answer wins**, when more than one applies: the run (\u0060404\u0060), who may change it (\u0060403\u0060), the step\n(\u0060404\u0060), a step already complete (\u0060200\u0060), a finished run, a step that is not current, a step passed over (each\n\u0060409\u0060 \u2014 the last is \u0060workflows.step.already_done.conflict\u0060, and Back reopens it), a result of the wrong kind\n(\u0060400\u0060), a stale token (\u0060409\u0060), a result not found (\u0060422\u0060), and the rule not met (\u0060422\u0060).\n\nA finished run answers \u0060409 workflows.run.not_in_progress.conflict\u0060; a step that is not the current one,\n\u0060409 workflows.step.not_current.conflict\u0060 with \u0060currentStepKey\u0060; a step the run\u0027s version does not have,\n\u0060404 workflows.step.not_found\u0060; an unknown run and another workspace\u0027s, \u0060404 workflows.run.not_found\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -22795,7 +22944,7 @@
           "WorkflowRuns"
         ],
         "summary": "Passes over the run\u0027s current step, which its workflow must mark optional.",
-        "description": "The run\u0027s owner, the person it is for, or an Editor and above; anyone else answers\n\u0060403 workflows.run.forbidden\u0060, and a Viewer is refused by the route with \u0060403 forbidden\u0060.\n\n**Optional steps only.** A step its workflow requires answers \u0060422 workflows.step.required.unprocessable\u0060.\n\n**A skip is never a result.** The step is marked passed over \u2014 when, by whom, and why if the creator said \u2014\nand nothing more: no record is linked, nothing is completed, the step\u0027s saved draft stays a draft, and the run\u0027s\ncompleted count is untouched. The run moves on to the next step not yet done or passed over, or, with none,\nwaits on its last step to be finished. Back undoes a skip.\n\n**Safe to repeat.** A step already skipped answers \u0060200\u0060 as the run stands with nothing written, whatever was\nsent and however far the run has moved since; so does a duplicate that loses a race to the first. A token is\nstill required on every call, and a missing or malformed one \u2014 or a blank or over-long \u0060reason\u0060 \u2014 is a \u0060400\u0060.\n\n**Which answer wins**, when more than one applies: a malformed request (\u0060400\u0060), the run (\u0060404\u0060), who may change\nit (\u0060403\u0060), the step (\u0060404\u0060), a step already skipped (\u0060200\u0060), a finished run, a step that is not current, a\nstep already done (each \u0060409\u0060), a required step (\u0060422\u0060), and a stale token (\u0060409 workflows.run.conflict\u0060 with\n\u0060currentConcurrencyToken\u0060). Codes: \u0060workflows.run.not_in_progress.conflict\u0060,\n\u0060workflows.step.not_current.conflict\u0060 (with \u0060currentStepKey\u0060), \u0060workflows.step.already_done.conflict\u0060,\n\u0060workflows.step.not_found\u0060, \u0060workflows.run.not_found\u0060 \u2014 the same for an unknown run and another workspace\u0027s.",
+        "description": "The run\u0027s owner, the person it is for, or an Editor and above; anyone else answers\n\u0060403 workflows.run.forbidden\u0060, and a Viewer is refused by the route with \u0060403 forbidden\u0060.\n\n**Optional steps only.** A step its workflow requires answers \u0060422 workflows.step.required.unprocessable\u0060.\n\n**A skip is never a result.** The step is marked passed over \u2014 when, by whom, and why if the creator said \u2014\nand nothing more: no record is linked, nothing is completed, the step\u0027s saved draft stays a draft, and the run\u0027s\ncompleted count is untouched. The run moves on to the next step not yet done or passed over, or, with none,\nwaits on its last step to be finished; its \u0060lastRoute\u0060 is cleared, as for a completion. Back undoes a skip.\n\n**Safe to repeat.** A step already skipped answers \u0060200\u0060 as the run stands with nothing written, whatever was\nsent and however far the run has moved since; so does a duplicate that loses a race to the first. A token is\nstill required on every call, and a missing or malformed one \u2014 or a blank or over-long \u0060reason\u0060 \u2014 is a \u0060400\u0060.\n\n**Which answer wins**, when more than one applies: a malformed request (\u0060400\u0060), the run (\u0060404\u0060), who may change\nit (\u0060403\u0060), the step (\u0060404\u0060), a step already skipped (\u0060200\u0060), a finished run, a step that is not current, a\nstep already done (each \u0060409\u0060), a required step (\u0060422\u0060), and a stale token (\u0060409 workflows.run.conflict\u0060 with\n\u0060currentConcurrencyToken\u0060). Codes: \u0060workflows.run.not_in_progress.conflict\u0060,\n\u0060workflows.step.not_current.conflict\u0060 (with \u0060currentStepKey\u0060), \u0060workflows.step.already_done.conflict\u0060,\n\u0060workflows.step.not_found\u0060, \u0060workflows.run.not_found\u0060 \u2014 the same for an unknown run and another workspace\u0027s.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -22912,6 +23061,276 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/workflow-runs/{runId}/completion": {
+      "post": {
+        "tags": [
+          "WorkflowRuns"
+        ],
+        "summary": "Finishes a run, once the server finds every required step done as things stand now.",
+        "description": "The run\u0027s owner, the person it is for, or an Editor and above; anyone else answers\n\u0060403 workflows.run.forbidden\u0060, and a Viewer is refused by the route with \u0060403 forbidden\u0060.\n\n**Proved now, not remembered.** Every step the run\u0027s version requires must be completed, and its rule must\nstill hold when this is asked: a record a step linked is checked again through the module that owns it, and\nevery other rule \u2014 readiness, the recipe\u0027s or the piece\u0027s state, the guide switched on, a post kept, the\npublishing ledger \u2014 is evaluated afresh. A step completed on a recipe since un-approved, or a picture since\ndeleted, is not done. When anything stands in the way the answer is\n\u0060422 workflows.run.incomplete.unprocessable\u0060 with \u0060incompleteSteps\u0060 \u2014 each step\u0027s \u0060stepKey\u0060, \u0060title\u0060 and\n\u0060missing\u0060, in plain words \u2014 and nothing is written. Optional steps never stand in the way.\n\n**The run, and only the run.** The run becomes \u0060Completed\u0060 with \u0060completedAt\u0060, and is on no step any more;\n\u0060nextAction\u0060 and \u0060resumeRoute\u0060 are null. No step, link or linked record is touched: an optional step left open\nstays open with its draft, and the recipe, piece or picture the run used is exactly as it was. The answer is the\nrun as stored after the save.\n\n**Safe to repeat.** A run already completed answers \u0060200\u0060 as it stands with nothing written, whatever the\ntoken \u2014 and so does a duplicate that loses a race to the first. A token is still required on every call, and a\nmissing or malformed one is a \u0060400\u0060. Any other must send the token last read; a stale one answers\n\u0060409 workflows.run.conflict\u0060 with \u0060currentConcurrencyToken\u0060.\n\n**Which answer wins**, when more than one applies: a malformed request (\u0060400\u0060), the run (\u0060404\u0060), who may change\nit (\u0060403\u0060), a run already completed (\u0060200\u0060), a run stopped (\u0060409 workflows.run.not_in_progress.conflict\u0060), a\nstale token (\u0060409\u0060), and something still to do (\u0060422\u0060). An unknown run and another workspace\u0027s answer\n\u0060404 workflows.run.not_found\u0060 alike.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the start route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "description": "The run.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkflowRun"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkflowRun"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteWorkflowRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/workflow-runs/{runId}/abandonment": {
+      "post": {
+        "tags": [
+          "WorkflowRuns"
+        ],
+        "summary": "Stops a run for good, keeping it whole and every record it linked as it is.",
+        "description": "The run\u0027s owner, the person it is for, or an Editor and above; anyone else answers\n\u0060403 workflows.run.forbidden\u0060, and a Viewer is refused by the route with \u0060403 forbidden\u0060.\n\n**Confirmed, or nothing happens.** \u0060confirmed\u0060 must be \u0060true\u0060; without it the answer is\n\u0060400 workflows.run.abandon.invalid\u0060 and nothing changes. \u0060reason\u0060 is optional, in the creator\u0027s own words, up to\n500 characters; it is kept trimmed and returned as \u0060abandonReason\u0060. Leave it out rather than send it blank: a\nblank or over-long one is a \u0060400\u0060, as for a skip.\n\n**A stop, not a finish.** The run becomes \u0060Abandoned\u0060 with \u0060abandonedAt\u0060; \u0060nextAction\u0060 and \u0060resumeRoute\u0060 are\nnull. Nothing else in it changes: it keeps the step it was left on, its steps with their drafts and reasons, and\nevery link, as the record of how far it got. No recipe, piece of content or picture it linked is touched, and\nthe stop is recorded in the workspace\u0027s audit log in the same write. To try the journey again, start it over or\nstart a new run.\n\n**Safe to repeat.** A run already stopped \u2014 this way or by a start over \u2014 answers \u0060200\u0060 as it stands with\nnothing written, whatever the token, and keeps the reason it was first stopped with; so does a duplicate that\nloses a race to the first. A token is still required on every call, and a missing or malformed one is a \u0060400\u0060.\nAny other must send the token last read; a stale one answers \u0060409 workflows.run.conflict\u0060 with\n\u0060currentConcurrencyToken\u0060.\n\n**Which answer wins**, when more than one applies: a malformed or unconfirmed request (\u0060400\u0060), the run (\u0060404\u0060),\nwho may change it (\u0060403\u0060), a run already stopped (\u0060200\u0060), a run completed\n(\u0060409 workflows.run.not_in_progress.conflict\u0060), and a stale token (\u0060409\u0060). An unknown run and another\nworkspace\u0027s answer \u0060404 workflows.run.not_found\u0060 alike.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the start route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "description": "The run to stop.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbandonWorkflowRun"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbandonWorkflowRun"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AbandonWorkflowRun"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -23497,6 +23916,32 @@
   },
   "components": {
     "schemas": {
+      "AbandonWorkflowRun": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Required, and must be true: the creator confirmed stopping the run. Anything else changes nothing."
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Why, in the creator\u0027s own words. Optional; kept with the run as it was written, trimmed."
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Required. The run\u0027s \u0060concurrencyToken\u0060 as last read. A run already stopped answers as it stands, whatever the token."
+          }
+        }
+      },
       "AcceptBrandGuideProposal": {
         "type": "object",
         "properties": {
@@ -27437,6 +27882,18 @@
           },
           "newPassword": {
             "type": "string"
+          }
+        }
+      },
+      "CompleteWorkflowRun": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Required. The run\u0027s \u0060concurrencyToken\u0060 as last read. A run already completed answers as it stands, whatever the token."
           }
         }
       },
@@ -37963,6 +38420,36 @@
           }
         }
       },
+      "SaveAndExitWorkflowRun": {
+        "type": "object",
+        "properties": {
+          "draft": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The record the step\u0027s unfinished work is kept in, when it has one the run may not hold yet \u2014 an autosave still on its way. Omit it to keep the draft the step already holds; it is never cleared.",
+                "$ref": "#/components/schemas/WorkflowStepDraftPointer"
+              }
+            ]
+          },
+          "capabilityKey": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Which of the step\u0027s actions the creator was in, by its \u0060capabilityKey\u0060 from \u0060nextAction\u0060. \u0022Continue\u0022 goes back to it. Omit it to keep where the run last said."
+          },
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Required. The run\u0027s \u0060concurrencyToken\u0060 as last read. A save and exit that has already landed answers as the run stands, whatever the token."
+          }
+        }
+      },
       "SaveBrandSetupSession": {
         "type": "object",
         "properties": {
@@ -40702,6 +41189,12 @@
             ],
             "format": "date-time"
           },
+          "abandonReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "lastRoute": {
             "type": [
               "null",
@@ -40865,6 +41358,27 @@
               "string"
             ],
             "description": "Required. The run\u0027s \u0060concurrencyToken\u0060 as last read. A Back that has already landed answers as the run stands, whatever the token."
+          }
+        }
+      },
+      "WorkflowStepDraftPointer": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "What kind of record holds the step\u0027s unfinished work.",
+                "$ref": "#/components/schemas/WorkflowResourceKind"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "That record\u0027s id in this workspace.",
+            "format": "uuid"
           }
         }
       },

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
@@ -19,6 +20,10 @@ public interface IWorkflowRunBusiness
     Task<OperationResult<WorkflowRunServiceModel>> SaveDraftAsync(
         Guid runId, string stepKey, SaveWorkflowStepDraftViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>Saves the run's current step's draft and where the creator was, to carry on later (13A.10).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> SaveAndExitAsync(
+        Guid runId, string stepKey, SaveAndExitWorkflowRunViewModel model, CancellationToken cancellationToken);
+
     /// <summary>Completes the run's current step, once the server has found its completion rule met (13A.8).</summary>
     Task<OperationResult<WorkflowRunServiceModel>> CompleteStepAsync(
         Guid runId, string stepKey, CompleteWorkflowStepViewModel model, CancellationToken cancellationToken);
@@ -30,6 +35,14 @@ public interface IWorkflowRunBusiness
     /// <summary>Passes over the run's current step, which its workflow must mark optional (13A.9a).</summary>
     Task<OperationResult<WorkflowRunServiceModel>> SkipAsync(
         Guid runId, string stepKey, SkipWorkflowStepViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>Finishes a run, once the server finds every required step's rule met as things stand now (13A.10a).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> CompleteRunAsync(
+        Guid runId, CompleteWorkflowRunViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>Stops a run for good, keeping it whole and everything it linked as it is (13A.10b).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
+        Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken);
 
     /// <summary>Stops a run, keeping it whole, and starts the same journey afresh in its place (13A.9b).</summary>
     Task<OperationResult<WorkflowRunRestart>> RestartAsync(
@@ -314,16 +327,9 @@ internal sealed class WorkflowRunBusiness(
                 new Dictionary<string, string[]>()));
         }
 
-        var takes = new[] { step.Capability.Primary }.Concat(step.Capability.Alternatives)
-            .Select(key => WorkflowCapabilities.ByKey[key].DraftKind)
-            .OfType<WorkflowResourceKind>()
-            .ToHashSet();
-        if (!takes.Contains(kind))
+        if (DraftKindRefused(step, kind, "kind") is { } wrongKind)
         {
-            return Fail(OperationError.Validation(
-                WorkflowErrorCodes.StepDraftInvalid,
-                "This step doesn't keep its work in that kind of record.",
-                [("kind", takes.Count == 0 ? "This step has no draft to save." : $"This step's draft is a {string.Join(" or a ", takes)}.")]));
+            return Fail(wrongKind);
         }
 
         WorkflowRunConcurrencyToken.TryParse(model.ExpectedConcurrencyToken, out var expected);
@@ -334,21 +340,11 @@ internal sealed class WorkflowRunBusiness(
 
         if (!await facts.ExistsAsync(kind, model.Id, cancellationToken))
         {
-            return Fail(new OperationError(
-                WorkflowErrorCodes.StepDraftUnprocessable,
-                "That record could not be found in this workspace.",
-                new Dictionary<string, string[]>()));
+            return Fail(DraftNotFound());
         }
 
         var now = clock.UtcNow;
-        row.DraftResourceKind = kind;
-        row.DraftResourceId = model.Id;
-        row.DraftSavedAt = now;
-        if (row.Status == WorkflowStepRunStatus.NotStarted)
-        {
-            row.Status = WorkflowStepRunStatus.InProgress;
-            row.StartedAt = now;
-        }
+        PointDraft(row, kind, model.Id, now);
 
         // Every change to a step is a change to its run, so the run's one token covers it.
         run.UpdatedAt = now;
@@ -369,6 +365,247 @@ internal sealed class WorkflowRunBusiness(
         }
 
         return await GetAsync(runId, cancellationToken);
+    }
+
+    /// <summary>Refuses a draft kind none of the step's actions keeps its work in; null when the step takes it.</summary>
+    private static OperationError? DraftKindRefused(WorkflowStepDefinition step, WorkflowResourceKind kind, string field)
+    {
+        var takes = Actions(step)
+            .Select(capability => capability.DraftKind)
+            .OfType<WorkflowResourceKind>()
+            .ToHashSet();
+
+        return takes.Contains(kind)
+            ? null
+            : OperationError.Validation(
+                WorkflowErrorCodes.StepDraftInvalid,
+                "This step doesn't keep its work in that kind of record.",
+                [(field, takes.Count == 0 ? "This step has no draft to save." : $"This step's draft is a {string.Join(" or a ", takes)}.")]);
+    }
+
+    private static OperationError DraftNotFound() => new(
+        WorkflowErrorCodes.StepDraftUnprocessable,
+        "That record could not be found in this workspace.",
+        new Dictionary<string, string[]>());
+
+    /// <summary>Points the step at its draft; the first draft starts the step.</summary>
+    private static void PointDraft(WorkflowStepRun row, WorkflowResourceKind kind, Guid id, DateTimeOffset now)
+    {
+        row.DraftResourceKind = kind;
+        row.DraftResourceId = id;
+        row.DraftSavedAt = now;
+        if (row.Status == WorkflowStepRunStatus.NotStarted)
+        {
+            row.Status = WorkflowStepRunStatus.InProgress;
+            row.StartedAt = now;
+        }
+    }
+
+    /// <summary>The step's primary action and its alternatives, most recommended first.</summary>
+    private static IEnumerable<WorkflowCapability> Actions(WorkflowStepDefinition step) =>
+        new[] { step.Capability.Primary }.Concat(step.Capability.Alternatives).Select(key => WorkflowCapabilities.ByKey[key]);
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Leaving is not a status.</strong> The run stays in progress on the step it is on: nothing is completed,
+    /// skipped or abandoned, and no step moves. What is saved is what "Continue" needs — the step's draft, when one is
+    /// sent, and which of the step's actions the creator was in, as the route that action opens for this run, filled
+    /// by the server from the run's own links.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing committed is lost.</strong> A draft left out keeps the one the step holds; a draft sent follows
+    /// the draft save's own rules (13A.7); an action left out keeps the route the run holds.
+    /// </para>
+    /// <para>
+    /// <strong>Safe to repeat.</strong> A save and exit whose draft and route the run already holds writes nothing and
+    /// answers as the run stands, whatever the token — and so does a duplicate that loses a race to the first. Any
+    /// other must quote the token the caller read, and the answer is read back after the commit.
+    /// </para>
+    /// </remarks>
+    public async Task<OperationResult<WorkflowRunServiceModel>> SaveAndExitAsync(
+        Guid runId, string stepKey, SaveAndExitWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (await data.GetForUpdateAsync(runId, cancellationToken) is not { } stored)
+        {
+            return Fail(NotFound());
+        }
+
+        var (run, steps, links) = stored;
+
+        if (!MayChange(run))
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "Only the person who started this run, the person it's for, or an Editor can change it.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var definition = catalogue.Find(run.DefinitionKey, run.DefinitionVersion)
+            ?? throw new InvalidOperationException(
+                $"Workflow run {run.Id} is pinned to {run.DefinitionKey}@{run.DefinitionVersion}, which the catalogue does not have.");
+
+        if (definition.Steps.FirstOrDefault(candidate => candidate.Key.Value == stepKey) is not { } step)
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.StepNotFound, "This run has no such step.", new Dictionary<string, string[]>()));
+        }
+
+        // A finished run is not one to come back to, so there is nothing to save for later.
+        if (run.Status != WorkflowRunStatus.InProgress)
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.RunNotInProgress,
+                "This run is finished, so nothing in it changes any more.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (run.CurrentStepKey != stepKey)
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.StepNotCurrent,
+                "This isn't the step the run is on.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?> { ["currentStepKey"] = run.CurrentStepKey }));
+        }
+
+        // The route is the server's: the named action's template, filled from the run's most recent record of each kind.
+        string? route = null;
+        if (model.CapabilityKey is { } key)
+        {
+            if (Actions(step).FirstOrDefault(action => action.Key.Value == key) is not { } capability)
+            {
+                return Fail(OperationError.Validation(
+                    WorkflowErrorCodes.SaveAndExitInvalid,
+                    "That isn't one of this step's actions.",
+                    [("capabilityKey", "Name one of the actions this step offers.")]));
+            }
+
+            if (!capability.IsAvailable)
+            {
+                return Fail(new OperationError(
+                    WorkflowErrorCodes.LastRouteUnprocessable, capability.UnavailableReason!, new Dictionary<string, string[]>()));
+            }
+
+            var latest = links
+                .GroupBy(link => link.ResourceKind)
+                .ToDictionary(group => group.Key, group => group.Last().ResourceId);
+
+            route = WorkflowRoutes.Resolve(capability.RouteTemplate, latest);
+            if (route is null)
+            {
+                return Fail(new OperationError(
+                    WorkflowErrorCodes.LastRouteUnprocessable,
+                    "That page needs something this run doesn't have yet, so there's nowhere to come back to.",
+                    new Dictionary<string, string[]>()));
+            }
+        }
+
+        var row = steps.Single(candidate => candidate.StepKey == stepKey);
+        var draft = model.Draft is { Kind: { } draftKind, Id: var draftId } ? (Kind: draftKind, Id: draftId) : ((WorkflowResourceKind Kind, Guid Id)?)null;
+
+        // What the run already holds: nothing to write, so nothing to refuse.
+        if (Holds(run, row, draft, route))
+        {
+            return await GetAsync(runId, cancellationToken);
+        }
+
+        // The run waits on its last step once every step is done or passed over; there is no work on it to come back to.
+        if (row.Status == WorkflowStepRunStatus.Skipped)
+        {
+            return Fail(PassedOver());
+        }
+
+        if (row.Status == WorkflowStepRunStatus.Completed)
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.StepAlreadyDone,
+                "This step is already done. Go back to it to change it.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var draftChanges = draft is { } sent && (row.DraftResourceKind != sent.Kind || row.DraftResourceId != sent.Id);
+        if (draftChanges && DraftKindRefused(step, draft!.Value.Kind, "draft.kind") is { } wrongKind)
+        {
+            return Fail(wrongKind);
+        }
+
+        WorkflowRunConcurrencyToken.TryParse(model.ExpectedConcurrencyToken, out var expected);
+        if (!expected.AsSpan().SequenceEqual(run.RowVersion))
+        {
+            return Fail(LeftStale(run, row));
+        }
+
+        if (draftChanges && !await facts.ExistsAsync(draft!.Value.Kind, draft.Value.Id, cancellationToken))
+        {
+            return Fail(DraftNotFound());
+        }
+
+        var now = clock.UtcNow;
+        if (draftChanges)
+        {
+            PointDraft(row, draft!.Value.Kind, draft.Value.Id, now);
+        }
+
+        if (route is not null)
+        {
+            run.LastRoute = route;
+        }
+
+        run.UpdatedAt = now;
+
+        if (await data.SaveAsync(run, expected, cancellationToken) == WorkflowRunWrite.Stale)
+        {
+            if (await data.GetAsync(runId, cancellationToken) is not { } current)
+            {
+                return Fail(NotFound());
+            }
+
+            // Judged as it would have been had it come second: a run finished or moved on since is not one to come back
+            // to here, whatever it holds.
+            if (current.Run.Status != WorkflowRunStatus.InProgress)
+            {
+                return Fail(new OperationError(
+                    WorkflowErrorCodes.RunNotInProgress,
+                    "This run is finished, so nothing in it changes any more.",
+                    new Dictionary<string, string[]>()));
+            }
+
+            if (current.Run.CurrentStepKey != stepKey)
+            {
+                return Fail(new OperationError(
+                    WorkflowErrorCodes.StepNotCurrent,
+                    "This isn't the step the run is on.",
+                    new Dictionary<string, string[]>(),
+                    new Dictionary<string, object?> { ["currentStepKey"] = current.Run.CurrentStepKey }));
+            }
+
+            // Lost to a request that saved this same place — a double click on "Save and exit": it landed, and so did this.
+            var held = current.Steps.Single(candidate => candidate.StepKey == stepKey);
+
+            return Holds(current.Run, held, draft, route)
+                ? await GetAsync(runId, cancellationToken)
+                : Fail(LeftStale(current.Run, held));
+        }
+
+        return await GetAsync(runId, cancellationToken);
+    }
+
+    /// <summary>Whether the run already holds everything a save and exit would write — what it sent, and nothing else.</summary>
+    private static bool Holds(WorkflowRun run, WorkflowStepRun row, (WorkflowResourceKind Kind, Guid Id)? draft, string? route) =>
+        (draft is not { } sent || (row.DraftResourceKind == sent.Kind && row.DraftResourceId == sent.Id))
+        && (route is null || string.Equals(run.LastRoute, route, StringComparison.Ordinal));
+
+    /// <summary>A stale save and exit's refusal: what the run holds now, including where it says to carry on from.</summary>
+    private static OperationError LeftStale(WorkflowRun run, WorkflowStepRun row)
+    {
+        var stale = Stale(run, row);
+
+        return stale with
+        {
+            Extensions = new Dictionary<string, object?>(stale.Extensions!) { ["lastRoute"] = run.LastRoute },
+        };
     }
 
     /// <remarks>
@@ -551,6 +788,9 @@ internal sealed class WorkflowRunBusiness(
         run.CompletedStepCount++;
 
         run.CurrentStepKey = NextCurrent(definition, steps, stepKey);
+
+        // Where the creator last saved and left was a page of the step just done; "Continue" goes to the next one.
+        run.LastRoute = null;
         run.UpdatedAt = now;
 
         if (await data.SaveAsync(run, expected, cancellationToken, newLinks) == WorkflowRunWrite.Stale)
@@ -822,6 +1062,9 @@ internal sealed class WorkflowRunBusiness(
         row.SkipReason = model.Reason?.Trim() is { Length: > 0 } reason ? reason : null;
         run.SkippedStepCount++;
         run.CurrentStepKey = NextCurrent(definition, steps, stepKey);
+
+        // As for completion: the page last saved and left belongs to the step passed over.
+        run.LastRoute = null;
         run.UpdatedAt = now;
 
         if (await data.SaveAsync(run, expected, cancellationToken) == WorkflowRunWrite.Stale)
@@ -840,6 +1083,274 @@ internal sealed class WorkflowRunBusiness(
         }
 
         return await GetAsync(runId, cancellationToken);
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Proved now, not remembered.</strong> Every step the pinned version requires must be completed, and its
+    /// rule must still hold when this asks: a record a step linked is checked again through the module that owns it,
+    /// and every other rule is evaluated afresh through <see cref="IWorkflowFacts"/>. A step completed last week on a
+    /// recipe since un-approved, or a picture since deleted, is not done. Nothing the client sends counts towards it.
+    /// The facts are read once, before the write, which the run's token fences and theirs do not: a record that
+    /// changes in between is not seen, as it is not when a step is completed.
+    /// </para>
+    /// <para>
+    /// <strong>The run, and only the run.</strong> Finishing writes the run's status, its completion time and its
+    /// step — none, once completed. No step row, link or linked record is touched: optional steps left open stay open
+    /// with their drafts, and the recipe, piece or picture the run used is exactly as it was.
+    /// </para>
+    /// <para>
+    /// <strong>Safe to repeat.</strong> A run already completed answers as it stands with nothing written, whatever
+    /// the token — and so does a duplicate that loses a race to the first.
+    /// </para>
+    /// </remarks>
+    public async Task<OperationResult<WorkflowRunServiceModel>> CompleteRunAsync(
+        Guid runId, CompleteWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (await data.GetForUpdateAsync(runId, cancellationToken) is not { } stored)
+        {
+            return Fail(NotFound());
+        }
+
+        var (run, steps, links) = stored;
+
+        if (!MayChange(run))
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "Only the person who started this run, the person it's for, or an Editor can change it.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // Already finished: the answer it would have had, with nothing written.
+        if (run.Status == WorkflowRunStatus.Completed)
+        {
+            return await GetAsync(runId, cancellationToken);
+        }
+
+        if (run.Status != WorkflowRunStatus.InProgress)
+        {
+            return Fail(Stopped());
+        }
+
+        WorkflowRunConcurrencyToken.TryParse(model.ExpectedConcurrencyToken, out var expected);
+        if (!expected.AsSpan().SequenceEqual(run.RowVersion))
+        {
+            return Fail(FinishConflict(run));
+        }
+
+        var definition = catalogue.Find(run.DefinitionKey, run.DefinitionVersion)
+            ?? throw new InvalidOperationException(
+                $"Workflow run {run.Id} is pinned to {run.DefinitionKey}@{run.DefinitionVersion}, which the catalogue does not have.");
+
+        var incomplete = await IncompleteAsync(definition, run, steps, links, cancellationToken);
+        if (incomplete.Count > 0)
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.RunIncomplete,
+                "This journey isn't finished yet.",
+                new Dictionary<string, string[]>(),
+                new Dictionary<string, object?> { ["incompleteSteps"] = incomplete }));
+        }
+
+        var now = clock.UtcNow;
+        run.Status = WorkflowRunStatus.Completed;
+        run.CompletedAt = now;
+        run.CurrentStepKey = null;
+        run.UpdatedAt = now;
+
+        if (await data.SaveAsync(run, expected, cancellationToken) == WorkflowRunWrite.Stale)
+        {
+            // Lost to another finish of the same run: it landed, and so did this. Lost to anything else: judged as it
+            // would have been had it come second.
+            return await data.GetAsync(runId, cancellationToken) switch
+            {
+                { Run.Status: WorkflowRunStatus.Completed } => await GetAsync(runId, cancellationToken),
+                { Run.Status: WorkflowRunStatus.Abandoned } => Fail(Stopped()),
+                { } current => Fail(FinishConflict(current.Run)),
+                null => Fail(NotFound()),
+            };
+        }
+
+        return await GetAsync(runId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Each required step that is not done, or whose rule no longer holds, with what stands in the way in plain
+    /// words — read against the run's most recent record of each kind, as completing a step reads them.
+    /// </summary>
+    private async Task<List<Dictionary<string, object?>>> IncompleteAsync(
+        WorkflowDefinition definition,
+        WorkflowRun run,
+        IReadOnlyList<WorkflowStepRun> steps,
+        IReadOnlyList<WorkflowRunLink> links,
+        CancellationToken cancellationToken)
+    {
+        var latest = links
+            .GroupBy(link => link.ResourceKind)
+            .ToDictionary(group => group.Key, group => group.Last().ResourceId);
+
+        var incomplete = new List<Dictionary<string, object?>>();
+        foreach (var step in definition.Steps.Where(candidate => candidate.Requirement == WorkflowStepRequirement.Required))
+        {
+            var missing = new List<string>();
+            if (steps.Single(candidate => candidate.StepKey == step.Key.Value).Status != WorkflowStepRunStatus.Completed)
+            {
+                missing.Add("This step isn't done yet.");
+            }
+            else
+            {
+                // The facts read a linked record's state, never whether it is there: that is checked here, as
+                // completing the step checked it.
+                if (step.CompletionRule is WorkflowCompletionRule.ResourceLinked linked)
+                {
+                    foreach (var kind in linked.Kinds)
+                    {
+                        if (!latest.TryGetValue(kind, out var id)
+                            || !CheckableKinds.Contains(kind)
+                            || !await facts.ExistsAsync(kind, id, cancellationToken))
+                        {
+                            missing.Add($"The {Noun(kind, article: false)} this step made can't be found any more.");
+                        }
+                    }
+                }
+
+                missing.AddRange(await facts.UnmetAsync(step.CompletionRule, run, latest, cancellationToken));
+            }
+
+            if (missing.Count > 0)
+            {
+                incomplete.Add(new Dictionary<string, object?>
+                {
+                    ["stepKey"] = step.Key.Value,
+                    ["title"] = step.Title,
+                    ["missing"] = missing,
+                });
+            }
+        }
+
+        return incomplete;
+    }
+
+    private static OperationError Stopped() => new(
+        WorkflowErrorCodes.RunNotInProgress,
+        "This run was stopped, so it can't be finished. Start the journey again instead.",
+        new Dictionary<string, string[]>());
+
+    private static OperationError FinishConflict(WorkflowRun run) => new(
+        WorkflowErrorCodes.RunConflict,
+        "This run changed since you last looked. Take another look before finishing it.",
+        new Dictionary<string, string[]>(),
+        new Dictionary<string, object?> { ["currentConcurrencyToken"] = WorkflowRunConcurrencyToken.From(run.RowVersion) });
+
+    /// <remarks>
+    /// <para>
+    /// <strong>A stop, not a finish.</strong> The run becomes <see cref="WorkflowRunStatus.Abandoned"/>, with when, who
+    /// and — when the creator gave one — why. Nothing else in it changes: it keeps the step it was left on, its steps
+    /// with their drafts and reasons, its last route and every link, as the honest record of how far it got. The
+    /// records it linked belong to their modules, and none is asked anything, let alone changed.
+    /// </para>
+    /// <para>
+    /// <strong>Safe to repeat.</strong> A run already stopped — this way or by a start over — answers as it stands,
+    /// whatever the token, and keeps the reason it was stopped with. A completed run is not stopped: it is done.
+    /// </para>
+    /// <para>
+    /// <strong>Audited</strong>, in the same save: anyone with the right to change a run may stop it, including an Editor
+    /// stopping someone else's, and that cannot be undone.
+    /// </para>
+    /// </remarks>
+    public async Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
+        Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (await data.GetForUpdateAsync(runId, cancellationToken) is not { } stored)
+        {
+            return Fail(NotFound());
+        }
+
+        var run = stored.Run;
+
+        if (!MayChange(run))
+        {
+            return Fail(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "Only the person who started this run, the person it's for, or an Editor can change it.",
+                new Dictionary<string, string[]>()));
+        }
+
+        // Already stopped: the answer it would have had, with nothing written.
+        if (run.Status == WorkflowRunStatus.Abandoned)
+        {
+            return await GetAsync(runId, cancellationToken);
+        }
+
+        if (run.Status != WorkflowRunStatus.InProgress)
+        {
+            return Fail(Finished());
+        }
+
+        WorkflowRunConcurrencyToken.TryParse(model.ExpectedConcurrencyToken, out var expected);
+        if (!expected.AsSpan().SequenceEqual(run.RowVersion))
+        {
+            return Fail(StopConflict(run));
+        }
+
+        var now = clock.UtcNow;
+        run.Status = WorkflowRunStatus.Abandoned;
+        run.AbandonedAt = now;
+        run.AbandonedByMembershipId = workspace.MembershipId;
+        run.AbandonReason = model.Reason?.Trim() is { Length: > 0 } reason ? reason : null;
+        run.UpdatedAt = now;
+
+        // Ids and counts only: the title and the reason are the creator's words, and stay on the run.
+        var audit = new AuditEntry(
+            workspace.AccountId,
+            WorkflowAuditActions.RunAbandoned,
+            WorkflowAuditActions.RunResourceType,
+            run.Id.ToString("D"),
+            CorrelationId(),
+            $"Stopped a {run.DefinitionKey} run (v{run.DefinitionVersion}) on step {run.CurrentStepKey}: "
+                + $"{run.CompletedStepCount} of {run.StepCount} step(s) done, {run.SkippedStepCount} passed over, "
+                + $"{stored.Links.Count} record(s) linked and kept.",
+            BeforeReference: nameof(WorkflowRunStatus.InProgress),
+            AfterReference: nameof(WorkflowRunStatus.Abandoned));
+
+        if (await data.AbandonAsync(run, expected, audit, cancellationToken) == WorkflowRunWrite.Stale)
+        {
+            // Lost to another stop of the same run: it landed, and so did this. Lost to anything else: judged as it
+            // would have been had it come second.
+            return await data.GetAsync(runId, cancellationToken) switch
+            {
+                { Run.Status: WorkflowRunStatus.Abandoned } => await GetAsync(runId, cancellationToken),
+                { Run.Status: WorkflowRunStatus.Completed } => Fail(Finished()),
+                { } current => Fail(StopConflict(current.Run)),
+                null => Fail(NotFound()),
+            };
+        }
+
+        return await GetAsync(runId, cancellationToken);
+    }
+
+    private static OperationError Finished() => new(
+        WorkflowErrorCodes.RunNotInProgress,
+        "This run is finished, so there's nothing to stop.",
+        new Dictionary<string, string[]>());
+
+    private static OperationError StopConflict(WorkflowRun run) => new(
+        WorkflowErrorCodes.RunConflict,
+        "This run changed since you last looked. Take another look before stopping it.",
+        new Dictionary<string, string[]>(),
+        new Dictionary<string, object?> { ["currentConcurrencyToken"] = WorkflowRunConcurrencyToken.From(run.RowVersion) });
+
+    /// <summary>The request's trace id, as other modules' audit rows carry it, so the two can be searched alike.</summary>
+    private static Guid CorrelationId()
+    {
+        var traceId = System.Diagnostics.Activity.Current?.TraceId;
+
+        return traceId is { } id && id != default ? Guid.ParseExact(id.ToHexString(), "N") : Guid.NewGuid();
     }
 
     private static OperationError PassedOver() => new(
@@ -1037,6 +1548,7 @@ internal sealed class WorkflowRunBusiness(
         var now = prepared!.Run.StartedAt;
         run.Status = WorkflowRunStatus.Abandoned;
         run.AbandonedAt = now;
+        run.AbandonedByMembershipId = workspace.MembershipId;
         run.ReplacedByRunId = prepared.Run.Id;
         run.UpdatedAt = now;
 

@@ -11,4 +11,6 @@ public static class WorkflowRunPolicy
     public const int LastRouteMaxLength = 400;
 
     public const int SkipReasonMaxLength = 500;
+
+    public const int AbandonReasonMaxLength = 500;
 }

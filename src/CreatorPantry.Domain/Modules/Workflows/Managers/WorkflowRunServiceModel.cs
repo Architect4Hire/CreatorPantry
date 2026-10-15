@@ -43,6 +43,9 @@ public sealed class WorkflowRunServiceModel
     /// <summary>When the creator stopped this run (13A.10b), or null.</summary>
     public DateTimeOffset? AbandonedAt { get; init; }
 
+    /// <summary>Why the creator stopped it, in their words, when they said; null otherwise and for a start over.</summary>
+    public string? AbandonReason { get; init; }
+
     /// <summary>Where the creator last was in it, relative to the workspace, or null before they have left it once.</summary>
     public string? LastRoute { get; init; }
 

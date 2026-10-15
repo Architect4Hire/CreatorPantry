@@ -22,9 +22,12 @@ public static class WorkflowsServiceCollectionExtensions
         services.TryAddSingleton<IWorkflowCatalogue, ShippedWorkflowCatalogue>();
         services.AddScoped<IValidator<StartWorkflowRunViewModel>, StartWorkflowRunViewModelValidator>();
         services.AddScoped<IValidator<SaveWorkflowStepDraftViewModel>, SaveWorkflowStepDraftViewModelValidator>();
+        services.AddScoped<IValidator<SaveAndExitWorkflowRunViewModel>, SaveAndExitWorkflowRunViewModelValidator>();
         services.AddScoped<IValidator<CompleteWorkflowStepViewModel>, CompleteWorkflowStepViewModelValidator>();
         services.AddScoped<IValidator<WorkflowStepBackViewModel>, WorkflowStepBackViewModelValidator>();
         services.AddScoped<IValidator<SkipWorkflowStepViewModel>, SkipWorkflowStepViewModelValidator>();
+        services.AddScoped<IValidator<CompleteWorkflowRunViewModel>, CompleteWorkflowRunViewModelValidator>();
+        services.AddScoped<IValidator<AbandonWorkflowRunViewModel>, AbandonWorkflowRunViewModelValidator>();
         services.AddScoped<IValidator<RestartWorkflowRunViewModel>, RestartWorkflowRunViewModelValidator>();
         services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
         services.AddScoped<IWorkflowRunDataLayer, WorkflowRunDataLayer>();

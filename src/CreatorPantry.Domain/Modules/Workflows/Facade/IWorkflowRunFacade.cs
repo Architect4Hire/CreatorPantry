@@ -35,6 +35,10 @@ public interface IWorkflowRunFacade
     Task<OperationResult<WorkflowRunServiceModel>> SaveDraftAsync(
         Guid runId, string stepKey, SaveWorkflowStepDraftViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>Saves the run's current step's draft and where the creator was, so they can leave and carry on (13A.10).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> SaveAndExitAsync(
+        Guid runId, string stepKey, SaveAndExitWorkflowRunViewModel model, CancellationToken cancellationToken);
+
     /// <summary>Completes the run's current step once the server finds its rule met (13A.8).</summary>
     Task<OperationResult<WorkflowRunServiceModel>> CompleteStepAsync(
         Guid runId, string stepKey, CompleteWorkflowStepViewModel model, CancellationToken cancellationToken);
@@ -47,6 +51,14 @@ public interface IWorkflowRunFacade
     Task<OperationResult<WorkflowRunServiceModel>> SkipAsync(
         Guid runId, string stepKey, SkipWorkflowStepViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>Finishes a run once the server finds every required step's rule met (13A.10a).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> CompleteRunAsync(
+        Guid runId, CompleteWorkflowRunViewModel model, CancellationToken cancellationToken);
+
+    /// <summary>Stops a run for good, keeping it whole and everything it linked as it is (13A.10b).</summary>
+    Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
+        Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken);
+
     /// <summary>Stops a run, keeping it whole, and starts the same journey afresh in its place (13A.9b).</summary>
     /// <param name="idempotencyKey">Required: Start over creates a run, and a retry must not create a second.</param>
     Task<IdempotentOutcome<WorkflowRunRestart>> RestartAsync(
@@ -56,9 +68,12 @@ public interface IWorkflowRunFacade
 internal sealed class WorkflowRunFacade(
     IValidator<StartWorkflowRunViewModel> startValidator,
     IValidator<SaveWorkflowStepDraftViewModel> draftValidator,
+    IValidator<SaveAndExitWorkflowRunViewModel> saveAndExitValidator,
     IValidator<CompleteWorkflowStepViewModel> completeValidator,
     IValidator<WorkflowStepBackViewModel> backValidator,
     IValidator<SkipWorkflowStepViewModel> skipValidator,
+    IValidator<CompleteWorkflowRunViewModel> completeRunValidator,
+    IValidator<AbandonWorkflowRunViewModel> abandonValidator,
     IValidator<RestartWorkflowRunViewModel> restartValidator,
     IWorkflowRunBusiness business,
     IWorkspaceContext workspace,
@@ -131,6 +146,31 @@ internal sealed class WorkflowRunFacade(
         }
 
         return await business.SaveDraftAsync(runId, stepKey, model, cancellationToken);
+    }
+
+    public async Task<OperationResult<WorkflowRunServiceModel>> SaveAndExitAsync(
+        Guid runId, string stepKey, SaveAndExitWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "You have view-only access to this workspace, so you can't change a run.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await saveAndExitValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(OperationError.Validation(
+                WorkflowErrorCodes.SaveAndExitInvalid,
+                "That run could not be saved and left as described.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        return await business.SaveAndExitAsync(runId, stepKey, model, cancellationToken);
     }
 
     public async Task<OperationResult<WorkflowRunServiceModel>> CompleteStepAsync(
@@ -206,6 +246,56 @@ internal sealed class WorkflowRunFacade(
         }
 
         return await business.SkipAsync(runId, stepKey, model, cancellationToken);
+    }
+
+    public async Task<OperationResult<WorkflowRunServiceModel>> CompleteRunAsync(
+        Guid runId, CompleteWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "You have view-only access to this workspace, so you can't change a run.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await completeRunValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(OperationError.Validation(
+                WorkflowErrorCodes.RunCompletionInvalid,
+                "That run could not be finished as described.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        return await business.CompleteRunAsync(runId, model, cancellationToken);
+    }
+
+    public async Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
+        Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(new OperationError(
+                WorkflowErrorCodes.RunForbidden,
+                "You have view-only access to this workspace, so you can't change a run.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var validation = await abandonValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return OperationResult<WorkflowRunServiceModel>.Failure(OperationError.Validation(
+                WorkflowErrorCodes.RunAbandonInvalid,
+                "That run could not be stopped as described.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        return await business.AbandonAsync(runId, model, cancellationToken);
     }
 
     private const string RestartOperation = "workflows.run.restart";

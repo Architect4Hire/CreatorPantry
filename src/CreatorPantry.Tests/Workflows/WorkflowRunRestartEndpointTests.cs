@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Tenancy;
@@ -586,6 +587,10 @@ public sealed class WorkflowRunRestartEndpointTests : IAsyncLifetime
                     return WorkflowRunWrite.Stale;
             }
         }
+
+        public Task<WorkflowRunWrite> AbandonAsync(
+            WorkflowRun run, byte[] expectedRowVersion, AuditEntry audit, CancellationToken cancellationToken) =>
+            inner.AbandonAsync(run, expectedRowVersion, audit, cancellationToken);
 
         public Task<WorkflowRunWrite> SaveAsync(
             WorkflowRun run, byte[] expectedRowVersion, CancellationToken cancellationToken, IReadOnlyList<WorkflowRunLink>? newLinks = null) =>

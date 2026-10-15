@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Modules.Workflows.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,6 +30,16 @@ public interface IWorkflowRunDataLayer
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Stops the tracked run against the version the caller read, with its audit row, as one save: the stop and its
+    /// record land together or neither does. <see cref="WorkflowRunWrite.Stale"/> when the run changed since.
+    /// </summary>
+    Task<WorkflowRunWrite> AbandonAsync(
+        WorkflowRun run,
+        byte[] expectedRowVersion,
+        AuditEntry audit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Saves a change to a run — its row and any of its step rows — as one write against the version the caller
     /// read. <see cref="WorkflowRunWrite.Stale"/> when the run changed since; nothing is written then.
     /// </summary>
@@ -47,7 +58,7 @@ public enum WorkflowRunWrite
     Stale = 2,
 }
 
-internal sealed class WorkflowRunDataLayer(IWorkflowRunRepository runs) : IWorkflowRunDataLayer
+internal sealed class WorkflowRunDataLayer(IWorkflowRunRepository runs, IAuditWriter audits) : IWorkflowRunDataLayer
 {
     /// <remarks>
     /// One <c>SaveChanges</c> is one transaction: a run never exists without the step rows its progress is counted
@@ -80,6 +91,18 @@ internal sealed class WorkflowRunDataLayer(IWorkflowRunRepository runs) : IWorkf
         runs.Add(newRun, newSteps, newLinks);
 
         return SaveAsync(oldRun, expectedRowVersion, cancellationToken);
+    }
+
+    /// <remarks>A save that finds the run changed forgets the staged audit row with everything else it tracked.</remarks>
+    public Task<WorkflowRunWrite> AbandonAsync(
+        WorkflowRun run,
+        byte[] expectedRowVersion,
+        AuditEntry audit,
+        CancellationToken cancellationToken)
+    {
+        audits.Record(audit);
+
+        return SaveAsync(run, expectedRowVersion, cancellationToken);
     }
 
     /// <remarks>Links a change records go in the same save as the run, so they land with it or not at all.</remarks>

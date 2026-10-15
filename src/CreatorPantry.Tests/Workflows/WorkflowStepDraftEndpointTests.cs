@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
@@ -630,6 +631,10 @@ public sealed class WorkflowStepDraftEndpointTests : IAsyncLifetime
             IReadOnlyList<WorkflowRunLink> newLinks,
             CancellationToken cancellationToken) =>
             inner.RestartAsync(oldRun, expectedRowVersion, newRun, newSteps, newLinks, cancellationToken);
+
+        public Task<WorkflowRunWrite> AbandonAsync(
+            WorkflowRun run, byte[] expectedRowVersion, AuditEntry audit, CancellationToken cancellationToken) =>
+            inner.AbandonAsync(run, expectedRowVersion, audit, cancellationToken);
 
         public Task<WorkflowRunWrite> SaveAsync(
             WorkflowRun run, byte[] expectedRowVersion, CancellationToken cancellationToken, IReadOnlyList<WorkflowRunLink>? newLinks = null) =>

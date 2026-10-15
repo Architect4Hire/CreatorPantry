@@ -44,6 +44,14 @@ internal sealed class WorkflowRunConfiguration : IEntityTypeConfiguration<Workfl
             table.HasCheckConstraint(
                 "CK_WorkflowRuns_AbandonedAt_Status",
                 $"(Status = {abandoned} AND AbandonedAt IS NOT NULL) OR (Status <> {abandoned} AND AbandonedAt IS NULL)");
+            // Who stopped it and why belong to a stopped run only. Neither is required of one: a run stopped before
+            // they were recorded has neither, and a reason is the creator's to give or not.
+            table.HasCheckConstraint(
+                "CK_WorkflowRuns_AbandonedBy_Abandoned",
+                $"AbandonedByMembershipId IS NULL OR Status = {abandoned}");
+            table.HasCheckConstraint(
+                "CK_WorkflowRuns_AbandonReason_Abandoned",
+                $"AbandonReason IS NULL OR (Status = {abandoned} AND trim(AbandonReason) <> '')");
 
             // Relative to the workspace, so never rooted, never a scheme and never climbing out of it: a ':' would
             // let a stored route become somewhere else entirely once followed, a '\' is read by browsers as '/'
@@ -70,6 +78,7 @@ internal sealed class WorkflowRunConfiguration : IEntityTypeConfiguration<Workfl
         builder.Property(run => run.CompletedStepCount).IsRequired();
         builder.Property(run => run.SkippedStepCount).IsRequired();
         builder.Property(run => run.LastRoute).HasMaxLength(WorkflowRunPolicy.LastRouteMaxLength);
+        builder.Property(run => run.AbandonReason).HasMaxLength(WorkflowRunPolicy.AbandonReasonMaxLength);
         builder.Property(run => run.CreatedByMembershipId).IsRequired();
         builder.Property(run => run.StartedAt).IsRequired();
         builder.Property(run => run.UpdatedAt).IsRequired();

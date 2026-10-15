@@ -71,6 +71,12 @@ public class WorkflowRun : IWorkspaceOwned
 
     public DateTimeOffset? AbandonedAt { get; set; }
 
+    /// <summary>Who stopped it, whether by stopping it (13A.10b) or by starting it over (13A.9b).</summary>
+    public Guid? AbandonedByMembershipId { get; set; }
+
+    /// <summary>Why the creator stopped it, in their words, when they said. Never set by a start over.</summary>
+    public string? AbandonReason { get; set; }
+
     /// <summary>
     /// The run that replaced this one when the creator started over (13A.9b); set only on a run abandoned that way.
     /// A pointer, not a foreign key — the server sets it, in the same workspace and the same write, to a run it has

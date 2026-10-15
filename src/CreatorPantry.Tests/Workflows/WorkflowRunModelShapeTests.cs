@@ -89,6 +89,7 @@ public sealed class WorkflowRunModelShapeTests : IDisposable
 
         Assert.Equal(
             [
+                "WorkflowRun.AbandonReason",
                 "WorkflowRun.CurrentStepKey",
                 "WorkflowRun.DefinitionKey",
                 "WorkflowRun.LastRoute",

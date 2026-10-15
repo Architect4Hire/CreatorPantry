@@ -170,7 +170,7 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
         await using (var scope = Resolved(WorkspaceA))
         {
             var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db));
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
             var (run, steps, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
             read = run.RowVersion.ToArray();
 
@@ -187,7 +187,7 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
         await using (var scope = Resolved(WorkspaceA))
         {
             var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db));
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
             var (run, steps, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
             var late = Guid.NewGuid();
             steps.Single(step => step.StepKey == "start").DraftResourceId = late;
@@ -199,6 +199,87 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
                 .SingleAsync(step => step.WorkflowRunId == seeded.Id && step.StepKey == "start", Ct));
             Assert.NotEqual(late, stored.DraftResourceId);
         }
+    }
+
+    /// <summary>
+    /// Save and exit's write where it counts (13A.10): a route the server filled is accepted by SQL Server's own route
+    /// check and moves the token with the step's draft, and a writer quoting the superseded token lands neither.
+    /// </summary>
+    [Fact]
+    public async Task A_save_and_exit_lands_its_route_and_draft_together_and_a_stale_one_lands_neither()
+    {
+        var seeded = await SeedRunAsync(WorkspaceA);
+        var route = $"image-studio/context/{Guid.NewGuid():D}";
+
+        byte[] read;
+        await using (var scope = Resolved(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
+            var (run, steps, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
+            read = run.RowVersion.ToArray();
+
+            steps.Single(step => step.StepKey == "start").DraftResourceKind = WorkflowResourceKind.CreativeContext;
+            steps.Single(step => step.StepKey == "start").DraftResourceId = Guid.NewGuid();
+            steps.Single(step => step.StepKey == "start").DraftSavedAt = Now;
+            run.LastRoute = route;
+            run.UpdatedAt = Now.AddMinutes(1);
+
+            Assert.Equal(WorkflowRunWrite.Saved, await data.SaveAsync(run, read, Ct));
+            Assert.NotEqual(read, run.RowVersion);
+        }
+
+        await using (var scope = Resolved(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
+            var (run, steps, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
+            var late = Guid.NewGuid();
+            steps.Single(step => step.StepKey == "start").DraftResourceId = late;
+            run.LastRoute = "social-studio";
+            run.UpdatedAt = Now.AddMinutes(2);
+
+            Assert.Equal(WorkflowRunWrite.Stale, await data.SaveAsync(run, read, Ct));
+
+            var stored = await InAsync(WorkspaceA, check => check.WorkflowRuns.AsNoTracking().SingleAsync(item => item.Id == seeded.Id, Ct));
+            var start = await InAsync(WorkspaceA, check => check.WorkflowStepRuns.AsNoTracking()
+                .SingleAsync(step => step.WorkflowRunId == seeded.Id && step.StepKey == "start", Ct));
+            Assert.Equal(route, stored.LastRoute);
+            Assert.Equal(WorkflowRunStatus.InProgress, stored.Status);
+            Assert.NotEqual(late, start.DraftResourceId);
+        }
+    }
+
+    /// <summary>
+    /// Finishing where it counts (13A.10a): a completed run on no step is what SQL Server's own checks accept, written
+    /// against the version read, and its steps and links stay exactly as they were.
+    /// </summary>
+    [Fact]
+    public async Task A_finished_run_is_on_no_step_and_keeps_its_steps_and_links()
+    {
+        var seeded = await SeedRunAsync(WorkspaceA);
+
+        await using (var scope = Resolved(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
+            var (run, _, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
+            var read = run.RowVersion.ToArray();
+
+            run.Status = WorkflowRunStatus.Completed;
+            run.CompletedAt = Now.AddMinutes(1);
+            run.CurrentStepKey = null;
+            run.UpdatedAt = Now.AddMinutes(1);
+
+            Assert.Equal(WorkflowRunWrite.Saved, await data.SaveAsync(run, read, Ct));
+            Assert.NotEqual(read, run.RowVersion);
+        }
+
+        var stored = await InAsync(WorkspaceA, db => db.WorkflowRuns.AsNoTracking().SingleAsync(item => item.Id == seeded.Id, Ct));
+        Assert.Equal(WorkflowRunStatus.Completed, stored.Status);
+        Assert.Null(stored.CurrentStepKey);
+        Assert.Equal(2, await InAsync(WorkspaceA, db => db.WorkflowStepRuns.CountAsync(step => step.WorkflowRunId == seeded.Id, Ct)));
+        Assert.Equal(1, await InAsync(WorkspaceA, db => db.WorkflowRunLinks.CountAsync(link => link.WorkflowRunId == seeded.Id, Ct)));
     }
 
     [Theory]
@@ -256,7 +337,7 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
         await using (var scope = Resolved(WorkspaceA))
         {
             var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
-            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db));
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
             await using var transaction = await db.Database.BeginTransactionAsync(Ct);
             var (run, _, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
             run.Status = WorkflowRunStatus.Abandoned;
@@ -276,6 +357,112 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
         Assert.Equal(WorkflowRunStatus.InProgress, kept.Status);
         Assert.Null(kept.ReplacedByRunId);
     }
+
+    /// <summary>
+    /// A stop where it counts (13A.10b): the run's stop and its audit row are one save, so a stop quoting a superseded
+    /// token lands neither — no audit row records a stop that did not happen.
+    /// </summary>
+    [Fact]
+    public async Task A_stop_lands_with_its_audit_row_and_a_stale_one_lands_neither()
+    {
+        var seeded = await SeedRunAsync(WorkspaceA);
+        var stopper = Guid.NewGuid();
+        var audit = new AuditEntry(
+            "user-1", WorkflowAuditActions.RunAbandoned, WorkflowAuditActions.RunResourceType, seeded.Id.ToString("D"), Guid.NewGuid(), "Stopped.");
+
+        byte[] read;
+        await using (var scope = Resolved(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
+            var (run, _, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
+            read = run.RowVersion.ToArray();
+
+            // A rival change lands first, so the stop below quotes a version the row no longer has.
+            await InAsync(WorkspaceA, async rival =>
+            {
+                (await rival.WorkflowRuns.SingleAsync(row => row.Id == seeded.Id, Ct)).Title = "Renamed elsewhere";
+                return await rival.SaveChangesAsync(Ct);
+            });
+
+            Stop(run, stopper, "Too busy this week");
+            Assert.Equal(WorkflowRunWrite.Stale, await data.AbandonAsync(run, read, audit, Ct));
+        }
+
+        Assert.Equal(WorkflowRunStatus.InProgress, (await StoredAsync(seeded.Id)).Status);
+        Assert.Equal(0, await AuditRowsAsync(seeded.Id));
+
+        await using (var scope = Resolved(WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var data = new WorkflowRunDataLayer(new WorkflowRunRepository(db), scope.ServiceProvider.GetRequiredService<IAuditWriter>());
+            var (run, _, _) = (await data.GetForUpdateAsync(seeded.Id, Ct))!;
+
+            Stop(run, stopper, "Too busy this week");
+            Assert.Equal(WorkflowRunWrite.Saved, await data.AbandonAsync(run, run.RowVersion.ToArray(), audit, Ct));
+        }
+
+        var stored = await StoredAsync(seeded.Id);
+        Assert.Equal(WorkflowRunStatus.Abandoned, stored.Status);
+        Assert.Equal(stopper, stored.AbandonedByMembershipId);
+        Assert.Equal("Too busy this week", stored.AbandonReason);
+        Assert.Equal("start", stored.CurrentStepKey);
+        Assert.Equal(1, await AuditRowsAsync(seeded.Id));
+        Assert.Equal(2, await InAsync(WorkspaceA, db => db.WorkflowStepRuns.CountAsync(step => step.WorkflowRunId == seeded.Id, Ct)));
+        Assert.Equal(1, await InAsync(WorkspaceA, db => db.WorkflowRunLinks.CountAsync(link => link.WorkflowRunId == seeded.Id, Ct)));
+
+        static void Stop(WorkflowRun run, Guid by, string reason)
+        {
+            run.Status = WorkflowRunStatus.Abandoned;
+            run.AbandonedAt = Now.AddMinutes(1);
+            run.AbandonedByMembershipId = by;
+            run.AbandonReason = reason;
+            run.UpdatedAt = Now.AddMinutes(1);
+        }
+    }
+
+    [Theory]
+    [InlineData(WorkflowRunStatus.Abandoned, "Not needed", true, true)]
+    [InlineData(WorkflowRunStatus.Abandoned, null, true, true)]
+    [InlineData(WorkflowRunStatus.Abandoned, "   ", false, false)]
+    [InlineData(WorkflowRunStatus.InProgress, "Not needed", false, false)]
+    [InlineData(WorkflowRunStatus.InProgress, null, true, false)]
+    [InlineData(WorkflowRunStatus.Completed, null, true, false)]
+    public async Task Who_stopped_a_run_and_why_belong_to_a_stopped_run_only(
+        WorkflowRunStatus status, string? reason, bool stoppedBy, bool accepted)
+    {
+        var run = WorkflowRunSeeds.Run(Now);
+        run.Status = status;
+        run.CurrentStepKey = status == WorkflowRunStatus.Completed ? null : run.CurrentStepKey;
+        run.CompletedAt = status == WorkflowRunStatus.Completed ? Now : null;
+        run.AbandonedAt = status == WorkflowRunStatus.Abandoned ? Now : null;
+        run.AbandonedByMembershipId = stoppedBy ? Guid.NewGuid() : null;
+        run.AbandonReason = reason;
+
+        var save = () => InAsync(WorkspaceA, async db =>
+        {
+            db.WorkflowRuns.Add(run);
+            return await db.SaveChangesAsync(Ct);
+        });
+
+        if (accepted)
+        {
+            await save();
+        }
+        else
+        {
+            Assert.Matches(
+                "CK_WorkflowRuns_Abandon(edBy|Reason)_Abandoned",
+                (await Assert.ThrowsAsync<DbUpdateException>(save)).InnerException?.Message ?? string.Empty);
+        }
+    }
+
+    private Task<WorkflowRun> StoredAsync(Guid runId) =>
+        InAsync(WorkspaceA, db => db.WorkflowRuns.AsNoTracking().SingleAsync(row => row.Id == runId, Ct));
+
+    private Task<int> AuditRowsAsync(Guid runId) =>
+        InAsync(WorkspaceA, db => db.AuditLogs.CountAsync(
+            row => row.Action == WorkflowAuditActions.RunAbandoned && row.ResourceId == runId.ToString("D"), Ct));
 
     [Fact]
     public async Task Only_assigned_runs_are_in_the_assignee_index()

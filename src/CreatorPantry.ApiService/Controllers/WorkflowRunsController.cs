@@ -171,6 +171,71 @@ public sealed class WorkflowRunsController(IWorkflowRunFacade runs) : Controller
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>Saves where the creator is on the run's current step, so they can leave and carry on later.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the start route.</param>
+    /// <param name="runId">The run.</param>
+    /// <param name="stepKey">The step being left, which must be the one the run is on.</param>
+    /// <param name="model">
+    /// Optionally the step's draft and which of its actions the creator was in, and the run's `concurrencyToken`.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// The run's owner, the person it is for, or an Editor and above; anyone else answers
+    /// `403 workflows.run.forbidden`, and a Viewer is refused by the route with `403 forbidden`.
+    ///
+    /// **Leaving is not a status.** The run stays `InProgress` on the step it is on: nothing is completed, skipped
+    /// or abandoned, and no step moves. `updatedAt` is when it was saved.
+    ///
+    /// **The draft.** Send `draft` when the step's last draft may not have reached the run — an autosave still on
+    /// its way. It follows the draft save's rules exactly: a kind the step does not take is a `400`, and a record this
+    /// workspace does not have answers `422 workflows.step.draft.unprocessable`, the same answer another workspace's
+    /// gets. Leave it out to keep the draft the step holds; a save and exit never clears one.
+    ///
+    /// **Where to carry on.** Send `capabilityKey` — one of the step's actions, as `nextAction` lists them — and the
+    /// server stores the route that action opens for this run, filled from the run's own records, as `lastRoute`.
+    /// No address is taken from the client. `resumeRoute` then leads back there until the run moves to another step:
+    /// completing, skipping or going back clears it. An action this step does not offer is a `400`; one not built
+    /// yet, or whose page needs a record the run does not hold, answers `422 workflows.run.last_route.unprocessable`.
+    /// Leave it out to keep the route the run holds.
+    ///
+    /// **Safe to repeat.** A save and exit whose draft and route the run already holds writes nothing and answers
+    /// `200` as the run stands, whatever the token — and so does a duplicate that loses a race to the first. No
+    /// `Idempotency-Key` is needed. A token is still required on every call, and a missing or malformed one is a
+    /// `400`. Any other must send the token last read; a stale one answers `409 workflows.run.conflict` carrying
+    /// `currentConcurrencyToken`, the draft the step holds now and the run's `lastRoute`, and nothing is written.
+    ///
+    /// **Which answer wins**, when more than one applies: a malformed request (`400`), the run (`404`), who may change
+    /// it (`403`), the step (`404`), a finished run (`409`), a step that is not current (`409`), an action the step
+    /// does not offer (`400`), an action with no page (`422`), nothing to change (`200`), a step already done or
+    /// passed over (`409`), a draft of the wrong kind (`400`), a stale token (`409`), and a draft not found (`422`).
+    ///
+    /// The answer is the run as stored after the save, sent only once it is committed. Codes:
+    /// `workflows.run.not_in_progress.conflict`, `workflows.step.not_current.conflict` (with `currentStepKey`),
+    /// `workflows.step.already_done.conflict`, `workflows.step.not_found`, `workflows.run.not_found` — the same for
+    /// an unknown run and another workspace's.
+    /// </remarks>
+    [HttpPost("{runId:guid}/steps/{stepKey}/save-and-exit")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<WorkflowRunServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> SaveAndExit(
+        string workspaceSlug,
+        Guid runId,
+        string stepKey,
+        SaveAndExitWorkflowRunViewModel model,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await runs.SaveAndExitAsync(runId, stepKey, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Completes the run's current step, once the server finds it done.</summary>
     /// <param name="workspaceSlug">Bound only so the route is well formed; see the start route.</param>
     /// <param name="runId">The run.</param>
@@ -195,7 +260,8 @@ public sealed class WorkflowRunsController(IWorkflowRunFacade runs) : Controller
     /// run already holds makes it the run's latest of its kind again.
     ///
     /// **What it moves, together:** the step is completed, its results are linked to the run (once each), the run's
-    /// progress counts it, and the run moves on to the next step not yet done or passed over. On the last one the run
+    /// progress counts it, the run moves on to the next step not yet done or passed over, and its `lastRoute` is
+    /// cleared so "Continue" goes there. On the last one the run
     /// waits on the last step of its version and `nextAction` is null; finishing the run is a separate command. `readyToComplete` is true
     /// as soon as every *required* step is done — an optional step may still be open, and `nextAction` then offers
     /// it. The answer is the run as stored after the save.
@@ -308,7 +374,7 @@ public sealed class WorkflowRunsController(IWorkflowRunFacade runs) : Controller
     /// **A skip is never a result.** The step is marked passed over — when, by whom, and why if the creator said —
     /// and nothing more: no record is linked, nothing is completed, the step's saved draft stays a draft, and the run's
     /// completed count is untouched. The run moves on to the next step not yet done or passed over, or, with none,
-    /// waits on its last step to be finished. Back undoes a skip.
+    /// waits on its last step to be finished; its `lastRoute` is cleared, as for a completion. Back undoes a skip.
     ///
     /// **Safe to repeat.** A step already skipped answers `200` as the run stands with nothing written, whatever was
     /// sent and however far the run has moved since; so does a duplicate that loses a race to the first. A token is
@@ -339,6 +405,110 @@ public sealed class WorkflowRunsController(IWorkflowRunFacade runs) : Controller
         Response.Headers.CacheControl = "no-store";
 
         var result = await runs.SkipAsync(runId, stepKey, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Finishes a run, once the server finds every required step done as things stand now.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the start route.</param>
+    /// <param name="runId">The run.</param>
+    /// <param name="model">The run's `concurrencyToken` as last read — and nothing else: no progress, no ticks.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// The run's owner, the person it is for, or an Editor and above; anyone else answers
+    /// `403 workflows.run.forbidden`, and a Viewer is refused by the route with `403 forbidden`.
+    ///
+    /// **Proved now, not remembered.** Every step the run's version requires must be completed, and its rule must
+    /// still hold when this is asked: a record a step linked is checked again through the module that owns it, and
+    /// every other rule — readiness, the recipe's or the piece's state, the guide switched on, a post kept, the
+    /// publishing ledger — is evaluated afresh. A step completed on a recipe since un-approved, or a picture since
+    /// deleted, is not done. When anything stands in the way the answer is
+    /// `422 workflows.run.incomplete.unprocessable` with `incompleteSteps` — each step's `stepKey`, `title` and
+    /// `missing`, in plain words — and nothing is written. Optional steps never stand in the way.
+    ///
+    /// **The run, and only the run.** The run becomes `Completed` with `completedAt`, and is on no step any more;
+    /// `nextAction` and `resumeRoute` are null. No step, link or linked record is touched: an optional step left open
+    /// stays open with its draft, and the recipe, piece or picture the run used is exactly as it was. The answer is the
+    /// run as stored after the save.
+    ///
+    /// **Safe to repeat.** A run already completed answers `200` as it stands with nothing written, whatever the
+    /// token — and so does a duplicate that loses a race to the first. A token is still required on every call, and a
+    /// missing or malformed one is a `400`. Any other must send the token last read; a stale one answers
+    /// `409 workflows.run.conflict` with `currentConcurrencyToken`.
+    ///
+    /// **Which answer wins**, when more than one applies: a malformed request (`400`), the run (`404`), who may change
+    /// it (`403`), a run already completed (`200`), a run stopped (`409 workflows.run.not_in_progress.conflict`), a
+    /// stale token (`409`), and something still to do (`422`). An unknown run and another workspace's answer
+    /// `404 workflows.run.not_found` alike.
+    /// </remarks>
+    [HttpPost("{runId:guid}/completion")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<WorkflowRunServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> CompleteRun(
+        string workspaceSlug,
+        Guid runId,
+        CompleteWorkflowRunViewModel model,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await runs.CompleteRunAsync(runId, model, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>Stops a run for good, keeping it whole and every record it linked as it is.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; see the start route.</param>
+    /// <param name="runId">The run to stop.</param>
+    /// <param name="model">The confirmation, an optional reason, and the run's `concurrencyToken`.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// The run's owner, the person it is for, or an Editor and above; anyone else answers
+    /// `403 workflows.run.forbidden`, and a Viewer is refused by the route with `403 forbidden`.
+    ///
+    /// **Confirmed, or nothing happens.** `confirmed` must be `true`; without it the answer is
+    /// `400 workflows.run.abandon.invalid` and nothing changes. `reason` is optional, in the creator's own words, up to
+    /// 500 characters; it is kept trimmed and returned as `abandonReason`. Leave it out rather than send it blank: a
+    /// blank or over-long one is a `400`, as for a skip.
+    ///
+    /// **A stop, not a finish.** The run becomes `Abandoned` with `abandonedAt`; `nextAction` and `resumeRoute` are
+    /// null. Nothing else in it changes: it keeps the step it was left on, its steps with their drafts and reasons, and
+    /// every link, as the record of how far it got. No recipe, piece of content or picture it linked is touched, and
+    /// the stop is recorded in the workspace's audit log in the same write. To try the journey again, start it over or
+    /// start a new run.
+    ///
+    /// **Safe to repeat.** A run already stopped — this way or by a start over — answers `200` as it stands with
+    /// nothing written, whatever the token, and keeps the reason it was first stopped with; so does a duplicate that
+    /// loses a race to the first. A token is still required on every call, and a missing or malformed one is a `400`.
+    /// Any other must send the token last read; a stale one answers `409 workflows.run.conflict` with
+    /// `currentConcurrencyToken`.
+    ///
+    /// **Which answer wins**, when more than one applies: a malformed or unconfirmed request (`400`), the run (`404`),
+    /// who may change it (`403`), a run already stopped (`200`), a run completed
+    /// (`409 workflows.run.not_in_progress.conflict`), and a stale token (`409`). An unknown run and another
+    /// workspace's answer `404 workflows.run.not_found` alike.
+    /// </remarks>
+    [HttpPost("{runId:guid}/abandonment")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<WorkflowRunServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> Abandon(
+        string workspaceSlug,
+        Guid runId,
+        AbandonWorkflowRunViewModel model,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await runs.AbandonAsync(runId, model, cancellationToken);
 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }

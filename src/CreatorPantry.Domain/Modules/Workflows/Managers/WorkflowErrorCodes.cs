@@ -20,6 +20,9 @@ public static class WorkflowErrorCodes
     /// <summary>400: a Start over was not confirmed, or was not shaped as one can be.</summary>
     public const string RunRestartInvalid = "workflows.run.restart.invalid";
 
+    /// <summary>400: a stop was not confirmed, or was not shaped as one can be.</summary>
+    public const string RunAbandonInvalid = "workflows.run.abandon.invalid";
+
     /// <summary>400: a skip was not shaped as one can be.</summary>
     public const string StepSkipInvalid = "workflows.step.skip.invalid";
 
@@ -34,6 +37,21 @@ public static class WorkflowErrorCodes
 
     /// <summary>400: a Back was not shaped as one can be.</summary>
     public const string BackInvalid = "workflows.step.back.invalid";
+
+    /// <summary>400: a run's completion was not shaped as one can be.</summary>
+    public const string RunCompletionInvalid = "workflows.run.completion.invalid";
+
+    /// <summary>
+    /// 422: a required step is not done, or its rule no longer holds; <c>incompleteSteps</c> says which, and what
+    /// stands in the way, in plain words.
+    /// </summary>
+    public const string RunIncomplete = "workflows.run.incomplete.unprocessable";
+
+    /// <summary>400: a save and exit was not shaped as one can be, or named an action the step does not offer.</summary>
+    public const string SaveAndExitInvalid = "workflows.run.save_and_exit.invalid";
+
+    /// <summary>422: the action named has no page to come back to for this run — not built yet, or a record it opens is missing.</summary>
+    public const string LastRouteUnprocessable = "workflows.run.last_route.unprocessable";
 
     /// <summary>409: the step is not the one the run is on.</summary>
     public const string StepNotCurrent = "workflows.step.not_current.conflict";

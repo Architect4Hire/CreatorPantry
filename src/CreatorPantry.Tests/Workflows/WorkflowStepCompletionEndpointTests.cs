@@ -821,6 +821,10 @@ public sealed class WorkflowStepCompletionEndpointTests : IAsyncLifetime
             CancellationToken cancellationToken) =>
             inner.RestartAsync(oldRun, expectedRowVersion, newRun, newSteps, newLinks, cancellationToken);
 
+        public Task<Domain.Modules.Workflows.Data.WorkflowRunWrite> AbandonAsync(
+            WorkflowRun run, byte[] expectedRowVersion, Domain.Managers.Audit.AuditEntry audit, CancellationToken cancellationToken) =>
+            inner.AbandonAsync(run, expectedRowVersion, audit, cancellationToken);
+
         public async Task<Domain.Modules.Workflows.Data.WorkflowRunWrite> SaveAsync(
             WorkflowRun run, byte[] expectedRowVersion, CancellationToken cancellationToken, IReadOnlyList<WorkflowRunLink>? newLinks = null)
         {

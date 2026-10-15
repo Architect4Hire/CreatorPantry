@@ -6946,8 +6946,15 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AbandonReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTimeOffset?>("AbandonedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("AbandonedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("AssignedMembershipId")
                         .HasColumnType("uniqueidentifier");
@@ -7033,7 +7040,11 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.ToTable("WorkflowRuns", null, t =>
                         {
+                            t.HasCheckConstraint("CK_WorkflowRuns_AbandonReason_Abandoned", "AbandonReason IS NULL OR (Status = 3 AND trim(AbandonReason) <> '')");
+
                             t.HasCheckConstraint("CK_WorkflowRuns_AbandonedAt_Status", "(Status = 3 AND AbandonedAt IS NOT NULL) OR (Status <> 3 AND AbandonedAt IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkflowRuns_AbandonedBy_Abandoned", "AbandonedByMembershipId IS NULL OR Status = 3");
 
                             t.HasCheckConstraint("CK_WorkflowRuns_CompletedAt_Status", "(Status = 2 AND CompletedAt IS NOT NULL) OR (Status <> 2 AND CompletedAt IS NULL)");
 

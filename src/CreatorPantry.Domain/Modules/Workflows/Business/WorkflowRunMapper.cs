@@ -36,6 +36,7 @@ internal static class WorkflowRunMapper
             UpdatedAt = run.UpdatedAt,
             CompletedAt = run.CompletedAt,
             AbandonedAt = run.AbandonedAt,
+            AbandonReason = run.AbandonReason,
             LastRoute = run.LastRoute,
             ReplacedByRunId = run.ReplacedByRunId,
             ConcurrencyToken = WorkflowRunConcurrencyToken.From(run.RowVersion),
