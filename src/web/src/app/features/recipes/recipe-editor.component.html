@@ -457,7 +457,6 @@
               <cp-form-section
                 sectionId="section-notes"
                 heading="Notes"
-                intro="Extra context for future you, and for other creators in this workspace."
               >
                 <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
                   <textarea
@@ -485,7 +484,6 @@
               <cp-form-section
                 sectionId="section-timing"
                 heading="Timing"
-                intro="How long it takes, in minutes. The total is added up for you."
               >
                 @if (totalTimeReplacementNote(); as note) {
                   <p class="total-time-replacement">{{ note }}</p>
@@ -495,11 +493,11 @@
                   <cp-notice id="recipe-total-time-overflow" tone="warning">{{ note }}</cp-notice>
                 }
 
-                <cp-field-row [columns]="4" minColumn="6.5rem">
+                <cp-field-row [columns]="4" minColumn="6.5rem" style="--cp-field-row-measure: 100%">
                   <cp-field label="Prep time" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
                     <input
                       id="recipe-prep-time"
-                      placeholder="e.g. 15"
+                      placeholder="e.g. 15 min"
                       type="number"
                       min="0"
                       [attr.aria-invalid]="fieldError('prepTimeMinutes') ? 'true' : null"
@@ -512,7 +510,7 @@
                   <cp-field label="Cook time" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
                     <input
                       id="recipe-cook-time"
-                      placeholder="e.g. 30"
+                      placeholder="e.g. 30 min"
                       type="number"
                       min="0"
                       [attr.aria-invalid]="fieldError('cookTimeMinutes') ? 'true' : null"
@@ -525,7 +523,7 @@
                   <cp-field label="Rest time" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
                     <input
                       id="recipe-rest-time"
-                      placeholder="e.g. 10"
+                      placeholder="e.g. 10 min"
                       type="number"
                       min="0"
                       [attr.aria-invalid]="fieldError('restTimeMinutes') ? 'true' : null"
@@ -552,8 +550,8 @@
                       @if (totalTimeMinutes() !== null) {
                         {{ totalTimeMinutes() }} minutes
                       } @else {
-                        <span aria-hidden="true" class="derived-total-absent">&mdash;</span>
-                        <span class="cp-sr-only">No total yet</span>
+                        <span aria-hidden="true" class="derived-total-absent">Calculated for you</span>
+                        <span class="cp-sr-only">No total yet. It is added up from prep, cook and rest time.</span>
                       }
                     </output>
                   </cp-field>
@@ -568,7 +566,6 @@
               <cp-form-section
                 sectionId="section-yield"
                 heading="Yield"
-                intro="What the recipe makes. Your own wording is the yield; the numbers are additional, and only needed for scaling."
               >
                 <cp-field
                   label="Yield, in your own words"

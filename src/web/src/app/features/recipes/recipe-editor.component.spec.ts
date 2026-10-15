@@ -1202,13 +1202,17 @@ describe('RecipeEditorComponent', () => {
 
       // The same quarter of the row, wherever the row has four columns, and on the same left edge where they stack.
       const prep = box('#recipe-prep-time');
-      for (const selector of ['#recipe-cook-time', '#recipe-rest-time', '#recipe-yield-quantity', '#recipe-serving-size']) {
+      // Timing is the width of the form and the yield rows are held to the measure, so each is compared with its own.
+      for (const selector of ['#recipe-cook-time', '#recipe-rest-time']) {
         expect(Math.abs(box(selector).width - prep.width)).withContext(selector).toBeLessThan(1.5);
       }
+      expect(Math.abs(box('#recipe-serving-size').width - box('#recipe-yield-quantity').width)).toBeLessThan(1.5);
+      // Four equal columns across the whole section, Total time the last of them.
+      expect(Math.abs(fieldOf('#recipe-total-time').right - sectionRight('#recipe-total-time'))).toBeLessThan(1.5);
       // Serves is the first column of its own row, under the yield wording, on the same left edge as Prep. Its row
-      // has three columns, not four, so it is a little wider than Prep: room for its hint.
+      // has three columns, not four, so it is a little wider than the measured-batch boxes: room for its hint.
       expect(Math.abs(box('#recipe-serving-count').left - prep.left)).toBeLessThan(1.5);
-      expect(box('#recipe-serving-count').width).toBeGreaterThanOrEqual(prep.width);
+      expect(box('#recipe-serving-count').width).toBeGreaterThanOrEqual(box('#recipe-yield-quantity').width);
       expect(Math.abs(box('#recipe-yield-quantity').left - prep.left)).toBeLessThan(1.5);
 
       // The yield wording is not in a row: it is a full-width text field above Serves.
