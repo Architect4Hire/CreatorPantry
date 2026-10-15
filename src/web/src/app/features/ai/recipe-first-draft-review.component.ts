@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { RecipeStudioHost } from './recipe-studio-host';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
@@ -175,7 +176,10 @@ export class RecipeFirstDraftReviewComponent {
   /** Shared by concurrent leave attempts, so a second one joins the open dialog rather than stacking one. */
   private pendingLeaveConfirm: Promise<boolean> | null = null;
 
-  readonly workspaceSlug = this.resolveWorkspaceSlug();
+  /** The guided step this review sits in, when it is not on its own page; null there. See {@link RecipeStudioHost}. */
+  protected readonly host = inject(RecipeStudioHost, { optional: true });
+
+  readonly workspaceSlug = this.host?.workspaceSlug || this.resolveWorkspaceSlug();
 
   /** The creator rewrote a value. Their edit, never an acceptance — see {@link RecipeDraftFieldEdit}. */
   readonly fieldEdited = output<RecipeDraftFieldEdit>();
@@ -621,6 +625,7 @@ export class RecipeFirstDraftReviewComponent {
     this.editsSignal.set(new Map());
     this.inProgressSignal.set(new Map());
     this.discarded.emit();
+    this.host?.draftDiscarded();
   }
 
   // -------------------------------------------------------------------------
@@ -779,6 +784,10 @@ export class RecipeFirstDraftReviewComponent {
         this.inProgressSignal.set(new Map());
         this.editDraft.set('');
         this.accepted.emit({ recipeId: outcome.recipeId, replayed: outcome.replayed });
+        if (this.host) {
+          this.host.accepted(outcome.recipeId);
+          return;
+        }
         await this.router.navigate(['/', this.workspaceSlug, 'recipes', outcome.recipeId]);
         return;
 
@@ -915,12 +924,18 @@ export class RecipeFirstDraftReviewComponent {
   // -------------------------------------------------------------------------
 
   private restoreFromUrl(): void {
-    const requestId = this.route.snapshot.queryParamMap.get('request');
+    const requestId = this.host ? this.host.draftRequestId : this.route.snapshot.queryParamMap.get('request');
     if (requestId !== null && requestId.length > 0) this.requestIdSignal.set(requestId);
   }
 
   /** Written with `replaceUrl`, so polling is resumable after a refresh without cluttering browser history. */
   private writeUrl(): void {
+    // Hosted, there is no address of its own to keep: leaving the draft is the host's to act on.
+    if (this.host) {
+      if (this.requestIdSignal() === null) this.host.draftClosed();
+      return;
+    }
+
     void this.router.navigate([], {
       relativeTo: this.route,
       replaceUrl: true,

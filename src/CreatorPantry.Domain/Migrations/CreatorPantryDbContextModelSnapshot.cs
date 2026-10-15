@@ -7111,7 +7111,7 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.ToTable("WorkflowRunLinks", null, t =>
                         {
-                            t.HasCheckConstraint("CK_WorkflowRunLinks_ResourceKind_Range", "ResourceKind >= 1 AND ResourceKind <= 8");
+                            t.HasCheckConstraint("CK_WorkflowRunLinks_ResourceKind_Range", "ResourceKind >= 1 AND ResourceKind <= 9");
 
                             t.HasCheckConstraint("CK_WorkflowRunLinks_StepKey_NotBlank", "StepKey IS NULL OR trim(StepKey) <> ''");
                         });
@@ -7174,7 +7174,7 @@ namespace CreatorPantry.Domain.Migrations
                         {
                             t.HasCheckConstraint("CK_WorkflowStepRuns_Completed_Recorded", "(Status = 3 AND CompletedAt IS NOT NULL AND CompletedByMembershipId IS NOT NULL) OR (Status <> 3 AND CompletedAt IS NULL AND CompletedByMembershipId IS NULL)");
 
-                            t.HasCheckConstraint("CK_WorkflowStepRuns_DraftKind_Range", "DraftResourceKind IS NULL OR (DraftResourceKind >= 1 AND DraftResourceKind <= 8)");
+                            t.HasCheckConstraint("CK_WorkflowStepRuns_DraftKind_Range", "DraftResourceKind IS NULL OR (DraftResourceKind >= 1 AND DraftResourceKind <= 9)");
 
                             t.HasCheckConstraint("CK_WorkflowStepRuns_Draft_Whole", "(DraftResourceKind IS NULL AND DraftResourceId IS NULL AND DraftSavedAt IS NULL) OR (DraftResourceKind IS NOT NULL AND DraftResourceId IS NOT NULL AND DraftSavedAt IS NOT NULL)");
 

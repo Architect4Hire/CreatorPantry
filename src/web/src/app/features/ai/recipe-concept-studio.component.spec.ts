@@ -17,6 +17,7 @@ import {
 import { RecipeDraftService, RequestRecipeDraftRequest } from '../../services/recipe-draft.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeConceptStudioComponent } from './recipe-concept-studio.component';
+import { RecipeStudioHost } from './recipe-studio-host';
 
 const REQUEST_ID = 'op-1';
 
@@ -219,6 +220,9 @@ describe('RecipeConceptStudioComponent', () => {
 
   /** The work in the address, for a studio opened for one (AF.7.4). Null is the studio opened for none. */
   let routeContextId: string | null = null;
+
+  /** The guided step the studio sits in, for the next render; null for the studio on its own page. */
+  let host: RecipeStudioHost | null = null;
   let readOutcome: CreativeContextReadOutcome = { status: 'not_found' };
 
   function configure(role: WorkspaceRole = 'Contributor'): void {
@@ -250,6 +254,7 @@ describe('RecipeConceptStudioComponent', () => {
           },
         },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) } },
+        ...(host ? [{ provide: RecipeStudioHost, useValue: host }] : []),
       ],
     });
 
@@ -1117,6 +1122,73 @@ describe('RecipeConceptStudioComponent', () => {
 
       // The studio acts on a chosen concept itself now. An output nothing consumes is a promise nobody keeps.
       expect('conceptSelected' in fixture.componentInstance).toBeFalse();
+    }));
+  });
+
+  // ---- Hosted in a guided step (13A.14) ----
+
+  describe('in a guided step', () => {
+    let conceptsRequested: jasmine.Spy;
+    let draftRequested: jasmine.Spy;
+
+    beforeEach(() => {
+      host = new RecipeStudioHost();
+      host.workspaceSlug = 'cozy-fall';
+      conceptsRequested = jasmine.createSpy('conceptsRequested');
+      draftRequested = jasmine.createSpy('draftRequested');
+      host.conceptsRequested = conceptsRequested;
+      host.draftRequested = draftRequested;
+    });
+
+    afterEach(() => {
+      host = null;
+    });
+
+    function navigations(): readonly unknown[][] {
+      return (TestBed.inject(Router).navigate as jasmine.Spy).calls.allArgs();
+    }
+
+    it('prints no page head of its own', fakeAsync(() => {
+      const root = render();
+
+      expect(root.querySelector('cp-page-head')).toBeNull();
+      expect(root.querySelector('#concept-dish-name')).not.toBeNull();
+    }));
+
+    it('hands the request it asked for to the host instead of writing it into the address', fakeAsync(() => {
+      render();
+      typeInto('concept-dish-name', 'Fattoush');
+      click('Get concepts');
+
+      expect(conceptsRequested).toHaveBeenCalledOnceWith(REQUEST_ID);
+      expect(navigations()).toEqual([]);
+    }));
+
+    it('resumes on the request the host names', fakeAsync(() => {
+      host!.conceptRequestId = 'op-kept';
+      configure();
+      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      fixture.detectChanges();
+      settle();
+      settle();
+
+      expect(fixture.componentInstance.requestId()).toBe('op-kept');
+      expect(element().textContent).toContain('Slow-roasted tomato soup');
+    }));
+
+    it('hands the draft it asked for to the host instead of opening the review page', fakeAsync(() => {
+      render();
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+      buttons('Choose this concept')[0].click();
+      settle();
+
+      element().querySelector<HTMLButtonElement>('button.studio-draft')!.click();
+      settle();
+      settle();
+
+      expect(draftRequested).toHaveBeenCalledOnceWith('draft-1');
+      expect(navigations()).toEqual([]);
     }));
   });
 });

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { RecipeStudioHost } from './recipe-studio-host';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
@@ -155,14 +156,17 @@ export class RecipeConceptStudioComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  readonly workspaceSlug = this.resolveWorkspaceSlug();
+  /** The guided step this studio sits in, when it is not on its own page; null there. See {@link RecipeStudioHost}. */
+  protected readonly host = inject(RecipeStudioHost, { optional: true });
+
+  readonly workspaceSlug = this.host?.workspaceSlug || this.resolveWorkspaceSlug();
 
   // ---- The piece of work these ideas are for, when the studio was opened for one (AF.7.4) ----
 
   private readonly creativeContexts = inject(CreativeContextService);
 
   /** The work named in the address (`ai-recipe-studio/context/:contextId`), or null for ideas that are for none. */
-  private readonly routeContextId = this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
+  private readonly routeContextId = this.host ? null : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
 
   /**
    * What is known about that work: nothing asked for, still being read, read, or not this workspace's to read.
@@ -725,6 +729,10 @@ export class RecipeConceptStudioComponent {
 
         // The run has been paid for, so the balance on screen is already out of date.
         void this.usage.refresh();
+        if (this.host) {
+          this.host.draftRequested(outcome.operation.aiProposalRequestId);
+          return;
+        }
         await this.router.navigate(['/', this.workspaceSlug, 'ai-recipe-studio', 'draft'], {
           queryParams: { request: outcome.operation.aiProposalRequestId },
         });
@@ -792,12 +800,19 @@ export class RecipeConceptStudioComponent {
   // -------------------------------------------------------------------------
 
   private restoreFromUrl(): void {
-    const requestId = this.route.snapshot.queryParamMap.get('request');
+    const requestId = this.host ? this.host.conceptRequestId : this.route.snapshot.queryParamMap.get('request');
     if (requestId !== null && requestId.length > 0) this.requestIdSignal.set(requestId);
   }
 
   /** Written with `replaceUrl`, so polling is resumable after a refresh without cluttering browser history. */
   private writeUrl(): void {
+    // Hosted, the place is kept by the host — on the run, not in an address the step does not own.
+    if (this.host) {
+      const requestId = this.requestIdSignal();
+      if (requestId !== null) this.host.conceptsRequested(requestId);
+      return;
+    }
+
     void this.router.navigate([], {
       relativeTo: this.route,
       replaceUrl: true,

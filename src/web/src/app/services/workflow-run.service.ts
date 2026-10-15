@@ -168,14 +168,19 @@ export class WorkflowRunService {
    * Starts a fresh run of a workflow (13A.5) — "Start this again" after a run was stopped, which Start over cannot
    * do. `idempotencyKey` belongs to this one attempt, as for {@link restart}.
    */
-  async start(workspaceSlug: string, definitionKey: string, idempotencyKey: string): Promise<WorkflowRunRestartOutcome> {
+  async start(
+    workspaceSlug: string,
+    definitionKey: string,
+    idempotencyKey: string,
+    startingResource: WorkflowResourcePointer | null = null,
+  ): Promise<WorkflowRunRestartOutcome> {
     const url = this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/workflow-runs`);
     if (!url) return { status: 'unavailable', offline: isOffline() };
 
     try {
       const run = decodeWorkflowRun(await firstValueFrom(this.http.post<unknown>(
         url,
-        { definitionKey },
+        startingResource ? { definitionKey, startingResource } : { definitionKey },
         { withCredentials: true, headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
       )));
       return run ? { status: 'started', run } : { status: 'unavailable', offline: false };

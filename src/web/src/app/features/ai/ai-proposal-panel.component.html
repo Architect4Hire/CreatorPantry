@@ -2,7 +2,11 @@
 @if (state() !== 'idle') {
   <section class="panel" [attr.aria-labelledby]="headingId" [attr.aria-busy]="state() === 'deciding' ? 'true' : null">
     <header class="panel-header">
-      <h3 class="panel-title" [id]="headingId">AI suggestions</h3>
+      @if (headingLevel() === 4) {
+        <h4 class="panel-title" [id]="headingId">AI suggestions</h4>
+      } @else {
+        <h3 class="panel-title" [id]="headingId">AI suggestions</h3>
+      }
 
       <!-- Said wherever generated content is on screen, and said in words: a creator must never have to work out
            from styling whether what they are reading is already in their recipe. Derived from "is a proposal
@@ -64,9 +68,17 @@
             Start again from your recipe as it stands now. These suggestions can't be applied to it, and nothing
             about them was saved.
           </p>
-          <button cpButton type="button" variant="primary" size="sm" (click)="requestRestart()">
-            Start again from this recipe
-          </button>
+          <div class="cp-actions">
+            <button cpButton type="button" variant="primary" size="sm" (click)="requestRestart()">
+              Start again from this recipe
+            </button>
+            <!-- A stale proposal can still be said no to, and must be: until it is, its changes count as waiting. -->
+            @if (mayDecide()) {
+              <button cpButton type="button" variant="secondary" size="sm" [disabled]="deciding()" (click)="reject()">
+                Decline these
+              </button>
+            }
+          </div>
         </div>
       }
 

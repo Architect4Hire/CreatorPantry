@@ -16,7 +16,8 @@
 
 /* The heading treatment every tool pane in the editor uses. Stated in full because an h2 with no declared
    weight renders at the browser's bold and shouts next to the calculators beside it. */
-.review-header h2 {
+.review-header h2,
+.review-header h3 {
   margin: 0 0 var(--cp-space-2) 0;
   font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);

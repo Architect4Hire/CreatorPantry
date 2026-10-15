@@ -245,6 +245,9 @@ internal interface IAiOperationDataLayer
     Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
         Guid recipeId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IAiOperationRepository.ListOpenAsync"/>
+    Task<IReadOnlyList<AiOpenProposalRow>> ListOpenAsync(Guid recipeId, int limit, CancellationToken cancellationToken);
+
     /// <summary>
     /// Records a decided disposition, applying its accepted changes in the same transaction.
     /// </summary>
@@ -603,6 +606,10 @@ internal sealed class AiOperationDataLayer(
             proposalIds,
             [.. warnings.Select(row => new AiOutstandingWarningServiceModel(row.Kind, row.Message, row.AiProposalId))]);
     }
+
+    public Task<IReadOnlyList<AiOpenProposalRow>> ListOpenAsync(
+        Guid recipeId, int limit, CancellationToken cancellationToken) =>
+        operations.ListOpenAsync(recipeId, limit, cancellationToken);
 
     public async Task<AiConceptReference?> FindConceptAsync(
         Guid conceptRequestId,

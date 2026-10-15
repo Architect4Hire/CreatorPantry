@@ -229,6 +229,10 @@ public sealed class RecipeReadinessFacadeTests
             return Task.FromResult(Summary);
         }
 
+        public Task<OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>> ListOpenAsync(
+            Guid recipeId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         // Not exercised: the readiness facade asks one question of this module.
         public Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
             Guid recipeId,

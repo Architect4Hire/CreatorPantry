@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
@@ -55,7 +56,9 @@ internal sealed class WorkflowFacts(
     IBrandStyleGuideFacade guides,
     IBrandProfileFacade brand,
     ISocialPackageFacade social,
-    IPublishingRecordFacade publishing) : IWorkflowFacts
+    IPublishingRecordFacade publishing,
+    IAiConceptRequestFacade conceptRequests,
+    IAiFirstDraftRequestFacade draftRequests) : IWorkflowFacts
 {
     /// <summary>
     /// The kinds whose records can be checked. Every <c>StartsFrom</c>, draft kind and result kind in the catalogue is
@@ -70,6 +73,7 @@ internal sealed class WorkflowFacts(
         WorkflowResourceKind.LongFormDraft,
         WorkflowResourceKind.BrandStyleGuide,
         WorkflowResourceKind.PublishingRecord,
+        WorkflowResourceKind.AiRequest,
     };
 
     public async Task<bool> ExistsAsync(WorkflowResourceKind kind, Guid id, CancellationToken cancellationToken) => kind switch
@@ -81,6 +85,11 @@ internal sealed class WorkflowFacts(
         WorkflowResourceKind.LongFormDraft => (await longForm.GetAsync(id, cancellationToken)).Succeeded,
         WorkflowResourceKind.BrandStyleGuide => (await guides.GetAsync(id, cancellationToken)).Succeeded,
         WorkflowResourceKind.PublishingRecord => (await publishing.GetAsync(id, cancellationToken)).Succeeded,
+
+        // Recipe ideas, or a first draft made from them: the two requests "Help me draft it" waits on. Each read
+        // answers for its own task only, and neither discloses another workspace's.
+        WorkflowResourceKind.AiRequest => (await conceptRequests.GetAsync(id, cancellationToken)).Succeeded
+            || (await draftRequests.GetAsync(id, cancellationToken)).Succeeded,
         _ => throw new NotSupportedException($"A {kind} cannot be checked yet; see {nameof(CheckableKinds)}."),
     };
 

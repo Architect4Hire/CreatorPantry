@@ -61,6 +61,9 @@ internal interface IAiProposalBusiness
     /// </remarks>
     Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
         Guid recipeId, CancellationToken cancellationToken);
+
+    Task<OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>> ListOpenAsync(
+        Guid recipeId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -175,6 +178,42 @@ internal sealed class AiProposalBusiness(
     public Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
         Guid recipeId, CancellationToken cancellationToken) =>
         operations.SummarizeOutstandingAsync(recipeId, cancellationToken);
+
+    /// <summary>
+    /// The most a recipe's open requests are listed to: far more than a creator works through at once, and a bound on
+    /// a read that runs on every arrival at an "Improve a recipe" step.
+    /// </summary>
+    private const int MaxOpenListed = 50;
+
+    public async Task<OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>> ListOpenAsync(
+        Guid recipeId, CancellationToken cancellationToken)
+    {
+        // The existence check, and the version that says what is stale: through the recipe module's facade. A recipe
+        // in another workspace reports missing, as an unknown one does.
+        var recipe = await recipes.GetDetailAsync(recipeId, cancellationToken);
+        if (!recipe.Succeeded)
+        {
+            return Failure<IReadOnlyList<AiOpenProposalServiceModel>>(AiProposalErrors.RecipeNotFound, "That recipe does not exist.");
+        }
+
+        var current = recipe.Value!.CurrentVersion?.Id;
+        var rows = await operations.ListOpenAsync(recipeId, MaxOpenListed, cancellationToken);
+
+        return OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>.Success(
+        [
+            .. rows.Select(row => new AiOpenProposalServiceModel
+            {
+                RequestId = row.OperationId,
+                TaskType = row.TaskType,
+                Status = row.Status,
+                RequestedAt = row.RequestedAt,
+                PendingChangeCount = row.PendingChangeCount,
+                HasSafetyCaution = row.HasSafetyCaution,
+                // The rule a disposition applies: computed against a version that is no longer the current one.
+                IsStale = row.SourceVersionId is { } source && source != current,
+            }),
+        ]);
+    }
 
     public async Task<OperationResult<AiProposalStatusServiceModel>> GetAsync(
         Guid recipeId,

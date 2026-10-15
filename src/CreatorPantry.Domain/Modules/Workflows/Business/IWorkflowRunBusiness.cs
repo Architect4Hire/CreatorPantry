@@ -136,7 +136,9 @@ internal sealed class WorkflowRunBusiness(
         await data.CreateAsync(prepared!.Run, prepared.Steps, prepared.Links, cancellationToken);
 
         return OperationResult<WorkflowRunServiceModel>.Success(
-            WorkflowRunMapper.ToServiceModel(definition, prepared.Run, prepared.Steps, prepared.Links, prepared.NextAction));
+            WorkflowRunMapper.ToServiceModel(
+                definition, prepared.Run, prepared.Steps, prepared.Links, prepared.NextAction,
+                WorkflowStartRules.Suggestions(definition, prepared.Links, workspace.Role, catalogue)));
     }
 
     public async Task<OperationResult<WorkflowRunServiceModel>> GetAsync(Guid runId, CancellationToken cancellationToken)
@@ -238,7 +240,9 @@ internal sealed class WorkflowRunBusiness(
         }
 
         return OperationResult<WorkflowRunServiceModel>.Success(
-            WorkflowRunMapper.ToServiceModel(definition, run, steps, links, nextAction, warnings, missingIds));
+            WorkflowRunMapper.ToServiceModel(
+                definition, run, steps, links, nextAction,
+                WorkflowStartRules.Suggestions(definition, links, workspace.Role, catalogue), warnings, missingIds));
     }
 
     /// <remarks>
@@ -1565,7 +1569,9 @@ internal sealed class WorkflowRunBusiness(
         }
 
         return OperationResult<WorkflowRunRestart>.Success(new WorkflowRunRestart(
-            WorkflowRunMapper.ToServiceModel(definition, prepared.Run, prepared.Steps, prepared.Links, prepared.NextAction),
+            WorkflowRunMapper.ToServiceModel(
+                definition, prepared.Run, prepared.Steps, prepared.Links, prepared.NextAction,
+                WorkflowStartRules.Suggestions(definition, prepared.Links, workspace.Role, catalogue)),
             Started: true));
     }
 
@@ -1689,6 +1695,7 @@ internal sealed class WorkflowRunBusiness(
             WorkflowResourceKind.ContentCard => "card",
             WorkflowResourceKind.PublishingRecord => "booking",
             WorkflowResourceKind.WorkTask => "task",
+            WorkflowResourceKind.AiRequest => "AI request",
             _ => "record",
         };
 

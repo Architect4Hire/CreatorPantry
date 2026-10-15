@@ -122,6 +122,16 @@ export class RecipeTestKitchenComponent {
    */
   readonly versionActivated = output<string>();
 
+  /**
+   * A test was recorded or corrected, or one of its problems was answered: what the recipe's readiness reads has
+   * moved. For a host that says what is still needed (13A.16).
+   */
+  readonly changed = output<void>();
+
+  /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
+  readonly headingLevel = input<2 | 3>(2);
+
+
   readonly outcomeLabels = TEST_OUTCOME_LABELS;
   readonly outcomeTones = TEST_OUTCOME_TONES;
 
@@ -282,10 +292,12 @@ export class RecipeTestKitchenComponent {
       this.openRunSignal.set(saved.testRun);
       this.openStateSignal.set({ status: 'ready' });
       this.noticeSignal.set('Correction saved.');
+      this.changed.emit();
       return;
     }
 
     this.noticeSignal.set(`Test recorded against version ${saved.testRun.sourceVersionNumber}.`);
+    this.changed.emit();
 
     // A create answers with ids and not contents, so the problems panel has nothing to show from it. Reading
     // the test back is what makes the problems just recorded resolvable without leaving the page — which is
@@ -317,6 +329,7 @@ export class RecipeTestKitchenComponent {
 
   onIssueResolved(): void {
     this.noticeSignal.set('Recorded what was done about that problem.');
+    this.changed.emit();
   }
 
   // -------------------------------------------------------------------------

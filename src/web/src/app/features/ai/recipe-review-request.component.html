@@ -1,6 +1,10 @@
 <section class="review" aria-labelledby="cp-review-heading">
   <header class="review-header">
-    <h2 id="cp-review-heading">Review this recipe</h2>
+    @if (headingLevel() === 3) {
+      <h3 id="cp-review-heading">Review this recipe</h3>
+    } @else {
+      <h2 id="cp-review-heading">Review this recipe</h2>
+    }
     <p class="review-lede">
       A pass over the whole recipe for completeness, consistency, timing, and anything worth a second look.
       This changes nothing — findings are yours to judge.

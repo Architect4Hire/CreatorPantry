@@ -86,6 +86,19 @@ cp-tab-panel:not([hidden]) {
   min-width: 0;
 }
 
+/* The hosted layout (RecipeEditorHost): the same column as a tab's sections, for the same reason, on the card the
+   host puts it in — so no card of its own. */
+.hosted {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+  min-width: 0;
+}
+
+.hosted cp-notice {
+  margin-bottom: 0;
+}
+
 /* The instruction groups and the nav beside them. Its own container, like the ingredient editor's: the
    layout answers to the space this section actually has, which is a tab panel inside a capped card, and
    responds identically to a narrowed window and to 200% zoom.

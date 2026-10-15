@@ -1,5 +1,5 @@
 <div class="toolbar">
-  <button cpButton type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
+  <button cpButton variant="secondary" type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
   <button cpButton variant="secondary" type="button" (click)="addGroup()">Add ingredient group</button>
 </div>
 
@@ -22,7 +22,7 @@
 
 @if (groups().length === 0) {
   <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add them one at a time." variant="first-use">
-    <button cpButton cpEmptyStateActions type="button" (click)="addRow()">Add ingredient</button>
+    <button cpButton cpEmptyStateActions variant="secondary" type="button" (click)="addRow()">Add ingredient</button>
   </cp-empty-state>
 } @else {
   <div class="grouped-layout" [class.has-group-nav]="showGroupNav()">

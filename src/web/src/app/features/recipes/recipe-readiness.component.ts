@@ -29,6 +29,7 @@ import {
   RecipeReadinessFinding,
   RecipeReadinessStatus,
   RecipeTransitionMove,
+  RecipeMoveOffer,
   RecipeTransitionRequest,
   TRANSITION_REASON_MAX_LENGTH,
   roleAllows,
@@ -145,6 +146,19 @@ export class RecipeReadinessComponent {
    * component knows the evaluation describes words that have since moved.
    */
   readonly concurrencyToken = input.required<string>();
+
+  /**
+   * The moves a host offers here, each by where it starts and where it leads; null for every move the recipe's state
+   * allows. A guided step about sending a recipe on offers only its forward moves — never an archive, and never a
+   * reopen, which leads somewhere a forward move also does — and the server still decides every one (13A.16).
+   */
+  readonly offer = input<readonly RecipeMoveOffer[] | null>(null);
+
+  /** What the panel is called. The recipe page's word for it, unless a host has a plainer one. */
+  readonly heading = input('Readiness');
+
+  /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
+  readonly headingLevel = input<2 | 3>(2);
 
   /** The recipe as it now stands, after a move the server confirmed. */
   readonly transitioned = output<RecipeDetail>();
@@ -348,9 +362,14 @@ export class RecipeReadinessComponent {
    * offering it. The server remains the authority on both — a stale role or a changed machine comes back as a
    * refusal this component surfaces.
    */
-  readonly availableMoves = computed<readonly RecipeTransitionMove[]>(() =>
-    transitionsFrom(this.status()).filter((move) => roleAllows(this.role(), move.minimumRole)),
-  );
+  readonly availableMoves = computed<readonly RecipeTransitionMove[]>(() => {
+    const offer = this.offer();
+    return transitionsFrom(this.status()).filter(
+      (move) =>
+        roleAllows(this.role(), move.minimumRole)
+        && (offer === null || offer.some((offered) => offered.from === move.from && offered.to === move.to)),
+    );
+  });
 
   readonly submitting = computed(() => this.transitionState().status === 'submitting');
 

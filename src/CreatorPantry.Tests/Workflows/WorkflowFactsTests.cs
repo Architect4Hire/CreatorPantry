@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Content.Facade;
@@ -210,7 +211,9 @@ public sealed class WorkflowFactsTests
                     : Task.FromResult(OperationResult<BrandStyleGuideDetailServiceModel>.Failure(NotFound())))),
             Stub.For<IBrandProfileFacade>(),
             Stub.For<ISocialPackageFacade>(("GetAsync", _ => Task.FromResult(OperationResult<SocialPackageServiceModel?>.Success(package)))),
-            Stub.For<IPublishingRecordFacade>(("GetAsync", _ => Answer(record))));
+            Stub.For<IPublishingRecordFacade>(("GetAsync", _ => Answer(record))),
+            Stub.For<IAiConceptRequestFacade>(),
+            Stub.For<IAiFirstDraftRequestFacade>());
 
     private static Task<OperationResult<T>> Answer<T>(T? value) where T : class =>
         Task.FromResult(value is null ? OperationResult<T>.Failure(NotFound()) : OperationResult<T>.Success(value));

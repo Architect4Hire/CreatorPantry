@@ -16,6 +16,7 @@ internal static class WorkflowRunMapper
         IReadOnlyList<WorkflowStepRun> steps,
         IReadOnlyList<WorkflowRunLink> links,
         WorkflowNextActionServiceModel? nextAction,
+        IReadOnlyList<WorkflowSuggestionServiceModel> nextSuggestions,
         IReadOnlyList<WorkflowRunWarningServiceModel>? warnings = null,
         IReadOnlySet<Guid>? missingResourceIds = null)
     {
@@ -76,6 +77,8 @@ internal static class WorkflowRunMapper
                 && definition.Steps
                     .Where(step => step.Requirement == WorkflowStepRequirement.Required)
                     .All(step => byKey[step.Key.Value].Status == WorkflowStepRunStatus.Completed),
+
+            NextSuggestions = nextSuggestions,
         };
     }
 

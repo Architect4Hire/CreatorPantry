@@ -923,6 +923,194 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
         public Guid TitleChangeId => ChangeIds[1];
     }
 
+    // ---- what is still open (13A.15) -------------------------------------------------------------------
+
+    private string OpenRoute(SeededWorkspace workspace, Guid recipeId) => $"{Route(workspace, recipeId)}/open";
+
+    [Fact]
+    public async Task The_open_list_names_what_is_being_written_and_what_waits_to_be_decided_newest_first()
+    {
+        using var client = await SignInAsync();
+        var waiting = await SeedAsync(client);
+        var versionId = waiting.Detail.GetProperty("currentVersion").GetProperty("id").GetGuid();
+        var writing = await SeedOnAsync(waiting.RecipeId, versionId, AiOperationStatus.Running, withProposal: false, minutesLater: 5);
+        var cautious = await SeedOnAsync(waiting.RecipeId, versionId, AiOperationStatus.Proposed, withProposal: true, minutesLater: 10, safetyCaution: true);
+
+        var response = await client.GetAsync(OpenRoute(_fixture.WorkspaceA, waiting.RecipeId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var open = JsonDocument.Parse(text).RootElement.EnumerateArray().ToList();
+        Assert.Equal([cautious, writing, waiting.RequestId], open.Select(item => item.GetProperty("requestId").GetGuid()));
+
+        Assert.Equal("Proposed", open[0].GetProperty("status").GetString());
+        Assert.Equal(1, open[0].GetProperty("pendingChangeCount").GetInt32());
+        Assert.True(open[0].GetProperty("hasSafetyCaution").GetBoolean());
+        Assert.Equal("Running", open[1].GetProperty("status").GetString());
+        Assert.Equal(0, open[1].GetProperty("pendingChangeCount").GetInt32());
+        Assert.Equal(2, open[2].GetProperty("pendingChangeCount").GetInt32());
+        Assert.False(open[2].GetProperty("hasSafetyCaution").GetBoolean());
+        Assert.All(open, item => Assert.False(item.GetProperty("isStale").GetBoolean()));
+
+        // A pointer and its facts, never the proposal's words.
+        Assert.DoesNotContain("Plum and olive oil cake", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_decided_proposal_leaves_the_open_list_and_one_rejected_does_too()
+    {
+        using var client = await SignInAsync();
+        var accepted = await SeedAsync(client);
+        await AcceptAllAsync(client, accepted);
+
+        var rejected = await SeedAsync(client);
+        Assert.Equal(HttpStatusCode.OK, (await DispositionAsync(client, rejected, new { decision = nameof(AiDispositionDecision.Reject) })).StatusCode);
+
+        foreach (var seeded in new[] { accepted, rejected })
+        {
+            var open = await BodyOf(await client.GetAsync(OpenRoute(_fixture.WorkspaceA, seeded.RecipeId), TestContext.Current.CancellationToken));
+            Assert.Equal(0, open.GetArrayLength());
+        }
+    }
+
+    [Fact]
+    public async Task A_proposal_the_recipe_has_moved_past_is_listed_as_stale()
+    {
+        using var client = await SignInAsync();
+        var seeded = await SeedAsync(client);
+        await EditAsync(client, seeded.RecipeId, seeded.ConcurrencyToken, "Second thoughts.");
+
+        var open = await BodyOf(await client.GetAsync(OpenRoute(_fixture.WorkspaceA, seeded.RecipeId), TestContext.Current.CancellationToken));
+
+        Assert.True(Assert.Single(open.EnumerateArray()).GetProperty("isStale").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Advice_and_finished_requests_are_never_listed()
+    {
+        using var client = await SignInAsync();
+        var advice = await SeedAsync(client, operationScope: AiOperationScope.Advisory);
+        var versionId = advice.Detail.GetProperty("currentVersion").GetProperty("id").GetGuid();
+        await SeedOnAsync(advice.RecipeId, versionId, AiOperationStatus.Failed, withProposal: false, minutesLater: 1);
+        await SeedOnAsync(advice.RecipeId, versionId, AiOperationStatus.Expired, withProposal: false, minutesLater: 2);
+
+        var open = await BodyOf(await client.GetAsync(OpenRoute(_fixture.WorkspaceA, advice.RecipeId), TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, open.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task A_viewer_may_read_the_open_list()
+    {
+        using var owner = await SignInAsync();
+        var seeded = await SeedAsync(owner);
+        using var viewer = await SignInAsync(ViewerEmail);
+
+        var response = await viewer.GetAsync(OpenRoute(_fixture.WorkspaceA, seeded.RecipeId), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single((await BodyOf(response)).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Another_workspaces_recipe_is_not_found_exactly_as_an_unknown_one_is()
+    {
+        using var owner = await SignInAsync();
+        var seeded = await SeedAsync(owner);
+        using var neighbour = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail, cancellationToken: TestContext.Current.CancellationToken);
+
+        var theirs = await neighbour.GetAsync(OpenRoute(_fixture.WorkspaceB, seeded.RecipeId), TestContext.Current.CancellationToken);
+        var unknown = await neighbour.GetAsync(OpenRoute(_fixture.WorkspaceB, Guid.NewGuid()), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, theirs.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        var theirCode = (await BodyOf(theirs)).GetProperty("code").GetString();
+        Assert.Equal((await BodyOf(unknown)).GetProperty("code").GetString(), theirCode);
+        Assert.Equal(AiProposalErrors.RecipeNotFound, theirCode);
+    }
+
+    /// <summary>Another request against a recipe <see cref="SeedAsync"/> made, so one recipe can hold several.</summary>
+    private async Task<Guid> SeedOnAsync(
+        Guid recipeId,
+        Guid versionId,
+        AiOperationStatus status,
+        bool withProposal,
+        int minutesLater,
+        bool safetyCaution = false)
+    {
+        var requestId = Guid.NewGuid();
+        var at = DateTimeOffset.UtcNow.AddMinutes(minutesLater);
+
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.AiOperations.Add(new AiOperation
+        {
+            Id = requestId,
+            WorkspaceId = _fixture.WorkspaceA.Id,
+            TaskType = AiTaskType.Diagnostic,
+            Scope = AiOperationScope.WholeRecipe,
+            Status = status,
+            RecipeId = recipeId,
+            RecipeVersionId = versionId,
+            IdempotencyKey = $"seed-{requestId:N}",
+            RequestedByMembershipId = Guid.NewGuid(),
+            RequestedAt = at,
+            StatusChangedAt = at,
+            AvailableAt = at,
+            FailureCategory = status == AiOperationStatus.Failed ? AiFailureCategory.Provider : null,
+            StartedAt = status == AiOperationStatus.Requested ? null : at,
+            CompletedAt = status is AiOperationStatus.Failed or AiOperationStatus.Expired ? at : null,
+        });
+
+        if (withProposal)
+        {
+            var proposalId = Guid.NewGuid();
+            var proposal = new AiProposal
+            {
+                Id = proposalId,
+                WorkspaceId = _fixture.WorkspaceA.Id,
+                AiOperationId = requestId,
+                SourceRecipeVersionId = versionId,
+                OutputSchemaVersion = "fixture.diagnostic.v1",
+                PromptTemplateId = "fixture.diagnostic",
+                PromptTemplateVersion = "1.0.0",
+                PromptTemplateBodyChecksum = "sha256:seed",
+                ProviderName = "test-provider",
+                ModelName = "test-model",
+                CreatedAt = at,
+            };
+            proposal.Changes.Add(new AiStructuredChange
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = _fixture.WorkspaceA.Id,
+                ChangeKind = AiChangeKind.Set,
+                TargetKind = AiChangeTargetKind.Recipe,
+                FieldName = "headnote",
+                BeforeValue = "The one my grandmother made.",
+                AfterValue = "Bake it low and slow.",
+                SortOrder = 0,
+                Disposition = AiChangeDisposition.Pending,
+            });
+            if (safetyCaution)
+            {
+                proposal.Warnings.Add(new AiWarning
+                {
+                    Id = Guid.NewGuid(),
+                    WorkspaceId = _fixture.WorkspaceA.Id,
+                    Kind = AiWarningKind.SafetyCaution,
+                    Message = "Check the oven temperature yourself.",
+                    SortOrder = 0,
+                });
+            }
+
+            db.AiProposals.Add(proposal);
+        }
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return requestId;
+    }
+
     private Task<GatewayClient> SignInAsync(string? email = null, string? password = null) =>
         _fixture.SignInAsync(
             email ?? _fixture.WorkspaceA.OwnerEmail,

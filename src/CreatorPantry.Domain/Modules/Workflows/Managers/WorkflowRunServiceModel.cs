@@ -80,6 +80,51 @@ public sealed class WorkflowRunServiceModel
 
     /// <summary>Things worth knowing that do not stop the run: a record gone, a newer version, a step for someone else.</summary>
     public IReadOnlyList<WorkflowRunWarningServiceModel> Warnings { get; init; } = [];
+
+    /// <summary>
+    /// What to do once this is done, from the pinned definition, most recommended first: another journey, or one
+    /// screen on its own. The same on every read, so a finished run still says what comes next (13A.14).
+    /// </summary>
+    public IReadOnlyList<WorkflowSuggestionServiceModel> NextSuggestions { get; init; } = [];
+}
+
+/// <summary>Whether a suggestion starts another journey or opens one screen.</summary>
+public enum WorkflowSuggestionKind
+{
+    Workflow = 1,
+    Capability = 2,
+}
+
+/// <summary>One thing to do next, labelled by its target's own goal or name.</summary>
+public sealed class WorkflowSuggestionServiceModel
+{
+    public required WorkflowSuggestionKind Kind { get; init; }
+
+    /// <summary>The workflow's key, or the capability's.</summary>
+    public required string Key { get; init; }
+
+    /// <summary>The workflow's goal or the capability's name, so it cannot drift from what it opens.</summary>
+    public required string Label { get; init; }
+
+    /// <summary>Why it is a good next thing, in one ordinary sentence.</summary>
+    public required string Why { get; init; }
+
+    /// <summary>A capability's address relative to the workspace, or null for a workflow or one needing a record the run does not hold.</summary>
+    public string? Route { get; init; }
+
+    /// <summary>
+    /// For a workflow, the record this run holds that the next one can start from — the recipe it made, say — or
+    /// null to start from nothing. The start command still checks it.
+    /// </summary>
+    public WorkflowResourceKind? StartFromKind { get; init; }
+
+    public Guid? StartFromId { get; init; }
+
+    /// <summary>False when the target is not built yet.</summary>
+    public required bool Available { get; init; }
+
+    /// <summary>The caller's role reaches it. Always the same as <see cref="Available"/> for a workflow, whose start decides.</summary>
+    public required bool YouCanDoIt { get; init; }
 }
 
 /// <summary>Something about a run worth saying that does not stop it.</summary>

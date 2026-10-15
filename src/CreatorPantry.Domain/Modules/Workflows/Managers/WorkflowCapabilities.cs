@@ -108,9 +108,10 @@ public static class WorkflowCapabilities
         // A recipe saved before the creator moves on is the start step's draft.
         new(RecipesNew, "Write it yourself", "recipes/new", WorkspaceRole.Contributor, DraftKind: WorkflowResourceKind.Recipe),
 
-        // The concept studio, then its first-draft review: a draft is a proposal until the creator keeps it.
+        // The concept studio, then its first-draft review: a draft is a proposal until the creator keeps it. The
+        // step keeps the request it is waiting on, so ideas or a draft come back after a reload (13A.14).
         new(RecipesDraftWithHelp, "Help me draft it", "ai-recipe-studio", WorkspaceRole.Contributor,
-            DraftKind: WorkflowResourceKind.CreativeContext),
+            DraftKind: WorkflowResourceKind.AiRequest),
 
         new(RecipesLibrary, "Choose from your recipes", "recipes", WorkspaceRole.Viewer),
         new(RecipesEdit, "Open your recipe", "recipes/{recipeId}", WorkspaceRole.Contributor),

@@ -714,3 +714,50 @@ export function decodeAiProposalDispositionResult(value: unknown): AiProposalDis
 
   return { aiProposalRequestId, status, acceptedChangeCount, rejectedChangeCount, recipeVersionNumber, decidedAt };
 }
+
+/**
+ * One request about a recipe still waiting on the creator (13A.15): being written, or holding a change not yet
+ * answered. A pointer and its facts — the proposal itself is read from the request.
+ */
+export interface AiOpenProposal {
+  readonly requestId: string;
+  readonly taskType: AiTaskType;
+  readonly status: AiOperationStatus;
+  readonly requestedAt: string;
+  readonly pendingChangeCount: number;
+  readonly hasSafetyCaution: boolean;
+  /** Asked for against a version the recipe has since moved past: accepting it will be refused. */
+  readonly isStale: boolean;
+}
+
+/** The open list as the server sent it, or null when any entry is not what it should be. */
+export function decodeAiOpenProposals(value: unknown): readonly AiOpenProposal[] | null {
+  if (!Array.isArray(value)) return null;
+  const decoded: AiOpenProposal[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+    const taskType = decodeEnum<AiTaskType>(AI_TASK_TYPE_VALUES, item['taskType']);
+    const status = decodeEnum<AiOperationStatus>(AI_OPERATION_STATUS_VALUES, item['status']);
+    if (
+      typeof item['requestId'] !== 'string'
+      || taskType === null
+      || status === null
+      || typeof item['requestedAt'] !== 'string'
+      || typeof item['pendingChangeCount'] !== 'number'
+      || typeof item['hasSafetyCaution'] !== 'boolean'
+      || typeof item['isStale'] !== 'boolean'
+    ) {
+      return null;
+    }
+    decoded.push({
+      requestId: item['requestId'],
+      taskType,
+      status,
+      requestedAt: item['requestedAt'],
+      pendingChangeCount: item['pendingChangeCount'],
+      hasSafetyCaution: item['hasSafetyCaution'],
+      isStale: item['isStale'],
+    });
+  }
+  return decoded;
+}

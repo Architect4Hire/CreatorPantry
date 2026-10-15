@@ -26,9 +26,6 @@ internal sealed class WorkflowDefinitionBusiness(
     IWorkspaceContext workspace,
     IWorkflowFacts facts) : IWorkflowDefinitionBusiness
 {
-    /// <summary>The least role the start route takes from anyone.</summary>
-    private const WorkspaceRole LeastToStart = WorkspaceRole.Contributor;
-
     public async Task<IReadOnlyList<WorkflowDefinitionSummaryServiceModel>> ListAsync(CancellationToken cancellationToken)
     {
         var known = new Dictionary<WorkflowWorkspaceFact, bool>();
@@ -71,14 +68,7 @@ internal sealed class WorkflowDefinitionBusiness(
             }
 
             // Whoever could take the first step, and never less than a start takes.
-            var first = definition.Steps[0].Capability;
-            var actions = new[] { first.Primary }.Concat(first.Alternatives)
-                .Select(key => WorkflowCapabilities.ByKey[key])
-                .Where(capability => capability.IsAvailable)
-                .ToList();
-            WorkspaceRole? needed = actions.Count == 0
-                ? null
-                : (WorkspaceRole)Math.Max((int)actions.Min(capability => capability.MinimumRole), (int)LeastToStart);
+            var needed = WorkflowStartRules.NeededRole(definition);
             var roleAllows = needed is { } least && workspace.Role >= least;
 
             summaries.Add(new WorkflowDefinitionSummaryServiceModel

@@ -63,6 +63,10 @@ export class RecipeReviewRequestComponent {
 
   readonly decided = output<void>();
 
+  /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
+  readonly headingLevel = input<2 | 3>(2);
+
+
   private readonly reviews = inject(RecipeReviewService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);

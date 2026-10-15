@@ -66,6 +66,24 @@ export interface WorkflowRunWarning {
   readonly message: string;
 }
 
+/**
+ * Something to do once this is done: another journey, or one screen on its own — labelled by the target's own goal
+ * or name, with the definition's reason.
+ */
+export interface WorkflowSuggestion {
+  readonly kind: 'Workflow' | 'Capability';
+  /** The workflow's definition key, or the capability's key. */
+  readonly key: string;
+  readonly label: string;
+  readonly why: string;
+  /** A capability's address relative to the workspace; null for a workflow, or for a screen that needs a record the run does not hold. */
+  readonly route: string | null;
+  /** For a workflow: the record this run holds that the next run can start from, or null to start from nothing. */
+  readonly startFrom: WorkflowResourcePointer | null;
+  readonly available: boolean;
+  readonly youCanDoIt: boolean;
+}
+
 export interface WorkflowRun {
   readonly id: string;
   readonly definitionKey: string;
@@ -95,6 +113,8 @@ export interface WorkflowRun {
   /** Every required step is done: the run can be finished. */
   readonly readyToComplete: boolean;
   readonly warnings: readonly WorkflowRunWarning[];
+  /** What to do once this is done, most recommended first. Empty from a server that predates it. */
+  readonly nextSuggestions: readonly WorkflowSuggestion[];
 }
 
 /** One required step still in the way of finishing, from a refused completion (`incompleteSteps`). */
@@ -199,6 +219,37 @@ function decodeNextAction(value: unknown): WorkflowNextAction | null {
   return { stepKey: value['stepKey'], title: value['title'], help: value['help'], requirement, actions, waitingFor };
 }
 
+const SUGGESTION_KINDS: ReadonlySet<string> = new Set<WorkflowSuggestion['kind']>(['Workflow', 'Capability']);
+
+function decodeSuggestion(value: unknown): WorkflowSuggestion | null {
+  if (!isRecord(value)) return null;
+  const kind = decodeEnum<WorkflowSuggestion['kind']>(SUGGESTION_KINDS, value['kind']);
+  if (
+    kind === null
+    || !isString(value['key'])
+    || !isString(value['label'])
+    || !isString(value['why'])
+    || typeof value['available'] !== 'boolean'
+    || typeof value['youCanDoIt'] !== 'boolean'
+  ) {
+    return null;
+  }
+
+  const fromKind = optionalString(value['startFromKind']);
+  const fromId = optionalString(value['startFromId']);
+
+  return {
+    kind,
+    key: value['key'],
+    label: value['label'],
+    why: value['why'],
+    route: optionalString(value['route']),
+    startFrom: fromKind !== null && fromId !== null ? { kind: fromKind, id: fromId } : null,
+    available: value['available'],
+    youCanDoIt: value['youCanDoIt'],
+  };
+}
+
 function decodeWarning(value: unknown): WorkflowRunWarning | null {
   return isRecord(value) && isString(value['code']) && isString(value['message'])
     ? { code: value['code'], message: value['message'] }
@@ -213,6 +264,7 @@ export function decodeWorkflowRun(value: unknown): WorkflowRun | null {
   const steps = every(value['steps'], decodeStep);
   const links = every(value['links'], decodeLink);
   const warnings = value['warnings'] === undefined ? [] : every(value['warnings'], decodeWarning);
+  const nextSuggestions = value['nextSuggestions'] === undefined ? [] : every(value['nextSuggestions'], decodeSuggestion);
   const rawNext = value['nextAction'];
   const nextAction = rawNext === null || rawNext === undefined ? null : decodeNextAction(rawNext);
 
@@ -232,6 +284,7 @@ export function decodeWorkflowRun(value: unknown): WorkflowRun | null {
     || steps === null
     || links === null
     || warnings === null
+    || nextSuggestions === null
     || (rawNext !== null && rawNext !== undefined && nextAction === null)
   ) {
     return null;
@@ -262,6 +315,7 @@ export function decodeWorkflowRun(value: unknown): WorkflowRun | null {
     resumeRoute: optionalString(value['resumeRoute']),
     readyToComplete: value['readyToComplete'] === true,
     warnings,
+    nextSuggestions,
   };
 }
 

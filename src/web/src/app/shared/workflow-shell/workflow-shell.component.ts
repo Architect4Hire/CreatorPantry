@@ -31,7 +31,13 @@ import {
 
 import { ConfirmService } from '../../core/confirm.service';
 import { NetworkStatusService } from '../../core/network-status.service';
-import { WorkflowNextAction, WorkflowRun, stepperStatusOf } from '../../models/workflow-run.models';
+import {
+  WorkflowNextAction,
+  WorkflowResourcePointer,
+  WorkflowRun,
+  WorkflowSuggestion,
+  stepperStatusOf,
+} from '../../models/workflow-run.models';
 import { WorkflowRunCommandOutcome, WorkflowRunRestartOutcome, WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { WorkflowStepFallbackComponent } from './workflow-step-fallback.component';
@@ -40,6 +46,8 @@ import { WorkflowStepDirective } from './workflow-step.directive';
 
 /** What a page hosting the shell prints in its `cp-page-head`: the journey's goal, and what the creator will have. */
 export interface WorkflowShellDescription {
+  /** Which journey the run is, so the hosting page can project that journey's step screens. */
+  readonly definitionKey: string;
   readonly goal: string;
   readonly expectedOutcome: string | null;
 }
@@ -70,7 +78,7 @@ export type WorkflowShellPhase =
   | 'completed'
   | 'abandoned';
 
-type Command = 'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again';
+type Command = 'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again' | 'start-next';
 
 interface ActionProblem {
   readonly message: string;
@@ -246,6 +254,9 @@ export class WorkflowShellComponent {
     return run && step ? { $implicit: step, run, workspaceSlug: this.workspaceSlug() } : null;
   });
 
+  /** Whether Continue is the step's primary action, or steps back while the step's own screen has the next move. */
+  readonly stepReady = computed(() => this.port.registration()?.ready?.() ?? true);
+
   readonly saveStatus = computed(() => {
     const registration = this.port.registration();
     if (registration?.saving?.()) return 'Saving…';
@@ -268,6 +279,8 @@ export class WorkflowShellComponent {
       const id = this.runId();
       untracked(() => void this.load(slug, id, { arriving: true }));
     });
+
+    this.port.connect((draft) => this.keepDraft(draft), () => this.focusAfterRender(STEP_HEADING_ID));
 
     effect(() => {
       const said = this.port.announcement();
@@ -301,44 +314,43 @@ export class WorkflowShellComponent {
 
   // ---- Moves ----
 
+  // Each move reads the run when it is sent, after the step's work is kept: keeping it can point the step at a new
+  // draft, which moves the run's token on, and a move quoting the token from before would be refused as stale.
+
   continue(): Promise<void> {
     const step = this.step();
-    const run = this.run();
-    if (!step || !run) return Promise.resolve();
+    if (!step || !this.run()) return Promise.resolve();
     return this.command('continue', async () =>
-      this.runs.completeStep(this.workspaceSlug(), run, step.stepKey, this.port.registration()?.results?.() ?? []));
+      this.runs.completeStep(this.workspaceSlug(), this.run()!, step.stepKey, this.port.registration()?.results?.() ?? []));
   }
 
   back(): Promise<void> {
     const key = this.currentKey();
-    const run = this.run();
-    if (!key || !run) return Promise.resolve();
-    return this.command('back', async () => this.runs.back(this.workspaceSlug(), run, key));
+    if (!key || !this.run()) return Promise.resolve();
+    return this.command('back', async () => this.runs.back(this.workspaceSlug(), this.run()!, key));
   }
 
   skip(): Promise<void> {
     const step = this.step();
-    const run = this.run();
-    if (!step || !run) return Promise.resolve();
-    return this.command('skip', async () => this.runs.skip(this.workspaceSlug(), run, step.stepKey));
+    if (!step || !this.run()) return Promise.resolve();
+    return this.command('skip', async () => this.runs.skip(this.workspaceSlug(), this.run()!, step.stepKey));
   }
 
   finish(): Promise<void> {
-    const run = this.run();
-    if (!run) return Promise.resolve();
-    return this.command('finish', async () => this.runs.completeRun(this.workspaceSlug(), run));
+    if (!this.run()) return Promise.resolve();
+    return this.command('finish', async () => this.runs.completeRun(this.workspaceSlug(), this.run()!));
   }
 
   saveAndExit(): Promise<void> {
-    const run = this.run();
     const key = this.currentKey();
-    if (!run || !key) return Promise.resolve();
-    const registration = this.port.registration();
-    return this.command('save-exit', async () =>
-      this.runs.saveAndExit(this.workspaceSlug(), run, key, {
+    if (!this.run() || !key) return Promise.resolve();
+    return this.command('save-exit', async () => {
+      const registration = this.port.registration();
+      return this.runs.saveAndExit(this.workspaceSlug(), this.run()!, key, {
         draft: registration?.draft?.() ?? null,
         capabilityKey: registration?.capabilityKey?.() ?? null,
-      }));
+      });
+    });
   }
 
   async startOver(): Promise<void> {
@@ -355,7 +367,7 @@ export class WorkflowShellComponent {
     if (!agreed) return;
 
     this.idempotencyKey = newKey();
-    await this.command('start-over', async () => this.runs.restart(this.workspaceSlug(), run, this.idempotencyKey!));
+    await this.command('start-over', async () => this.runs.restart(this.workspaceSlug(), this.run() ?? run, this.idempotencyKey!));
   }
 
   /** Opens the stop dialog. Stopping is confirmed there, with an optional reason. */
@@ -383,6 +395,29 @@ export class WorkflowShellComponent {
     if (!run) return;
     this.idempotencyKey = newKey();
     await this.command('start-again', async () => this.runs.start(this.workspaceSlug(), run.definitionKey, this.idempotencyKey!));
+  }
+
+  /**
+   * From a finished run: start what it suggests next, from the record this run made when that journey can start
+   * from one — or open the screen it suggests. A workflow is a new run of its own; this one is left as it is.
+   */
+  async startNext(suggestion: WorkflowSuggestion): Promise<void> {
+    if (suggestion.kind !== 'Workflow' || !suggestion.available) return;
+    this.idempotencyKey = newKey();
+    await this.command('start-next', async () =>
+      this.runs.start(this.workspaceSlug(), suggestion.key, this.idempotencyKey!, suggestion.startFrom));
+  }
+
+  /**
+   * A suggested screen's address as router commands and query: a route such as `recipes/42?area=media` is a path and
+   * a query, and handed to the router whole its `?` would be escaped into the path.
+   */
+  protected suggestionLink(route: string): { readonly commands: readonly string[]; readonly queryParams: Record<string, string> } {
+    const [path, query = ''] = route.split('?', 2);
+    return {
+      commands: ['/', this.workspaceSlug(), ...path.split('/').filter((segment) => segment !== '')],
+      queryParams: Object.fromEntries(new URLSearchParams(query)),
+    };
   }
 
   /** From the resume card: carry on with the step. */
@@ -601,7 +636,35 @@ export class WorkflowShellComponent {
 
   private show(run: WorkflowRun): void {
     this.run.set(run);
-    this.described.emit({ goal: run.goal, expectedOutcome: run.expectedOutcome });
+    this.described.emit({ definitionKey: run.definitionKey, goal: run.goal, expectedOutcome: run.expectedOutcome });
+  }
+
+  /**
+   * The port's {@link WorkflowStepPort.keepDraft}: points the current step at a record, on the run, without moving
+   * it. Not a move — it neither waits for one nor blocks one, and it says nothing aloud. A run changed elsewhere is
+   * read again and the pointer sent once more: saving a pointer is safe to repeat, and the server still refuses one
+   * the step cannot take.
+   */
+  private async keepDraft(draft: WorkflowResourcePointer): Promise<boolean> {
+    const key = this.currentKey();
+    let run = this.run();
+    if (!run || !key) return false;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const outcome = await this.runs.saveDraft(this.workspaceSlug(), run, key, draft);
+      if (outcome.status === 'done') {
+        this.show(outcome.run);
+        return true;
+      }
+      if (outcome.status !== 'conflict') return false;
+
+      const read = await this.runs.get(this.workspaceSlug(), run.id);
+      if (read.status !== 'found' || read.run.nextAction?.stepKey !== key) return false;
+      this.show(read.run);
+      run = read.run;
+    }
+
+    return false;
   }
 
   /**

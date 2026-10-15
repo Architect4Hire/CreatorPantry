@@ -21,9 +21,15 @@ const screen = {
   draft: signal<WorkflowResourcePointer | null>(null),
   capabilityKey: signal<string | null>(null),
   results: signal<readonly WorkflowResourcePointer[]>([]),
+  ready: signal(true),
   flushResult: true,
   flushes: 0,
+  /** What the screen does while it is asked to keep its work — point the run at a draft, say. */
+  onFlush: null as ((port: WorkflowStepPort) => Promise<void>) | null,
 };
+
+/** The port the screen registered on, for a spec to use as the screen would. */
+let screenPort: WorkflowStepPort | null = null;
 
 /** A journey's step screen, as one would be: it registers on the port and owns its own work. */
 @Component({
@@ -36,16 +42,20 @@ class TestStepScreenComponent {
   readonly title = input.required<string>();
 
   constructor() {
-    const unregister = inject(WorkflowStepPort).register({
+    const port = inject(WorkflowStepPort);
+    screenPort = port;
+    const unregister = port.register({
       unsaved: screen.unsaved,
       saving: screen.saving,
       savedAt: screen.savedAt,
       draft: screen.draft,
       capabilityKey: screen.capabilityKey,
       results: screen.results,
-      flush: () => {
+      ready: screen.ready,
+      flush: async () => {
         screen.flushes++;
-        return Promise.resolve(screen.flushResult);
+        await screen.onFlush?.(port);
+        return screen.flushResult;
       },
     });
     inject(DestroyRef).onDestroy(unregister);
@@ -190,6 +200,9 @@ describe('WorkflowShellComponent', () => {
     screen.results.set([]);
     screen.flushResult = true;
     screen.flushes = 0;
+    screen.onFlush = null;
+    screen.ready.set(true);
+    screenPort = null;
     role = 'Owner';
     mediaMatches = {};
 
@@ -241,7 +254,7 @@ describe('WorkflowShellComponent', () => {
     answer({ status: 'found', run: fresh() });
     await settle();
     expect(text()).toContain('Start your recipe');
-    expect(fixture.componentInstance.described).toEqual({ goal: 'Create a recipe', expectedOutcome: 'A saved recipe you can keep improving.' });
+    expect(fixture.componentInstance.described).toEqual({ definitionKey: 'recipe.create', goal: 'Create a recipe', expectedOutcome: 'A saved recipe you can keep improving.' });
   });
 
   it('offers Try again when the run cannot be loaded, and loads it on asking', async () => {
@@ -411,6 +424,164 @@ describe('WorkflowShellComponent', () => {
       capabilityKey: 'recipes.edit',
     });
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows']);
+  });
+
+  // ---- A step's draft, kept on the run ----
+
+  it('points the step at its draft on the run when the screen asks, without moving it', async () => {
+    await onIngredients();
+    const pointed = run({ concurrencyToken: 'AAAAAAAAB9I=' });
+    service.saveDraft.and.returnValue(done(pointed));
+
+    await expectAsync(screenPort!.keepDraft({ kind: 'Recipe', id: 'recipe-9' })).toBeResolvedTo(true);
+    await settle();
+
+    expect(service.saveDraft).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', { kind: 'Recipe', id: 'recipe-9' });
+    expect(shell().run()?.concurrencyToken).toBe('AAAAAAAAB9I=');
+    expect(text()).toContain('Screen for Ingredients');
+  });
+
+  it('sends a move with the run as it stands after the step kept its work, not as it was before', async () => {
+    await onIngredients();
+    const pointed = run({ concurrencyToken: 'AAAAAAAAB9I=' });
+    service.saveDraft.and.returnValue(done(pointed));
+    service.completeStep.and.returnValue(done(onPhoto()));
+    // Keeping the work makes a recipe and points the run at it, which moves the run's token on.
+    screen.onFlush = async (port) => {
+      await port.keepDraft({ kind: 'Recipe', id: 'recipe-9' });
+    };
+
+    await click('Continue');
+
+    const sent = service.completeStep.calls.mostRecent().args[1];
+    expect(sent.concurrencyToken).toBe('AAAAAAAAB9I=');
+    expect(text()).toContain('Add a photo');
+  });
+
+  it('reads the run again and points it once more when it changed elsewhere, and says no when it still cannot', async () => {
+    await onIngredients();
+    const elsewhere = run({ concurrencyToken: 'AAAAAAAAB9J=' });
+    service.saveDraft.and.returnValues(Promise.resolve({ status: 'conflict' }), done(elsewhere));
+    service.get.and.resolveTo({ status: 'found', run: elsewhere });
+
+    await expectAsync(screenPort!.keepDraft({ kind: 'Recipe', id: 'recipe-9' })).toBeResolvedTo(true);
+    expect(service.saveDraft).toHaveBeenCalledTimes(2);
+    expect(service.saveDraft.calls.mostRecent().args[1].concurrencyToken).toBe('AAAAAAAAB9J=');
+
+    service.saveDraft.and.resolveTo({ status: 'invalid' });
+    await expectAsync(screenPort!.keepDraft({ kind: 'LongFormDraft', id: 'x' })).toBeResolvedTo(false);
+  });
+
+  it('steps Continue back while the step says it has nothing to move on with yet', async () => {
+    await onIngredients();
+    expect(button('Continue')?.classList).toContain('cp-button--primary');
+
+    screen.ready.set(false);
+    await settle();
+
+    expect(button('Continue')?.classList).toContain('cp-button--secondary');
+  });
+
+  it('puts focus on the step heading when the step’s screen asks, after it swapped what it shows', async () => {
+    await onIngredients();
+    (document.activeElement as HTMLElement | null)?.blur();
+
+    screenPort!.focusStep();
+    await settle();
+
+    expect(focusedId()).toBe('cp-workflow-step-heading');
+  });
+
+  // ---- What next ----
+
+  function finished(overrides: Record<string, unknown> = {}): WorkflowRun {
+    return run({
+      status: 'Completed',
+      completedAt: '2026-10-15T10:00:00Z',
+      nextAction: null,
+      nextSuggestions: [
+        {
+          kind: 'Workflow',
+          key: 'recipe.test-and-approve',
+          label: 'Test and approve a recipe',
+          why: 'Cook it, note what happened, and approve it when it is right.',
+          route: null,
+          startFromKind: 'Recipe',
+          startFromId: 'recipe-1',
+          available: true,
+          youCanDoIt: true,
+        },
+        {
+          kind: 'Capability',
+          key: 'recipes.lead-picture',
+          label: 'Choose the lead picture',
+          why: 'Pick the photo people see first.',
+          route: 'recipes/recipe-1?area=media',
+          startFromKind: null,
+          startFromId: null,
+          available: true,
+          youCanDoIt: true,
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  it('says what comes next on a finished run, the first as the one primary action', async () => {
+    await create(finished());
+
+    expect(text()).toContain('What next?');
+    expect(text()).toContain('Test and approve a recipe. Cook it, note what happened, and approve it when it is right.');
+    const start = el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!;
+    expect(start.classList).toContain('cp-button--primary');
+    expect(button('Open')).not.toBeNull();
+    expect(button('Back to Workflows')?.classList).toContain('cp-button--secondary');
+    expect(el().querySelectorAll('.cp-button--primary').length).toBe(1);
+  });
+
+  it('opens a suggested screen at its address, query and all, named by what it opens', async () => {
+    await create(finished());
+
+    const open = el().querySelector<HTMLAnchorElement>('a[aria-label="Open: Choose the lead picture"]')!;
+    expect(open.getAttribute('href')).toBe(`/${SLUG}/recipes/recipe-1?area=media`);
+  });
+
+  it('offers no Start for a journey the reader could not start', async () => {
+    const run = finished();
+    await create({ ...run, nextSuggestions: run.nextSuggestions.map((suggestion) => ({ ...suggestion, youCanDoIt: false })) });
+
+    expect(text()).toContain('Test and approve a recipe.');
+    expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
+  });
+
+  it('starts the suggested journey from the recipe this run made, and goes to it', async () => {
+    await create(finished());
+    service.start.and.resolveTo({ status: 'started', run: run({ id: 'run-2' }) });
+
+    el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!.click();
+    await settle();
+
+    expect(service.start).toHaveBeenCalledOnceWith(SLUG, 'recipe.test-and-approve', jasmine.any(String), { kind: 'Recipe', id: 'recipe-1' });
+    expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
+  });
+
+  it('says why a suggested journey could not start, and offers it again', async () => {
+    await create(finished());
+    service.start.and.resolveTo({ status: 'unprocessable', message: 'Testing needs the Contributor role.' });
+
+    el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!.click();
+    await settle();
+
+    expect(text()).toContain('Testing needs the Contributor role.');
+    expect(navigate).not.toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
+  });
+
+  it('offers nothing to start to a Viewer on a finished run', async () => {
+    role = 'Viewer';
+    await create(finished());
+
+    expect(text()).toContain('What next?');
+    expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
   });
 
   it('starts over only once confirmed, and retries under the same key', async () => {
@@ -681,7 +852,7 @@ describe('WorkflowShellComponent', () => {
     await onIngredients();
 
     expect(el().querySelectorAll('.footer [variant="primary"], .footer .cp-button--primary').length).toBeLessThanOrEqual(1);
-    const primaries = Array.from(el().querySelectorAll('.footer button')).filter((b) => b.getAttribute('variant') === 'primary');
+    const primaries = Array.from(el().querySelectorAll('.footer button')).filter((b) => b.classList.contains('cp-button--primary'));
     expect(primaries.map((b) => b.textContent?.trim())).toEqual(['Continue']);
   });
 

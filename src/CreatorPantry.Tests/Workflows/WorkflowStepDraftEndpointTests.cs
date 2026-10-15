@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Modules.Ai.Data.Entities;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -147,13 +149,28 @@ public sealed class WorkflowStepDraftEndpointTests : IAsyncLifetime
         var (runId, token) = await StartAsync(_fixture.WorkspaceA, "recipe.create");
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
 
-        // The start step keeps a recipe or a creative context; a long-form piece is neither.
+        // The start step keeps a recipe or the AI request it is waiting on; a long-form piece is neither.
         var wrongKind = await SaveAsync(client, _fixture.WorkspaceA, runId, "start", "LongFormDraft", Guid.NewGuid(), token);
 
         Assert.Equal(HttpStatusCode.BadRequest, wrongKind.StatusCode);
         var body = await BodyOf(wrongKind);
         Assert.Equal(WorkflowErrorCodes.StepDraftInvalid, Code(body));
         Assert.True(body.GetProperty("errors").TryGetProperty("kind", out _));
+    }
+
+    [Fact]
+    public async Task Help_me_draft_it_keeps_the_ai_request_it_is_waiting_on()
+    {
+        var (runId, token) = await StartAsync(_fixture.WorkspaceA, "recipe.create");
+        var request = await SeedConceptRequestAsync(_fixture.WorkspaceA);
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var response = await SaveAsync(client, _fixture.WorkspaceA, runId, "start", "AiRequest", request, token);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var start = (await BodyOf(response)).GetProperty("steps")[0];
+        Assert.Equal("AiRequest", start.GetProperty("draftKind").GetString());
+        Assert.Equal(request, start.GetProperty("draftResourceId").GetGuid());
     }
 
     [Fact]
@@ -174,6 +191,7 @@ public sealed class WorkflowStepDraftEndpointTests : IAsyncLifetime
     [InlineData("images.create", "about", "CreativeContext")]
     [InlineData("content.blog-and-seo", "about", "LongFormDraft")]
     [InlineData("recipe.create", "start", "Recipe")]
+    [InlineData("recipe.create", "start", "AiRequest")]
     public async Task Another_workspaces_record_answers_exactly_as_an_unknown_one_does(string definitionKey, string stepKey, string kind)
     {
         var (runId, token) = await StartAsync(_fixture.WorkspaceA, definitionKey);
@@ -499,6 +517,8 @@ public sealed class WorkflowStepDraftEndpointTests : IAsyncLifetime
                 return await SeedContextAsync(workspace);
             case "Recipe":
                 return await CreateRecipeAsync(workspace, "Neighbour's secret loaf");
+            case "AiRequest":
+                return await SeedConceptRequestAsync(workspace);
             case "LongFormDraft":
                 var context = await SeedContextAsync(workspace);
                 return await InWorkspaceAsync(workspace, async db =>
@@ -523,6 +543,31 @@ public sealed class WorkflowStepDraftEndpointTests : IAsyncLifetime
                 throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
         }
     }
+
+    /// <summary>A request for recipe ideas, as "Help me draft it" makes one: the record its step waits on.</summary>
+    private Task<Guid> SeedConceptRequestAsync(SeededWorkspace workspace) =>
+        InWorkspaceAsync(workspace, async db =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            var operation = new AiOperation
+            {
+                Id = Guid.NewGuid(),
+                WorkspaceId = workspace.Id,
+                TaskType = AiTaskType.RecipeConcepts,
+                Scope = AiOperationScope.NotApplicable,
+                Status = AiOperationStatus.Requested,
+                IdempotencyKey = Guid.NewGuid().ToString("N"),
+                TaskInputsJson = "{}",
+                RequestedByMembershipId = Guid.NewGuid(),
+                RequestedAt = now,
+                StatusChangedAt = now,
+                AvailableAt = now,
+            };
+            db.AiOperations.Add(operation);
+            await db.SaveChangesAsync(Ct);
+
+            return operation.Id;
+        });
 
     private Task<Guid> SeedContextAsync(SeededWorkspace workspace) =>
         InWorkspaceAsync(workspace, async db =>

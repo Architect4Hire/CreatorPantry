@@ -88,6 +88,34 @@ public sealed class WorkflowRunReadEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_run_says_what_comes_next_and_offers_the_record_it_holds_to_start_from()
+    {
+        var recipeId = await CreateRecipeAsync(_fixture.WorkspaceA);
+        var fromRecipe = await StartAsync(_fixture.WorkspaceA, new { definitionKey = "recipe.improve", startingResource = new { kind = "Recipe", id = recipeId } });
+        var fromNothing = await StartAsync(_fixture.WorkspaceA, new { definitionKey = "recipe.create" });
+
+        var held = (await ReadAsync(_fixture.WorkspaceA, fromRecipe)).GetProperty("nextSuggestions");
+        var bare = (await ReadAsync(_fixture.WorkspaceA, fromNothing)).GetProperty("nextSuggestions");
+
+        // In the definition's order, labelled by the target's own goal, with the definition's reason.
+        var improve = WorkflowCatalogue.Find("recipe.improve", 1)!;
+        Assert.Equal(improve.NextSuggestions.Count, held.GetArrayLength());
+        var test = held[0];
+        Assert.Equal("Workflow", test.GetProperty("kind").GetString());
+        Assert.Equal(WorkflowCatalogue.RecipeTestAndApproveKey, test.GetProperty("key").GetString());
+        Assert.Equal(WorkflowCatalogue.RecipeTestAndApproveV1.Goal, test.GetProperty("label").GetString());
+        Assert.Equal(improve.NextSuggestions[0].Why, test.GetProperty("why").GetString());
+        Assert.True(test.GetProperty("available").GetBoolean());
+        Assert.True(test.GetProperty("youCanDoIt").GetBoolean());
+
+        // Testing starts from a recipe, and this run holds one; a run that holds nothing offers nothing to start from.
+        Assert.Equal("Recipe", test.GetProperty("startFromKind").GetString());
+        Assert.Equal(recipeId, test.GetProperty("startFromId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, bare[0].GetProperty("startFromKind").ValueKind);
+        Assert.Equal(JsonValueKind.Null, bare[0].GetProperty("startFromId").ValueKind);
+    }
+
+    [Fact]
     public async Task Carrying_on_goes_back_to_where_the_creator_last_was()
     {
         var recipeId = await CreateRecipeAsync(_fixture.WorkspaceA);
@@ -217,6 +245,11 @@ public sealed class WorkflowRunReadEndpointTests : IAsyncLifetime
         Assert.All(
             run.GetProperty("nextAction").GetProperty("actions").EnumerateArray(),
             action => Assert.False(action.GetProperty("youCanDoIt").GetBoolean()));
+
+        // Nor is a viewer offered a journey to start that a start would refuse them: the definition list's rule.
+        Assert.All(
+            run.GetProperty("nextSuggestions").EnumerateArray(),
+            suggestion => Assert.False(suggestion.GetProperty("youCanDoIt").GetBoolean()));
 
         var warning = Assert.Single(run.GetProperty("warnings").EnumerateArray());
         Assert.Equal(WorkflowRunWarningCodes.NextStepNeedsRole, warning.GetProperty("code").GetString());

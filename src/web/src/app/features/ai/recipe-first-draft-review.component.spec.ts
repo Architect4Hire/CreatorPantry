@@ -12,6 +12,7 @@ import {
   WatchRecipeDraftOutcome,
 } from '../../services/recipe-draft.service';
 import { RecipeDraftFieldEdit, RecipeFirstDraftReviewComponent } from './recipe-first-draft-review.component';
+import { RecipeStudioHost } from './recipe-studio-host';
 
 const REQUEST_ID = 'op-draft-1';
 
@@ -146,6 +147,9 @@ describe('RecipeFirstDraftReviewComponent', () => {
   let edits: RecipeDraftFieldEdit[];
   let discards: number;
 
+  /** The guided step the review sits in, for the next render; null for the review on its own page. */
+  let host: RecipeStudioHost | null = null;
+
   // Created here rather than in `configure`, so a test may script the polls it expects *before* rendering —
   // which is how every test below reads, and the alternative silently discarded them.
   beforeEach(() => {
@@ -169,6 +173,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
           },
         },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) } },
+        ...(host ? [{ provide: RecipeStudioHost, useValue: host }] : []),
       ],
     });
 
@@ -1330,6 +1335,65 @@ describe('RecipeFirstDraftReviewComponent', () => {
 
       expect(acceptButton()!.getAttribute('aria-disabled')).toBe('true');
       expect(element().querySelector('#draft-accept-blocker')?.textContent).toContain('needs a title');
+    }));
+  });
+
+  // ---- Hosted in a guided step (13A.14) ----
+
+  describe('in a guided step', () => {
+    const RECIPE_ID = '7c000000-0000-4000-8000-0000000000aa';
+    let accepted: jasmine.Spy;
+    let closed: jasmine.Spy;
+
+    beforeEach(() => {
+      host = new RecipeStudioHost();
+      host.workspaceSlug = 'cozy-fall';
+      host.draftRequestId = REQUEST_ID;
+      accepted = jasmine.createSpy('accepted');
+      closed = jasmine.createSpy('draftClosed');
+      host.accepted = accepted;
+      host.draftClosed = closed;
+    });
+
+    afterEach(() => {
+      host = null;
+    });
+
+    function navigations(): readonly unknown[][] {
+      return (TestBed.inject(Router).navigate as jasmine.Spy).calls.allArgs();
+    }
+
+    it('watches the draft the host names, with the page’s one sentence and no page head', fakeAsync(() => {
+      service.statuses = [ready(fullDraftChanges())];
+      render({});
+
+      expect(fixture.componentInstance.requestId()).toBe(REQUEST_ID);
+      expect(element().querySelector('cp-page-head')).toBeNull();
+      expect(text()).toContain('No recipe has been created');
+      expect(element().querySelector('button.draft-accept')).not.toBeNull();
+    }));
+
+    it('hands the recipe it made to the host instead of opening it', fakeAsync(() => {
+      service.statuses = [ready(fullDraftChanges())];
+      render({});
+
+      element().querySelector<HTMLButtonElement>('button.draft-accept')!.click();
+      settle();
+      settle();
+
+      expect(service.acceptCalls.length).toBe(1);
+      expect(accepted).toHaveBeenCalledOnceWith(RECIPE_ID);
+      expect(navigations()).toEqual([]);
+    }));
+
+    it('goes back to the ideas through the host when the draft cannot be found', fakeAsync(() => {
+      service.statuses = [{ status: 'not_found' }];
+      render({});
+
+      click('Back to your ideas');
+
+      expect(closed).toHaveBeenCalledTimes(1);
+      expect(navigations()).toEqual([]);
     }));
   });
 });

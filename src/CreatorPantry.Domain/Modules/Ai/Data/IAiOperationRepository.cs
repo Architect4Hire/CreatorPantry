@@ -19,6 +19,16 @@ internal sealed record AiOperationWithProposal(AiOperation Operation, AiProposal
 /// </remarks>
 internal sealed record AiOutstandingWarningRow(AiWarningKind Kind, string Message, Guid AiProposalId);
 
+/// <summary>One request about a recipe still waiting on the creator, as <see cref="IAiOperationRepository.ListOpenAsync"/> reads it.</summary>
+internal sealed record AiOpenProposalRow(
+    Guid OperationId,
+    AiTaskType TaskType,
+    AiOperationStatus Status,
+    DateTimeOffset RequestedAt,
+    Guid? SourceVersionId,
+    int PendingChangeCount,
+    bool HasSafetyCaution);
+
 
 /// <summary>
 /// EF Core access to the AI operation aggregate, within the resolved workspace.
@@ -112,6 +122,14 @@ internal interface IAiOperationRepository
     /// </remarks>
     Task<(int PendingChangeCount, IReadOnlyList<Guid> ProposalIds, IReadOnlyList<AiOutstandingWarningRow> Warnings)>
         SummarizeOutstandingAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The proposal requests about one recipe still waiting on the creator, newest first, at most
+    /// <paramref name="limit"/>: still being written, or proposed with a change still pending — the same "unfinished"
+    /// <see cref="SummarizeOutstandingAsync"/> counts. Advisory requests are never listed.
+    /// </summary>
+    /// <remarks>Empty for a recipe in another workspace, through the query filter on every table it reads.</remarks>
+    Task<IReadOnlyList<AiOpenProposalRow>> ListOpenAsync(Guid recipeId, int limit, CancellationToken cancellationToken);
 
     /// <summary>
     /// Whether a proposal with this id exists in the resolved workspace.
@@ -360,6 +378,41 @@ internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IA
             .ToListAsync(cancellationToken);
 
         return (perProposal.Sum(row => row.Count), [.. perProposal.Select(row => row.AiProposalId)], warnings);
+    }
+
+    public async Task<IReadOnlyList<AiOpenProposalRow>> ListOpenAsync(
+        Guid recipeId, int limit, CancellationToken cancellationToken)
+    {
+        // No WorkspaceId predicate, for the reason SummarizeOutstandingAsync gives: every table here is filtered.
+        var rows = await context.AiOperations.AsNoTracking()
+            .Where(operation => operation.RecipeId == recipeId
+                && operation.Scope != AiOperationScope.Advisory
+                && (operation.Status == AiOperationStatus.Requested
+                    || operation.Status == AiOperationStatus.Running
+                    || (operation.Status == AiOperationStatus.Proposed
+                        && context.AiStructuredChanges.Any(change =>
+                            change.Disposition == AiChangeDisposition.Pending
+                            && context.AiProposals.Any(proposal =>
+                                proposal.Id == change.AiProposalId && proposal.AiOperationId == operation.Id)))))
+            .Select(operation => new AiOpenProposalRow(
+                operation.Id,
+                operation.TaskType,
+                operation.Status,
+                operation.RequestedAt,
+                operation.RecipeVersionId,
+                context.AiStructuredChanges.Count(change =>
+                    change.Disposition == AiChangeDisposition.Pending
+                    && context.AiProposals.Any(proposal =>
+                        proposal.Id == change.AiProposalId && proposal.AiOperationId == operation.Id)),
+                context.AiWarnings.Any(warning =>
+                    warning.Kind == AiWarningKind.SafetyCaution
+                    && context.AiProposals.Any(proposal =>
+                        proposal.Id == warning.AiProposalId && proposal.AiOperationId == operation.Id))))
+            .ToListAsync(cancellationToken);
+
+        // Ordered here rather than in SQL: a recipe has a handful of open requests, and SQLite cannot order a
+        // DateTimeOffset. The id breaks a tie, so a list read twice never reshuffles.
+        return [.. rows.OrderByDescending(row => row.RequestedAt).ThenBy(row => row.OperationId).Take(limit)];
     }
 
     /// <inheritdoc cref="GetAsync"/>

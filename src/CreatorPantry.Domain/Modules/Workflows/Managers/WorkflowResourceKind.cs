@@ -36,6 +36,13 @@ public enum WorkflowResourceKind
 
     /// <summary>A personal work task (13A.23). Named before it exists, for the planner that is not built yet.</summary>
     WorkTask = 8,
+
+    /// <summary>
+    /// An AI request a step is waiting on — recipe ideas, or a first draft made from one (13A.14). A draft pointer
+    /// only: it is what a step resumes from, never a result, because the request makes nothing of the creator's
+    /// until they keep it, and keeping it makes a recipe.
+    /// </summary>
+    AiRequest = 9,
 }
 
 public static class WorkflowResourceKinds

@@ -7,7 +7,11 @@
 -->
 <cp-card class="bar">
   <div class="heading">
-    <h2 class="title">Test kitchen</h2>
+    @if (headingLevel() === 3) {
+      <h3 class="title">Test kitchen</h3>
+    } @else {
+      <h2 class="title">Test kitchen</h2>
+    }
     <p class="intro">
       What happened when this recipe was actually cooked. Every test is filed against the exact version it was
       cooked from, and nothing recorded here changes the recipe.

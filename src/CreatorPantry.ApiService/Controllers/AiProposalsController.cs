@@ -59,6 +59,27 @@ public sealed class AiProposalsController(IAiProposalFacade proposals) : Control
             accepted));
     }
 
+    /// <summary>The requests about this recipe still waiting on the creator: being written, or holding a change not yet answered.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed; the workspace is resolved server-side.</param>
+    /// <param name="recipeId">The recipe. Unknown, or another workspace's, is <c>404</c>.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Newest first, at most fifty. A pointer to each request and what is true of it — still being written, how many
+    /// changes wait, whether it carries a safety caution, and whether the recipe has moved past the version it was
+    /// asked for against — never its content, which is read from the request. Advice (substitutions, reviews) holds
+    /// nothing to decide and is never listed. What "Improve a recipe" opens on, so a suggestion survives a reload.
+    /// </remarks>
+    [HttpGet("open")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<IReadOnlyList<AiOpenProposalServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> ListOpen(string workspaceSlug, Guid recipeId, CancellationToken cancellationToken)
+    {
+        var result = await proposals.ListOpenAsync(recipeId, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Where a requested proposal has got to, and the proposal itself once there is one.</summary>
     /// <param name="aiProposalId">
     /// The id the request returned. It is the operation's id: a request exists from the moment it is accepted,

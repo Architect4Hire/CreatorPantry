@@ -1,0 +1,9 @@
+.start {
+  display: grid;
+  gap: var(--cp-space-6);
+  min-width: 0;
+}
+
+.plain {
+  margin: 0;
+}

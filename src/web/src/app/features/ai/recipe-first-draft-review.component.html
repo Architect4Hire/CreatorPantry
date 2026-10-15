@@ -4,9 +4,14 @@
   The lede is said once, plainly, at the top. Every state below repeats some form of it, because a creator may
   read only one of them — but this is the line the whole page rests on. Not once the draft has become a recipe.
 -->
-<cp-page-head [heading]="pageTitle" [lede]="state() === 'accepted' ? '' : lede">
-  <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'ai-recipe-studio']">AI Recipe Studio</a>
-</cp-page-head>
+@if (!host) {
+  <cp-page-head [heading]="pageTitle" [lede]="state() === 'accepted' ? '' : lede">
+    <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'ai-recipe-studio']">AI Recipe Studio</a>
+  </cp-page-head>
+} @else if (state() !== 'accepted') {
+  <!-- Hosted, the step's card is the head: the one sentence the page rests on is said here instead. -->
+  <p class="cp-muted">{{ lede }}</p>
+}
 
 <div class="draft-review">
 
@@ -23,11 +28,14 @@
         anywhere, and no recipe was created.
       </p>
       <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">
-        Review another draft
+        {{ host ? 'Back to your ideas' : 'Review another draft' }}
       </button>
     </div>
   } @else if (state() === 'gone') {
     <p class="draft-notice" role="alert">We couldn't find that draft request.</p>
+    @if (host) {
+      <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">Back to your ideas</button>
+    }
   } @else if (state() === 'forbidden') {
     <p class="draft-notice" role="alert">This draft can't be read with your role in this workspace.</p>
   } @else if (state() === 'loading') {

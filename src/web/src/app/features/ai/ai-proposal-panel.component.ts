@@ -335,6 +335,17 @@ export class AiProposalPanelComponent {
    */
   readonly requestId = model<string | null>(null);
 
+  /**
+   * The host already knows the recipe has moved past the version this proposal was made against — from the list of
+   * open suggestions, say (13A.15). The panel then opens in its stale state rather than offering changes the server
+   * will refuse to apply: the diff to read, a fresh ask, and a way to decline. The server stays the authority; a
+   * refused accept sets the same state without this.
+   */
+  readonly knownStale = input(false);
+
+  /** The panel heading's level: 3 on a page of its own sections, 4 inside a host's list that has its own heading. */
+  readonly headingLevel = input<3 | 4>(3);
+
   /** A decision committed. Carries the server's reply, including what it did and did not write. */
   readonly decided = output<AiProposalDispositionResult>();
 
@@ -379,7 +390,8 @@ export class AiProposalPanelComponent {
   /** Bumped to start a fresh poll loop over the same request. */
   private readonly resumeToken = signal(0);
 
-  private readonly deciding = signal(false);
+  /** A decision is being recorded. Readable by the template, for the stale state's own Decline. */
+  protected readonly deciding = signal(false);
   private readonly asking = signal(false);
 
   /**
@@ -548,8 +560,10 @@ export class AiProposalPanelComponent {
     if (operation === null) return 'loading';
 
     // Client-side facts first: a stale refusal means the diff on screen describes content that is no longer
-    // there, whatever the operation's own status still says.
-    if (this.sourceStale()) return 'stale';
+    // there, whatever the operation's own status still says — until it is decided, which a stale proposal can
+    // still be, by declining it.
+    const decided = operation.status === 'Accepted' || operation.status === 'PartiallyAccepted' || operation.status === 'Rejected';
+    if ((this.sourceStale() && !decided) || (this.knownStale() && operation.status === 'Proposed')) return 'stale';
     if (this.deciding() || this.asking()) return 'deciding';
 
     switch (operation.status) {

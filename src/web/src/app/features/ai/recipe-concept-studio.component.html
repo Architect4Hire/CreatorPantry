@@ -1,7 +1,12 @@
-<cp-page-head
-  [heading]="pageTitle"
-  lede="Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a recipe — choosing one is the start of a draft, not the recipe itself."
-/>
+@if (!host) {
+  <cp-page-head
+    [heading]="pageTitle"
+    lede="Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a recipe — choosing one is the start of a draft, not the recipe itself."
+  />
+} @else {
+  <!-- Hosted, the step's card is the head: the sentence the page rests on is said here instead. -->
+  <p class="cp-muted">Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the start of a draft.</p>
+}
 
 <div class="studio">
   <!-- Opened for a piece of work (AF.7.4): say which, so the creator knows what the ideas are for, and say

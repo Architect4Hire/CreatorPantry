@@ -5,10 +5,12 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 import { ApiBaseService } from '../core/api-base.service';
 import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import {
+  AiOpenProposal,
   AiProposalDispositionRequest,
   AiProposalDispositionResult,
   AiProposalStatus,
   RequestAiProposalRequest,
+  decodeAiOpenProposals,
   decodeAiProposalDispositionResult,
   decodeAiProposalStatus,
   encodeAiProposalDispositionRequest,
@@ -34,6 +36,12 @@ export type RequestAiProposalOutcome =
   | { readonly status: 'conflict' }
   /** The account cannot pay for this request: its allowance is spent, or AI is switched off for it. */
   | AiQuotaRefusal
+  | { readonly status: 'unavailable' };
+
+export type AiOpenProposalsOutcome =
+  | { readonly status: 'found'; readonly open: readonly AiOpenProposal[] }
+  /** Unknown recipe, or one belonging to another workspace — deliberately indistinguishable. */
+  | { readonly status: 'not_found' }
   | { readonly status: 'unavailable' };
 
 export type AiProposalStatusOutcome =
@@ -204,6 +212,23 @@ export class AiProposalService {
       if (code === 404) return { status: 'not_found' };
       if (code === 409) return { status: 'conflict' };
       return { status: 'unavailable' };
+    }
+  }
+
+  /**
+   * The requests about one recipe still waiting on the creator, newest first: being written, or holding a change not
+   * yet answered (13A.15). Advice is never listed. A read only; what a guided step opens on, so a suggestion
+   * survives a reload.
+   */
+  async listOpen(workspaceSlug: string, recipeId: string): Promise<AiOpenProposalsOutcome> {
+    const url = proposalsUrl(this.apiBase, workspaceSlug, recipeId, '/open');
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const open = decodeAiOpenProposals(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+      return open ? { status: 'found', open } : { status: 'unavailable' };
+    } catch (error) {
+      return statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' };
     }
   }
 

@@ -969,6 +969,39 @@ describe('AiProposalPanelComponent', () => {
     expect(restarts).toBe(1);
   }));
 
+  it('opens on a proposal its host knows is stale with nothing to keep, a fresh ask, and a way to decline it', fakeAsync(() => {
+    service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
+    service.dispositionOutcome = { status: 'decided', result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }) };
+    const host = render();
+    fixture.componentRef.setInput('knownStale', true);
+    settle();
+
+    expect(checkboxes().length).toBe(0);
+    expect(buttonWith('Keep selected')).toBeUndefined();
+    expect(buttonWith('Keep all')).toBeUndefined();
+    expect(buttonWith('Start again from this recipe')).toBeDefined();
+
+    click('Decline these');
+
+    expect(confirmService.calls.length).toBe(1);
+    expect(decided.map((result) => result.status)).toEqual(['Rejected']);
+    expect(host.textContent).not.toContain('Decline these');
+  }));
+
+  it('lets a proposal refused as stale still be declined, so it stops waiting', fakeAsync(() => {
+    service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
+    service.dispositionOutcome = { status: 'source_stale' };
+    render();
+    checkboxes()[0].click();
+    settle();
+    click('Keep selected');
+
+    service.dispositionOutcome = { status: 'decided', result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }) };
+    click('Decline these');
+
+    expect(decided.map((result) => result.status)).toEqual(['Rejected']);
+  }));
+
   it('explains an archived recipe as something to undo, not something to retry', fakeAsync(() => {
     service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
     service.dispositionOutcome = { status: 'recipe_archived' };

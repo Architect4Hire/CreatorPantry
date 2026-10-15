@@ -37,6 +37,25 @@ describe('workflow-run models', () => {
     expect(run!.links[0].kind).toBe('SomethingNew');
   });
 
+  it('reads what to do next, with the record to start it from only when both its kind and its id came', () => {
+    const run = decodeWorkflowRun(wireRun({
+      nextSuggestions: [
+        { kind: 'Workflow', key: 'recipe.test-and-approve', label: 'Test and approve a recipe', why: 'Cook it.', route: null, startFromKind: 'Recipe', startFromId: 'recipe-1', available: true, youCanDoIt: true },
+        { kind: 'Workflow', key: 'images.create', label: 'Create food images', why: 'Pictures.', route: null, startFromKind: 'Recipe', startFromId: null, available: true, youCanDoIt: true },
+        { kind: 'Capability', key: 'recipes.lead-picture', label: 'Choose the lead picture', why: 'First photo.', route: 'recipes/recipe-1?area=media', startFromKind: null, startFromId: null, available: true, youCanDoIt: false },
+      ],
+    }));
+
+    expect(run!.nextSuggestions.map((suggestion) => suggestion.startFrom)).toEqual([{ kind: 'Recipe', id: 'recipe-1' }, null, null]);
+    expect(run!.nextSuggestions[2]).toEqual(jasmine.objectContaining({ kind: 'Capability', route: 'recipes/recipe-1?area=media', youCanDoIt: false }));
+  });
+
+  it('reads a run from a server that predates suggestions as having none, and refuses a suggestion that is half there', () => {
+    expect(decodeWorkflowRun(wireRun())!.nextSuggestions).toEqual([]);
+    expect(decodeWorkflowRun(wireRun({ nextSuggestions: [{ kind: 'Workflow', key: 'x' }] }))).toBeNull();
+    expect(decodeWorkflowRun(wireRun({ nextSuggestions: [{ kind: 'Elsewhere', key: 'x', label: 'X', why: 'Y', available: true, youCanDoIt: true }] }))).toBeNull();
+  });
+
   it('reads a run with no next action and an older server with no outcome', () => {
     const run = decodeWorkflowRun(wireRun({ nextAction: null, expectedOutcome: undefined, readyToComplete: true }));
 

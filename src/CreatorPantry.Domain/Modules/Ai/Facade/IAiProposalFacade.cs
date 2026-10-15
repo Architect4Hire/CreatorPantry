@@ -92,6 +92,15 @@ public interface IAiProposalFacade
     /// </remarks>
     Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
         Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The requests about one recipe still waiting on the creator — being written, or holding a change not yet
+    /// answered — newest first (13A.15). Advice is never listed. An unknown recipe, or another workspace's, is
+    /// <see cref="AiProposalErrors.RecipeNotFound"/>.
+    /// </summary>
+    /// <remarks>No role check beyond membership, as for <see cref="GetAsync"/>: it names requests the caller may already read.</remarks>
+    Task<OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>> ListOpenAsync(
+        Guid recipeId, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiProposalFacade"/>
@@ -147,6 +156,10 @@ internal sealed class AiProposalFacade(
     public Task<AiOutstandingSummaryServiceModel> SummarizeOutstandingAsync(
         Guid recipeId, CancellationToken cancellationToken) =>
         business.SummarizeOutstandingAsync(recipeId, cancellationToken);
+
+    public Task<OperationResult<IReadOnlyList<AiOpenProposalServiceModel>>> ListOpenAsync(
+        Guid recipeId, CancellationToken cancellationToken) =>
+        business.ListOpenAsync(recipeId, cancellationToken);
 
     public async Task<OperationResult<AiProposalDispositionServiceModel>> DispositionAsync(
         string actorUserId,

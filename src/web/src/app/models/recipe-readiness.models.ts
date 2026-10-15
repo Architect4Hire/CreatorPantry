@@ -58,6 +58,12 @@ export const READINESS_EVIDENCE_KIND_LABELS: Readonly<Record<string, string>> = 
 /** Mirrors RecipeTransitionTargetViewModel — the states a transition may name. */
 export type RecipeTransitionTarget = 'Draft' | 'InDevelopment' | 'Testing' | 'ReadyForReview' | 'Approved' | 'Archived';
 
+/** One move a host offers, by where it starts and where it leads — two moves can lead to the same place. */
+export interface RecipeMoveOffer {
+  readonly from: RecipeStatus;
+  readonly to: RecipeTransitionTarget;
+}
+
 // ---------------------------------------------------------------------------
 // Readiness
 // ---------------------------------------------------------------------------

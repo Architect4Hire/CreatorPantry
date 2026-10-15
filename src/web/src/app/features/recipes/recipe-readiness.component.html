@@ -1,7 +1,11 @@
 <cp-card>
   <header class="header">
     <div class="heading">
-      <h2 class="title">Readiness</h2>
+      @if (headingLevel() === 3) {
+        <h3 class="title">{{ heading() }}</h3>
+      } @else {
+        <h2 class="title">{{ heading() }}</h2>
+      }
       <p class="intro">
         Every rule checked against this recipe as it stands now. The checks are run on the server and the same
         recipe always gets the same answer.

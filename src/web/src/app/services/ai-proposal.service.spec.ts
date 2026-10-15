@@ -164,6 +164,39 @@ describe('AiProposalService', () => {
     });
   });
 
+  describe('listOpen', () => {
+    const OPEN_URL = `${BASE}/open`;
+    const item = {
+      requestId: REQUEST_ID,
+      taskType: 'RecipeRevision' as const,
+      status: 'Proposed' as const,
+      requestedAt: '2026-10-15T09:05:00Z',
+      pendingChangeCount: 2,
+      hasSafetyCaution: true,
+      isStale: false,
+    };
+
+    it('reads what is still waiting on the recipe', async () => {
+      const pending = service.listOpen('cozy-fall', RECIPE_ID);
+      const request = http.expectOne(OPEN_URL);
+      expect(request.request.method).toBe('GET');
+      expect(request.request.withCredentials).toBeTrue();
+      request.flush([item]);
+
+      expect(await pending).toEqual({ status: 'found', open: [item] });
+    });
+
+    it('answers not found for an unknown recipe or another workspace’s, and unavailable for a list it cannot read', async () => {
+      const missing = service.listOpen('cozy-fall', RECIPE_ID);
+      http.expectOne(OPEN_URL).flush(problem('ai.recipe.not_found'), { status: 404, statusText: 'Not Found' });
+      expect(await missing).toEqual({ status: 'not_found' });
+
+      const broken = service.listOpen('cozy-fall', RECIPE_ID);
+      http.expectOne(OPEN_URL).flush([{ ...item, taskType: 'SomethingNew' }]);
+      expect(await broken).toEqual({ status: 'unavailable' });
+    });
+  });
+
   describe('watchStatus', () => {
     it('reads the operation, and a status before any proposal exists is a normal answer', async () => {
       const outcome = firstValueFrom(service.watchStatus('cozy-fall', RECIPE_ID, REQUEST_ID));

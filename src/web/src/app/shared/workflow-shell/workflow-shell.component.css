@@ -67,3 +67,28 @@
 .more-actions {
   margin-top: var(--cp-space-3);
 }
+
+/* What a finished run suggests next: one row per suggestion, its action after what it is and why. */
+.next {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
+.next-heading {
+  margin: 0;
+  font-size: var(--cp-font-size-md);
+}
+
+.next-list {
+  display: grid;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.next-item {
+  display: grid;
+  gap: var(--cp-space-2);
+  justify-items: start;
+}

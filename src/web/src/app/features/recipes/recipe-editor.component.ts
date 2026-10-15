@@ -11,6 +11,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -76,6 +77,7 @@ import {
 import { errorListKey, messagesByGroupKey, messagesByRowKey } from './recipe-field-errors';
 import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
 import { RecipeVersionRestored } from './recipe-restore.component';
+import { RecipeEditorFocus, RecipeEditorHost } from './recipe-editor-host';
 import { RecipeDisplayNormalizationComponent } from './recipe-display-normalization.component';
 import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.component';
 import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
@@ -196,7 +198,43 @@ interface FieldLocation {
   readonly field: string;
   readonly controlId: string;
   readonly tabId: EditTabId;
+  readonly sectionId: FormSectionId;
 }
+
+/** The form's sections, each written once in the template and placed by whichever layout is showing. */
+type FormSectionId =
+  | 'section-details'
+  | 'section-notes'
+  | 'section-timing'
+  | 'section-yield'
+  | 'section-ingredients'
+  | 'section-instructions';
+
+/** Each section's heading, for a hosted editor to name a section it is not showing. */
+const SECTION_HEADINGS: Readonly<Record<FormSectionId, string>> = {
+  'section-details': 'Details',
+  'section-notes': 'Notes',
+  'section-timing': 'Timing',
+  'section-yield': 'Yield',
+  'section-ingredients': 'Ingredients',
+  'section-instructions': 'Instructions',
+};
+
+/** The sections a hosted editor shows for each part of the recipe it can be about, in form order. */
+const FOCUS_SECTIONS: Readonly<Record<RecipeEditorFocus, readonly FormSectionId[]>> = {
+  details: ['section-details', 'section-notes'],
+  ingredients: ['section-ingredients'],
+  method: ['section-instructions'],
+  'yield-and-time': ['section-timing', 'section-yield'],
+  all: [
+    'section-details',
+    'section-notes',
+    'section-timing',
+    'section-yield',
+    'section-ingredients',
+    'section-instructions',
+  ],
+};
 
 /**
  * In template order, so "the first field with an error" means the first one a creator reading down the page
@@ -208,32 +246,32 @@ interface FieldLocation {
  * stays the whole message. That is the intended outcome, not a gap to paper over by guessing a target.
  */
 const FIELD_LOCATIONS: readonly FieldLocation[] = [
-  { field: 'title', controlId: 'recipe-title', tabId: 'general' },
-  { field: 'description', controlId: 'recipe-description', tabId: 'general' },
-  { field: 'headnote', controlId: 'recipe-headnote', tabId: 'general' },
-  { field: 'attributionText', controlId: 'recipe-attribution', tabId: 'general' },
-  { field: 'sourceUrl', controlId: 'recipe-source-url', tabId: 'general' },
-  { field: 'tags', controlId: 'recipe-new-tag', tabId: 'general' },
-  { field: 'notes', controlId: 'recipe-notes', tabId: 'general' },
-  { field: 'storageNotes', controlId: 'recipe-storage-notes', tabId: 'general' },
-  { field: 'prepTimeMinutes', controlId: 'recipe-prep-time', tabId: 'general' },
-  { field: 'cookTimeMinutes', controlId: 'recipe-cook-time', tabId: 'general' },
-  { field: 'restTimeMinutes', controlId: 'recipe-rest-time', tabId: 'general' },
+  { field: 'title', controlId: 'recipe-title', tabId: 'general', sectionId: 'section-details' },
+  { field: 'description', controlId: 'recipe-description', tabId: 'general', sectionId: 'section-details' },
+  { field: 'headnote', controlId: 'recipe-headnote', tabId: 'general', sectionId: 'section-details' },
+  { field: 'attributionText', controlId: 'recipe-attribution', tabId: 'general', sectionId: 'section-details' },
+  { field: 'sourceUrl', controlId: 'recipe-source-url', tabId: 'general', sectionId: 'section-details' },
+  { field: 'tags', controlId: 'recipe-new-tag', tabId: 'general', sectionId: 'section-details' },
+  { field: 'notes', controlId: 'recipe-notes', tabId: 'general', sectionId: 'section-notes' },
+  { field: 'storageNotes', controlId: 'recipe-storage-notes', tabId: 'general', sectionId: 'section-notes' },
+  { field: 'prepTimeMinutes', controlId: 'recipe-prep-time', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'cookTimeMinutes', controlId: 'recipe-cook-time', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'restTimeMinutes', controlId: 'recipe-rest-time', tabId: 'general', sectionId: 'section-timing' },
   // The section rather than the field: the total is derived, so there is no control on it to correct. In
   // practice the client can only ever submit the sum or null, which no server rule on this field can refuse —
   // but a target that cannot be acted on would be worse than the section heading if one ever arrived.
-  { field: 'totalTimeMinutes', controlId: 'section-timing', tabId: 'general' },
-  { field: 'yieldText', controlId: 'recipe-yield-text', tabId: 'general' },
-  { field: 'servingCount', controlId: 'recipe-serving-count', tabId: 'general' },
-  { field: 'yieldQuantity', controlId: 'recipe-yield-quantity', tabId: 'general' },
-  { field: 'yieldUnitId', controlId: 'recipe-yield-unit', tabId: 'general' },
-  { field: 'servingSize', controlId: 'recipe-serving-size', tabId: 'general' },
+  { field: 'totalTimeMinutes', controlId: 'section-timing', tabId: 'general', sectionId: 'section-timing' },
+  { field: 'yieldText', controlId: 'recipe-yield-text', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'servingCount', controlId: 'recipe-serving-count', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'yieldQuantity', controlId: 'recipe-yield-quantity', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'yieldUnitId', controlId: 'recipe-yield-unit', tabId: 'general', sectionId: 'section-yield' },
+  { field: 'servingSize', controlId: 'recipe-serving-size', tabId: 'general', sectionId: 'section-yield' },
   // The server validates each list as a whole and stops at the first problem, so these two keys arrive without
   // an index — one sentence about the ingredients, one about the method. There is no single control to blame,
   // so the target is the section itself, which carries `tabindex="-1"` for exactly this and is named by its own
   // heading. The sentence is rendered under that heading; see `sectionProblem`.
-  { field: 'ingredientGroups', controlId: 'section-ingredients', tabId: 'ingredients' },
-  { field: 'instructions', controlId: 'section-instructions', tabId: 'instructions' },
+  { field: 'ingredientGroups', controlId: 'section-ingredients', tabId: 'ingredients', sectionId: 'section-ingredients' },
+  { field: 'instructions', controlId: 'section-instructions', tabId: 'instructions', sectionId: 'section-instructions' },
 ];
 
 /**
@@ -348,6 +386,7 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
   imports: [
     CpPageHeadComponent,
     FormsModule,
+    NgTemplateOutlet,
     RouterLink,
     CpAnchorNavComponent,
     CpButtonComponent,
@@ -396,7 +435,15 @@ export class RecipeEditorComponent {
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);
 
-  private readonly recipeId: string | null = this.route.snapshot.paramMap.get('recipeId');
+  /**
+   * The page this editor sits on when it is not its own: a guided step about one part of the recipe. Null on the
+   * editor's own routes. Read once, here, as is everything it carries — see {@link RecipeEditorHost}.
+   */
+  protected readonly host = inject(RecipeEditorHost, { optional: true });
+
+  private readonly recipeId: string | null = this.host
+    ? this.host.recipeId
+    : this.route.snapshot.paramMap.get('recipeId');
   readonly isCreateMode = this.recipeId === null;
 
   /**
@@ -404,7 +451,16 @@ export class RecipeEditorComponent {
    * would read it is disabled and so never mounted — the tabs lazy-mount their panels.
    */
   readonly recipeIdOrEmpty = this.recipeId ?? '';
-  readonly workspaceSlug = this.resolveWorkspaceSlug();
+  readonly workspaceSlug = this.host?.workspaceSlug || this.resolveWorkspaceSlug();
+
+  /** The sections a host shows, in form order; empty on the editor's own page, which shows them all in its tabs. */
+  readonly hostedSections: readonly FormSectionId[] = this.host ? FOCUS_SECTIONS[this.host.focus] : [];
+
+  /**
+   * Whether a hosted editor says which fields are required. Not for timing and yield, which have none: a legend
+   * about asterisks over a form with no asterisks would only make the creator look for them.
+   */
+  readonly hostedShowsRequiredLegend = this.host !== null && this.host.focus !== 'yield-and-time';
 
   /**
    * Six areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
@@ -540,6 +596,13 @@ export class RecipeEditorComponent {
 
   private readonly saveStateSignal = signal<RecipeEditorSaveState>({ status: 'idle' });
   readonly saveState = this.saveStateSignal.asReadonly();
+
+  /** True while a save is in flight, for a host to say so. */
+  readonly saving = computed(() => this.saveStateSignal().status === 'saving');
+
+  /** When the form was last kept, as an ISO 8601 time, for a host to say so. Null until a save lands. */
+  private readonly savedAtSignal = signal<string | null>(null);
+  readonly savedAt = this.savedAtSignal.asReadonly();
 
   private readonly fieldErrorsSignal = signal<Readonly<Record<string, readonly string[]>>>({});
 
@@ -1087,6 +1150,7 @@ export class RecipeEditorComponent {
 
   /** The `?area=` the page was opened with, when it is an area this recipe offers; Edit otherwise. */
   private openingArea(): string {
+    if (this.host) return 'edit';
     const asked = this.route.snapshot.queryParamMap.get('area');
     const area = this.areas.find((candidate) => candidate.id === asked && !candidate.disabled);
 
@@ -1115,7 +1179,10 @@ export class RecipeEditorComponent {
     // Read through errorListKey, so an indexed key lands on the tab its list is on: the server reports a
     // refused line as ingredientGroups[0].ingredients[2].quantity, which no exact match would find.
     const lists = new Set(Object.keys(this.fieldErrorsSignal()).map(errorListKey));
-    const target = FIELD_LOCATIONS.find((location) => lists.has(location.field));
+    // A hosted editor reaches only a field it shows; the rest are named in hiddenProblemSections.
+    const target = FIELD_LOCATIONS.find(
+      (location) => lists.has(location.field) && (!this.host || this.hostedSections.includes(location.sectionId)),
+    );
     if (!target) return;
 
     this.selectedAreaId.set('edit');
@@ -1227,9 +1294,32 @@ export class RecipeEditorComponent {
     const lists = new Set(Object.keys(errors).map(errorListKey));
     const located = FIELD_LOCATIONS.some((location) => lists.has(location.field));
 
+    if (this.host) {
+      const shown = FIELD_LOCATIONS.some(
+        (location) => lists.has(location.field) && this.hostedSections.includes(location.sectionId),
+      );
+      return shown
+        ? 'Some fields need attention. The first one is showing.'
+        : 'Some of this recipe needs attention before it can be kept.';
+    }
+
     return located
       ? 'Some fields need attention. The tabs below say which, and the first one is showing.'
       : 'Some fields need attention. Check your recipe details and try again.';
+  });
+
+  /**
+   * The sections a hosted editor is not showing that the last save was refused over, by heading, in form order.
+   * Said with a link to the recipe's own page, where they are: a hosted editor never hides a field with an error
+   * on it without saying so.
+   */
+  readonly hiddenProblemSections = computed<readonly string[]>(() => {
+    if (!this.host) return [];
+    const lists = new Set(Object.keys(this.fieldErrorsSignal()).map(errorListKey));
+    const sections = FIELD_LOCATIONS.filter(
+      (location) => lists.has(location.field) && !this.hostedSections.includes(location.sectionId),
+    ).map((location) => location.sectionId);
+    return [...new Set(sections)].map((id) => SECTION_HEADINGS[id]);
   });
 
   /** The server's one sentence about a whole list, for the section that holds it. */
@@ -1641,6 +1731,13 @@ export class RecipeEditorComponent {
         // has, in fact, been applied server-side — the restriction is "no dirty-clear before the
         // server response is applied," not "never clear it in the create-success branch."
         this.baselineSignal.set(this.captureSnapshot());
+        this.savedAtSignal.set(outcome.recipe.createdAt);
+        if (this.host) {
+          // The host decides what comes next; see RecipeEditorHost.
+          this.saveStateSignal.set({ status: 'success' });
+          this.host.created(outcome.recipe.recipeId);
+          return;
+        }
         await this.router.navigate(['/', this.workspaceSlug, 'recipes', outcome.recipe.recipeId], { replaceUrl: true });
         return;
       }
@@ -1662,6 +1759,7 @@ export class RecipeEditorComponent {
     if (outcome.status === 'updated') {
       this.clearPendingIdempotencyKey();
       this.applyDetail(outcome.recipe);
+      this.savedAtSignal.set(outcome.recipe.updatedAt);
       this.saveStateSignal.set({ status: 'success' });
       return;
     }
@@ -1670,6 +1768,26 @@ export class RecipeEditorComponent {
       this.revealFirstFieldError();
     }
     this.saveStateSignal.set({ status: outcome.status });
+  }
+
+  /**
+   * Keeps the form, now, and says whether it is kept: a host's way to save before it moves on. True at once when
+   * there is nothing to keep. A form that cannot be saved as it stands — no name yet, or archived — answers false
+   * with the reason on screen, as a refused save does.
+   */
+  async flush(): Promise<boolean> {
+    if (!this.isDirty()) return true;
+    if (this.saveStateSignal().status === 'saving') return false;
+    if (this.title().trim().length === 0) {
+      this.fieldErrorsSignal.set({ title: ['Give the recipe a name, so it can be kept.'] });
+      this.saveStateSignal.set({ status: 'validation_failed' });
+      this.revealFirstFieldError();
+      return false;
+    }
+    if (!this.canSave()) return false;
+
+    await this.save();
+    return this.saveStateSignal().status === 'success' && !this.isDirty();
   }
 
   // ---- Tools ----
