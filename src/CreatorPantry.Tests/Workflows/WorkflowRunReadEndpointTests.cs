@@ -64,6 +64,11 @@ public sealed class WorkflowRunReadEndpointTests : IAsyncLifetime
 
         var run = await BodyOf(response);
         Assert.Equal(1, run.GetProperty("definitionVersion").GetInt32());
+
+        // The pinned version's goal and what the creator has at the end: the guided shell's heading and lede (13A.12).
+        var improve = WorkflowCatalogue.Find("recipe.improve", 1)!;
+        Assert.Equal(improve.Goal, run.GetProperty("goal").GetString());
+        Assert.Equal(improve.ExpectedOutcome, run.GetProperty("expectedOutcome").GetString());
         Assert.Equal(2, run.GetProperty("completedStepCount").GetInt32());
         Assert.Equal(1, run.GetProperty("skippedStepCount").GetInt32());
 

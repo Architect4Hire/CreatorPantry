@@ -90,6 +90,10 @@ internal sealed class WorkflowRunConfiguration : IEntityTypeConfiguration<Workfl
             .HasForeignKey(run => run.WorkspaceId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Every run whatever its state, most recently touched first: the list's "all" view (13A.11).
+        builder.HasIndex(run => new { run.WorkspaceId, run.UpdatedAt })
+            .HasDatabaseName("IX_WorkflowRuns_Workspace_Updated");
+
         // The hub: a workspace's runs by state, most recently touched first (13A.11).
         builder.HasIndex(run => new { run.WorkspaceId, run.Status, run.UpdatedAt })
             .HasDatabaseName("IX_WorkflowRuns_Workspace_Status_Updated");

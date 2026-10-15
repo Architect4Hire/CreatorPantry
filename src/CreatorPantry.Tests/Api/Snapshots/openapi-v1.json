@@ -22157,7 +22157,160 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/workflow-definitions": {
+      "get": {
+        "tags": [
+          "WorkflowDefinitions"
+        ],
+        "summary": "Lists every guided workflow, and whether the caller can start it now.",
+        "description": "Every member including a Viewer may read. One entry per workflow, at its newest version, in the order the\nproduct offers them: \u0060goal\u0060, \u0060description\u0060 and \u0060expectedOutcome\u0060 are plain language for the creator.\n\n**Whether a start would be accepted, asked in advance.** \u0060canStart\u0060 is true when the workflow is built\n(\u0060available\u0060), nothing it needs first is missing (\u0060waitingFor\u0060 is empty), and the caller can take its first\nstep \u2014 a Contributor at least, and whatever more that step needs. When the caller\u0027s role is the only thing in\nthe way, \u0060neededRole\u0060 names the least role that could. Each \u0060waitingFor\u0060 entry says what is missing in plain\nwords and, in \u0060route\u0060, the page relative to the workspace where it is sorted out (\u0060brand\u0060, \u0060recipes\u0060), or null.\nA workflow not built yet has \u0060available\u0060 false and its \u0060unavailableReason\u0060.\n\n\u0060startsFrom\u0060 names the kinds of record a workflow can begin from elsewhere in the product; starting from none\nis always allowed. The answer is the same for every member of a role, holds no workspace record, and is\n\u0060no-store\u0060 because whether a prerequisite is met is this workspace\u0027s.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowDefinitionSummary"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowDefinitionSummary"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkflowDefinitionSummary"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/workflow-runs": {
+      "get": {
+        "tags": [
+          "WorkflowRuns"
+        ],
+        "summary": "Lists the workspace\u0027s runs, a page at a time.",
+        "description": "Every member including a Viewer may read.\n\n**Views.** \u0060mine\u0060 (the default) is the runs in progress the reader started or that are assigned to them;\n\u0060completed\u0060 is the workspace\u0027s completed runs; \u0060attention\u0060 is the workspace\u0027s runs in progress that need a\nlook; \u0060all\u0060 is every run in the workspace, whatever its state. \u0060definition\u0060 narrows any view to one workflow\nby key; a key no workflow has is an empty page. A view or filter that cannot be read answers\n\u0060400 workflows.run.list.invalid\u0060.\n\n**Order.** Most recently changed first, and for \u0060attention\u0060 the longest-waiting first. Two runs changed at the\nsame moment are ordered by id, which is what keeps a page boundary from repeating one and skipping the other.\nThe list is not a snapshot: a run that changes while you page moves to its new place, so it can be missed by\nthe pages still to come or met twice. Start again from the first page for a fresh look.\n\n**Needs attention**, decided from each run alone \u2014 \u0060attentionReasons\u0060 says which applies, on every run in\nprogress whatever the view: \u0060idle\u0060 when no one has touched it for seven days; \u0060newer_version\u0060 when a newer\nversion of its workflow has shipped since it started; and \u0060not_yours_to_do\u0060 when the step it is on needs more\naccess than the reader has. Treat the codes as an open set. A record a run holds that has gone is not checked\nhere; the run page warns of it.\n\n**Each row is a summary**: the run\u0027s own state, counts and dates; its workflow\u0027s \u0060goal\u0060; its \u0060owner\u0060 and\n\u0060assignee\u0060 by membership, with \u0060displayName\u0060 null for someone who has left; the step it is on (or was left on);\n\u0060linkedResource\u0060 \u2014 the record it started from, or else the last one it made \u2014 by kind and id only; and\n\u0060nextAction\u0060, the step\u0027s main action and whether the reader can take it, while it is in progress and has a step\nto do. No row carries a draft, a reason the creator gave, an address, or anything a linked record holds: the\nrun page has those.\n\n**Paging is by keyset cursor.** Pass a page\u0027s \u0060nextCursor\u0060 back as \u0060cursor\u0060; it is null on the last page. A\ncursor is bound to the workspace, the view, the filter and the reader it was issued for, and one replayed\nagainst another answers \u0060400 workflows.run.list.cursor.invalid\u0060 rather than a page from the wrong list.\n\u0060limit\u0060 outside 1\u2013100 is clamped, not refused. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "description": "Which runs: mine (in progress, started by or assigned to you \u2014 the default), completed, attention (in progress and in need of a look), or all.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "definition",
+            "in": "query",
+            "description": "One workflow by key, such as recipe.improve. A key no workflow has is an empty page rather than an error.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRunSummaryPage"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRunSummaryPage"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRunSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
       "post": {
         "tags": [
           "WorkflowRuns"
@@ -41049,6 +41202,76 @@
           }
         }
       },
+      "WorkflowDefinitionSummary": {
+        "required": [
+          "key",
+          "version",
+          "goal",
+          "description",
+          "expectedOutcome",
+          "startsFrom",
+          "available",
+          "canStart",
+          "waitingFor"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expectedOutcome": {
+            "type": "string"
+          },
+          "startsFrom": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowResourceKind"
+            }
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "unavailableReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canStart": {
+            "type": "boolean"
+          },
+          "neededRole": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkspaceRole"
+              }
+            ]
+          },
+          "waitingFor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStartNeed"
+            }
+          }
+        }
+      },
       "WorkflowNextAction": {
         "required": [
           "stepKey",
@@ -41189,6 +41412,12 @@
             ],
             "format": "date-time"
           },
+          "expectedOutcome": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "abandonReason": {
             "type": [
               "null",
@@ -41273,6 +41502,40 @@
           }
         }
       },
+      "WorkflowRunMember": {
+        "required": [
+          "membershipId"
+        ],
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WorkflowRunResourceReference": {
+        "required": [
+          "kind",
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/WorkflowResourceKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "WorkflowRunStatus": {
         "enum": [
           "InProgress",
@@ -41280,6 +41543,203 @@
           "Abandoned"
         ],
         "type": "string"
+      },
+      "WorkflowRunStepReference": {
+        "required": [
+          "key",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkflowRunSummary": {
+        "required": [
+          "id",
+          "title",
+          "status",
+          "definitionKey",
+          "definitionVersion",
+          "goal",
+          "owner",
+          "stepCount",
+          "completedStepCount",
+          "skippedStepCount",
+          "startedAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkflowRunStatus"
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "definitionVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/WorkflowRunMember"
+          },
+          "assignee": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowRunMember"
+              }
+            ]
+          },
+          "stepCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "completedStepCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "skippedStepCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "currentStep": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowRunStepReference"
+              }
+            ]
+          },
+          "linkedResource": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowRunResourceReference"
+              }
+            ]
+          },
+          "nextAction": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowRunSummaryAction"
+              }
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "abandonedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "attentionReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WorkflowRunSummaryAction": {
+        "required": [
+          "stepKey",
+          "title",
+          "capabilityName",
+          "youCanDoIt"
+        ],
+        "type": "object",
+        "properties": {
+          "stepKey": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "capabilityName": {
+            "type": "string"
+          },
+          "youCanDoIt": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowRunSummaryPage": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowRunSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "WorkflowRunWarning": {
         "required": [
@@ -41346,6 +41806,23 @@
             "type": "string",
             "description": "The record\u0027s id in this workspace.",
             "format": "uuid"
+          }
+        }
+      },
+      "WorkflowStartNeed": {
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "route": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -41903,6 +42380,9 @@
     },
     {
       "name": "WeeklyThemes"
+    },
+    {
+      "name": "WorkflowDefinitions"
     },
     {
       "name": "WorkflowRuns"

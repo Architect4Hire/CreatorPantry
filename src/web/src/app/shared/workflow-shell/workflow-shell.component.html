@@ -1,0 +1,264 @@
+<div class="shell">
+  <!-- Always in the DOM, so the first thing said into it is heard: step changes, saves, refusals. -->
+  <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card>
+        <p class="plain" role="status">Loading your run…</p>
+      </cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          This run couldn’t be loaded right now. Nothing is lost.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryLoad()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          We couldn’t find this run. It may belong to another workspace, or the link may be wrong.
+        </cp-notice>
+        <div class="cp-actions">
+          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'workflows']">Go to Workflows</a>
+        </div>
+      </cp-card>
+    }
+    @case ('resumable') {
+      <cp-topic-card heading="Pick up where you left off" headingId="cp-workflow-resume-heading">
+        <p class="plain">{{ resumeText() }}</p>
+        @if (problem(); as trouble) {
+          <cp-notice tone="error" role="alert">
+            {{ trouble.message }}
+            @if (trouble.retry) {
+              <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+            }
+          </cp-notice>
+        }
+        <div cpTopicCardActions class="cp-actions">
+          <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="resume()">Continue</button>
+          @if (!readOnly()) {
+            <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="startOver()">Start over</button>
+          }
+        </div>
+      </cp-topic-card>
+    }
+    @case ('completed') {
+      @if (run(); as finished) {
+        <cp-topic-card #summaryCard heading="Done" headingId="cp-workflow-summary-heading">
+          <p class="plain">
+            “{{ finished.goal }}” is finished.
+            @if (finished.completedAt) {
+              Finished {{ finishedOn(finished.completedAt) }}.
+            }
+          </p>
+          <cp-stepper label="Steps" [steps]="stepperSteps()" />
+          <div cpTopicCardActions class="cp-actions">
+            <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to Workflows</a>
+          </div>
+        </cp-topic-card>
+      }
+    }
+    @case ('abandoned') {
+      @if (run(); as stopped) {
+        <cp-topic-card #summaryCard heading="This run was stopped" headingId="cp-workflow-summary-heading">
+          <p class="plain">
+            It’s kept as it was, with everything it made.
+            @if (stopped.abandonedAt) {
+              Stopped {{ finishedOn(stopped.abandonedAt) }}.
+            }
+          </p>
+          @if (stopped.abandonReason) {
+            <p class="plain">The reason given: “{{ stopped.abandonReason }}”</p>
+          }
+          @if (problem(); as trouble) {
+            <cp-notice tone="error" role="alert">
+              {{ trouble.message }}
+              @if (trouble.retry) {
+                <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+              }
+            </cp-notice>
+          }
+          <div cpTopicCardActions class="cp-actions">
+            @if (stopped.replacedByRunId) {
+              <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'workflows', 'runs', stopped.replacedByRunId]">Go to the new run</a>
+            } @else if (!readOnly()) {
+              <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="startAgain()">
+                {{ busy() === 'start-again' ? 'Starting…' : 'Start this again' }}
+              </button>
+            }
+            <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to Workflows</a>
+          </div>
+        </cp-topic-card>
+      }
+    }
+  }
+
+  @if (phase() === 'step' && run(); as current) {
+    <div class="layout">
+      <div class="progress">
+        <cp-progress label="Progress" [value]="percent()" [valueText]="progressText()" />
+        @if (narrow()) {
+          <details class="steps-disclosure cp-disclosure">
+            <summary>{{ progressText() }}: all steps</summary>
+            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+          </details>
+        } @else {
+          <nav aria-label="Progress">
+            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+          </nav>
+        }
+      </div>
+
+      <!-- One card for the step, headed by its name. Wide: a step's screen keeps its own measure. Its heading
+           takes focus when the step changes. With every step done, the same card finishes the run. -->
+      <cp-topic-card #stepCard [heading]="step()?.title ?? 'Every step is done'" headingId="cp-workflow-step-heading" wide>
+        @if (step(); as here) {
+          <details class="help cp-disclosure">
+            <summary>Need help with this step?</summary>
+            <p class="cp-muted">{{ here.help }}</p>
+          </details>
+
+          <!-- Said once, above the step's screen, from the step's own definition: no screen can forget it, and no
+               screen marks a field optional. -->
+          <p class="legend cp-muted">{{ legend() }}</p>
+
+          @for (warning of current.warnings; track warning.code + warning.message) {
+            <cp-notice tone="warning" role="note">{{ warning.message }}</cp-notice>
+          }
+
+          @if (stepTemplate(); as screen) {
+            <ng-container *ngTemplateOutlet="screen; context: stepContext(); injector: stepInjector" />
+          } @else {
+            <cp-workflow-step-fallback [step]="here" [workspaceSlug]="workspaceSlug()" />
+          }
+
+          @if (here.waitingFor.length > 0) {
+            <div class="waiting">
+              <p class="plain">Before this step:</p>
+              <ul>
+                @for (need of here.waitingFor; track need) {
+                  <li>{{ need }}</li>
+                }
+              </ul>
+            </div>
+          }
+        } @else {
+          <p class="plain">
+            @if (current.readyToComplete) {
+              Every step that’s needed is done. Finish to mark “{{ current.goal }}” as done.
+            } @else {
+              Every step has been visited. Finish to check that everything needed is done.
+            }
+          </p>
+        }
+
+        <div class="footer">
+          @if (readOnly()) {
+            <cp-notice role="note">
+              You can see this run, but only the person who started it, the person it’s for, or an Editor can change it.
+            </cp-notice>
+          } @else {
+            <!-- Before any move fails: what offline means here. Status, not alert — nothing has gone wrong yet. -->
+            @if (!online()) {
+              <cp-notice tone="warning" role="status">
+                You’re offline. Your work here is kept, and moves will wait until you’re back online.
+              </cp-notice>
+            }
+
+            <!-- What stands in the way of the move just asked for, above the buttons it is about. -->
+            @if (blocked().length > 0) {
+              <cp-notice tone="warning" role="alert">
+                <span class="plain">Before you carry on:</span>
+                <ul class="blocked">
+                  @for (reason of blocked(); track reason) {
+                    <li>{{ reason }}</li>
+                  }
+                </ul>
+              </cp-notice>
+            }
+
+            @if (changedElsewhere()) {
+              <!-- A note: the live region has already said it, with where the run is now. -->
+              <cp-notice tone="warning" role="note">
+                This run changed somewhere else, maybe in another tab. Here’s where it is now.
+              </cp-notice>
+            }
+
+            @if (problem(); as trouble) {
+              <cp-notice tone="error" role="alert">
+                {{ trouble.message }}
+                @if (trouble.retry) {
+                  <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+                }
+              </cp-notice>
+            }
+
+            <p class="save-status">{{ saveStatus() }}</p>
+
+            <div class="cp-actions primary-row">
+              @if (!isFirst()) {
+                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="back()">
+                  {{ busy() === 'back' ? 'Going back…' : 'Back' }}
+                </button>
+              }
+              @if (step()?.requirement === 'Optional') {
+                <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="skip()">
+                  {{ busy() === 'skip' ? 'Skipping…' : 'Skip for now' }}
+                </button>
+              }
+              @if (step()) {
+                <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="continue()">
+                  {{ busy() === 'continue' ? 'Checking…' : 'Continue' }}
+                </button>
+              } @else {
+                <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="finish()">
+                  {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
+                </button>
+              }
+            </div>
+
+            <div class="cp-actions secondary-row">
+              <button cpButton type="button" variant="ghost" [attr.aria-disabled]="busy() !== null || null" (click)="saveAndExit()">
+                {{ busy() === 'save-exit' ? 'Saving…' : 'Save and exit' }}
+              </button>
+            </div>
+
+            <!-- Collapsed until asked for: neither is part of doing the step. -->
+            <details class="more cp-disclosure">
+              <summary>More options</summary>
+              <div class="cp-actions more-actions">
+                <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="startOver()">Start over</button>
+                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="askToStop()">Stop this run</button>
+              </div>
+            </details>
+          }
+        </div>
+      </cp-topic-card>
+    </div>
+  }
+</div>
+
+<cp-dialog
+  [open]="stopping()"
+  title="Stop this run?"
+  description="It’s kept as it is, with everything it made. You won’t be able to carry on with it, but you can start the journey again."
+  titleId="cp-workflow-stop-title"
+  (closed)="cancelStop()"
+>
+  <cp-field label="Why are you stopping?" forId="cp-workflow-stop-reason" hint="Optional. Only people in this workspace can see it.">
+    <textarea
+      id="cp-workflow-stop-reason"
+      rows="3"
+      maxlength="500"
+      [ngModel]="stopReason()"
+      (ngModelChange)="stopReason.set($event)"
+    ></textarea>
+  </cp-field>
+  <div cpDialogActions class="cp-actions">
+    <button cpButton type="button" variant="secondary" (click)="cancelStop()">Keep going</button>
+    <button cpButton type="button" variant="danger" (click)="stop()">Stop this run</button>
+  </div>
+</cp-dialog>

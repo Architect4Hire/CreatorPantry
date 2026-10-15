@@ -1,0 +1,69 @@
+:host {
+  display: block;
+}
+
+.shell {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+/* Progress beside the step where there is room, stacked where there is not (DESIGN-SYSTEM.md, a flow). */
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.plain,
+.legend,
+.help p {
+  margin: 0;
+}
+
+.steps-disclosure summary {
+  font-weight: 700;
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.waiting ul,
+.blocked {
+  margin: var(--cp-space-2) 0 0;
+  padding-inline-start: var(--cp-space-5);
+}
+
+.footer {
+  display: grid;
+  gap: var(--cp-space-4);
+  margin-top: var(--cp-space-5);
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
+}
+
+.save-status {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.more summary {
+  color: var(--cp-text-muted);
+}
+
+.more-actions {
+  margin-top: var(--cp-space-3);
+}

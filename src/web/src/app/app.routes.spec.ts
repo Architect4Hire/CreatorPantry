@@ -13,6 +13,8 @@ import { socialStudioCanDeactivateGuard } from './features/social-studio/social-
 import { LandingComponent } from './features/landing/landing.component';
 import { QuickRecipeComponent } from './features/quick-recipe/quick-recipe.component';
 import { WorkflowsHubComponent } from './features/workflows/workflows-hub.component';
+import { WorkflowRunPageComponent } from './features/workflows/workflow-run-page.component';
+import { workflowRunCanDeactivateGuard } from './features/workflows/workflow-run.guard';
 import { ThemedDaysComponent } from './features/workspace-settings/themed-days.component';
 import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
 import { WorkspaceSettingsComponent } from './features/workspace-settings/workspace-settings.component';
@@ -295,7 +297,16 @@ describe("the Content Pipeline's place in the route tree", () => {
     const workflows = workspaceRoute().find((route) => route.path === 'workflows');
     const children = workflows?.children?.map((route) => route.path);
 
-    expect(children).toEqual(['', 'content-pipeline', 'long-form', 'quick-recipe']);
+    expect(children).toEqual(['', 'content-pipeline', 'long-form', 'quick-recipe', 'runs/:runId']);
+  });
+
+  it('gives a guided run one page under workflows, in the shared shell, guarded on leaving (13A.12)', async () => {
+    const workflows = workspaceRoute().find((route) => route.path === 'workflows');
+    const runs = workflows?.children?.find((route) => route.path === 'runs/:runId');
+
+    expect((await runs?.loadComponent?.()) as unknown).toBe(WorkflowRunPageComponent);
+    expect(runs?.canDeactivate).toEqual([workflowRunCanDeactivateGuard]);
+    expect(runs?.data?.['title']).toBe('Workflow');
   });
 
   it('gives Quick Recipe one page under workflows, with nothing to guard on leaving', async () => {

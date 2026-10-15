@@ -7025,6 +7025,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("IX_WorkflowRuns_Workspace_ReplacedBy")
                         .HasFilter("ReplacedByRunId IS NOT NULL");
 
+                    b.HasIndex("WorkspaceId", "UpdatedAt")
+                        .HasDatabaseName("IX_WorkflowRuns_Workspace_Updated");
+
                     b.HasIndex("WorkspaceId", "DefinitionKey", "DefinitionVersion")
                         .HasDatabaseName("IX_WorkflowRuns_Workspace_Definition_Version");
 

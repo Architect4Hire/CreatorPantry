@@ -13,4 +13,7 @@ public static class WorkflowRunPolicy
     public const int SkipReasonMaxLength = 500;
 
     public const int AbandonReasonMaxLength = 500;
+
+    /// <summary>How long a run in progress may stand untouched before a list says it needs a look (13A.11).</summary>
+    public static readonly TimeSpan IdleAfter = TimeSpan.FromDays(7);
 }

@@ -1,15 +1,30 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
-import { combineLatest, map } from 'rxjs';
 import {
-  CpBadgeComponent,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  WritableSignal,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import {
   CpButtonComponent,
   CpCardComponent,
+  CpCardGridComponent,
+  CpEmptyStateComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSearchFieldComponent,
   CpStatusPillComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
+import { combineLatest, map } from 'rxjs';
 
 import {
   CONTENT_PIPELINE_STEPS,
@@ -19,36 +34,104 @@ import {
   contentPipelineStepIndex,
   isContentPipelineDraftEmpty,
 } from '../../models/content-pipeline.models';
-import {
-  ContentPipelineDraftOwner,
-  ContentPipelineDraftService,
-} from '../../services/content-pipeline-draft.service';
-import { LongFormDraftSummary, LongFormKind } from '../../models/long-form-draft.models';
-import { LongFormDraftStatus } from '../../models/long-form-draft.models';
+import { LongFormDraftStatus, LongFormDraftSummary, LongFormKind } from '../../models/long-form-draft.models';
 import {
   LONG_FORM_PIPELINE_STEPS,
   LongFormPipelineStepSlug,
   longFormPipelineStepIndex,
 } from '../../models/long-form-pipeline.models';
+import {
+  WorkflowDefinitionSummary,
+  WorkflowRunSummary,
+  WorkflowRunSummaryPage,
+  WorkspaceRoleName,
+  attentionReasonText,
+} from '../../models/workflow-hub.models';
+import { ContentPipelineDraftOwner, ContentPipelineDraftService } from '../../services/content-pipeline-draft.service';
 import { LongFormDraftService } from '../../services/long-form-draft.service';
+import { WorkflowHubService } from '../../services/workflow-hub.service';
+import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 
-/** How many long-form pieces in progress the card names. More than that is a library, and there is none yet. */
-export const WORKFLOWS_HUB_LONG_FORM_ROWS = 3;
+/** How many rows each list on the hub shows before "Show more". */
+export const WORKFLOWS_HUB_ROWS = 5;
 
-/** How far back the card looks for them: the workspace's most recently changed drafts. */
+/** How far back the long-form read looks: the workspace's most recently changed pieces. */
 const LONG_FORM_LOOKBACK = 20;
+
+/** The catalogue's blog-and-newsletter workflow, which opens the long-form writer as built (LF.6.3). */
+export const LONG_FORM_DEFINITION_KEY = 'content.blog-and-seo';
 
 const LONG_FORM_KINDS: Readonly<Record<LongFormKind, string>> = {
   BlogArticle: 'Blog article',
   NewsletterIssue: 'Newsletter issue',
 };
 
-/**
- * The step a piece is *at*, for telling a creator where they left it. Not the furthest step the pipeline would
- * let them open — a piece being written may be read whole, but it is being written, and that is what to say.
- */
+/** Where in the workspace each prerequisite's page is, said as the link that goes there. */
+const NEED_LINKS: Readonly<Record<string, string>> = {
+  brand: 'Open brand settings',
+  recipes: 'Open your recipes',
+  dam: 'Open your pictures',
+  'content-board': 'Open your board',
+};
+
+/** A read the hub makes, as it stands: not answered yet, answered, or not answerable right now. */
+type Read<T> =
+  | { readonly state: 'loading' }
+  | { readonly state: 'read'; readonly value: T }
+  | { readonly state: 'unavailable' };
+
+type Phase = 'loading' | 'unavailable' | 'not_found' | 'ready';
+
+/** The three lists of runs the hub reads, each its own page and its own "Show more". */
+export type HubRunView = 'mine' | 'attention' | 'completed';
+
+/** A part of the page that can be read again on its own. */
+export type HubSection = 'continue' | 'attention' | 'outcomes' | 'definitions';
+
+export interface HubRow {
+  readonly id: string;
+  /** What the work is for, in the workflow's own words. */
+  readonly goal: string;
+  /** The creator's own name for it, when it is not just the goal again. */
+  readonly title: string | null;
+  readonly detail: string;
+  readonly lines: readonly string[];
+  readonly when: string;
+  readonly at: number;
+  readonly link: readonly string[];
+  readonly action: string;
+  readonly actionLabel: string;
+}
+
+interface GoalLink {
+  readonly label: string;
+  readonly ariaLabel: string;
+  readonly link: readonly string[];
+  readonly queryParams?: Readonly<Record<string, string>>;
+  readonly primary: boolean;
+}
+
+interface GoalNeed {
+  readonly message: string;
+  readonly link: readonly string[] | null;
+  readonly linkText: string;
+}
+
+export interface GoalCard {
+  readonly id: string;
+  readonly goal: string;
+  readonly description: string;
+  readonly outcome: string;
+  /** A catalogue workflow is started as a run; a journey with a page of its own is opened. */
+  readonly start: { readonly kind: 'run'; readonly key: string } | { readonly kind: 'links'; readonly links: readonly GoalLink[] };
+  readonly canStart: boolean;
+  readonly roleNote: string | null;
+  readonly needs: readonly GoalNeed[];
+}
+
+/** The step a long-form piece is at, for telling a creator where they left it. */
 function longFormStepFor(status: LongFormDraftStatus): LongFormPipelineStepSlug {
   switch (status) {
     case 'Draft':
@@ -61,529 +144,679 @@ function longFormStepFor(status: LongFormDraftStatus): LongFormPipelineStepSlug 
   }
 }
 
-/** The long-form pieces this workspace has in progress, as the server says: not read yet, read, or not readable. */
-type LongFormRead =
-  | { readonly state: 'loading' }
-  | { readonly state: 'read'; readonly pieces: readonly LongFormDraftSummary[] }
-  | { readonly state: 'unavailable' };
+function time(iso: string): number {
+  const at = new Date(iso).getTime();
+  return Number.isNaN(at) ? 0 : at;
+}
 
-interface LongFormRow {
-  readonly id: string;
-  readonly kind: string;
-  /** True for a piece accepted and since marked for review: it is finished, and wants looking at. */
-  readonly needsReview: boolean;
-  readonly step: string;
-  readonly when: string;
-  readonly link: readonly string[];
-  readonly action: string;
-  readonly actionLabel: string;
+function whenText(iso: string, style: 'day' | 'dayTime' = 'dayTime'): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, style === 'day' ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(at);
+}
+
+/** Who may start something that needs `role`, in words. */
+function roleNote(role: WorkspaceRoleName): string {
+  switch (role) {
+    case 'Owner':
+      return 'Only an Owner of this workspace can start this.';
+    case 'Editor':
+      return 'Only an Editor or Owner of this workspace can start this.';
+    default:
+      return 'Only a Contributor, Editor or Owner of this workspace can start this. You have view-only access here.';
+  }
+}
+
+function newKey(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 /**
- * `loading` and `unavailable` are how reading the creator's memberships can end; `not_found` is the one
- * refusal; `read_only` and `ready` both show the card, with and without a way in.
- */
-type Phase = 'loading' | 'unavailable' | 'not_found' | 'read_only' | 'ready';
-
-/**
- * The Workflows page: the guided journeys that exist, and a way into each (FLOW-004).
+ * The Workflow Hub (13A.13): what the creator was doing, what needs a look, what they can set out to do, and what
+ * they finished. A detail page about the workspace's work, in the dashboard's pattern — topic cards that each stand or
+ * fail on their own, and a grid of goals.
  *
- * **A stopgap, and small enough to delete.** There are three journeys today, so there are three cards, written
- * out rather than driven from a list: no catalogue, no run entity and no shared shell. The real Workflow Hub
- * replaces this file whole, and a list abstraction built for three entries would only be something else to
- * remove. Of the three things FLOW-004 names, this shows a journey in progress; "recently completed" and
- * "needs attention" need a run record that does not exist yet.
+ * <p><strong>Continue where you left off</strong> is the creator's own work in progress, wherever it is kept: their
+ * guided runs (the server's), the workspace's long-form pieces (the server's), and the Content Pipeline run this
+ * device keeps, by workspace and membership. Newest first, whichever it is.</p>
  *
- * **Each card says which kind of work it is for** (LF.6.3, B-38), in a badge and a sentence, so the short-form
- * pipeline and the long-form one are told apart at a glance and neither is mistaken for a step of the other.
+ * <p><strong>What do you want to accomplish?</strong> is the workspace's workflows as the server offers them —
+ * started as a run in the shared shell, except "Write a blog post or newsletter", which opens the long-form writer as
+ * built (LF.6.3) — and the two journeys with pages of their own. A workflow not built yet is not shown. One that this
+ * reader cannot start says who can, or what it needs first and where to sort it out: a card never offers a Start that
+ * a start would refuse.</p>
  *
- * **The Content Pipeline's card asks the server nothing.** Whether there is something to continue is read from
- * the creator's own kept draft, by workspace id and membership id, which is what keeps another workspace's —
- * or a colleague's — unfinished work off this card (.claude/rules/tenancy.md).
- *
- * **The long-form card asks the server, and only the server** (LF.6.3). A long-form piece's plan, its text and
- * where it stands are all on its draft, so what is in progress is the workspace's drafts as the list route
- * returns them under the route's workspace: nothing about a long-form piece is read from this device. That
- * read is the card's own — it does not hold up the other two, and when it fails the card says so and still
- * offers a way to start. The list carries a kind, a status and a date, and no word of any piece, so a row says
- * those and no title.
- *
- * **Only destinations that exist are offered.** A long-form piece can be started from a recipe or from a brief,
- * and both open the pipeline's first step; there is no long-form library to send anyone to, so at most
- * {@link WORKFLOWS_HUB_LONG_FORM_ROWS} pieces are named and nothing claims to list them all.
- *
- * **Reading a draft that cannot be read throws it away**, which is `ContentPipelineDraftService`'s behaviour
- * and not this page's choice. So this is the one place a creator is told: the pipeline, opened next, finds
- * nothing and has nothing to report. This page is the way in, so the notice lands where they are.
- *
- * **Continue goes to the pipeline, which offers "pick up where you left off" itself.** Starting over lives
- * there and only there; a second copy here would be a second way to throw the draft away.
- *
- * An unknown workspace and one this creator is not in answer alike, so neither discloses the other.
+ * <p>Each section reads its own data and says so when it cannot; only not knowing the creator's memberships stops the
+ * page. An unknown workspace and one this creator is not in answer alike.</p>
  */
 @Component({
   selector: 'cp-workflows-hub',
   standalone: true,
   imports: [
     RouterLink,
-    CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpCardGridComponent,
+    CpEmptyStateComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSearchFieldComponent,
     CpStatusPillComponent,
+    CpTopicCardComponent,
   ],
-  template: `
-    <cp-page-head
-      heading="Workflows"
-      lede="Guided, step-by-step ways to get something made. Stop whenever you like and pick up later."
-    />
-
-    <div class="hub">
-
-      @switch (phase()) {
-        @case ('loading') {
-          <cp-card><p class="plain" role="status">Loading your workflows…</p></cp-card>
-        }
-        @case ('unavailable') {
-          <cp-card>
-            <cp-notice tone="error" role="alert">
-              Your workspaces couldn't be loaded right now.
-              <button cpButton type="button" variant="secondary" size="sm" (click)="retry()">Try again</button>
-            </cp-notice>
-          </cp-card>
-        }
-        @case ('not_found') {
-          <cp-card><cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice></cp-card>
-        }
-        @default {
-          <cp-card>
-            <article class="journey" aria-labelledby="workflow-pipeline-heading">
-              <div class="title">
-                <h2 id="workflow-pipeline-heading">Content Pipeline</h2>
-                <cp-badge tone="pink">Short-form</cp-badge>
-                @if (resume()) {
-                  <cp-status-pill tone="progress">In progress</cp-status-pill>
-                }
-              </div>
-              <p class="plain">From an idea to pictures and posts, one step at a time.</p>
-              <p class="plain cp-muted">For short-form work: a picture and the posts that go out with it.</p>
-
-              @if (phase() === 'read_only') {
-                <cp-notice role="note">
-                  You have view-only access to this workspace, so you can't run this. Ask an Owner or Editor to run
-                  it for you.
-                </cp-notice>
-              } @else {
-                @if (discarded()) {
-                  <cp-notice tone="warning" role="status">
-                    Something was kept here before, but it couldn't be read — so this is a fresh start.
-                  </cp-notice>
-                }
-
-                @if (resume(); as kept) {
-                  <p class="plain">
-                    You were on <strong>{{ kept.label }}</strong>, step {{ kept.number }} of {{ total }}.
-                    @if (kept.when) {
-                      You last worked on it here {{ kept.when }}.
-                    }
-                  </p>
-                  <div class="cp-actions">
-                    <a cpButton variant="primary" [routerLink]="kept.link" aria-label="Continue the Content Pipeline">
-                      Continue
-                    </a>
-                  </div>
-                } @else {
-                  <div class="cp-actions">
-                    <a cpButton variant="primary" [routerLink]="startLink()" aria-label="Start the Content Pipeline">
-                      Start
-                    </a>
-                  </div>
-                }
-              }
-            </article>
-          </cp-card>
-
-          <cp-card>
-            <article class="journey" aria-labelledby="workflow-long-form-heading">
-              <div class="title">
-                <h2 id="workflow-long-form-heading">Write a blog post or newsletter</h2>
-                <cp-badge tone="purple">Long-form</cp-badge>
-              </div>
-              <p class="plain">
-                A full article or a newsletter issue, from a plan you approve to a piece you accept. One step at a
-                time.
-              </p>
-              <p class="plain cp-muted">For long-form work: one piece to read, not a post.</p>
-
-              @if (phase() === 'read_only') {
-                <cp-notice role="note">
-                  You have view-only access to this workspace, so you can't run this. Ask an Owner or Editor to run
-                  it for you.
-                </cp-notice>
-              } @else {
-                @switch (longForm().state) {
-                  @case ('loading') {
-                    <p class="plain cp-muted" role="status" data-testid="long-form-loading">
-                      Checking for pieces you have in progress…
-                    </p>
-                  }
-                  @case ('unavailable') {
-                    <cp-notice tone="warning" role="status" data-testid="long-form-unavailable">
-                      Your pieces in progress couldn't be loaded right now. You can still start a new one.
-                      <button cpButton type="button" variant="secondary" size="sm" (click)="retryLongForm()">Try again</button>
-                    </cp-notice>
-                  }
-                  @case ('read') {
-                    @if (longFormRows().length > 0) {
-                      <h3 id="workflow-long-form-progress">In progress</h3>
-                      <ul class="pieces" aria-labelledby="workflow-long-form-progress" data-testid="long-form-pieces">
-                        @for (row of longFormRows(); track row.id) {
-                          <li>
-                            <span>
-                              {{ row.kind }}
-                              @if (row.needsReview) {
-                                <cp-status-pill tone="warning">Needs your review</cp-status-pill>
-                              } @else {
-                                <span class="cp-muted">· on {{ row.step }}</span>
-                              }
-                              @if (row.when) {
-                                <span class="cp-muted">· last changed {{ row.when }}</span>
-                              }
-                            </span>
-                            <a cpButton variant="secondary" size="sm" [routerLink]="row.link" [attr.aria-label]="row.actionLabel">
-                              {{ row.action }}
-                            </a>
-                          </li>
-                        }
-                      </ul>
-                    }
-                  }
-                }
-
-                <div class="cp-actions">
-                  <a
-                    cpButton
-                    variant="primary"
-                    [routerLink]="longFormLink()"
-                    [queryParams]="{ from: 'recipe' }"
-                    aria-label="Start a blog post or newsletter from a recipe"
-                  >
-                    Start from a recipe
-                  </a>
-                  <a
-                    cpButton
-                    variant="secondary"
-                    [routerLink]="longFormLink()"
-                    [queryParams]="{ from: 'brief' }"
-                    aria-label="Start a blog post or newsletter from a brief"
-                  >
-                    Start from a brief
-                  </a>
-                </div>
-              }
-            </article>
-          </cp-card>
-
-          <cp-card>
-            <article class="journey" aria-labelledby="workflow-quick-recipe-heading">
-              <div class="title">
-                <h2 id="workflow-quick-recipe-heading">Quick Recipe</h2>
-                <cp-badge tone="orange">Recipe</cp-badge>
-              </div>
-              <p class="plain">Name a dish and get a draft recipe and a lead picture for it, saved together.</p>
-              <p class="plain cp-muted">For a new recipe: a draft to work on in your library.</p>
-
-              @if (phase() === 'read_only') {
-                <cp-notice role="note">
-                  You have view-only access to this workspace, so you can't run this. Ask an Owner or Editor to run
-                  it for you.
-                </cp-notice>
-              } @else {
-                <div class="cp-actions">
-                  <a cpButton variant="primary" [routerLink]="quickRecipeLink()" aria-label="Start a Quick Recipe">
-                    Start
-                  </a>
-                </div>
-              }
-            </article>
-          </cp-card>
-        }
-      }
-    </div>
-  `,
-  styles: [
-    `
-      :host {
-        display: block;
-      }
-      .hub,
-      .journey {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .hub {
-        gap: var(--cp-space-6);
-      }
-      .journey {
-        gap: var(--cp-space-3);
-        max-width: var(--cp-measure-prose);
-      }
-      h2 {
-        margin: 0;
-        font-family: var(--cp-font-display);
-      }
-      h3 {
-        margin: 0;
-        font-size: var(--cp-font-size-md);
-      }
-      .pieces {
-        display: grid;
-        gap: var(--cp-space-2);
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .pieces li {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--cp-space-2) var(--cp-space-3);
-      }
-      .title {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--cp-space-3);
-      }
-      .plain {
-        margin: 0;
-      }
-    `,
-  ],
+  templateUrl: './workflows-hub.component.html',
+  styleUrl: './workflows-hub.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkflowsHubComponent {
   private readonly route = inject(ActivatedRoute);
-  private readonly drafts = inject(ContentPipelineDraftService);
+  private readonly router = inject(Router);
   private readonly memberships = inject(WorkspaceMembershipService);
+  private readonly hub = inject(WorkflowHubService);
+  private readonly runs = inject(WorkflowRunService);
+  private readonly drafts = inject(ContentPipelineDraftService);
   private readonly longFormDrafts = inject(LongFormDraftService);
+  private readonly injector = inject(Injector);
 
-  protected readonly total = CONTENT_PIPELINE_STEP_COUNT;
-
-  /** The workspace's long-form drafts as the server last answered. Never another workspace's: cleared on a change. */
-  protected readonly longForm = signal<LongFormRead>({ state: 'loading' });
-
-  /** The owner whose drafts are in hand or being read, so the same one is not asked for twice. */
-  private longFormKey: string | null = null;
+  private readonly continueCard = viewChild<CpTopicCardComponent>('continueCard');
+  private readonly attentionCard = viewChild<CpTopicCardComponent>('attentionCard');
+  private readonly outcomesCard = viewChild<CpTopicCardComponent>('outcomesCard');
+  private readonly goalsHeading = viewChild<ElementRef<HTMLElement>>('goalsHeading');
 
   readonly workspaceSlug = signal('');
-  /** The kept run for this owner, or null. Never another owner's: it is cleared before the next is read. */
-  private readonly kept = signal<ContentPipelineDraft | null>(null);
-  /** The creative context that run is on, or null for one this device holds that is not on a context yet. */
-  private readonly keptContextId = signal<string | null>(null);
+
+  protected readonly definitions = signal<Read<readonly WorkflowDefinitionSummary[]>>({ state: 'loading' });
+  protected readonly mine = signal<Read<WorkflowRunSummaryPage>>({ state: 'loading' });
+  protected readonly attention = signal<Read<WorkflowRunSummaryPage>>({ state: 'loading' });
+  protected readonly finished = signal<Read<WorkflowRunSummaryPage>>({ state: 'loading' });
+  protected readonly longForm = signal<Read<readonly LongFormDraftSummary[]>>({ state: 'loading' });
+
+  /** The Content Pipeline run this device keeps for this owner, and the context it is on. */
+  private readonly kept = signal<{ readonly draft: ContentPipelineDraft; readonly contextId: string | null } | null>(null);
   protected readonly discarded = signal(false);
 
-  /** The owner key whose draft is in hand, so the same one is not read twice. */
-  private readonly loadedKey = signal<string | null>(null);
+  protected readonly query = signal('');
+  /** How many rows each list shows; "Show more" adds five. */
+  protected readonly shown: Readonly<Record<HubRunView, WritableSignal<number>>> = {
+    mine: signal(WORKFLOWS_HUB_ROWS),
+    attention: signal(WORKFLOWS_HUB_ROWS),
+    completed: signal(WORKFLOWS_HUB_ROWS),
+  };
+  protected readonly loadingMore = signal<HubRunView | null>(null);
+  /** The list whose next page could not be read, said beside its Show more. */
+  protected readonly moreProblem = signal<HubRunView | null>(null);
+  /** Sections being read again: their notice stays, saying so, until the answer comes. */
+  protected readonly retrying = signal<ReadonlySet<HubSection>>(new Set());
+  protected readonly starting = signal<string | null>(null);
+  protected readonly startProblems = signal<Readonly<Record<string, string>>>({});
+
+  /** The owner whose reads are in hand, so the same one is not asked for twice and a late answer is not believed. */
+  private readKey: string | null = null;
+  private readonly startKeys = new Map<string, string>();
 
   private readonly membership = computed(() => {
     const state = this.memberships.state();
     if (state.status !== 'ready') return null;
-
     return state.memberships.find((entry) => entry.workspaceSlug === this.workspaceSlug()) ?? null;
-  });
-
-  private readonly ownerKey = computed(() => {
-    const membership = this.membership();
-
-    return membership === null ? null : `${membership.workspaceId}.${membership.membershipId}`;
   });
 
   readonly phase = computed<Phase>(() => {
     const state = this.memberships.state();
     if (state.status === 'loading') return 'loading';
     if (state.status === 'error') return 'unavailable';
-
-    const membership = this.membership();
-    if (membership === null) return 'not_found';
-    if (membership.role === 'Viewer') return 'read_only';
-
-    // Until this owner's draft has been read, "Start" would be a guess — and wrong for anyone mid-journey.
-    return this.loadedKey() === this.ownerKey() ? 'ready' : 'loading';
+    return this.membership() === null ? 'not_found' : 'ready';
   });
 
-  protected readonly startLink = computed(() => this.linkTo(FIRST_CONTENT_PIPELINE_STEP));
+  readonly viewOnly = computed(() => this.membership()?.role === 'Viewer');
 
-  /** Always "Start": a Quick Recipe keeps its run in its own address, so there is nothing here to continue. */
-  protected readonly quickRecipeLink = computed(() => ['/', this.workspaceSlug(), 'workflows', 'quick-recipe']);
+  // ---- Continue where you left off ----
 
-  protected readonly longFormLink = computed(() => ['/', this.workspaceSlug(), 'workflows', 'long-form']);
+  readonly continueRows = computed<readonly HubRow[]>(() => {
+    const rows: HubRow[] = [];
+    const slug = this.workspaceSlug();
 
-  /**
-   * The pieces to name: not finished, most recently changed first, and no more than a few.
-   *
-   * Accepted is finished and is left out. Accepted-and-since-stale is finished too, but it is the one kind of
-   * finished piece that wants its creator, so it is named — as needing review, not as in progress.
-   */
-  protected readonly longFormRows = computed<readonly LongFormRow[]>(() => {
-    const read = this.longForm();
-    if (read.state !== 'read') return [];
+    const mine = this.mine();
+    if (mine.state === 'read') {
+      for (const run of mine.value.items) {
+        const done = run.completedStepCount + run.skippedStepCount;
+        rows.push({
+          id: `run:${run.id}`,
+          goal: run.goal,
+          title: run.title !== run.goal ? run.title : null,
+          detail: run.nextStepTitle
+            ? `Next: ${run.nextStepTitle} · ${done} of ${run.stepCount} steps done`
+            : 'Every step is done. Finish when you’re ready.',
+          lines: [],
+          when: whenText(run.updatedAt),
+          at: time(run.updatedAt),
+          link: ['/', slug, 'workflows', 'runs', run.id],
+          action: 'Continue',
+          actionLabel: `Continue “${run.title}”`,
+        });
+      }
+    }
 
-    return read.pieces
-      .filter((piece) => piece.status !== 'Accepted')
-      .slice(0, WORKFLOWS_HUB_LONG_FORM_ROWS)
-      .map((piece) => {
+    const longForm = this.longForm();
+    if (longForm.state === 'read') {
+      for (const piece of longForm.value.filter((p) => p.status !== 'Accepted' && p.status !== 'NeedsReview')) {
         const kind = LONG_FORM_KINDS[piece.kind];
-        const needsReview = piece.status === 'NeedsReview';
         const step = LONG_FORM_PIPELINE_STEPS[longFormPipelineStepIndex(longFormStepFor(piece.status))]!.label;
-        const at = new Date(piece.updatedAt);
+        rows.push({
+          id: `long-form:${piece.id}`,
+          goal: 'Write a blog post or newsletter',
+          title: kind,
+          detail: `On ${step}`,
+          lines: [],
+          when: whenText(piece.updatedAt),
+          at: time(piece.updatedAt),
+          link: this.longFormPieceLink(piece),
+          action: 'Continue',
+          actionLabel: `Continue the ${kind.toLowerCase()} on ${step}`,
+        });
+      }
+    }
 
-        return {
-          id: piece.id,
-          kind,
-          needsReview,
-          step,
-          when: Number.isNaN(at.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(at),
-
-          // The piece, and no step: the pipeline opens it where it stands on the server now, which may be
-          // further along than this list knew.
-          link: [...this.longFormLink(), 'context', piece.creativeContextId, 'draft', piece.id],
-          action: needsReview ? 'Open' : 'Continue',
-          actionLabel: needsReview ? `Open the ${kind.toLowerCase()} that needs your review` : `Continue the ${kind.toLowerCase()} on ${step}`,
-        };
+    const kept = this.kept();
+    if (kept) {
+      const index = Math.max(0, contentPipelineStepIndex(kept.draft.furthestStep));
+      const step = CONTENT_PIPELINE_STEPS[index];
+      rows.push({
+        id: 'content-pipeline',
+        goal: 'Make a picture and posts from one idea',
+        title: null,
+        detail: `${step.label} · step ${index + 1} of ${CONTENT_PIPELINE_STEP_COUNT} · kept on this device`,
+        lines: [],
+        when: kept.draft.savedAt ? whenText(kept.draft.savedAt) : '',
+        at: kept.draft.savedAt ? time(kept.draft.savedAt) : 0,
+        link: this.pipelineLink(step.slug),
+        action: 'Continue',
+        actionLabel: 'Continue making a picture and posts',
       });
+    }
+
+    return rows.sort((a, b) => b.at - a.at);
   });
 
-  /** Where the creator got to, or null when there is nothing to go back to. */
-  protected readonly resume = computed(() => {
-    const draft = this.kept();
-    // A draft that is all defaults is not a journey in progress, which is the pipeline's own reading too. A
-    // run on a context is one however little of it is on this device: the rest is on the server.
-    if (draft === null || (this.keptContextId() === null && isContentPipelineDraftEmpty(draft))) return null;
+  readonly continueVisible = computed(() => this.continueRows().slice(0, this.shown.mine()));
 
-    const index = Math.max(0, contentPipelineStepIndex(draft.furthestStep));
-    const step = CONTENT_PIPELINE_STEPS[index];
-    const at = draft.savedAt === '' ? null : new Date(draft.savedAt);
+  readonly continueHasMore = computed(() => this.hasMore('mine', this.continueRows().length));
 
-    return {
-      label: step.label,
-      number: index + 1,
-      link: this.linkTo(step.slug),
-      when:
-        at === null || Number.isNaN(at.getTime())
-          ? ''
-          : `on ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(at)}`,
-    };
+  /** Some of the creator's work in progress could not be read. */
+  readonly continueDegraded = computed(() => this.mine().state === 'unavailable' || this.longForm().state === 'unavailable');
+
+  // ---- Needs attention ----
+
+  readonly attentionRows = computed<readonly HubRow[]>(() => {
+    const rows: HubRow[] = [];
+    const slug = this.workspaceSlug();
+    const me = this.membership()?.membershipId ?? null;
+
+    const attention = this.attention();
+    if (attention.state === 'read') {
+      for (const run of attention.value.items) {
+        const theirs = run.owner.membershipId !== me
+          ? `Started by ${run.owner.displayName ?? 'someone who has left the workspace'}.`
+          : null;
+        rows.push({
+          id: `run:${run.id}`,
+          goal: run.goal,
+          title: run.title !== run.goal ? run.title : null,
+          detail: theirs ?? '',
+          lines: run.attentionReasons.map(attentionReasonText),
+          when: whenText(run.updatedAt),
+          at: time(run.updatedAt),
+          link: ['/', slug, 'workflows', 'runs', run.id],
+          action: 'Open',
+          actionLabel: `Open “${run.title}”`,
+        });
+      }
+    }
+
+    const longForm = this.longForm();
+    if (longForm.state === 'read') {
+      for (const piece of longForm.value.filter((p) => p.status === 'NeedsReview')) {
+        const kind = LONG_FORM_KINDS[piece.kind];
+        rows.push({
+          id: `long-form:${piece.id}`,
+          goal: 'Write a blog post or newsletter',
+          title: kind,
+          detail: '',
+          lines: ['Something it was written from has changed since you accepted it. It needs your review.'],
+          when: whenText(piece.updatedAt),
+          at: time(piece.updatedAt),
+          link: this.longFormPieceLink(piece),
+          action: 'Open',
+          actionLabel: `Open the ${kind.toLowerCase()} that needs your review`,
+        });
+      }
+    }
+
+    return rows;
   });
+
+  readonly attentionVisible = computed(() => this.attentionRows().slice(0, this.shown.attention()));
+
+  readonly attentionHasMore = computed(() => this.hasMore('attention', this.attentionRows().length));
+
+  readonly attentionDegraded = computed(() => this.attention().state === 'unavailable' || this.longForm().state === 'unavailable');
+
+  // ---- Recent outcomes ----
+
+  readonly outcomeRows = computed<readonly HubRow[]>(() => {
+    const read = this.finished();
+    if (read.state !== 'read') return [];
+    const slug = this.workspaceSlug();
+    return read.value.items.map((run) => ({
+      id: `run:${run.id}`,
+      goal: run.goal,
+      title: run.title !== run.goal ? run.title : null,
+      detail: '',
+      lines: [],
+      when: whenText(run.completedAt ?? run.updatedAt, 'day'),
+      at: time(run.completedAt ?? run.updatedAt),
+      link: ['/', slug, 'workflows', 'runs', run.id],
+      action: 'See what you made',
+      actionLabel: `See what you made with “${run.title}”`,
+    }));
+  });
+
+  readonly outcomesVisible = computed(() => this.outcomeRows().slice(0, this.shown.completed()));
+
+  readonly outcomesHasMore = computed(() => this.hasMore('completed', this.outcomeRows().length));
+
+  // ---- What do you want to accomplish? ----
+
+  readonly goalCards = computed<readonly GoalCard[]>(() => {
+    const slug = this.workspaceSlug();
+    const viewOnly = this.viewOnly();
+    const cards: GoalCard[] = [];
+
+    const read = this.definitions();
+    if (read.state === 'read') {
+      for (const definition of read.value.filter((d) => d.available)) {
+        const needs = definition.waitingFor.map((need) => ({
+          message: need.message,
+          link: need.route === null ? null : ['/', slug, ...need.route.split('/')],
+          linkText: (need.route && NEED_LINKS[need.route]) || 'Open',
+        }));
+        const base = {
+          id: definition.key,
+          goal: definition.goal,
+          description: definition.description,
+          outcome: definition.expectedOutcome,
+          canStart: definition.canStart,
+          roleNote: definition.neededRole ? roleNote(definition.neededRole) : null,
+          needs,
+        };
+
+        cards.push(
+          definition.key === LONG_FORM_DEFINITION_KEY
+            ? {
+                ...base,
+                start: {
+                  kind: 'links',
+                  links: [
+                    { label: 'Start from a recipe', ariaLabel: 'Start from a recipe: a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'recipe' }, primary: true },
+                    { label: 'Start from a brief', ariaLabel: 'Start from a brief: a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'brief' }, primary: false },
+                  ],
+                },
+              }
+            : { ...base, start: { kind: 'run', key: definition.key } },
+        );
+      }
+    }
+
+    // The two journeys with pages of their own, and no catalogue entry: shown however the catalogue read went.
+    const local = { canStart: !viewOnly, roleNote: viewOnly ? roleNote('Contributor') : null, needs: [] };
+    cards.push(
+      {
+        id: 'content-pipeline',
+        goal: 'Make a picture and posts from one idea',
+        description: 'From an idea to a picture and the posts that go out with it, one step at a time.',
+        outcome: 'A picture and a post for each of your channels, ready for your board.',
+        start: { kind: 'links', links: [{ label: 'Start', ariaLabel: 'Start making a picture and posts', link: this.pipelineLink(FIRST_CONTENT_PIPELINE_STEP), primary: true }] },
+        ...local,
+      },
+      {
+        id: 'quick-recipe',
+        goal: 'Draft a recipe from a dish name',
+        description: 'Name a dish, and get a draft recipe and a lead picture for it, saved together.',
+        outcome: 'A draft recipe with its picture in your library, ready to work on.',
+        start: { kind: 'links', links: [{ label: 'Start', ariaLabel: 'Start drafting a recipe from a dish name', link: ['/', slug, 'workflows', 'quick-recipe'], primary: true }] },
+        ...local,
+      },
+    );
+
+    return cards;
+  });
+
+  readonly shownGoals = computed(() => {
+    const words = this.query().trim().toLowerCase().split(/\s+/).filter((word) => word !== '');
+    if (words.length === 0) return this.goalCards();
+    return this.goalCards().filter((card) => {
+      const text = `${card.goal} ${card.description} ${card.outcome}`.toLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  });
+
+  readonly matchText = computed(() => {
+    if (this.query().trim() === '') return '';
+    const shown = this.shownGoals().length;
+    return shown === 0 ? 'Nothing matches that.' : `${shown} of ${this.goalCards().length} shown.`;
+  });
+
+  // ---- First use ----
+
+  /** Everything is read, and there is nothing in progress, needing a look, or finished: a creator new to this. */
+  readonly firstUse = computed(() => {
+    const reads = [this.mine(), this.attention(), this.finished()];
+    const longForm = this.longForm();
+    if (reads.some((read) => read.state !== 'read')) return false;
+    if (!this.viewOnly() && longForm.state !== 'read') return false;
+    return this.continueRows().length === 0 && this.attentionRows().length === 0 && this.outcomeRows().length === 0;
+  });
+
+  /** Still finding out what the creator has in progress. */
+  readonly checking = computed(() => [this.mine(), this.attention(), this.finished()].some((read) => read.state === 'loading'));
 
   constructor() {
     void this.memberships.ensureLoaded();
 
     combineLatest(this.ancestors().map((node) => node.paramMap))
       .pipe(
-        map((maps) => {
-          for (const params of maps) {
-            const value = params.get('workspaceSlug');
-            if (value) return value;
-          }
-          return null;
-        }),
+        map((maps) => maps.map((params) => params.get('workspaceSlug')).find((value) => !!value) ?? null),
         takeUntilDestroyed(),
       )
       .subscribe((slug) => {
         if (slug === null) throw new Error('WorkflowsHubComponent route is missing a workspaceSlug segment.');
         if (slug === this.workspaceSlug()) return;
 
-        // Nothing of the previous workspace may still be showing while the next one's draft is being read.
+        // Nothing of the previous workspace may still be showing while the next one is read.
         this.workspaceSlug.set(slug);
-        this.kept.set(null);
-        this.keptContextId.set(null);
-        this.discarded.set(false);
-        this.loadedKey.set(null);
-        this.longForm.set({ state: 'loading' });
-        this.longFormKey = null;
+        this.reset();
       });
 
-    // The long-form pieces are the server's to say, once the memberships say who is asking. A Viewer cannot
-    // run the journey, so nothing is asked for one.
+    // Read once the memberships say who is asking — which is also what reads again for another workspace, or for
+    // someone else signed in on this browser.
     effect(() => {
       const membership = this.membership();
-      const key = this.ownerKey();
-      if (membership === null || key === null || membership.role === 'Viewer' || key === this.longFormKey) return;
+      if (membership === null) return;
+      const key = `${membership.workspaceId}.${membership.membershipId}`;
+      if (key === this.readKey) return;
 
-      this.longFormKey = key;
-      void this.readLongForm(this.workspaceSlug(), key);
-    });
-
-    // Read once the memberships say who is asking — which is also what re-reads on a change of workspace, or of
-    // who is signed in on this browser. A Viewer cannot run the journey, so nothing is read for one.
-    effect(() => {
-      const membership = this.membership();
-      const key = this.ownerKey();
-      if (membership === null || key === null || key === this.loadedKey()) return;
-
-      const owner: ContentPipelineDraftOwner = {
+      this.readKey = key;
+      this.readAll(this.workspaceSlug(), key, membership.role === 'Viewer', {
         workspaceId: membership.workspaceId,
         membershipId: membership.membershipId,
-      };
-      const read = membership.role === 'Viewer' ? { draft: null, discarded: false } : this.drafts.read(owner);
-      // A whole draft not yet on a context comes first: opening the pipeline files it, and it is the creator's
-      // most recent unsaved work. Otherwise, the run this device last had open on a context (AF.3.1).
-      const unfiled = read.draft !== null && !isContentPipelineDraftEmpty(read.draft) ? read.draft : null;
-      const last = membership.role === 'Viewer' || unfiled !== null ? null : this.drafts.lastContextId(owner);
-      const kept = last === null ? null : this.drafts.readKept(owner, last);
-
-      this.kept.set(unfiled ?? kept?.kept?.draft ?? null);
-      this.keptContextId.set(kept?.kept ? last : null);
-      this.discarded.set(read.discarded || (kept?.discarded ?? false));
-      this.loadedKey.set(key);
+      });
     });
   }
 
-  /** Every route node from this one up to the root, so the slug can be found wherever it was declared. */
-  private ancestors(): readonly ActivatedRoute[] {
-    const nodes: ActivatedRoute[] = [];
-    for (let node: ActivatedRoute | null = this.route; node !== null; node = node.parent) nodes.push(node);
-
-    return nodes;
+  protected retryMemberships(): void {
+    void this.memberships.load();
   }
 
-  private linkTo(step: string): readonly string[] {
-    const contextId = this.keptContextId();
-    const base = ['/', this.workspaceSlug()];
+  /**
+   * Reads one section again. Its notice stays — saying it is trying again — until the answer comes, so the button
+   * pressed is never pulled out from under the keyboard; then focus goes to the section's heading.
+   */
+  protected async retrySection(section: HubSection): Promise<void> {
+    if (this.retrying().has(section)) return;
+    this.retrying.update((set) => new Set([...set, section]));
 
+    const slug = this.workspaceSlug();
+    const key = this.readKey;
+    const longFormToo = this.longForm().state === 'unavailable' && !this.viewOnly();
+    const reads: Promise<void>[] = [];
+    switch (section) {
+      case 'definitions':
+        reads.push(this.readDefinitions(slug, key, { keep: true }));
+        break;
+      case 'continue':
+        if (this.mine().state === 'unavailable') reads.push(this.readRuns(slug, key, 'mine', { keep: true }));
+        if (longFormToo) reads.push(this.readLongForm(slug, key, { keep: true }));
+        break;
+      case 'attention':
+        if (this.attention().state === 'unavailable') reads.push(this.readRuns(slug, key, 'attention', { keep: true }));
+        if (longFormToo) reads.push(this.readLongForm(slug, key, { keep: true }));
+        break;
+      case 'outcomes':
+        if (this.finished().state === 'unavailable') reads.push(this.readRuns(slug, key, 'completed', { keep: true }));
+        break;
+    }
+
+    await Promise.all(reads);
+    this.retrying.update((set) => new Set([...set].filter((item) => item !== section)));
+    if (key === this.readKey) this.focusSection(section);
+  }
+
+  /** Shows five more rows of a list, reading its next page of runs when the rows in hand run out. */
+  protected async showMore(view: HubRunView): Promise<void> {
+    if (this.loadingMore() !== null) return;
+    this.shown[view].update((shown) => shown + WORKFLOWS_HUB_ROWS);
+    await this.fetchMore(view);
+  }
+
+  /** Tries the next page of a list again, after it could not be read. */
+  protected retryMore(view: HubRunView): Promise<void> {
+    return this.loadingMore() !== null ? Promise.resolve() : this.fetchMore(view);
+  }
+
+  private async fetchMore(view: HubRunView): Promise<void> {
+    const into = this.pageOf(view);
+    const page = into();
+    const rows = view === 'mine' ? this.continueRows() : view === 'attention' ? this.attentionRows() : this.outcomeRows();
+    if (page.state !== 'read' || page.value.nextCursor === null || rows.length >= this.shown[view]()) return;
+
+    const slug = this.workspaceSlug();
+    const key = this.readKey;
+    this.loadingMore.set(view);
+    this.moreProblem.set(null);
+    const outcome = await this.hub.runs(slug, { view, limit: WORKFLOWS_HUB_ROWS * 2, cursor: page.value.nextCursor });
+    this.loadingMore.set(null);
+    if (key !== this.readKey) return;
+
+    if (outcome.status !== 'found') {
+      this.moreProblem.set(view);
+      return;
+    }
+
+    into.set({ state: 'read', value: { items: [...page.value.items, ...outcome.page.items], nextCursor: outcome.page.nextCursor } });
+  }
+
+  private hasMore(view: HubRunView, rows: number): boolean {
+    const page = this.pageOf(view)();
+    return rows > this.shown[view]() || (page.state === 'read' && page.value.nextCursor !== null);
+  }
+
+  private pageOf(view: HubRunView): WritableSignal<Read<WorkflowRunSummaryPage>> {
+    return view === 'mine' ? this.mine : view === 'attention' ? this.attention : this.finished;
+  }
+
+  private focusSection(section: HubSection): void {
+    afterNextRender(
+      () => {
+        const card = section === 'continue' ? this.continueCard() : section === 'attention' ? this.attentionCard() : section === 'outcomes' ? this.outcomesCard() : undefined;
+        if (card) card.focusHeading();
+        else this.goalsHeading()?.nativeElement.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected setQuery(value: string): void {
+    this.query.set(value);
+  }
+
+  protected onSearchInput(event: Event): void {
+    const target = event.target;
+    this.query.set(target instanceof HTMLInputElement ? target.value : '');
+  }
+
+  /** Starts a catalogue workflow as a run, and opens it in the guided shell. */
+  protected async start(card: GoalCard): Promise<void> {
+    if (card.start.kind !== 'run' || this.starting() !== null || !card.canStart) return;
+
+    const definitionKey = card.start.key;
+    const slug = this.workspaceSlug();
+    // One key per attempt, kept across a retry of it, so a lost answer never starts two runs.
+    const idempotencyKey = this.startKeys.get(card.id) ?? newKey();
+    this.startKeys.set(card.id, idempotencyKey);
+    this.starting.set(card.id);
+    this.problemFor(card.id, null);
+
+    const outcome = await this.runs.start(slug, definitionKey, idempotencyKey);
+    this.starting.set(null);
+
+    switch (outcome.status) {
+      case 'started':
+        this.startKeys.delete(card.id);
+        await this.router.navigate(['/', slug, 'workflows', 'runs', outcome.run.id]);
+        return;
+      case 'forbidden':
+        this.startKeys.delete(card.id);
+        this.problemFor(card.id, 'Your access in this workspace doesn’t let you start this.');
+        // Read the cards again, in place, so this one names who can.
+        void this.readDefinitions(slug, this.readKey, { keep: true });
+        return;
+      case 'unprocessable':
+        this.startKeys.delete(card.id);
+        this.problemFor(card.id, outcome.message);
+        // What it needs may have changed: read the cards again, in place, so each says what is true now.
+        void this.readDefinitions(slug, this.readKey, { keep: true });
+        return;
+      case 'unavailable':
+        this.problemFor(card.id, outcome.offline
+          ? 'You’re offline. Nothing was started — try again when you’re back online.'
+          : 'This couldn’t be started just now. Nothing was started — try again.');
+        return;
+      default:
+        this.startKeys.delete(card.id);
+        this.problemFor(card.id, 'This couldn’t be started just now. Try again.');
+    }
+  }
+
+  // ---- Reads ----
+
+  private reset(): void {
+    this.readKey = null;
+    this.definitions.set({ state: 'loading' });
+    this.mine.set({ state: 'loading' });
+    this.attention.set({ state: 'loading' });
+    this.finished.set({ state: 'loading' });
+    this.longForm.set({ state: 'loading' });
+    this.kept.set(null);
+    this.discarded.set(false);
+    this.query.set('');
+    for (const view of ['mine', 'attention', 'completed'] as const) this.shown[view].set(WORKFLOWS_HUB_ROWS);
+    this.loadingMore.set(null);
+    this.moreProblem.set(null);
+    this.retrying.set(new Set());
+    this.startProblems.set({});
+    this.startKeys.clear();
+  }
+
+  private readAll(slug: string, key: string, viewOnly: boolean, owner: ContentPipelineDraftOwner): void {
+    void this.readDefinitions(slug, key);
+    void this.readRuns(slug, key, 'mine');
+    void this.readRuns(slug, key, 'attention');
+    void this.readRuns(slug, key, 'completed');
+
+    if (viewOnly) {
+      // A Viewer makes nothing, so has nothing of their own in progress here.
+      this.longForm.set({ state: 'read', value: [] });
+      this.kept.set(null);
+      return;
+    }
+
+    void this.readLongForm(slug, key);
+    this.readKept(owner);
+  }
+
+  /** `keep` leaves what is shown in place until the answer comes, for a read again rather than a first read. */
+  private async readDefinitions(slug: string, key: string | null, options: { readonly keep?: boolean } = {}): Promise<void> {
+    if (!options.keep) this.definitions.set({ state: 'loading' });
+    const outcome = await this.hub.definitions(slug);
+    if (key !== this.readKey) return;
+    this.definitions.set(outcome.status === 'found' ? { state: 'read', value: outcome.definitions } : { state: 'unavailable' });
+  }
+
+  private async readRuns(slug: string, key: string | null, view: HubRunView, options: { readonly keep?: boolean } = {}): Promise<void> {
+    const into = this.pageOf(view);
+    if (!options.keep) into.set({ state: 'loading' });
+    const outcome = await this.hub.runs(slug, { view, limit: WORKFLOWS_HUB_ROWS * 2 });
+    if (key !== this.readKey) return;
+    into.set(outcome.status === 'found' ? { state: 'read', value: outcome.page } : { state: 'unavailable' });
+  }
+
+  private async readLongForm(slug: string, key: string | null, options: { readonly keep?: boolean } = {}): Promise<void> {
+    if (!options.keep) this.longForm.set({ state: 'loading' });
+    const outcome = await this.longFormDrafts.list(slug, { limit: LONG_FORM_LOOKBACK });
+    if (key !== this.readKey) return;
+    this.longForm.set(
+      outcome.status === 'found'
+        ? { state: 'read', value: outcome.page.items }
+        // A list this member may not read is a list with nothing in it for them, not a fault to report.
+        : outcome.status === 'forbidden'
+          ? { state: 'read', value: [] }
+          : { state: 'unavailable' },
+    );
+  }
+
+  /**
+   * The Content Pipeline run this device keeps for this owner: a whole draft not yet on a context first — the
+   * pipeline files it when opened — otherwise the run it last had open on a context. Reading a draft that cannot be
+   * read throws it away, which is the draft service's behaviour; this page is where the creator is told.
+   */
+  private readKept(owner: ContentPipelineDraftOwner): void {
+    const read = this.drafts.read(owner);
+    const unfiled = read.draft !== null && !isContentPipelineDraftEmpty(read.draft) ? read.draft : null;
+    const last = unfiled !== null ? null : this.drafts.lastContextId(owner);
+    const kept = last === null ? null : this.drafts.readKept(owner, last);
+
+    this.kept.set(
+      unfiled !== null
+        ? { draft: unfiled, contextId: null }
+        : kept?.kept
+          ? { draft: kept.kept.draft, contextId: last }
+          : null,
+    );
+    this.discarded.set(read.discarded || (kept?.discarded ?? false));
+  }
+
+  // ---- Links ----
+
+  private longFormLink(): readonly string[] {
+    return ['/', this.workspaceSlug(), 'workflows', 'long-form'];
+  }
+
+  /** The piece, and no step: the pipeline opens it where it stands on the server now. */
+  private longFormPieceLink(piece: LongFormDraftSummary): readonly string[] {
+    return [...this.longFormLink(), 'context', piece.creativeContextId, 'draft', piece.id];
+  }
+
+  private pipelineLink(step: string): readonly string[] {
+    const contextId = this.kept()?.contextId ?? null;
+    const base = ['/', this.workspaceSlug()];
     return contextId === null
       ? [...base, 'workflows', 'content-pipeline', step]
       : [...base, ...HANDOFF_ROUTES.contentPipeline(contextId), step];
   }
 
-  protected retry(): void {
-    void this.memberships.load();
+  private problemFor(cardId: string, message: string | null): void {
+    this.startProblems.update((problems) => {
+      const next = { ...problems };
+      if (message === null) delete next[cardId];
+      else next[cardId] = message;
+      return next;
+    });
   }
 
-  protected retryLongForm(): void {
-    const key = this.ownerKey();
-
-    if (key !== null) void this.readLongForm(this.workspaceSlug(), key);
-  }
-
-  private async readLongForm(slug: string, key: string): Promise<void> {
-    this.longForm.set({ state: 'loading' });
-
-    const outcome = await this.longFormDrafts.list(slug, { limit: LONG_FORM_LOOKBACK });
-
-    // Another workspace, or another person, arrived while this was being read: the answer is not theirs.
-    if (key !== this.longFormKey || slug !== this.workspaceSlug()) return;
-
-    this.longForm.set(
-      outcome.status === 'found'
-        ? { state: 'read', pieces: outcome.page.items }
-        // A list this member may not read is a list with nothing in it for them, not a fault to report.
-        : outcome.status === 'forbidden'
-          ? { state: 'read', pieces: [] }
-          : { state: 'unavailable' },
-    );
+  private ancestors(): readonly ActivatedRoute[] {
+    const nodes: ActivatedRoute[] = [];
+    for (let node: ActivatedRoute | null = this.route; node !== null; node = node.parent) nodes.push(node);
+    return nodes;
   }
 }

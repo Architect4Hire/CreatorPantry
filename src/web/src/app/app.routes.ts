@@ -5,6 +5,7 @@ import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
 import { socialStudioCanDeactivateGuard } from './features/social-studio/social-studio.guard';
 import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
+import { workflowRunCanDeactivateGuard } from './features/workflows/workflow-run.guard';
 import { CONTEXT_ROUTE_PARAM, CONTEXT_ROUTE_SEGMENT } from './shared/use-this-in/handoff-destinations';
 
 const SECTION_ROUTES: Routes = [
@@ -20,6 +21,13 @@ const SECTION_ROUTES: Routes = [
       { path: 'long-form', loadChildren: () => import('./features/long-form/long-form-pipeline.routes').then((m) => m.LONG_FORM_PIPELINE_ROUTES) },
       // One page: the run is in its query parameters, so there is no step segment and nothing to guard on leaving.
       { path: 'quick-recipe', loadComponent: () => import('./features/quick-recipe/quick-recipe.component').then((m) => m.QuickRecipeComponent), data: { title: 'Quick Recipe' } },
+      // One guided run in the shared shell (13A.12). The server's current step is the only step, so there is no step segment.
+      {
+        path: 'runs/:runId',
+        loadComponent: () => import('./features/workflows/workflow-run-page.component').then((m) => m.WorkflowRunPageComponent),
+        canDeactivate: [workflowRunCanDeactivateGuard],
+        data: { title: 'Workflow' },
+      },
     ],
   },
   { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },

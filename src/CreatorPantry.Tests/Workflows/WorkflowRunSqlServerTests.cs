@@ -457,6 +457,72 @@ public sealed class WorkflowRunSqlServerTests : IAsyncLifetime
         }
     }
 
+    /// <summary>
+    /// The run list where it counts (13A.11): what needs a look is matched on strings SQL Server builds from a run's own
+    /// columns against list parameters, and a keyset over <c>(UpdatedAt, Id)</c> must page through runs that share a
+    /// moment in SQL Server's own <c>uniqueidentifier</c> order — neither of which SQLite can vouch for.
+    /// </summary>
+    [Fact]
+    public async Task The_list_finds_what_needs_a_look_and_pages_in_sql_servers_own_dialect()
+    {
+        var shared = Now.AddMinutes(-30);
+        var outdated = await SeedListedAsync(WorkspaceA, run => (run.DefinitionVersion, run.UpdatedAt) = (1, Now.AddMinutes(-2)));
+        var blocked = await SeedListedAsync(WorkspaceA, run => (run.CurrentStepKey, run.UpdatedAt) = ("ingredients", Now.AddMinutes(-1)));
+        var idle = await SeedListedAsync(WorkspaceA, run => run.UpdatedAt = Now.AddDays(-10));
+        await SeedListedAsync(WorkspaceA, run => run.UpdatedAt = shared);
+        await SeedListedAsync(WorkspaceA, run => run.UpdatedAt = shared);
+        await SeedListedAsync(WorkspaceA, run =>
+        {
+            (run.DefinitionVersion, run.UpdatedAt, run.Status, run.CurrentStepKey) = (1, shared, WorkflowRunStatus.Completed, null);
+            run.CompletedAt = shared;
+        });
+        var theirs = await SeedListedAsync(WorkspaceB, run => run.DefinitionVersion = 1);
+
+        var attention = new WorkflowRunAttentionCriteria(
+            Now - WorkflowRunPolicy.IdleAfter,
+            [WorkflowRunAttentionCriteria.VersionKey("recipe.create", 1)],
+            [WorkflowRunAttentionCriteria.StepKey("recipe.create", 2, "ingredients")]);
+
+        var needing = await ListAsync(WorkflowRunListView.Attention, attention, from: null, limit: 100);
+        Assert.Equal([idle, outdated, blocked], needing.Rows.Select(row => row.Id));
+
+        // Paged two at a time, the whole list comes back once each and in the order one page of it has.
+        var whole = (await ListAsync(WorkflowRunListView.All, attention, from: null, limit: 100)).Rows.Select(row => row.Id).ToList();
+        Assert.Equal(6, whole.Count);
+        Assert.DoesNotContain(theirs, whole);
+
+        var paged = new List<Guid>();
+        WorkflowRunListPosition? position = null;
+        bool more;
+        do
+        {
+            var (rows, hasMore) = await ListAsync(WorkflowRunListView.All, attention, position, limit: 2);
+            paged.AddRange(rows.Select(row => row.Id));
+            position = rows.Count > 0 ? new WorkflowRunListPosition(rows[^1].UpdatedAt, rows[^1].Id) : null;
+            more = hasMore;
+        }
+        while (more);
+
+        Assert.Equal(whole, paged);
+
+        Task<(IReadOnlyList<WorkflowRunSummaryRecord> Rows, bool HasMore)> ListAsync(
+            WorkflowRunListView view, WorkflowRunAttentionCriteria criteria, WorkflowRunListPosition? from, int limit) =>
+            InAsync(WorkspaceA, db => new WorkflowRunListRepository(db).ListAsync(
+                new WorkflowRunListCriteria(view, null, Guid.NewGuid(), criteria, "test", from, limit), Ct));
+    }
+
+    private Task<Guid> SeedListedAsync(Guid workspaceId, Action<WorkflowRun> shape) =>
+        InAsync(workspaceId, async db =>
+        {
+            var run = WorkflowRunSeeds.Run(Now);
+            run.DefinitionVersion = 2;
+            shape(run);
+            db.WorkflowRuns.Add(run);
+            await db.SaveChangesAsync(Ct);
+
+            return run.Id;
+        });
+
     private Task<WorkflowRun> StoredAsync(Guid runId) =>
         InAsync(WorkspaceA, db => db.WorkflowRuns.AsNoTracking().SingleAsync(row => row.Id == runId, Ct));
 

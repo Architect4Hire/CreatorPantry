@@ -1,6 +1,8 @@
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
+using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using CreatorPantry.Domain.Modules.Workflows.Business;
 using CreatorPantry.Domain.Modules.Workflows.Managers;
 using FluentValidation;
@@ -55,6 +57,10 @@ public interface IWorkflowRunFacade
     Task<OperationResult<WorkflowRunServiceModel>> CompleteRunAsync(
         Guid runId, CompleteWorkflowRunViewModel model, CancellationToken cancellationToken);
 
+    /// <summary>One page of the workspace's runs for the reader, with owners and assignees named (13A.11).</summary>
+    Task<OperationResult<CursorPageServiceModel<WorkflowRunSummaryServiceModel>>> ListAsync(
+        WorkflowRunListViewModel model, CancellationToken cancellationToken);
+
     /// <summary>Stops a run for good, keeping it whole and everything it linked as it is (13A.10b).</summary>
     Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
         Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken);
@@ -75,7 +81,10 @@ internal sealed class WorkflowRunFacade(
     IValidator<CompleteWorkflowRunViewModel> completeRunValidator,
     IValidator<AbandonWorkflowRunViewModel> abandonValidator,
     IValidator<RestartWorkflowRunViewModel> restartValidator,
+    IValidator<WorkflowRunListViewModel> listValidator,
     IWorkflowRunBusiness business,
+    IWorkflowRunListBusiness list,
+    IWorkspaceFacade workspaces,
     IWorkspaceContext workspace,
     IIdempotentCommandExecutor idempotency) : IWorkflowRunFacade
 {
@@ -272,6 +281,59 @@ internal sealed class WorkflowRunFacade(
 
         return await business.CompleteRunAsync(runId, model, cancellationToken);
     }
+
+    /// <remarks>
+    /// Any member may read the list. Names are put on after the page is read, in one call to the workspace module for
+    /// everyone on it, so a page costs the same however many people it names; someone who has left is unnamed.
+    /// </remarks>
+    public async Task<OperationResult<CursorPageServiceModel<WorkflowRunSummaryServiceModel>>> ListAsync(
+        WorkflowRunListViewModel model, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var validation = await listValidator.ValidateAsync(model, cancellationToken);
+        if (!validation.IsValid)
+        {
+            // A bad cursor means something different to a client than a bad filter: start over, rather than fix the input.
+            var code = validation.Errors.Any(error => error.PropertyName == "cursor")
+                ? WorkflowErrorCodes.RunListCursorInvalid
+                : WorkflowErrorCodes.RunListInvalid;
+
+            return OperationResult<CursorPageServiceModel<WorkflowRunSummaryServiceModel>>.Failure(OperationError.Validation(
+                code,
+                "That list could not be read as asked.",
+                validation.Errors.Select(failure => (failure.PropertyName, failure.ErrorMessage))));
+        }
+
+        var result = await list.ListAsync(model, cancellationToken);
+        if (!result.Succeeded || result.Value!.Items.Count == 0)
+        {
+            return result;
+        }
+
+        var page = result.Value;
+        var names = await workspaces.FindMemberDisplayNamesAsync(
+            [.. page.Items.SelectMany(item => item.Assignee is { } assignee
+                    ? new[] { item.Owner.MembershipId, assignee.MembershipId }
+                    : [item.Owner.MembershipId])
+                .Distinct()],
+            cancellationToken);
+
+        return OperationResult<CursorPageServiceModel<WorkflowRunSummaryServiceModel>>.Success(page with
+        {
+            Items =
+            [
+                .. page.Items.Select(item => item with
+                {
+                    Owner = Named(item.Owner, names),
+                    Assignee = item.Assignee is { } assignee ? Named(assignee, names) : null,
+                }),
+            ],
+        });
+    }
+
+    private static WorkflowRunMemberServiceModel Named(WorkflowRunMemberServiceModel member, IReadOnlyDictionary<Guid, string> names) =>
+        member with { DisplayName = names.TryGetValue(member.MembershipId, out var name) ? name : null };
 
     public async Task<OperationResult<WorkflowRunServiceModel>> AbandonAsync(
         Guid runId, AbandonWorkflowRunViewModel model, CancellationToken cancellationToken)

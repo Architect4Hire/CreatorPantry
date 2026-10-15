@@ -43,6 +43,9 @@ public sealed class WorkflowRunServiceModel
     /// <summary>When the creator stopped this run (13A.10b), or null.</summary>
     public DateTimeOffset? AbandonedAt { get; init; }
 
+    /// <summary>What the creator has at the end, in plain language, from the pinned version (13A.12's lede).</summary>
+    public string? ExpectedOutcome { get; init; }
+
     /// <summary>Why the creator stopped it, in their words, when they said; null otherwise and for a start over.</summary>
     public string? AbandonReason { get; init; }
 

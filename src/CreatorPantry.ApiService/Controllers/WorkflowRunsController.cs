@@ -2,6 +2,7 @@ using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Modules.Workflows.Facade;
 using CreatorPantry.Domain.Modules.Workflows.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,62 @@ namespace CreatorPantry.ApiService.Controllers;
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/workflow-runs")]
 public sealed class WorkflowRunsController(IWorkflowRunFacade runs) : ControllerBase
 {
+    /// <summary>Lists the workspace's runs, a page at a time.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="query">The view, an optional workflow, the cursor and the page size. Carries no workspace and no person.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Every member including a Viewer may read.
+    ///
+    /// **Views.** `mine` (the default) is the runs in progress the reader started or that are assigned to them;
+    /// `completed` is the workspace's completed runs; `attention` is the workspace's runs in progress that need a
+    /// look; `all` is every run in the workspace, whatever its state. `definition` narrows any view to one workflow
+    /// by key; a key no workflow has is an empty page. A view or filter that cannot be read answers
+    /// `400 workflows.run.list.invalid`.
+    ///
+    /// **Order.** Most recently changed first, and for `attention` the longest-waiting first. Two runs changed at the
+    /// same moment are ordered by id, which is what keeps a page boundary from repeating one and skipping the other.
+    /// The list is not a snapshot: a run that changes while you page moves to its new place, so it can be missed by
+    /// the pages still to come or met twice. Start again from the first page for a fresh look.
+    ///
+    /// **Needs attention**, decided from each run alone — `attentionReasons` says which applies, on every run in
+    /// progress whatever the view: `idle` when no one has touched it for seven days; `newer_version` when a newer
+    /// version of its workflow has shipped since it started; and `not_yours_to_do` when the step it is on needs more
+    /// access than the reader has. Treat the codes as an open set. A record a run holds that has gone is not checked
+    /// here; the run page warns of it.
+    ///
+    /// **Each row is a summary**: the run's own state, counts and dates; its workflow's `goal`; its `owner` and
+    /// `assignee` by membership, with `displayName` null for someone who has left; the step it is on (or was left on);
+    /// `linkedResource` — the record it started from, or else the last one it made — by kind and id only; and
+    /// `nextAction`, the step's main action and whether the reader can take it, while it is in progress and has a step
+    /// to do. No row carries a draft, a reason the creator gave, an address, or anything a linked record holds: the
+    /// run page has those.
+    ///
+    /// **Paging is by keyset cursor.** Pass a page's `nextCursor` back as `cursor`; it is null on the last page. A
+    /// cursor is bound to the workspace, the view, the filter and the reader it was issued for, and one replayed
+    /// against another answers `400 workflows.run.list.cursor.invalid` rather than a page from the wrong list.
+    /// `limit` outside 1–100 is clamped, not refused. The response is `no-store`.
+    /// </remarks>
+    [HttpGet]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<CursorPageServiceModel<WorkflowRunSummaryServiceModel>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> List(
+        string workspaceSlug,
+        [FromQuery] WorkflowRunListViewModel query,
+        CancellationToken cancellationToken)
+    {
+        // Set before the result is examined, so a refusal carries it too.
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await runs.ListAsync(query, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Starts a run of one guided workflow.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the

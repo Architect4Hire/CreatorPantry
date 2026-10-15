@@ -1,0 +1,273 @@
+<cp-page-head
+  heading="Workflows"
+  lede="Pick what you want to do, and we’ll take you through it one step at a time. Stop whenever you like and pick up later."
+/>
+
+<div class="hub">
+  @switch (phase()) {
+    @case ('loading') {
+      <cp-card><p class="plain" role="status">Loading your workflows…</p></cp-card>
+    }
+    @case ('unavailable') {
+      <cp-card>
+        <cp-notice tone="error" role="alert">
+          Your workspaces couldn’t be loaded right now. Nothing is lost.
+          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+        </cp-notice>
+      </cp-card>
+    }
+    @case ('not_found') {
+      <cp-card><cp-notice tone="error" role="alert">We couldn’t find this workspace.</cp-notice></cp-card>
+    }
+    @default {
+      <!-- The one place for what is true of the whole page. -->
+      @if (discarded()) {
+        <cp-notice tone="warning" role="status">
+          A picture-and-posts run kept on this device couldn’t be read, so it was set aside. Anything already in your
+          workspace is safe.
+        </cp-notice>
+      } @else if (checking()) {
+        <p class="plain cp-muted" role="status">Checking what you have in progress…</p>
+      }
+
+      <!-- Returning: what was under way and what needs a look come first. Each card is only here when it has something
+           to say, or something it couldn't read. -->
+      @if (!firstUse() && (continueRows().length > 0 || continueDegraded() || attentionRows().length > 0 || attentionDegraded())) {
+        <ul cpCardGrid minColumn="22rem" aria-label="Your work in progress" class="topics">
+          @if (continueRows().length > 0 || continueDegraded()) {
+            <li>
+              <cp-topic-card #continueCard heading="Continue where you left off" headingId="hub-continue-heading">
+                @if (continueDegraded()) {
+                  <cp-notice tone="warning" role="status">
+                    Some of your work in progress couldn’t be loaded right now.
+                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('continue') || null" (click)="retrySection('continue')">
+                      {{ retrying().has('continue') ? 'Trying again…' : 'Try again' }}
+                    </button>
+                  </cp-notice>
+                }
+                @if (continueVisible().length > 0) {
+                  <ul class="rows" aria-labelledby="hub-continue-heading">
+                    @for (row of continueVisible(); track row.id) {
+                      <li>
+                        <span class="row-text">
+                          <strong>{{ row.goal }}</strong>
+                          @if (row.title) {
+                            <span>{{ row.title }}</span>
+                          }
+                          <span class="cp-muted">{{ row.detail }}</span>
+                          @if (row.when) {
+                            <span class="cp-muted">Last saved {{ row.when }}</span>
+                          }
+                        </span>
+                        <a cpButton variant="secondary" size="sm" [routerLink]="row.link" [attr.aria-label]="row.actionLabel">{{ row.action }}</a>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (moreProblem() === 'mine') {
+                  <cp-notice tone="warning" role="status">
+                    More couldn’t be loaded right now.
+                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="loadingMore() !== null || null" (click)="retryMore('mine')">Try again</button>
+                  </cp-notice>
+                }
+                @if (continueHasMore()) {
+                  <div cpTopicCardActions class="cp-actions">
+                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('mine')">
+                      {{ loadingMore() === 'mine' ? 'Loading…' : 'Show more' }}
+                    </button>
+                  </div>
+                }
+              </cp-topic-card>
+            </li>
+          }
+
+          @if (attentionRows().length > 0 || attentionDegraded()) {
+            <li>
+              <cp-topic-card #attentionCard heading="Needs attention" headingId="hub-attention-heading">
+                @if (attentionDegraded()) {
+                  <cp-notice tone="warning" role="status">
+                    What needs a look couldn’t all be loaded right now.
+                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('attention') || null" (click)="retrySection('attention')">
+                      {{ retrying().has('attention') ? 'Trying again…' : 'Try again' }}
+                    </button>
+                  </cp-notice>
+                }
+                @if (attentionVisible().length > 0) {
+                  <ul class="rows" aria-labelledby="hub-attention-heading">
+                    @for (row of attentionVisible(); track row.id) {
+                      <li>
+                        <span class="row-text">
+                          <span class="reason">
+                            <strong>{{ row.goal }}</strong>
+                            <cp-status-pill tone="warning">Needs a look</cp-status-pill>
+                          </span>
+                          @if (row.title) {
+                            <span>{{ row.title }}</span>
+                          }
+                          @for (line of row.lines; track line) {
+                            <span>{{ line }}</span>
+                          }
+                          @if (row.detail) {
+                            <span class="cp-muted">{{ row.detail }}</span>
+                          }
+                        </span>
+                        <a cpButton variant="secondary" size="sm" [routerLink]="row.link" [attr.aria-label]="row.actionLabel">{{ row.action }}</a>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (moreProblem() === 'attention') {
+                  <cp-notice tone="warning" role="status">
+                    More couldn’t be loaded right now.
+                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="loadingMore() !== null || null" (click)="retryMore('attention')">Try again</button>
+                  </cp-notice>
+                }
+                @if (attentionHasMore()) {
+                  <div cpTopicCardActions class="cp-actions">
+                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('attention')">
+                      {{ loadingMore() === 'attention' ? 'Loading…' : 'Show more' }}
+                    </button>
+                  </div>
+                }
+              </cp-topic-card>
+            </li>
+          }
+        </ul>
+      }
+
+      <section class="goals" aria-labelledby="hub-goals-heading">
+        <h2 #goalsHeading id="hub-goals-heading" tabindex="-1">What do you want to accomplish?</h2>
+        @if (firstUse()) {
+          <p class="plain">Nothing in progress yet. Pick something below to begin — each one takes you through it a step at a time.</p>
+        }
+
+        <div class="search">
+          <cp-search-field label="Search what you can do">
+            <input
+              type="search"
+              name="search"
+              placeholder="Search, such as “recipe” or “posts”"
+              autocomplete="off"
+              [value]="query()"
+              (input)="onSearchInput($event)"
+            />
+          </cp-search-field>
+          <!-- The one announcement of what the search found, including nothing. -->
+          <p class="plain cp-muted" role="status">{{ matchText() }}</p>
+        </div>
+
+        @if (definitions().state === 'unavailable') {
+          <cp-notice tone="warning" role="status">
+            Some of what you can do couldn’t be loaded right now.
+            <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('definitions') || null" (click)="retrySection('definitions')">
+              {{ retrying().has('definitions') ? 'Trying again…' : 'Try again' }}
+            </button>
+          </cp-notice>
+        } @else if (definitions().state === 'loading') {
+          <p class="plain cp-muted" role="status">Loading what you can do…</p>
+        }
+
+        @if (shownGoals().length === 0) {
+          <cp-empty-state variant="no-results" title="Try another word" description="Or clear the search to see everything you can do.">
+            <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="setQuery('')">Clear search</button>
+          </cp-empty-state>
+        } @else {
+          <ul cpCardGrid minColumn="18rem" aria-labelledby="hub-goals-heading">
+            @for (card of shownGoals(); track card.id) {
+              <li>
+                <cp-topic-card [heading]="card.goal" [headingLevel]="3" [headingId]="'hub-goal-' + card.id">
+                  <p class="plain">{{ card.description }}</p>
+                  <p class="plain cp-muted">You’ll end up with: {{ card.outcome }}</p>
+
+                  @if (card.roleNote) {
+                    <cp-notice role="note">{{ card.roleNote }}</cp-notice>
+                  }
+                  @for (need of card.needs; track need.message) {
+                    <cp-notice tone="warning" role="note">
+                      {{ need.message }}
+                      @if (need.link) {
+                        <a [routerLink]="need.link">{{ need.linkText }}</a>
+                      }
+                    </cp-notice>
+                  }
+                  @if (startProblems()[card.id]; as problem) {
+                    <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
+                  }
+
+                  @if (card.canStart) {
+                    <div cpTopicCardActions class="cp-actions">
+                      @if (card.start.kind === 'run') {
+                        <button
+                          cpButton
+                          type="button"
+                          variant="primary"
+                          [attr.aria-disabled]="starting() !== null || null"
+                          [attr.aria-label]="'Start: ' + card.goal"
+                          (click)="start(card)"
+                        >
+                          {{ starting() === card.id ? 'Starting…' : 'Start' }}
+                        </button>
+                      } @else {
+                        @for (link of card.start.links; track link.label) {
+                          <a
+                            cpButton
+                            [variant]="link.primary ? 'primary' : 'secondary'"
+                            [routerLink]="link.link"
+                            [queryParams]="link.queryParams"
+                            [attr.aria-label]="link.ariaLabel"
+                          >{{ link.label }}</a>
+                        }
+                      }
+                    </div>
+                  }
+                </cp-topic-card>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      @if (outcomeRows().length > 0 || finished().state === 'unavailable') {
+        <cp-topic-card #outcomesCard heading="Recent outcomes" headingId="hub-outcomes-heading">
+          @if (finished().state === 'unavailable') {
+            <cp-notice tone="warning" role="status">
+              What you finished recently couldn’t be loaded right now.
+              <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('outcomes') || null" (click)="retrySection('outcomes')">
+                {{ retrying().has('outcomes') ? 'Trying again…' : 'Try again' }}
+              </button>
+            </cp-notice>
+          }
+          @if (outcomesVisible().length > 0) {
+            <ul class="rows" aria-labelledby="hub-outcomes-heading">
+              @for (row of outcomesVisible(); track row.id) {
+                <li>
+                  <span class="row-text">
+                    <strong>{{ row.goal }}</strong>
+                    @if (row.title) {
+                      <span>{{ row.title }}</span>
+                    }
+                    <span class="cp-muted">Finished {{ row.when }}</span>
+                  </span>
+                  <a cpButton variant="secondary" size="sm" [routerLink]="row.link" [attr.aria-label]="row.actionLabel">{{ row.action }}</a>
+                </li>
+              }
+            </ul>
+          }
+          @if (moreProblem() === 'completed') {
+                  <cp-notice tone="warning" role="status">
+                    More couldn’t be loaded right now.
+                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="loadingMore() !== null || null" (click)="retryMore('completed')">Try again</button>
+                  </cp-notice>
+                }
+                @if (outcomesHasMore()) {
+                  <div cpTopicCardActions class="cp-actions">
+                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('completed')">
+                      {{ loadingMore() === 'completed' ? 'Loading…' : 'Show more' }}
+                    </button>
+                  </div>
+                }
+        </cp-topic-card>
+      }
+    }
+  }
+</div>

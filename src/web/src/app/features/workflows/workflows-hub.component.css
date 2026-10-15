@@ -1,0 +1,59 @@
+:host {
+  display: block;
+}
+
+.hub,
+.goals {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+.goals {
+  gap: var(--cp-space-4);
+}
+
+.goals > h2 {
+  margin: 0;
+}
+
+.plain {
+  margin: 0;
+}
+
+.search {
+  display: grid;
+  gap: var(--cp-space-2);
+  max-width: var(--cp-measure-field);
+}
+
+/* A short list inside a topic card: what the work is, and the one way into it. */
+.rows {
+  display: grid;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.row-text {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  flex: 1 1 14rem;
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}

@@ -29,11 +29,17 @@ public static class WorkflowsServiceCollectionExtensions
         services.AddScoped<IValidator<CompleteWorkflowRunViewModel>, CompleteWorkflowRunViewModelValidator>();
         services.AddScoped<IValidator<AbandonWorkflowRunViewModel>, AbandonWorkflowRunViewModelValidator>();
         services.AddScoped<IValidator<RestartWorkflowRunViewModel>, RestartWorkflowRunViewModelValidator>();
+        services.AddScoped<IValidator<WorkflowRunListViewModel>, WorkflowRunListViewModelValidator>();
         services.AddScoped<IWorkflowRunRepository, WorkflowRunRepository>();
         services.AddScoped<IWorkflowRunDataLayer, WorkflowRunDataLayer>();
         services.AddScoped<IWorkflowFacts, WorkflowFacts>();
         services.AddScoped<IWorkflowRunBusiness, WorkflowRunBusiness>();
+        services.AddScoped<IWorkflowRunListRepository, WorkflowRunListRepository>();
+        services.AddScoped<IWorkflowRunListDataLayer, WorkflowRunListDataLayer>();
+        services.AddScoped<IWorkflowRunListBusiness, WorkflowRunListBusiness>();
         services.AddScoped<IWorkflowRunFacade, WorkflowRunFacade>();
+        services.AddScoped<IWorkflowDefinitionBusiness, WorkflowDefinitionBusiness>();
+        services.AddScoped<IWorkflowDefinitionFacade, WorkflowDefinitionFacade>();
 
         return services;
     }

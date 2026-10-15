@@ -20,6 +20,12 @@ public static class WorkflowErrorCodes
     /// <summary>400: a Start over was not confirmed, or was not shaped as one can be.</summary>
     public const string RunRestartInvalid = "workflows.run.restart.invalid";
 
+    /// <summary>400: a list's view or filter could not be read; the field errors say which.</summary>
+    public const string RunListInvalid = "workflows.run.list.invalid";
+
+    /// <summary>400: the cursor is not one this list issued — another view, filter, reader or workspace. Start again without one.</summary>
+    public const string RunListCursorInvalid = "workflows.run.list.cursor.invalid";
+
     /// <summary>400: a stop was not confirmed, or was not shaped as one can be.</summary>
     public const string RunAbandonInvalid = "workflows.run.abandon.invalid";
 

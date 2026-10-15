@@ -27,6 +27,7 @@ internal static class WorkflowRunMapper
             DefinitionKey = run.DefinitionKey,
             DefinitionVersion = run.DefinitionVersion,
             Goal = definition.Goal,
+            ExpectedOutcome = definition.ExpectedOutcome,
             Title = run.Title,
             Status = run.Status,
             StepCount = run.StepCount,

@@ -177,6 +177,18 @@ A flow takes the creator through a piece of work in order, keeping what they ent
 6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
 7. A flow keeps its steps, their order, what is saved as the creator goes and how it resumes. The shape changes what is drawn, never when something is written.
 
+**A guided workflow run is drawn by the shared shell, not by its journey.** `WorkflowShellComponent`
+(`src/app/shared/workflow-shell/`) is this shape for a server-side workflow run (13A): the progress and stepper, the
+step card with its help and legend, the save status, Back / Skip for now / Continue (or Finish), Save and exit, and
+Start over and Stop this run folded under "More options". It reads the run and moves it only by the run's own
+commands, so the server's current step is the one on screen and there is no step in the address. A journey gives it
+a screen per step as `<ng-template cpWorkflowStep="key">` and talks to it only through `WorkflowStepPort` —
+registering what it holds and a `flush()` the shell calls before every move; a step with no screen yet links to the
+page where it is done. The hosting page prints the `cp-page-head` from the shell's `described` output, with
+`workflowLede()` as the lede, because a routed page owns its one heading. `WorkflowRunPageComponent`
+(`/:ws/workflows/runs/:runId`) is the reference. The two flows above predate it and keep their own shells until their
+journeys move onto it.
+
 A page that is none of the three — the recipe editor, the kitchen view, a studio that is one long form — still takes the frame and the page head, and owes nothing more to these shapes:
 
 - **The recipe editor** is one form under one Save, so its head carries what acts on the whole recipe: the breadcrumb to Recipes, the recipe's name, and in the action slot the "Unsaved changes" and "Total time will be recalculated" notes, Print, Kitchen view, Archive and Save. Everything under the head is the form, and "Tabs, anchor navs, and one Save" governs it.
