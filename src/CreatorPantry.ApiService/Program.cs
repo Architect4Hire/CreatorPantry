@@ -22,6 +22,7 @@ using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Dashboard;
 using CreatorPantry.Domain.Modules.Workflows;
 using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Planning;
 using CreatorPantry.Domain.Modules.Publishing;
 using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
 using CreatorPantry.Domain.Modules.Recipes;
@@ -115,6 +116,11 @@ builder.Services.AddDashboardModule();
 // Guided-workflow runs (13A.5). Starting one checks its starting record through the recipe, media and content
 // modules and reads the brand profile for the workspace's time zone, so it is registered after all of them.
 builder.Services.AddWorkflowsModule();
+
+// Personal work tasks (13A.24). Capturing one checks its links through the recipe, content, media and
+// workflow modules and reads the brand profile for the workspace's scheduling zone, so it comes after all
+// five. The worker has no task route.
+builder.Services.AddPlanningModule();
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

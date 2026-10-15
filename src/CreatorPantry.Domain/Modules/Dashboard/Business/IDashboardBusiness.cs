@@ -41,7 +41,9 @@ public interface IDashboardBusiness
 /// <para>
 /// <strong>"Today" is the workspace's.</strong> Upcoming content is counted from today in the brand profile's
 /// zone, and a planned date is a calendar day in that zone; a scheduled post's instant is compared with the
-/// start of the window's first and last day there. With no zone set, UTC, and the answer says so.
+/// start of the window's first and last day there. <strong>With no zone set there is no today</strong>: the
+/// answer carries a null day and marks the one section that depends on a day unavailable, rather than
+/// answering in UTC as though it knew. Everything that does not turn on a date still answers.
 /// </para>
 /// </remarks>
 internal sealed class DashboardBusiness(
@@ -61,8 +63,13 @@ internal sealed class DashboardBusiness(
     {
         var now = clock.UtcNow;
         var zone = await TimeZoneAsync(cancellationToken);
-        var today = zone is null ? DateOnly.FromDateTime(now.UtcDateTime) : zones.LocalDate(now, zone);
-        var through = today.AddDays(DashboardPolicy.UpcomingDays - 1);
+        var today = zone is null ? (DateOnly?)null : zones.LocalDate(now, zone);
+
+        // The two facades that take a window still need one. With no zone the parts that depend on it are
+        // not published, so this stands in for a day the answer never claims to know; the counts and the
+        // lists beside them are the same whatever window is passed.
+        var from = today ?? DateOnly.FromDateTime(now.UtcDateTime);
+        var through = from.AddDays(DashboardPolicy.UpcomingDays - 1);
         var windowEnd = StartOf(through.AddDays(1), zone);
 
         var work = await SectionAsync("recipes", () => recipes.GetWorkAsync(cancellationToken), cancellationToken);
@@ -73,7 +80,7 @@ internal sealed class DashboardBusiness(
         var awaiting = await SectionAsync("proposals", () => ProposalsAsync(cancellationToken), cancellationToken);
         var followUps = await SectionAsync("test follow-ups", () => recipes.GetTestFollowUpsAsync(cancellationToken), cancellationToken);
         var boardSummary = await SectionAsync(
-            "board", () => board.GetBoardAsync(today, through, DashboardPolicy.ListLimit, cancellationToken), cancellationToken);
+            "board", () => board.GetBoardAsync(from, through, DashboardPolicy.ListLimit, cancellationToken), cancellationToken);
         var uploads = await SectionAsync(
             "uploads",
             async () => new DashboardRecentUploadsServiceModel(await library.ListRecentAsync(DashboardPolicy.ListLimit, cancellationToken)),
@@ -95,7 +102,11 @@ internal sealed class DashboardBusiness(
             blockers,
             awaiting,
             followUps,
-            Upcoming(boardSummary, ledger, titles, today, through),
+            // The one section that is a claim about dates. Without a zone it has no honest answer, and
+            // "nothing upcoming" would be the most misleading of the wrong ones.
+            today is { } day
+                ? Upcoming(boardSummary, ledger, titles, day, through)
+                : DashboardSection<DashboardUpcomingServiceModel>.Unavailable(),
             boardSummary.Data is { } columns
                 ? DashboardSection<DashboardBoardServiceModel>.Ready(
                     new DashboardBoardServiceModel(columns.Columns.Sum(column => column.Count), columns.Columns))
@@ -224,7 +235,7 @@ internal sealed class DashboardBusiness(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // Without it the dashboard still answers, in UTC, and says so.
+            // Without it the dashboard still answers, minus the one section that needs a day, and says so.
             logger.LogWarning("Dashboard time zone could not be read ({ExceptionType}).", exception.GetType().Name);
 
             return null;

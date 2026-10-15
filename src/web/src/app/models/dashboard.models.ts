@@ -135,9 +135,10 @@ export interface DashboardPublishing {
 
 export interface Dashboard {
   readonly generatedAt: string;
-  /** The zone "today" was worked out in, or null for UTC. */
+  /** The workspace's own zone, or null when it has set none — and then `today` is null too. */
   readonly timeZoneId: string | null;
-  readonly today: string;
+  /** The workspace's day. Null when it has set no zone: the server will not guess one. */
+  readonly today: string | null;
   readonly recipesInProgress: DashboardSection<DashboardRecipesInProgress>;
   readonly readinessBlockers: DashboardSection<DashboardReadiness>;
   readonly aiProposals: DashboardSection<DashboardAiProposals>;
@@ -365,7 +366,7 @@ export function decodeDashboard(raw: unknown): Dashboard | null {
   if (!isRecord(raw)) return null;
 
   const { generatedAt, timeZoneId, today } = raw;
-  if (!isString(generatedAt) || !isStringOrNull(timeZoneId) || !isString(today)) return null;
+  if (!isString(generatedAt) || !isStringOrNull(timeZoneId) || !isStringOrNull(today)) return null;
 
   return {
     generatedAt,

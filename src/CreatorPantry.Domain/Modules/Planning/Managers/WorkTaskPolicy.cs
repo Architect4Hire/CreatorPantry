@@ -20,6 +20,24 @@ public static class WorkTaskPolicy
     public const int MaxLabels = 25;
 
     /// <summary>
+    /// The most rows one group of the daily view returns (13A.25), whatever the day holds.
+    /// </summary>
+    /// <remarks>
+    /// A day's work is bounded by what a person can do, so a group past this is a sign of something other
+    /// than a plan — an import, a runaway template — and paging it would dignify that rather than show it.
+    /// The group says it was cut; it does not say by how much, because a count nobody is showing is a second
+    /// query per group for nothing.
+    /// </remarks>
+    public const int TodayGroupMaxRows = 50;
+
+    /// <summary>How many unplanned tasks the daily view may offer as suggestions (13A.25).</summary>
+    /// <remarks>
+    /// Three, because a suggestion is a nudge and a list of them is another backlog. They are offered only
+    /// when asked for, and offering one schedules nothing.
+    /// </remarks>
+    public const int TodaySuggestionCount = 3;
+
+    /// <summary>
     /// The distance left between two neighbouring tasks' ranks, and the rank of the first task in a group.
     /// </summary>
     /// <remarks>

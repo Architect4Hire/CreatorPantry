@@ -31,9 +31,11 @@
   @case ('ready') {
     @if (dashboard(); as shown) {
       <p class="cp-muted plain updated">
-        Read at {{ when(shown.generatedAt, 'time') }} · today is {{ day(shown.today, 'long') }}
-        @if (!shown.timeZoneId) {
-          (in UTC — set your time zone in Brand settings)
+        Read at {{ when(shown.generatedAt, 'time') }}
+        @if (shown.today; as today) {
+          · today is {{ day(today, 'long') }}
+        } @else {
+          · set your time zone in Brand settings to see your day and what is coming up
         }
       </p>
 

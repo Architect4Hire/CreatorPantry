@@ -339,11 +339,15 @@ public sealed class ModuleBoundaryTests
     /// them, and removed in 13A.5 when the start command gave it a facade and the full shape applied.
     /// </para>
     /// <para>
-    /// <c>Planning</c> follows the same path: 13A.23 lands the work-task entities and their migration with no
-    /// endpoint, and 13A.24's quick-capture command gives it a facade.
+    /// <c>Planning</c> followed the same path: listed from 13A.23, when the work-task entities and their
+    /// migration landed with no endpoint, and removed in 13A.24 when quick capture gave it a facade.
+    /// </para>
+    /// <para>
+    /// Empty now, which is the state to prefer: a name here is a module the shape rules are not fully
+    /// enforced on, and it earns its place only for as long as the seam above the entities is unwritten.
     /// </para>
     /// </remarks>
-    private static readonly string[] ModulesUnderConstruction = ["Planning"];
+    private static readonly string[] ModulesUnderConstruction = [];
 
     /// <summary>
     /// Modules that own no table: their business composes other modules' facades and stores nothing, so a

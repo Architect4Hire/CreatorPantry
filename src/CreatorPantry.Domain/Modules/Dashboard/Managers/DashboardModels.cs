@@ -99,12 +99,27 @@ public sealed record DashboardPublishingServiceModel(
 /// holds. Nothing here is stored, and nothing here is a second account of anything.
 /// </summary>
 /// <param name="GeneratedAt">When it was read (UTC). It is not cached, so this is now.</param>
-/// <param name="TimeZoneId">The zone "today" was worked out in: the brand profile's, or null for UTC when it has none.</param>
-/// <param name="Today">Today, in that zone.</param>
+/// <param name="TimeZoneId">
+/// The zone "today" was worked out in: the workspace's own, from its brand profile. Null when it has set
+/// none, and then <paramref name="Today"/> is null too and every section that depends on a day is
+/// <see cref="DashboardSectionStatus.Unavailable"/>.
+/// </param>
+/// <param name="Today">
+/// Today, in <paramref name="TimeZoneId"/>. Null when the workspace has set no zone.
+/// </param>
+/// <remarks>
+/// <para>
+/// <strong>With no zone, the dashboard says it does not know rather than guessing.</strong> It used to
+/// answer in UTC and name the zone null, which reads as an answer and is wrong by up to a day at either
+/// end — an evening's work filed under tomorrow, a post counted as upcoming that has already gone. The
+/// daily task view (13A.25) refuses outright for the same reason; here the sections that need no day still
+/// answer, because a glance at recipes in progress or the AI proposals waiting is true whatever day it is.
+/// </para>
+/// </remarks>
 public sealed record DashboardServiceModel(
     DateTimeOffset GeneratedAt,
     string? TimeZoneId,
-    DateOnly Today,
+    DateOnly? Today,
     DashboardSection<RecipeWorkSummaryServiceModel> RecipesInProgress,
     DashboardSection<DashboardReadinessServiceModel> ReadinessBlockers,
     DashboardSection<DashboardAiProposalsServiceModel> AiProposals,

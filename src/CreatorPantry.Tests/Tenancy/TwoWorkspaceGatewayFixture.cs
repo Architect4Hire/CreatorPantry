@@ -14,7 +14,9 @@ using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using CreatorPantry.Tests.Gateway;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CreatorPantry.Tests.Tenancy;
@@ -57,11 +59,30 @@ internal sealed class TwoWorkspaceGatewayFixture : IAsyncDisposable
     public SeededWorkspace WorkspaceB { get; private set; } = null!;
 
     /// <param name="configureApiServices">Optional test doubles for the API host, such as an in-memory object store.</param>
-    public static async Task<TwoWorkspaceGatewayFixture> CreateAsync(Action<IServiceCollection>? configureApiServices = null)
+    /// <param name="time">
+    /// A fixed or movable clock for a feature whose answer depends on what day it is.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <strong><paramref name="time"/> must reach both hosts, which is why it is a parameter here rather than
+    /// something a test registers through <paramref name="configureApiServices"/>.</strong> The API validates
+    /// the gateway's internal token against <c>IClock</c>, and <c>IClock</c> reads the registered
+    /// <see cref="TimeProvider"/>; moving one host's clock and not the other's makes every token the gateway
+    /// mints either expired or not yet valid, and every request through the fixture answers
+    /// <c>503 auth.signin.unavailable</c> with nothing in the logs to say why.
+    /// </para>
+    /// </remarks>
+    public static async Task<TwoWorkspaceGatewayFixture> CreateAsync(
+        Action<IServiceCollection>? configureApiServices = null, TimeProvider? time = null)
     {
-        var api = await SqliteApiHost.StartAsync(configureServices: configureApiServices);
+        var api = await SqliteApiHost.StartAsync(time, configureApiServices);
         var link = new ApiLink(api);
-        var gateway = GatewayTestHost.Create(proxyDownstream: link.CreateHandler, apiSessions: link.CreateHandler);
+        var gateway = GatewayTestHost.Create(
+            proxyDownstream: link.CreateHandler,
+            apiSessions: link.CreateHandler,
+            configure: time is null
+                ? null
+                : web => web.ConfigureTestServices(services => services.AddSingleton(time)));
         var fixture = new TwoWorkspaceGatewayFixture(api, gateway) { _link = link };
 
         fixture.WorkspaceA = await fixture.SeedWorkspaceAsync("owner-a@example.com", "editor-a@example.com", WorkspaceRole.Editor);

@@ -75,6 +75,21 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
         return part.GetProperty("data");
     }
 
+    /// <summary>
+    /// Gives a workspace the scheduling zone every date-dependent section now needs. Without one the
+    /// dashboard answers with no day and marks `upcoming` unavailable rather than guessing at UTC, so a
+    /// test about what is coming up has to say which calendar it means.
+    /// </summary>
+    private async Task SetZoneAsync(SeededWorkspace workspace, string zone = "America/Chicago")
+    {
+        using var client = await SignInAsync(workspace.OwnerEmail);
+
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync(
+            $"/api/v1/workspaces/{workspace.Slug}/brand-profile",
+            new { brandName = "Cozy Fall", timeZoneId = zone },
+            Ct)).StatusCode);
+    }
+
     private static int CountOf(JsonElement counts, string key, string name) =>
         counts.EnumerateArray().Single(entry => entry.GetProperty(key).GetString() == name).GetProperty("count").GetInt32();
 
@@ -83,6 +98,9 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
     [Fact]
     public async Task An_empty_workspace_answers_every_section_with_zeros_and_empty_lists()
     {
+        // A zone, so that what this test is about is the workspace being empty rather than unconfigured.
+        await SetZoneAsync(_fixture.WorkspaceA);
+
         var body = await ReadAsync(_fixture.WorkspaceA);
 
         foreach (var section in new[] { "recipesInProgress", "readinessBlockers", "aiProposals", "testFollowUps", "upcoming", "board", "recentUploads", "publishing" })
@@ -101,9 +119,34 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
         Assert.Equal(0, Data(body, "recentUploads").GetProperty("items").GetArrayLength());
         Assert.Equal(0, Data(body, "publishing").GetProperty("needsAttentionCount").GetInt32());
 
-        // No brand profile, so no zone: today is UTC's, and the answer says so.
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("timeZoneId").ValueKind);
-        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), DateOnly.Parse(body.GetProperty("today").GetString()!));
+        Assert.Equal("America/Chicago", body.GetProperty("timeZoneId").GetString());
+        Assert.Equal(JsonValueKind.String, body.GetProperty("today").ValueKind);
+    }
+
+    [Fact]
+    public async Task Setting_a_zone_is_what_gives_the_dashboard_a_day()
+    {
+        // Same workspace, before and after the one setting that decides it.
+        var before = await ReadAsync(_fixture.WorkspaceA);
+
+        // No zone, so no day: the dashboard says it does not know rather than answering in UTC, which
+        // would be wrong by up to a day at either end.
+        Assert.Equal(JsonValueKind.Null, before.GetProperty("timeZoneId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, before.GetProperty("today").ValueKind);
+        Assert.Equal("Unavailable", before.GetProperty("upcoming").GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, before.GetProperty("upcoming").GetProperty("data").ValueKind);
+
+        // The sections that do not turn on a date answered all along.
+        Assert.Equal("Ready", before.GetProperty("recipesInProgress").GetProperty("status").GetString());
+        Assert.Equal("Ready", before.GetProperty("board").GetProperty("status").GetString());
+
+        await SetZoneAsync(_fixture.WorkspaceA);
+
+        var after = await ReadAsync(_fixture.WorkspaceA);
+
+        Assert.Equal("America/Chicago", after.GetProperty("timeZoneId").GetString());
+        Assert.Equal(JsonValueKind.String, after.GetProperty("today").ValueKind);
+        Assert.Equal("Ready", after.GetProperty("upcoming").GetProperty("status").GetString());
     }
 
     [Fact]
@@ -205,6 +248,8 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Upcoming_is_the_next_fourteen_days_of_planned_cards_and_scheduled_posts_and_the_board_counts_every_card()
     {
+        await SetZoneAsync(_fixture.WorkspaceA);
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var cards = await SeedCardsAsync(_fixture.WorkspaceA,
         [
@@ -336,6 +381,7 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Every_list_stays_at_five_and_the_request_runs_the_same_statements_however_much_the_workspace_holds()
     {
+        await SetZoneAsync(_fixture.WorkspaceA);
         await SeedEverythingAsync(_fixture.WorkspaceA, scale: 1);
         await ReadAsync(_fixture.WorkspaceA);
 
@@ -376,6 +422,8 @@ public sealed class DashboardEndpointTests : IAsyncLifetime
     [Fact]
     public async Task One_workspaces_dashboard_holds_only_its_own_and_another_workspace_is_refused_as_unknown()
     {
+        await SetZoneAsync(_fixture.WorkspaceA);
+        await SetZoneAsync(_fixture.WorkspaceB);
         await SeedEverythingAsync(_fixture.WorkspaceB, scale: 2);
         await SeedRecipesAsync(_fixture.WorkspaceA, RecipeStatus.Draft, 1, "Only A");
 

@@ -24211,6 +24211,210 @@
           }
         ]
       }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks": {
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Captures one piece of the caller\u0027s own work in the workspace named by the route.",
+        "description": "Contributor and above; a Viewer is refused with \u0060403\u0060. **\u0060title\u0060 is the\nonly required field** \u2014 everything else is optional, and everything the request does not carry the\nserver decides: the owner is the caller, the assignee is the owner, the status is always \u0060Backlog\u0060,\nand the task goes to the bottom of its list. The place is not published; the order a list arrives in\nis the order.\n\n**A capture lands in the week you are planning in.** With no \u0060planningWeekStart\u0060, the week holding\n\u0060scheduledDate\u0060 is used; with neither, the week holding today in the workspace\u0027s scheduling zone. A\nweek is named by its first day and **starts on a Monday**; any other day answers \u0060400\u0060. A day outside\nits week answers \u0060400\u0060 too. A workspace that has set no scheduling zone gets a task in no week rather\nthan one guessed for it \u2014 capture never fails for want of a setting.\n\n**A due date, an estimate and labels are not part of capturing.** Neither is a status, an assignee or\na recurrence: those are the server\u0027s or a later edit\u0027s, and sending one is ignored rather than\nhonoured.\n\n**Every linked record must be this workspace\u0027s own.** \u0060recipeId\u0060, \u0060contentCardId\u0060, \u0060mediaAssetId\u0060 and\n\u0060workflowRunId\u0060 are each checked through the record\u0027s owner before anything is written, and\n\u0060workflowStepKey\u0060 must be a step of the run beside it. One that cannot be linked answers\n\u0060422 planning.work_task.link.unprocessable\u0060 naming the field \u2014 **the same answer whether the record\nnever existed, can no longer be used, or belongs to another workspace**, so a task cannot be used to\nask what a neighbour owns. A step key with no run is a \u0060400\u0060.\n\n**Nothing is half-written.** \u0060409 planning.work_task.conflict\u0060 means the write did not happen and the\nrequest is safe to send again as it stands.\n\nWith an \u0060Idempotency-Key\u0060, a repeat of the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and creates nothing more; the same key with a different body is refused.\nWithout a key, two identical requests are two tasks.\n\nAnswers \u0060201\u0060 with the task. **There is no \u0060Location\u0060**: a task has no read route of its own yet.\nThe response is \u0060no-store\u0060 \u2014 it is one person\u0027s private working list.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. Send one to make a retry safe.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkTask"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkTask"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/today": {
+      "get": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Reads the caller\u0027s own day in the workspace named by the route.",
+        "description": "Every member including a Viewer may read, because what comes back is **the caller\u0027s own work and\nnobody else\u0027s**: every group is keyed on the caller\u0027s membership as the task\u0027s assignee, so another\nmember\u0027s list is not something this route can be asked for. A task handed to the caller appears here\neven though someone else captured it, and names that person as its \u0060owner\u0060.\n\n**The groups do not overlap.** A task is placed by the first rule it matches: \u0060completedToday\u0060, then\n\u0060overdue\u0060, then \u0060inProgress\u0060, then \u0060waiting\u0060, then \u0060scheduledToday\u0060. So the day is not double-counted,\nand ticking one thing off does not make it disappear from two places. The precedence hides nothing \u2014\nevery row carries its own \u0060status\u0060, \u0060dueDate\u0060 and \u0060scheduledDate\u0060, so a task in \u0060overdue\u0060 still says\nit is in progress. A task finished on an earlier day is in none of them.\n\n**\u0060date\u0060 and \u0060timeZoneId\u0060 say what \u0022today\u0022 meant**, and are always present, so a client never infers\nthe day boundary. The zone is the workspace\u0027s own, from brand settings. \u0060completedToday\u0060 is a range of\ninstants \u2014 local midnight to the next, the end exclusive \u2014 so a day that springs forward is 23 hours\nlong and nothing is counted twice across a fall-back. \u0060scheduledDate\u0060 and \u0060dueDate\u0060 are plain dates\nand are compared as written.\n\n**A workspace that has set no time zone answers \u0060422 planning.today.time_zone_not_set.unprocessable\u0060**\nrather than guessing a day boundary, because a guessed one does not fail visibly: it quietly files an\nevening\u0027s work under tomorrow. The remedy is brand settings, and the message says so.\n\nEach group holds at most 50, newest or most pressing first, with \u0060...HasMore\u0060 true when there were\nothers. There is no cursor: a day is bounded by what a person can do, and a group past 50 is a sign of\nsomething other than a plan.\n\n\u0060suggested\u0060 is empty unless \u0060includeSuggestions=true\u0060. It offers at most three **unplanned** backlog\ntasks \u2014 never one already in a group above \u2014 each with a plain-language \u0060reason\u0060. **Offering one\nschedules nothing**: no day, no status, no place in the list is written by this route, which is a\n\u0060GET\u0060 and writes nothing at all.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060: it is\none person\u0027s private working list.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeSuggestions",
+            "in": "query",
+            "description": "Ask for a few unplanned tasks worth a look. Off unless sent.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayWorkTasks"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayWorkTasks"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayWorkTasks"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -30222,6 +30426,81 @@
           }
         }
       },
+      "CreateWorkTask": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkTaskPriority"
+              }
+            ]
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentCardId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowRunId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowStepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreativeContext": {
         "required": [
           "id",
@@ -30769,7 +31048,10 @@
             ]
           },
           "today": {
-            "type": "string",
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "recipesInProgress": {
@@ -39718,6 +40000,21 @@
           }
         }
       },
+      "SuggestedWorkTask": {
+        "required": [
+          "task",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "task": {
+            "$ref": "#/components/schemas/WorkTask"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
       "TemperatureConversionResult": {
         "required": [
           "sourceValue",
@@ -40539,6 +40836,84 @@
           "AcceptedRecipeDraft"
         ],
         "type": "string"
+      },
+      "TodayWorkTasks": {
+        "required": [
+          "date",
+          "timeZoneId",
+          "overdue",
+          "overdueHasMore",
+          "scheduledToday",
+          "scheduledTodayHasMore",
+          "inProgress",
+          "inProgressHasMore",
+          "waiting",
+          "waitingHasMore",
+          "completedToday",
+          "completedTodayHasMore",
+          "suggested"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "overdue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "overdueHasMore": {
+            "type": "boolean"
+          },
+          "scheduledToday": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "scheduledTodayHasMore": {
+            "type": "boolean"
+          },
+          "inProgress": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "inProgressHasMore": {
+            "type": "boolean"
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "waitingHasMore": {
+            "type": "boolean"
+          },
+          "completedToday": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "completedTodayHasMore": {
+            "type": "boolean"
+          },
+          "suggested": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuggestedWorkTask"
+            }
+          }
+        }
       },
       "UnitConversionMethod": {
         "enum": [
@@ -42330,6 +42705,173 @@
           }
         }
       },
+      "WorkTask": {
+        "required": [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "owner",
+          "assignee",
+          "links",
+          "createdAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkTaskStatus"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/WorkTaskPriority"
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "estimateMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/WorkTaskMember"
+          },
+          "assignee": {
+            "$ref": "#/components/schemas/WorkTaskMember"
+          },
+          "links": {
+            "$ref": "#/components/schemas/WorkTaskLinks"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkTaskLinks": {
+        "type": "object",
+        "properties": {
+          "workflowRunId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowStepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentCardId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "WorkTaskMember": {
+        "required": [
+          "membershipId"
+        ],
+        "type": "object",
+        "properties": {
+          "membershipId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WorkTaskPriority": {
+        "enum": [
+          "Low",
+          "Normal",
+          "High"
+        ],
+        "type": "string"
+      },
+      "WorkTaskStatus": {
+        "enum": [
+          "Backlog",
+          "InProgress",
+          "Waiting",
+          "Done"
+        ],
+        "type": "string"
+      },
       "YieldReconciliationField": {
         "enum": [
           "BatchYield",
@@ -42688,6 +43230,9 @@
     },
     {
       "name": "WorkspaceTags"
+    },
+    {
+      "name": "WorkTasks"
     }
   ]
 }

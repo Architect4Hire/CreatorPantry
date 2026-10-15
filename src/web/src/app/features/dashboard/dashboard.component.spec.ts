@@ -142,11 +142,14 @@ describe('DashboardComponent', () => {
     }
   });
 
-  it('says which day today is and, with no time zone set, that it used UTC', async () => {
-    await mount(found({ timeZoneId: null }));
+  it('says which day today is, and with no time zone set says it has none rather than naming a day', async () => {
+    await mount(found({ timeZoneId: null, today: null, upcoming: { status: 'Unavailable', data: null } }));
 
-    expect(root().querySelector('.updated')!.textContent).toContain('Wednesday, October 14');
-    expect(root().querySelector('.updated')!.textContent).toContain('UTC');
+    const updated = root().querySelector('.updated')!.textContent!;
+
+    // No day is named at all: a guessed one reads as an answer and is wrong by up to a day either way.
+    expect(updated).not.toContain('October');
+    expect(updated).toContain('Brand settings');
   });
 
   it('shows days as the days they name and times in the workspace’s zone, whatever zone the reader is in', async () => {
