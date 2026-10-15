@@ -98,6 +98,35 @@ public sealed class BrandStyleGuidesController(IBrandStyleGuideFacade guides) : 
         return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>The guide and version this workspace writes with now, or nothing when none is switched on.</summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the
+    /// caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Any member may read. `204` when nothing is switched on: no fallback to the newest approved version. What a
+    /// screen offering to switch another guide on needs before it asks, so it can say what would be replaced and
+    /// quote it on the activation as `expectedActiveVersionId` (13A.17). The response is `no-store`.
+    /// </remarks>
+    [HttpGet("active")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
+    [ProducesResponseType<BrandActiveStyleGuideServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> GetActive(string workspaceSlug, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+
+        var result = await guides.GetActiveAsync(cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        return result.Value is { } active ? Ok(active) : NoContent();
+    }
+
     /// <summary>Lists one brand style guide's versions, newest first.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and the

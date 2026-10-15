@@ -68,6 +68,9 @@ export class LongFormAboutStepComponent {
 
   readonly idPrefix = input('cp-long-form-about');
 
+  /** A recipe to offer, from the link that opened the writer (13A.18). Offered, never linked on arrival. */
+  readonly suggestedRecipe = input<string | null>(null);
+
   readonly kindChange = output<LongFormKind>();
   readonly targetWordsChange = output<number | null>();
   readonly announced = output<string>();

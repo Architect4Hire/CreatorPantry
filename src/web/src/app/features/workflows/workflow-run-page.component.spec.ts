@@ -114,6 +114,68 @@ describe('WorkflowRunPageComponent', () => {
     expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
   });
 
+  it('shows "Create my brand voice" through its own step screens', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('brand.voice', 'set-up') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('cp-brand-voice-setup-step')).not.toBeNull();
+    expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
+  });
+
+  it('shows "Create food images" through its own step screens', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('images.create', 'about') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('cp-images-studio-step')).not.toBeNull();
+    expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
+  });
+
+  it('shows "Create social posts" through its own step screens', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('social.create', 'about') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('cp-social-studio-step')).not.toBeNull();
+    expect(page.querySelector('cp-images-studio-step')).withContext('step keys repeat across journeys').toBeNull();
+    expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
+  });
+
+  it('shows "Organize your pictures" through its own step screens', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('assets.organize', 'add') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('cp-assets-add-step')).not.toBeNull();
+    expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
+  });
+
+  it('shows "Plan and publish content" through its own step screens', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('publishing.plan-and-publish', 'choose') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('cp-publish-choose-step')).not.toBeNull();
+    expect(page.querySelector('cp-recipe-choose-step')).withContext('step keys repeat across journeys').toBeNull();
+    expect(page.querySelector('cp-workflow-step-fallback')).toBeNull();
+  });
+
   it('keeps another journey with a step of the same name on the shell’s own links', async () => {
     get.and.resolveTo({ status: 'found', run: freshOn('recipe.test-and-approve', 'start') });
     const harness = await RouterTestingHarness.create();
@@ -124,6 +186,29 @@ describe('WorkflowRunPageComponent', () => {
     const page = harness.routeNativeElement!;
     expect(page.querySelector('cp-recipe-create-start-step')).toBeNull();
     expect(page.querySelector('cp-workflow-step-fallback')).not.toBeNull();
+  });
+
+  it('points a blog-and-newsletter run at the writer, where that journey is built (13A.18)', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('content.blog-and-seo', 'source') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const page = harness.routeNativeElement!;
+    const notice = page.querySelector('cp-notice[role="note"]')!;
+    expect(notice.textContent).toContain('This is written in the blog and newsletter writer');
+    expect(notice.querySelector('a')!.getAttribute('href')).toBe('/sams-kitchen/workflows/long-form');
+  });
+
+  it('says nothing of the writer on any other run', async () => {
+    get.and.resolveTo({ status: 'found', run: freshOn('recipe.create', 'start') });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/sams-kitchen/workflows/runs/run-1', WorkflowRunPageComponent);
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(harness.routeNativeElement!.textContent).not.toContain('blog and newsletter writer');
   });
 
   it('lets the creator leave when the step holds nothing unsaved', async () => {

@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
@@ -6,6 +6,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, Subject, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { WorkflowRun } from '../../models/workflow-run.models';
 import { WorkspaceRole } from '../../models/auth.models';
 import { DamCreatedAsset } from '../../models/dam-asset.models';
 import {
@@ -23,6 +24,9 @@ import { ContentSeedService } from '../../services/content-seed.service';
 import { DishFacetService } from '../../services/dish-facet.service';
 import { ReferenceService } from '../../services/reference.service';
 import { BrandProfileService } from '../../services/brand-profile.service';
+import { BrandVisualGuideService } from '../../services/brand-visual-guide.service';
+import { WorkflowRunService } from '../../services/workflow-run.service';
+import { ImageStudioHost } from './image-studio-host';
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { FakeCreativeContextService } from '../../services/creative-context.fake';
@@ -193,6 +197,23 @@ function draftWith(overrides: Partial<ImageStudioDraft> = {}): ImageStudioDraft 
 }
 
 let harness: RouterTestingHarness;
+
+/** How the next hosted studio's host is set, as a guided step sets it before the studio is made. */
+let hostSetup: ((host: ImageStudioHost) => void) | null = null;
+let hostedFilings: string[];
+
+@Component({
+  imports: [ImageStudioComponent],
+  providers: [ImageStudioHost],
+  template: `<cp-image-studio />`,
+})
+class HostedStudioComponent {
+  constructor() {
+    const host = inject(ImageStudioHost);
+    host.filed = (contextId) => hostedFilings.push(contextId);
+    hostSetup?.(host);
+  }
+}
 let server: FakeCreativeContextService;
 let library: FakeRecipeLibrary;
 /**
@@ -384,7 +405,16 @@ async function create(
       provideRouter([
         { path: ':workspaceSlug/image-studio', component: ImageStudioComponent },
         { path: ':workspaceSlug/image-studio/context/:contextId', component: ImageStudioComponent },
+        { path: ':workspaceSlug/workflows/runs/:runId', component: HostedStudioComponent },
       ]),
+      { provide: BrandVisualGuideService, useValue: { get: () => Promise.resolve({ status: 'unavailable' as const }) } },
+      {
+        provide: WorkflowRunService,
+        useValue: {
+          get: () =>
+            Promise.resolve({ status: 'found' as const, run: { goal: 'Create food images' } as unknown as WorkflowRun }),
+        },
+      },
       { provide: ImageStudioDraftService, useValue: draftStore },
       { provide: CreativeContextService, useValue: server },
       { provide: RecipeService, useValue: library },
@@ -480,8 +510,27 @@ async function create(
   }).compileComponents();
 
   harness = await RouterTestingHarness.create();
-  await harness.navigateByUrl(options.url ?? `/${SLUG}/image-studio`, ImageStudioComponent);
+  if (options.url?.includes('/workflows/runs/')) await harness.navigateByUrl(options.url);
+  else await harness.navigateByUrl(options.url ?? `/${SLUG}/image-studio`, ImageStudioComponent);
   await settle();
+}
+
+/** The studio a guided step hosts, showing one part (13A.19). */
+async function hosted(
+  setup: (host: ImageStudioHost) => void,
+  options: { drafts?: Record<string, ImageStudioDraft | null> } = {},
+): Promise<void> {
+  hostSetup = setup;
+  hostedFilings = [];
+  await create({ ...options, url: `/${SLUG}/workflows/runs/run-1` });
+}
+
+function hostedStudio(): ImageStudioComponent {
+  return harness.routeDebugElement!.query(By.directive(ImageStudioComponent)).componentInstance;
+}
+
+function hostedSession(): CreativeContextSession {
+  return harness.routeDebugElement!.query(By.directive(ImageStudioComponent)).injector.get(CreativeContextSession);
 }
 
 function root(): HTMLElement {
@@ -1490,6 +1539,142 @@ describe('ImageStudioComponent', () => {
 
       expect(cleared).toEqual(['w2.m2']);
       expect(stored['w1.m1']).toBe(cozy);
+    });
+  });
+
+  describe('hosted in a guided step (13A.19)', () => {
+    afterEach(() => (hostSetup = null));
+
+    it('shows only what the picture is for on the first part: the recipe, the brand’s look and a brief', async () => {
+      await hosted((host) => {
+        host.part = 'about';
+        host.suggestedRecipeId = 'r-soda';
+      });
+
+      expect(root().querySelector('h1')).withContext('the run page owns the heading').toBeNull();
+      expect(root().querySelector('cp-anchor-nav')).toBeNull();
+      expect(root().querySelector('cp-content-pipeline-brand-defaults')).not.toBeNull();
+      expect(root().querySelector('cp-content-pipeline-document-picker')).not.toBeNull();
+      expect(button('Use “Soda bread”')).withContext('the run’s recipe, offered').not.toBeNull();
+      expect(root().querySelector('#cp-pipeline-final-prompt')).toBeNull();
+      expect(button('Make the pictures')).toBeNull();
+      expect(button('Start over')).withContext('the run has its own').toBeNull();
+      expect(root().querySelector('.legend')).withContext('the step’s card carries the shell’s legend').toBeNull();
+      expect(root().querySelector('cp-card')).withContext('no card inside the step’s card').toBeNull();
+    });
+
+    it('plans on the second part — the idea, the look, a reference and the prompt — and makes nothing there', async () => {
+      await hosted((host) => (host.part = 'plan'));
+
+      expect(promptBox()).not.toBeNull();
+      expect(root().querySelector('cp-content-pipeline-concept-panel')).not.toBeNull();
+      expect(root().querySelector('cp-content-pipeline-reference-panel')).not.toBeNull();
+      expect(root().querySelector('cp-recipe-picker')).toBeNull();
+      expect(button('Make the pictures')).toBeNull();
+    });
+
+    it('makes nothing on the last part until there is a prompt, and says where to write one', async () => {
+      await hosted((host) => (host.part = 'make'));
+
+      expect(text()).toContain('There is no prompt yet. Go back a step to write one');
+      expect(button('Make the pictures')!.disabled).toBeTrue();
+      expect(promptBox()).toBeNull();
+    });
+
+    it('sends the prompt the creator kept for this work, exactly, and asks for the brand’s number of pictures', async () => {
+      server = new FakeCreativeContextService();
+      await hosted(
+        (host) => {
+          host.part = 'make';
+          host.contextId = 'ctx-w1.m1';
+          host.brand.set({ status: 'ready', channelKeys: [], pictureCount: 3 });
+        },
+        { drafts: { 'w1.m1': draftWith() } },
+      );
+
+      expect(text()).toContain(PROMPT);
+      expect(text()).withContext('the cost, before anything is made').toContain(
+        'Asking for 3 pictures. Making pictures doesn’t use your AI allowance.',
+      );
+      requestOutcome = accepted();
+      await click('Make the pictures');
+
+      expect(requests[0].request).toEqual(jasmine.objectContaining({ promptText: PROMPT, variantCount: 3 }));
+    });
+
+    it('marks the pictures as generated, and does not name the service that made them', async () => {
+      await hosted(
+        (host) => {
+          host.part = 'make';
+          host.contextId = 'ctx-w1.m1';
+        },
+        { drafts: { 'w1.m1': draftWith() } },
+      );
+      await generate();
+
+      expect(root().querySelector('.provenance')?.textContent).toContain('AI generated');
+      expect(text()).not.toContain('Made by');
+      expect(text()).not.toContain('Foundry');
+    });
+
+    it('files new work on its first answer for the run, and leaves the studio’s own draft and address alone', async () => {
+      await hosted((host) => (host.part = 'about'), { drafts: {} });
+      const url = TestBed.inject(Router).url;
+
+      await typeSubject('Plum galette');
+      await hostedSession().flush();
+      await settle();
+
+      expect(hostedFilings.length).withContext('the run is told, once').toBe(1);
+      expect(hostedStudio().workContext()?.id).toBe(hostedFilings[0]);
+      expect(unfiled['w1.m1']).withContext('nothing kept as the studio’s unfiled work').toBeUndefined();
+      expect(cleared).not.toContain('w1.m1');
+      expect(TestBed.inject(Router).url).withContext('the address is the run’s').toBe(url);
+    });
+
+    it('opens the work the run holds, with what this device kept for it', async () => {
+      await hosted(
+        (host) => {
+          host.part = 'plan';
+          host.contextId = 'ctx-w1.m1';
+        },
+        { drafts: { 'w1.m1': draftWith() } },
+      );
+
+      expect(promptBox().value).toBe(PROMPT);
+      expect(hostedStudio().workContext()?.id).toBe('ctx-w1.m1');
+    });
+
+    it('says a step’s work is kept before it moves on, and sends what is waiting first', async () => {
+      await hosted(
+        (host) => {
+          host.part = 'about';
+          host.contextId = 'ctx-w1.m1';
+        },
+        { drafts: { 'w1.m1': draftWith() } },
+      );
+
+      await typeSubject('Plum galette');
+      expect(hostedStudio().sending()).toBeTrue();
+
+      expect(await hostedStudio().flushWork()).toBeTrue();
+      expect(hostedStudio().sending()).toBeFalse();
+    });
+  });
+
+  describe('opened from a guided run (13A.19)', () => {
+    it('says which workflow sent the creator here, with the way back', async () => {
+      await create({ url: `/${SLUG}/image-studio?workflowRun=0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f` });
+
+      const notice = root().querySelector('cp-workflow-return-notice');
+      expect(notice).not.toBeNull();
+      expect(notice!.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`);
+    });
+
+    it('says nothing of a workflow on an ordinary visit', async () => {
+      await create();
+
+      expect(root().querySelector('cp-workflow-return-notice')).toBeNull();
     });
   });
 });

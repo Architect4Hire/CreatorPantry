@@ -1,217 +1,263 @@
-<cp-page-head
-  [heading]="pageTitle"
-  lede="Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so you can stop and pick up later."
-/>
+@if (!hosted) {
+  <cp-page-head
+    [heading]="pageTitle"
+    lede="Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so you can stop and pick up later."
+  />
+  @if (workflowRun && workspaceSlug()) {
+    <cp-workflow-return-notice [workspaceSlug]="workspaceSlug()" [runId]="workflowRun" />
+  }
+}
 
 <div class="studio">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 
-  @switch (phase()) {
-    @case ('loading') {
+  @if (phase() !== 'ready') {
+    <!-- Hosted, the step's own card holds these; on the studio's page each is a card of its own. -->
+    @if (hosted) {
+      <ng-container [ngTemplateOutlet]="states" />
+    } @else {
       <cp-card>
-        <p class="state" role="status">Loading your studio…</p>
-      </cp-card>
-    }
-    @case ('unavailable') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">
-          Your workspaces couldn't be loaded right now.
-          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
-        </cp-notice>
-      </cp-card>
-    }
-    @case ('not_found') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
-      </cp-card>
-    }
-    @case ('read_only') {
-      <cp-card>
-        <div class="refusal">
-          <cp-notice role="note">
-            You have view-only access to this workspace, so you can't make pictures here. Ask an Owner or Editor to
-            make them for you.
-          </cp-notice>
-          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'dashboard']">Back to the dashboard</a>
-        </div>
-      </cp-card>
-    }
-    @case ('context_not_found') {
-      <cp-card>
-        <div class="refusal">
-          <cp-notice tone="error" role="alert">
-            We couldn't find this piece of work. It may have been removed, or the link may be wrong.
-          </cp-notice>
-          <a cpButton variant="secondary" [routerLink]="startLink()">Start something new</a>
-        </div>
-      </cp-card>
-    }
-    @case ('context_unavailable') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">
-          This piece of work couldn't be loaded right now.
-          <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
-        </cp-notice>
-      </cp-card>
-    }
-    @case ('filing_failed') {
-      <cp-card>
-        <cp-notice tone="warning" role="alert">
-          Your unfinished work couldn't be saved to your workspace right now. It is still on this device, and
-          nothing has been lost.
-          <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
-        </cp-notice>
-      </cp-card>
-    }
-    @case ('ready') {
-      <cp-anchor-nav
-        [items]="sections"
-        ariaLabel="Parts of the Image Studio"
-        [activeTargetId]="activeSection()"
-        (activated)="onSectionActivated($event)"
-      />
-
-      <cp-card>
-        <!-- Keyed on the owner and on Start over: a change of workspace, of who is signed in, or of the draft
-             itself destroys the panels rather than swapping a new draft underneath components still holding
-             the last one's answers. -->
-        @for (key of panelKeys(); track 'studio@' + key) {
-          <div class="sections">
-            @if (discarded()) {
-              <cp-notice tone="warning" role="status">
-                Something was kept here before, but it couldn't be read — so this is a fresh start.
-              </cp-notice>
-            }
-
-            <!-- Said once, above the sections, rather than on each field: marking one optional field among a
-                 dozen unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
-            <p class="legend cp-muted">
-              Only the prompt is needed to make pictures. Everything else is there to help you get to one.
-            </p>
-
-            <section id="cp-studio-brief" class="brief" tabindex="-1" aria-label="The brief">
-              <cp-recipe-picker
-                [workspaceSlug]="workspaceSlug()"
-                [session]="session"
-                idPrefix="cp-studio-recipe"
-                (announced)="onAnnounced($event)"
-                (linkedRecipe)="onRecipeNamed($event)"
-              />
-              <cp-content-pipeline-setup-step
-                [config]="config()"
-                [showDay]="false"
-                [linkedRecipeTitle]="linkedRecipeTitle()"
-                (changed)="onConfig($event)"
-              />
-            </section>
-
-            <section id="cp-studio-idea" class="brief" tabindex="-1" aria-label="An idea">
-              <cp-content-pipeline-idea-step
-                [workspaceSlug]="workspaceSlug()"
-                [draft]="ideaDraft()"
-                [recipe]="linkedRecipe()"
-                [showDay]="false"
-                [readsNameOnArrival]="false"
-                descriptionWhere="in the brief above"
-                (changed)="onIdea($event)"
-                (announced)="onAnnounced($event)"
-              />
-            </section>
-
-            <cp-form-section
-              heading="The look"
-              intro="A few looks planned from your brief, and the one shot a prompt can be written for."
-              sectionId="cp-studio-look"
-            >
-              <cp-content-pipeline-concept-panel
-                [workspaceSlug]="workspaceSlug()"
-                [config]="config()"
-                [prompt]="prompt()"
-                [brief]="lookBrief()"
-                [recipe]="linkedRecipe()"
-                [creativeContextId]="session.context()?.id ?? null"
-                [themeKey]="session.context()?.weeklyThemeKey ?? null"
-                [(applyDayNotes)]="applyDayNotes"
-                (changed)="onPrompt($event)"
-                (announced)="onAnnounced($event)"
-              />
-            </cp-form-section>
-
-            <cp-form-section
-              heading="Extras"
-              intro="A brief to work from, and a picture to take cues from. Both optional."
-              sectionId="cp-studio-extras"
-            >
-              <h3 class="sub">A brief</h3>
-              <p class="cp-muted">
-                Something you have written about this shoot. It is read as source material, never as instructions.
-              </p>
-              <cp-content-pipeline-document-picker
-                [workspaceSlug]="workspaceSlug()"
-                kind="brief"
-                [selected]="prompt().brief"
-                (selectedChange)="onBrief($event)"
-              />
-
-              <h3 class="sub">A reference picture</h3>
-              <cp-content-pipeline-reference-panel
-                [workspaceSlug]="workspaceSlug()"
-                [prompt]="prompt()"
-                [session]="session"
-                [headingLevel]="4"
-                [runOperationId]="draft().images.operationId"
-                (changed)="onPrompt($event)"
-                (announced)="onAnnounced($event)"
-              />
-            </cp-form-section>
-
-            <!-- Always here, pick or no pick: a creator who would rather write their own prompt is not waiting
-                 on a look to be allowed to. Having one written still needs a shot, and the panel says so. -->
-            <cp-form-section
-              heading="The prompt"
-              intro="Write your own, or have one written for the shot you picked. Either way it is yours to change."
-              sectionId="cp-studio-prompt"
-            >
-              <cp-content-pipeline-prompt-panel
-                [workspaceSlug]="workspaceSlug()"
-                [config]="config()"
-                [prompt]="prompt()"
-                [recipe]="linkedRecipe()"
-                [creativeContextId]="session.context()?.id ?? null"
-                [themeKey]="session.context()?.weeklyThemeKey ?? null"
-                [(applyDayNotes)]="applyDayNotes"
-                (changed)="onPrompt($event)"
-                (announced)="onAnnounced($event)"
-              />
-            </cp-form-section>
-
-            <cp-generated-image-run
-              [workspaceSlug]="workspaceSlug()"
-              [promptText]="prompt().finalPrompt"
-              [avoidText]="avoidText()"
-              [variantCount]="config().variantCount"
-              [subject]="runSubject()"
-              [state]="draft().images"
-              [wording]="runWording"
-              [library]="runLibrary()"
-              sectionIdPrefix="cp-studio-images"
-              (changed)="onImages($event)"
-              (announced)="onAnnounced($event)"
-              (saved)="onSaved($event)"
-            />
-
-            <cp-creative-context-save-notice [session]="session" />
-
-            <p class="saved cp-muted" role="status">{{ savedText() }}</p>
-
-            <div class="cp-actions">
-              <button cpButton type="button" variant="text" [disabled]="!canStartOver()" (click)="startOver()">
-                Start over
-              </button>
-            </div>
-          </div>
-        }
+        <ng-container [ngTemplateOutlet]="states" />
       </cp-card>
     }
   }
+
+  @switch (phase()) {
+    @case ('ready') {
+      @if (!hosted) {
+        <cp-anchor-nav
+          [items]="sections"
+          ariaLabel="Parts of the Image Studio"
+          [activeTargetId]="activeSection()"
+          (activated)="onSectionActivated($event)"
+        />
+        <cp-card>
+          <ng-container [ngTemplateOutlet]="work" />
+        </cp-card>
+      } @else {
+        <!-- Hosted, the step's own card holds the part: a second card inside it would be a card in a card. -->
+        <ng-container [ngTemplateOutlet]="work" />
+      }
+    }
+  }
 </div>
+
+<ng-template #work>
+  <!-- Keyed on the owner and on Start over: a change of workspace, of who is signed in, or of the draft itself
+       destroys the panels rather than swapping a new draft underneath components still holding the last one's
+       answers. -->
+  @for (key of panelKeys(); track 'studio@' + key) {
+    <div class="sections">
+      @if (discarded()) {
+        <cp-notice tone="warning" role="status">
+          Something was kept here before, but it couldn't be read — so this is a fresh start.
+        </cp-notice>
+      }
+
+      <!-- Said once, above the sections, rather than on each field: marking one optional field among a dozen
+           unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
+      @if (legend(); as text) {
+        <p class="legend cp-muted">{{ text }}</p>
+      }
+
+      @if (shows('about')) {
+        <section id="cp-studio-brief" class="brief" tabindex="-1" aria-label="The brief">
+          <cp-recipe-picker
+            [workspaceSlug]="workspaceSlug()"
+            [session]="session"
+            [suggested]="hosted?.suggestedRecipeId ?? null"
+            idPrefix="cp-studio-recipe"
+            (announced)="onAnnounced($event)"
+            (linkedRecipe)="onRecipeNamed($event)"
+          />
+          <cp-content-pipeline-setup-step
+            [config]="config()"
+            [showDay]="false"
+            [show]="hosted ? 'subject' : 'everything'"
+            [linkedRecipeTitle]="linkedRecipeTitle()"
+            (changed)="onConfig($event)"
+          />
+          @if (hosted; as host) {
+            <!-- Shown, not asked: the brand's look as the server will use it, and how many pictures a run tries,
+                 with one way to change either for this work. -->
+            <cp-content-pipeline-brand-defaults
+              [workspaceSlug]="workspaceSlug()"
+              [config]="config()"
+              [brandStatus]="host.brand().status"
+              [brandChannelKeys]="host.brand().channelKeys"
+              [brandPictureCount]="host.brand().pictureCount"
+              (changed)="onConfig($event)"
+            />
+          }
+        </section>
+      }
+
+      @if (shows('plan')) {
+        <section id="cp-studio-idea" class="brief" tabindex="-1" aria-label="An idea">
+          <cp-content-pipeline-idea-step
+            [workspaceSlug]="workspaceSlug()"
+            [draft]="ideaDraft()"
+            [recipe]="linkedRecipe()"
+            [showDay]="false"
+            [readsNameOnArrival]="false"
+            [descriptionWhere]="hosted ? 'in the first step' : 'in the brief above'"
+            (changed)="onIdea($event)"
+            (announced)="onAnnounced($event)"
+          />
+        </section>
+
+        <cp-form-section
+          heading="The look"
+          intro="A few looks planned from your brief, and the one shot a prompt can be written for."
+          sectionId="cp-studio-look"
+        >
+          <cp-content-pipeline-concept-panel
+            [workspaceSlug]="workspaceSlug()"
+            [config]="config()"
+            [prompt]="prompt()"
+            [brief]="lookBrief()"
+            [recipe]="linkedRecipe()"
+            [creativeContextId]="session.context()?.id ?? null"
+            [themeKey]="session.context()?.weeklyThemeKey ?? null"
+            [(applyDayNotes)]="applyDayNotes"
+            (changed)="onPrompt($event)"
+            (announced)="onAnnounced($event)"
+          />
+        </cp-form-section>
+      }
+
+      @if (shows('about') || shows('plan')) {
+        <cp-form-section [heading]="extrasHeading()" [intro]="extrasIntro()" sectionId="cp-studio-extras">
+          @if (shows('about')) {
+            @if (!hosted) {
+              <h3 class="sub">A brief</h3>
+            }
+            <p class="cp-muted">
+              Something you have written about this shoot. It is read as source material, never as instructions.
+            </p>
+            <cp-content-pipeline-document-picker
+              [workspaceSlug]="workspaceSlug()"
+              kind="brief"
+              [selected]="prompt().brief"
+              (selectedChange)="onBrief($event)"
+            />
+          }
+
+          @if (shows('plan')) {
+            @if (!hosted) {
+              <h3 class="sub">A reference picture</h3>
+            }
+            <cp-content-pipeline-reference-panel
+              [workspaceSlug]="workspaceSlug()"
+              [prompt]="prompt()"
+              [session]="session"
+              [headingLevel]="hosted ? 3 : 4"
+              [runOperationId]="draft().images.operationId"
+              (changed)="onPrompt($event)"
+              (announced)="onAnnounced($event)"
+            />
+          }
+        </cp-form-section>
+      }
+
+      @if (shows('plan')) {
+        <!-- Always here, pick or no pick: a creator who would rather write their own prompt is not waiting on a
+             look to be allowed to. Having one written still needs a shot, and the panel says so. -->
+        <cp-form-section
+          heading="The prompt"
+          intro="Write your own, or have one written for the shot you picked. Either way it is yours to change."
+          sectionId="cp-studio-prompt"
+        >
+          <cp-content-pipeline-prompt-panel
+            [workspaceSlug]="workspaceSlug()"
+            [config]="config()"
+            [prompt]="prompt()"
+            [recipe]="linkedRecipe()"
+            [creativeContextId]="session.context()?.id ?? null"
+            [themeKey]="session.context()?.weeklyThemeKey ?? null"
+            [(applyDayNotes)]="applyDayNotes"
+            (changed)="onPrompt($event)"
+            (announced)="onAnnounced($event)"
+          />
+        </cp-form-section>
+      }
+
+      @if (shows('make')) {
+        <cp-generated-image-run
+          [workspaceSlug]="workspaceSlug()"
+          [promptText]="prompt().finalPrompt"
+          [avoidText]="avoidText()"
+          [variantCount]="pictureCount()"
+          [subject]="runSubject()"
+          [state]="draft().images"
+          [wording]="runWording"
+          [library]="runLibrary()"
+          [showMaker]="!hosted"
+          sectionIdPrefix="cp-studio-images"
+          (changed)="onImages($event)"
+          (announced)="onAnnounced($event)"
+          (saved)="onSaved($event)"
+        />
+      }
+
+      <cp-creative-context-save-notice [session]="session" />
+
+      <p class="saved cp-muted" role="status">{{ savedText() }}</p>
+
+      @if (!hosted) {
+        <div class="cp-actions">
+          <button cpButton type="button" variant="text" [disabled]="!canStartOver()" (click)="startOver()">
+            Start over
+          </button>
+        </div>
+      }
+    </div>
+  }
+</ng-template>
+
+<ng-template #states>
+  @switch (phase()) {
+    @case ('loading') {
+      <p class="state" role="status">Loading your studio…</p>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Your workspaces couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+      </cp-notice>
+    }
+    @case ('not_found') {
+      <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
+    }
+    @case ('read_only') {
+      <div class="refusal">
+        <cp-notice role="note">
+          You have view-only access to this workspace, so you can't make pictures here. Ask an Owner or Editor to
+          make them for you.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'dashboard']">Back to the dashboard</a>
+      </div>
+    }
+    @case ('context_not_found') {
+      <div class="refusal">
+        <cp-notice tone="error" role="alert">
+          We couldn't find this piece of work. It may have been removed, or the link may be wrong.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="startLink()">Start something new</a>
+      </div>
+    }
+    @case ('context_unavailable') {
+      <cp-notice tone="error" role="alert">
+        This piece of work couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
+      </cp-notice>
+    }
+    @case ('filing_failed') {
+      <cp-notice tone="warning" role="alert">
+        Your unfinished work couldn't be saved to your workspace right now. It is still on this device, and
+        nothing has been lost.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
+      </cp-notice>
+    }
+  }
+</ng-template>

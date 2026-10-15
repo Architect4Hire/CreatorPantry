@@ -280,6 +280,9 @@ public sealed class LongFormJourneyEndToEndTests : IAsyncLifetime
         Assert.Equal(OwnWords, own.GetProperty("sections")[2].GetProperty("body").GetString());
         Assert.Equal("CreatorEdit", own.GetProperty("sections")[2].GetProperty("writtenBy").GetString());
 
+        // The whole piece is written with no style guide in force: a brand without one is not stopped (13A.18).
+        Assert.Equal(HttpStatusCode.NoContent, (await ours.GetAsync(In(A, "brand-style-guides/active"), Ct)).StatusCode);
+
         // 12. Read whole, and accepted. The writer was handed no accepted editorial copy, because none exists.
         var review = await Ok(ours.GetAsync(In(A, $"{root}/document"), Ct));
         var document = review.GetProperty("document");

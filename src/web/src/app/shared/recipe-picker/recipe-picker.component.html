@@ -15,6 +15,15 @@
     }
   }
 
+  @if (!reference() && suggestion(); as offered) {
+    <p class="cp-muted">You came here from a recipe. Use it for this piece, or find another below.</p>
+    <div class="cp-actions">
+      <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() || null" (click)="useSuggestion()">
+        Use “{{ offered.title }}”
+      </button>
+    </div>
+  }
+
   @if (reference(); as link) {
     <div class="linked">
       @switch (linked().status) {

@@ -159,37 +159,7 @@
       </cp-topic-card>
 
       <cp-topic-card heading="Where it came from" headingId="dam-lineage-heading">
-        <h3>Recipes</h3>
-        @if (shown.recipeLinks.length === 0) {
-          <p class="plain cp-muted">Not linked to a recipe.</p>
-        } @else {
-          <ul class="links" aria-label="Recipes that use this picture">
-            @for (link of shown.recipeLinks; track link.recipeId + link.role) {
-              <li>
-                <a [routerLink]="recipeLink(link)">{{ link.title }}</a>
-                <span class="note">{{ roleLabel(link) }}</span>
-                @if (link.caption) {
-                  <span class="note prose">“{{ link.caption }}”</span>
-                }
-              </li>
-            }
-          </ul>
-        }
-
-        <h3>Prompts</h3>
-        @if (shown.prompts.length === 0) {
-          <p class="plain cp-muted">No saved prompt is linked to this picture.</p>
-        } @else {
-          <ul class="links" aria-label="Prompts that produced this picture">
-            @for (prompt of shown.prompts; track prompt.id) {
-              <li>
-                <a [routerLink]="promptLink(prompt)">{{ promptName(prompt) }}</a>
-                <span class="note">{{ promptSource(prompt) }}</span>
-                <span class="note">Saved {{ prompt.createdAt | date: 'mediumDate' }}</span>
-              </li>
-            }
-          </ul>
-        }
+        <cp-dam-asset-lineage [workspaceSlug]="workspaceSlug()" [asset]="shown" />
       </cp-topic-card>
 
       <cp-topic-card heading="Versions" headingId="dam-versions-heading" wide>

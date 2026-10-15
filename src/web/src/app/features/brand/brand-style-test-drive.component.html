@@ -4,6 +4,10 @@
   </a>
 </cp-page-head>
 
+@if (workflowRun; as run) {
+  <cp-workflow-return-notice [workspaceSlug]="workspaceSlug" [runId]="run" />
+}
+
 <div class="page">
   <!-- Always in the DOM, and empty until there is something to say: a live region inserted already populated
        is not reliably announced. -->

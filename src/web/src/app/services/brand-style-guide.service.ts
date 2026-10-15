@@ -79,6 +79,20 @@ export type BrandStyleGuideActivateOutcome =
       readonly active?: BrandStyleGuideActiveVersion;
     };
 
+/** The guide and version a workspace writes with now, as `GET .../brand-style-guides/active` names it. */
+export interface BrandStyleGuideWorkspaceVoice {
+  readonly guideId: string;
+  readonly displayName: string;
+  readonly versionId: string;
+  readonly versionNumber: number;
+}
+
+export type BrandStyleGuideActiveReadOutcome =
+  | { readonly status: 'found'; readonly voice: BrandStyleGuideWorkspaceVoice }
+  /** `204`: nothing is switched on. Not a failure, and never a fallback to some approved version. */
+  | { readonly status: 'none' }
+  | { readonly status: 'unavailable' };
+
 /** One guide, as far as the history screen reads it. */
 export type BrandStyleGuideReadOutcome =
   | { readonly status: 'ok'; readonly guide: BrandStyleGuideSummary }
@@ -237,6 +251,43 @@ export class BrandStyleGuideService {
       return guide ? { status: 'ok', guide } : { status: 'unavailable' };
     } catch (error) {
       return { status: failureOf(error) === 'not_found' ? 'not_found' : 'unavailable' };
+    }
+  }
+
+  /**
+   * What this workspace writes with now — the one guide and version switched on — or `none`. Read before offering
+   * to switch another on, so the screen can say what it replaces and quote it on the activation (13A.17).
+   */
+  async getActive(workspaceSlug: string): Promise<BrandStyleGuideActiveReadOutcome> {
+    const url = this.url(workspaceSlug, '/active');
+    if (!url) return { status: 'unavailable' };
+
+    try {
+      const response = await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true, observe: 'response' }));
+      if (response.status === 204 || response.body === null) return { status: 'none' };
+
+      const body = response.body as Record<string, unknown>;
+      const version = body['version'] as Record<string, unknown> | null | undefined;
+      if (
+        typeof body['guideId'] !== 'string'
+        || typeof body['displayName'] !== 'string'
+        || typeof version?.['id'] !== 'string'
+        || typeof version?.['versionNumber'] !== 'number'
+      ) {
+        return { status: 'unavailable' };
+      }
+
+      return {
+        status: 'found',
+        voice: {
+          guideId: body['guideId'],
+          displayName: body['displayName'],
+          versionId: version['id'],
+          versionNumber: version['versionNumber'],
+        },
+      };
+    } catch {
+      return { status: 'unavailable' };
     }
   }
 

@@ -29,6 +29,10 @@
   </ng-container>
 </cp-page-head>
 
+@if (workflowRun; as run) {
+  <cp-workflow-return-notice [workspaceSlug]="workspaceSlug" [runId]="run" />
+}
+
 @switch (loadState().status) {
   @case ('loading') {
     <p class="loading">Loading this guide…</p>

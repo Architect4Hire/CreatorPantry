@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -89,11 +90,16 @@ const FIELD_IDS: Readonly<Record<DamMetadataField, string>> = {
  *
  * **Alt text is only ever the creator's own words.** Nothing here writes it for them or suggests one from the
  * title: nothing in this application has looked at the picture (.claude/rules/media.md).
+ *
+ * **Inline, it is the same form on a guided step** (13A.21): no drawer, the parts of it that step is about, and
+ * a {@link saveForStep} the step's Continue calls. A save there leaves the form open on what the server answered,
+ * rather than closing, because the step is still on screen.
  */
 @Component({
   selector: 'cp-dam-asset-edit',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     CpButtonComponent,
     CpComboboxComponent,
     CpDrawerComponent,
@@ -116,6 +122,10 @@ export class DamAssetEditComponent {
   /** The asset as last read. Its values and its token are taken when the dialog opens, not while it is open. */
   readonly asset = input.required<DamAssetDetail>();
   readonly channels = input<readonly ContentChannel[]>([]);
+  /** True on a guided step: the form is drawn in place, open for as long as it is on screen (13A.21). */
+  readonly inline = input(false);
+  /** Which parts of the form show: all of them, what the picture is (and is for, and its rights), or its tags. */
+  readonly sections = input<'all' | 'describe' | 'tags'>('all');
 
   readonly closed = output<void>();
   /** The asset as the server now has it, after a save. */
@@ -158,12 +168,24 @@ export class DamAssetEditComponent {
 
   protected readonly busy = computed(() => this.saveState() !== 'editing');
 
+  /** Open as a drawer, or always when inline. */
+  protected readonly isOpen = computed(() => this.inline() || this.open());
+
+  protected readonly showsDescribe = computed(() => this.sections() !== 'tags');
+  protected readonly showsTags = computed(() => this.sections() !== 'describe');
+
+  /** True while a save is on its way, for a step's "Saving…". */
+  readonly saving = computed(() => this.saveState() === 'saving');
+
+  /** The asset the form was seeded from, so an inline form is seeded once per asset and not on every read of it. */
+  private seededId: string | null = null;
+
   /** True when saving would change something. Public, so the page can warn before navigating away. */
   readonly dirty = computed(() => {
     const baseline = this.baseline();
     const draft = this.draft();
 
-    return this.open() && baseline !== null && draft !== null && damMetadataChanges(baseline, draft).length > 0;
+    return this.isOpen() && baseline !== null && draft !== null && damMetadataChanges(baseline, draft).length > 0;
   });
 
   /**
@@ -211,10 +233,32 @@ export class DamAssetEditComponent {
     // Seeded when the dialog opens and not again while it is open: the asset input can change underneath an
     // open form (a conflict re-read does that), and re-seeding then would throw the creator's typing away.
     effect(() => {
+      if (this.inline()) {
+        // Inline, the form is open as long as it is on screen; a new asset seeds it, a newer read of this one
+        // does not — that is what the save and the conflict re-read hand back, and seeding then would lose typing.
+        const id = this.asset().id;
+        if (id === this.seededId) return;
+
+        this.seededId = id;
+        untracked(() => this.begin());
+        return;
+      }
+
       if (!this.open()) return;
 
       untracked(() => this.begin());
     });
+  }
+
+  /**
+   * For a guided step's Continue (13A.21): saves what changed, and says whether the step may move on. Nothing
+   * changed is nothing to save. A refusal keeps the creator on the form, with the reason beside it.
+   */
+  async saveForStep(): Promise<boolean> {
+    if (this.conflicted() || this.busy()) return false;
+    if (!this.dirty()) return true;
+
+    return this.save();
   }
 
   // ---- Fields ----
@@ -268,10 +312,10 @@ export class DamAssetEditComponent {
 
   // ---- Save, conflict, cancel ----
 
-  protected async save(): Promise<void> {
+  protected async save(): Promise<boolean> {
     const baseline = this.baseline();
     const draft = this.draft();
-    if (baseline === null || draft === null || this.busy() || this.conflicted()) return;
+    if (baseline === null || draft === null || this.busy() || this.conflicted()) return false;
 
     const errors = validateDamMetadataDraft(draft);
     this.fieldErrors.set(errors);
@@ -279,10 +323,10 @@ export class DamAssetEditComponent {
     if (firstInvalid) {
       this.problem.set('');
       this.focusField(firstInvalid);
-      return;
+      return false;
     }
 
-    if (damMetadataChanges(baseline, draft).length === 0) return;
+    if (damMetadataChanges(baseline, draft).length === 0) return true;
 
     const slug = this.workspaceSlug();
     const assetId = this.asset().id;
@@ -303,8 +347,18 @@ export class DamAssetEditComponent {
     switch (outcome.status) {
       case 'updated':
         this.saved.emit(outcome.asset);
+        if (this.inline()) {
+          // Still on screen: the form now stands on what the server answered, with the token it gave.
+          const saved = damMetadataDraftOf(outcome.asset);
+          this.baseline.set(saved);
+          this.draft.set(saved);
+          this.token.set(outcome.asset.concurrencyToken);
+          this.idempotencyKey = null;
+          this.rebasedNotice.set('Saved.');
+          return true;
+        }
         this.end();
-        return;
+        return true;
 
       case 'stale':
         // The token this was composed against is spent, and so is the key: the next save is a different
@@ -314,7 +368,7 @@ export class DamAssetEditComponent {
         this.problem.set(
           'Someone else changed this picture while you were editing, so nothing was saved. Your changes are still here.',
         );
-        return;
+        return false;
 
       case 'invalid': {
         const mapped: Partial<Record<DamMetadataField, string>> = {};
@@ -328,19 +382,20 @@ export class DamAssetEditComponent {
 
         const first = DAM_METADATA_FIELDS.find((field) => mapped[field]);
         if (first) this.focusField(first);
-        return;
+        return false;
       }
 
       case 'forbidden':
         this.problem.set('You need Contributor access in this workspace to change a picture. Nothing was saved.');
-        return;
+        return false;
 
       case 'not_found':
         this.problem.set('This picture is no longer in the library, so there is nothing to save to.');
-        return;
+        return false;
 
       default:
         this.problem.set('The changes could not be saved just now. They are still here, so try again.');
+        return false;
     }
   }
 
@@ -464,7 +519,7 @@ export class DamAssetEditComponent {
 
     const outcome = await this.tagService.list(slug);
     // The dialog may have been closed, or the workspace changed, while the vocabulary was being read.
-    if (!this.open() || this.workspaceSlug() !== slug) return;
+    if (!this.isOpen() || this.workspaceSlug() !== slug) return;
 
     if (outcome.status === 'found') {
       this.vocabulary.set(outcome.tags);

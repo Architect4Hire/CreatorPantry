@@ -1,4 +1,5 @@
-import { signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { Location } from '@angular/common';
 import { provideRouter } from '@angular/router';
@@ -36,6 +37,9 @@ import { WeeklyThemesService } from '../../services/weekly-themes.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { ChannelPostRunState, emptyChannelPostRunState } from '../../shared/channel-posts/channel-post-run.component';
 import { SocialStudioComponent } from './social-studio.component';
+import { SocialStudioHost } from './social-studio-host';
+import { WorkflowRunService } from '../../services/workflow-run.service';
+import { WorkflowRun } from '../../models/workflow-run.models';
 import { socialStudioCanDeactivateGuard } from './social-studio.guard';
 
 const SLUG = 'cozy-fall';
@@ -226,6 +230,24 @@ async function settle(): Promise<void> {
   }
 }
 
+
+/** How the next hosted studio's host is set, as a guided step sets it before the studio is made. */
+let hostSetup: ((host: SocialStudioHost) => void) | null = null;
+let hostedFilings: string[] = [];
+
+@Component({
+  imports: [SocialStudioComponent],
+  providers: [SocialStudioHost],
+  template: `<cp-social-studio />`,
+})
+class HostedStudioComponent {
+  constructor() {
+    const host = inject(SocialStudioHost);
+    host.filed = (contextId) => hostedFilings.push(contextId);
+    hostSetup?.(host);
+  }
+}
+
 async function create(
   options: {
     role?: WorkspaceRole | null;
@@ -259,7 +281,14 @@ async function create(
           canDeactivate: [socialStudioCanDeactivateGuard],
         },
         { path: ':workspaceSlug/dashboard', children: [] },
+        { path: ':workspaceSlug/workflows/runs/:runId', component: HostedStudioComponent },
       ]),
+      {
+        provide: WorkflowRunService,
+        useValue: {
+          get: () => Promise.resolve({ status: 'found' as const, run: { goal: 'Create social posts' } as unknown as WorkflowRun }),
+        },
+      },
       { provide: CreativeContextService, useValue: server },
       { provide: ChannelPostService, useValue: posts },
       { provide: RecipeService, useValue: library },
@@ -335,8 +364,24 @@ async function create(
   }).compileComponents();
 
   harness = await RouterTestingHarness.create();
-  await harness.navigateByUrl(options.url ?? `/${SLUG}/social-studio`, SocialStudioComponent);
+  if (options.url?.includes('/workflows/runs/')) await harness.navigateByUrl(options.url);
+  else await harness.navigateByUrl(options.url ?? `/${SLUG}/social-studio`, SocialStudioComponent);
   await settle();
+}
+
+/** The studio a guided step hosts, showing one part (13A.20). */
+async function hosted(setupHost: (host: SocialStudioHost) => void, setup?: () => void): Promise<void> {
+  hostSetup = setupHost;
+  hostedFilings = [];
+  await create({ url: `/${SLUG}/workflows/runs/run-1`, setup });
+}
+
+function hostedStudio(): SocialStudioComponent {
+  return harness.routeDebugElement!.query(By.directive(SocialStudioComponent)).componentInstance;
+}
+
+function hostedSession(): CreativeContextSession {
+  return harness.routeDebugElement!.query(By.directive(SocialStudioComponent)).injector.get(CreativeContextSession);
 }
 
 function root(): HTMLElement {
@@ -722,5 +767,104 @@ describe('SocialStudioComponent', () => {
 
     const live = root().querySelector('.cp-sr-only[role="status"]');
     expect(live?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  describe('hosted in a guided step (13A.20)', () => {
+    afterEach(() => (hostSetup = null));
+
+    it('asks only what the posts are about on the first part, offering the run’s recipe', async () => {
+      await hosted((host) => {
+        host.part = 'about';
+        host.suggestedRecipeId = 'r-soda';
+      });
+
+      expect(root().querySelector('cp-page-head')).withContext('the run page owns the heading').toBeNull();
+      expect(button('Use “Soda bread”')).not.toBeNull();
+      expect(root().querySelector('#cp-social-brief')).not.toBeNull();
+      expect(root().querySelector('#cp-social-theme, #cp-social-day')).not.toBeNull();
+      expect(button('Choose a picture')).withContext('the picture is a step of its own').toBeNull();
+      expect(root().querySelector('cp-channel-post-run')).toBeNull();
+      expect(root().querySelector('cp-social-studio-recent')).toBeNull();
+      expect(root().querySelector('.legend')).withContext('the step’s card carries the shell’s legend').toBeNull();
+    });
+
+    it('files new work on its first answer for the run, and leaves the address alone', async () => {
+      await hosted((host) => (host.part = 'about'));
+      const location = TestBed.inject(Location);
+      const before = location.path();
+
+      await type('#cp-social-brief', 'My cookbook is out on Friday.');
+      await hostedSession().flush();
+      await settle();
+
+      expect(server.creates.length).toBe(1);
+      expect(hostedFilings.length).withContext('the run is told, once').toBe(1);
+      expect(hostedStudio().workContext()?.id).toBe(hostedFilings[0]);
+      expect(location.path()).withContext('the address is the run’s').toBe(before);
+    });
+
+    it('writes and reviews posts on the second part, and says nothing is kept until one is', async () => {
+      const id = 'ctx-posts';
+      await hosted(
+        (host) => {
+          host.part = 'write';
+          host.contextId = id;
+        },
+        () => {
+          server.seed(SLUG, id, { workingTitle: 'Soda bread' });
+          posts.packages[`${SLUG}/${id}`] = pkg(id, [channel('instagram', { status: 'Proposed' })]);
+        },
+      );
+
+      expect(root().querySelector('cp-channel-post-run')).not.toBeNull();
+      expect(root().querySelector('cp-recipe-picker')).toBeNull();
+      expect(hostedStudio().anyPostKept()).toBeFalse();
+    });
+
+    it('counts a post as kept only when the server says one is accepted', async () => {
+      const id = 'ctx-posts';
+      await hosted(
+        (host) => {
+          host.part = 'write';
+          host.contextId = id;
+        },
+        () => {
+          server.seed(SLUG, id, { workingTitle: 'Soda bread' });
+          posts.packages[`${SLUG}/${id}`] = pkg(id, [channel('instagram', { status: 'Accepted' })]);
+        },
+      );
+
+      expect(hostedStudio().anyPostKept()).toBeTrue();
+    });
+
+    it('says where to go when the second part has nothing to write about', async () => {
+      await hosted((host) => (host.part = 'write'));
+
+      expect(text()).toContain('Go back to the first step to link a recipe or write a few lines');
+    });
+
+    it('chooses a picture on the third part, and nothing else', async () => {
+      const id = 'ctx-posts';
+      await hosted(
+        (host) => {
+          host.part = 'picture';
+          host.contextId = id;
+        },
+        () => server.seed(SLUG, id, { workingTitle: 'Soda bread' }),
+      );
+
+      expect(button('Choose a picture')).not.toBeNull();
+      expect(root().querySelector('#cp-social-brief')).toBeNull();
+      expect(root().querySelector('cp-channel-post-run')).toBeNull();
+    });
+  });
+
+  describe('opened from a guided run (13A.20)', () => {
+    it('says which workflow sent the creator here, with the way back', async () => {
+      await create({ url: `/${SLUG}/social-studio?workflowRun=0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f` });
+
+      const notice = root().querySelector('cp-workflow-return-notice');
+      expect(notice?.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`);
+    });
   });
 });

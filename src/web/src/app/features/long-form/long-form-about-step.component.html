@@ -19,6 +19,7 @@
   [workspaceSlug]="workspaceSlug()"
   [session]="session()"
   [idPrefix]="idPrefix() + '-recipe'"
+  [suggested]="suggestedRecipe()"
   intro="Link the recipe this piece is about, and it is planned and written from that recipe. Optional: a piece does not have to be about one."
   (announced)="announced.emit($event)"
 />

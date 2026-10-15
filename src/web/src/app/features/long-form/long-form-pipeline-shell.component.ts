@@ -10,7 +10,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   CpBackLinkComponent,
@@ -773,6 +773,15 @@ export class LongFormPipelineShellComponent {
    * (DESIGN-SYSTEM.md): the creator has just pressed a button naming the field they mean to begin in, so
    * that field is where they are put. An arrival with no starting point leaves focus alone, as before.
    */
+  /**
+   * The recipe the link that opened the writer offers, from `?recipe=` — a finished guided run's recipe, say (13A.18).
+   * Only an id is taken, and it is only offered: the recipe picker shows it as one button, and it is linked when the
+   * creator presses it, never on arrival.
+   */
+  protected readonly suggestedRecipe = toSignal(this.route.queryParamMap.pipe(map((query) => idFrom(query.get('recipe')))), {
+    initialValue: idFrom(this.route.snapshot.queryParamMap.get('recipe')),
+  });
+
   private startingPoint(): 'recipe' | 'brief' | null {
     const from = this.route.snapshot.queryParamMap.get('from');
 
@@ -792,4 +801,11 @@ export class LongFormPipelineShellComponent {
   private focusHeading(): void {
     afterNextRender(() => document.getElementById(LONG_FORM_PIPELINE_HEADING_ID)?.focus(), { injector: this.injector });
   }
+}
+
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A well-formed id from a query parameter's value, or null. */
+function idFrom(value: string | null): string | null {
+  return value && ID.test(value) ? value : null;
 }

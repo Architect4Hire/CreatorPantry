@@ -20,12 +20,14 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
   template: `<cp-recipe-picker
     [workspaceSlug]="slug()"
     [session]="session"
+    [suggested]="suggested()"
     (announced)="announcements.push($event)"
     (linkedRecipe)="named.push($event)"
   />`,
 })
 class HostComponent {
   readonly slug = signal(SLUG);
+  readonly suggested = signal<string | null>(null);
   readonly announcements: string[] = [];
   readonly named: ({ readonly id: string; readonly title: string } | null)[] = [];
 
@@ -48,7 +50,9 @@ describe('RecipePickerComponent', () => {
   }
 
   /** Mount on a context that already exists, as a surface opened for one would be. */
-  async function mount(options: { slug?: string; linked?: { recipeId: string; recipeVersionId: string | null } } = {}): Promise<void> {
+  async function mount(
+    options: { slug?: string; linked?: { recipeId: string; recipeVersionId: string | null }; suggested?: string } = {},
+  ): Promise<void> {
     const slug = options.slug ?? SLUG;
     server.seed(slug, CTX, {
       references: options.linked
@@ -59,6 +63,7 @@ describe('RecipePickerComponent', () => {
     fixture = TestBed.createComponent(HostComponent);
     host = fixture.componentInstance;
     host.slug.set(slug);
+    host.suggested.set(options.suggested ?? null);
     el = fixture.nativeElement;
     await host.session.load(slug, CTX);
     await settle();
@@ -364,6 +369,96 @@ describe('RecipePickerComponent', () => {
       await click('Try again');
 
       expect(host.named).toEqual([{ id: 'r-soda', title: 'Soda bread' }]);
+    });
+  });
+
+  describe('an offered recipe (13A.18)', () => {
+    it('is offered by its title, and links nothing until the creator presses for it', async () => {
+      await mount({ suggested: 'r-soda' });
+
+      expect(button('Use “Soda bread”')).not.toBeNull();
+      expect(references()).withContext('offered, not linked on arrival').toEqual([]);
+      expect(box()).withContext('the search stays, for a different recipe').not.toBeNull();
+    });
+
+    it('is linked by the press exactly as a search would link it, and is then no longer offered', async () => {
+      await mount({ suggested: 'r-soda' });
+
+      await click('Use “Soda bread”');
+
+      expect(references().map((each) => [each.kind, each.recipeId, each.recipeVersionId])).toEqual([
+        ['Recipe', 'r-soda', 'v-soda-2'],
+      ]);
+      expect(host.announcements).toContain('Soda bread is linked.');
+      expect(button('Use “Soda bread”')).toBeNull();
+    });
+
+    it('takes one press while the link is being made, and links once', async () => {
+      await mount({ suggested: 'r-soda' });
+
+      const before = library.histories.length;
+      button('Use “Soda bread”')!.click();
+      button('Use “Soda bread”')!.click();
+      // Each press that is taken reads the recipe's versions at once, before anything answers.
+      expect(library.histories.length - before).withContext('the second press is not taken').toBe(1);
+      await settle();
+
+      expect(references().map((each) => each.recipeId)).toEqual(['r-soda']);
+      expect(host.announcements.filter((each) => each === 'Soda bread is linked.').length).toBe(1);
+    });
+
+    it('is offered again once the creator removes the link, since it is still the recipe they came from', async () => {
+      await mount({ suggested: 'r-soda' });
+      await click('Use “Soda bread”');
+
+      await click('Remove');
+
+      expect(references()).toEqual([]);
+      expect(button('Use “Soda bread”')).not.toBeNull();
+    });
+
+    it('drops an offer read for one workspace once the page is in another, whatever order the answers arrive', async () => {
+      let answerFirst: (() => void) | null = null;
+      const read = library.getRecipeDetail.bind(library);
+      spyOn(library, 'getRecipeDetail').and.callFake((slug: string, id: string) =>
+        slug === SLUG && answerFirst === null
+          ? new Promise((resolve) => (answerFirst = () => void read(slug, id).then(resolve)))
+          : read(slug, id),
+      );
+      await mount({ suggested: 'r-soda' });
+
+      host.slug.set(OTHER_SLUG);
+      await settle();
+      answerFirst!();
+      await settle();
+
+      expect(button('Use “Soda bread”')).withContext('a recipe of the first workspace, in the second').toBeNull();
+    });
+
+    it('is not offered while a recipe is already linked', async () => {
+      await mount({ suggested: 'r-soda', linked: { recipeId: 'r-chili', recipeVersionId: 'v-chili-1' } });
+
+      expect(button('Use “Soda bread”')).toBeNull();
+      expect(references().map((each) => each.recipeId)).toEqual(['r-chili']);
+    });
+
+    it('is not offered when it belongs to another workspace, is archived, or cannot be read', async () => {
+      await mount({ suggested: 'r-theirs' });
+      expect(button('Use “Their soda bread”')).toBeNull();
+
+      host.suggested.set('r-old');
+      await settle();
+      expect(button('Use “Retired soda farl”')).toBeNull();
+
+      library.offline = true;
+      host.suggested.set('r-chili');
+      await settle();
+      expect(button('Use “Weeknight chili”')).toBeNull();
+
+      library.offline = false;
+      host.suggested.set('r-soda');
+      await settle();
+      expect(button('Use “Soda bread”')).withContext('a readable one, for contrast').not.toBeNull();
     });
   });
 });

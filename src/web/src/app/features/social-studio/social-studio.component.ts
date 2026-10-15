@@ -1,4 +1,4 @@
-import { Location } from '@angular/common';
+import { Location, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -47,6 +47,9 @@ import {
 import { CreativeContextSaveNoticeComponent } from '../../shared/creative-context-save-notice/creative-context-save-notice.component';
 import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
+import { WORKFLOW_RUN_PARAM, workflowRunFrom } from '../../shared/workflow-shell/workflow-return';
+import { WorkflowReturnNoticeComponent } from '../../shared/workflow-shell/workflow-return-notice.component';
+import { SocialStudioHost, SocialStudioPart } from './social-studio-host';
 import { CONTEXT_ROUTE_PARAM, HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { DamAssetPickerComponent } from '../dam/dam-asset-picker.component';
 import { SocialStudioRecentComponent } from './social-studio-recent.component';
@@ -70,6 +73,15 @@ export const SOCIAL_STUDIO_POST_WORDING: ChannelPostRunWording = {
   reviewHeading: 'Read them through',
   reviewIntro:
     'One post per channel, each on its own. Nothing goes out from here, and nothing counts as yours until you accept it.',
+};
+
+/** The same sentences for a guided step, where what the posts are about is a step back rather than above (13A.20). */
+const HOSTED_POST_WORDING: ChannelPostRunWording = {
+  ...SOCIAL_STUDIO_POST_WORDING,
+  chooseIntro:
+    'Pick where these words are going. Your usual channels are already ticked; add or drop any of them. Each channel gets its own post, written to that channel’s own length, about what you chose in the first step.',
+  noWork:
+    'There is nothing to write about yet. Go back to the first step to link a recipe or write a few lines, and the channels will be offered here.',
 };
 
 /** Where a change to the work's picture has got to. */
@@ -143,6 +155,7 @@ function memoryFiling(): CreativeContextFilingStore {
   selector: 'cp-social-studio',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
@@ -158,6 +171,7 @@ function memoryFiling(): CreativeContextFilingStore {
     DayNotesNoticeComponent,
     RecipePickerComponent,
     SocialStudioRecentComponent,
+    WorkflowReturnNoticeComponent,
   ],
   templateUrl: './social-studio.component.html',
   styleUrl: './social-studio.component.css',
@@ -176,11 +190,23 @@ export class SocialStudioComponent {
   private readonly weeklyThemes = inject(WeeklyThemesService);
   private readonly usage = inject(AiUsageService);
   private readonly confirm = inject(ConfirmService);
+  /** Set when a guided step shows one part of the studio (13A.20); null on the studio's own page. */
+  protected readonly hosted = inject(SocialStudioHost, { optional: true });
+
+  /** Which part shows: every part on the studio's page, one in a step. */
+  protected readonly shows = (part: SocialStudioPart): boolean => this.hosted === null || this.hosted.part === part;
+
+  /** The guided run that sent the creator here, from `?workflowRun=` (13A.20); never on a hosted part. */
+  protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
+
+  /** Said once above the sections, on the studio's own page. Hosted, the step's card carries the shell's legend. */
+  protected readonly legendText =
+    'Give the posts one thing to be about — a recipe, a picture or a few lines. Everything else is optional.';
 
   /** The page head, for moving focus to the title when the work on screen has just been replaced. */
   private readonly head = viewChild<CpPageHeadComponent>('head');
 
-  protected readonly wording = SOCIAL_STUDIO_POST_WORDING;
+  protected readonly wording = this.hosted ? HOSTED_POST_WORDING : SOCIAL_STUDIO_POST_WORDING;
   protected readonly limits = CONTENT_PIPELINE_LIMITS;
   protected readonly allowance = this.usage.allowance;
 
@@ -362,8 +388,33 @@ export class SocialStudioComponent {
     return working !== '' ? working : (this.namedRecipe()?.title ?? '');
   });
 
+  /** The piece of work as the server last answered it, for a step that names what it made. */
+  readonly workContext = computed(() => this.session.context());
+
+  private readonly postRun = viewChild(ChannelPostRunComponent);
+
+  /** True once a post is kept for any channel — what "Write and choose your posts" asks of the server. */
+  readonly anyPostKept = computed(
+    () => this.postRun()?.package()?.channels.some((channel) => channel.status === 'Accepted') ?? false,
+  );
+
+  /** True while an answer is on its way to the server, for a step's "Saving…". */
+  readonly sending = computed(() => {
+    const save = this.session.save();
+    return save === 'pending' || save === 'saving';
+  });
+
+  /**
+   * For a step about to move: send whatever is waiting, and say whether what the posts are about is where the next
+   * step will read it. Words edited in a post and not saved are not this: they are kept on this device.
+   */
+  async flushWork(): Promise<boolean> {
+    await this.session.flush();
+    return this.session.context() === null || this.session.save() === 'saved';
+  }
+
   /** True while a post has words nobody has saved. What leaving asks about. */
-  protected readonly hasUnsavedWords = computed(() => Object.keys(this.runState().unsaved).length > 0);
+  readonly hasUnsavedWords = computed(() => Object.keys(this.runState().unsaved).length > 0);
 
   /** Where what the posts are about is, said plainly. Anything needing attention is the save notice's to say. */
   protected readonly savedText = computed(() => {
@@ -392,7 +443,7 @@ export class SocialStudioComponent {
             }
             return null;
           };
-          return { slug: read('workspaceSlug'), contextId: read(CONTEXT_ROUTE_PARAM) };
+          return { slug: read('workspaceSlug'), contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM) };
         }),
         takeUntilDestroyed(),
       )
@@ -694,6 +745,11 @@ export class SocialStudioComponent {
     if (this.routeContextId() !== null || contextId === this.filedContextId || !this.loaded()) return;
 
     this.filedContextId = contextId;
+    if (this.hosted) {
+      // The run is where a step's work is found again, not the address.
+      this.hosted.filed(contextId);
+      return;
+    }
     this.location.replaceState(
       this.router.serializeUrl(
         this.router.createUrlTree(['/', this.workspaceSlug(), ...HANDOFF_ROUTES.socialStudio(contextId)]),

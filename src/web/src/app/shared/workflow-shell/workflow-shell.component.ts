@@ -40,6 +40,7 @@ import {
 } from '../../models/workflow-run.models';
 import { WorkflowRunCommandOutcome, WorkflowRunRestartOutcome, WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { LONG_FORM_DEFINITION_KEY, longFormLink, longFormQuery } from './workflow-journeys';
 import { WorkflowStepFallbackComponent } from './workflow-step-fallback.component';
 import { WorkflowStepContext, WorkflowStepPort } from './workflow-step-port';
 import { WorkflowStepDirective } from './workflow-step.directive';
@@ -402,7 +403,7 @@ export class WorkflowShellComponent {
    * from one — or open the screen it suggests. A workflow is a new run of its own; this one is left as it is.
    */
   async startNext(suggestion: WorkflowSuggestion): Promise<void> {
-    if (suggestion.kind !== 'Workflow' || !suggestion.available) return;
+    if (suggestion.kind !== 'Workflow' || !suggestion.available || this.opensWriter(suggestion)) return;
     this.idempotencyKey = newKey();
     await this.command('start-next', async () =>
       this.runs.start(this.workspaceSlug(), suggestion.key, this.idempotencyKey!, suggestion.startFrom));
@@ -418,6 +419,20 @@ export class WorkflowShellComponent {
       commands: ['/', this.workspaceSlug(), ...path.split('/').filter((segment) => segment !== '')],
       queryParams: Object.fromEntries(new URLSearchParams(query)),
     };
+  }
+
+  /** A suggested journey built as a page of its own — the long-form writer — rather than as a run (13A.18). */
+  protected opensWriter(suggestion: WorkflowSuggestion): boolean {
+    return suggestion.key === LONG_FORM_DEFINITION_KEY;
+  }
+
+  protected writerLink(): string[] {
+    return longFormLink(this.workspaceSlug());
+  }
+
+  /** The recipe this run made, offered to the writer; nothing when the run holds none. */
+  protected writerQuery(suggestion: WorkflowSuggestion): Record<string, string> {
+    return longFormQuery(suggestion.startFrom?.kind === 'Recipe' ? suggestion.startFrom.id : null);
   }
 
   /** From the resume card: carry on with the step. */

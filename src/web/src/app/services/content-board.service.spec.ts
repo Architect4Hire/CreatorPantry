@@ -276,6 +276,33 @@ describe('ContentBoardService', () => {
       expect((await pending).status).toBe('saved');
     });
 
+    it('names the records a card links when it is made for some, and leaves out what it does not link (13A.20)', async () => {
+      const pending = firstValueFrom(
+        service.create('cozy-fall', { title: 'Soda bread', description: null, channelKey: null, plannedDate: null }, 'ToDo', 'key-2', {
+          creativeContextId: 'ctx-1',
+          recipeId: 'recipe-1',
+          recipeVersionId: null,
+          mediaAssetId: 'asset-1',
+          mediaAssetVersionNumber: 2,
+          socialPackageId: 'pkg-1',
+        }),
+      );
+
+      const request = http.expectOne(CARDS);
+      expect(request.request.body).toEqual({
+        title: 'Soda bread',
+        column: 'ToDo',
+        creativeContextId: 'ctx-1',
+        recipeId: 'recipe-1',
+        mediaAssetId: 'asset-1',
+        mediaAssetVersionNumber: 2,
+        socialPackageId: 'pkg-1',
+      });
+      request.flush(full(), { status: 201, statusText: 'Created' });
+
+      expect((await pending).status).toBe('saved');
+    });
+
     it('carries the server’s field errors for a body it refuses', async () => {
       const pending = firstValueFrom(service.create('cozy-fall', FIELDS, 'ToDo', 'key-1'));
       http

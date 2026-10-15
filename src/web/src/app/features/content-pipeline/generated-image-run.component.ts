@@ -203,6 +203,11 @@ export class GeneratedImageRunComponent {
   readonly wording = input<GeneratedImageRunWording>(PIPELINE_IMAGE_RUN_WORDING);
   /** Prefixes the two sections' ids, so a caller with its own in-page navigation can name them. */
   readonly sectionIdPrefix = input('cp-pipeline-images');
+  /**
+   * Whether the provenance line names the service and model that made the pictures. A guided step leaves them out
+   * (13A.19): the pictures are still marked as generated, and what made them stays recorded on the server.
+   */
+  readonly showMaker = input(true);
   /** What this surface needs to file pictures in the library, or null when it files none. */
   readonly library = input<GeneratedImageRunLibrary | null>(null);
 

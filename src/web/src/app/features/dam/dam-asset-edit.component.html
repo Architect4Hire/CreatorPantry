@@ -1,13 +1,32 @@
-<cp-drawer
-  [open]="open()"
-  heading="Edit details"
-  description="Change what you said about this picture. The picture itself is not changed here."
-  (closeRequested)="cancel()"
->
+@if (inline()) {
   @if (draft(); as form) {
+    <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: form }" />
+  }
+} @else {
+  <cp-drawer
+    [open]="open()"
+    heading="Edit details"
+    description="Change what you said about this picture. The picture itself is not changed here."
+    (closeRequested)="cancel()"
+  >
+    @if (draft(); as form) {
+      <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: form }" />
+    }
+
+    <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
+    <button cpDrawerActions cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+      {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
+    </button>
+  </cp-drawer>
+}
+
+<ng-template #body let-form>
+
     <form class="form" novalidate (submit)="onSubmit($event)" (keydown.escape)="onEscape($event)">
-      <!-- Optionality is said once, here, rather than field by field. -->
-      <p class="legend">Only the title is needed. Leave anything else empty to clear it.</p>
+      <!-- Optionality is said once, here, rather than field by field. Inline, the step that hosts the form says it. -->
+      @if (!inline()) {
+        <p class="legend">Only the title is needed. Leave anything else empty to clear it.</p>
+      }
 
       @if (problem()) {
         <cp-notice tone="error" role="alert">
@@ -22,6 +41,7 @@
 
       <cp-notice role="status" [quiet]="rebasedNotice() === ''">{{ rebasedNotice() }}</cp-notice>
 
+      @if (showsDescribe()) {
       <cp-form-section heading="What it is">
         <cp-field label="Title" [forId]="ids.title" [required]="true" [error]="errorFor('title')">
           <input
@@ -136,6 +156,9 @@
         </cp-field>
       </cp-form-section>
 
+      }
+
+      @if (showsTags()) {
       <cp-form-section heading="Tags" intro="Tags come from this workspace's own list.">
         @if (chosenTags().length === 0) {
           <p class="plain cp-muted">No tags on this picture.</p>
@@ -200,14 +223,17 @@
           }
         }
       </cp-form-section>
+      }
 
-      <!-- So Enter in a text box saves. The visible Save lives in the drawer's footer, outside this form. -->
+      @if (inline()) {
+        <div class="cp-actions">
+          <button cpButton type="button" variant="secondary" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+            {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      }
+
+      <!-- So Enter in a text box saves. The visible Save is the drawer's footer, or the inline button above. -->
       <button type="submit" hidden tabindex="-1"></button>
     </form>
-  }
-
-  <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
-  <button cpDrawerActions cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
-    {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
-  </button>
-</cp-drawer>
+</ng-template>

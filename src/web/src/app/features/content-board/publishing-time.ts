@@ -85,3 +85,38 @@ export function instantToZoned(instant: string, timeZone: string): { date: strin
     return null;
   }
 }
+
+/**
+ * When a publication goes out, said as the creator chose it: the wall-clock time the record keeps in the
+ * workspace's zone (`scheduledLocal`, no offset), never the instant re-read in the browser's own zone — a
+ * creator abroad would otherwise see an hour nobody chose beside the zone they chose it in (13A.22).
+ *
+ * Formatted at UTC because the value has no offset of its own: read as UTC and printed as UTC, its digits are
+ * exactly the creator's.
+ */
+export function scheduledLocalText(scheduledLocal: string): string | null {
+  const when = new Date(`${scheduledLocal.slice(0, 19)}Z`);
+  if (Number.isNaN(when.getTime())) return null;
+
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short', timeZone: 'UTC' }).format(when);
+}
+
+/** The same moment in UTC, for the secondary, diagnostic line under a schedule — never the main one. */
+export function scheduledUtcText(scheduledAt: string): string | null {
+  const when = new Date(scheduledAt);
+  if (Number.isNaN(when.getTime())) return null;
+
+  return `${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(when)} UTC`;
+}
+
+/** An instant said in the workspace's own zone, labelled with it — for "settled" and the like. Null when unreadable. */
+export function instantInZoneText(instant: string, timeZone: string): string | null {
+  const when = new Date(instant);
+  if (Number.isNaN(when.getTime())) return null;
+
+  try {
+    return `${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(when)} (${timeZone})`;
+  } catch {
+    return null;
+  }
+}

@@ -45,6 +45,8 @@ import {
   stepIndexOf,
   stepStatusOf,
 } from '../../../models/brand-setup.models';
+import { WORKFLOW_RUN_PARAM, workflowRunFrom, workflowRunLink, workflowRunQuery } from '../../../shared/workflow-shell/workflow-return';
+import { WorkflowReturnNoticeComponent } from '../../../shared/workflow-shell/workflow-return-notice.component';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
 import { BrandSetupCreateStepComponent } from './brand-setup-create-step.component';
@@ -140,6 +142,7 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
   selector: 'cp-brand-setup-shell',
   standalone: true,
   imports: [
+    WorkflowReturnNoticeComponent,
     RouterLink,
     CpButtonComponent,
     CpCardComponent,
@@ -167,6 +170,12 @@ export class BrandSetupShellComponent {
   protected readonly pageTitle = injectRouteTitle('Create my voice');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+
+  /**
+   * The guided run that deep-linked here, from `?workflowRun=` (13A.17): the back link returns to it. Read once, used
+   * for that link alone, and only when it is a well-formed id.
+   */
+  readonly workflowRun = workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
   private readonly service = inject(BrandSetupSessionService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly confirmService = inject(ConfirmService);
@@ -448,7 +457,7 @@ export class BrandSetupShellComponent {
 
     const resolution = resolveStepRoute(this.stepParam, stepIndexOf(this.data().furthestStep));
     if (resolution.kind === 'redirect') {
-      void this.router.navigate(this.link(resolution.slug), { replaceUrl: true });
+      void this.router.navigate(this.link(resolution.slug), { replaceUrl: true, ...this.keep });
       return;
     }
     if (this.currentIndex() === resolution.index) return;
@@ -465,6 +474,14 @@ export class BrandSetupShellComponent {
 
   private link(slug: string): string[] {
     return ['/', this.workspaceSlug(), 'brand', 'setup', slug];
+  }
+
+  /** The query every move between steps keeps, so the way back to a run survives the wizard's own navigation. */
+  protected readonly keep = { queryParams: workflowRunQuery(this.workflowRun) };
+
+  /** Where leaving goes: the run that sent the creator here, or brand settings. */
+  private exitLink(): string[] {
+    return this.workflowRun ? workflowRunLink(this.workspaceSlug(), this.workflowRun) : ['/', this.workspaceSlug(), 'brand'];
   }
 
   private progressTextFor(index: number): string {
@@ -624,7 +641,7 @@ export class BrandSetupShellComponent {
     const index = this.currentIndex();
     if (index === null || index === 0) return;
     this.actionError.set('');
-    void this.router.navigate(this.link(BRAND_SETUP_STEP_SLUGS[index - 1]));
+    void this.router.navigate(this.link(BRAND_SETUP_STEP_SLUGS[index - 1]), this.keep);
   }
 
   async continueToNext(): Promise<void> {
@@ -659,7 +676,7 @@ export class BrandSetupShellComponent {
       this.actionError.set(SAVE_FAILED_NOTE);
       return;
     }
-    await this.router.navigate(this.link(nextSlug));
+    await this.router.navigate(this.link(nextSlug), this.keep);
   }
 
   private withStepResult(
@@ -698,13 +715,13 @@ export class BrandSetupShellComponent {
       return;
     }
     this.leaving = true;
-    const navigated = await this.router.navigate(['/', this.workspaceSlug(), 'brand']);
+    const navigated = await this.router.navigate(this.exitLink());
     if (!navigated) this.leaving = false;
   }
 
   /** Leaves and keeps whatever was saved. The route guard asks first when there are unsaved edits. */
   async cancel(): Promise<void> {
-    const navigated = await this.router.navigate(['/', this.workspaceSlug(), 'brand']);
+    const navigated = await this.router.navigate(this.exitLink());
     if (navigated) this.phase.set('cancelled');
   }
 
@@ -747,7 +764,7 @@ export class BrandSetupShellComponent {
     this.phase.set('fresh');
     this.stepParam = FIRST_BRAND_SETUP_STEP;
     this.firstStepApplied = true;
-    await this.router.navigate(this.link(FIRST_BRAND_SETUP_STEP), { replaceUrl: true });
+    await this.router.navigate(this.link(FIRST_BRAND_SETUP_STEP), { replaceUrl: true, ...this.keep });
     this.applyRoute();
     this.announcement.set('Your draft was deleted. You are back at step 1.');
     this.focusHeading();
@@ -763,7 +780,7 @@ export class BrandSetupShellComponent {
     this.currentIndex.set(null);
     this.firstStepApplied = false;
     this.applyRoute();
-    await this.router.navigate(this.link(session.currentStep), { replaceUrl: true });
+    await this.router.navigate(this.link(session.currentStep), { replaceUrl: true, ...this.keep });
   }
 
   async finish(): Promise<void> {
@@ -837,13 +854,13 @@ export class BrandSetupShellComponent {
       this.phase.set('active');
       this.stepParam = outcome.session.currentStep;
       this.applyRoute();
-      await this.router.navigate(this.link(outcome.session.currentStep), { replaceUrl: true });
+      await this.router.navigate(this.link(outcome.session.currentStep), { replaceUrl: true, ...this.keep });
     } else if (outcome.status === 'none') {
       this.resetLocal();
       this.phase.set('fresh');
       this.stepParam = FIRST_BRAND_SETUP_STEP;
       this.applyRoute();
-      await this.router.navigate(this.link(FIRST_BRAND_SETUP_STEP), { replaceUrl: true });
+      await this.router.navigate(this.link(FIRST_BRAND_SETUP_STEP), { replaceUrl: true, ...this.keep });
     } else {
       this.actionError.set("We couldn't load the latest version. Your edits are still here. Try again.");
     }

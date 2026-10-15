@@ -53,6 +53,7 @@ import { WorkflowHubService } from '../../services/workflow-hub.service';
 import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
+import { LONG_FORM_DEFINITION_KEY, longFormLink } from '../../shared/workflow-shell/workflow-journeys';
 
 /** How many rows each list on the hub shows before "Show more". */
 export const WORKFLOWS_HUB_ROWS = 5;
@@ -60,8 +61,9 @@ export const WORKFLOWS_HUB_ROWS = 5;
 /** How far back the long-form read looks: the workspace's most recently changed pieces. */
 const LONG_FORM_LOOKBACK = 20;
 
-/** The catalogue's blog-and-newsletter workflow, which opens the long-form writer as built (LF.6.3). */
-export const LONG_FORM_DEFINITION_KEY = 'content.blog-and-seo';
+// The catalogue's blog-and-newsletter workflow opens the long-form writer as built (LF.6.3); one constant, shared
+// with a finished run's "What next?", so the two always send a creator to the same page.
+export { LONG_FORM_DEFINITION_KEY } from '../../shared/workflow-shell/workflow-journeys';
 
 const LONG_FORM_KINDS: Readonly<Record<LongFormKind, string>> = {
   BlogArticle: 'Blog article',
@@ -789,7 +791,7 @@ export class WorkflowsHubComponent {
   // ---- Links ----
 
   private longFormLink(): readonly string[] {
-    return ['/', this.workspaceSlug(), 'workflows', 'long-form'];
+    return longFormLink(this.workspaceSlug());
   }
 
   /** The piece, and no step: the pipeline opens it where it stands on the server now. */

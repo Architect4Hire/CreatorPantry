@@ -576,6 +576,65 @@ describe('WorkflowShellComponent', () => {
     expect(navigate).not.toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
   });
 
+  it('opens the writer for the blog journey, offering the recipe this run made, and starts no run for it (13A.18)', async () => {
+    const blog = {
+      kind: 'Workflow',
+      key: 'content.blog-and-seo',
+      label: 'Write a blog post and SEO package',
+      why: 'Turn the recipe into a post.',
+      route: null,
+      startFromKind: 'Recipe',
+      startFromId: 'recipe-1',
+      available: true,
+      youCanDoIt: true,
+    };
+    await create(finished({ nextSuggestions: [blog] }));
+
+    const open = el().querySelector<HTMLAnchorElement>('a[aria-label="Open the writer: Write a blog post and SEO package"]')!;
+    expect(open.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form?from=recipe&recipe=recipe-1`);
+    expect(open.classList).toContain('cp-button--primary');
+    expect(el().querySelector('button[aria-label^="Start:"]')).withContext('the writer is a page, not a run').toBeNull();
+    expect(service.start).not.toHaveBeenCalled();
+  });
+
+  it('never starts a run for the writer’s journey, however it is asked to', async () => {
+    const blog = {
+      kind: 'Workflow' as const,
+      key: 'content.blog-and-seo',
+      label: 'Write a blog post and SEO package',
+      why: 'Turn the recipe into a post.',
+      route: null,
+      startFrom: { kind: 'Recipe' as const, id: 'recipe-1' },
+      available: true,
+      youCanDoIt: true,
+    };
+    await create(finished());
+
+    await shell().startNext(blog);
+
+    expect(service.start).not.toHaveBeenCalled();
+  });
+
+  it('opens the writer with no recipe when the run made none, and offers it to no Viewer', async () => {
+    const blog = {
+      kind: 'Workflow',
+      key: 'content.blog-and-seo',
+      label: 'Write a blog post and SEO package',
+      why: 'Turn the recipe into a post.',
+      route: null,
+      startFromKind: null,
+      startFromId: null,
+      available: true,
+      youCanDoIt: true,
+    };
+    await create(finished({ nextSuggestions: [blog] }));
+    expect(el().querySelector('a[aria-label^="Open the writer"]')?.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form`);
+
+    role = 'Viewer';
+    await create(finished({ nextSuggestions: [blog] }));
+    expect(el().querySelector('a[aria-label^="Open the writer"]')).toBeNull();
+  });
+
   it('offers nothing to start to a Viewer on a finished run', async () => {
     role = 'Viewer';
     await create(finished());

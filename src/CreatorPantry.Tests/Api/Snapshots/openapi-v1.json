@@ -4522,6 +4522,66 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/active": {
+      "get": {
+        "tags": [
+          "BrandStyleGuides"
+        ],
+        "summary": "The guide and version this workspace writes with now, or nothing when none is switched on.",
+        "description": "Any member may read. \u0060204\u0060 when nothing is switched on: no fallback to the newest approved version. What a\nscreen offering to switch another guide on needs before it asks, so it can say what would be replaced and\nquote it on the activation as \u0060expectedActiveVersionId\u0060 (13A.17). The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandActiveStyleGuide"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandActiveStyleGuide"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandActiveStyleGuide"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-style-guides/{guideId}/versions": {
       "get": {
         "tags": [
@@ -25510,6 +25570,46 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BrandActiveStyleGuide": {
+        "required": [
+          "guideId",
+          "displayName",
+          "purpose",
+          "status",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "guideId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/BrandStyleGuideStatus"
+          },
+          "version": {
+            "$ref": "#/components/schemas/BrandStyleGuideVersionDetail"
+          },
+          "staleSourceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
           }
         }
       },

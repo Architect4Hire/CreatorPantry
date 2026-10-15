@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -22,6 +21,7 @@ import {
   publishingRecordView,
   publishingSummary,
 } from './publishing-presentation';
+import { instantInZoneText, scheduledLocalText, scheduledUtcText } from './publishing-time';
 
 type ReadState = 'loading' | 'ready' | 'error';
 
@@ -60,7 +60,6 @@ const CANCEL_PROBLEMS = {
   selector: 'cp-content-card-publishing',
   standalone: true,
   imports: [
-    DatePipe,
     CpBadgeComponent,
     CpButtonComponent,
     CpFactComponent,
@@ -108,12 +107,16 @@ const CANCEL_PROBLEMS = {
                     <p class="plain cp-muted">{{ guidance }}</p>
                   }
                   <dl cpFacts layout="inline">
+                    <!-- The time as it was chosen, in the workspace's zone; UTC only as the small line under it. -->
                     <div cpFact label="Going out">
-                      {{ view.record.scheduledAt | date: 'medium' }} ({{ view.record.scheduleTimeZoneId }})
+                      {{ localText(view.record) }} ({{ view.record.scheduleTimeZoneId }})
+                      @if (utcText(view.record); as utc) {
+                        <span class="utc cp-muted">{{ utc }}</span>
+                      }
                     </div>
                     <div cpFact label="Profile">{{ profileName(view.record.publishingProfileId) }}</div>
                     @if (view.record.completedAt; as done) {
-                      <div cpFact label="Settled">{{ done | date: 'medium' }}</div>
+                      <div cpFact label="Settled">{{ settledText(done, view.record) }}</div>
                     }
                   </dl>
                   @if (view.cancellable) {
@@ -189,6 +192,10 @@ const CANCEL_PROBLEMS = {
       .plain {
         margin: 0;
       }
+      .utc {
+        display: block;
+        font-size: var(--cp-font-size-xs);
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -255,6 +262,18 @@ export class ContentCardPublishingComponent {
 
     // A profile the provider has stopped listing is still the one this went to; its id is not shown.
     return profile?.displayName ?? 'A profile this workspace no longer lists';
+  }
+
+  protected localText(record: PublishingRecord): string {
+    return scheduledLocalText(record.scheduledLocal) ?? 'Time unavailable';
+  }
+
+  protected settledText(completedAt: string, record: PublishingRecord): string {
+    return instantInZoneText(completedAt, record.scheduleTimeZoneId) ?? 'Time unavailable';
+  }
+
+  protected utcText(record: PublishingRecord): string | null {
+    return scheduledUtcText(record.scheduledAt);
   }
 
   protected cancelLabel(record: PublishingRecord): string {

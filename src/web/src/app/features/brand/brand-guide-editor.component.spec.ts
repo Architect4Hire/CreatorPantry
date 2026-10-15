@@ -21,6 +21,7 @@ import {
   BrandStyleGuideVersionsOutcome,
 } from '../../services/brand-style-guide.service';
 import { BRAND_GUIDE_AUTOSAVE_DELAY_MS, BrandGuideEditorComponent } from './brand-guide-editor.component';
+import { WorkflowRunService } from '../../services/workflow-run.service';
 
 function workingVersion(
   overrides: Partial<BrandStyleGuideVersionContent> = {},
@@ -192,7 +193,7 @@ describe('BrandGuideEditorComponent', () => {
   let harness: RouterTestingHarness;
   let component: BrandGuideEditorComponent;
 
-  async function create(confirmed = true): Promise<void> {
+  async function create(confirmed = true, url = '/sams-kitchen/brand/style-guide/g1'): Promise<void> {
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(confirmed);
 
     TestBed.resetTestingModule();
@@ -207,13 +208,14 @@ describe('BrandGuideEditorComponent', () => {
           useValue: { get: () => Promise.resolve(documentOutcome) },
         },
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
+        { provide: WorkflowRunService, useValue: { get: () => Promise.resolve({ status: 'not_found' }) } },
         // No wall-clock wait: the debounce still runs, and `whenStable()` settles it immediately.
         { provide: BRAND_GUIDE_AUTOSAVE_DELAY_MS, useValue: 0 },
       ],
     }).compileComponents();
 
     harness = await RouterTestingHarness.create();
-    component = await harness.navigateByUrl('/sams-kitchen/brand/style-guide/g1', BrandGuideEditorComponent);
+    component = await harness.navigateByUrl(url, BrandGuideEditorComponent);
     harness.detectChanges();
     await settle();
   }
@@ -272,6 +274,18 @@ describe('BrandGuideEditorComponent', () => {
   });
 
   // ---- What the editor opens with ----
+
+  it('keeps its own way back, and says how to carry on with the guided run that opened it', async () => {
+    const run = '0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f';
+    await create(true, `/sams-kitchen/brand/style-guide/g1?workflowRun=${run}`);
+    const page = harness.routeNativeElement!;
+    expect(page.querySelector('a[cpBackLink]')!.textContent?.replace('←', '').trim()).toBe('Brand settings');
+    const carryOn = Array.from(page.querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'))!;
+    expect(carryOn.getAttribute('href')).toBe(`/sams-kitchen/workflows/runs/${run}`);
+
+    await create();
+    expect(harness.routeNativeElement!.querySelector('cp-workflow-return-notice')).toBeNull();
+  });
 
   it('seeds the form from the working version and names where it stands', async () => {
     service.versionsOutcome = { status: 'ok', page: { items: [row({ status: 'Approved' })], nextCursor: null } };

@@ -65,7 +65,19 @@
                 @for (suggestion of finished.nextSuggestions; track suggestion.kind + suggestion.key; let first = $first) {
                   <li class="next-item">
                     <p class="plain"><strong>{{ suggestion.label }}</strong>. {{ suggestion.why }}</p>
-                    @if (suggestion.kind === 'Workflow') {
+                    @if (suggestion.kind === 'Workflow' && opensWriter(suggestion)) {
+                      <!-- Built as a page of its own (LF.6.3): it opens there, offering the recipe this run made, as
+                           the Workflows Hub's card does. No run is started for it. -->
+                      @if (!readOnly() && suggestion.youCanDoIt) {
+                        <a
+                          cpButton
+                          [variant]="first ? 'primary' : 'secondary'"
+                          [routerLink]="writerLink()"
+                          [queryParams]="writerQuery(suggestion)"
+                          [attr.aria-label]="'Open the writer: ' + suggestion.label"
+                        >Open the writer</a>
+                      }
+                    } @else if (suggestion.kind === 'Workflow') {
                       @if (!readOnly() && suggestion.youCanDoIt) {
                         <button
                           cpButton

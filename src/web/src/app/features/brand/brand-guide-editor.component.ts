@@ -59,6 +59,8 @@ import {
   readDraft,
   seedFromVersion,
 } from './brand-guide-editor-state';
+import { WORKFLOW_RUN_PARAM, workflowRunFrom } from '../../shared/workflow-shell/workflow-return';
+import { WorkflowReturnNoticeComponent } from '../../shared/workflow-shell/workflow-return-notice.component';
 
 type LoadState =
   | { readonly status: 'loading' }
@@ -143,6 +145,7 @@ export const BRAND_GUIDE_AUTOSAVE_DELAY_MS = new InjectionToken<number>('brand g
   selector: 'cp-brand-guide-editor',
   standalone: true,
   imports: [
+    WorkflowReturnNoticeComponent,
     CpPageHeadComponent,
     FormsModule,
     RouterLink,
@@ -168,6 +171,12 @@ export class BrandGuideEditorComponent {
   private readonly documents = inject(BrandSourceDocumentService);
   private readonly confirmService = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
+
+  /**
+   * The guided run that deep-linked here, from `?workflowRun=` (13A.17): the back link returns to it. Read once, used
+   * for that link alone, and only when it is a well-formed id.
+   */
+  readonly workflowRun = workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);

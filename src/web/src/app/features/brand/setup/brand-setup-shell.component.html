@@ -5,6 +5,10 @@
   <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug(), 'brand']">Brand settings</a>
 </cp-page-head>
 
+@if (workflowRun; as run) {
+  <cp-workflow-return-notice [workspaceSlug]="workspaceSlug()" [runId]="run" />
+}
+
 <div class="setup">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 
@@ -77,7 +81,11 @@
             </cp-notice>
           }
           <div cpTopicCardActions class="cp-actions">
-            <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
+            @if (workflowRun; as run) {
+              <cp-workflow-return-notice mode="action" [workspaceSlug]="workspaceSlug()" [runId]="run" />
+            } @else {
+              <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Back to brand settings</a>
+            }
             <button cpButton type="button" variant="text" [disabled]="busy() !== ''" (click)="startOver()">Start over</button>
           </div>
       </cp-topic-card>

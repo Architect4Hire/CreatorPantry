@@ -1,4 +1,4 @@
-import { Location } from '@angular/common';
+import { Location, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -35,18 +35,23 @@ import {
   emptyContentPipelinePostsState,
   contentPipelineBriefAfter,
   contentPipelineConfigWith,
+  contentPipelinePictureCount,
 } from '../../models/content-pipeline.models';
 import { CreativeContextFields, EMPTY_CREATIVE_CONTEXT_FIELDS } from '../../models/creative-context-fields.models';
 import { linkedRecipeOf } from '../../models/creative-context.models';
 import { DamCreatedAsset, DamKeepRecipe } from '../../models/dam-asset.models';
 import { avoidTextFor, generatedImageSubjectOf } from '../../models/generated-image.models';
 import { ImageStudioDraft, emptyImageStudioDraft, isImageStudioDraftEmpty } from '../../models/image-studio.models';
+import { CreativeContextFiling, CreativeContextFilingStore } from '../../services/device-draft-store';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from '../../services/image-studio-draft.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CreativeContextSaveNoticeComponent } from '../../shared/creative-context-save-notice/creative-context-save-notice.component';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
+import { WORKFLOW_RUN_PARAM, workflowRunFrom } from '../../shared/workflow-shell/workflow-return';
+import { WorkflowReturnNoticeComponent } from '../../shared/workflow-shell/workflow-return-notice.component';
 import { CONTEXT_ROUTE_PARAM, HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
+import { ContentPipelineBrandDefaultsComponent } from '../content-pipeline/content-pipeline-brand-defaults.component';
 import { ContentPipelineConceptPanelComponent } from '../content-pipeline/content-pipeline-concept-panel.component';
 import { ContentPipelineDocumentPickerComponent } from '../content-pipeline/content-pipeline-document-picker.component';
 import { ContentPipelineIdeaStepComponent } from '../content-pipeline/content-pipeline-idea-step.component';
@@ -58,6 +63,7 @@ import {
   GeneratedImageRunLibrary,
   GeneratedImageRunWording,
 } from '../content-pipeline/generated-image-run.component';
+import { ImageStudioHost } from './image-studio-host';
 
 /**
  * `loading` and `unavailable` are how reading the creator's memberships can end; `not_found` and `read_only`
@@ -100,6 +106,29 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
     'A picture you save is yours from then on and can be found in your library. One you do not save is not kept.',
   expiryRemedy: 'so save anything you want to keep.',
 };
+
+/**
+ * The same sentences for a guided step, where the prompt and the count are a step back rather than above (13A.19).
+ * The count's sentence is also where the cost is said before anything is made: pictures are not drawn from the AI
+ * allowance, which the planning steps show before each of their own asks.
+ */
+const HOSTED_RUN_WORDING: GeneratedImageRunWording = {
+  ...STUDIO_RUN_WORDING,
+  makeIntro: 'This is your prompt from the last step, exactly as it will be sent. Go back a step to change it.',
+  noPrompt: 'There is no prompt yet. Go back a step to write one, or have one written for you.',
+  tooLongRemedy: 'Shorten it a step back.',
+  countRemedy: 'Making pictures doesn’t use your AI allowance. To change how many, go back to the first step.',
+};
+
+/** Work begun in a guided step is filed through the run, so the attempt is remembered for as long as the step is. */
+function memoryFiling(): CreativeContextFilingStore {
+  let filing: CreativeContextFiling | null = null;
+  return {
+    read: () => filing,
+    write: (next) => (filing = next),
+    clear: () => (filing = null),
+  };
+}
 
 /**
  * The Image Studio: from a description of a shot to the pictures worth keeping (IMAGE-UI-001 through 004).
@@ -152,6 +181,7 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
   selector: 'cp-image-studio',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     RouterLink,
     CpAnchorNavComponent,
     CpButtonComponent,
@@ -160,6 +190,7 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
     CpNoticeComponent,
     CreativeContextSaveNoticeComponent,
     RecipePickerComponent,
+    ContentPipelineBrandDefaultsComponent,
     ContentPipelineConceptPanelComponent,
     ContentPipelineDocumentPickerComponent,
     ContentPipelineIdeaStepComponent,
@@ -168,6 +199,7 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
     ContentPipelineSetupStepComponent,
     GeneratedImageRunComponent,
     CpPageHeadComponent,
+    WorkflowReturnNoticeComponent,
   ],
   templateUrl: './image-studio.component.html',
   styleUrl: './image-studio.component.css',
@@ -185,9 +217,65 @@ export class ImageStudioComponent {
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly confirm = inject(ConfirmService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  /** Set when a guided step shows one part of the studio (13A.19); null on the studio's own page. */
+  protected readonly hosted = inject(ImageStudioHost, { optional: true });
 
   protected readonly sections = SECTIONS;
-  protected readonly runWording = STUDIO_RUN_WORDING;
+
+  /** The guided run that sent the creator here, from `?workflowRun=` (13A.19); never on a hosted part. */
+  protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
+  protected readonly runWording = this.hosted ? HOSTED_RUN_WORDING : STUDIO_RUN_WORDING;
+
+  /** Which part shows: every part on the studio's page, one in a step. */
+  protected readonly shows = (part: 'about' | 'plan' | 'make'): boolean => this.hosted === null || this.hosted.part === part;
+
+  /**
+   * How many pictures a run tries. Hosted, the brand's default applies until the creator chooses, as it does in the
+   * pipeline whose brand card the first step shows; the studio's own page asks for the number in its brief.
+   */
+  protected readonly pictureCount = computed(() =>
+    this.hosted
+      ? contentPipelinePictureCount(this.config(), this.hosted.brand().pictureCount)
+      : this.config().variantCount,
+  );
+
+  /**
+   * The sentence above the sections, said once: what is needed, and that the rest is optional. Hosted, the step's
+   * card already carries the shell's legend, so the studio prints none of its own.
+   */
+  protected readonly legend = computed(() =>
+    this.hosted ? null : 'Only the prompt is needed to make pictures. Everything else is there to help you get to one.',
+  );
+
+  protected readonly extrasHeading = computed(() =>
+    this.hosted ? (this.hosted.part === 'about' ? 'A brief' : 'A reference picture') : 'Extras',
+  );
+
+  protected readonly extrasIntro = computed(() =>
+    this.hosted
+      ? this.hosted.part === 'about'
+        ? 'Something you have written about this shoot, if you have it.'
+        : 'A photograph to take cues from, if you have one.'
+      : 'A brief to work from, and a picture to take cues from. Both optional.',
+  );
+
+  /** The piece of work as the server last answered it, for a step that names what it made. */
+  readonly workContext = computed(() => this.session.context());
+
+  /** True while an answer is on its way to the server, for a step's "Saving…". */
+  readonly sending = computed(() => {
+    const save = this.session.save();
+    return save === 'pending' || save === 'saving';
+  });
+
+  /**
+   * For a step about to move: send whatever is waiting, and say whether the work is where the next step will read
+   * it. Work with nothing filed yet has nothing to send; the server decides whether the step is done.
+   */
+  async flushWork(): Promise<boolean> {
+    await this.session.flush();
+    return this.session.context() === null || this.session.save() === 'saved';
+  }
 
   readonly workspaceSlug = signal('');
   readonly draft = signal<ImageStudioDraft>(emptyImageStudioDraft());
@@ -396,7 +484,7 @@ export class ImageStudioComponent {
             }
             return null;
           };
-          return { slug: read('workspaceSlug'), contextId: read(CONTEXT_ROUTE_PARAM) };
+          return { slug: read('workspaceSlug'), contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM) };
         }),
         takeUntilDestroyed(),
       )
@@ -529,10 +617,19 @@ export class ImageStudioComponent {
       this.discarded.set(discarded);
       this.keptHere = kept !== null;
       this.draft.set({ ...draft, config: this.configWith(draft.config, fields) });
-      this.drafts.rememberContext(owner, contextId);
+      if (!this.hosted) this.drafts.rememberContext(owner, contextId);
       // Words typed here that never reached the server are the creator's latest, so they go on top and are sent.
       if (kept?.unsent) this.session.set({ ...fields, ...kept.unsent });
 
+      this.loaded.set(true);
+      return;
+    }
+
+    if (this.hosted) {
+      // A step begins its own work. The studio's unfiled draft and its last work on this device are the studio's,
+      // and are neither filed nor opened from here.
+      this.draft.set(emptyImageStudioDraft());
+      this.session.begin(slug, memoryFiling());
       this.loaded.set(true);
       return;
     }
@@ -604,6 +701,13 @@ export class ImageStudioComponent {
     this.filedContextId = contextId;
     this.keptHere = true;
     this.drafts.writeKept(owner, contextId, { draft: this.draft(), unsent: this.session.unsent() });
+
+    if (this.hosted) {
+      // The run is where a step's work is found again, not this device's "last work" or the address.
+      this.hosted.filed(contextId);
+      return;
+    }
+
     this.drafts.clear(owner);
     this.drafts.rememberContext(owner, contextId);
 
@@ -661,7 +765,8 @@ export class ImageStudioComponent {
     }
 
     // A refused write — the session has lapsed — keeps the edit on screen but not the claim that it was kept.
-    this.deviceRefused.set(!this.drafts.write(owner, stamped));
+    // Hosted, nothing is kept on the device before the work is filed: the studio's unfiled draft is its own page's.
+    if (!this.hosted) this.deviceRefused.set(!this.drafts.write(owner, stamped));
     // Once there is something in it, and not again after a failure: that retry is the creator's to ask for,
     // or every keystroke typed while offline would be another request.
     if (!isImageStudioDraftEmpty(stamped) && this.session.save() === 'saved') void this.session.file();

@@ -151,10 +151,12 @@ public static class WorkflowCapabilities
             DraftKind: WorkflowResourceKind.CreativeContext),
         new(SocialStudioContext, "Carry on with your posts", "social-studio/context/{contextId}", WorkspaceRole.Contributor),
 
-        new(AssetsLibrary, "Open your library", "dam", WorkspaceRole.Contributor),
+        new(AssetsLibrary, "Open your library", "dam", WorkspaceRole.Contributor,
+            DraftKind: WorkflowResourceKind.MediaAsset),
         new(AssetsDetail, "Open the picture", "dam/{assetId}", WorkspaceRole.Contributor),
 
-        new(BoardLibrary, "Open your board", "content-board", WorkspaceRole.Contributor),
+        new(BoardLibrary, "Open your board", "content-board", WorkspaceRole.Contributor,
+            DraftKind: WorkflowResourceKind.ContentCard),
         new(BoardCard, "Open the card", "content-board/{cardId}", WorkspaceRole.Viewer),
 
         // The schedule drawer on the card's page; scheduling is an Editor's (PUB-002).

@@ -9,6 +9,9 @@ export const RECIPE_IMPROVE_DEFINITION_KEY = 'recipe.improve';
 /** The key of the "Test and approve" journey (`WorkflowCatalogue.RecipeTestAndApproveKey`). */
 export const RECIPE_TEST_DEFINITION_KEY = 'recipe.test-and-approve';
 
+/** The key of the "Create my brand voice" journey (`WorkflowCatalogue.BrandVoiceKey`). */
+export const BRAND_VOICE_DEFINITION_KEY = 'brand.voice';
+
 /**
  * The recipe this run holds: the newest one linked, as the server keeps them in the order they were linked. Null
  * before the first step has made one.

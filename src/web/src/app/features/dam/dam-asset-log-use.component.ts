@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -59,22 +60,45 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
  * asset as not found; this says so in those words and logs nothing.
  *
  * **Closing with something entered asks first**, through `ConfirmService`, where dismissing means "stay".
+ *
+ * **Inline, it is the same form on a guided step** (13A.21): no drawer, and a {@link logForStep} the step's
+ * Continue calls. A logged use empties the form for the next one rather than closing it.
  */
 @Component({
   selector: 'cp-dam-asset-log-use',
   standalone: true,
-  imports: [CpButtonComponent, CpDrawerComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [NgTemplateOutlet, CpButtonComponent, CpDrawerComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
   template: `
-    <cp-drawer
-      [open]="open()"
-      heading="Log a use"
-      description="Record where this picture was used, and on which day."
-      (closeRequested)="cancel()"
-    >
+    @if (inline()) {
       @if (draft(); as form) {
+        <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: form }" />
+      }
+    } @else {
+      <cp-drawer
+        [open]="open()"
+        heading="Log a use"
+        description="Record where this picture was used, and on which day."
+        (closeRequested)="cancel()"
+      >
+        @if (draft(); as form) {
+          <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: form }" />
+        }
+
+        <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">
+          Cancel
+        </button>
+        <button cpDrawerActions cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
+          {{ saving() ? 'Logging…' : 'Log this use' }}
+        </button>
+      </cp-drawer>
+    }
+
+    <ng-template #body let-form>
         <form class="form" novalidate (submit)="onSubmit($event)">
-          <!-- Optionality is said once, here, rather than field by field. -->
-          <p class="legend">Platform and date are needed. The rest is optional.</p>
+          <!-- Optionality is said once, here, rather than field by field. Inline, the step that hosts the form says it. -->
+          @if (!inline()) {
+            <p class="legend">Platform and date are needed. The rest is optional.</p>
+          }
 
           @if (problem()) {
             <cp-notice tone="error" role="alert">{{ problem() }}</cp-notice>
@@ -138,18 +162,18 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
             </cp-field>
           </cp-form-section>
 
+          @if (inline()) {
+            <div class="cp-actions">
+              <button cpButton type="button" variant="secondary" [disabled]="saving() || gone() || !dirty()" (click)="save()">
+                {{ saving() ? 'Logging…' : 'Log this use' }}
+              </button>
+            </div>
+          }
+
           <!-- So Enter in a text box submits. The visible button lives in the dialog's footer, outside this form. -->
           <button type="submit" hidden tabindex="-1"></button>
         </form>
-      }
-
-      <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">
-        Cancel
-      </button>
-      <button cpDrawerActions cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
-        {{ saving() ? 'Logging…' : 'Log this use' }}
-      </button>
-    </cp-drawer>
+    </ng-template>
   `,
   styles: [
     `
@@ -175,6 +199,8 @@ export class DamAssetLogUseComponent {
   readonly open = input(false);
   readonly workspaceSlug = input.required<string>();
   readonly assetId = input.required<string>();
+  /** True on a guided step: the form is drawn in place, open for as long as it is on screen (13A.21). */
+  readonly inline = input(false);
 
   readonly closed = output<void>();
   /** The use as the server recorded it, weekday included. */
@@ -202,17 +228,33 @@ export class DamAssetLogUseComponent {
   readonly dirty = computed(() => {
     const draft = this.draft();
 
-    return this.open() && draft !== null && isDamUseDraftTouched(draft);
+    return (this.inline() || this.open()) && draft !== null && isDamUseDraftTouched(draft);
   });
+
+  /** True while a use is on its way, for a step's "Saving…". */
+  readonly logging = this.saving.asReadonly();
 
   constructor() {
     // Each opening starts from an empty entry dated today: a use left half-entered for one asset must not be
     // waiting here for the next.
     effect(() => {
-      if (!this.open()) return;
+      // Inline, the form is open for as long as it is on screen, and begins again for another asset.
+      if (this.inline()) this.assetId();
+      else if (!this.open()) return;
 
       untracked(() => this.begin());
     });
+  }
+
+  /**
+   * For a guided step's Continue (13A.21): logs what was entered, once, and says whether the step may move on.
+   * Nothing entered is nothing to log. A refusal keeps the creator on the form, with the reason beside it.
+   */
+  async logForStep(): Promise<boolean> {
+    if (this.saving()) return false;
+    if (!this.dirty()) return true;
+
+    return this.save();
   }
 
   protected set(field: DamUseField, event: Event): void {
@@ -234,9 +276,9 @@ export class DamAssetLogUseComponent {
     return this.fieldErrors()[field] ?? '';
   }
 
-  protected async save(): Promise<void> {
+  protected async save(): Promise<boolean> {
     const draft = this.draft();
-    if (draft === null || this.saving() || this.gone()) return;
+    if (draft === null || this.saving() || this.gone()) return false;
 
     const errors = validateDamUseDraft(draft);
     this.fieldErrors.set(errors);
@@ -244,7 +286,7 @@ export class DamAssetLogUseComponent {
     if (firstInvalid) {
       this.problem.set('');
       this.focusField(firstInvalid);
-      return;
+      return false;
     }
 
     this.idempotencyKey ??= crypto.randomUUID();
@@ -263,8 +305,10 @@ export class DamAssetLogUseComponent {
     switch (outcome.status) {
       case 'logged':
         this.logged.emit(outcome.use);
-        this.end();
-        return;
+        // Inline, the form stays on screen, empty and dated today for the next use.
+        if (this.inline()) this.begin();
+        else this.end();
+        return true;
 
       case 'invalid': {
         const mapped: Partial<Record<DamUseField, string>> = {};
@@ -278,21 +322,22 @@ export class DamAssetLogUseComponent {
 
         const first = DAM_USE_FIELDS.find((field) => mapped[field]);
         if (first) this.focusField(first);
-        return;
+        return false;
       }
 
       case 'forbidden':
         this.problem.set('You need Contributor access in this workspace to log a use. Nothing was logged.');
-        return;
+        return false;
 
       case 'not_found':
         this.gone.set(true);
         this.problem.set("This picture is no longer in the library, so a use can't be logged.");
         this.assetGone.emit();
-        return;
+        return false;
 
       default:
         this.problem.set('The use could not be logged just now. What you entered is still here, so try again.');
+        return false;
     }
   }
 

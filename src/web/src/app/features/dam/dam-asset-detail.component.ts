@@ -29,21 +29,17 @@ import { ConfirmService } from '../../core/confirm.service';
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
   DAM_ASSET_KIND_LABELS,
-  DAM_RECIPE_ROLE_LABELS,
   DAM_VERSION_SOURCE_LABELS,
   DamAssetDetail,
-  DamAssetPrompt,
-  DamAssetRecipeLink,
   DamAssetRemoval,
   DamAssetUtilization,
   DamAssetVersion,
   damCalendarDateText,
   damLinkImpactClauses,
   damPictureOf,
-  damPromptName,
   damRemovalWarning,
 } from '../../models/dam-asset.models';
-import { PROMPT_SOURCE_LABELS } from '../../models/prompt-library.models';
+import { DamAssetLineageComponent } from './dam-asset-lineage.component';
 import { byteSizeText, pictureSizeText } from '../../models/picture-rendition.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { DamAssetService } from '../../services/dam-asset.service';
@@ -111,6 +107,7 @@ interface Fact {
   standalone: true,
   imports: [
     DatePipe,
+    DamAssetLineageComponent,
     RouterLink,
     CpBackLinkComponent,
     CpBadgeComponent,
@@ -624,28 +621,6 @@ export class DamAssetDetailComponent {
       this.dialog.set(null);
       this.state.set({ status: 'not_found' });
     }
-  }
-
-  // ---- Lineage ----
-
-  protected recipeLink(link: DamAssetRecipeLink): readonly string[] {
-    return ['/', this.workspaceSlug(), 'recipes', link.recipeId];
-  }
-
-  protected roleLabel(link: DamAssetRecipeLink): string {
-    return DAM_RECIPE_ROLE_LABELS[link.role];
-  }
-
-  protected promptLink(prompt: DamAssetPrompt): readonly string[] {
-    return ['/', this.workspaceSlug(), 'prompt-library', prompt.id];
-  }
-
-  protected promptName(prompt: DamAssetPrompt): string {
-    return damPromptName(prompt);
-  }
-
-  protected promptSource(prompt: DamAssetPrompt): string {
-    return PROMPT_SOURCE_LABELS[prompt.source];
   }
 
   // ---- Versions ----

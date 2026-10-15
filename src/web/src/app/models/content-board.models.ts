@@ -182,13 +182,33 @@ export function encodeContentBoardQuery(
 }
 
 /** A new card. Only what was filled in is sent, so the server's own defaults stand for the rest. */
-export function encodeNewContentCard(fields: ContentCardFields, column: ContentBoardColumn): Record<string, unknown> {
+/**
+ * The records a new card links, by id (13A.20). Each names something this workspace already owns, which the server
+ * checks through its owner before anything is written; one left out is not linked.
+ */
+export interface ContentCardLineageInput {
+  readonly creativeContextId?: string | null;
+  readonly recipeId?: string | null;
+  readonly recipeVersionId?: string | null;
+  readonly mediaAssetId?: string | null;
+  readonly mediaAssetVersionNumber?: number | null;
+  readonly socialPackageId?: string | null;
+}
+
+export function encodeNewContentCard(
+  fields: ContentCardFields,
+  column: ContentBoardColumn,
+  lineage: ContentCardLineageInput = {},
+): Record<string, unknown> {
+  const linked = Object.fromEntries(Object.entries(lineage).filter(([, value]) => value !== null && value !== undefined));
+
   return {
     title: fields.title,
     column,
     ...(fields.description ? { description: fields.description } : {}),
     ...(fields.channelKey ? { channelKey: fields.channelKey } : {}),
     ...(fields.plannedDate ? { plannedDate: fields.plannedDate } : {}),
+    ...linked,
   };
 }
 

@@ -1,216 +1,56 @@
-<cp-page-head
-  #head
-  [heading]="pageTitle"
-  lede="Write posts for something you already have — a recipe, a picture in your library, or a few lines of your own. Each channel gets its own post, and nothing goes out from here."
->
-  @if (phase() === 'ready' && canWrite() && creativeContextId() !== null) {
-    <button cpPageHeadActions cpButton type="button" variant="secondary" (click)="startNew()">
-      Start something new
-    </button>
+@if (!hosted) {
+  <cp-page-head
+    #head
+    [heading]="pageTitle"
+    lede="Write posts for something you already have — a recipe, a picture in your library, or a few lines of your own. Each channel gets its own post, and nothing goes out from here."
+  >
+    @if (phase() === 'ready' && canWrite() && creativeContextId() !== null) {
+      <button cpPageHeadActions cpButton type="button" variant="secondary" (click)="startNew()">
+        Start something new
+      </button>
+    }
+  </cp-page-head>
+  @if (workflowRun && workspaceSlug()) {
+    <cp-workflow-return-notice [workspaceSlug]="workspaceSlug()" [runId]="workflowRun" />
   }
-</cp-page-head>
+}
 
 <div class="studio">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
 
+  @if (phase() !== 'ready') {
+    <!-- Hosted, the step's own card holds these; on the studio's page each is a card of its own. -->
+    @if (hosted) {
+      <ng-container [ngTemplateOutlet]="states" />
+    } @else {
+      <cp-card>
+        <ng-container [ngTemplateOutlet]="states" />
+      </cp-card>
+    }
+  }
+
   @switch (phase()) {
-    @case ('loading') {
-      <cp-card>
-        <p class="state" role="status">Loading your studio…</p>
-      </cp-card>
-    }
-    @case ('unavailable') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">
-          Your workspaces couldn't be loaded right now.
-          <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
-        </cp-notice>
-      </cp-card>
-    }
-    @case ('not_found') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
-      </cp-card>
-    }
-    @case ('context_not_found') {
-      <cp-card>
-        <div class="refusal">
-          <cp-notice tone="error" role="alert">
-            We couldn't find this piece of work. It may have been removed, or the link may be wrong.
-          </cp-notice>
-          <a cpButton variant="secondary" [routerLink]="startLink()">Start something new</a>
-        </div>
-      </cp-card>
-    }
-    @case ('context_unavailable') {
-      <cp-card>
-        <cp-notice tone="error" role="alert">
-          This piece of work couldn't be loaded right now.
-          <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
-        </cp-notice>
-      </cp-card>
-    }
     @case ('ready') {
       <!-- Keyed on the owner and on "Start something new": a change of workspace, of who is signed in, or of the
            piece of work destroys the panels rather than swapping new work underneath components still holding
            the last one's answers. -->
       @for (key of panelKeys(); track 'social@' + key) {
-        @if (channels.state().status === 'unavailable') {
+        @if (shows('write') && channels.state().status === 'unavailable') {
           <cp-notice tone="warning" role="status">
             The list of channels couldn't be loaded, so new channels can't be offered right now. Posts already
             written are still here, and still yours to read and edit.
           </cp-notice>
         }
 
-        @if (canWrite()) {
-          <cp-card>
-            <div class="sections">
-              <!-- Said once, above the sections, rather than on each field (DESIGN-SYSTEM.md). -->
-              <p class="legend cp-muted">
-                Give the posts one thing to be about — a recipe, a picture or a few lines. Everything else is optional.
-              </p>
-
-              @if (otherSources().ideas; as ideas) {
-                <cp-notice role="note">These posts are also written from {{ ideas }}.</cp-notice>
-              }
-              @if (otherSources().prompts) {
-                <cp-notice role="note">
-                  This piece of work names a saved image prompt. Posts are not written from one — a prompt
-                  describes a picture, not what you want to say — so give them something else to be about.
-                </cp-notice>
-              }
-
-              <cp-recipe-picker
-                [workspaceSlug]="workspaceSlug()"
-                [session]="session"
-                idPrefix="cp-social-recipe"
-                intro="Link the recipe these posts are about, and they are written from what it says: its name, its ingredients, its steps and its times. Optional."
-                (announced)="onAnnounced($event)"
-                (linkedRecipe)="onRecipeNamed($event)"
-              />
-
-              <cp-form-section
-                heading="A picture"
-                intro="Choose a picture from your library to go with the posts. They can only say about it what is known about what it shows — your alt text, or a reading you ask for below."
-                sectionId="cp-social-picture"
-              >
-                @if (pictureReference() !== null) {
-                  <p class="state">A picture goes with these posts. It is shown with the posts below.</p>
-                }
-
-                @switch (pictureAction().status) {
-                  @case ('working') {
-                    <p class="cp-muted" role="status">{{ pictureSentence() }}</p>
-                  }
-                  @case ('failed') {
-                    <cp-notice tone="error" role="alert">{{ pictureSentence() }}</cp-notice>
-                  }
-                }
-
-                <div class="cp-actions">
-                  <button
-                    cpButton
-                    type="button"
-                    variant="secondary"
-                    [disabled]="pictureAction().status === 'working'"
-                    (click)="openPicker()"
-                  >
-                    {{ pictureReference() === null ? 'Choose a picture' : 'Choose a different picture' }}
-                  </button>
-                  @if (pictureReference() !== null) {
-                    <button
-                      cpButton
-                      type="button"
-                      variant="text"
-                      [disabled]="pictureAction().status === 'working'"
-                      (click)="removePicture()"
-                    >
-                      Remove the picture
-                    </button>
-                  }
-                </div>
-              </cp-form-section>
-
-              <cp-form-section
-                heading="In your own words"
-                intro="A name for this piece, and a few lines on what the posts should say. On their own these are enough when there is no recipe or picture."
-                sectionId="cp-social-words"
-              >
-                <cp-field
-                  label="What it is called"
-                  forId="cp-social-title"
-                  hint="Your own name for this piece. It is how you will find these posts again."
-                >
-                  <input
-                    id="cp-social-title"
-                    type="text"
-                    autocomplete="off"
-                    [maxLength]="limits.subjectMaxLength"
-                    [value]="fields().workingTitle"
-                    (input)="onTitle($event)"
-                  />
-                </cp-field>
-
-                <cp-field
-                  label="What the posts should say"
-                  forId="cp-social-brief"
-                  hint="A few lines, typed or pasted, kept exactly as you wrote them. A cooking time, an amount or a health claim written here is not a fact about a recipe, so the posts are asked to leave it out — check any figure in a post before you accept it."
-                >
-                  <textarea
-                    id="cp-social-brief"
-                    rows="5"
-                    [maxLength]="limits.conceptMaxLength"
-                    [value]="fields().workingBrief"
-                    (input)="onBrief($event)"
-                  ></textarea>
-                </cp-field>
-              </cp-form-section>
-
-              <cp-form-section
-                heading="A themed day"
-                intro="If these posts are for one of your themed days, say which, and they follow that day’s theme."
-                sectionId="cp-social-day"
-              >
-                @switch (themes().status) {
-                  @case ('loading') {
-                    <p class="cp-muted" role="status">Loading your themed days…</p>
-                  }
-                  @case ('unavailable') {
-                    <cp-notice tone="warning" role="status">
-                      Your themed days couldn't be loaded, so one can't be chosen right now. The posts can still
-                      be written.
-                      <button cpButton type="button" variant="secondary" size="sm" (click)="retryThemes()">
-                        Try again
-                      </button>
-                    </cp-notice>
-                  }
-                  @default {
-                    @if (themeOptions().length === 0) {
-                      <p class="cp-muted">
-                        You have no themed days yet.
-                        <a [routerLink]="themedDaysLink()">Set them up in themed days</a>
-                      </p>
-                    } @else {
-                      <cp-field label="Themed day" forId="cp-social-theme">
-                        <select id="cp-social-theme" (change)="onTheme($event)">
-                          <option value="" [selected]="fields().weeklyThemeKey === null">No themed day</option>
-                          @for (theme of themeOptions(); track theme.key) {
-                            <option [value]="theme.key" [selected]="fields().weeklyThemeKey === theme.key">
-                              {{ theme.day }} — {{ theme.displayName }}{{ theme.retiredAt === null ? '' : ' (retired)' }}
-                            </option>
-                          }
-                        </select>
-                      </cp-field>
-                    }
-                  }
-                }
-              </cp-form-section>
-
-              <cp-creative-context-save-notice [session]="session" />
-              <p class="saved cp-muted" role="status">{{ savedText() }}</p>
-            </div>
-          </cp-card>
-        } @else if (creativeContextId() === null) {
+        @if (canWrite() && (shows('about') || shows('picture'))) {
+          @if (hosted) {
+            <ng-container [ngTemplateOutlet]="about" />
+          } @else {
+            <cp-card>
+              <ng-container [ngTemplateOutlet]="about" />
+            </cp-card>
+          }
+        } @else if (!hosted && creativeContextId() === null) {
           <cp-card>
             <cp-notice role="note">
               You have view-only access to this workspace, so you can't start new posts here. You can read and
@@ -219,50 +59,28 @@
           </cp-card>
         }
 
-        @if (canWrite() || creativeContextId() !== null) {
-          <cp-card>
-            <div class="sections">
-              <!-- Above the run, so a creator knows the day's notes will shape the posts before asking for any. -->
-              <cp-day-notes-notice
-                [workspaceSlug]="workspaceSlug()"
-                [themeKey]="themeKey()"
-                [usesAlreadyMade]="true"
-                [(apply)]="applyDayNotes"
-              />
-
-              <cp-channel-post-run
-                [workspaceSlug]="workspaceSlug()"
-                [creativeContextId]="creativeContextId()"
-                [applyDayNotes]="applyDayNotes()"
-                [state]="runState()"
-                [channels]="channels.list()"
-                [channelDefaults]="channelDefaults()"
-                [pictures]="pictures.pictures()"
-                [readingPictureId]="pictures.readingPictureId()"
-                [readingProblems]="pictures.readingProblems()"
-                [allowance]="allowance()"
-                [wording]="wording"
-                [canWrite]="canWrite()"
-                [workName]="workName()"
-                sectionIdPrefix="cp-social-posts"
-                (changed)="onRun($event)"
-                (pictureReadRequested)="pictures.read($event)"
-                (announced)="onAnnounced($event)"
-              />
-            </div>
-          </cp-card>
+        @if (shows('write') && (canWrite() || creativeContextId() !== null)) {
+          @if (hosted) {
+            <ng-container [ngTemplateOutlet]="posts" />
+          } @else {
+            <cp-card>
+              <ng-container [ngTemplateOutlet]="posts" />
+            </cp-card>
+          }
         }
       }
 
-      <cp-topic-card heading="Recent posts" wide>
-        <cp-social-studio-recent
-          [workspaceSlug]="workspaceSlug()"
-          [channels]="channels.list()"
-          [currentContextId]="creativeContextId()"
-        />
-      </cp-topic-card>
+      @if (!hosted) {
+        <cp-topic-card heading="Recent posts" wide>
+          <cp-social-studio-recent
+            [workspaceSlug]="workspaceSlug()"
+            [channels]="channels.list()"
+            [currentContextId]="creativeContextId()"
+          />
+        </cp-topic-card>
+      }
 
-      @if (canWrite()) {
+      @if (canWrite() && shows('picture')) {
         <cp-dialog
           [open]="picking()"
           title="Choose a picture"
@@ -279,3 +97,218 @@
     }
   }
 </div>
+
+<ng-template #about>
+  <div class="sections">
+    @if (shows('about')) {
+      <!-- Said once, above the sections, rather than on each field (DESIGN-SYSTEM.md). -->
+      @if (!hosted) {
+        <p class="legend cp-muted">{{ legendText }}</p>
+      }
+
+      @if (otherSources().ideas; as ideas) {
+        <cp-notice role="note">These posts are also written from {{ ideas }}.</cp-notice>
+      }
+      @if (otherSources().prompts) {
+        <cp-notice role="note">
+          This piece of work names a saved image prompt. Posts are not written from one — a prompt describes a
+          picture, not what you want to say — so give them something else to be about.
+        </cp-notice>
+      }
+
+      <cp-recipe-picker
+        [workspaceSlug]="workspaceSlug()"
+        [session]="session"
+        [suggested]="hosted?.suggestedRecipeId ?? null"
+        idPrefix="cp-social-recipe"
+        intro="Link the recipe these posts are about, and they are written from what it says: its name, its ingredients, its steps and its times. Optional."
+        (announced)="onAnnounced($event)"
+        (linkedRecipe)="onRecipeNamed($event)"
+      />
+    }
+
+    @if (shows('picture')) {
+      <cp-form-section
+        heading="A picture"
+        intro="Choose a picture from your library to go with the posts. They can only say about it what is known about what it shows — your alt text, or a reading you ask for below."
+        sectionId="cp-social-picture"
+      >
+        @if (pictureReference() !== null) {
+          <p class="state">A picture goes with these posts. It is shown with the posts{{ hosted ? '' : ' below' }}.</p>
+        }
+
+        @switch (pictureAction().status) {
+          @case ('working') {
+            <p class="cp-muted" role="status">{{ pictureSentence() }}</p>
+          }
+          @case ('failed') {
+            <cp-notice tone="error" role="alert">{{ pictureSentence() }}</cp-notice>
+          }
+        }
+
+        <div class="cp-actions">
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            [disabled]="pictureAction().status === 'working'"
+            (click)="openPicker()"
+          >
+            {{ pictureReference() === null ? 'Choose a picture' : 'Choose a different picture' }}
+          </button>
+          @if (pictureReference() !== null) {
+            <button
+              cpButton
+              type="button"
+              variant="text"
+              [disabled]="pictureAction().status === 'working'"
+              (click)="removePicture()"
+            >
+              Remove the picture
+            </button>
+          }
+        </div>
+      </cp-form-section>
+    }
+
+    @if (shows('about')) {
+      <cp-form-section
+        heading="In your own words"
+        intro="A name for this piece, and a few lines on what the posts should say. On their own these are enough when there is no recipe or picture."
+        sectionId="cp-social-words"
+      >
+        <cp-field
+          label="What it is called"
+          forId="cp-social-title"
+          hint="Your own name for this piece. It is how you will find these posts again."
+        >
+          <input
+            id="cp-social-title"
+            type="text"
+            autocomplete="off"
+            [maxLength]="limits.subjectMaxLength"
+            [value]="fields().workingTitle"
+            (input)="onTitle($event)"
+          />
+        </cp-field>
+
+        <cp-field
+          label="What the posts should say"
+          forId="cp-social-brief"
+          hint="A few lines, typed or pasted, kept exactly as you wrote them. A cooking time, an amount or a health claim written here is not a fact about a recipe, so the posts are asked to leave it out — check any figure in a post before you accept it."
+        >
+          <textarea
+            id="cp-social-brief"
+            rows="5"
+            [maxLength]="limits.conceptMaxLength"
+            [value]="fields().workingBrief"
+            (input)="onBrief($event)"
+          ></textarea>
+        </cp-field>
+      </cp-form-section>
+
+      <cp-form-section
+        heading="A themed day"
+        intro="If these posts are for one of your themed days, say which, and they follow that day’s theme."
+        sectionId="cp-social-day"
+      >
+        @switch (themes().status) {
+          @case ('loading') {
+            <p class="cp-muted" role="status">Loading your themed days…</p>
+          }
+          @case ('unavailable') {
+            <cp-notice tone="warning" role="status">
+              Your themed days couldn't be loaded, so one can't be chosen right now. The posts can still be written.
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryThemes()">Try again</button>
+            </cp-notice>
+          }
+          @default {
+            @if (themeOptions().length === 0) {
+              <p class="cp-muted">
+                You have no themed days yet.
+                <a [routerLink]="themedDaysLink()">Set them up in themed days</a>
+              </p>
+            } @else {
+              <cp-field label="Themed day" forId="cp-social-theme">
+                <select id="cp-social-theme" (change)="onTheme($event)">
+                  <option value="" [selected]="fields().weeklyThemeKey === null">No themed day</option>
+                  @for (theme of themeOptions(); track theme.key) {
+                    <option [value]="theme.key" [selected]="fields().weeklyThemeKey === theme.key">
+                      {{ theme.day }} — {{ theme.displayName }}{{ theme.retiredAt === null ? '' : ' (retired)' }}
+                    </option>
+                  }
+                </select>
+              </cp-field>
+            }
+          }
+        }
+      </cp-form-section>
+    }
+
+    <cp-creative-context-save-notice [session]="session" />
+    <p class="saved cp-muted" role="status">{{ savedText() }}</p>
+  </div>
+</ng-template>
+
+<ng-template #posts>
+  <div class="sections">
+    <!-- Above the run, so a creator knows the day's notes will shape the posts before asking for any. -->
+    <cp-day-notes-notice
+      [workspaceSlug]="workspaceSlug()"
+      [themeKey]="themeKey()"
+      [usesAlreadyMade]="true"
+      [(apply)]="applyDayNotes"
+    />
+
+    <cp-channel-post-run
+      [workspaceSlug]="workspaceSlug()"
+      [creativeContextId]="creativeContextId()"
+      [applyDayNotes]="applyDayNotes()"
+      [state]="runState()"
+      [channels]="channels.list()"
+      [channelDefaults]="channelDefaults()"
+      [pictures]="pictures.pictures()"
+      [readingPictureId]="pictures.readingPictureId()"
+      [readingProblems]="pictures.readingProblems()"
+      [allowance]="allowance()"
+      [wording]="wording"
+      [canWrite]="canWrite()"
+      [workName]="workName()"
+      sectionIdPrefix="cp-social-posts"
+      (changed)="onRun($event)"
+      (pictureReadRequested)="pictures.read($event)"
+      (announced)="onAnnounced($event)"
+    />
+  </div>
+</ng-template>
+
+<ng-template #states>
+  @switch (phase()) {
+    @case ('loading') {
+      <p class="state" role="status">Loading your studio…</p>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">
+        Your workspaces couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+      </cp-notice>
+    }
+    @case ('not_found') {
+      <cp-notice tone="error" role="alert">We couldn't find this workspace.</cp-notice>
+    }
+    @case ('context_not_found') {
+      <div class="refusal">
+        <cp-notice tone="error" role="alert">
+          We couldn't find this piece of work. It may have been removed, or the link may be wrong.
+        </cp-notice>
+        <a cpButton variant="secondary" [routerLink]="startLink()">Start something new</a>
+      </div>
+    }
+    @case ('context_unavailable') {
+      <cp-notice tone="error" role="alert">
+        This piece of work couldn't be loaded right now.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
+      </cp-notice>
+    }
+  }
+</ng-template>

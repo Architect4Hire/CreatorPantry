@@ -197,6 +197,8 @@ export class ChannelPostRunComponent {
 
   /** The package as the server last described it, or null for a piece of work with no posts yet. */
   private readonly packageSignal = signal<ChannelPostPackage | null>(null);
+  /** The posts as the server last answered them, for a host that says whether any is kept (13A.20). */
+  readonly package = this.packageSignal.asReadonly();
 
   /** How the first read of the package went. Only the first: later reads replace the package in place. */
   protected readonly loading = signal(true);

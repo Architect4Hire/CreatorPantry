@@ -100,6 +100,7 @@
                   [kind]="kind()"
                   [targetWords]="targetWords()"
                   [started]="draftId() !== null"
+                  [suggestedRecipe]="suggestedRecipe()"
                   (kindChange)="kind.set($event)"
                   (targetWordsChange)="targetWords.set($event)"
                   (announced)="announcement.set($event)"

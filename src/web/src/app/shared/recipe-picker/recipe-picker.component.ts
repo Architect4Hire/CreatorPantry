@@ -116,6 +116,16 @@ export class RecipePickerComponent {
   readonly announced = output<string>();
 
   /**
+   * A recipe to offer, by id — the one a journey that sent the creator here was about (13A.18). Shown as one
+   * "Use …" button while nothing is linked; pressing it links the recipe exactly as picking it from the search does,
+   * and nothing is linked without that press. A recipe this workspace cannot read is not offered at all.
+   */
+  readonly suggested = input<string | null>(null);
+
+  /** The offered recipe's title, once it has been read; null while it is not offered. */
+  protected readonly suggestion = signal<{ readonly id: string; readonly title: string } | null>(null);
+
+  /**
    * The linked recipe with its title, or null when none is linked or it can no longer be read.
    *
    * The context names a recipe by id; the title is read here, so a surface that needs the *words* — a save
@@ -215,6 +225,16 @@ export class RecipePickerComponent {
         );
       });
 
+    // The offered recipe, read for its title — and offered only when this workspace can read it.
+    effect(() => {
+      const recipeId = this.suggested();
+      const slug = this.workspaceSlug();
+      untracked(() => {
+        this.suggestion.set(null);
+        if (recipeId) void this.readSuggestion(slug, recipeId);
+      });
+    });
+
     // Whatever the context names is read once: its title, the pinned version's number, and whether the recipe
     // has moved on since.
     effect(() => {
@@ -239,6 +259,23 @@ export class RecipePickerComponent {
 
     this.reported = key;
     this.linkedRecipe.emit(recipe);
+  }
+
+  /** Links the offered recipe: the creator's own choice, made by pressing for it. */
+  protected useSuggestion(): void {
+    const suggestion = this.suggestion();
+    if (suggestion === null || this.busy()) return;
+
+    void this.link(suggestion.id, suggestion.title);
+  }
+
+  private async readSuggestion(slug: string, recipeId: string): Promise<void> {
+    const outcome = await this.recipes.getRecipeDetail(slug, recipeId);
+    if (this.gone || this.workspaceSlug() !== slug || this.suggested() !== recipeId) return;
+
+    // Offered exactly as the search offers — by the same statuses — and not at all when it could not be read.
+    const offerable = outcome.status === 'found' && LINKABLE_STATUSES.includes(outcome.recipe.status);
+    this.suggestion.set(offerable ? { id: outcome.recipe.id, title: outcome.recipe.title } : null);
   }
 
   protected retrySearch(): void {

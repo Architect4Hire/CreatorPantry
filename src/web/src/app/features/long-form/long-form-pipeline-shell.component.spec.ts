@@ -661,6 +661,55 @@ describe('LongFormPipelineShellComponent', () => {
     expect(localStorage.getItem(PLACE_KEY)).toBeNull();
   });
 
+  it('offers the recipe a link names, and links it only when the creator presses for it (13A.18)', async () => {
+    const tart = '0f6d3c1e-2a4b-4c5d-8e9f-a0b1c2d3e4f5';
+    library = new FakeRecipeLibrary([{ slug: SLUG, id: tart, title: 'Lemon tart', versionIds: ['v-tart-1'] }]);
+
+    await create({ url: `${BASE}?from=recipe&recipe=${tart}` });
+
+    expect(button('Use “Lemon tart”')).withContext('the recipe is offered by its title').not.toBeNull();
+    expect(server.creates).withContext('arriving with a recipe creates nothing').toEqual([]);
+    expect(drafts.starts).toEqual([]);
+
+    await click('Use “Lemon tart”');
+    await session().flush();
+    await settle();
+
+    expect(server.creates.length).withContext('the press is what links it').toBe(1);
+  });
+
+  it('offers nothing for a well-formed id of a recipe in another workspace', async () => {
+    const theirs = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+    library = new FakeRecipeLibrary([{ slug: OTHER_SLUG, id: theirs, title: 'Their tart', versionIds: ['v-1'] }]);
+
+    await create({ url: `${BASE}?from=recipe&recipe=${theirs}` });
+
+    expect(button('Use “Their tart”')).toBeNull();
+    expect(server.creates).toEqual([]);
+  });
+
+  it('follows a new recipe in the address while the writer is open', async () => {
+    const tart = '0f6d3c1e-2a4b-4c5d-8e9f-a0b1c2d3e4f5';
+    const pie = '2b3c4d5e-6f70-4a8b-9c0d-1e2f3a4b5c6d';
+    library = new FakeRecipeLibrary([
+      { slug: SLUG, id: tart, title: 'Lemon tart', versionIds: ['v-tart-1'] },
+      { slug: SLUG, id: pie, title: 'Plum pie', versionIds: ['v-pie-1'] },
+    ]);
+    await create({ url: `${BASE}?from=recipe&recipe=${tart}` });
+
+    await router.navigateByUrl(`${BASE}?from=recipe&recipe=${pie}`);
+    await settle();
+
+    expect(button('Use “Plum pie”')).not.toBeNull();
+    expect(button('Use “Lemon tart”')).toBeNull();
+  });
+
+  it('offers nothing for a recipe id it cannot read as one', async () => {
+    await create({ url: `${BASE}?from=recipe&recipe=r-soda` });
+
+    expect(Array.from(root().querySelectorAll('button')).some((each) => text(each).startsWith('Use “'))).toBeFalse();
+  });
+
   it('starts a new piece when asked to, rather than offering the last one in its place', async () => {
     await create({
       url: `${BASE}?from=brief`,

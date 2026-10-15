@@ -40,6 +40,8 @@ import {
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
+import { WORKFLOW_RUN_PARAM, workflowRunFrom } from '../../shared/workflow-shell/workflow-return';
+import { WorkflowReturnNoticeComponent } from '../../shared/workflow-shell/workflow-return-notice.component';
 
 /** Asking writes an operation and spends an allowance, so it carries the same bar as any other generation. */
 const REQUEST_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Owner'];
@@ -83,6 +85,7 @@ const SAMPLE_LABELS: Readonly<Record<string, string>> = {
   selector: 'cp-brand-style-test-drive',
   standalone: true,
   imports: [
+    WorkflowReturnNoticeComponent,
     RouterLink,
     AiAllowanceNoticeComponent,
     CpBackLinkComponent,
@@ -110,6 +113,12 @@ export class BrandStyleTestDriveComponent {
   private readonly usage = inject(AiUsageService);
   private readonly confirmService = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
+
+  /**
+   * The guided run that deep-linked here, from `?workflowRun=` (13A.17): the back link returns to it. Read once, used
+   * for that link alone, and only when it is a well-formed id.
+   */
+  readonly workflowRun = workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
   private readonly destroyRef = inject(DestroyRef);
 
   readonly workspaceSlug = this.routeParam('workspaceSlug');

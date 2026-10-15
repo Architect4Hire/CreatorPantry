@@ -16,6 +16,7 @@ import { BrandStyleGuideService } from '../../../services/brand-style-guide.serv
 import { MyMembershipsState, WorkspaceMembershipService } from '../../../services/workspace-membership.service';
 import { BRAND_SETUP_AUTOSAVE_MS, BrandSetupShellComponent } from './brand-setup-shell.component';
 import { brandSetupCanDeactivateGuard } from './brand-setup.guard';
+import { WorkflowRunService } from '../../../services/workflow-run.service';
 
 @Component({ selector: 'cp-test-elsewhere', template: '<p>elsewhere</p>' })
 class ElsewhereComponent {}
@@ -150,6 +151,7 @@ async function create(
           canDeactivate: options.guard === false ? [] : [brandSetupCanDeactivateGuard],
         },
         { path: ':workspaceSlug/brand', component: ElsewhereComponent },
+        { path: ':workspaceSlug/workflows/runs/:runId', component: ElsewhereComponent },
       ]),
       { provide: BRAND_SETUP_AUTOSAVE_MS, useValue: options.autosaveMs ?? 60_000 },
       { provide: BrandSetupSessionService, useValue: { getSession: get, saveSession: save, completeSession: complete, deleteSession: del } },
@@ -157,6 +159,7 @@ async function create(
       { provide: ConfirmService, useValue: { confirm } },
       // The last step writes a guide through this. Stubbed here so the shell's own specs are about the shell.
       { provide: BrandStyleGuideService, useValue: guideWrites },
+      { provide: WorkflowRunService, useValue: { get: () => Promise.resolve({ status: 'not_found' }) } },
     ],
   }).compileComponents();
 
@@ -514,6 +517,46 @@ describe('BrandSetupShellComponent', () => {
       await settle();
       expect(save).toHaveBeenCalledTimes(1);
       expect(text()).toContain('Saved at');
+    });
+  });
+
+  describe('carried by a guided run (13A.17)', () => {
+    const RUN = '0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f';
+
+    function backLink(): HTMLAnchorElement | null {
+      return root().querySelector<HTMLAnchorElement>('a[cpBackLink]');
+    }
+
+    it('keeps its own way back, and says how to carry on with the run that opened it', async () => {
+      await create({ url: `/${SLUG}/brand/setup/goals?workflowRun=${RUN}` });
+
+      expect(backLink()?.textContent?.replace('←', '').trim()).toBe('Brand settings');
+      const carryOn = Array.from(root().querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'));
+      expect(carryOn?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/${RUN}`);
+    });
+
+    it('keeps the way back across its own steps', async () => {
+      await create({ url: `/${SLUG}/brand/setup/goals?workflowRun=${RUN}` });
+      await answerGoals();
+      await click('Continue');
+
+      expect(router.url).toBe(`/${SLUG}/brand/setup/style?workflowRun=${RUN}`);
+    });
+
+    it('goes back to the run on Save and exit', async () => {
+      await create({ url: `/${SLUG}/brand/setup/goals?workflowRun=${RUN}` });
+      await edit();
+      await click('Save and exit');
+
+      expect(save).toHaveBeenCalled();
+      expect(router.url).toBe(`/${SLUG}/workflows/runs/${RUN}`);
+    });
+
+    it('takes nothing that is not a run id, and keeps its own way back', async () => {
+      await create({ url: `/${SLUG}/brand/setup/goals?workflowRun=..%2F..%2Fsettings` });
+
+      expect(backLink()?.textContent?.replace('←', '').trim()).toBe('Brand settings');
+      expect(backLink()?.getAttribute('href')).toBe(`/${SLUG}/brand`);
     });
   });
 

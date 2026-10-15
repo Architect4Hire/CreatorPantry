@@ -8,6 +8,7 @@ import {
   ContentBoardFilters,
   ContentCardDetail,
   ContentCardFields,
+  ContentCardLineageInput,
   ContentCardPage,
   ContentCardPlace,
   PipelineBoardCard,
@@ -156,19 +157,20 @@ export class ContentBoardService {
    * Puts a new card at the bottom of a column.
    *
    * The caller owns the `Idempotency-Key` across retries of one logical request, so a create whose answer was
-   * lost is not a second card.
+   * lost is not a second card. `lineage` names the records the card links, when it is made for some (13A.20).
    */
   create(
     workspaceSlug: string,
     fields: ContentCardFields,
     column: ContentBoardColumn,
     idempotencyKey: string,
+    lineage: ContentCardLineageInput = {},
   ): Observable<ContentCardWriteOutcome> {
     const url = this.cardsUrl(workspaceSlug);
     if (!url) return of<ContentCardWriteOutcome>({ status: 'unavailable' });
 
     return this.written(
-      this.http.post<unknown>(url, encodeNewContentCard(fields, column), {
+      this.http.post<unknown>(url, encodeNewContentCard(fields, column, lineage), {
         withCredentials: true,
         headers: { 'Idempotency-Key': idempotencyKey },
       }),

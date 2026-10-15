@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -13,7 +14,7 @@ import { ConfirmService } from '../../core/confirm.service';
 import { PublishingProfile, PublishingProfiles, PublishingRecord } from '../../models/publishing.models';
 import { PublishingService } from '../../services/publishing.service';
 import { IdempotencyKey } from '../content-pipeline/content-pipeline-idempotency';
-import { PUBLISHING_CONNECTION_NOTES, profileUnavailableReason } from './publishing-presentation';
+import { PUBLISHING_CONNECTION_NOTES, channelKeyForPlatform, profileUnavailableReason } from './publishing-presentation';
 import { zonedToInstant } from './publishing-time';
 
 /** What the server holds a post to, so a field stops where the route would (`PublishingLedgerPolicy`). */
@@ -55,11 +56,16 @@ const PROBLEMS = {
  *
  * **One idempotency key per attempt, kept across retries**, so a confirmation whose answer was lost is
  * replayed rather than published twice.
+ *
+ * **Inline, it is the same form on a guided step** (13A.22): no drawer, its own Schedule beside it, and the post
+ * started from {@link prefill} — the post the creator kept for the chosen profile's channel — which they may change.
+ * Their own words are never written over: a prefill only fills a box that is empty or still holds the last prefill.
  */
 @Component({
   selector: 'cp-content-card-schedule-drawer',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     FormsModule,
     CpButtonComponent,
     CpCheckboxComponent,
@@ -67,14 +73,39 @@ const PROBLEMS = {
     CpFieldComponent,
     CpNoticeComponent,
   ],
-  template: `<cp-drawer
-    [open]="open()"
-    heading="Schedule a publication"
-    description="Confirm what goes out, where, and when. Nothing is sent until you confirm."
-    (closeRequested)="cancel()"
-  >
+  template: `@if (inline()) {
+      <ng-container [ngTemplateOutlet]="body" />
+    } @else {
+      <cp-drawer
+        [open]="open()"
+        heading="Schedule a publication"
+        description="Confirm what goes out, where, and when. Nothing is sent until you confirm."
+        (closeRequested)="cancel()"
+      >
+        <ng-container [ngTemplateOutlet]="body" />
+
+        <span cpDrawerActions class="cp-muted state" role="status">{{ stateText() }}</span>
+        <button cpDrawerActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">
+          Cancel
+        </button>
+        <button
+          cpDrawerActions
+          cpButton
+          type="submit"
+          form="content-card-schedule-form"
+          variant="primary"
+          [disabled]="saving() || !canSubmit()"
+        >
+          {{ saving() ? 'Scheduling…' : 'Schedule' }}
+        </button>
+      </cp-drawer>
+    }
+
+    <ng-template #body>
     <form id="content-card-schedule-form" class="form" novalidate (submit)="onSubmit($event)">
-      <p class="cp-muted legend">Everything here is needed.</p>
+      @if (!inline()) {
+        <p class="cp-muted legend">Everything here is needed.</p>
+      }
 
       @if (problem(); as sentence) {
         <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
@@ -100,7 +131,6 @@ const PROBLEMS = {
         <select
           id="content-card-schedule-profile"
           name="profile"
-          autofocus
           [disabled]="saving() || selectable().length === 0"
           [ngModel]="profileId()"
           (ngModelChange)="profileId.set($event)"
@@ -172,23 +202,16 @@ const PROBLEMS = {
         [checked]="confirmed()"
         (checkedChange)="confirmed.set($event)"
       />
+      @if (inline()) {
+        <div class="cp-actions inline-actions">
+          <span class="cp-muted state" role="status">{{ stateText() }}</span>
+          <button cpButton type="submit" variant="primary" [disabled]="saving() || !canSubmit()">
+            {{ saving() ? 'Scheduling…' : 'Schedule' }}
+          </button>
+        </div>
+      }
     </form>
-
-    <span cpDrawerActions class="cp-muted state" role="status">{{ stateText() }}</span>
-    <button cpDrawerActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">
-      Cancel
-    </button>
-    <button
-      cpDrawerActions
-      cpButton
-      type="submit"
-      form="content-card-schedule-form"
-      variant="primary"
-      [disabled]="saving() || !canSubmit()"
-    >
-      {{ saving() ? 'Scheduling…' : 'Schedule' }}
-    </button>
-  </cp-drawer>`,
+    </ng-template>`,
   styles: [
     `
       .form {
@@ -207,6 +230,9 @@ const PROBLEMS = {
         margin-right: auto;
         font-size: var(--cp-font-size-sm);
       }
+      .inline-actions {
+        align-items: center;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -223,10 +249,19 @@ export class ContentCardScheduleDrawerComponent {
   readonly profiles = input<PublishingProfiles | null>(null);
   /** True when the card has a linked picture, which cannot be published yet. */
   readonly hasPicture = input(false);
+  /** True on a guided step: the form is drawn in place, open for as long as it is on screen (13A.22). */
+  readonly inline = input(false);
+  /** The post to start from for each channel, by channel key: the one the creator kept for it. */
+  readonly prefill = input<Readonly<Record<string, string>>>({});
 
   /** The record the server committed, whatever state it is in. */
   readonly confirmed_ = output<PublishingRecord>({ alias: 'confirmed' });
   readonly closed = output<void>();
+  /**
+   * Inline only: no answer came back, so whether a booking was made is not known. The host reads what is going out
+   * for the card before anything else may be sent (publishing.md: reconcile before another create).
+   */
+  readonly outcomeUnknown = output<void>();
 
   protected readonly TEXT_MAX = TEXT_MAX;
 
@@ -240,6 +275,14 @@ export class ContentCardScheduleDrawerComponent {
   protected readonly errors = signal<Record<string, readonly string[]>>({});
 
   private readonly key = new IdempotencyKey();
+
+  /** The prefill last put in the box, so a later one replaces it but never the creator's own words. */
+  private prefilled = '';
+
+  /** True while something has been entered and not scheduled. Public, so a step can say so before leaving. */
+  readonly typed = computed(
+    () => this.text().trim() !== '' || this.profileId() !== '' || this.date() !== '' || this.time() !== '',
+  );
 
   protected readonly selectable = computed(() =>
     (this.profiles()?.profiles ?? []).filter((profile) => profile.status === 'Ready'),
@@ -283,8 +326,22 @@ export class ContentCardScheduleDrawerComponent {
 
   constructor() {
     // A drawer that opens is a fresh ask: nothing of the last one, including its key, carries over.
+    // The chosen profile's channel decides which kept post the box starts from.
     effect(() => {
-      if (!this.open()) return;
+      const profile = this.selectable().find((candidate) => candidate.id === this.profileId()) ?? null;
+      const words = profile === null ? '' : (this.prefill()[channelKeyForPlatform(profile.platform)] ?? '');
+
+      untracked(() => {
+        const text = this.text();
+        if (text !== '' && text !== this.prefilled) return;
+
+        this.text.set(words);
+        this.prefilled = words;
+      });
+    });
+
+    effect(() => {
+      if (!this.inline() && !this.open()) return;
 
       this.problem.set('');
       this.errors.set({});
@@ -354,6 +411,8 @@ export class ContentCardScheduleDrawerComponent {
     switch (outcome.status) {
       case 'confirmed':
         this.key.clear();
+        // Inline, the form stays on screen; what was sent is the record now, so the form starts again.
+        if (this.inline()) this.reset();
         this.confirmed_.emit(outcome.record);
 
         return;
@@ -374,6 +433,10 @@ export class ContentCardScheduleDrawerComponent {
 
         return;
       default:
+        if (outcome.status === 'outcome_unknown' && this.inline()) {
+          this.outcomeUnknown.emit();
+          return;
+        }
         this.problem.set(PROBLEMS[outcome.status]);
     }
   }
@@ -400,6 +463,7 @@ export class ContentCardScheduleDrawerComponent {
   }
 
   private reset(): void {
+    this.prefilled = '';
     this.profileId.set('');
     this.text.set('');
     this.date.set('');

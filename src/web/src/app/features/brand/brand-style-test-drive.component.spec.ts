@@ -18,6 +18,7 @@ import {
 } from '../../services/brand-style-test-drive.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { BrandStyleTestDriveComponent } from './brand-style-test-drive.component';
+import { WorkflowRunService } from '../../services/workflow-run.service';
 
 const REQUEST_ID = 'op-test-drive-1';
 const GUIDE_ID = 'guide-1';
@@ -157,8 +158,8 @@ describe('BrandStyleTestDriveComponent', () => {
     confirmService = new StubConfirmService();
   });
 
-  function render(options: { role?: WorkspaceRole; version?: string | null } = {}): HTMLElement {
-    const { role = 'Contributor', version = '2' } = options;
+  function render(options: { role?: WorkspaceRole; version?: string | null; workflowRun?: string } = {}): HTMLElement {
+    const { role = 'Contributor', version = '2', workflowRun } = options;
 
     memberships.state.set({ status: 'ready', memberships: [membership(role)] });
 
@@ -169,6 +170,7 @@ describe('BrandStyleTestDriveComponent', () => {
         { provide: WorkspaceMembershipService, useValue: memberships },
         { provide: AiUsageService, useValue: usage },
         { provide: ConfirmService, useValue: confirmService },
+        { provide: WorkflowRunService, useValue: { get: () => Promise.resolve({ status: 'not_found' }) } },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -177,7 +179,10 @@ describe('BrandStyleTestDriveComponent', () => {
                 ['workspaceSlug', 'cozy-fall'],
                 ['guideId', GUIDE_ID],
               ]),
-              queryParamMap: new Map(version === null ? [] : [['version', version]]),
+              queryParamMap: new Map([
+                ...(version === null ? [] : ([['version', version]] as [string, string][])),
+                ...(workflowRun ? ([['workflowRun', workflowRun]] as [string, string][]) : []),
+              ]),
             },
           },
         },
@@ -488,5 +493,17 @@ describe('BrandStyleTestDriveComponent', () => {
     const ask = host.querySelector('cp-topic-card') as HTMLElement;
     expect(ask.querySelector('h2')?.textContent?.trim()).toBe('What the samples should be about');
     expect(ask.querySelector('.actions')?.textContent).toContain('Write both versions');
+  });
+
+  it('keeps its own way back, and says how to carry on with the guided run that opened it', () => {
+    const run = '0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f';
+    const fromRun = render({ workflowRun: run });
+    expect(fromRun.querySelector('a[cpBackLink]')!.textContent?.replace('←', '').trim()).toBe('Guide history');
+    const carryOn = Array.from(fromRun.querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'))!;
+    expect(carryOn.getAttribute('href')).toBe(`/cozy-fall/workflows/runs/${run}`);
+
+    TestBed.resetTestingModule();
+    const alone = render();
+    expect(alone.querySelector('cp-workflow-return-notice')).toBeNull();
   });
 });

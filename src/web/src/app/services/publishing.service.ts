@@ -18,6 +18,12 @@ import { decodeFieldErrors, problemCodeOf, statusCodeOf } from './ai-request';
 export type PublishingProfilesOutcome =
   { readonly status: 'read'; readonly profiles: PublishingProfiles } | { readonly status: 'unavailable' };
 
+export type PublishingRecordOutcome =
+  | { readonly status: 'read'; readonly record: PublishingRecord }
+  /** Unknown, or another workspace's. One answer for both, as the route gives. */
+  | { readonly status: 'not_found' }
+  | { readonly status: 'unavailable' };
+
 export type PublishingRecordsOutcome =
   { readonly status: 'read'; readonly list: PublishingRecordList } | { readonly status: 'unavailable' };
 
@@ -163,6 +169,23 @@ export class PublishingService {
         return list ? { status: 'read', list } : { status: 'unavailable' };
       }),
       catchError(() => of<PublishingRecordsOutcome>({ status: 'unavailable' })),
+    );
+  }
+
+  /** One publication as the server has it now: what a screen re-reads to say how it stands (13A.22). */
+  record(workspaceSlug: string, recordId: string): Observable<PublishingRecordOutcome> {
+    const url = this.url(workspaceSlug, `records/${encodeURIComponent(recordId)}`);
+    if (!url) return of<PublishingRecordOutcome>({ status: 'unavailable' });
+
+    return this.http.get<unknown>(url, { withCredentials: true }).pipe(
+      map((raw): PublishingRecordOutcome => {
+        const record = decodePublishingRecord(raw);
+
+        return record ? { status: 'read', record } : { status: 'unavailable' };
+      }),
+      catchError((error: unknown) =>
+        of<PublishingRecordOutcome>(statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' }),
+      ),
     );
   }
 

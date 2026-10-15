@@ -172,3 +172,13 @@ export const PUBLISHING_CONNECTION_NOTES = {
   Unavailable: 'The publishing provider could not be reached. The profiles below are from the last successful read.',
   Unrecognised: 'The publishing provider answered in a way this page does not recognise.',
 } as const satisfies Record<Exclude<PublishingStatusValue | string, never> & string, string> | Record<string, string>;
+
+/**
+ * The content channel a publishing platform posts to, by key — so a post kept for a channel can start the post
+ * scheduled to it (13A.22). The provider's names are lower-cased; the one it spells differently is mapped.
+ */
+export function channelKeyForPlatform(platform: string): string {
+  const key = platform.trim().toLowerCase();
+
+  return key === 'twitter' ? 'x' : key;
+}
