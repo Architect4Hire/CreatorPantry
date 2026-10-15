@@ -482,7 +482,11 @@
                 </cp-field>
               </cp-form-section>
 
-              <cp-form-section sectionId="section-timing" heading="Timing" intro="How long it takes, in minutes. The total is added up for you.">
+              <cp-form-section
+                sectionId="section-timing"
+                heading="Timing"
+                intro="How long it takes, in minutes. The total is added up for you."
+              >
                 @if (totalTimeReplacementNote(); as note) {
                   <p class="total-time-replacement">{{ note }}</p>
                 }
@@ -492,11 +496,7 @@
                 }
 
                 <cp-field-row [columns]="4" minColumn="6.5rem">
-                  <cp-field
-                    label="Prep time"
-                    forId="recipe-prep-time"
-                    [error]="fieldError('prepTimeMinutes')"
-                  >
+                  <cp-field label="Prep time" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
                     <input
                       id="recipe-prep-time"
                       placeholder="e.g. 15"
@@ -509,11 +509,7 @@
                     />
                   </cp-field>
 
-                  <cp-field
-                    label="Cook time"
-                    forId="recipe-cook-time"
-                    [error]="fieldError('cookTimeMinutes')"
-                  >
+                  <cp-field label="Cook time" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
                     <input
                       id="recipe-cook-time"
                       placeholder="e.g. 30"
@@ -526,11 +522,7 @@
                     />
                   </cp-field>
 
-                  <cp-field
-                    label="Rest time"
-                    forId="recipe-rest-time"
-                    [error]="fieldError('restTimeMinutes')"
-                  >
+                  <cp-field label="Rest time" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
                     <input
                       id="recipe-rest-time"
                       placeholder="e.g. 10"
@@ -578,27 +570,25 @@
                 heading="Yield"
                 intro="What the recipe makes. Your own wording is the yield; the numbers are additional, and only needed for scaling."
               >
-                <cp-field-row [columns]="4" minColumn="6.5rem">
-                  <cp-field
-                    class="cp-span-3 cp-stack-narrow"
-                    label="Yield, in your own words"
-                    forId="recipe-yield-text"
-                    hint="Kept exactly as you write it. The numbers never rewrite it."
-                    [error]="fieldError('yieldText')"
-                  >
-                    <input
-                      id="recipe-yield-text"
-                      type="text"
-                      placeholder="e.g. Makes 2 loaves, serves 12"
-                      [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
-                      [ngModel]="yieldText()"
-                      (ngModelChange)="yieldText.set($event)"
-                      name="yieldText"
-                    />
-                  </cp-field>
+                <cp-field
+                  label="Yield, in your own words"
+                  forId="recipe-yield-text"
+                  hint="Kept exactly as you write it. The numbers never rewrite it."
+                  [error]="fieldError('yieldText')"
+                >
+                  <input
+                    id="recipe-yield-text"
+                    type="text"
+                    placeholder="e.g. Makes 2 loaves, serves 12"
+                    [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
+                    [ngModel]="yieldText()"
+                    (ngModelChange)="yieldText.set($event)"
+                    name="yieldText"
+                  />
+                </cp-field>
 
+                <cp-field-row [columns]="3" minColumn="6.5rem">
                   <cp-field
-                    class="cp-stack-narrow"
                     label="Serves"
                     forId="recipe-serving-count"
                     hint="How many servings it makes."
@@ -715,9 +705,9 @@
                     </cp-field>
                   </cp-field-row>
                 } @else {
-                  <div class="step-reveal">
-                    <button cpButton variant="text" type="button" (click)="revealMeasuredBatch()">
-                      + Add a measured batch (for scaling)
+                  <div class="section-actions">
+                    <button cpButton variant="secondary" type="button" (click)="revealMeasuredBatch()">
+                      Add a measured batch (for scaling)
                     </button>
                   </div>
                 }
@@ -875,19 +865,6 @@
                                 />
                               </cp-field>
                             </cp-field-row>
-                          } @else {
-                            <div class="step-reveal">
-                              <button
-                                cpButton
-                                variant="text"
-                                
-                                type="button"
-                                [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
-                                (click)="revealStepDuration(group.key, step.key)"
-                              >
-                                + Add a duration
-                              </button>
-                            </div>
                           }
 
                           <cp-field label="Note" [forId]="'step-note-' + step.key">
@@ -902,6 +879,21 @@
                           </cp-field>
 
                           <div class="step-actions">
+                            <!-- Offered with the step's other buttons, at the bottom of it, rather than as a line of text
+                       among its fields: an action that looks like a link is easy to take for part of the copy.
+                       Gone once the field is showing, and focus goes to the field it asked for. -->
+                            @if (!step.showDuration) {
+                              <button
+                                cpButton
+                                variant="secondary"
+                                size="sm"
+                                type="button"
+                                [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
+                                (click)="revealStepDuration(group.key, step.key)"
+                              >
+                                Add a duration
+                              </button>
+                            }
                             <button
                               cpButton
                               variant="secondary"

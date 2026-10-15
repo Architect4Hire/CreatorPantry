@@ -952,7 +952,7 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('#recipe-serving-count')!.closest('cp-tab-panel')!.hasAttribute('hidden')).toBeTrue();
     });
 
-    it('lays the General sections out in two columns once the editor is wide, one when it is not, in the same order', async () => {
+    it('keeps the General sections in one column at every width, in the order they are written, with their fields filling it', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
@@ -963,30 +963,25 @@ describe('RecipeEditorComponent', () => {
         return value === 'none' || value === '' ? 0 : value.split(/\s+/).length;
       };
 
-      for (const width of ['96rem', '72rem']) {
+      for (const width of ['96rem', '72rem', '40rem']) {
         root.style.width = width;
         harness.detectChanges();
 
-        expect(trackCount('.tab-sections')).withContext(`columns at ${width}`).toBe(2);
-        // Details on the left; the other three stacked on the right, each under the one before.
-        expect(box('section-details').left).toBeLessThan(box('section-notes').left);
-        expect(Math.abs(box('section-notes').left - box('section-timing').left)).toBeLessThan(1);
-        expect(Math.abs(box('section-timing').left - box('section-yield').left)).toBeLessThan(1);
-        expect(box('section-notes').bottom).toBeLessThanOrEqual(box('section-timing').top + 1);
-        expect(box('section-timing').bottom).toBeLessThanOrEqual(box('section-yield').top + 1);
+        expect(trackCount('.tab-sections')).withContext(`columns at ${width}`).toBe(1);
+        for (let index = 1; index < ids.length; index += 1) {
+          expect(box(ids[index]).top).withContext(`${ids[index]} at ${width}`).toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
+        }
+
+        // A text field takes the whole of its section, not a measure's worth of it.
+        for (const selector of ['#recipe-title', '#recipe-description', '#recipe-yield-text']) {
+          const field = root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect();
+          const section = root.querySelector(selector)!.closest('section[id^="section-"]')!.getBoundingClientRect();
+          expect(Math.abs(field.width - section.width)).withContext(`${selector} at ${width}`).toBeLessThan(1.5);
+        }
       }
 
-      // Placed, not reordered: the order a keyboard or a screen reader meets them in has not changed.
       const domOrder = Array.from(root.querySelectorAll('.tab-sections section[id^="section-"]')).map((section) => section.id);
       expect(domOrder).toEqual(ids);
-
-      // Narrow — a phone, or 200% zoom. One column, in order.
-      root.style.width = '40rem';
-      harness.detectChanges();
-      expect(trackCount('.tab-sections')).withContext('columns at 40rem').toBe(1);
-      for (let index = 1; index < ids.length; index += 1) {
-        expect(box(ids[index]).top).withContext(ids[index]).toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
-      }
     });
 
     describe('the General tab nav', () => {
@@ -1161,26 +1156,26 @@ describe('RecipeEditorComponent', () => {
         expect(Array.from(seen)).toEqual(['Yield']);
       });
 
-      it('is a row above the sections on a narrow editor, and is not shown once the sections are in two columns', async () => {
+      it('is a gutter beside the sections on a wide editor and a row above them on a narrow one', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
         const nav = () => root.querySelector<HTMLElement>('.general-nav')!;
 
+        root.style.width = '96rem';
+        harness.detectChanges();
+        expect(getComputedStyle(nav()).position).toBe('sticky');
+        expect(getComputedStyle(nav().querySelector('ul')!).flexDirection).toBe('column');
+        // Beside, not above: the first section starts to the right of the nav.
+        expect(root.querySelector('#section-details')!.getBoundingClientRect().left).toBeGreaterThan(nav().getBoundingClientRect().right - 1);
+
         root.style.width = '40rem';
         harness.detectChanges();
-        expect(getComputedStyle(nav()).display).withContext('shown at 40rem').not.toBe('none');
-        // Above the sections, not beside them.
+        expect(getComputedStyle(nav()).position).toBe('static');
+        expect(getComputedStyle(nav()).display).not.toBe('none');
         expect(root.querySelector('#section-details')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(nav().getBoundingClientRect().bottom - 1);
         for (const link of navLinksOf(root)) {
           expect(link.getBoundingClientRect().height).withContext(link.textContent!).toBeGreaterThanOrEqual(40);
-        }
-
-        // Two columns put nearly the whole tab on screen, so there is nothing left to navigate to.
-        for (const width of ['64rem', '72rem', '96rem']) {
-          root.style.width = width;
-          harness.detectChanges();
-          expect(getComputedStyle(nav()).display).withContext(`hidden at ${width}`).toBe('none');
         }
       });
     });
@@ -1190,7 +1185,6 @@ describe('RecipeEditorComponent', () => {
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       const root = harness.routeNativeElement!;
       // The showcase test target loads no token sheet, so give the editor the tokens the rows measure with.
-      root.style.setProperty('--cp-measure-field', '40rem');
       root.style.setProperty('--cp-space-4', '1rem');
       root.style.setProperty('--cp-space-8', '2rem');
       root.style.width = '96rem';
@@ -1206,19 +1200,19 @@ describe('RecipeEditorComponent', () => {
         expect(Math.round(fieldOf(selector).right)).withContext(selector).toBeLessThanOrEqual(Math.round(sectionRight(selector)) + 1);
       }
 
-      // The same quarter of the column, wherever it appears, and on the same left edge where they stack.
+      // The same quarter of the row, wherever the row has four columns, and on the same left edge where they stack.
       const prep = box('#recipe-prep-time');
-      for (const selector of ['#recipe-cook-time', '#recipe-rest-time', '#recipe-serving-count', '#recipe-yield-quantity', '#recipe-serving-size']) {
+      for (const selector of ['#recipe-cook-time', '#recipe-rest-time', '#recipe-yield-quantity', '#recipe-serving-size']) {
         expect(Math.abs(box(selector).width - prep.width)).withContext(selector).toBeLessThan(1.5);
       }
-      // Serves is the last quarter of the yield row, so it sits under Total time, the last quarter of Timing.
-      expect(Math.abs(box('#recipe-serving-count').left - box('#recipe-total-time').left)).toBeLessThan(1.5);
+      // Serves is the first column of its own row, under the yield wording, on the same left edge as Prep. Its row
+      // has three columns, not four, so it is a little wider than Prep: room for its hint.
+      expect(Math.abs(box('#recipe-serving-count').left - prep.left)).toBeLessThan(1.5);
+      expect(box('#recipe-serving-count').width).toBeGreaterThanOrEqual(prep.width);
       expect(Math.abs(box('#recipe-yield-quantity').left - prep.left)).toBeLessThan(1.5);
 
-      // The yield wording takes the other three, on the same line.
-      const text = box('#recipe-yield-text');
-      expect(Math.abs(text.width - (prep.width * 3 + 32))).toBeLessThan(1.5);
-      expect(Math.abs(text.top - box('#recipe-serving-count').top)).toBeLessThan(1.5);
+      // The yield wording is not in a row: it is a full-width text field above Serves.
+      expect(box('#recipe-yield-text').bottom).toBeLessThanOrEqual(box('#recipe-serving-count').top + 1);
     });
 
     it('gives a lone quantity the whole width of the form on a narrow screen, as wide as the fields around it', async () => {

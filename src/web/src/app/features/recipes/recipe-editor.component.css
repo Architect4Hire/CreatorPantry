@@ -94,21 +94,25 @@ cp-tab-panel:not([hidden]) {
   min-width: 0;
 }
 
-/* The General tab. Narrow — a phone, or 200% zoom — it is one column of sections with a nav over them, a wrapping
-   row of links to each. From 64rem the sections go into two columns, which is what a card that wide has to put
-   in the space: the long section (Details) takes the left column for its full height and the rest stack in the
-   right, so the form reads as the words about the recipe on one side and its facts on the other. At that width
-   nearly the whole tab is on screen at once and there is nowhere left to navigate to, so the nav goes: it is
-   for finding your place in a column long enough to scroll.
+/* TRIAL: full-width fields. A text field, a textarea and a combobox fill the card's width rather than stopping at
+   the 60ch measure, so the form has one right edge and no column of empty card beside it. The two tokens are
+   the whole of the switch and are set here, on the editor, so no other form is touched:
 
-   Placement, not reordering: the DOM, and so the tab and reading order, is Details, Notes, Timing, Yield at
-   every width. The last row is the flexible one so that a left column taller than the right one stretches that
-   row and not the gaps between the right-hand sections. Written for at most three sections after the first:
-   a fourth would need another `auto` row.
+   --cp-measure-field   what cp-form-section holds a field it projects directly to. Open here.
+   --cp-field-row-measure   what a cp-field-row (and the fields in it) is held to. Kept at the old 60ch: a row of
+                        quantities spread over a card this wide is a two-digit number in a box 340px across, which
+                        is what a quantity row exists to prevent. Quantities line up on the left under full-width
+                        text, which is ragged on the right by design.
 
-   Keyed to the editor's own width, like the rest of this file, so it answers a narrowed window and 200% zoom
-   alike. `display: none` and not a removed element, so the nav is out of the accessibility tree while it is
-   hidden and back, with its state, the moment the editor narrows. */
+   To go back, delete this :host rule and restore the two-column block (see the backup noted in the change). */
+:host {
+  --cp-measure-field: 100%;
+  --cp-field-row-measure: 60ch;
+}
+
+/* The General tab: a nav over its sections, one column of sections. Narrow — a phone, or 200% zoom — the nav is a
+   wrapping row above them. From 64rem it is a sticky gutter beside them, as it is beside the Instructions groups
+   below: the column is long enough to scroll at every width now, so the nav earns its place at every width. */
 .general-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -117,24 +121,14 @@ cp-tab-panel:not([hidden]) {
 }
 
 @container cp-editor (min-width: 64rem) {
+  .general-layout {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
   .general-nav {
-    display: none;
-  }
-
-  .tab-sections {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto auto auto 1fr;
-    column-gap: var(--cp-space-8);
-    align-items: start;
-  }
-
-  .tab-sections > :first-child {
-    grid-column: 1;
-    grid-row: 1 / -1;
-  }
-
-  .tab-sections > :nth-child(n + 2) {
-    grid-column: 2;
+    position: sticky;
+    top: var(--cp-space-4);
+    --cp-anchor-nav-direction: column;
   }
 }
 
@@ -346,12 +340,12 @@ cp-tab-panel:not([hidden]) {
   font-weight: 700;
 }
 
-/* The slot "Add a duration" sits in, so revealing the field does not shift the step's other rows sideways. */
-.step-reveal {
+/* The buttons at the foot of a section, for an action that adds something to it rather than edits what is there.
+   A flex row so the button keeps its own width instead of stretching across the section's grid. */
+.section-actions {
   display: flex;
-  /* A text button pads its own text in from its edge, so without this the "+ Add …" line starts a little to the
-     right of the fields above it. Pulled back by exactly that padding. */
-  margin-inline-start: calc(var(--cp-space-2) * -1);
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
 }
 
 /* The derived total, which is read and never typed into. Given the height an input in this row would have
