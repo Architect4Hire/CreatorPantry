@@ -899,6 +899,81 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('#recipe-yield-quantity')).toBeTruthy();
     });
 
+    describe('taking it away again', () => {
+      const removeButton = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('button[aria-label="Remove measured batch"]') ?? undefined;
+
+      it('offers a way out once the fields are showing, and closes them without asking when they hold nothing', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+
+        expect(removeButton(root)).withContext('nothing to remove before it is opened').toBeUndefined();
+        revealMeasuredBatch(harness);
+        expect(removeButton(root)).withContext('the way out').toBeTruthy();
+        // On the right of the fields it removes, in the same row, not beneath them.
+        const first = root.querySelector('#recipe-yield-quantity')!.getBoundingClientRect();
+        expect(removeButton(root)!.getBoundingClientRect().left).toBeGreaterThan(first.right);
+
+        removeButton(root)!.click();
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        expect(confirmService.confirm).not.toHaveBeenCalled();
+        expect(root.querySelector('#recipe-yield-quantity')).withContext('the fields are gone').toBeNull();
+        expect(root.textContent).toContain('Add a measured batch');
+        expect(component.isDirty()).toBeFalse();
+      });
+
+      it('asks first when there is something in them, and keeps everything if the answer is no', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+        revealMeasuredBatch(harness);
+        component.yieldQuantity.set(4);
+        harness.detectChanges();
+
+        removeButton(root)!.click();
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(false);
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        expect(component.yieldQuantity()).toBe(4);
+        expect(root.querySelector('#recipe-yield-quantity')).toBeTruthy();
+      });
+
+      it('clears the batch, unit and serving size when the answer is yes, and a save sends them as removed', async () => {
+        const recipeService = recipeServiceSpy();
+        const loaded: RecipeDetail = { ...RECIPE_DETAIL, yieldQuantity: 4, yieldUnitId: 'u-servings', servingSize: 1, servingCount: 6, yieldText: 'Serves six' };
+        recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
+        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...loaded, yieldQuantity: null, yieldUnitId: null, servingSize: null, concurrencyToken: 'AAAAAAAAB9I=' } });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+        const root = harness.routeNativeElement!;
+        expect(root.querySelector('#recipe-yield-quantity')).withContext('open for a recipe that has one').toBeTruthy();
+
+        removeButton(root)!.click();
+        await waitUntil(() => confirmService.isOpen);
+        confirmService.answer(true);
+        await harness.fixture.whenStable();
+        harness.detectChanges();
+
+        expect(component.yieldQuantity()).toBeNull();
+        expect(component.yieldUnitId()).toBeNull();
+        expect(component.servingSize()).toBeNull();
+        expect(root.querySelector('#recipe-yield-quantity')).toBeNull();
+        // What is not part of it stays: the creator's own wording and the serving count.
+        expect(component.yieldText()).toBe('Serves six');
+        expect(component.servingCount()).toBe(6);
+        expect(component.isDirty()).withContext('removing a saved batch is an edit').toBeTrue();
+
+        await component.save();
+        const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
+        expect(request.yieldQuantity).toEqual({ submitted: true, value: null });
+        expect(request.yieldUnitId).toEqual({ submitted: true, value: null });
+        expect(request.servingSize).toEqual({ submitted: true, value: null });
+      });
+    });
+
     it('opens for a refusal the server names on one of the three, so the message has a field beside it', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.createRecipe.and.resolveTo({
@@ -2827,18 +2902,15 @@ describe('RecipeEditorComponent', () => {
         expect(request.instructions.value![0].steps![0].durationMinutes).toBeNull();
       });
 
-      it('says the field is optional, and the field says so to a screen reader too', async () => {
+      it('is a plain, optional number box whose placeholder says what goes in it', async () => {
         const recipeService = recipeServiceSpy();
         recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: WITH_DURATION });
         const { harness } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
         const box = durationBox(harness, 's1')!;
-        const describedBy = box.getAttribute('aria-describedby');
-        expect(describedBy).withContext('cp-field wires its hint to the control').toContain('step-duration-s1-hint');
-
-        const hint = harness.routeNativeElement!.querySelector(`[id="step-duration-s1-hint"]`);
-        expect(hint?.textContent).toContain('Optional');
-        // Optional means optional: nothing claims otherwise to assistive technology.
+        expect(box.getAttribute('placeholder')).toContain('min');
+        // No hint line under it, and optional means optional: nothing claims otherwise to assistive technology.
+        expect(harness.routeNativeElement!.querySelector(`[id="step-duration-s1-hint"]`)).toBeNull();
         expect(box.getAttribute('aria-required')).toBeNull();
       });
 
@@ -5708,7 +5780,8 @@ describe('RecipeEditorComponent', () => {
       await settleUnits(harness, component);
       revealMeasuredBatch(harness);
 
-      expect(component.yieldUnitHint()).toContain('Measures both the batch yield and one serving');
+      // Nothing to say while nothing is wrong: no hint under the box until there is a problem.
+      expect(component.yieldUnitHint()).toBe('');
 
       pickUnit(harness, 'u-servings');
       expect(component.yieldUnitHint()).toContain('Add a yield quantity as well');
@@ -5733,7 +5806,7 @@ describe('RecipeEditorComponent', () => {
       );
       await settleUnits(harness, component);
 
-      expect(component.servingSizeHint()).toContain('Needs a yield unit');
+      expect(component.servingSizeHint()).toBe('');
 
       // Entered without one, which the server refuses (CK_Recipes_ServingSize_RequiresYieldUnit). Said here
       // rather than learned from a refused save.
@@ -5746,7 +5819,9 @@ describe('RecipeEditorComponent', () => {
       component.yieldQuantity.set(2000);
       pickUnit(harness, 'u-grams');
       harness.detectChanges();
-      expect(component.servingSizeHint()).toContain('grams');
+      // The unit is the placeholder's to say, not a line of hint beneath the box.
+      expect(component.servingSizeHint()).toBe('');
+      expect(component.servingSizePlaceholder()).toContain('grams');
     });
 
     it('shows a server error on the yield unit beside the control', async () => {

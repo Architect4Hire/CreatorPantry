@@ -570,7 +570,6 @@
                 <cp-field
                   label="Yield, in your own words"
                   forId="recipe-yield-text"
-                  hint="Kept exactly as you write it. The numbers never rewrite it."
                   [error]="fieldError('yieldText')"
                 >
                   <input
@@ -588,7 +587,6 @@
                   <cp-field
                     label="Serves"
                     forId="recipe-serving-count"
-                    hint="How many servings it makes."
                     [error]="fieldError('servingCount')"
                   >
                     <input
@@ -609,101 +607,115 @@
                 <!-- Offered rather than presented, the way a step's duration is: see measuredBatchRevealed. Open on its
              own for a recipe that already records any of the three, or one a save was refused over. -->
                 @if (measuredBatchOpen()) {
-                  <cp-field-row [columns]="4" minColumn="6.5rem">
-                    <cp-field
-                      label="Batch yield"
-                      forId="recipe-yield-quantity"
-                      hint="How much the whole batch makes, in the Yield unit."
-                      [error]="fieldError('yieldQuantity')"
-                    >
-                      <input
-                        id="recipe-yield-quantity"
-                        type="number"
-                        inputmode="decimal"
-                        step="any"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
-                        [ngModel]="yieldQuantity()"
-                        (ngModelChange)="yieldQuantity.set($event)"
-                        name="yieldQuantity"
-                      />
-                    </cp-field>
-
-                    <!-- The unit both measured amounts are read in, beside the creator's own wording rather than instead of
-             it: both facts exist deliberately (recipes.md), and nothing here touches the field above.
-
-             `restricted`, unlike the ingredient editor's unit box, because text that names no unit has nowhere
-             to go — yieldUnitId is an id or nothing, and the creator's own words already have a home. Which is
-             also why removing one needs the explicit Clear: restricted text reverts to the chosen unit's name
-             when the field is left. -->
-                    <cp-field
-                      class="cp-span-2"
-                      label="Yield unit"
-                      forId="recipe-yield-unit"
-                      [hint]="yieldUnitHint()"
-                      [error]="fieldError('yieldUnitId')"
-                    >
-                      <div class="yield-unit-control">
-                        <cp-combobox
-                          inputId="recipe-yield-unit"
-                          [options]="yieldUnitOptions()"
-                          [disabled]="unitCatalogue().status !== 'ready'"
-                          mode="restricted"
-                          placeholder="e.g. loaves"
-                          [value]="yieldUnitText()"
-                          (valueChange)="yieldUnitText.set($event)"
-                          [selected]="yieldUnitSelection()"
-                          (selectedChange)="onYieldUnitPicked($event)"
+                  <div class="batch-row">
+                    <cp-field-row [columns]="4" minColumn="6.5rem">
+                      <cp-field
+                        label="Batch yield"
+                        forId="recipe-yield-quantity"
+                        [error]="fieldError('yieldQuantity')"
+                      >
+                        <input
+                          id="recipe-yield-quantity"
+                          placeholder="e.g. 24"
+                          type="number"
+                          inputmode="decimal"
+                          step="any"
+                          min="0"
+                          [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
+                          [ngModel]="yieldQuantity()"
+                          (ngModelChange)="yieldQuantity.set($event)"
+                          name="yieldQuantity"
                         />
-                        @if (yieldUnitId() !== null) {
-                          <button
-                            cpButton
-                            variant="text"
-                            size="sm"
-                            type="button"
-                            aria-label="Clear the yield unit"
-                            (click)="clearYieldUnit()"
-                          >
-                            Clear
-                          </button>
-                        }
-                        @if (unitCatalogue().status === 'unavailable') {
-                          <button
-                            cpButton
-                            variant="text"
-                            size="sm"
-                            type="button"
-                            aria-label="Try reading the unit list again"
-                            (click)="loadUnitCatalogue()"
-                          >
-                            Try again
-                          </button>
-                        }
-                      </div>
-                    </cp-field>
+                      </cp-field>
 
-                    <cp-field
-                      label="One serving is"
-                      forId="recipe-serving-size"
-                      [hint]="servingSizeHint()"
-                      [error]="fieldError('servingSize')"
+                      <!-- The unit both measured amounts are read in, beside the creator's own wording rather than instead of
+               it: both facts exist deliberately (recipes.md), and nothing here touches the field above.
+
+               `restricted`, unlike the ingredient editor's unit box, because text that names no unit has nowhere
+               to go — yieldUnitId is an id or nothing, and the creator's own words already have a home. Which is
+               also why removing one needs the explicit Clear: restricted text reverts to the chosen unit's name
+               when the field is left. -->
+                      <cp-field
+                        class="cp-span-2"
+                        label="Yield unit"
+                        forId="recipe-yield-unit"
+                        [hint]="yieldUnitHint()"
+                        [error]="fieldError('yieldUnitId')"
+                      >
+                        <div class="yield-unit-control">
+                          <cp-combobox
+                            inputId="recipe-yield-unit"
+                            [options]="yieldUnitOptions()"
+                            [disabled]="unitCatalogue().status !== 'ready'"
+                            mode="restricted"
+                            placeholder="e.g. loaves"
+                            [value]="yieldUnitText()"
+                            (valueChange)="yieldUnitText.set($event)"
+                            [selected]="yieldUnitSelection()"
+                            (selectedChange)="onYieldUnitPicked($event)"
+                          />
+                          @if (yieldUnitId() !== null) {
+                            <button
+                              cpButton
+                              variant="text"
+                              size="sm"
+                              type="button"
+                              aria-label="Clear the yield unit"
+                              (click)="clearYieldUnit()"
+                            >
+                              Clear
+                            </button>
+                          }
+                          @if (unitCatalogue().status === 'unavailable') {
+                            <button
+                              cpButton
+                              variant="text"
+                              size="sm"
+                              type="button"
+                              aria-label="Try reading the unit list again"
+                              (click)="loadUnitCatalogue()"
+                            >
+                              Try again
+                            </button>
+                          }
+                        </div>
+                      </cp-field>
+
+                      <cp-field
+                        label="One serving is"
+                        forId="recipe-serving-size"
+                        [hint]="servingSizeHint()"
+                        [error]="fieldError('servingSize')"
+                      >
+                        <input
+                          id="recipe-serving-size"
+                          [placeholder]="servingSizePlaceholder()"
+                          type="number"
+                          inputmode="decimal"
+                          step="any"
+                          min="0"
+                          [attr.aria-invalid]="fieldError('servingSize') ? 'true' : null"
+                          [ngModel]="servingSize()"
+                          (ngModelChange)="servingSize.set($event)"
+                          name="servingSize"
+                        />
+                      </cp-field>
+                    </cp-field-row>
+                    <!-- On the right of the fields it removes, not a button of its own beneath them. Its name says what it
+                         removes, because the word on the button is only "Remove". -->
+                    <button
+                      cpButton
+                      variant="secondary"
+                      type="button"
+                      aria-label="Remove measured batch"
+                      (click)="removeMeasuredBatch()"
                     >
-                      <input
-                        id="recipe-serving-size"
-                        type="number"
-                        inputmode="decimal"
-                        step="any"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('servingSize') ? 'true' : null"
-                        [ngModel]="servingSize()"
-                        (ngModelChange)="servingSize.set($event)"
-                        name="servingSize"
-                      />
-                    </cp-field>
-                  </cp-field-row>
+                      Remove
+                    </button>
+                  </div>
                 } @else {
                   <div class="section-actions">
-                    <button cpButton variant="secondary" type="button" (click)="revealMeasuredBatch()">
+                    <button cpButton id="recipe-add-measured-batch" variant="secondary" type="button" (click)="revealMeasuredBatch()">
                       Add a measured batch (for scaling)
                     </button>
                   </div>
@@ -846,13 +858,13 @@
                           @if (step.showDuration) {
                             <cp-field-row [columns]="2" minColumn="10rem">
                               <cp-field
-                                label="Duration (minutes)"
+                                label="Duration"
                                 [forId]="'step-duration-' + step.key"
-                                hint="Optional. Counted against the recipe's total time."
                               >
                                 <input
                                   [id]="'step-duration-' + step.key"
                                   type="number"
+                                  placeholder="e.g. 10 min"
                                   min="0"
                                   [ngModel]="step.durationMinutes"
                                   (ngModelChange)="

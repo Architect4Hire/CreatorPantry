@@ -342,6 +342,19 @@ cp-tab-panel:not([hidden]) {
 
 /* The buttons at the foot of a section, for an action that adds something to it rather than edits what is there.
    A flex row so the button keeps its own width instead of stretching across the section's grid. */
+/* The measured-batch fields with their Remove button to the right, at the foot of the inputs they belong to. */
+.batch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.batch-row cp-field-row {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
 .section-actions {
   display: flex;
   flex-wrap: wrap;

@@ -931,7 +931,8 @@ export class RecipeEditorComponent {
       return 'Add a yield quantity as well — a unit on its own cannot be saved.';
     }
 
-    return 'Measures both the batch yield and one serving; your own wording is kept as you wrote it.';
+    // Nothing to say while nothing is wrong: what the unit is for is plain from the fields either side of it.
+    return '';
   });
 
   /**
@@ -957,15 +958,21 @@ export class RecipeEditorComponent {
       return 'Pick a yield unit as well — a serving size needs something to be measured in.';
     }
 
-    if (this.yieldUnitId() === null) {
-      return 'Needs a yield unit, so pick one first.';
-    }
+    // Nothing to say while nothing is wrong. Which unit a serving is measured in is the placeholder's to say, see
+    // servingSizePlaceholder, and the missing-unit case is said above the moment a size is entered without one.
+    return '';
+  });
 
+  /**
+   * What the serving-size box shows while it is empty: the unit it will be measured in, once there is one.
+   *
+   * A placeholder rather than a hint, so the box is read at a glance and no line of text sits under it. It goes
+   * when the creator types, which is acceptable here because the Yield unit field is the box beside it.
+   */
+  readonly servingSizePlaceholder = computed(() => {
     const unit = this.yieldUnitSelection();
 
-    return unit === null
-      ? 'Measured in this recipe’s yield unit.'
-      : `Measured in ${unit.label.toLowerCase()}, from the Yield unit field.`;
+    return unit === null ? 'e.g. 250' : `in ${unit.label.toLowerCase()}`;
   });
 
   /**
@@ -1541,6 +1548,49 @@ export class RecipeEditorComponent {
 
     afterNextRender(
       () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-yield-quantity')?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Takes the measured-batch fields away again, clearing what they held.
+   *
+   * They were offered rather than presented, and once on screen they stay (see {@link measuredBatchRevealed}) so
+   * that a box does not vanish while it is being edited. That left no way back for a creator who opened them by
+   * mistake or no longer wants a measured batch, so this is the deliberate way out: batch yield, yield unit and
+   * serving size go, and so do any refusals the server named on them. The creator's own wording and the serving
+   * count are not part of it.
+   *
+   * Asked first only when there is something to lose. Nothing is saved until Save, so this is recoverable until
+   * then by leaving without saving, but typing a batch in and losing it to a click is what a confirmation is for.
+   */
+  async removeMeasuredBatch(): Promise<void> {
+    const holdsValues = this.yieldQuantity() !== null || this.yieldUnitId() !== null || this.servingSize() !== null;
+
+    if (holdsValues) {
+      const confirmed = await this.confirmService.confirm({
+        title: 'Remove the measured batch?',
+        message:
+          'This clears the batch yield, the yield unit and the serving size. Your own yield wording and the serving count stay as they are. Nothing is saved until you select Save.',
+        confirmLabel: 'Remove measured batch',
+        cancelLabel: 'Keep it',
+      });
+      if (!confirmed) return;
+    }
+
+    this.yieldQuantity.set(null);
+    this.clearYieldUnit();
+    this.servingSize.set(null);
+
+    // A refusal about a field that is no longer there would hold the fields open: see recordsMeasuredBatch.
+    this.fieldErrorsSignal.update((errors) =>
+      Object.fromEntries(Object.entries(errors).filter(([field]) => !['yieldQuantity', 'yieldUnitId', 'servingSize'].includes(field))),
+    );
+    this.measuredBatchRevealed.set(false);
+
+    // The button that removed them is gone with them, so focus goes to the one that offers them back.
+    afterNextRender(
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-add-measured-batch')?.focus(),
       { injector: this.injector },
     );
   }
