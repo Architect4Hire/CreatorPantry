@@ -167,8 +167,8 @@ public sealed class ModuleBoundaryTests
         // picked up the wrong tree — bin/obj, or the whole solution — rather than growth. 12.9b crossed the
         // old ceiling of 1000 honestly, so it was raised rather than the files not counted.
         Assert.InRange(files.Count, 150, 1400);
-        // Fourteen since 13A.1 added Workflows.
-        Assert.Equal(14, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        // Fifteen since 13A.23 added Planning.
+        Assert.Equal(15, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.
@@ -338,8 +338,12 @@ public sealed class ModuleBoundaryTests
     /// <c>Workflows</c> passed through here: listed from 13A.2, when its run entities landed before any seam read
     /// them, and removed in 13A.5 when the start command gave it a facade and the full shape applied.
     /// </para>
+    /// <para>
+    /// <c>Planning</c> follows the same path: 13A.23 lands the work-task entities and their migration with no
+    /// endpoint, and 13A.24's quick-capture command gives it a facade.
+    /// </para>
     /// </remarks>
-    private static readonly string[] ModulesUnderConstruction = [];
+    private static readonly string[] ModulesUnderConstruction = ["Planning"];
 
     /// <summary>
     /// Modules that own no table: their business composes other modules' facades and stores nothing, so a

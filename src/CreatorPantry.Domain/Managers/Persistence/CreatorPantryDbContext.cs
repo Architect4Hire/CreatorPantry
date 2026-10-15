@@ -12,6 +12,7 @@ using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Workflows.Data.Entities;
+using CreatorPantry.Domain.Modules.Planning.Data.Entities;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Audit;
@@ -706,6 +707,16 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// cascade into a recipe nor stand in the way of archiving one.
     /// </remarks>
     public DbSet<WorkflowRunLink> WorkflowRunLinks => Set<WorkflowRunLink>();
+
+    /// <remarks>
+    /// One person's piece of work (13A.23): what they mean to do, when, and how far they have got. Never an
+    /// editorial or publishing state, and its links to recipes, cards, assets and runs are pointers, not keys.
+    /// </remarks>
+    public DbSet<WorkTask> WorkTasks => Set<WorkTask>();
+
+    /// <inheritdoc cref="WorkTasks"/>
+    /// <remarks>A task carrying one of the workspace's tags, the vocabulary recipes and assets share.</remarks>
+    public DbSet<WorkTaskLabel> WorkTaskLabels => Set<WorkTaskLabel>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
