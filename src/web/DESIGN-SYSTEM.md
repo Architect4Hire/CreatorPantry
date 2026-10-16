@@ -160,8 +160,14 @@ phone, ordered from what needs the creator now to what is worth a glance.
   inside it with a way to try again; the others are untouched. An empty topic says what empty means in its own
   words.
 - **Every item opens where it can be dealt with**, by its title: a blocked recipe on its Readiness tab
-  (`?area=readiness`), a test issue on Test kitchen (`?area=tests`), a post on its card. An item with nowhere of
-  its own to go is listed without a link.
+  (`?area=readiness`), a test issue on Test kitchen (`?area=tests`), a post on its card, a guided workflow at its
+  run (which resumes on the step it is on), a task in My Day at itself (`?task=`). An item with nowhere of its own
+  to go is listed without a link.
+- **A topic that is the reader's own comes first.** Most of a dashboard is the workspace — the same for every
+  member — but the work *this* person was in the middle of and what their own day holds are theirs alone, and they
+  are what they came to the page for. Those topics lead, the workspace's follow, and the page says whose a topic is
+  in its own words ("Carry on where you left off", "Your day") rather than leaving two members to wonder why their
+  dashboards differ.
 
 ### The third shape: a flow
 

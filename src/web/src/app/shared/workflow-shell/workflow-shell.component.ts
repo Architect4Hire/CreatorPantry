@@ -1,20 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  Injector,
-  afterNextRender,
-  computed,
-  contentChildren,
-  effect,
-  inject,
-  input,
-  output,
-  signal,
-  untracked,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, NgZone, afterNextRender, computed, contentChildren, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -64,6 +49,15 @@ export function workflowLede(expectedOutcome: string | null): string {
 
 /** Where the stepper folds into a disclosure: the width the page gutter drops at, and 200% zoom of a 1280px window. */
 export const WORKFLOW_SHELL_NARROW_QUERY = '(max-width: 40rem)';
+
+/**
+ * How often the shell keeps a step's work while it holds any. It is the window of typing a creator can lose
+ * to a closed tab or a flat battery, so it is short; every tick is a no-op unless the screen is dirty.
+ */
+export const WORKFLOW_AUTOSAVE_EVERY_MS = 5_000;
+
+/** How many refusals in a row before the timer gives up until the next edit. An invalid form is not news. */
+export const WORKFLOW_AUTOSAVE_GIVE_UP_AFTER = 2;
 
 const STEP_HEADING_ID = 'cp-workflow-step-heading';
 const SUMMARY_HEADING_ID = 'cp-workflow-summary-heading';
@@ -155,6 +149,11 @@ export class WorkflowShellComponent {
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
+
+  private readonly zone = inject(NgZone);
+
+  private autosaveTimer: ReturnType<typeof setInterval> | null = null;
+  private autosaveFailures = 0;
 
   /** The channel the step's screen registers on. Handed to its template, which is declared outside this component. */
   protected readonly port = inject(WorkflowStepPort);
@@ -288,6 +287,16 @@ export class WorkflowShellComponent {
       if (said) untracked(() => this.announce(said.text));
     });
 
+    // Autosave, armed only while there is something to keep and a screen that can keep it without asking.
+    // Before this, a step's words lived in the browser until the creator pressed Continue or Save and exit:
+    // closing the tab lost everything typed since the last move, and the page still said "Saved at …" of the
+    // move before it. The easy-as-pie rule asks for work to be saved automatically as a draft, and this is
+    // where every step gets that at once rather than each screen growing its own timer.
+    effect(() => {
+      const keep = this.port.unsaved() && this.port.canAutosave();
+      untracked(() => (keep ? this.startAutosave() : this.stopAutosave()));
+    });
+
     void this.memberships.ensureLoaded();
 
     const media = typeof window === 'undefined' ? undefined : window.matchMedia?.(WORKFLOW_SHELL_NARROW_QUERY);
@@ -302,10 +311,57 @@ export class WorkflowShellComponent {
       if (this.port.unsaved() && !this.leaving) event.preventDefault();
     };
     window.addEventListener('beforeunload', beforeUnload);
+
+    // A tab going away is the last moment anything can be kept, and it is the moment a creator is least able
+    // to do it themselves. `visibilitychange` is the one the browsers actually deliver on the way out; the
+    // request may not finish, so this is a best effort on top of the timer below, never instead of it.
+    const onHidden = (): void => {
+      if (document.visibilityState === 'hidden' && this.port.unsaved()) void this.autosave();
+    };
+    document.addEventListener('visibilitychange', onHidden);
+
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('beforeunload', beforeUnload);
+      document.removeEventListener('visibilitychange', onHidden);
+      this.stopAutosave();
       this.cancelOnlineRetry?.();
     });
+  }
+
+  private startAutosave(): void {
+    if (this.autosaveTimer !== null) return;
+
+    this.autosaveFailures = 0;
+
+    // Outside Angular on purpose: a timer that ticks forever inside it asks for change detection every few
+    // seconds for as long as the step is dirty, and leaves the app never quite settled — which a test waiting
+    // for stability would wait out. The attempt itself goes back in, because it writes what the screen shows.
+    this.autosaveTimer = this.zone.runOutsideAngular(() =>
+      setInterval(() => this.zone.run(() => void this.autosave()), WORKFLOW_AUTOSAVE_EVERY_MS));
+  }
+
+  private stopAutosave(): void {
+    if (this.autosaveTimer === null) return;
+
+    clearInterval(this.autosaveTimer);
+    this.autosaveTimer = null;
+    this.autosaveFailures = 0;
+  }
+
+  /**
+   * One attempt to keep the step's work quietly. It stays out of the way of anything the creator is doing: a
+   * move already flushes, and a screen mid-save is left to finish. A screen that keeps refusing — an invalid
+   * form, most likely — is left alone after a couple of tries rather than asked every few seconds forever;
+   * the next edit arms the timer again.
+   */
+  private async autosave(): Promise<void> {
+    if (!this.port.unsaved() || this.leaving) return;
+    if (this.busy() !== null) return;
+    if (this.port.registration()?.saving?.() === true) return;
+    if (this.autosaveFailures >= WORKFLOW_AUTOSAVE_GIVE_UP_AFTER) return;
+
+    const kept = await this.port.autosave();
+    this.autosaveFailures = kept ? 0 : this.autosaveFailures + 1;
   }
 
   /** Read the run again: the page's Try again. */

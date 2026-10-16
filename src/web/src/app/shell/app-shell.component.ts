@@ -45,7 +45,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
   { path: 'ai-recipe-studio', label: 'AI Recipe Studio', icon: '✦' },
   { path: 'image-studio', label: 'Image Studio', icon: '▧' },
   { path: 'social-studio', label: 'Social Studio', icon: '◎' },
-  { path: 'dam', label: 'DAM', icon: '▤' },
+  { path: 'dam', label: 'Pictures', icon: '▤' },
   { path: 'content-board', label: 'Content Board', icon: '▥' },
   { path: 'prompt-library', label: 'Prompt Library', icon: '❝' },
   { path: 'settings', label: 'Settings', icon: '⚙' },

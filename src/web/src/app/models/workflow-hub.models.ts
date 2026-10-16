@@ -179,6 +179,8 @@ export function attentionReasonText(code: WorkflowAttentionReason): string {
       return 'A newer version of this journey is available.';
     case 'not_yours_to_do':
       return 'Someone with more access needs to do the next step.';
+    case 'version_gone':
+      return 'The version this started from is no longer available, so its steps cannot be shown. Your work is still here.';
     default:
       return 'This needs a look.';
   }

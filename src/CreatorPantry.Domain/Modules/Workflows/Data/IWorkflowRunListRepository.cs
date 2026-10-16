@@ -1,5 +1,4 @@
 using CreatorPantry.Domain.Managers.Persistence;
-using CreatorPantry.Domain.Modules.Workflows.Data.Entities;
 using CreatorPantry.Domain.Modules.Workflows.Managers;
 using Microsoft.EntityFrameworkCore;
 
@@ -67,7 +66,7 @@ internal sealed class WorkflowRunListRepository(CreatorPantryDbContext context) 
             WorkflowRunListView.Mine => runs.Where(run => run.Status == WorkflowRunStatus.InProgress
                 && (run.CreatedByMembershipId == me || run.AssignedMembershipId == me)),
             WorkflowRunListView.Completed => runs.Where(run => run.Status == WorkflowRunStatus.Completed),
-            WorkflowRunListView.Attention => NeedingAttention(runs, criteria.Attention),
+            WorkflowRunListView.Attention => WorkflowRunAttentionQuery.NeedingAttention(runs, criteria.Attention),
             _ => runs,
         };
 
@@ -124,23 +123,5 @@ internal sealed class WorkflowRunListRepository(CreatorPantryDbContext context) 
             .Select(link => new WorkflowRunLinkReferenceRecord(
                 link.Id, link.WorkflowRunId, link.ResourceKind, link.ResourceId, link.StepKey, link.LinkedAt))
             .ToListAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// In progress, and idle, on an outdated version, or on a step the reader cannot take — each matched on the run's
-    /// own columns, the version and step built into the same strings <see cref="WorkflowRunAttentionCriteria"/> lists.
-    /// </summary>
-    private static IQueryable<WorkflowRun> NeedingAttention(
-        IQueryable<WorkflowRun> runs, WorkflowRunAttentionCriteria attention)
-    {
-        var idleBefore = attention.IdleBefore;
-        var outdated = attention.OutdatedVersions;
-        var blocked = attention.BlockedSteps;
-
-        return runs.Where(run => run.Status == WorkflowRunStatus.InProgress
-            && (run.UpdatedAt < idleBefore
-                || outdated.Contains(run.DefinitionKey + WorkflowRunAttentionCriteria.VersionSeparator + run.DefinitionVersion.ToString())
-                || blocked.Contains(run.DefinitionKey + WorkflowRunAttentionCriteria.VersionSeparator + run.DefinitionVersion.ToString()
-                    + WorkflowRunAttentionCriteria.StepSeparator + run.CurrentStepKey)));
     }
 }

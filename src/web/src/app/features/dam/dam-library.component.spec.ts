@@ -639,7 +639,7 @@ describe('DamLibraryComponent', () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     await create();
 
-    expect(root().querySelector('h1')?.textContent).toContain('DAM');
+    expect(root().querySelector('h1')?.textContent).toContain('Pictures');
     expect(searchInput().closest('label')?.textContent).toContain('Search the library');
     expect(select('channel').closest('label')?.textContent).toContain('Filter by channel');
     expect(select('day').closest('label')?.textContent).toContain('Filter by day');

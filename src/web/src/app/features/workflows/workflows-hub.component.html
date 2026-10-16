@@ -178,6 +178,9 @@
                 <cp-topic-card [heading]="card.goal" [headingLevel]="3" [headingId]="'hub-goal-' + card.id">
                   <p class="plain">{{ card.description }}</p>
                   <p class="plain cp-muted">You’ll end up with: {{ card.outcome }}</p>
+                  @if (card.caveat; as caveat) {
+                    <p class="plain cp-muted">{{ caveat }}</p>
+                  }
 
                   @if (card.roleNote) {
                     <cp-notice role="note">{{ card.roleNote }}</cp-notice>

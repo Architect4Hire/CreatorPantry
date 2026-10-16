@@ -89,6 +89,30 @@ public sealed class WorkflowRunListEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_run_pinned_to_a_version_no_longer_shipped_is_still_listed_and_the_list_still_answers()
+    {
+        var mine = await SeedAsync(_fixture.WorkspaceA);
+        var stranded = await SeedAsync(_fixture.WorkspaceA, run => run.DefinitionVersion = 99);
+
+        using var client = await OwnerAsync();
+        var page = await ListAsync(client, "?view=all");
+
+        // One row the catalogue no longer has used to throw, which made the whole list a 500 for every member
+        // of the workspace: nobody could see any of their own work because of one run. The run is the creator's,
+        // so it stays listed and openable; what only the definition knows is left unsaid, not guessed.
+        Assert.Contains(mine, Ids(page));
+        Assert.Contains(stranded, Ids(page));
+
+        var row = Item(page, stranded);
+        Assert.Equal(99, row.GetProperty("definitionVersion").GetInt32());
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("currentStep").ValueKind);
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("nextAction").ValueKind);
+        Assert.Contains(
+            WorkflowRunAttentionReasons.VersionGone,
+            row.GetProperty("attentionReasons").EnumerateArray().Select(reason => reason.GetString()));
+    }
+
+    [Fact]
     public async Task A_definition_narrows_any_view_and_one_no_workflow_has_is_an_empty_page()
     {
         var recipe = await SeedAsync(_fixture.WorkspaceA);

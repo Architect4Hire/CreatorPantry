@@ -7,7 +7,13 @@ import { WorkflowResourcePointer, WorkflowRun, decodeWorkflowRun } from '../../m
 import { wireRun } from '../../models/workflow-run.testing';
 import { WorkflowRunCommandOutcome, WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
-import { WORKFLOW_SHELL_NARROW_QUERY, WorkflowShellComponent, WorkflowShellDescription } from './workflow-shell.component';
+import {
+  WORKFLOW_AUTOSAVE_EVERY_MS,
+  WORKFLOW_AUTOSAVE_GIVE_UP_AFTER,
+  WORKFLOW_SHELL_NARROW_QUERY,
+  WorkflowShellComponent,
+  WorkflowShellDescription,
+} from './workflow-shell.component';
 import { WorkflowStepPort } from './workflow-step-port';
 import { WorkflowStepDirective } from './workflow-step.directive';
 
@@ -24,6 +30,10 @@ const screen = {
   ready: signal(true),
   flushResult: true,
   flushes: 0,
+  /** What the screen does on the shell's own timer, which must never ask the creator anything. */
+  autosaveResult: true,
+  autosaves: 0,
+  offersAutosave: true,
   /** What the screen does while it is asked to keep its work — point the run at a draft, say. */
   onFlush: null as ((port: WorkflowStepPort) => Promise<void>) | null,
 };
@@ -57,6 +67,14 @@ class TestStepScreenComponent {
         await screen.onFlush?.(port);
         return screen.flushResult;
       },
+      ...(screen.offersAutosave
+        ? {
+            autosave: async () => {
+              screen.autosaves++;
+              return screen.autosaveResult;
+            },
+          }
+        : {}),
     });
     inject(DestroyRef).onDestroy(unregister);
   }
@@ -200,6 +218,9 @@ describe('WorkflowShellComponent', () => {
     screen.results.set([]);
     screen.flushResult = true;
     screen.flushes = 0;
+    screen.autosaveResult = true;
+    screen.autosaves = 0;
+    screen.offersAutosave = true;
     screen.onFlush = null;
     screen.ready.set(true);
     screenPort = null;
@@ -841,6 +862,107 @@ describe('WorkflowShellComponent', () => {
     confirm.and.resolveTo(false);
     expect(await component.confirmLeaveIfUnsaved()).toBeFalse();
     expect(confirm).toHaveBeenCalledOnceWith(jasmine.objectContaining({ title: 'Leave without saving?', tone: 'danger' }));
+  });
+
+  describe('autosave', () => {
+    /** The attempt the shell's timer makes, called directly: the timer itself is asserted separately. */
+    function attempt(component: WorkflowShellComponent): Promise<void> {
+      return (component as unknown as { autosave(): Promise<void> }).autosave();
+    }
+
+    it('arms a timer only while there is work and a screen that can keep it without asking', async () => {
+      const started = spyOn(window, 'setInterval').and.returnValue(7 as unknown as number);
+      const stopped = spyOn(window, 'clearInterval');
+
+      await onIngredients();
+      expect(started).not.toHaveBeenCalled();
+
+      screen.unsaved.set(true);
+      await settle();
+      expect(started).toHaveBeenCalledTimes(1);
+
+      // Kept: nothing left to keep, so nothing left to ask.
+      screen.unsaved.set(false);
+      await settle();
+      expect(stopped).toHaveBeenCalledWith(7 as unknown as number);
+    });
+
+    it('leaves a screen that cannot keep its work without asking off the timer entirely', async () => {
+      // The recipe draft's review is the case: its only way to keep a rewrite is to ask the creator, and a
+      // timer must never be what asks. Such a screen keeps the browser's leave warning as its guard.
+      screen.offersAutosave = false;
+      const started = spyOn(window, 'setInterval');
+
+      await onIngredients();
+      screen.unsaved.set(true);
+      await settle();
+
+      expect(started).not.toHaveBeenCalled();
+    });
+
+    it('keeps the step’s work, and asks the screen rather than flushing it', async () => {
+      const component = await onIngredients();
+      screen.unsaved.set(true);
+      await settle();
+
+      await attempt(component);
+
+      expect(screen.autosaves).toBe(1);
+      // A flush may ask the creator something; autosave never may, so it is a separate question.
+      expect(screen.flushes).toBe(0);
+    });
+
+    it('does nothing when there is nothing to keep, nor over a move that keeps the work itself', async () => {
+      const component = await onIngredients();
+
+      await attempt(component);
+      expect(screen.autosaves).toBe(0);
+
+      screen.unsaved.set(true);
+      await settle();
+      component.busy.set('continue');
+      await attempt(component);
+      expect(screen.autosaves).toBe(0);
+
+      // And it waits while the screen is already saving, rather than asking twice over.
+      component.busy.set(null);
+      screen.saving.set(true);
+      await attempt(component);
+      expect(screen.autosaves).toBe(0);
+    });
+
+    it('asks a screen that cannot keep its work twice, then waits for the next edit', async () => {
+      // An invalid form refuses every time: asking it every few seconds is noise, and on a failing network it
+      // is a retry storm. The next edit is a new chance.
+      const component = await onIngredients();
+      screen.autosaveResult = false;
+      screen.unsaved.set(true);
+      await settle();
+
+      for (let tries = 0; tries < 5; tries++) await attempt(component);
+      expect(screen.autosaves).toBe(WORKFLOW_AUTOSAVE_GIVE_UP_AFTER);
+
+      screen.autosaveResult = true;
+      screen.unsaved.set(false);
+      await settle();
+      screen.unsaved.set(true);
+      await settle();
+
+      await attempt(component);
+      expect(screen.autosaves).toBe(WORKFLOW_AUTOSAVE_GIVE_UP_AFTER + 1);
+    });
+
+    it('keeps the step’s work when the page is hidden, which is the last moment anything can be', async () => {
+      await onIngredients();
+      screen.unsaved.set(true);
+      await settle();
+
+      spyOnProperty(document, 'visibilityState').and.returnValue('hidden');
+      document.dispatchEvent(new Event('visibilitychange'));
+      await settle();
+
+      expect(screen.autosaves).toBe(1);
+    });
   });
 
   it('guards the new run after Start over lands on the same page', async () => {

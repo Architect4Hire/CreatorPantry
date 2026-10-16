@@ -167,6 +167,7 @@ export class RecipeTestFixStepComponent implements OnInit {
       unsaved: computed(() => (this.way() === 'change' ? (this.editor()?.isDirty() ?? false) : false)),
       saving: computed(() => this.editor()?.saving() ?? false),
       savedAt: computed(() => this.editor()?.savedAt() ?? null),
+      autosave: async () => (this.way() === 'change' ? ((await this.editor()?.flush()) ?? true) : true),
       flush: async () => {
         if (this.way() !== 'change') return true;
         const kept = (await this.editor()?.flush()) ?? true;

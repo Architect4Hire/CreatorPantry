@@ -23,6 +23,17 @@ export interface WorkflowStepRegistration {
    * pending resolves true at once.
    */
   flush(): Promise<boolean>;
+  /**
+   * Keeps whatever the screen holds, now, **without asking the creator anything**. The shell calls it on a
+   * timer while {@link unsaved} is true, and once more when the page is hidden, so a creator who closes the
+   * tab or is interrupted loses at most the last few seconds rather than everything since their last move.
+   *
+   * <p>It must never prompt, never move the run, and be safe to repeat — which is why it is separate from
+   * {@link flush}: a flush is allowed to ask a question, because a creator is standing there having asked to
+   * move. A screen that cannot keep its work without asking leaves this out, and the browser's leave warning
+   * stays its only guard.</p>
+   */
+  autosave?(): Promise<boolean>;
   /** The record the step's unfinished work is kept in, for Save and exit to point the run at. */
   readonly draft?: Signal<WorkflowResourcePointer | null>;
   /** Which of the step's actions the creator is in, so "Continue" later goes back there. */
@@ -64,6 +75,9 @@ export class WorkflowStepPort {
 
   readonly unsaved = computed(() => this.current()?.unsaved() ?? false);
 
+  /** Whether the step on screen can keep its work without asking anything, so the shell can do it on a timer. */
+  readonly canAutosave = computed(() => this.current()?.autosave !== undefined);
+
   /** Registers the step's screen. Returns the way to unregister, for the screen's own `DestroyRef`. */
   register(registration: WorkflowStepRegistration): () => void {
     this.current.set(registration);
@@ -102,5 +116,16 @@ export class WorkflowStepPort {
   /** Keeps the screen's work. True when there is no screen, or nothing to keep. */
   flush(): Promise<boolean> {
     return this.current()?.flush() ?? Promise.resolve(true);
+  }
+
+  /**
+   * Keeps the screen's work on the shell's own timer, asking the creator nothing. True when it is kept, when
+   * there was nothing to keep, and when the screen offers no autosave at all — only a screen that tried and
+   * could not answers false.
+   */
+  autosave(): Promise<boolean> {
+    const screen = this.current();
+
+    return screen?.autosave?.() ?? Promise.resolve(true);
   }
 }

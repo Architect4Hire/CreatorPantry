@@ -1,19 +1,24 @@
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Brand.Facade;
+using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Content.Facade;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Dashboard.Managers;
 using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.Planning.Facade;
+using CreatorPantry.Domain.Modules.Planning.Managers;
 using CreatorPantry.Domain.Modules.Publishing.Facade;
 using CreatorPantry.Domain.Modules.Publishing.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
+using CreatorPantry.Domain.Modules.Workflows.Facade;
+using CreatorPantry.Domain.Modules.Workflows.Managers;
 using Microsoft.Extensions.Logging;
 
 namespace CreatorPantry.Domain.Modules.Dashboard.Business;
 
-/// <summary>Puts the workspace's dashboard together from what each module reports (13.11).</summary>
+/// <summary>Puts the workspace's dashboard together from what each module reports (13.11, 13A.33a).</summary>
 public interface IDashboardBusiness
 {
     Task<DashboardServiceModel> GetAsync(CancellationToken cancellationToken);
@@ -39,6 +44,11 @@ public interface IDashboardBusiness
 /// one unit of work.
 /// </para>
 /// <para>
+/// <strong>Two sections are the caller's own.</strong> The guided workflows to carry on with and the day's work
+/// plan are asked for the caller's membership, through the same facades the hub and My Day use; everything else
+/// is the workspace's. Both still read only what the caller may already read in this workspace.
+/// </para>
+/// <para>
 /// <strong>"Today" is the workspace's.</strong> Upcoming content is counted from today in the brand profile's
 /// zone, and a planned date is a calendar day in that zone; a scheduled post's instant is compared with the
 /// start of the window's first and last day there. <strong>With no zone set there is no today</strong>: the
@@ -48,6 +58,8 @@ public interface IDashboardBusiness
 /// </remarks>
 internal sealed class DashboardBusiness(
     IRecipeDashboardFacade recipes,
+    IWorkflowDashboardFacade workflows,
+    IWorkPlanDashboardFacade workPlan,
     IRecipeReadinessFacade readiness,
     IRecipeFacade recipeTitles,
     IAiDashboardFacade proposals,
@@ -62,7 +74,7 @@ internal sealed class DashboardBusiness(
     public async Task<DashboardServiceModel> GetAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
-        var zone = await TimeZoneAsync(cancellationToken);
+        var (zone, zoneState) = await TimeZoneAsync(cancellationToken);
         var today = zone is null ? (DateOnly?)null : zones.LocalDate(now, zone);
 
         // The two facades that take a window still need one. With no zone the parts that depend on it are
@@ -71,6 +83,13 @@ internal sealed class DashboardBusiness(
         var from = today ?? DateOnly.FromDateTime(now.UtcDateTime);
         var through = from.AddDays(DashboardPolicy.UpcomingDays - 1);
         var windowEnd = StartOf(through.AddDays(1), zone);
+
+        // First, because they are what the creator came to the page for: what they were in the middle of, and
+        // what their day holds. The plan is a claim about days, so it needs the zone the others do not.
+        var runs = await SectionAsync("workflows", () => workflows.GetSummaryAsync(cancellationToken), cancellationToken);
+        var plan = zone is { } scheduling && today is { } localDay
+            ? await SectionAsync("work plan", () => workPlan.GetAsync(localDay, scheduling, cancellationToken), cancellationToken)
+            : DashboardSection<WorkPlanSummaryServiceModel>.Unavailable();
 
         var work = await SectionAsync("recipes", () => recipes.GetWorkAsync(cancellationToken), cancellationToken);
         var blockers = work.Data is { } inProgress
@@ -98,6 +117,9 @@ internal sealed class DashboardBusiness(
             now,
             zone,
             today,
+            zoneState,
+            runs,
+            plan,
             work,
             blockers,
             awaiting,
@@ -224,21 +246,43 @@ internal sealed class DashboardBusiness(
             item.ScheduledAt);
 
     /// <summary>The brand profile's zone, when there is a profile and it has one this server knows.</summary>
-    private async Task<string?> TimeZoneAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// The workspace's zone, and which of the three answers this is. A zone that was read and is not there is
+    /// the creator's to set; one that could not be read is nobody's fault and says nothing about whether it is
+    /// set, so the page must not send that creator to Brand settings to set what may already be set.
+    /// </summary>
+    private async Task<(string? Zone, DashboardTimeZoneState State)> TimeZoneAsync(CancellationToken cancellationToken)
     {
         try
         {
             var profile = await brand.GetAsync(cancellationToken);
-            var zone = profile.Succeeded ? profile.Value!.TimeZoneId : null;
+            if (!profile.Succeeded)
+            {
+                // A workspace with no brand profile at all has set no zone — that is every brand-new workspace,
+                // and the creator fixes it the same way. Any other refusal is us, not them.
+                return profile.Error?.Code == BrandErrorCodes.ProfileNotFound
+                    ? (null, DashboardTimeZoneState.NotSet)
+                    : (null, DashboardTimeZoneState.Unreadable);
+            }
 
-            return zone is not null && zones.IsValidZone(zone) ? zone : null;
+            var zone = profile.Value!.TimeZoneId;
+            if (zone is null)
+            {
+                return (null, DashboardTimeZoneState.NotSet);
+            }
+
+            // A zone that is set but unusable is not the creator being asked to set one: they did, and this
+            // server cannot work in it. Saying "not set" would send them to change something that looks right.
+            return zones.IsValidZone(zone)
+                ? (zone, DashboardTimeZoneState.Set)
+                : (null, DashboardTimeZoneState.Unreadable);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            // Without it the dashboard still answers, minus the one section that needs a day, and says so.
+            // Without it the dashboard still answers, minus the sections that need a day, and says so.
             logger.LogWarning("Dashboard time zone could not be read ({ExceptionType}).", exception.GetType().Name);
 
-            return null;
+            return (null, DashboardTimeZoneState.Unreadable);
         }
     }
 

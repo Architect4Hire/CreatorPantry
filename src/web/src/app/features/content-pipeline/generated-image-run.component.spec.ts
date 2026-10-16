@@ -292,6 +292,25 @@ describe('GeneratedImageRunComponent', () => {
     expect(makeButton().disabled).toBeTrue();
   });
 
+  it('says in plain words why nothing was made when pictures are not switched on', async () => {
+    // Every surface that makes pictures reaches this component — the Image Studio and the "Create food images"
+    // workflow step through it — so this is where "the provider is not configured" has to become a sentence a
+    // creator can act on. Nothing asserted that it does, on any of those surfaces.
+    host.state.set({ operationId: 'op-1' });
+    await settle();
+
+    watches[watches.length - 1].next({
+      status: 'found',
+      operation: { ...operation([]), status: 'Failed', failureCategory: 'provider-not-configured', completedAt: null },
+    });
+    await settle();
+
+    expect(el.textContent).toContain('Making pictures is not switched on');
+
+    // And no provider, model, lease or queue vocabulary reaches the creator with it.
+    expect(el.textContent).not.toContain('provider-not-configured');
+  });
+
   it('says where to shorten a prompt that is too long to send, and will not send it', async () => {
     host.promptText.set('x'.repeat(4001));
     await settle();

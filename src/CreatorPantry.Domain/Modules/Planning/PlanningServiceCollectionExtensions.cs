@@ -53,6 +53,11 @@ public static class PlanningServiceCollectionExtensions
         services.AddScoped<IWorkTaskFocusBusiness, WorkTaskFocusBusiness>();
         services.AddScoped<IValidator<SetWorkTaskTopThreeViewModel>, SetWorkTaskTopThreeViewModelValidator>();
 
+        services.AddScoped<IWorkPlanDashboardRepository, WorkPlanDashboardRepository>();
+        services.AddScoped<IWorkPlanDashboardDataLayer, WorkPlanDashboardDataLayer>();
+        services.AddScoped<IWorkPlanDashboardBusiness, WorkPlanDashboardBusiness>();
+        services.AddScoped<IWorkPlanDashboardFacade, WorkPlanDashboardFacade>();
+
         services.AddScoped<IWorkTaskFromStepBusiness, WorkTaskFromStepBusiness>();
         services.AddScoped<IValidator<WorkTaskStepSuggestionViewModel>, WorkTaskStepSuggestionViewModelValidator>();
         services.AddScoped<IValidator<AddWorkTaskFromStepViewModel>, AddWorkTaskFromStepViewModelValidator>();

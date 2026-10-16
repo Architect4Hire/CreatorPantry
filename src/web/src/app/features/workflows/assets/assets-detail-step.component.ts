@@ -147,6 +147,8 @@ export class AssetsDetailStepComponent implements OnInit {
       saving: computed(() => this.form()?.saving() ?? false),
       // Continue saves what changed; a refusal keeps the creator here with the reason beside the field.
       flush: () => this.form()?.saveForStep() ?? Promise.resolve(true),
+      // Describing a picture is the creator's own words, and saving them again is harmless.
+      autosave: () => this.form()?.saveForStep() ?? Promise.resolve(true),
     });
     destroyRef.onDestroy(unregister);
   }

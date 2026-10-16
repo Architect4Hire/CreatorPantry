@@ -109,10 +109,6 @@ builder.Services.AddMediaModule();
 builder.Services.AddPublishingModule();
 builder.Services.AddBufferPublishing(builder.Configuration);
 
-// The workspace dashboard (13.11): a read-only projection that asks each module above through its facade, the
-// readiness seam included, so it is registered after all of them. The worker has no dashboard.
-builder.Services.AddDashboardModule();
-
 // Guided-workflow runs (13A.5). Starting one checks its starting record through the recipe, media and content
 // modules and reads the brand profile for the workspace's time zone, so it is registered after all of them.
 builder.Services.AddWorkflowsModule();
@@ -121,6 +117,11 @@ builder.Services.AddWorkflowsModule();
 // workflow modules and reads the brand profile for the workspace's scheduling zone, so it comes after all
 // five. The worker has no task route.
 builder.Services.AddPlanningModule();
+
+// The workspace dashboard (13.11, 13A.33a): a read-only projection that asks each module above through its
+// facade -- the readiness seam, guided workflows and personal work tasks included -- so it is registered after
+// all of them. The worker has no dashboard.
+builder.Services.AddDashboardModule();
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

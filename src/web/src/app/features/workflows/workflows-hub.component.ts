@@ -126,6 +126,11 @@ export interface GoalCard {
   readonly goal: string;
   readonly description: string;
   readonly outcome: string;
+  /**
+   * Anything true of this journey that a creator should know *before* they start it rather than discover
+   * part-way through. Left out where there is nothing to say, which is almost every card.
+   */
+  readonly caveat?: string;
   /** A catalogue workflow is started as a run; a journey with a page of its own is opened. */
   readonly start: { readonly kind: 'run'; readonly key: string } | { readonly kind: 'links'; readonly links: readonly GoalLink[] };
   readonly canStart: boolean;
@@ -457,11 +462,15 @@ export class WorkflowsHubComponent {
           definition.key === LONG_FORM_DEFINITION_KEY
             ? {
                 ...base,
+                // One primary action, like every other card. The two it had — "from a recipe" and "from a
+                // brief" — opened the same page and differed only in which field took focus, so they asked the
+                // creator to decide something before the journey had told them anything, for no difference in
+                // what happened next. A piece starts from one recipe; the brief field is still on that first
+                // step for a piece that has no recipe behind it.
                 start: {
                   kind: 'links',
                   links: [
-                    { label: 'Start from a recipe', ariaLabel: 'Start from a recipe: a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'recipe' }, primary: true },
-                    { label: 'Start from a brief', ariaLabel: 'Start from a brief: a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'brief' }, primary: false },
+                    { label: 'Start', ariaLabel: 'Start a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'recipe' }, primary: true },
                   ],
                 },
               }
@@ -478,6 +487,10 @@ export class WorkflowsHubComponent {
         goal: 'Make a picture and posts from one idea',
         description: 'From an idea to a picture and the posts that go out with it, one step at a time.',
         outcome: 'A picture and a post for each of your channels, ready for your board.',
+        // Said before Start, not only on the card that offers to continue: the idea, the channel, the day and
+        // the picture are kept in the workspace, but wording typed and not yet sent is this device's alone, and
+        // a creator who moves to another one would find it gone without having been told.
+        caveat: 'The run itself is kept in your workspace. Wording you have typed but not yet sent stays on this device.',
         start: { kind: 'links', links: [{ label: 'Start', ariaLabel: 'Start making a picture and posts', link: this.pipelineLink(FIRST_CONTENT_PIPELINE_STEP), primary: true }] },
         ...local,
       },

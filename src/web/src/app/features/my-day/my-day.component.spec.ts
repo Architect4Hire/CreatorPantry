@@ -47,6 +47,9 @@ describe('MyDayComponent', () => {
     harness.detectChanges();
   }
 
+  /** The address the page is reached by. A deep link from the dashboard carries `?task=`. */
+  let url = `/${SLUG}/my-day`;
+
   async function mount(first: TodayOutcome, ...rest: TodayOutcome[]): Promise<void> {
     answers = [first, ...rest];
     reads = 0;
@@ -72,9 +75,19 @@ describe('MyDayComponent', () => {
 
     captures = TestBed.inject(QuickCaptureService);
     harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl(`/${SLUG}/my-day`, MyDayComponent);
+    await harness.navigateByUrl(url, MyDayComponent);
     navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     await settle();
+  }
+
+  /** Mounts the page as the dashboard's link to one task reaches it (13A.33a), and leaves the address as it was. */
+  async function mountWithTask(taskId: string, first: TodayOutcome): Promise<void> {
+    url = `/${SLUG}/my-day?task=${taskId}`;
+    try {
+      await mount(first);
+    } finally {
+      url = `/${SLUG}/my-day`;
+    }
   }
 
   const root = () => harness.routeNativeElement as HTMLElement;
@@ -123,11 +136,15 @@ describe('MyDayComponent', () => {
     expect(button('Change my top three')).toBeTruthy();
   });
 
-  it('says when a group holds more than it shows, and where to see the rest', async () => {
+  it('says when a group holds more than it shows, without sending the creator somewhere that cannot show it', async () => {
     await mount(found(fullDay({ scheduledTodayHasMore: true })));
 
     const note = [...root().querySelectorAll('p')].find((p) => p.textContent!.includes('Showing the first 50'))!;
-    expect(note.querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/my-week`);
+
+    // My Week caps each of its own lists at 50 and has no way to ask for the rest either, so pointing the
+    // creator there promised a page that cannot answer. Until a route pages a group, say only what is true.
+    expect(note.querySelector('a')).toBeNull();
+    expect(note.textContent).toContain('Finish or re-plan');
   });
 
   // ---- Done, Undo and focus ----
@@ -401,5 +418,36 @@ describe('MyDayComponent', () => {
     expect(root().querySelector('[role="dialog"]')).not.toBeNull();
     expect(root().querySelector('[role="dialog"] [role="alert"]')!.textContent).toContain('no longer on your day');
     expect(reads).toBe(2);
+  });
+  // ---- Reached from the dashboard (13A.33a) ----
+
+  it('takes the creator to the task the address names, and leaves the rest of the day alone', async () => {
+    await mountWithTask('held', found(fullDay()));
+
+    const row = root().querySelector<HTMLElement>('#my-day-task-held');
+    expect(row).toBeTruthy();
+    expect(row!.textContent).toContain('Hear back from the editor');
+    expect(document.activeElement).toBe(row);
+
+    // Nothing is said about it: the creator asked for this task and is looking at it.
+    expect(outcome()).toBe('');
+  });
+
+  it('says plainly when the task it was sent to is not on today’s list', async () => {
+    await mountWithTask('not-today', found(fullDay()));
+
+    expect(outcome()).toContain('not on today’s list');
+    expect(root().querySelector('#my-day-task-not-today')).toBeNull();
+
+    // The day itself is still there to work in.
+    expect(headings()).toEqual(['Up next', 'Today', 'In progress', 'Waiting', 'Done today']);
+  });
+
+  it('is reachable by its own row id, so a link can name any task of the day', async () => {
+    await mount(found(fullDay()));
+
+    for (const id of ['late', 'plan-1', 'plan-2', 'going', 'held', 'done']) {
+      expect(root().querySelector(`#my-day-task-${id}`)).withContext(id).toBeTruthy();
+    }
   });
 });

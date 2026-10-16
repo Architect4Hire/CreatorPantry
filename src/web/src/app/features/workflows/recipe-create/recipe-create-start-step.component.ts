@@ -157,6 +157,7 @@ export class RecipeCreateStartStepComponent implements OnInit {
       saving: computed(() => this.editor()?.saving() ?? false),
       savedAt: computed(() => this.editor()?.savedAt() ?? null),
       flush: () => this.flush(),
+      autosave: () => this.autosaveNow(),
       draft: this.draft.asReadonly(),
       capabilityKey: computed(() => {
         const stage = this.stage();
@@ -309,6 +310,22 @@ export class RecipeCreateStartStepComponent implements OnInit {
       if (!kept) this.keepFailed.set(true);
       return kept;
     });
+  }
+
+  /**
+   * The editor's own save, and only that. A rewrite in the review has nowhere to be kept until the draft is a
+   * recipe, and asking about discarding it is a question for a creator who has just pressed something — never
+   * for a timer, so that stage autosaves nothing and keeps the leave warning instead.
+   */
+  private async autosaveNow(): Promise<boolean> {
+    const kind = this.stage().kind;
+    if (kind !== 'write' && kind !== 'recipe') return true;
+
+    // The editor's first save is what makes the recipe and points the run at it, so this is also what gives a
+    // half-typed first step somewhere to come back to.
+    const kept = (await this.editor()?.flush()) ?? true;
+
+    return kept && (await this.keeping);
   }
 
   private async flush(): Promise<boolean> {

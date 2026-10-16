@@ -281,6 +281,29 @@ describe('MyWeekComponent — moving', () => {
     expect(move).toHaveBeenCalledWith(SLUG, thursday, { status: 'Backlog', scheduledDate: '2038-10-11', beforeTaskId: 'mon' });
   });
 
+  it('puts a dropped card back and says so when the server refuses it', async () => {
+    // Every other rollback test drives the Move dialog. A drop takes the same path, but nothing proved it:
+    // a drag whose request is refused could have left the card in the list it was dropped into, showing a
+    // move the server never made.
+    await mount(found());
+    move.and.resolveTo({ status: 'unavailable', offline: true });
+    const thursday = tasksIn(fullWeek(), 'day-2038-10-14')[0];
+
+    await component()['onDrop']({
+      item: { data: thursday },
+      container: { data: 'waiting' },
+      previousContainer: { data: 'day-2038-10-14' },
+      currentIndex: 0,
+      previousIndex: 0,
+    } as never);
+    await settle();
+
+    expect(idsIn('waiting')).toEqual(['held']);
+    expect(idsIn('day-2038-10-14')).toEqual(['thu-1', 'thu-2']);
+    expect(refusal().getAttribute('role')).toBe('alert');
+    expect(refusal().textContent).toContain('It’s back where it was.');
+  });
+
   it('reorders a drop within its own list, and ignores one that lands where it started', async () => {
     await mount(found());
     const thursday = tasksIn(fullWeek(), 'day-2038-10-14')[0];

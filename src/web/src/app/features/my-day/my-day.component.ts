@@ -183,6 +183,12 @@ export class MyDayComponent {
 
   protected readonly link = (...segments: readonly string[]): readonly string[] => ['/', this.workspaceSlug(), ...segments];
 
+  /** A task's own row, so another page can send the creator straight to it (13A.33a). */
+  protected readonly rowId = (taskId: string): string => `my-day-task-${taskId}`;
+
+  /** The task the address asks for, until it has been shown. Null when the address names none. */
+  private readonly asked = signal<string | null>(null);
+
   constructor() {
     void this.memberships.ensureLoaded();
 
@@ -201,6 +207,16 @@ export class MyDayComponent {
         this.state.set({ status: 'loading' });
         void this.read();
       });
+
+    // `?task=` — the dashboard's link to one task (13A.33a). Taken as it changes, so a second link to the
+    // same page lands on the new task rather than being ignored as the same address.
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const asked = params.get('task');
+      if (asked) {
+        this.asked.set(asked);
+        if (this.state().status === 'ready') this.showAsked();
+      }
+    });
 
     // A task captured from anywhere — this page's own button included — may belong on today.
     this.quickCapture.captured$.pipe(takeUntilDestroyed()).subscribe(() => void this.refreshAfterCapture());
@@ -453,6 +469,7 @@ export class MyDayComponent {
     switch (outcome.status) {
       case 'found':
         this.state.set({ status: 'ready', day: outcome.day });
+        this.showAsked();
         return true;
       case 'no_time_zone':
         this.state.set({ status: 'no_time_zone' });
@@ -596,6 +613,40 @@ export class MyDayComponent {
 
   private document(): Document | null {
     return typeof document === 'undefined' ? null : document;
+  }
+
+  /**
+   * Takes the creator to the task another page sent them to: its row is scrolled to and focused, so a screen
+   * reader lands on it and a pointer reader can see it. A task that is not on today's list is said plainly —
+   * it was finished, handed on or planned for another day — rather than left as a link that did nothing.
+   */
+  private showAsked(): void {
+    const taskId = this.asked();
+    if (taskId === null) return;
+
+    this.asked.set(null);
+
+    const day = this.day();
+    const onToday =
+      day !== null &&
+      [day.overdue, day.scheduledToday, day.inProgress, day.waiting, day.completedToday].some((group) =>
+        group.some((task) => task.id === taskId),
+      );
+
+    if (!onToday) {
+      this.message.set({ tone: 'neutral', text: 'That task is not on today’s list. It may be finished, handed on, or planned for another day.' });
+
+      return;
+    }
+
+    afterNextRender(
+      () => {
+        const row = document.getElementById(this.rowId(taskId));
+        row?.scrollIntoView({ block: 'center', behavior: 'auto' });
+        row?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   private ancestors(): readonly ActivatedRoute[] {

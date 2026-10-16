@@ -446,13 +446,25 @@ describe('WorkflowsHubComponent', () => {
       expect(control(publish, 'Start')).toBeNull();
     });
 
-    it('opens the long-form writer for a blog post, from a recipe or a brief, without starting a run', async () => {
+    it('opens the long-form writer for a blog post with one Start, without starting a run', async () => {
       await create();
 
+      // One primary action, as on every other card. It had two — from a recipe and from a brief — which opened
+      // the same page and differed only in which field took focus, so the choice bought the creator nothing and
+      // came before the journey had explained either. A piece starts from one recipe; the brief field is still
+      // on that first step for a piece with no recipe behind it.
       const blog = card('Write a blog post or newsletter')!;
-      expect(control(blog, 'Start from a recipe')!.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form?from=recipe`);
-      expect(control(blog, 'Start from a brief')!.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form?from=brief`);
-      expect(control(blog, 'Start')).toBeNull();
+      expect(control(blog, 'Start')!.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form?from=recipe`);
+      expect(control(blog, 'Start from a brief')).toBeNull();
+    });
+
+    it('says before Start that the picture-and-posts journey keeps unsent wording on this device', async () => {
+      await create();
+
+      // The resume row said it, but only once a run existed — so a creator learned it part-way through, after
+      // typing. The run itself is kept in the workspace; only wording not yet sent is this device's.
+      const pictures = card('Make a picture and posts from one idea')!;
+      expect(pictures.textContent).toContain('not yet sent stays on this device');
     });
 
     it('lets a Viewer see every way in and start none of them', async () => {

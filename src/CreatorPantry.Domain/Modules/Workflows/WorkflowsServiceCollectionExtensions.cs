@@ -38,6 +38,10 @@ public static class WorkflowsServiceCollectionExtensions
         services.AddScoped<IWorkflowRunListDataLayer, WorkflowRunListDataLayer>();
         services.AddScoped<IWorkflowRunListBusiness, WorkflowRunListBusiness>();
         services.AddScoped<IWorkflowRunFacade, WorkflowRunFacade>();
+        services.AddScoped<IWorkflowDashboardRepository, WorkflowDashboardRepository>();
+        services.AddScoped<IWorkflowDashboardDataLayer, WorkflowDashboardDataLayer>();
+        services.AddScoped<IWorkflowDashboardBusiness, WorkflowDashboardBusiness>();
+        services.AddScoped<IWorkflowDashboardFacade, WorkflowDashboardFacade>();
         services.AddScoped<IWorkflowDefinitionBusiness, WorkflowDefinitionBusiness>();
         services.AddScoped<IWorkflowDefinitionFacade, WorkflowDefinitionFacade>();
 

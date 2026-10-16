@@ -25,8 +25,9 @@ public interface IWorkflowRunListBusiness
 /// page's warning (13A.6), not the list's.
 /// </para>
 /// <para>
-/// <strong>One rule for what needs a look</strong>, in <see cref="AttentionFor"/>: the same lists decide which runs the
-/// database returns for the attention view and which reasons each summary carries, so the two cannot disagree.
+/// <strong>One rule for what needs a look</strong>, in <see cref="WorkflowRunAttention"/>: the same lists decide which
+/// runs the database returns for the attention view and which reasons each summary carries, so the two cannot
+/// disagree — nor can this list and the dashboard's own count of them (13A.33a).
 /// </para>
 /// </remarks>
 internal sealed class WorkflowRunListBusiness(
@@ -69,35 +70,9 @@ internal sealed class WorkflowRunListBusiness(
             new CursorPageServiceModel<WorkflowRunSummaryServiceModel>(items, nextCursor));
     }
 
-    /// <summary>
-    /// What makes a run in progress need a look, for a reader of this role: idle past <see cref="WorkflowRunPolicy.IdleAfter"/>;
-    /// pinned to a version older than its workflow's newest; or on a step whose actions someone could take and the
-    /// reader cannot — the same test the run page uses for <c>next_step_needs_role</c>.
-    /// </summary>
-    private WorkflowRunAttentionCriteria AttentionFor(WorkspaceRole role)
-    {
-        var newest = catalogue.All
-            .GroupBy(definition => definition.Key.Value, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Max(definition => definition.Version), StringComparer.Ordinal);
-
-        var outdated = catalogue.All
-            .Where(definition => definition.Version < newest[definition.Key.Value])
-            .Select(definition => WorkflowRunAttentionCriteria.VersionKey(definition.Key.Value, definition.Version))
-            .ToList();
-
-        var blocked = catalogue.All
-            .SelectMany(definition => definition.Steps
-                .Where(step =>
-                {
-                    var available = Actions(step).Where(capability => capability.IsAvailable).ToList();
-
-                    return available.Count > 0 && !available.Any(capability => role >= capability.MinimumRole);
-                })
-                .Select(step => WorkflowRunAttentionCriteria.StepKey(definition.Key.Value, definition.Version, step.Key.Value)))
-            .ToList();
-
-        return new WorkflowRunAttentionCriteria(clock.UtcNow - WorkflowRunPolicy.IdleAfter, outdated, blocked);
-    }
+    /// <inheritdoc cref="WorkflowRunAttention.CriteriaFor"/>
+    private WorkflowRunAttentionCriteria AttentionFor(WorkspaceRole role) =>
+        WorkflowRunAttention.CriteriaFor(catalogue, role, clock.UtcNow);
 
     private WorkflowRunSummaryServiceModel ToSummary(
         WorkflowRunSummaryRecord row,
@@ -106,16 +81,44 @@ internal sealed class WorkflowRunListBusiness(
         IReadOnlySet<string> outdated,
         IReadOnlySet<string> blocked)
     {
-        var definition = catalogue.Find(row.DefinitionKey, row.DefinitionVersion)
-            ?? throw new InvalidOperationException(
-                $"Workflow run {row.Id} is pinned to {row.DefinitionKey}@{row.DefinitionVersion}, which the catalogue does not have.");
+        var definition = catalogue.Find(row.DefinitionKey, row.DefinitionVersion);
+        var reasons = WorkflowRunAttention.ReasonsFor(row, idleBefore, outdated, blocked);
+
+        // A release that stops shipping a version must not take the creator's own runs with it. Throwing here
+        // turned one such row into a 500 for the whole list, for every member of the workspace — nobody could
+        // see any of their work because of one run. Everything below comes from the row itself, so the run is
+        // still listed and still openable; what only the definition knows is left unsaid rather than guessed.
+        if (definition is null)
+        {
+            return new WorkflowRunSummaryServiceModel
+            {
+                Id = row.Id,
+                Title = row.Title,
+                Status = row.Status,
+                DefinitionKey = row.DefinitionKey,
+                DefinitionVersion = row.DefinitionVersion,
+                Goal = "This workflow is no longer available in the version this run started from.",
+                Owner = new WorkflowRunMemberServiceModel { MembershipId = row.CreatedByMembershipId },
+                Assignee = row.AssignedMembershipId is { } handed ? new WorkflowRunMemberServiceModel { MembershipId = handed } : null,
+                StepCount = row.StepCount,
+                CompletedStepCount = row.CompletedStepCount,
+                SkippedStepCount = row.SkippedStepCount,
+                CurrentStep = null,
+                LinkedResource = LinkedResource(links),
+                NextAction = null,
+                StartedAt = row.StartedAt,
+                UpdatedAt = row.UpdatedAt,
+                CompletedAt = row.CompletedAt,
+                AbandonedAt = row.AbandonedAt,
+                AttentionReasons = [.. reasons, WorkflowRunAttentionReasons.VersionGone],
+            };
+        }
 
         var step = row.Status == WorkflowRunStatus.Completed || row.CurrentStepKey is null
             ? null
             : definition.Steps.FirstOrDefault(candidate => candidate.Key.Value == row.CurrentStepKey);
 
         WorkflowRunSummaryActionServiceModel? nextAction = null;
-        var reasons = new List<string>();
         if (row.Status == WorkflowRunStatus.InProgress)
         {
             // Every step done or passed over: the run waits on its last one to be finished, and, as on the run page,
@@ -127,24 +130,9 @@ internal sealed class WorkflowRunListBusiness(
                     StepKey = step.Key.Value,
                     Title = step.Title,
                     CapabilityName = WorkflowCapabilities.ByKey[step.Capability.Primary].Name,
-                    YouCanDoIt = Actions(step).Any(capability => capability.IsAvailable && workspace.Role >= capability.MinimumRole),
+                    YouCanDoIt = WorkflowRunAttention.Actions(step)
+                        .Any(capability => capability.IsAvailable && workspace.Role >= capability.MinimumRole),
                 };
-            }
-
-            if (row.UpdatedAt < idleBefore)
-            {
-                reasons.Add(WorkflowRunAttentionReasons.Idle);
-            }
-
-            if (outdated.Contains(WorkflowRunAttentionCriteria.VersionKey(row.DefinitionKey, row.DefinitionVersion)))
-            {
-                reasons.Add(WorkflowRunAttentionReasons.NewerVersion);
-            }
-
-            if (row.CurrentStepKey is { } current
-                && blocked.Contains(WorkflowRunAttentionCriteria.StepKey(row.DefinitionKey, row.DefinitionVersion, current)))
-            {
-                reasons.Add(WorkflowRunAttentionReasons.NotYoursToDo);
             }
         }
 
@@ -180,7 +168,4 @@ internal sealed class WorkflowRunListBusiness(
 
         return chosen is null ? null : new WorkflowRunResourceReferenceServiceModel { Kind = chosen.ResourceKind, Id = chosen.ResourceId };
     }
-
-    private static IEnumerable<WorkflowCapability> Actions(WorkflowStepDefinition step) =>
-        new[] { step.Capability.Primary }.Concat(step.Capability.Alternatives).Select(key => WorkflowCapabilities.ByKey[key]);
 }

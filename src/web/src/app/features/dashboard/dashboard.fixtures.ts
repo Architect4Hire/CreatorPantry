@@ -1,6 +1,6 @@
 /**
- * The 13.11 read model as the route sends it, for the dashboard's specs. Every section is ready and has a
- * little in it; a spec changes what it is about.
+ * The read model as the route sends it (13.11, 13A.33a), for the dashboard's specs. Every section is ready and
+ * has a little in it; a spec changes what it is about.
  */
 export function dashboardBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   const ready = (data: unknown): Record<string, unknown> => ({ status: 'Ready', data });
@@ -9,6 +9,55 @@ export function dashboardBody(overrides: Record<string, unknown> = {}): Record<s
     generatedAt: '2026-10-14T15:30:00+00:00',
     timeZoneId: 'America/Chicago',
     today: '2026-10-14',
+    timeZoneState: 'Set',
+    workflows: ready({
+      inProgressCount: 4,
+      continue: [
+        {
+          id: 'w1', title: 'Soda bread, start to finish', definitionKey: 'recipe.create', goal: 'Create a recipe',
+          stepKey: 'method', stepTitle: 'Check your method', youCanDoIt: true,
+          updatedAt: '2026-10-14T11:00:00+00:00', attentionReasons: [],
+        },
+        {
+          id: 'w2', title: 'Granola, improved', definitionKey: 'recipe.improve', goal: 'Improve a recipe',
+          stepKey: 'approve', stepTitle: 'Approve it', youCanDoIt: false,
+          updatedAt: '2026-10-13T11:00:00+00:00', attentionReasons: ['not_yours_to_do'],
+        },
+      ],
+      needsAttentionCount: 2,
+      needsAttention: [
+        {
+          id: 'w3', title: 'Autumn shoot', definitionKey: 'images.create', goal: 'Make pictures',
+          stepKey: 'brief', stepTitle: 'Write the brief', youCanDoIt: true,
+          updatedAt: '2026-09-20T11:00:00+00:00', attentionReasons: ['idle', 'newer_version'],
+        },
+      ],
+    }),
+    workPlan: ready({
+      date: '2026-10-14',
+      timeZoneId: 'America/Chicago',
+      overdueCount: 2,
+      overdue: [
+        { id: 'k1', title: 'Answer the brand email', status: 'Backlog', priority: 'High', dueDate: '2026-10-12', scheduledDate: null },
+      ],
+      todayCount: 3,
+      today: [
+        { id: 'k2', title: 'Shoot the galette', status: 'Backlog', priority: 'Normal', dueDate: null, scheduledDate: '2026-10-14' },
+        { id: 'k3', title: 'Write the headnote', status: 'Backlog', priority: 'Low', dueDate: '2026-10-16', scheduledDate: '2026-10-14' },
+      ],
+      topThree: ['k2'],
+      thisWeek: {
+        weekStart: '2026-10-12',
+        weekEnd: '2026-10-18',
+        plannedTaskCount: 6,
+        estimatedTaskCount: 4,
+        estimatedMinutes: 150,
+        inProgressCount: 1,
+        waitingCount: 1,
+        completedCount: 2,
+      },
+      unplannedCount: 5,
+    }),
     recipesInProgress: ready({
       counts: [
         { status: 'Draft', count: 3 },

@@ -107,4 +107,10 @@ public static class WorkflowRunAttentionReasons
 
     /// <summary>The step it is on needs someone with more access than the reader has.</summary>
     public const string NotYoursToDo = "not_yours_to_do";
+
+    /// <summary>
+    /// The version this run is pinned to is no longer shipped, so its steps are unknown. The run is still the
+    /// creator's and is still listed: a catalogue release does not take their work with it.
+    /// </summary>
+    public const string VersionGone = "version_gone";
 }

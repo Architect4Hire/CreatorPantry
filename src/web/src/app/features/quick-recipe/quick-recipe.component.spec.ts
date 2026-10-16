@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { ConfirmService } from '../../core/confirm.service';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { NEVER, Observable, of } from 'rxjs';
@@ -151,6 +152,8 @@ interface Scenario {
 let harness: RouterTestingHarness;
 let calls: string[];
 let sent: Record<string, unknown[]>;
+let confirmAnswer: boolean;
+let confirmRequests: { title: string }[];
 
 async function settle(): Promise<void> {
   for (let i = 0; i < 6; i += 1) {
@@ -162,6 +165,8 @@ async function settle(): Promise<void> {
 async function create(scenario: Scenario = {}): Promise<void> {
   calls = [];
   sent = {};
+  confirmRequests = [];
+  confirmAnswer = true;
   const note = (name: string, ...args: unknown[]): void => {
     calls.push(name);
     sent[name] = args;
@@ -171,6 +176,15 @@ async function create(scenario: Scenario = {}): Promise<void> {
   TestBed.resetTestingModule();
   await TestBed.configureTestingModule({
     providers: [
+      {
+        provide: ConfirmService,
+        useValue: {
+          confirm: (request: { title: string }) => {
+            confirmRequests.push(request);
+            return Promise.resolve(confirmAnswer);
+          },
+        },
+      },
       provideRouter([
         { path: ':workspaceSlug/workflows/quick-recipe', component: QuickRecipeComponent, data: { title: 'Quick Recipe' } },
         { path: ':workspaceSlug/recipes/:recipeId', component: ElsewhereComponent },
@@ -529,6 +543,31 @@ describe('QuickRecipeComponent', () => {
       expect(control('Change it line by line first')?.getAttribute('href')).toBe(
         `/${SLUG}/ai-recipe-studio/draft?request=r-draft`,
       );
+    });
+
+    it('asks before starting again while the draft is unsaved, and keeps it when the answer is no', async () => {
+      await create();
+      await nameAndStart();
+
+      // This page holds the only way back to an unsaved draft and its picture, so clearing it unasked loses
+      // the creator's way back to work they can still see on screen.
+      confirmAnswer = false;
+      await press('Start again with another name');
+
+      expect(confirmRequests.map((request) => request.title)).toEqual(['Start again with another name?']);
+      expect(text()).toContain('Miso Butter Corn');
+    });
+
+    it('goes back to the name once starting again is agreed to', async () => {
+      await create();
+      await nameAndStart();
+
+      confirmAnswer = true;
+      await press('Start again with another name');
+
+      expect(confirmRequests.length).toBe(1);
+      expect(text()).not.toContain('Miso Butter Corn');
+      expect(text()).toContain('Step 1 of 3');
     });
 
     it('still offers the recipe when no picture could be made, and says why', async () => {

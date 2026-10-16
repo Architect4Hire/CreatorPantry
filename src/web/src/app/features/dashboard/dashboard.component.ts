@@ -17,12 +17,16 @@ import {
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
+import { QuickCaptureService } from '../../shared/quick-capture/quick-capture.service';
+import { estimateWords } from '../../shared/work-tasks/work-task-presentation';
+import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CONTENT_BOARD_COLUMN_LABELS } from '../../models/content-board.models';
 import { DAM_ASSET_KIND_LABELS } from '../../models/dam-asset.models';
-import { Dashboard, DashboardPublishingItem, DashboardSection, aiTaskLabel } from '../../models/dashboard.models';
+import { Dashboard, DashboardPublishingItem, DashboardSection, DashboardTask, DashboardWorkPlan, aiTaskLabel } from '../../models/dashboard.models';
 import { RECIPE_STATUS_LABELS } from '../../models/recipe-readiness.models';
 import { DashboardOutcome, DashboardService } from '../../services/dashboard.service';
-import { PUBLISHING_STATUS_WORDS, SEVERITY_WORDS, platformName } from './dashboard-presentation';
+import { PUBLISHING_STATUS_WORDS, SEVERITY_WORDS, TASK_STATUS_WORDS, attentionWords } from './dashboard-presentation';
+import { platformName } from '../../shared/publishing-names';
 
 type State =
   | { readonly status: 'loading' }
@@ -44,8 +48,13 @@ type State =
  * a way to try again; the other cards are untouched. A topic with nothing in it says so in its own words.
  *
  * **Every item opens where it can be dealt with.** A blocked recipe opens on its Readiness tab and a test issue
- * on its Tests tab; a post opens the card it was published from, where its publishing controls are. An item
+ * on its Tests tab; a post opens the card it was published from, where its publishing controls are. A guided
+ * workflow opens at its run, which resumes on the step it is on, and a task opens in My Day at itself. An item
  * with nowhere of its own to go is listed without a link rather than with a link to somewhere vaguer.
+ *
+ * **Two topics are the creator's own** (13A.33a): the workflows to carry on with and the day's work plan. They
+ * come first, because they are what the creator came here to find — what they were in the middle of, and what
+ * today holds — and the workspace's own topics follow.
  */
 @Component({
   selector: 'cp-dashboard',
@@ -71,6 +80,8 @@ type State =
 export class DashboardComponent {
   protected readonly pageTitle = injectRouteTitle('Dashboard');
   private readonly service = inject(DashboardService);
+  private readonly quickCapture = inject(QuickCaptureService);
+  private readonly memberships = inject(WorkspaceMembershipService);
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly head = viewChild.required(CpPageHeadComponent);
@@ -87,6 +98,9 @@ export class DashboardComponent {
   protected readonly columnLabels = CONTENT_BOARD_COLUMN_LABELS;
   protected readonly kindLabels = DAM_ASSET_KIND_LABELS;
   protected readonly publishingWords = PUBLISHING_STATUS_WORDS;
+  protected readonly taskWords = TASK_STATUS_WORDS;
+  protected readonly attentionWords = attentionWords;
+  protected readonly estimateWords = estimateWords;
   protected readonly severityWords = SEVERITY_WORDS;
   protected readonly aiTaskLabel = aiTaskLabel;
   protected readonly platformName = platformName;
@@ -98,14 +112,26 @@ export class DashboardComponent {
   });
 
   /**
-   * A workspace with nothing in it yet: no recipe in progress, no card on the board, no picture in the library.
-   * Read from the server's own zeros; nothing is counted here.
+   * A workspace with nothing in it yet: no recipe in progress, no card on the board, no picture in the library,
+   * no guided workflow under way and nothing kept on the creator's own plan. Read from the server's own zeros;
+   * nothing is counted here.
+   *
+   * The plan is unavailable until a zone is set, and a workspace without one is new enough for that to be no
+   * evidence either way, so an unreadable plan does not keep the first-use card from showing.
    */
   protected readonly firstUse = computed(() => {
     const dashboard = this.dashboard();
     if (dashboard === null) return false;
 
-    const { recipesInProgress, board, recentUploads } = dashboard;
+    const { recipesInProgress, board, recentUploads, workflows, workPlan } = dashboard;
+    const noPlan =
+      workPlan.status !== 'ready' ||
+      (workPlan.data.overdueCount === 0 &&
+        workPlan.data.todayCount === 0 &&
+        workPlan.data.unplannedCount === 0 &&
+        workPlan.data.thisWeek.plannedTaskCount === 0 &&
+        workPlan.data.thisWeek.inProgressCount === 0 &&
+        workPlan.data.thisWeek.waitingCount === 0);
 
     return (
       recipesInProgress.status === 'ready' &&
@@ -113,13 +139,36 @@ export class DashboardComponent {
       board.status === 'ready' &&
       board.data.total === 0 &&
       recentUploads.status === 'ready' &&
-      recentUploads.data.length === 0
+      recentUploads.data.length === 0 &&
+      workflows.status === 'ready' &&
+      workflows.data.inProgressCount === 0 &&
+      workflows.data.needsAttentionCount === 0 &&
+      noPlan
     );
+  });
+
+  /**
+   * Whether the creator may keep work here — Contributor and above, as My Day decides it. A Viewer sees their
+   * plan, which can still hold work handed to them before they were made one, and no capture control.
+   */
+  protected readonly canAct = computed(() => {
+    const state = this.memberships.state();
+    if (state.status !== 'ready') return false;
+
+    const membership = state.memberships.find((candidate) => candidate.workspaceSlug === this.workspaceSlug());
+
+    return membership !== undefined && membership.role !== 'Viewer';
   });
 
   protected readonly link = (...segments: readonly string[]): readonly string[] => ['/', this.workspaceSlug(), ...segments];
 
   constructor() {
+    void this.memberships.ensureLoaded();
+
+    // A task captured from this page belongs in its counts straight away. The dialog has already said it
+    // saved, so this is a silent re-read: no second announcement, and nothing moves under the creator.
+    this.quickCapture.captured$.pipe(takeUntilDestroyed()).subscribe(() => void this.read(this.workspaceSlug()));
+
     combineLatest(this.ancestors().map((node) => node.paramMap))
       .pipe(
         map((maps) => {
@@ -203,6 +252,20 @@ export class DashboardComponent {
   /** A section's data when it could be read, or null when it could not. */
   protected data<T>(section: DashboardSection<T>): T | null {
     return section.status === 'ready' ? section.data : null;
+  }
+
+  /** Whether this task is one of the three the creator chose to do first today (13A.32). */
+  protected chosen(plan: DashboardWorkPlan, task: DashboardTask): boolean {
+    return plan.topThree.includes(task.id);
+  }
+
+  /**
+   * Quick capture: the shell's one dialog, started on the day this page is about. The button is focused first
+   * so the dialog gives focus back to it.
+   */
+  protected captureTask(button: HTMLElement): void {
+    button.focus();
+    this.quickCapture.open({ today: this.dashboard()?.today ?? undefined });
   }
 
   protected postTitle(item: DashboardPublishingItem): string {

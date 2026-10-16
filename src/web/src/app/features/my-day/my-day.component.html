@@ -73,6 +73,8 @@
             @for (entry of lead.entries; track entry.task.id) {
               <li
                 cpMyDayTask
+                [id]="rowId(entry.task.id)"
+                tabindex="-1"
                 [entry]="entry"
                 [workspaceSlug]="workspaceSlug()"
                 [today]="day()!.date"
@@ -163,6 +165,8 @@
               @for (entry of group.entries; track entry.task.id) {
                 <li
                   cpMyDayTask
+                  [id]="rowId(entry.task.id)"
+                  tabindex="-1"
                   [entry]="entry"
                   [workspaceSlug]="workspaceSlug()"
                   [today]="day()!.date"
@@ -180,7 +184,7 @@
             </ul>
             @if (group.hasMore) {
               <p class="plain cp-muted">
-                Showing the first 50. <a [routerLink]="link('my-week')">See the rest in My Week</a>.
+                Showing the first 50 on this list. Finish or re-plan some of these to see the rest.
               </p>
             }
           </cp-topic-card>

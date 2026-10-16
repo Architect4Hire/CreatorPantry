@@ -9,6 +9,6 @@ import { damAssetDetailCanDeactivateGuard } from './dam-asset-detail.guard';
  * upload, so leaving that one is confirmed.
  */
 export const DAM_ROUTES: Routes = [
-  { path: '', pathMatch: 'full', loadComponent: () => import('./dam-library.component').then((m) => m.DamLibraryComponent), data: { title: 'DAM' } },
+  { path: '', pathMatch: 'full', loadComponent: () => import('./dam-library.component').then((m) => m.DamLibraryComponent), data: { title: 'Pictures' } },
   { path: ':assetId', loadComponent: () => import('./dam-asset-detail.component').then((m) => m.DamAssetDetailComponent), canDeactivate: [damAssetDetailCanDeactivateGuard], data: { title: 'Asset' } },
 ];

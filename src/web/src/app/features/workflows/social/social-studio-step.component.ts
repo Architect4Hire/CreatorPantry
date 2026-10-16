@@ -144,6 +144,8 @@ export class SocialStudioStepComponent implements OnInit {
       unsaved: computed(() => this.part() === 'write' && (this.studio()?.hasUnsavedWords() ?? false)),
       saving: computed(() => this.studio()?.sending() ?? false),
       flush: () => this.flush(),
+      // The same keep, on the shell's timer: it asks nothing and is safe to repeat.
+      autosave: () => this.flush(),
       // Only the first part keeps its work in a draft: the later parts' actions take none, and the run already
       // links the piece of work the first part made.
       draft: computed(() => {

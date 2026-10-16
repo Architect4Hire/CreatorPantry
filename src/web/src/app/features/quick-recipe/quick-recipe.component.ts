@@ -31,6 +31,7 @@ import {
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
+import { ConfirmService } from '../../core/confirm.service';
 import { injectRouteTitle } from '../../core/route-title';
 import { AiProposalStatus } from '../../models/ai-proposal.models';
 import { DAM_ASSET_LIMITS, encodeDamKeep } from '../../models/dam-asset.models';
@@ -154,6 +155,7 @@ export class QuickRecipeComponent {
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
   private readonly drafts = inject(RecipeDraftService);
+  private readonly confirmer = inject(ConfirmService);
   private readonly concepts = inject(PhotographyConceptService);
   private readonly prompts = inject(ImagePromptService);
   private readonly images = inject(GeneratedImageService);
@@ -735,8 +737,26 @@ export class QuickRecipeComponent {
   /**
    * Back to the name. Nothing is cancelled, because no route cancels: what was asked for is left to finish and
    * expire on its own, and this page stops watching it.
+   *
+   * <p>Asks first while there is a draft the creator has not saved. The draft itself is not deleted — it is
+   * still the server's, and still reachable by its request — but this page is the only place holding that
+   * request, so clearing it is the creator's last way back to the draft and its picture. Saved work is
+   * untouched, and a page with nothing to lose does not ask.</p>
    */
-  protected startOver(): void {
+  protected async startOver(): Promise<void> {
+    if (this.draft.requestId() !== null && this.savedRecipeId() === null) {
+      const agreed = await this.confirmer.confirm({
+        title: 'Start again with another name?',
+        message:
+          'This draft and its picture are not saved yet, and starting again is your last way back to them. ' +
+          'Anything you have already saved is untouched.',
+        confirmLabel: 'Start again',
+        cancelLabel: 'Keep this draft',
+        tone: 'neutral',
+      });
+      if (!agreed) return;
+    }
+
     this.clearRun();
     this.writeUrl();
     this.focusName();

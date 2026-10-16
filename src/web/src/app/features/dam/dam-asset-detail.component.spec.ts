@@ -300,7 +300,7 @@ describe('DamAssetDetailComponent', () => {
     await create();
 
     expect(root().querySelector('[role="alert"]')?.textContent).toContain("We couldn't find this picture.");
-    expect(link('DAM').getAttribute('href')).toBe(`/${SLUG}/dam`);
+    expect(link('Pictures').getAttribute('href')).toBe(`/${SLUG}/dam`);
     expect(root().querySelector('img')).toBeNull();
     expect(root().querySelector('table')).toBeNull();
     expect(contentSpy).not.toHaveBeenCalled();

@@ -215,7 +215,7 @@ describe('app routes', () => {
     const damLibraryRoute = damChildren.find((route) => route.path === '')!;
     expect(damLibraryRoute.pathMatch).toBe('full');
     expect(await damLibraryRoute.loadComponent!()).toBe(DamLibraryComponent);
-    expect(damLibraryRoute.data?.['title']).toBe('DAM');
+    expect(damLibraryRoute.data?.['title']).toBe('Pictures');
     expect(damLibraryRoute.canDeactivate).toBeUndefined();
     const damDetailRoute = damChildren.find((route) => route.path === ':assetId')!;
     expect(await damDetailRoute.loadComponent!()).toBe(DamAssetDetailComponent);

@@ -139,6 +139,9 @@ export class RecipeTestBasicsStepComponent implements OnInit {
       unsaved: computed(() => this.editor()?.isDirty() ?? false),
       saving: computed(() => this.editor()?.saving() ?? false),
       savedAt: computed(() => this.editor()?.savedAt() ?? null),
+      // Autosave keeps the words and nothing else: the re-read that follows a move would be a server
+      // round trip every few seconds, and nothing on screen is waiting on it.
+      autosave: async () => (await this.editor()?.flush()) ?? true,
       flush: async () => {
         const kept = (await this.editor()?.flush()) ?? true;
         if (kept && this.editor()) await this.check();

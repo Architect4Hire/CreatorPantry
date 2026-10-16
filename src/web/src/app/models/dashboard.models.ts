@@ -3,6 +3,7 @@ import { CONTENT_BOARD_COLUMNS, ContentBoardColumn } from './content-board.model
 import { DamAssetKind, DAM_ASSET_KIND_LABELS } from './dam-asset.models';
 import { PUBLISHING_STATUSES, PublishingStatusValue } from './publishing.models';
 import { RecipeStatus, decodeEnum, isRecord, isStringOrNull } from './recipe.models';
+import { WorkTaskPriority, WorkTaskStatus } from './work-task.models';
 import { TestIssueSeverity, TEST_ISSUE_SEVERITY_VALUES } from './recipe-test-run.models';
 
 /**
@@ -120,6 +121,77 @@ export interface DashboardBoard {
   readonly columns: readonly { readonly column: ContentBoardColumn; readonly count: number }[];
 }
 
+/**
+ * One guided workflow run as the dashboard names it (13A.33a). The run itself is the deep link: opening it
+ * resumes on the step it is on, which is why only that step's name travels here.
+ */
+export interface DashboardWorkflowRun {
+  readonly id: string;
+  readonly title: string;
+  readonly definitionKey: string;
+  /** What the workflow is for, from the version the run is pinned to. */
+  readonly goal: string;
+  /** The step it is on, or null when every step is done and only finishing is left. */
+  readonly stepKey: string | null;
+  readonly stepTitle: string | null;
+  /** Whether that step is this reader's to take. False means someone else's to carry on. */
+  readonly youCanDoIt: boolean;
+  readonly updatedAt: string;
+  /** Why it needs a look: `idle`, `newer_version`, `not_yours_to_do`. Empty when nothing does. */
+  readonly attentionReasons: readonly string[];
+}
+
+/** The reader's own guided workflows: what to carry on with, and what has stopped. */
+export interface DashboardWorkflows {
+  readonly inProgressCount: number;
+  readonly continue: readonly DashboardWorkflowRun[];
+  readonly needsAttentionCount: number;
+  readonly needsAttention: readonly DashboardWorkflowRun[];
+}
+
+/** One of the reader's own tasks, as the dashboard names it. The title is their own words. */
+export interface DashboardTask {
+  readonly id: string;
+  readonly title: string;
+  readonly status: WorkTaskStatus;
+  readonly priority: WorkTaskPriority;
+  readonly dueDate: string | null;
+  readonly scheduledDate: string | null;
+}
+
+/**
+ * The week holding today, as totals only. `estimatedMinutes` is null when nothing planned carries an
+ * estimate: zero would claim the work takes no time.
+ */
+export interface DashboardWorkWeek {
+  readonly weekStart: string;
+  readonly weekEnd: string;
+  readonly plannedTaskCount: number;
+  readonly estimatedTaskCount: number;
+  readonly estimatedMinutes: number | null;
+  readonly inProgressCount: number;
+  readonly waitingCount: number;
+  readonly completedCount: number;
+}
+
+/**
+ * The reader's own work plan (13A.33a): what is late, what today holds, what the week adds up to, and what
+ * has been captured and not yet planned.
+ */
+export interface DashboardWorkPlan {
+  /** The local day this is about, in `timeZoneId`. */
+  readonly date: string;
+  readonly timeZoneId: string;
+  readonly overdueCount: number;
+  readonly overdue: readonly DashboardTask[];
+  readonly todayCount: number;
+  readonly today: readonly DashboardTask[];
+  /** Today's chosen top three, by id and in their order — only tasks listed above. */
+  readonly topThree: readonly string[];
+  readonly thisWeek: DashboardWorkWeek;
+  readonly unplannedCount: number;
+}
+
 export interface DashboardUpload {
   readonly id: string;
   readonly title: string;
@@ -133,12 +205,26 @@ export interface DashboardPublishing {
   readonly needsAttention: readonly DashboardPublishingItem[];
 }
 
+/**
+ * Why there is no day to work in, which is not one situation but three. `NotSet` is the creator's to fix in
+ * Brand settings; `Unreadable` says nothing about whether a zone is set, so a page must not send that creator
+ * off to set one that may already be there. An unknown value from a newer server reads as `Unreadable`, which
+ * claims the least.
+ */
+export type DashboardTimeZoneState = 'Set' | 'NotSet' | 'Unreadable';
+
 export interface Dashboard {
   readonly generatedAt: string;
-  /** The workspace's own zone, or null when it has set none — and then `today` is null too. */
+  /** The workspace's own zone, or null when it is not set and when it could not be read. */
   readonly timeZoneId: string | null;
-  /** The workspace's day. Null when it has set no zone: the server will not guess one. */
+  /** The workspace's day. Null without a usable zone: the server will not guess one. */
   readonly today: string | null;
+  /** Which of the three answers `timeZoneId` being null is. */
+  readonly timeZoneState: DashboardTimeZoneState;
+  /** The caller's own runs — not the workspace's. Keyed on their membership and their role. */
+  readonly workflows: DashboardSection<DashboardWorkflows>;
+  /** The caller's own tasks. Unavailable without a zone: late, today and this week all need a day. */
+  readonly workPlan: DashboardSection<DashboardWorkPlan>;
   readonly recipesInProgress: DashboardSection<DashboardRecipesInProgress>;
   readonly readinessBlockers: DashboardSection<DashboardReadiness>;
   readonly aiProposals: DashboardSection<DashboardAiProposals>;
@@ -226,6 +312,97 @@ function publishingItem(raw: unknown): DashboardPublishingItem | null {
 
   return isId(id) && isStringOrNull(contentCardId) && isStringOrNull(contentCardTitle) && isString(platform) && isString(scheduledAt) && status !== null
     ? { id, contentCardId, contentCardTitle, platform, status, scheduledAt }
+    : null;
+}
+
+const TASK_STATUSES: ReadonlySet<string> = new Set<WorkTaskStatus>(['Backlog', 'InProgress', 'Waiting', 'Done']);
+const TASK_PRIORITIES: ReadonlySet<string> = new Set<WorkTaskPriority>(['Low', 'Normal', 'High']);
+
+function workflowRun(raw: unknown): DashboardWorkflowRun | null {
+  if (!isRecord(raw) || typeof raw['youCanDoIt'] !== 'boolean') return null;
+
+  const { id, title, definitionKey, goal, stepKey, stepTitle, updatedAt } = raw;
+  const reasons = list(raw['attentionReasons'], (reason) => (isString(reason) ? reason : null));
+
+  return isId(id) &&
+    isString(title) &&
+    isString(definitionKey) &&
+    isString(goal) &&
+    isStringOrNull(stepKey) &&
+    isStringOrNull(stepTitle) &&
+    isString(updatedAt) &&
+    reasons
+    ? { id, title, definitionKey, goal, stepKey, stepTitle, youCanDoIt: raw['youCanDoIt'], updatedAt, attentionReasons: reasons }
+    : null;
+}
+
+function workflows(raw: unknown): DashboardWorkflows | null {
+  if (!isRecord(raw) || !isCount(raw['inProgressCount']) || !isCount(raw['needsAttentionCount'])) return null;
+
+  const carryOn = list(raw['continue'], workflowRun);
+  const needsAttention = list(raw['needsAttention'], workflowRun);
+
+  return carryOn && needsAttention
+    ? {
+        inProgressCount: raw['inProgressCount'],
+        continue: carryOn,
+        needsAttentionCount: raw['needsAttentionCount'],
+        needsAttention,
+      }
+    : null;
+}
+
+function task(raw: unknown): DashboardTask | null {
+  if (!isRecord(raw)) return null;
+
+  const status = decodeEnum<WorkTaskStatus>(TASK_STATUSES, raw['status']);
+  const priority = decodeEnum<WorkTaskPriority>(TASK_PRIORITIES, raw['priority']);
+  const { id, title, dueDate, scheduledDate } = raw;
+
+  return isId(id) && isString(title) && status !== null && priority !== null && isStringOrNull(dueDate) && isStringOrNull(scheduledDate)
+    ? { id, title, status, priority, dueDate, scheduledDate }
+    : null;
+}
+
+function workWeek(raw: unknown): DashboardWorkWeek | null {
+  if (!isRecord(raw)) return null;
+
+  const { weekStart, weekEnd, plannedTaskCount, estimatedTaskCount, estimatedMinutes, inProgressCount, waitingCount, completedCount } = raw;
+  const minutes = estimatedMinutes === null || isCount(estimatedMinutes) ? (estimatedMinutes as number | null) : undefined;
+
+  return isString(weekStart) &&
+    isString(weekEnd) &&
+    isCount(plannedTaskCount) &&
+    isCount(estimatedTaskCount) &&
+    minutes !== undefined &&
+    isCount(inProgressCount) &&
+    isCount(waitingCount) &&
+    isCount(completedCount)
+    ? { weekStart, weekEnd, plannedTaskCount, estimatedTaskCount, estimatedMinutes: minutes, inProgressCount, waitingCount, completedCount }
+    : null;
+}
+
+function workPlan(raw: unknown): DashboardWorkPlan | null {
+  if (!isRecord(raw) || !isCount(raw['overdueCount']) || !isCount(raw['todayCount']) || !isCount(raw['unplannedCount'])) return null;
+
+  const { date, timeZoneId } = raw;
+  const overdue = list(raw['overdue'], task);
+  const todayTasks = list(raw['today'], task);
+  const topThree = list(raw['topThree'], (id) => (isId(id) ? id : null));
+  const thisWeek = workWeek(raw['thisWeek']);
+
+  return isString(date) && isString(timeZoneId) && overdue && todayTasks && topThree && thisWeek
+    ? {
+        date,
+        timeZoneId,
+        overdueCount: raw['overdueCount'],
+        overdue,
+        todayCount: raw['todayCount'],
+        today: todayTasks,
+        topThree,
+        thisWeek,
+        unplannedCount: raw['unplannedCount'],
+      }
     : null;
 }
 
@@ -368,10 +545,19 @@ export function decodeDashboard(raw: unknown): Dashboard | null {
   const { generatedAt, timeZoneId, today } = raw;
   if (!isString(generatedAt) || !isStringOrNull(timeZoneId) || !isStringOrNull(today)) return null;
 
+  // A state this build does not know claims the least: not that a zone is missing, which would send the
+  // creator to set one they may already have.
+  const state = raw['timeZoneState'];
+  const timeZoneState: DashboardTimeZoneState =
+    state === 'Set' || state === 'NotSet' || state === 'Unreadable' ? state : 'Unreadable';
+
   return {
     generatedAt,
     timeZoneId,
     today,
+    timeZoneState,
+    workflows: section(raw['workflows'], workflows),
+    workPlan: section(raw['workPlan'], workPlan),
     recipesInProgress: section(raw['recipesInProgress'], recipesInProgress),
     readinessBlockers: section(raw['readinessBlockers'], readiness),
     aiProposals: section(raw['aiProposals'], aiProposals),

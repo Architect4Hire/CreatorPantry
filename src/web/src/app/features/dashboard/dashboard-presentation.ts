@@ -1,5 +1,6 @@
 import { PublishingStatusValue } from '../../models/publishing.models';
 import { TestIssueSeverity } from '../../models/recipe-test-run.models';
+import { WorkTaskStatus } from '../../models/work-task.models';
 
 /** The tones `cp-status-pill` gives, each with a glyph of its own as well as a fill. */
 export type DashboardTone = 'neutral' | 'progress' | 'success' | 'warning' | 'error';
@@ -22,7 +23,8 @@ export const PUBLISHING_STATUS_WORDS: Readonly<Record<PublishingStatusValue, Das
   Cancelled: { label: 'Cancelled', tone: 'neutral' },
   Failed: { label: 'Not published', tone: 'error' },
   NeedsAttention: { label: 'Needs attention', tone: 'warning' },
-  Unrecognised: { label: 'State not recognised', tone: 'neutral' },
+  // Not "state not recognised": a creator is not looking at a state machine. Open the post to see where it is.
+  Unrecognised: { label: 'Open it to see', tone: 'neutral' },
 };
 
 /** A test issue's severity in a word, with a tone that is never the only signal: the word is always shown. */
@@ -32,22 +34,37 @@ export const SEVERITY_WORDS: Readonly<Record<TestIssueSeverity, DashboardStatusW
   Minor: { label: 'Minor', tone: 'neutral' },
 };
 
-/** A network's own name, from the server's platform value. An unknown one is shown as it came. */
-const PLATFORM_NAMES: Readonly<Record<string, string>> = {
-  Instagram: 'Instagram',
-  Facebook: 'Facebook',
-  X: 'X',
-  LinkedIn: 'LinkedIn',
-  Pinterest: 'Pinterest',
-  TikTok: 'TikTok',
-  YouTube: 'YouTube',
-  Mastodon: 'Mastodon',
-  Bluesky: 'Bluesky',
-  Threads: 'Threads',
-  WhatsApp: 'WhatsApp',
-  Other: 'Another network',
+/**
+ * A task's own state in a word, for a dashboard row. Never the only signal: the word is always shown, and a
+ * row's group already says whether it is late.
+ */
+export const TASK_STATUS_WORDS: Readonly<Record<WorkTaskStatus, DashboardStatusWords>> = {
+  Backlog: { label: 'Not started', tone: 'neutral' },
+  InProgress: { label: 'Under way', tone: 'progress' },
+  Waiting: { label: 'Held up', tone: 'warning' },
+  Done: { label: 'Done', tone: 'success' },
 };
 
-export function platformName(platform: string): string {
-  return PLATFORM_NAMES[platform] ?? platform;
+/**
+ * Why a guided workflow needs a look, in ordinary words — the server's codes
+ * (`WorkflowRunAttentionReasons`), said the way the workflow hub says them.
+ */
+const ATTENTION_REASONS: Readonly<Record<string, string>> = {
+  idle: 'Nobody has touched it in over a week',
+  newer_version: 'A newer version of this workflow has shipped since it started',
+  not_yours_to_do: 'The step it is on needs someone with more access than you have',
+  version_gone: 'The version it started from is no longer available, so its steps cannot be shown',
+};
+
+/**
+ * A reason this build does not know is left out rather than shown as a code. If that leaves nothing to say, the
+ * row still says something: a workflow listed as needing a look with no reason beside it reads as a page fault,
+ * and the creator has no way on. The workflow hub answers the same way for an unrecognised reason.
+ */
+export function attentionWords(reasons: readonly string[]): readonly string[] {
+  const words = reasons
+    .map((reason) => ATTENTION_REASONS[reason])
+    .filter((text): text is string => text !== undefined);
+
+  return words.length > 0 ? words : ['We could not say why. Open it to see where it stopped.'];
 }

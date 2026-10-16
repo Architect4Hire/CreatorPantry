@@ -49,6 +49,9 @@ export class RecipeCreatePartStepComponent implements OnInit {
       saving: computed(() => this.editor()?.saving() ?? false),
       savedAt: computed(() => this.editor()?.savedAt() ?? null),
       flush: () => this.editor()?.flush() ?? Promise.resolve(true),
+      // Autosave keeps the words and nothing else: the re-read that follows a move would be a server
+      // round trip every few seconds, and nothing on screen is waiting on it.
+      autosave: async () => (await this.editor()?.flush()) ?? true,
     });
     inject(DestroyRef).onDestroy(unregister);
   }

@@ -9879,7 +9879,7 @@
           "Dashboard"
         ],
         "summary": "Reads the workspace at a glance.",
-        "description": "Every member including a Viewer may read. **Read-only**: nothing is written, stored or cached, and every\nfigure is asked of the part of the product that owns it at the moment of the request.\n\n**Each section answers on its own.** It has a \u0060status\u0060 of \u0060Ready\u0060, with its \u0060data\u0060, or \u0060Unavailable\u0060,\nwith \u0060data\u0060 null, when its source could not be read just now. One section being unavailable does not\nstop the others, and the route still answers \u0060200\u0060.\n\n**Every list holds at most five**, whatever the workspace holds, and every count beside it is the whole\ncount:\n\n- \u0060recipesInProgress\u0060 \u2014 recipes in Draft, In development, Testing and Ready for review, each state\n  counted (zero included), and the five changed most recently.\n- \u0060readinessBlockers\u0060 \u2014 the readiness evaluation, run for those five recipes and no others: the ones it\n  blocks, each with its blocker count and up to three blockers named. \u0060evaluated\u0060 is how many were actually\n  checked and \u0060unevaluated\u0060 how many could not be just now; neither is a claim about recipes outside the five.\n- \u0060aiProposals\u0060 \u2014 AI proposals awaiting accept or reject: how many, and the five newest, with the\n  recipe\u0027s title where there is one.\n- \u0060testFollowUps\u0060 \u2014 test issues nobody has resolved: how many at each severity, and five to look at\n  first \u2014 Blocking first, then the most recently tested.\n- \u0060upcoming\u0060 \u2014 from \u0060today\u0060 through the thirteenth day after it: cards planned for a day in that window\n  and posts scheduled to go out in it and still on their way, each counted, five of each listed soonest\n  first.\n- \u0060board\u0060 \u2014 every column of the content board with its count, and the total.\n- \u0060recentUploads\u0060 \u2014 the five pictures most recently added to the library and not removed. Names and\n  kinds only: never bytes, a file address or file details.\n- \u0060publishing\u0060 \u2014 every publishing state with its count, and the five most recently changed records that\n  need attention (\u0060Failed\u0060 or \u0060NeedsAttention\u0060).\n\n\u0060today\u0060 is the workspace\u0027s own date, in its brand profile\u0027s time zone; \u0060timeZoneId\u0060 names the zone, or\nis null when none is set and UTC was used. No provider id, post text, prompt or proposal wording is in\nthe answer.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060.",
+        "description": "Every member including a Viewer may read. **Read-only**: nothing is written, stored or cached, and every\nfigure is asked of the part of the product that owns it at the moment of the request.\n\n**Each section answers on its own.** It has a \u0060status\u0060 of \u0060Ready\u0060, with its \u0060data\u0060, or \u0060Unavailable\u0060,\nwith \u0060data\u0060 null, when its source could not be read just now. One section being unavailable does not\nstop the others, and the route still answers \u0060200\u0060.\n\n**Two sections are yours, not the workspace\u0027s.** \u0060workflows\u0060 and \u0060workPlan\u0060 are keyed on your own\nmembership \u2014 the runs you started or were handed, and your own tasks \u2014 so two members of one workspace are\nanswered differently. Everything else reads the same for both. Within \u0060workflows\u0060, the count of runs that\nneed a look is the workspace\u0027s runs as your role sees them, exactly as the workflow hub\u0027s list is.\n\n**Every list holds at most five** \u2014 three for the two sections above \u2014 whatever the workspace holds, and\nevery count beside it is the whole count:\n\n- \u0060workflows\u0060 \u2014 your guided workflows: how many are in progress, the three to carry on with (most\n  recently touched first, each naming the step it is on and whether that step is yours to take), how many\n  runs need a look, and the three that have waited longest, each with its reasons (\u0060idle\u0060,\n  \u0060newer_version\u0060, \u0060not_yours_to_do\u0060, \u0060version_gone\u0060). A run is opened at \u0060workflows/runs/{id}\u0060, which resumes it on the\n  step it is on; no draft, reason or linked record is in the answer.\n- \u0060workPlan\u0060 \u2014 your own day and week: how many tasks are late and the first three, how many are planned\n  for today and the first three, which of those you chose as today\u0027s top three, what the week holding\n  today adds up to (planned, estimated where anyone estimated, under way, held up, finished), and how many\n  tasks have been captured and not yet planned. A task\u0027s title is your own words; no description, label or\n  link is in the answer. The groups do not overlap: a task both late and planned for today is counted as\n  late and nowhere else.\n- \u0060recipesInProgress\u0060 \u2014 recipes in Draft, In development, Testing and Ready for review, each state\n  counted (zero included), and the five changed most recently.\n- \u0060readinessBlockers\u0060 \u2014 the readiness evaluation, run for those five recipes and no others: the ones it\n  blocks, each with its blocker count and up to three blockers named. \u0060evaluated\u0060 is how many were actually\n  checked and \u0060unevaluated\u0060 how many could not be just now; neither is a claim about recipes outside the five.\n- \u0060aiProposals\u0060 \u2014 AI proposals awaiting accept or reject: how many, and the five newest, with the\n  recipe\u0027s title where there is one.\n- \u0060testFollowUps\u0060 \u2014 test issues nobody has resolved: how many at each severity, and five to look at\n  first \u2014 Blocking first, then the most recently tested.\n- \u0060upcoming\u0060 \u2014 from \u0060today\u0060 through the thirteenth day after it: cards planned for a day in that window\n  and posts scheduled to go out in it and still on their way, each counted, five of each listed soonest\n  first.\n- \u0060board\u0060 \u2014 every column of the content board with its count, and the total.\n- \u0060recentUploads\u0060 \u2014 the five pictures most recently added to the library and not removed. Names and\n  kinds only: never bytes, a file address or file details.\n- \u0060publishing\u0060 \u2014 every publishing state with its count, and the five most recently changed records that\n  need attention (\u0060Failed\u0060 or \u0060NeedsAttention\u0060).\n\n\u0060today\u0060 is the workspace\u0027s own date, in its brand profile\u0027s time zone, and \u0060timeZoneId\u0060 names that zone.\nWithout a usable one both are null and every section that depends on a day \u2014 \u0060upcoming\u0060 and \u0060workPlan\u0060 \u2014\nis \u0060Unavailable\u0060, because answering in UTC would be wrong by up to a day at either end. \u0060workflows\u0060 and\nthe rest still answer. \u0060timeZoneState\u0060 says why there is no day, which is not one case but three: \u0060Set\u0060,\n\u0060NotSet\u0060 (read, and the workspace has none \u2014 the creator sets one in Brand settings) and \u0060Unreadable\u0060\n(the profile would not read, or names a zone this server does not know, so nothing is claimed about\nwhether one is set). A client must not send a creator off to set a zone on \u0060Unreadable\u0060: it is very\nlikely already set. No provider id, post text, prompt or proposal wording is in the answer.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -32287,6 +32287,9 @@
           "generatedAt",
           "timeZoneId",
           "today",
+          "timeZoneState",
+          "workflows",
+          "workPlan",
           "recipesInProgress",
           "readinessBlockers",
           "aiProposals",
@@ -32314,6 +32317,15 @@
               "string"
             ],
             "format": "date"
+          },
+          "timeZoneState": {
+            "$ref": "#/components/schemas/DashboardTimeZoneState"
+          },
+          "workflows": {
+            "$ref": "#/components/schemas/DashboardSectionOfWorkflowDashboardSummary"
+          },
+          "workPlan": {
+            "$ref": "#/components/schemas/DashboardSectionOfWorkPlanSummary"
           },
           "recipesInProgress": {
             "$ref": "#/components/schemas/DashboardSectionOfRecipeWorkSummary"
@@ -32762,10 +32774,62 @@
           }
         }
       },
+      "DashboardSectionOfWorkflowDashboardSummary": {
+        "required": [
+          "status",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DashboardSectionStatus"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkflowDashboardSummary"
+              }
+            ]
+          }
+        }
+      },
+      "DashboardSectionOfWorkPlanSummary": {
+        "required": [
+          "status",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/DashboardSectionStatus"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkPlanSummary"
+              }
+            ]
+          }
+        }
+      },
       "DashboardSectionStatus": {
         "enum": [
           "Ready",
           "Unavailable"
+        ],
+        "type": "string"
+      },
+      "DashboardTimeZoneState": {
+        "enum": [
+          "Set",
+          "NotSet",
+          "Unreadable"
         ],
         "type": "string"
       },
@@ -43331,6 +43395,99 @@
           }
         }
       },
+      "WorkflowDashboardRun": {
+        "required": [
+          "id",
+          "title",
+          "definitionKey",
+          "goal",
+          "stepKey",
+          "stepTitle",
+          "youCanDoIt",
+          "updatedAt",
+          "attentionReasons"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "definitionKey": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "stepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stepTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "youCanDoIt": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attentionReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WorkflowDashboardSummary": {
+        "required": [
+          "inProgressCount",
+          "continue",
+          "needsAttentionCount",
+          "needsAttention"
+        ],
+        "type": "object",
+        "properties": {
+          "inProgressCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "continue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDashboardRun"
+            }
+          },
+          "needsAttentionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "needsAttention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDashboardRun"
+            }
+          }
+        }
+      },
       "WorkflowDefinitionSummary": {
         "required": [
           "key",
@@ -44159,6 +44316,187 @@
           "Capability"
         ],
         "type": "string"
+      },
+      "WorkPlanSummary": {
+        "required": [
+          "date",
+          "timeZoneId",
+          "overdueCount",
+          "overdue",
+          "todayCount",
+          "today",
+          "topThree",
+          "thisWeek",
+          "unplannedCount"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "overdueCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "overdue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkPlanTask"
+            }
+          },
+          "todayCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "today": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkPlanTask"
+            }
+          },
+          "topThree": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "thisWeek": {
+            "$ref": "#/components/schemas/WorkPlanWeek"
+          },
+          "unplannedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "WorkPlanTask": {
+        "required": [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "dueDate",
+          "scheduledDate"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkTaskStatus"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/WorkTaskPriority"
+          },
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
+      },
+      "WorkPlanWeek": {
+        "required": [
+          "weekStart",
+          "weekEnd",
+          "plannedTaskCount",
+          "estimatedTaskCount",
+          "estimatedMinutes",
+          "inProgressCount",
+          "waitingCount",
+          "completedCount"
+        ],
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "plannedTaskCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "estimatedTaskCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "estimatedMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "inProgressCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "waitingCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "completedCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
       },
       "Workspace": {
         "required": [
