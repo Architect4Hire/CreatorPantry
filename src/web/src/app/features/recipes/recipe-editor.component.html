@@ -357,11 +357,21 @@
                  beside them when the editor is wide, a wrapping row above them when it is not: see
                  .general-layout. Every section stays rendered, so the nav only scrolls and focuses. -->
           <div class="general-layout">
+            <!-- Two navs, one shown at a time (see .general-layout): four links in a row for a phone, where this tab is
+                 several screens long, and two in a gutter for a wide editor, where the three short sections are
+                 a screen apart at most. Same name, because only one is ever in the accessibility tree. -->
             <cp-anchor-nav
               class="general-nav"
               ariaLabel="Sections of this tab"
               [items]="generalSectionNav()"
               [activeTargetId]="activeGeneralSectionId()"
+              (activated)="onGeneralNavActivated($event)"
+            />
+            <cp-anchor-nav
+              class="general-nav-wide"
+              ariaLabel="Sections of this tab"
+              [items]="generalWideNav()"
+              [activeTargetId]="activeGeneralWideTargetId()"
               (activated)="onGeneralNavActivated($event)"
             />
             <div class="tab-sections" #generalSections>

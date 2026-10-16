@@ -1069,16 +1069,43 @@ export class RecipeEditorComponent {
    * labels: a count is read by a screen reader and is not told by colour. Counted from `FIELD_LOCATIONS`, so a
    * field gains its marker by being locatable at all rather than by being listed again.
    */
-  readonly generalSectionNav = computed<readonly CpAnchorNavItem[]>(() => {
-    const keys = Object.keys(this.fieldErrorsSignal());
+  readonly generalSectionNav = computed<readonly CpAnchorNavItem[]>(() =>
+    RecipeEditorComponent.GENERAL_SECTIONS.map((section) => this.withProblemCount(section, [section.targetId])),
+  );
 
-    return RecipeEditorComponent.GENERAL_SECTIONS.map((section) => {
-      const fields = FIELD_LOCATIONS.filter((location) => location.sectionId === section.targetId).map((location) => location.field);
-      const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
+  /**
+   * The same four sections as two, for a wide editor: Details, and the three short ones after it together.
+   *
+   * On a phone the tab is several screens and four links earn their place. On a desktop the three short sections
+   * are a screen apart at most, so telling them apart in a nav is noise; the one real boundary is between the long
+   * section and the rest. The second item jumps to the first of its three, counts the problems in all of them, and
+   * is current while any of them is.
+   */
+  readonly generalWideNav = computed<readonly CpAnchorNavItem[]>(() => [
+    this.withProblemCount({ targetId: 'section-details', label: 'Details' }, ['section-details']),
+    this.withProblemCount({ targetId: 'section-notes', label: 'Notes, timing & yield' }, [
+      'section-notes',
+      'section-timing',
+      'section-yield',
+    ]),
+  ]);
 
-      return problems === 0 ? { ...section } : { ...section, detail: `${problems} ${problems === 1 ? 'problem' : 'problems'}` };
-    });
+  /** Which of the two wide items is current: the first for Details, the second for any of the others. */
+  readonly activeGeneralWideTargetId = computed(() => {
+    const active = this.activeGeneralSectionId();
+
+    if (active === null) return null;
+    return active === 'section-details' ? 'section-details' : 'section-notes';
   });
+
+  /** An item with the number of problems the last save left across the sections it stands for, said in words. */
+  private withProblemCount(item: CpAnchorNavItem, sectionIds: readonly string[]): CpAnchorNavItem {
+    const keys = Object.keys(this.fieldErrorsSignal());
+    const fields = FIELD_LOCATIONS.filter((location) => sectionIds.includes(location.sectionId ?? '')).map((location) => location.field);
+    const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
+
+    return problems === 0 ? { ...item } : { ...item, detail: `${problems} ${problems === 1 ? 'problem' : 'problems'}` };
+  }
 
   /**
    * The section the creator is reading, which `aria-current` names: the last one jumped to, then whichever one

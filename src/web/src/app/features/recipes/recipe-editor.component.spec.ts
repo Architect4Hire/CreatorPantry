@@ -1060,8 +1060,9 @@ describe('RecipeEditorComponent', () => {
     });
 
     describe('the General tab nav', () => {
-      const navLinksOf = (root: HTMLElement) =>
-        Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav[ariaLabel="Sections of this tab"] a'));
+      // The phone nav's links: the four-link row. The wide nav's two are `wideLinksOf`.
+      const navLinksOf = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav a'));
+      const wideLinksOf = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav-wide a'));
 
       it('names the four sections, each of which exists under the same id and heading', async () => {
         const recipeService = recipeServiceSpy();
@@ -1231,27 +1232,98 @@ describe('RecipeEditorComponent', () => {
         expect(Array.from(seen)).toEqual(['Yield']);
       });
 
-      it('is a gutter beside the sections on a wide editor and a row above them on a narrow one', async () => {
+      it('is a row of four links on a phone and a gutter of two from 40rem up, one shown at a time', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
-        const nav = () => root.querySelector<HTMLElement>('.general-nav')!;
+        const phone = () => root.querySelector<HTMLElement>('cp-anchor-nav.general-nav')!;
+        const wide = () => root.querySelector<HTMLElement>('cp-anchor-nav.general-nav-wide')!;
+        const details = () => root.querySelector('#section-details')!.getBoundingClientRect();
 
-        root.style.width = '96rem';
-        harness.detectChanges();
-        expect(getComputedStyle(nav()).position).toBe('sticky');
-        expect(getComputedStyle(nav().querySelector('ul')!).flexDirection).toBe('column');
-        // Beside, not above: the first section starts to the right of the nav.
-        expect(root.querySelector('#section-details')!.getBoundingClientRect().left).toBeGreaterThan(nav().getBoundingClientRect().right - 1);
-
-        root.style.width = '40rem';
-        harness.detectChanges();
-        expect(getComputedStyle(nav()).position).toBe('static');
-        expect(getComputedStyle(nav()).display).not.toBe('none');
-        expect(root.querySelector('#section-details')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(nav().getBoundingClientRect().bottom - 1);
-        for (const link of navLinksOf(root)) {
-          expect(link.getBoundingClientRect().height).withContext(link.textContent!).toBeGreaterThanOrEqual(40);
+        for (const width of ['22rem', '39rem']) {
+          root.style.width = width;
+          harness.detectChanges();
+          expect(getComputedStyle(phone()).display).withContext(`row shown at ${width}`).not.toBe('none');
+          expect(getComputedStyle(wide()).display).withContext(`gutter hidden at ${width}`).toBe('none');
+          // Above the sections, not beside them.
+          expect(details().top).toBeGreaterThanOrEqual(phone().getBoundingClientRect().bottom - 1);
+          for (const link of navLinksOf(root)) {
+            expect(link.getBoundingClientRect().height).withContext(`${link.textContent} at ${width}`).toBeGreaterThanOrEqual(40);
+          }
         }
+
+        for (const width of ['40rem', '64rem', '96rem']) {
+          root.style.width = width;
+          harness.detectChanges();
+          expect(getComputedStyle(phone()).display).withContext(`row hidden at ${width}`).toBe('none');
+          expect(getComputedStyle(wide()).display).withContext(`gutter shown at ${width}`).not.toBe('none');
+          expect(getComputedStyle(wide()).position).toBe('sticky');
+          expect(getComputedStyle(wide().querySelector('ul')!).flexDirection).toBe('column');
+          // Beside, not above: the first section starts to the right of the gutter.
+          expect(details().left).withContext(`beside at ${width}`).toBeGreaterThan(wide().getBoundingClientRect().right - 1);
+        }
+      });
+
+      it('has two items in the gutter: Details, and the three short sections together', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+
+        expect(wideLinksOf(root).map((link) => link.querySelector('.label')?.textContent?.trim())).toEqual(['Details', 'Notes, timing & yield']);
+        // Each goes to a section that exists: the second to the first of its three.
+        expect(wideLinksOf(root).map((link) => link.getAttribute('href'))).toEqual(['#section-details', '#section-notes']);
+
+        wideLinksOf(root)[1].click();
+        harness.detectChanges();
+        expect(document.activeElement?.id).toBe('section-notes');
+        expect(wideLinksOf(root).map((link) => link.getAttribute('aria-current'))).toEqual([null, 'true']);
+      });
+
+      it('marks the second gutter item while any of the three short sections is the current one', async () => {
+        const recipeService = recipeServiceSpy();
+        const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+        const current = () => wideLinksOf(root).map((link) => link.getAttribute('aria-current') === 'true');
+
+        expect(current()).toEqual([false, false]);
+        for (const [section, expected] of [
+          ['Details', [true, false]],
+          ['Timing', [false, true]],
+          ['Yield', [false, true]],
+          ['Notes', [false, true]],
+        ] as const) {
+          navLinksOf(root).find((link) => link.textContent?.trim() === section)!.click();
+          harness.detectChanges();
+          expect(current()).withContext(section).toEqual([...expected]);
+        }
+      });
+
+      it('counts the problems in all three short sections against the second gutter item', async () => {
+        const recipeService = recipeServiceSpy();
+        recipeService.createRecipe.and.resolveTo({
+          status: 'validation_failed',
+          fieldErrors: {
+            title: ['Title is too long.'],
+            notes: ['Notes are too long.'],
+            prepTimeMinutes: ['Prep time is too long.'],
+            servingSize: ['A serving cannot be larger than the batch.'],
+          },
+        });
+        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+        const root = harness.routeNativeElement!;
+
+        component.title.set('Weeknight Chili');
+        await component.save();
+        harness.detectChanges();
+
+        const lines = wideLinksOf(root).map((link) => [
+          link.querySelector('.label')?.textContent?.trim(),
+          link.querySelector('.detail')?.textContent?.trim() ?? null,
+        ]);
+        expect(lines).toEqual([
+          ['Details', '1 problem'],
+          ['Notes, timing & yield', '3 problems'],
+        ]);
       });
     });
 

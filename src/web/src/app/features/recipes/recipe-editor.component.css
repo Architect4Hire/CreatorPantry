@@ -110,9 +110,12 @@ cp-tab-panel:not([hidden]) {
   --cp-field-row-measure: 60ch;
 }
 
-/* The General tab: a nav over its sections, one column of sections. Narrow — a phone, or 200% zoom — the nav is a
-   wrapping row above them. From 64rem it is a sticky gutter beside them, as it is beside the Instructions groups
-   below: the column is long enough to scroll at every width now, so the nav earns its place at every width. */
+/* The General tab: one column of sections with a nav, in one of two forms. Narrow — a phone — the nav is a wrapping
+   row of four links above the sections, for getting down a column that is several screens long. From 40rem, the
+   width the design system already treats as a phone's, the three short sections are a screen apart at most, so the
+   four links give way to two in a sticky gutter beside the column: Details, and the rest together.
+   `display: none` and not a removed element, so the one not shown is out of the accessibility tree and back,
+   with its state, the moment the editor changes width. */
 .general-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -120,12 +123,21 @@ cp-tab-panel:not([hidden]) {
   align-items: start;
 }
 
-@container cp-editor (min-width: 64rem) {
+.general-nav-wide {
+  display: none;
+}
+
+@container cp-editor (min-width: 40rem) {
   .general-layout {
     grid-template-columns: 12rem minmax(0, 1fr);
   }
 
   .general-nav {
+    display: none;
+  }
+
+  .general-nav-wide {
+    display: block;
     position: sticky;
     top: var(--cp-space-4);
     --cp-anchor-nav-direction: column;
