@@ -36,9 +36,10 @@ function offsetAt(instant: Date, timeZone: string): number {
 /**
  * The instant a date and time in `timeZone` names, as an ISO-8601 UTC string, or null when either is unusable.
  *
- * Two passes, because the offset depends on the instant we are still working out: the first pass guesses with
- * the offset at the naive instant, the second corrects it. That is what makes the hour after a DST change come
- * out right.
+ * The offset depends on the instant still being worked out, so there are two candidates: the naive instant read
+ * with the offset either side of any change. **It resolves exactly as the server does** (`ITimeZoneConverter`):
+ * a time that happens twice is the earlier instant, and a time the clocks skipped is moved forward by the gap —
+ * 02:30 on a spring-forward night is 03:30 — so the instant sent is the one the server would have chosen.
  */
 export function zonedToInstant(date: string, time: string, timeZone: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
@@ -47,10 +48,21 @@ export function zonedToInstant(date: string, time: string, timeZone: string): st
   if (Number.isNaN(naive.getTime())) return null;
 
   try {
-    const first = new Date(naive.getTime() - offsetAt(naive, timeZone));
-    const corrected = new Date(naive.getTime() - offsetAt(first, timeZone));
+    const before = offsetAt(naive, timeZone);
+    const after = offsetAt(new Date(naive.getTime() - before), timeZone);
+    const candidates = [...new Set([naive.getTime() - before, naive.getTime() - after])].sort((a, b) => a - b);
 
-    return Number.isNaN(corrected.getTime()) ? null : corrected.toISOString();
+    // Those that read back as the wall clock asked for. Two in an overlap; none in a gap.
+    const real = candidates.filter((candidate) => {
+      const read = instantToZoned(new Date(candidate).toISOString(), timeZone);
+      return read !== null && read.date === date && read.time === time;
+    });
+
+    // In a gap, the later candidate is the asked-for time moved forward by the gap's length.
+    const chosen = real.length > 0 ? real[0] : candidates[candidates.length - 1];
+    const instant = new Date(chosen);
+
+    return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
   } catch {
     // An unusable zone identifier. The caller refuses rather than guessing a zone, exactly as the server does.
     return null;

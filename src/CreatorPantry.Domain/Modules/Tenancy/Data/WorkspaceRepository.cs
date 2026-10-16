@@ -128,6 +128,24 @@ internal sealed class WorkspaceRepository(CreatorPantryDbContext context) : IWor
             .ToDictionaryAsync(row => row.Id, row => row.DisplayName, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken)
+    {
+        // The membership filter is relaxed while no workspace is resolved, so that sign-in can find a user's
+        // memberships at all. Unresolved, this would answer for every workspace — so it answers for none.
+        if (membershipIds.Count == 0 || ((IWorkspaceIdSource)context).CurrentWorkspaceIdOrNull is null)
+        {
+            return new Dictionary<Guid, WorkspaceRole>();
+        }
+
+        // Scoped by the global query filter, as above: an id from another workspace is simply not found.
+        return await context.WorkspaceMemberships.AsNoTracking()
+            .Where(membership => membershipIds.Contains(membership.Id)
+                && membership.Status == WorkspaceMembershipStatus.Active)
+            .ToDictionaryAsync(membership => membership.Id, membership => membership.Role, cancellationToken);
+    }
+
     private static WorkspaceRecord ToRecord(Workspace workspace) => new(workspace.Id, workspace.Name, workspace.Slug, workspace.CreatedAt, workspace.DefaultMeasurementSystem);
 
     private static WorkspaceSummary ToSummary(Workspace workspace) => new(workspace.Id, workspace.Slug);

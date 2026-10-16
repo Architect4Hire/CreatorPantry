@@ -15,6 +15,7 @@ using CreatorPantry.Tests.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace CreatorPantry.Tests.Publishing;
 
@@ -43,11 +44,13 @@ public sealed class PublishingRecordsEndpointTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _fixture = await TwoWorkspaceGatewayFixture.CreateAsync(services =>
-        {
-            services.RemoveAll<IPublishingPostGateway>();
-            services.AddSingleton<IPublishingPostGateway>(_provider);
-        });
+        _fixture = await TwoWorkspaceGatewayFixture.CreateAsync(
+            services =>
+            {
+                services.RemoveAll<IPublishingPostGateway>();
+                services.AddSingleton<IPublishingPostGateway>(_provider);
+            },
+            time: new FakeTimeProvider(Now));
 
         // The credential belongs to workspace A unless a test says otherwise.
         _provider.WorkspaceId = _fixture.WorkspaceA.Id;
@@ -84,7 +87,7 @@ public sealed class PublishingRecordsEndpointTests : IAsyncLifetime
         Assert.NotEqual(JsonValueKind.Null, body.GetProperty("concurrencyToken").ValueKind);
 
         // The local intent, with no offset of its own: eight in the morning in Chicago.
-        Assert.Equal("2026-10-16T08:30:00", body.GetProperty("scheduledLocal").GetString());
+        Assert.Equal("2037-10-16T08:30:00", body.GetProperty("scheduledLocal").GetString());
 
         var location = response.Headers.Location!.ToString();
         Assert.Equal(
@@ -460,7 +463,16 @@ public sealed class PublishingRecordsEndpointTests : IAsyncLifetime
     };
 
     /// <summary>Eight thirty in the morning in Chicago, well inside the horizon.</summary>
-    private static string Confirmed() => "2026-10-16T13:30:00Z";
+    /// <summary>
+    /// The hosts' clock: two days before <see cref="Confirmed"/>. A schedule must fall between five minutes and a
+    /// year after the server's now, so a fixed date against the real clock turns every test here red the morning
+    /// it goes by. Pinned, the window never moves; and years ahead, because the gateway fixture's cookies are
+    /// judged by the client's real clock and a fake one behind it signs nobody in.
+    /// </summary>
+    private static readonly DateTimeOffset Now = new(2037, 10, 14, 12, 0, 0, TimeSpan.Zero);
+
+    /// <summary>When every confirmation here is scheduled for. 2037 has 2026's calendar: 08:30 on a Friday in Chicago, on CDT.</summary>
+    private static string Confirmed() => "2037-10-16T13:30:00Z";
 
     private static string RecordsOf(SeededWorkspace workspace) =>
         $"/api/v1/workspaces/{workspace.Slug}/publishing/records";

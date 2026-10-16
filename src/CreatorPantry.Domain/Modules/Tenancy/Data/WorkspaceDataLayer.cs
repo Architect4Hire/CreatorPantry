@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
@@ -36,4 +37,9 @@ internal sealed class WorkspaceDataLayer(IWorkspaceRepository repository) : IWor
         IReadOnlyCollection<Guid> membershipIds,
         CancellationToken cancellationToken) =>
         repository.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
+
+    public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        repository.FindActiveMemberRolesAsync(membershipIds, cancellationToken);
 }

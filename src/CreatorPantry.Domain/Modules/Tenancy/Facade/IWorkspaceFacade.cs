@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
@@ -44,6 +45,18 @@ public interface IWorkspaceFacade
     /// display names belong to this module and to Auth, and facade to facade is the only way across.
     /// </remarks>
     Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The role of each given membership that is an active member of the resolved workspace. One that is
+    /// invited, removed, or another workspace's is absent.
+    /// </summary>
+    /// <remarks>
+    /// For a module that is about to put something in a member's hands — a work task handed to them (13A.27) —
+    /// and must know they can hold it. Answers only for the resolved workspace, by way of the query filter.
+    /// </remarks>
+    Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
         IReadOnlyCollection<Guid> membershipIds,
         CancellationToken cancellationToken);
 }

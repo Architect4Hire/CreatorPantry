@@ -1,0 +1,201 @@
+<cp-page-head [heading]="pageTitle" [lede]="lede()">
+  @if (canAct()) {
+    <button
+      cpPageHeadActions
+      cpButton
+      type="button"
+      variant="primary"
+      aria-haspopup="dialog"
+      (click)="addTask($any($event.currentTarget))"
+    >
+      <span aria-hidden="true">+</span> Add a task
+    </button>
+  }
+</cp-page-head>
+
+<!-- The one place for what the page just did. Always present, so each change is announced as it happens. -->
+<cp-notice class="outcome" role="status" [quiet]="message() === null" [tone]="message()?.tone ?? 'neutral'">
+  {{ message()?.text }}
+  @if (message()?.action; as action) {
+    <button cpButton type="button" variant="text" size="sm" (click)="runAction(action)">
+      @switch (action.kind) {
+        @case ('undo') { Undo }
+        @case ('open') { Open {{ action.what }} anyway }
+        @case ('retry') { Try again }
+      }
+    </button>
+  }
+</cp-notice>
+
+@if (!online() && state().status === 'ready' && canAct()) {
+  <cp-notice tone="warning" role="status">You’re offline. Your day is as it was last read; changes can be made when you’re back.</cp-notice>
+}
+
+@switch (state().status) {
+  @case ('loading') {
+    <cp-card><p class="plain" role="status">Reading your day…</p></cp-card>
+  }
+  @case ('no_time_zone') {
+    <cp-topic-card heading="Your day needs a time zone" headingId="my-day-heading-zone">
+      <p class="plain">
+        Today starts and ends at midnight where your workspace is, so My Day needs the workspace’s time zone before it
+        can show anything. Nothing is guessed in the meantime.
+      </p>
+      <div cpTopicCardActions class="cp-actions">
+        <a cpButton variant="primary" [routerLink]="link('brand')">Set the time zone in Brand settings</a>
+      </div>
+    </cp-topic-card>
+  }
+  @case ('error') {
+    <cp-card>
+      <cp-notice tone="error" role="alert">
+        @if (readOffline()) {
+          You’re offline, so your day couldn’t be read. Nothing has been lost.
+        } @else {
+          Your day couldn’t be read just now. Nothing has been lost.
+        }
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retry()">
+          Try again
+        </button>
+      </cp-notice>
+    </cp-card>
+  }
+  @case ('ready') {
+    @if (layout(); as shown) {
+      @if (isViewer()) {
+        <cp-notice tone="neutral" role="status">You can see your day here, but this workspace is view-only for you.</cp-notice>
+      }
+
+      <!-- What to do next: the creator's own top three, or the one task the day puts first. -->
+      @if (shown.lead; as lead) {
+        <cp-topic-card [heading]="lead.kind === 'top-three' ? 'Your top three' : 'Up next'" headingId="my-day-heading-lead">
+          <ul class="tasks" id="my-day-list-lead">
+            @for (entry of lead.entries; track entry.task.id) {
+              <li
+                cpMyDayTask
+                [entry]="entry"
+                [workspaceSlug]="workspaceSlug()"
+                [today]="day()!.date"
+                [showFrom]="true"
+                [canAct]="canAct()"
+                [busy]="busyTaskId() === entry.task.id"
+                [offline]="!online()"
+                [moveOpen]="openMoveId() === entry.task.id"
+                (done)="markDone(entry, 'lead')"
+                (reopen)="reopen(entry, 'lead')"
+                (start)="start(entry, 'lead')"
+                (move)="move(entry, 'lead', $event)"
+                (moveToggled)="toggleMove(entry.task.id)"
+              ></li>
+            }
+          </ul>
+          @if (canAct()) {
+            <div cpTopicCardActions class="cp-actions">
+              <!-- One button whatever it says, so the dialog has the same element to give focus back to. -->
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                aria-haspopup="dialog"
+                (click)="openTopThree($any($event.currentTarget))"
+              >
+                {{ lead.kind === 'top-three' ? 'Change my top three' : 'Choose my top three' }}
+              </button>
+            </div>
+          }
+        </cp-topic-card>
+      } @else {
+        <!-- In the top card's place, under its heading id, so focus that was there has somewhere to land. -->
+        <cp-topic-card [heading]="emptyHeading()" headingId="my-day-heading-lead">
+          <p class="plain">
+            @if (day()!.waiting.length > 0) {
+              Everything left is waiting on something else.
+            } @else if (day()!.completedToday.length > 0) {
+              Everything planned for today is done.
+            } @else {
+              There’s nothing on today’s list.
+            }
+            @if (canAct()) {
+              Add a task, or look ahead at your week.
+            }
+          </p>
+          <div cpTopicCardActions class="cp-actions">
+            <a cpButton variant="secondary" [routerLink]="link('my-week')">Open My Week</a>
+          </div>
+        </cp-topic-card>
+      }
+
+      <!-- Offers, never plans: nothing is scheduled until "Plan for today" is pressed. -->
+      @if (suggestions().length > 0) {
+        <cp-topic-card heading="If you have time" headingId="my-day-heading-suggested">
+          <p class="plain cp-muted">From your backlog. Nothing here is planned until you say so.</p>
+          <ul class="tasks suggestions">
+            @for (suggestion of suggestions(); track suggestion.task.id) {
+              <li [attr.data-task-id]="suggestion.task.id">
+                <div class="suggestion-main">
+                  <p class="plain suggestion-title">
+                    <cp-badge tone="blue">Suggestion</cp-badge>
+                    <span>{{ suggestion.task.title }}</span>
+                  </p>
+                  <p class="plain cp-muted">{{ suggestion.reason }}</p>
+                </div>
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  [attr.aria-label]="'Plan for today: ' + suggestion.task.title"
+                  [attr.aria-disabled]="busyTaskId() !== null || !online() ? 'true' : null"
+                  (click)="planForToday(suggestion)"
+                >
+                  Plan for today
+                </button>
+              </li>
+            }
+          </ul>
+        </cp-topic-card>
+      }
+
+      @for (group of shown.groups; track group.definition.key) {
+        @if (group.entries.length > 0) {
+          <cp-topic-card [heading]="group.definition.heading" [headingId]="'my-day-heading-' + group.definition.key">
+            <ul class="tasks" [id]="'my-day-list-' + group.definition.key">
+              @for (entry of group.entries; track entry.task.id) {
+                <li
+                  cpMyDayTask
+                  [entry]="entry"
+                  [workspaceSlug]="workspaceSlug()"
+                  [today]="day()!.date"
+                  [canAct]="canAct()"
+                  [busy]="busyTaskId() === entry.task.id"
+                  [offline]="!online()"
+                  [moveOpen]="openMoveId() === entry.task.id"
+                  (done)="markDone(entry, group.definition.key)"
+                  (reopen)="reopen(entry, group.definition.key)"
+                  (start)="start(entry, group.definition.key)"
+                  (move)="move(entry, group.definition.key, $event)"
+                  (moveToggled)="toggleMove(entry.task.id)"
+                ></li>
+              }
+            </ul>
+            @if (group.hasMore) {
+              <p class="plain cp-muted">
+                Showing the first 50. <a [routerLink]="link('my-week')">See the rest in My Week</a>.
+              </p>
+            }
+          </cp-topic-card>
+        }
+      }
+
+      <cp-my-day-top-three
+        [open]="topThreeOpen()"
+        [candidates]="candidates()"
+        [chosen]="day()!.topThree"
+        [saving]="topThreeSaving()"
+        [problem]="topThreeProblem()"
+        (save)="saveTopThree($event)"
+        (closed)="closeTopThree()"
+      />
+    }
+  }
+}

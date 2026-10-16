@@ -5162,6 +5162,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid?>("MediaAssetId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Origin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<Guid>("OwnerMembershipId")
                         .HasColumnType("uniqueidentifier");
 
@@ -5241,6 +5246,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("WorkspaceId", "AssigneeMembershipId", "PlanningWeekStart", "Status")
                         .HasDatabaseName("IX_WorkTasks_Workspace_Assignee_Week_Status");
 
+                    b.HasIndex("WorkspaceId", "OwnerMembershipId", "WorkflowRunId", "WorkflowStepKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkTasks_Workspace_Owner_WorkflowStep")
+                        .HasFilter("Origin = 2");
+
                     b.HasIndex("WorkspaceId", "AssigneeMembershipId", "Status", "ScheduledDate", "SortRank", "Id")
                         .HasDatabaseName("IX_WorkTasks_Workspace_Assignee_Status_Day_Rank");
 
@@ -5254,6 +5264,8 @@ namespace CreatorPantry.Domain.Migrations
 
                             t.HasCheckConstraint("CK_WorkTasks_Estimate_Range", "EstimateMinutes IS NULL OR (EstimateMinutes >= 1 AND EstimateMinutes <= 1440)");
 
+                            t.HasCheckConstraint("CK_WorkTasks_Origin_Range", "Origin >= 1 AND Origin <= 2");
+
                             t.HasCheckConstraint("CK_WorkTasks_Priority_Range", "Priority >= 1 AND Priority <= 3");
 
                             t.HasCheckConstraint("CK_WorkTasks_Recurrence_Whole", "(WorkTaskTemplateId IS NULL AND RecurrenceDate IS NULL) OR (WorkTaskTemplateId IS NOT NULL AND RecurrenceDate IS NOT NULL)");
@@ -5264,7 +5276,40 @@ namespace CreatorPantry.Domain.Migrations
 
                             t.HasCheckConstraint("CK_WorkTasks_Title_NotBlank", "trim(Title) <> ''");
 
+                            t.HasCheckConstraint("CK_WorkTasks_WorkflowOrigin_WithStep", "Origin <> 2 OR (WorkflowRunId IS NOT NULL AND WorkflowStepKey IS NOT NULL)");
+
                             t.HasCheckConstraint("CK_WorkTasks_WorkflowStep_WithRun", "WorkflowStepKey IS NULL OR (WorkflowRunId IS NOT NULL AND trim(WorkflowStepKey) <> '')");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskFocus", b =>
+                {
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AssigneeMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("FocusDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkTaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("WorkspaceId", "AssigneeMembershipId", "FocusDate", "Position");
+
+                    b.HasIndex("WorkspaceId", "WorkTaskId");
+
+                    b.HasIndex("WorkspaceId", "AssigneeMembershipId", "FocusDate", "WorkTaskId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WorkTaskFocuses_Workspace_Assignee_Date_Task");
+
+                    b.ToTable("WorkTaskFocuses", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkTaskFocuses_Position_Range", "Position >= 1 AND Position <= 3");
                         });
                 });
 
@@ -5285,6 +5330,119 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("IX_WorkTaskLabels_Workspace_Tag_Task");
 
                     b.ToTable("WorkTaskLabels", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("AttentionReason")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateOnly?>("EndsOn")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("EstimateMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Frequency")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("LeasedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("NextOccurrenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("OwnerMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Weekdays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_WorkTaskTemplates_Workspace_Id");
+
+                    b.HasIndex("Status", "NextOccurrenceDate")
+                        .HasDatabaseName("IX_WorkTaskTemplates_Status_Next");
+
+                    b.HasIndex("WorkspaceId", "OwnerMembershipId", "Status")
+                        .HasDatabaseName("IX_WorkTaskTemplates_Workspace_Owner_Status");
+
+                    b.ToTable("WorkTaskTemplates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Attention_Range", "AttentionReason IS NULL OR (AttentionReason >= 1 AND AttentionReason <= 2)");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Attention_Reason", "(Status = 4 AND AttentionReason IS NOT NULL) OR (Status <> 4 AND AttentionReason IS NULL)");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Description_NotBlank", "Description IS NULL OR trim(Description) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Ended_NoNext", "Status <> 3 OR NextOccurrenceDate IS NULL");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Ends_AfterStart", "EndsOn IS NULL OR EndsOn >= StartsOn");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Estimate_Range", "EstimateMinutes IS NULL OR (EstimateMinutes >= 1 AND EstimateMinutes <= 1440)");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Frequency_Range", "Frequency >= 1 AND Frequency <= 2");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Lease_Whole", "(LeasedBy IS NULL AND LeaseExpiresAt IS NULL) OR (LeasedBy IS NOT NULL AND LeaseExpiresAt IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Next_InRange", "NextOccurrenceDate IS NULL OR (NextOccurrenceDate >= StartsOn AND (EndsOn IS NULL OR NextOccurrenceDate <= EndsOn))");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Priority_Range", "Priority >= 1 AND Priority <= 3");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Status_Range", "Status >= 1 AND Status <= 4");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_TimeZone_NotBlank", "trim(TimeZoneId) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Title_NotBlank", "trim(Title) <> ''");
+
+                            t.HasCheckConstraint("CK_WorkTaskTemplates_Weekdays_Frequency", "(Frequency = 2 AND Weekdays >= 1 AND Weekdays <= 127) OR (Frequency <> 2 AND Weekdays = 0)");
+                        });
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Publishing.Data.Entities.ExternalPublicationReference", b =>
@@ -8713,6 +8871,22 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkTaskTemplateId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskFocus", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTask", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "WorkTaskId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskLabel", b =>
@@ -8729,6 +8903,15 @@ namespace CreatorPantry.Domain.Migrations
                         .HasForeignKey("WorkspaceId", "WorkspaceTagId")
                         .HasPrincipalKey("WorkspaceId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTaskTemplate", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

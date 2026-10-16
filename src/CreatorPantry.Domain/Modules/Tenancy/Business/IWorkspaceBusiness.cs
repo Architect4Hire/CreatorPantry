@@ -55,4 +55,9 @@ public interface IWorkspaceBusiness
     Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
         IReadOnlyCollection<Guid> membershipIds,
         CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Tenancy.Data.IWorkspaceRepository.FindActiveMemberRolesAsync"/>
+    Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
 }

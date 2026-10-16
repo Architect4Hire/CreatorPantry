@@ -2343,6 +2343,10 @@ public sealed class RecipeFacadeTests
         /// <summary>The ids the last lookup asked for, so a test can assert it asked once for the distinct set.</summary>
         public IReadOnlyCollection<Guid>? RequestedMembershipIds { get; private set; }
 
+        public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+            IReadOnlyCollection<Guid> membershipIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised here.");
+
         public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
             IReadOnlyCollection<Guid> membershipIds,
             CancellationToken cancellationToken)

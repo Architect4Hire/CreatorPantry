@@ -13,6 +13,14 @@ public sealed record WorkTaskMemberServiceModel
     public string? DisplayName { get; init; }
 }
 
+/// <summary>One of the workspace's own tags, on a task (13A.27).</summary>
+public sealed record WorkTaskLabelServiceModel
+{
+    public required Guid Id { get; init; }
+
+    public required string Name { get; init; }
+}
+
 /// <summary>
 /// What a task is about, by id. Pointers, never copies: the linked record's own module says what it is
 /// called and whether it still exists, and a task holds no title of its own for any of them.
@@ -23,6 +31,12 @@ public sealed record WorkTaskLinksServiceModel
 
     /// <summary>A step of <see cref="WorkflowRunId"/>; null when the task is about the run as a whole.</summary>
     public string? WorkflowStepKey { get; init; }
+
+    /// <summary>
+    /// Where the run is, relative to the workspace — <c>workflows/runs/{id}</c> — so a task can take its person
+    /// straight back to the journey it came from (13A.29). Null when the task is about no run.
+    /// </summary>
+    public string? WorkflowRunRoute { get; init; }
 
     public Guid? RecipeId { get; init; }
 
@@ -72,6 +86,12 @@ public sealed record WorkTaskServiceModel
     public required WorkTaskMemberServiceModel Assignee { get; init; }
 
     public required WorkTaskLinksServiceModel Links { get; init; }
+
+    /// <summary>
+    /// The workspace's tags this task carries, by name. A tag retired since it was added still shows, by the
+    /// name it had: retiring a tag takes it out of the pickers, not off the work that already carries it.
+    /// </summary>
+    public required IReadOnlyList<WorkTaskLabelServiceModel> Labels { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }
 

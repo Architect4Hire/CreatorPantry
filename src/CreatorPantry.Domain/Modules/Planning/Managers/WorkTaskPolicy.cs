@@ -13,6 +13,9 @@ public static class WorkTaskPolicy
     /// </summary>
     public const int WorkflowStepKeyMaxLength = 64;
 
+    /// <summary>An IANA zone identifier such as <c>America/Chicago</c>, as a routine stores it (13A.30).</summary>
+    public const int TimeZoneIdMaxLength = 64;
+
     /// <summary>The longest estimate one task may carry: a day. Work bigger than that is more than one task.</summary>
     public const int EstimateMaxMinutes = 24 * 60;
 
@@ -37,6 +40,16 @@ public static class WorkTaskPolicy
     /// </remarks>
     public const int TodaySuggestionCount = 3;
 
+    /// <summary>How many tasks a person may choose as their top three for one day (13A.32). Three.</summary>
+    public const int TopThreeMax = 3;
+
+    /// <summary>The most rows one group of the weekly view returns, and the most one day of it does (13A.26).</summary>
+    /// <remarks>
+    /// The daily view's cap and for its reason. Unlike the daily view, every group of the week also carries
+    /// totals over the whole group, so a cut group still says how much it holds.
+    /// </remarks>
+    public const int WeekGroupMaxRows = 50;
+
     /// <summary>
     /// The distance left between two neighbouring tasks' ranks, and the rank of the first task in a group.
     /// </summary>
@@ -46,4 +59,10 @@ public static class WorkTaskPolicy
     /// Order within a group is <c>SortRank, Id</c>, so two tasks on the same rank still read in one order.
     /// </remarks>
     public const long RankGap = 1024;
+
+    /// <summary>
+    /// A workflow run's address in the app, relative to the workspace, which a task links back to (13A.29). The
+    /// same shape the workflow hub opens a run at; never absolute, never a scheme.
+    /// </summary>
+    public static string WorkflowRunRoute(Guid runId) => $"workflows/runs/{runId:D}";
 }

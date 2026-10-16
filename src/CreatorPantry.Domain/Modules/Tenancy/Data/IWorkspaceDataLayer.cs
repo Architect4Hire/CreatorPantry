@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 
@@ -27,6 +28,11 @@ public interface IWorkspaceDataLayer
 
     /// <inheritdoc cref="IWorkspaceRepository.FindMemberDisplayNamesAsync"/>
     Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IWorkspaceRepository.FindActiveMemberRolesAsync"/>
+    Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
         IReadOnlyCollection<Guid> membershipIds,
         CancellationToken cancellationToken);
 }

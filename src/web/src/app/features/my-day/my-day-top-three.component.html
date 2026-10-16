@@ -1,0 +1,62 @@
+<cp-dialog
+  [open]="open()"
+  title="Choose my top three"
+  titleId="my-day-top-three-title"
+  description="Pick up to three things that matter most today. They go to the top of your day in the order you pick them; nothing else about them changes."
+  (closed)="closed.emit()"
+  (keydown.escape)="onEscape($event)"
+>
+  @if (candidates().length === 0) {
+    <p class="plain">There’s nothing on your day to choose from yet.</p>
+  } @else {
+    <cp-choice-group
+      label="Today’s tasks"
+      idPrefix="my-day-top-three-"
+      [multiple]="true"
+      [max]="3"
+      [options]="options()"
+      [value]="orderedIds()"
+      (valueChange)="onPick($event)"
+    />
+
+    <!-- The order, said back as it changes, because the tiles stay in the page's order. -->
+    <div class="order" role="status" aria-live="polite">
+      @if (ordered().length > 0) {
+        <p class="plain">Your order:</p>
+        <ol>
+          @for (item of ordered(); track item.id) {
+            <li>{{ item.title }}</li>
+          }
+        </ol>
+      } @else {
+        <p class="plain cp-muted">Nothing picked yet.</p>
+      }
+    </div>
+  }
+
+  <div role="alert">
+    @if (problem()) {
+      <cp-notice tone="error">{{ problem() }}</cp-notice>
+    }
+  </div>
+
+  <!-- Never disabled, for the reason every Save in the product is not: it would drop focus out of the dialog. -->
+  <div cpDialogActions class="cp-actions">
+    @if (chosen().length > 0) {
+      <button cpButton type="button" variant="text" [attr.aria-disabled]="saving() ? 'true' : null" (click)="clear()">
+        Clear my top three
+      </button>
+    }
+    <button cpButton type="button" variant="secondary" (click)="closed.emit()">Cancel</button>
+    <button
+      cpButton
+      type="button"
+      variant="primary"
+      [attr.aria-disabled]="saving() || candidates().length === 0 ? 'true' : null"
+      [attr.aria-busy]="saving()"
+      (click)="submit()"
+    >
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</cp-dialog>

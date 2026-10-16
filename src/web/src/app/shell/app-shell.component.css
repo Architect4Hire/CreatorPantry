@@ -176,6 +176,15 @@ main {
   .display-name {
     display: none;
   }
+
+  /* "+ Task" becomes "+" here; its name is its aria-label, so nothing is lost to a screen reader. */
+  .capture-word {
+    display: none;
+  }
+}
+
+.capture-opener {
+  flex-shrink: 0;
 }
 
 /* On paper there is no navigation to offer and no bar to sit under: the page is the routed content and

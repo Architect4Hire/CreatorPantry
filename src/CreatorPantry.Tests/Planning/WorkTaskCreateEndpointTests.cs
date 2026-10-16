@@ -23,14 +23,20 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
     /// <summary>
     /// A Monday, 02:00 UTC — which in <see cref="Zone"/> is still the Sunday evening before, and so in the
     /// <em>previous</em> week. Every assertion about the defaulted week turns on that: a server reading its
-    /// own UTC date would answer 2026-10-19, and the workspace's own calendar says 2026-10-12.
+    /// own UTC date would answer 2037-10-19, and the workspace's own calendar says 2037-10-12.
     /// </summary>
-    private static readonly DateTimeOffset Now = new(2026, 10, 19, 2, 0, 0, TimeSpan.Zero);
+    /// <remarks>
+    /// Years ahead of the real date on purpose. The gateway fixture's sign-in cookies are stamped from this fake
+    /// clock and judged by the test client's real one, so a clock that falls behind real time signs nobody in and
+    /// every test here fails at setup. 2037 has 2026's calendar exactly — the same weekdays and the same Chicago
+    /// clock changes — which is why it was chosen rather than any later year.
+    /// </remarks>
+    private static readonly DateTimeOffset Now = new(2037, 10, 19, 2, 0, 0, TimeSpan.Zero);
 
     private const string Zone = "America/Chicago";
 
     /// <summary>The Monday beginning the week <see cref="Now"/> falls in, read in <see cref="Zone"/>.</summary>
-    private const string CurrentWeek = "2026-10-12";
+    private const string CurrentWeek = "2037-10-12";
 
     private TwoWorkspaceGatewayFixture _fixture = null!;
 
@@ -147,13 +153,13 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
 
         // A Thursday, five weeks past the one the creator is in now.
-        var response = await CaptureAsync(client, _fixture.WorkspaceA, new { title = "Proof the dough", scheduledDate = "2026-11-05" });
+        var response = await CaptureAsync(client, _fixture.WorkspaceA, new { title = "Proof the dough", scheduledDate = "2037-11-05" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var task = await BodyOf(response);
 
-        Assert.Equal("2026-11-05", task.GetProperty("scheduledDate").GetString());
-        Assert.Equal("2026-11-02", task.GetProperty("planningWeekStart").GetString());
+        Assert.Equal("2037-11-05", task.GetProperty("scheduledDate").GetString());
+        Assert.Equal("2037-11-02", task.GetProperty("planningWeekStart").GetString());
     }
 
     [Fact]
@@ -171,7 +177,7 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
             title = "Shoot the galette",
             description = "  Morning light, the blue plate  ",
             priority = "High",
-            scheduledDate = "2026-10-16",
+            scheduledDate = "2037-10-16",
             planningWeekStart = CurrentWeek,
             recipeId,
             contentCardId = cardId,
@@ -185,7 +191,7 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
 
         Assert.Equal("Morning light, the blue plate", task.GetProperty("description").GetString());
         Assert.Equal("High", task.GetProperty("priority").GetString());
-        Assert.Equal("2026-10-16", task.GetProperty("scheduledDate").GetString());
+        Assert.Equal("2037-10-16", task.GetProperty("scheduledDate").GetString());
         Assert.Equal(CurrentWeek, task.GetProperty("planningWeekStart").GetString());
 
         var links = task.GetProperty("links");
@@ -194,6 +200,81 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
         Assert.Equal(assetId, links.GetProperty("mediaAssetId").GetGuid());
         Assert.Equal(runId, links.GetProperty("workflowRunId").GetGuid());
         Assert.Equal(stepKey, links.GetProperty("workflowStepKey").GetString());
+    }
+
+    [Fact]
+    public async Task An_estimate_and_labels_may_come_with_a_capture_and_land_in_the_same_write()
+    {
+        var weeknight = await SeedTagAsync(_fixture.WorkspaceA, "Weeknight");
+        var photoDay = await SeedTagAsync(_fixture.WorkspaceA, "Photo day");
+
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var response = await CaptureAsync(client, _fixture.WorkspaceA, new
+        {
+            title = "Shoot the galette",
+            estimateMinutes = 45,
+            labelIds = new[] { weeknight, photoDay },
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var task = await BodyOf(response);
+        Assert.Equal(45, task.GetProperty("estimateMinutes").GetInt32());
+        Assert.Equal(
+            ["Photo day", "Weeknight"],
+            task.GetProperty("labels").EnumerateArray().Select(label => label.GetProperty("name").GetString()!));
+    }
+
+    [Fact]
+    public async Task A_label_this_workspace_does_not_offer_is_refused_the_same_way_whatever_it_is_and_nothing_is_captured()
+    {
+        var retired = await SeedTagAsync(_fixture.WorkspaceA, "Old habit", active: false);
+        var theirs = await SeedTagAsync(_fixture.WorkspaceB, "Theirs");
+
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var messages = new List<string>();
+        foreach (var tag in new[] { retired, theirs, Guid.NewGuid() })
+        {
+            var response = await CaptureAsync(client, _fixture.WorkspaceA, new { title = "Labelled", labelIds = new[] { tag } });
+
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            var problem = await BodyOf(response);
+            Assert.Equal(PlanningErrorCodes.WorkTaskLabelUnprocessable, Code(problem));
+            messages.Add(problem.GetProperty("errors").GetProperty("labelIds").ToString());
+        }
+
+        Assert.Single(messages.Distinct());
+        Assert.Equal(0, await CountAsync(_fixture.WorkspaceA));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1441)]
+    public async Task An_estimate_outside_a_day_is_a_bad_request(int minutes)
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+        var response = await CaptureAsync(client, _fixture.WorkspaceA, new { title = "Estimated", estimateMinutes = minutes });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.True((await BodyOf(response)).GetProperty("errors").TryGetProperty("estimateMinutes", out _));
+    }
+
+    [Fact]
+    public async Task Repeated_or_too_many_labels_are_a_bad_request()
+    {
+        var weeknight = await SeedTagAsync(_fixture.WorkspaceA, "Weeknight");
+
+        using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
+
+        var repeated = await CaptureAsync(client, _fixture.WorkspaceA, new { title = "Labelled", labelIds = new[] { weeknight, weeknight } });
+        Assert.Equal(HttpStatusCode.BadRequest, repeated.StatusCode);
+
+        var tooMany = await CaptureAsync(client, _fixture.WorkspaceA, new
+        {
+            title = "Labelled",
+            labelIds = Enumerable.Range(0, WorkTaskPolicy.MaxLabels + 1).Select(_ => Guid.NewGuid()).ToArray(),
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
     }
 
     [Fact]
@@ -223,8 +304,8 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
         { "priority", new { title = "Shoot it", priority = 0 } },
 
         // A week is named by its first day, and that day is a Monday.
-        { "planningWeekStart", new { title = "Shoot it", planningWeekStart = "2026-10-14" } },
-        { "scheduledDate", new { title = "Shoot it", planningWeekStart = CurrentWeek, scheduledDate = "2026-10-20" } },
+        { "planningWeekStart", new { title = "Shoot it", planningWeekStart = "2037-10-14" } },
+        { "scheduledDate", new { title = "Shoot it", planningWeekStart = CurrentWeek, scheduledDate = "2037-10-20" } },
         { "workflowStepKey", new { title = "Shoot it", workflowStepKey = "shoot" } },
         { "recipeId", new { title = "Shoot it", recipeId = "00000000-0000-0000-0000-000000000000" } },
     };
@@ -532,6 +613,23 @@ public sealed class WorkTaskCreateEndpointTests : IAsyncLifetime
 
         return await work(scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>());
     }
+
+    private Task<Guid> SeedTagAsync(SeededWorkspace workspace, string name, bool active = true) =>
+        InWorkspaceAsync(workspace, async db =>
+        {
+            var tag = new CreatorPantry.Domain.Modules.Recipes.Data.Entities.WorkspaceTag
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                NormalizedName = name.ToLowerInvariant(),
+                IsActive = active,
+                CreatedAt = Now,
+            };
+            db.WorkspaceTags.Add(tag);
+            await db.SaveChangesAsync(Ct);
+
+            return tag.Id;
+        });
 
     private async Task<Guid> CreateRecipeAsync(SeededWorkspace workspace)
     {

@@ -1,0 +1,208 @@
+<cp-page-head [heading]="pageTitle" [lede]="lede()">
+  @if (canAdd()) {
+    <button cpPageHeadActions cpButton type="button" variant="primary" aria-haspopup="dialog" (click)="addTask($any($event.currentTarget))">
+      <span aria-hidden="true">+</span> Add a task
+    </button>
+  }
+</cp-page-head>
+
+@if (week(); as shown) {
+  <dl cpFacts layout="inline" class="capacity">
+    <div cpFact label="Planned this week">{{ totalsWords(shown.planned) }}</div>
+  </dl>
+}
+
+<cp-toolbar ariaLabel="Week, filters and view" [loading]="state().status === 'loading'" [disabled]="state().status === 'no_time_zone'">
+  <cp-search-field cpToolbarSearch label="Search this week’s tasks">
+    <input type="search" name="q" placeholder="Search tasks" [value]="draftQuery()" (input)="setQuery($event)" />
+  </cp-search-field>
+
+  <div cpToolbarFilters cpChipGroup label="Priority">
+    <button cpChip type="button" [pressed]="filters().highOnly" (click)="toggleHighOnly()">High priority</button>
+  </div>
+
+  <cp-select-field cpToolbarFilters label="Filter by label">
+    <select name="label" [disabled]="labelsState().status !== 'found'" (change)="setLabel($event)">
+      <option value="" [selected]="filters().labelId === null">Any label</option>
+      @if (labelsState(); as labels) {
+        @if (labels.status === 'found') {
+          @for (label of labels.labels; track label.id) {
+            <option [value]="label.id" [selected]="label.id === filters().labelId">{{ label.name }}</option>
+          }
+        }
+      }
+    </select>
+  </cp-select-field>
+
+  <div cpToolbarFilters cpChipGroup label="View">
+    <button cpChip type="button" [pressed]="view() === 'compact'" (click)="setView('compact')">Compact</button>
+    <button cpChip type="button" [pressed]="view() === 'days'" (click)="setView('days')">Days</button>
+  </div>
+
+  @if (weekLinks(); as links) {
+    <!-- One projected node, so all three reach the actions slot. -->
+    <ng-container cpToolbarActions>
+      <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: links.previous }" queryParamsHandling="merge">
+        <span aria-hidden="true">‹</span> Previous week
+      </a>
+      @if (!links.isCurrent) {
+        <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: null }" queryParamsHandling="merge">
+          This week
+        </a>
+      }
+      <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: links.next }" queryParamsHandling="merge">
+        Next week <span aria-hidden="true">›</span>
+      </a>
+    </ng-container>
+  }
+  @if (filtered()) {
+    <button cpToolbarActions cpButton variant="text" size="sm" type="button" (click)="clearFilters()">Clear filters</button>
+  }
+</cp-toolbar>
+
+@if (labelsState().status === 'unavailable') {
+  <cp-notice class="degraded" tone="warning" role="status">
+    Your labels couldn’t be loaded, so the label filter is off for now. Your tasks are still shown.
+    <button cpButton type="button" variant="secondary" size="sm" (click)="retryLabels()">Try again</button>
+  </cp-notice>
+}
+
+<!-- Always present, so what the page just did is announced reliably. -->
+<!-- Both always present, so each is announced when it gets words: a kept change politely, a refusal at once. -->
+<cp-notice class="outcome" role="status" [quiet]="message() === ''" [tone]="messageTone()">
+  {{ message() }}
+  @if (undo()) {
+    <button cpButton type="button" variant="text" size="sm" (click)="runUndo()">Undo</button>
+  }
+</cp-notice>
+<cp-notice class="outcome-alert" role="alert" [quiet]="alert() === ''" tone="error">{{ alert() }}</cp-notice>
+
+<cp-list-shell heading="Your week" [state]="listState()" [errorMessage]="errorMessage()">
+  <div cpListShellActions>
+    @if (listState() === 'error') {
+      <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
+    }
+  </div>
+
+  <div cpListShellEmpty>
+    @if (state().status === 'no_time_zone') {
+      <cp-empty-state
+        title="Your week needs a time zone"
+        description="A week starts and ends at midnight where your workspace is, so My Week needs the workspace’s time zone before it can show anything. Nothing is guessed in the meantime."
+        icon="◷"
+      >
+        <div cpEmptyStateActions>
+          <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Set the time zone in Brand settings</a>
+        </div>
+      </cp-empty-state>
+    } @else if (filtered() && week() && !weekIsEmptyNow()) {
+      <cp-empty-state
+        title="No tasks match these filters"
+        description="Try other words or another label, or clear the filters to see the whole week."
+        variant="no-results"
+        icon="⌕"
+      >
+        <div cpEmptyStateActions>
+          <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      </cp-empty-state>
+    } @else {
+      <cp-empty-state
+        title="Nothing planned for this week"
+        [description]="canAct() ? 'Add a task from the top of the page, or look at another week.' : 'Look at another week from the toolbar.'"
+        icon="▥"
+      />
+    }
+  </div>
+
+  <!-- At a narrow width the columns are stacked; this jumps between them. -->
+  <cp-anchor-nav class="jumps" ariaLabel="Jump to a column" [items]="jumps()" (activated)="jumpTo($event)" />
+
+  @if (canAct()) {
+    <p class="cp-muted how">
+      Drag a task to move it, or use its Move button to choose a list and a place from the keyboard. Finished tasks stay
+      in Done until you reopen them, and nothing is moved into From earlier weeks or No week yet.
+    </p>
+  }
+
+  <div cpBoard cdkDropListGroup>
+    @for (column of columns(); track column.id) {
+      <cp-board-column
+        [id]="'my-week-column-' + column.id"
+        [heading]="column.heading"
+        [count]="column.count"
+        [countLabel]="cardNouns"
+        [headingLevel]="3"
+        [busy]="busyIn(column)"
+      >
+        @for (section of column.sections; track section.id) {
+          @if (section.heading) {
+            <section class="section" [attr.aria-labelledby]="'my-week-section-' + section.id">
+              <div class="section-head">
+                <h4 [id]="'my-week-section-' + section.id">
+                  {{ section.heading }}
+                  @if (section.marker) {
+                    <span class="marker">· {{ section.marker }}</span>
+                  }
+                </h4>
+                <p class="section-totals">{{ totalsWords(section.totals) }}</p>
+              </div>
+              <ng-container *ngTemplateOutlet="list; context: { $implicit: section, level: 5, name: section.heading }" />
+            </section>
+          } @else {
+            <ng-container *ngTemplateOutlet="list; context: { $implicit: section, level: 4, name: column.heading }" />
+          }
+        }
+      </cp-board-column>
+    }
+  </div>
+
+  <ng-template #list let-section let-level="level" let-name="name">
+    @if (section.tasks.length === 0) {
+      <p class="cp-muted empty">{{ section.empty }}</p>
+    }
+    <!-- A list even when empty: it is what a task is dropped onto. -->
+    <ul
+      cdkDropList
+      role="list"
+      class="tasks"
+      [attr.data-section]="section.id"
+      [attr.aria-label]="name + ' tasks'"
+      [cdkDropListData]="section.id"
+      [cdkDropListDisabled]="!canAct() || locked()"
+      [cdkDropListEnterPredicate]="canDrop"
+      (cdkDropListDropped)="onDrop($event)"
+    >
+      @for (task of section.tasks; track task.id) {
+        <li
+          cdkDrag
+          [cdkDragData]="task"
+          [cdkDragDisabled]="task.status === 'Done' || !canAct() || locked()"
+          [attr.data-task-id]="task.id"
+        >
+          <!-- In hand and in place, just the title: a clone of the card would put a second set of its buttons in front
+               of assistive technology while it is dragged. -->
+          <div *cdkDragPreview class="drag-preview" aria-hidden="true">{{ task.title }}</div>
+          <div *cdkDragPlaceholder class="drag-placeholder" aria-hidden="true">{{ task.title }}</div>
+          <cp-my-week-card
+            [task]="task"
+            [workspaceSlug]="workspaceSlug()"
+            [today]="week()!.today"
+            [headingLevel]="level"
+            [canAct]="canAct()"
+            [busy]="busyTaskId() === task.id"
+            [locked]="locked()"
+            (done)="markDone(task)"
+            (reopen)="reopen(task)"
+            (moveRequested)="openMove(task, $event)"
+          />
+        </li>
+      }
+    </ul>
+    @if (shown(section); as words) {
+      <p class="cp-muted shown">{{ words }}</p>
+    }
+  </ng-template>
+</cp-list-shell>
+
+<cp-my-week-move-dialog [task]="movingTask()" [week]="week()" (moved)="onMoveChosen($event)" (closed)="closeMove()" />

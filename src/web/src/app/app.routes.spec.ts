@@ -7,6 +7,8 @@ import { routes } from './app.routes';
 import { AppShellComponent } from './shell/app-shell.component';
 import { PlaceholderSectionComponent } from './shell/placeholder-section.component';
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
+import { MyDayComponent } from './features/my-day/my-day.component';
+import { MyWeekComponent } from './features/my-week/my-week.component';
 import { ImageStudioComponent } from './features/image-studio/image-studio.component';
 import { SocialStudioComponent } from './features/social-studio/social-studio.component';
 import { socialStudioCanDeactivateGuard } from './features/social-studio/social-studio.guard';
@@ -135,10 +137,22 @@ describe('app routes', () => {
         route.path !== 'prompt-library' &&
         route.path !== 'content-board' &&
         route.path !== 'dashboard' &&
+        route.path !== 'my-day' &&
+        route.path !== 'my-week' &&
         route.path !== 'settings',
     )) {
       expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
     }
+
+    // My Day is a page of its own now (13A.32), one column at the reading width.
+    const myDay = workspaceRoute.children!.find((route) => route.path === 'my-day')!;
+    expect(await myDay.loadComponent!()).toBe(MyDayComponent);
+    expect(myDay.data).toEqual({ title: 'My Day', pageWidth: 'reading' });
+
+    // My Week is a board (13A.33), so it asks for the wide frame.
+    const myWeek = workspaceRoute.children!.find((route) => route.path === 'my-week')!;
+    expect(await myWeek.loadComponent!()).toBe(MyWeekComponent);
+    expect(myWeek.data).toEqual({ title: 'My Week', pageWidth: 'wide' });
 
     // 'settings' is the workspace's own settings page at its index, plus the pages it links to (AF.7.3), so
     // the nav item stays active on both. Only the themed days are guarded: the settings page saves one choice

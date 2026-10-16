@@ -44,6 +44,9 @@ describe('publishing time', () => {
 
     expect(instant).not.toBeNull();
     expect(['2026-11-01T06:30:00.000Z', '2026-11-01T07:30:00.000Z']).toContain(new Date(instant!).toISOString());
+
+    // The earlier of the two, as the server resolves it, so both sides schedule the same instant.
+    expect(new Date(instant!).toISOString()).toBe('2026-11-01T06:30:00.000Z');
   });
 
   it('refuses what it cannot read rather than guessing', () => {

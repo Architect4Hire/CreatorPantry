@@ -23,7 +23,7 @@ namespace CreatorPantry.Tests.Planning;
 /// </remarks>
 public sealed class WorkTaskModelShapeTests : IDisposable
 {
-    private static readonly Type[] Entities = [typeof(WorkTask), typeof(WorkTaskLabel)];
+    private static readonly Type[] Entities = [typeof(WorkTask), typeof(WorkTaskLabel), typeof(WorkTaskTemplate), typeof(WorkTaskFocus)];
 
     private readonly RecipeAggregateFixture _fixture = new();
 
@@ -61,9 +61,21 @@ public sealed class WorkTaskModelShapeTests : IDisposable
     {
         var model = Model();
 
-        var onlyEdge = Assert.Single(model.FindEntityType(typeof(WorkTask))!.GetForeignKeys());
-        Assert.Equal(typeof(Workspace), onlyEdge.PrincipalEntityType.ClrType);
+        // Two edges: the workspace, which cascades, and the routine it came from (13A.30), this module's own record,
+        // which is workspace-paired and restricted — a second cascade path is what SQL Server refuses.
+        var taskKeys = model.FindEntityType(typeof(WorkTask))!.GetForeignKeys().ToList();
+        Assert.Equal(2, taskKeys.Count);
+        var onlyEdge = Assert.Single(taskKeys, key => key.PrincipalEntityType.ClrType == typeof(Workspace));
         Assert.Equal(DeleteBehavior.Cascade, onlyEdge.DeleteBehavior);
+        var template = Assert.Single(taskKeys, key => key.PrincipalEntityType.ClrType == typeof(WorkTaskTemplate));
+        Assert.Equal(DeleteBehavior.Restrict, template.DeleteBehavior);
+        Assert.Equal(
+            [nameof(IWorkspaceOwned.WorkspaceId), nameof(WorkTask.WorkTaskTemplateId)],
+            template.Properties.Select(property => property.Name));
+
+        var templateEdge = Assert.Single(model.FindEntityType(typeof(WorkTaskTemplate))!.GetForeignKeys());
+        Assert.Equal(typeof(Workspace), templateEdge.PrincipalEntityType.ClrType);
+        Assert.Equal(DeleteBehavior.Cascade, templateEdge.DeleteBehavior);
 
         var labelKeys = model.FindEntityType(typeof(WorkTaskLabel))!.GetForeignKeys().ToList();
         Assert.Equal(2, labelKeys.Count);
@@ -85,7 +97,6 @@ public sealed class WorkTaskModelShapeTests : IDisposable
     [InlineData(nameof(WorkTask.ContentCardId))]
     [InlineData(nameof(WorkTask.MediaAssetId))]
     [InlineData(nameof(WorkTask.WorkflowRunId))]
-    [InlineData(nameof(WorkTask.WorkTaskTemplateId))]
     public void A_link_is_a_nullable_pointer_and_never_a_foreign_key(string property)
     {
         // A key here would let a to-do cascade into a recipe or stand in the way of archiving one. The linked
@@ -108,7 +119,12 @@ public sealed class WorkTaskModelShapeTests : IDisposable
             .Order()
             .ToList();
 
-        Assert.Equal(["WorkTask.Description", "WorkTask.Title", "WorkTask.WorkflowStepKey"], strings);
+        Assert.Equal(
+            [
+                "WorkTask.Description", "WorkTask.Title", "WorkTask.WorkflowStepKey",
+                "WorkTaskTemplate.Description", "WorkTaskTemplate.TimeZoneId", "WorkTaskTemplate.Title",
+            ],
+            strings);
     }
 
     [Fact]
@@ -120,7 +136,7 @@ public sealed class WorkTaskModelShapeTests : IDisposable
                 .Select(property => $"{entity.Name}.{property.Name}"))
             .ToList();
 
-        Assert.Equal(["WorkTask.RowVersion"], bytes);
+        Assert.Equal(["WorkTask.RowVersion", "WorkTaskTemplate.RowVersion"], bytes);
         Assert.True(Model().FindEntityType(typeof(WorkTask))!.FindProperty(nameof(WorkTask.RowVersion))!.IsConcurrencyToken);
     }
 
@@ -179,6 +195,8 @@ public sealed class WorkTaskModelShapeTests : IDisposable
         "CK_WorkTasks_Estimate_Range",
         "CK_WorkTasks_Recurrence_Whole",
         "CK_WorkTasks_WorkflowStep_WithRun",
+        "CK_WorkTasks_Origin_Range",
+        "CK_WorkTasks_WorkflowOrigin_WithStep",
     ];
 
     [Theory]
@@ -196,6 +214,7 @@ public sealed class WorkTaskModelShapeTests : IDisposable
     [InlineData(typeof(WorkTask), "IX_WorkTasks_Workspace_Owner_Status", false, null)]
     [InlineData(typeof(WorkTask), "IX_WorkTasks_Workspace_Run_Step", false, "WorkflowRunId IS NOT NULL")]
     [InlineData(typeof(WorkTask), "UX_WorkTasks_Workspace_Template_Occurrence", true, "WorkTaskTemplateId IS NOT NULL")]
+    [InlineData(typeof(WorkTask), "UX_WorkTasks_Workspace_Owner_WorkflowStep", true, "Origin = 2")]
     [InlineData(typeof(WorkTaskLabel), "IX_WorkTaskLabels_Workspace_Tag_Task", false, null)]
     public void Declares_its_indexes_workspace_first(Type entity, string name, bool unique, string? filter)
     {

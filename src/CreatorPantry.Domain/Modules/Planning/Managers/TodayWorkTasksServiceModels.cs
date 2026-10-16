@@ -70,4 +70,14 @@ public sealed record TodayWorkTasksServiceModel
     /// Unplanned backlog worth a look, when the caller asked for suggestions. Empty when they did not.
     /// </summary>
     public required IReadOnlyList<SuggestedWorkTaskServiceModel> Suggested { get; init; }
+
+    /// <summary>
+    /// The tasks the caller chose as today's top three (13A.32), by id and in their order. Empty until they choose.
+    /// </summary>
+    /// <remarks>
+    /// Ids, never copies: each task is in exactly one group above, and this says which of them to put first. Only a
+    /// task shown in a group is named, so a chosen task since handed to someone else, or finished on another day,
+    /// drops out rather than pointing at nothing.
+    /// </remarks>
+    public required IReadOnlyList<Guid> TopThree { get; init; }
 }

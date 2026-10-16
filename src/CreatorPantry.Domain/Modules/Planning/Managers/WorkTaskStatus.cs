@@ -31,6 +31,21 @@ public enum WorkTaskStatus
     Done = 4,
 }
 
+/// <summary>How a task came to exist (13A.29). It follows the link it is about.</summary>
+/// <remarks>
+/// <see cref="WorkflowStep"/> marks the one task a person added to their plan from a workflow step, and is what
+/// the store's one-per-person-per-step index is filtered on. A task edited to point at another run or step, or
+/// at none, is no longer that step's task and becomes <see cref="Capture"/>. Append only; never renumber.
+/// </remarks>
+public enum WorkTaskOrigin
+{
+    /// <summary>Captured or written by hand — every task before 13A.29, and any that is not a step's.</summary>
+    Capture = 1,
+
+    /// <summary>Added from a workflow step with "Add to my plan".</summary>
+    WorkflowStep = 2,
+}
+
 /// <summary>How much a task matters next to the person's others. A sort and an emphasis, never a deadline.</summary>
 /// <remarks>Append only; never renumber.</remarks>
 public enum WorkTaskPriority

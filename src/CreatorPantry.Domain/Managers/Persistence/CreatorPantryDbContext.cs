@@ -718,6 +718,20 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// <remarks>A task carrying one of the workspace's tags, the vocabulary recipes and assets share.</remarks>
     public DbSet<WorkTaskLabel> WorkTaskLabels => Set<WorkTaskLabel>();
 
+    /// <inheritdoc cref="WorkTasks"/>
+    /// <remarks>
+    /// One person's routine, which makes a task on each day it comes round (13A.30). It makes tasks and never
+    /// edits one; paused or ended, never deleted.
+    /// </remarks>
+    public DbSet<WorkTaskTemplate> WorkTaskTemplates => Set<WorkTaskTemplate>();
+
+    /// <inheritdoc cref="WorkTasks"/>
+    /// <remarks>
+    /// One of the tasks a person chose as their top three for one day (13A.32). An emphasis, not a state of the
+    /// task: choosing changes nothing about it.
+    /// </remarks>
+    public DbSet<WorkTaskFocus> WorkTaskFocuses => Set<WorkTaskFocus>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);

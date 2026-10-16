@@ -27,10 +27,16 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
     /// Midday in <see cref="Zone"/> on an ordinary autumn day, so nothing here turns on a boundary unless
     /// the test moves the clock to one.
     /// </summary>
-    private static readonly DateTimeOffset Midday = new(2026, 10, 18, 18, 0, 0, TimeSpan.Zero);
+    /// <remarks>
+    /// Years ahead of the real date on purpose. The gateway fixture's sign-in cookies are stamped from this fake
+    /// clock and judged by the test client's real one, so a clock that falls behind real time signs nobody in and
+    /// every test here fails at setup. 2037 has 2026's calendar exactly — the same weekdays and the same Chicago
+    /// clock changes — which is why it was chosen rather than any later year.
+    /// </remarks>
+    private static readonly DateTimeOffset Midday = new(2037, 10, 18, 18, 0, 0, TimeSpan.Zero);
 
     /// <summary>The local date <see cref="Midday"/> falls on. Deliberately not the UTC date at every hour.</summary>
-    private const string Today = "2026-10-18";
+    private const string Today = "2037-10-18";
 
     private readonly FakeTimeProvider _clock = new(Midday);
     private TwoWorkspaceGatewayFixture _fixture = null!;
@@ -69,10 +75,10 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
 
         await SeedAsync(_fixture.WorkspaceA,
             // Started and already late. Overdue outranks in progress: it is the one that presses.
-            Task_("Late and started", mine, WorkTaskStatus.InProgress, due: new DateOnly(2026, 10, 16)),
+            Task_("Late and started", mine, WorkTaskStatus.InProgress, due: new DateOnly(2037, 10, 16)),
             Task_("Just started", mine, WorkTaskStatus.InProgress),
             Task_("Held up", mine, WorkTaskStatus.Waiting),
-            Task_("Planned for today", mine, WorkTaskStatus.Backlog, scheduled: new DateOnly(2026, 10, 18)),
+            Task_("Planned for today", mine, WorkTaskStatus.Backlog, scheduled: new DateOnly(2037, 10, 18)),
             Done_("Finished this morning", mine, Midday.AddHours(-3)),
 
             // Neither of these belongs to today at all.
@@ -105,8 +111,8 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
 
         // 02:00 UTC on the 19th is still the evening of the 18th in Chicago. A server reading its own date
-        // would answer 2026-10-19.
-        _clock.SetUtcNow(new DateTimeOffset(2026, 10, 19, 2, 0, 0, TimeSpan.Zero));
+        // would answer 2037-10-19.
+        _clock.SetUtcNow(new DateTimeOffset(2037, 10, 19, 2, 0, 0, TimeSpan.Zero));
 
         var day = await BodyOf(await TodayAsync(client, _fixture.WorkspaceA));
 
@@ -135,7 +141,7 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
         var mine = await MembershipAsync(_fixture.WorkspaceA, WorkspaceRole.Owner);
 
         // Chicago is UTC-5 on this date, so the local day is 05:00Z to 05:00Z.
-        var midnight = new DateTimeOffset(2026, 10, 18, 5, 0, 0, TimeSpan.Zero);
+        var midnight = new DateTimeOffset(2037, 10, 18, 5, 0, 0, TimeSpan.Zero);
 
         await SeedAsync(_fixture.WorkspaceA,
             Done_("On the stroke of midnight", mine, midnight),
@@ -155,20 +161,20 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
     {
         var mine = await MembershipAsync(_fixture.WorkspaceA, WorkspaceRole.Owner);
 
-        // 1 November 2026: Chicago leaves CDT. The local day runs 05:00Z to 06:00Z the next day, and the
+        // 1 November 2037: Chicago leaves CDT. The local day runs 05:00Z to 06:00Z the next day, and the
         // local hour 01:00-02:00 happens twice.
-        _clock.SetUtcNow(new DateTimeOffset(2026, 11, 1, 18, 0, 0, TimeSpan.Zero));
+        _clock.SetUtcNow(new DateTimeOffset(2037, 11, 1, 18, 0, 0, TimeSpan.Zero));
 
         await SeedAsync(_fixture.WorkspaceA,
-            Done_("Before the clocks changed", mine, new DateTimeOffset(2026, 11, 1, 5, 30, 0, TimeSpan.Zero)),
-            Done_("The same hour again", mine, new DateTimeOffset(2026, 11, 1, 6, 30, 0, TimeSpan.Zero)),
-            Done_("The twenty-fifth hour", mine, new DateTimeOffset(2026, 11, 2, 5, 59, 0, TimeSpan.Zero)),
-            Done_("Into the next day", mine, new DateTimeOffset(2026, 11, 2, 6, 0, 0, TimeSpan.Zero)));
+            Done_("Before the clocks changed", mine, new DateTimeOffset(2037, 11, 1, 5, 30, 0, TimeSpan.Zero)),
+            Done_("The same hour again", mine, new DateTimeOffset(2037, 11, 1, 6, 30, 0, TimeSpan.Zero)),
+            Done_("The twenty-fifth hour", mine, new DateTimeOffset(2037, 11, 2, 5, 59, 0, TimeSpan.Zero)),
+            Done_("Into the next day", mine, new DateTimeOffset(2037, 11, 2, 6, 0, 0, TimeSpan.Zero)));
 
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
         var day = await BodyOf(await TodayAsync(client, _fixture.WorkspaceA));
 
-        Assert.Equal("2026-11-01", day.GetProperty("date").GetString());
+        Assert.Equal("2037-11-01", day.GetProperty("date").GetString());
         Assert.Equal(
             ["The twenty-fifth hour", "The same hour again", "Before the clocks changed"],
             Titles(day, "completedToday"));
@@ -179,20 +185,20 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
     {
         var mine = await MembershipAsync(_fixture.WorkspaceA, WorkspaceRole.Owner);
 
-        // 14 March 2027: Chicago enters CDT. The local day runs 06:00Z to 05:00Z the next day. The next such
+        // 14 March 2038: Chicago enters CDT. The local day runs 06:00Z to 05:00Z the next day. The next such
         // day after the fixture's clock, because a fake clock is not allowed to run backwards.
-        _clock.SetUtcNow(new DateTimeOffset(2027, 3, 14, 18, 0, 0, TimeSpan.Zero));
+        _clock.SetUtcNow(new DateTimeOffset(2038, 3, 14, 18, 0, 0, TimeSpan.Zero));
 
         await SeedAsync(_fixture.WorkspaceA,
-            Done_("The first minute", mine, new DateTimeOffset(2027, 3, 14, 6, 0, 0, TimeSpan.Zero)),
-            Done_("The last minute", mine, new DateTimeOffset(2027, 3, 15, 4, 59, 0, TimeSpan.Zero)),
-            Done_("Already tomorrow", mine, new DateTimeOffset(2027, 3, 15, 5, 0, 0, TimeSpan.Zero)),
-            Done_("Still yesterday", mine, new DateTimeOffset(2027, 3, 14, 5, 59, 0, TimeSpan.Zero)));
+            Done_("The first minute", mine, new DateTimeOffset(2038, 3, 14, 6, 0, 0, TimeSpan.Zero)),
+            Done_("The last minute", mine, new DateTimeOffset(2038, 3, 15, 4, 59, 0, TimeSpan.Zero)),
+            Done_("Already tomorrow", mine, new DateTimeOffset(2038, 3, 15, 5, 0, 0, TimeSpan.Zero)),
+            Done_("Still yesterday", mine, new DateTimeOffset(2038, 3, 14, 5, 59, 0, TimeSpan.Zero)));
 
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
         var day = await BodyOf(await TodayAsync(client, _fixture.WorkspaceA));
 
-        Assert.Equal("2027-03-14", day.GetProperty("date").GetString());
+        Assert.Equal("2038-03-14", day.GetProperty("date").GetString());
         Assert.Equal(["The last minute", "The first minute"], Titles(day, "completedToday"));
     }
 
@@ -202,7 +208,7 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
     public async Task Overdue_reads_soonest_due_first_and_then_by_what_presses()
     {
         var mine = await MembershipAsync(_fixture.WorkspaceA, WorkspaceRole.Owner);
-        var longAgo = new DateOnly(2026, 10, 10);
+        var longAgo = new DateOnly(2037, 10, 10);
 
         await SeedAsync(_fixture.WorkspaceA,
             Task_("Second", mine, WorkTaskStatus.Backlog, due: longAgo.AddDays(1)),
@@ -220,7 +226,7 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
     public async Task A_group_past_its_cap_says_so_and_returns_the_cap()
     {
         var mine = await MembershipAsync(_fixture.WorkspaceA, WorkspaceRole.Owner);
-        var today = new DateOnly(2026, 10, 18);
+        var today = new DateOnly(2037, 10, 18);
 
         await SeedAsync(
             _fixture.WorkspaceA,
@@ -246,13 +252,13 @@ public sealed class WorkTaskTodayEndpointTests : IAsyncLifetime
 
         await SeedAsync(_fixture.WorkspaceA,
             Task_("Urgent and unplanned", mine, WorkTaskStatus.Backlog, priority: WorkTaskPriority.High),
-            Task_("Due soon and unplanned", mine, WorkTaskStatus.Backlog, due: new DateOnly(2026, 10, 20)),
+            Task_("Due soon and unplanned", mine, WorkTaskStatus.Backlog, due: new DateOnly(2037, 10, 20)),
             Task_("Ordinary one", mine, WorkTaskStatus.Backlog),
             Task_("Ordinary two", mine, WorkTaskStatus.Backlog),
             Task_("Ordinary three", mine, WorkTaskStatus.Backlog),
 
             // Already in a group above, so never offered.
-            Task_("Planned for today", mine, WorkTaskStatus.Backlog, scheduled: new DateOnly(2026, 10, 18)));
+            Task_("Planned for today", mine, WorkTaskStatus.Backlog, scheduled: new DateOnly(2037, 10, 18)));
 
         using var client = await SignInAsync(_fixture.WorkspaceA.OwnerEmail);
 

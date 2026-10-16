@@ -168,6 +168,11 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
         CancellationToken cancellationToken) =>
         dataLayer.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
 
+    public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        dataLayer.FindActiveMemberRolesAsync(membershipIds, cancellationToken);
+
     private static string Truncate(string slug) =>
         slug.Length > WorkspacePolicy.SlugMaxLength ? slug[..WorkspacePolicy.SlugMaxLength].Trim('-') : slug;
 

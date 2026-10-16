@@ -79,6 +79,10 @@ internal sealed class FakeWorkspaceDataLayer : IWorkspaceDataLayer
     /// <summary>The display name per membership this fake will answer with.</summary>
     public Dictionary<Guid, string> MemberDisplayNames { get; } = [];
 
+    public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Not exercised here.");
+
     public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
         IReadOnlyCollection<Guid> membershipIds,
         CancellationToken cancellationToken) =>

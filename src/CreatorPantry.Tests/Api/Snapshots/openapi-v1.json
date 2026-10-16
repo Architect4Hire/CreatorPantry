@@ -24218,7 +24218,7 @@
           "WorkTasks"
         ],
         "summary": "Captures one piece of the caller\u0027s own work in the workspace named by the route.",
-        "description": "Contributor and above; a Viewer is refused with \u0060403\u0060. **\u0060title\u0060 is the\nonly required field** \u2014 everything else is optional, and everything the request does not carry the\nserver decides: the owner is the caller, the assignee is the owner, the status is always \u0060Backlog\u0060,\nand the task goes to the bottom of its list. The place is not published; the order a list arrives in\nis the order.\n\n**A capture lands in the week you are planning in.** With no \u0060planningWeekStart\u0060, the week holding\n\u0060scheduledDate\u0060 is used; with neither, the week holding today in the workspace\u0027s scheduling zone. A\nweek is named by its first day and **starts on a Monday**; any other day answers \u0060400\u0060. A day outside\nits week answers \u0060400\u0060 too. A workspace that has set no scheduling zone gets a task in no week rather\nthan one guessed for it \u2014 capture never fails for want of a setting.\n\n**A due date, an estimate and labels are not part of capturing.** Neither is a status, an assignee or\na recurrence: those are the server\u0027s or a later edit\u0027s, and sending one is ignored rather than\nhonoured.\n\n**Every linked record must be this workspace\u0027s own.** \u0060recipeId\u0060, \u0060contentCardId\u0060, \u0060mediaAssetId\u0060 and\n\u0060workflowRunId\u0060 are each checked through the record\u0027s owner before anything is written, and\n\u0060workflowStepKey\u0060 must be a step of the run beside it. One that cannot be linked answers\n\u0060422 planning.work_task.link.unprocessable\u0060 naming the field \u2014 **the same answer whether the record\nnever existed, can no longer be used, or belongs to another workspace**, so a task cannot be used to\nask what a neighbour owns. A step key with no run is a \u0060400\u0060.\n\n**Nothing is half-written.** \u0060409 planning.work_task.conflict\u0060 means the write did not happen and the\nrequest is safe to send again as it stands.\n\nWith an \u0060Idempotency-Key\u0060, a repeat of the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and creates nothing more; the same key with a different body is refused.\nWithout a key, two identical requests are two tasks.\n\nAnswers \u0060201\u0060 with the task. **There is no \u0060Location\u0060**: a task has no read route of its own yet.\nThe response is \u0060no-store\u0060 \u2014 it is one person\u0027s private working list.",
+        "description": "Contributor and above; a Viewer is refused with \u0060403\u0060. **\u0060title\u0060 is the\nonly required field** \u2014 everything else is optional, and everything the request does not carry the\nserver decides: the owner is the caller, the assignee is the owner, the status is always \u0060Backlog\u0060,\nand the task goes to the bottom of its list. The place is not published; the order a list arrives in\nis the order.\n\n**A capture lands in the week you are planning in.** With no \u0060planningWeekStart\u0060, the week holding\n\u0060scheduledDate\u0060 is used; with neither, the week holding today in the workspace\u0027s scheduling zone. A\nweek is named by its first day and **starts on a Monday**; any other day answers \u0060400\u0060. A day outside\nits week answers \u0060400\u0060 too. A workspace that has set no scheduling zone gets a task in no week rather\nthan one guessed for it \u2014 capture never fails for want of a setting.\n\n**An estimate and labels may come with a capture** (13A.31): \u0060estimateMinutes\u0060 from 1 to 1440, and\n\u0060labelIds\u0060 \u2014 at most 25, each named once \u2014 which must each be an active tag of this workspace, or the\nanswer is \u0060422 planning.work_task.label.unprocessable\u0060, the same whether a tag never existed, was\nretired or is another workspace\u0027s. The task and its labels are one write. **A due date, a status, an\nassignee and a recurrence are not part of capturing**: those are the server\u0027s or a later edit\u0027s, and\nsending one is ignored rather than honoured.\n\n**Every linked record must be this workspace\u0027s own.** \u0060recipeId\u0060, \u0060contentCardId\u0060, \u0060mediaAssetId\u0060 and\n\u0060workflowRunId\u0060 are each checked through the record\u0027s owner before anything is written, and\n\u0060workflowStepKey\u0060 must be a step of the run beside it. One that cannot be linked answers\n\u0060422 planning.work_task.link.unprocessable\u0060 naming the field \u2014 **the same answer whether the record\nnever existed, can no longer be used, or belongs to another workspace**, so a task cannot be used to\nask what a neighbour owns. A step key with no run is a \u0060400\u0060.\n\n**Nothing is half-written.** \u0060409 planning.work_task.conflict\u0060 means the write did not happen and the\nrequest is safe to send again as it stands.\n\nWith an \u0060Idempotency-Key\u0060, a repeat of the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and creates nothing more; the same key with a different body is refused.\nWithout a key, two identical requests are two tasks.\n\nAnswers \u0060201\u0060 with the task. **There is no \u0060Location\u0060**: a task has no read route of its own yet.\nThe response is \u0060no-store\u0060 \u2014 it is one person\u0027s private working list.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -24340,13 +24340,987 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/{taskId}": {
+      "patch": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Edits one of the caller\u0027s own tasks. Only what the patch mentions changes.",
+        "description": "Contributor and above, and only **the task\u0027s owner or the person doing it**: anyone else\u0027s task, an\nunknown one and another workspace\u0027s all answer the same \u0060404 planning.work_task.not_found\u0060.\n\n**A field left out is untouched; a field sent with a value is set; a field sent as \u0060null\u0060 is cleared.**\n\u0060title\u0060, \u0060priority\u0060 and \u0060assigneeMembershipId\u0060 can be changed but not cleared. A \u0060description\u0060 sent\nblank is cleared. \u0060labelIds\u0060 is the whole set and replaces what the task carries; \u0060null\u0060 or \u0060[]\u0060\nclears it.\n\n**An edit does not move, reorder or complete a task.** Sending \u0060status\u0060 or \u0060position\u0060 answers \u0060400\u0060\nnaming it.\n\n**Days and weeks.** A \u0060scheduledDate\u0060 sent alone brings its week with it. Clearing the day keeps the\nweek, so the task joins that week\u0027s backlog. **A day is never dropped as a side effect**: changing\n\u0060planningWeekStart\u0060 while the task keeps a day outside the new week answers \u0060400\u0060 unless\n\u0060scheduledDate\u0060 is sent in the same patch \u2014 a day in the new week, or \u0060null\u0060.\n\n**Links.** \u0060recipeId\u0060, \u0060contentCardId\u0060, \u0060mediaAssetId\u0060, \u0060workflowRunId\u0060 and \u0060workflowStepKey\u0060 can each\nbe set, replaced or cleared, and none is unlinked unless its field is sent as \u0060null\u0060. Changing the run\nwhile the task names one of its steps answers \u0060400\u0060 unless \u0060workflowStepKey\u0060 is sent too. A newly\nlinked record is checked exactly as on capture, and one that cannot be linked answers\n\u0060422 planning.work_task.link.unprocessable\u0060 \u2014 the same whether it never existed, can no longer be used,\nor belongs to another workspace. A record the task already points at is not checked again. An edit\nnever changes a linked record.\n\n**Labels** are the workspace\u0027s own tags. A newly added one must be an active tag of this workspace, or\nthe answer is \u0060422 planning.work_task.label.unprocessable\u0060; one the task already carries stays after it\nis retired.\n\n**Handing a task on.** The owner may hand it to any active member who can keep work \u2014 Contributor and\nabove \u2014 themselves included. The person doing it may hand it back to the owner and to nobody else.\nAnything else answers \u0060422 planning.work_task.assignee.unprocessable\u0060. A task handed on, or planned for\nanother day, goes to the bottom of its new list.\n\n\u0060expectedConcurrencyToken\u0060 is required. When the task has changed since that read the answer is\n\u0060409 planning.work_task.stale.conflict\u0060 and **nothing is written** \u2014 keep what was typed, read the task\nagain, and send again. A token that could never have been issued is a \u0060400\u0060. A patch that changes\nnothing writes nothing and returns the same token.\n\nAnswers \u0060200\u0060 with the task, its labels and its new \u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "The task to edit.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkTask"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkTask"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/{taskId}/move": {
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Moves one of the caller\u0027s own tasks to another of their lists, at a place in it.",
+        "description": "Contributor and above, and only **the person doing the task** \u2014 a move rearranges their list, and not even\nthe owner who handed it on rearranges someone else\u0027s. Anyone else\u0027s task, an unknown one and another\nworkspace\u0027s all answer the same \u0060404 planning.work_task.not_found\u0060.\n\n**The lists are the planner\u0027s.** \u0060status\u0060 is required. \u0060Backlog\u0060 with a \u0060scheduledDate\u0060 is that day\u0027s\nlist, and the week follows the day. \u0060Backlog\u0060 without one is the backlog of no day: in\n\u0060planningWeekStart\u0060 when sent, in the week the task already has when not. \u0060InProgress\u0060 and \u0060Waiting\u0060 are\none list each and **keep the task\u0027s day and week** \u2014 a task started on Monday is still Monday\u0027s \u2014 so\nsending a day or week with them answers \u0060400\u0060; changing the plan is an edit. \u0060Done\u0060 is not a list a task\nis moved to: complete it. A finished task answers \u0060409 planning.work_task.completed.conflict\u0060: reopen it.\nA day and a week that disagree answer \u0060400\u0060.\n\n**A move is a change of list.** Naming the list the task is already in answers \u0060400\u0060: reorder it within\nits list instead.\n\n**Its place.** \u0060beforeTaskId\u0060 names the task it goes immediately before, which must be in the target\nlist; left out, it goes to the bottom. One that is not answers \u0060422 planning.work_task.move.unprocessable\u0060\n\u2014 the same whether that task does not exist, is in another list, is the task being moved, or is somebody\nelse\u0027s. The order is deterministic: rank, then id.\n\n**The move is one write.** When two neighbours have no room between them the target list is re-spaced in\nits own order, in the same write; no other list is touched, though re-spacing can change the\n\u0060concurrencyToken\u0060 of other tasks in that list, never what they say.\n\n\u0060expectedConcurrencyToken\u0060 is required. \u0060409 planning.work_task.stale.conflict\u0060 means the task \u2014 or a task\nthat had to be re-spaced to make room \u2014 changed first, and **nothing was written**: read the list again\nand move it again. A token that could never have been issued is a \u0060400\u0060.\n\nA move changes only the task: it completes no workflow step and touches no linked record. Answers \u0060200\u0060\nwith the task and its new \u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "The task to move.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. For 24 hours, a repeat of the same key and the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and moves nothing more; the same key with a different request answers\n\u0060422 idempotency.key_reused\u0060. Without a key a repeat cannot move twice either: it quotes a token the first\nmove used, and answers \u0060409\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveWorkTask"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveWorkTask"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveWorkTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/{taskId}/reorder": {
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Gives one of the caller\u0027s own tasks a new place in the list it is already in.",
+        "description": "Contributor and above, and only **the person doing the task**: anyone else\u0027s task \u2014 the owner who handed it\non included \u2014 an unknown one and another workspace\u0027s all answer the same \u0060404 planning.work_task.not_found\u0060.\n\n**Only its place changes**: never its status, day, week, links or labels. Its list is the one it is in \u2014\nin progress, waiting, the not-started tasks of its day, or the not-started tasks of no day.\n\n\u0060beforeTaskId\u0060 names the task it goes immediately before, which must be in the same list; left out, it goes\nto the bottom. The task itself, or one not in its list, answers \u0060422 planning.work_task.move.unprocessable\u0060\n\u2014 the same whatever that task turns out to be. The order is deterministic: rank, then id. When two\nneighbours have no room between them the list is re-spaced in its own order in the same write, which can\nchange other tasks\u0027 \u0060concurrencyToken\u0060 in that list, never what they say; no other list is touched.\n\n**A task already exactly there is left alone** and keeps its token. A finished task answers\n\u0060409 planning.work_task.completed.conflict\u0060: finished tasks read in the order they were finished.\n\n\u0060expectedConcurrencyToken\u0060 is required. \u0060409 planning.work_task.stale.conflict\u0060 means the task, or a task\nthat had to be re-spaced, changed first, and **nothing was written**. A token that could never have been\nissued is a \u0060400\u0060. Answers \u0060200\u0060 with the task and its \u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "The task to reorder.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderWorkTask"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderWorkTask"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderWorkTask"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/{taskId}/complete": {
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Finishes one of the caller\u0027s own tasks.",
+        "description": "Contributor and above, and only **the person doing the task**: anyone else\u0027s task \u2014 the owner who handed it\non included \u2014 an unknown one and another workspace\u0027s all answer the same \u0060404 planning.work_task.not_found\u0060.\n\nThe task becomes \u0060Done\u0060 and records when, by whom, and the status it was finished from. **Its day, week and\nplace in its list are kept**, so reopening puts it back exactly where it stood. A task already finished\nanswers \u0060409 planning.work_task.completed.conflict\u0060.\n\n**Nothing else finishes with it.** A workflow step the task is about is done only when the workflow\u0027s own\nrule is satisfied; no linked record is touched.\n\n\u0060expectedConcurrencyToken\u0060 is required: \u0060409 planning.work_task.stale.conflict\u0060 means the task changed first\nand nothing was written; a token that could never have been issued is a \u0060400\u0060. Answers \u0060200\u0060 with the task\nand its new \u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "The task to finish.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. For 24 hours, a repeat of the same key and the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and changes nothing more; the same key with a different request answers\n\u0060422 idempotency.key_reused\u0060. Without a key a repeat cannot take effect twice either: it quotes a token the\nfirst used, and answers \u0060409\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/{taskId}/reopen": {
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Takes one of the caller\u0027s finished tasks up again, where it stood.",
+        "description": "Contributor and above, and only **the person doing the task**; anyone else\u0027s, an unknown one and another\nworkspace\u0027s answer the same \u0060404 planning.work_task.not_found\u0060.\n\nThe task goes back to **the status it was finished from**, on the day and week and in the place it had, and\nits record of when and by whom it was finished is cleared. A task that is not finished answers\n\u0060409 planning.work_task.open.conflict\u0060. A workflow step the task is about is not reopened with it.\n\n\u0060expectedConcurrencyToken\u0060 is required, as for completing. Answers \u0060200\u0060 with the task and its new\n\u0060concurrencyToken\u0060. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "description": "The task to reopen.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. For 24 hours, a repeat of the same key and the same request returns the first answer with\n\u0060Idempotent-Replayed: true\u0060 and changes nothing more; the same key with a different request answers\n\u0060422 idempotency.key_reused\u0060. Without a key a repeat cannot take effect twice either: it quotes a token the\nfirst used, and answers \u0060409\u0060.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkTaskCompletion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTask"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/from-workflow-step": {
+      "get": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "What \u0022Add to my plan\u0022 would make for one workflow step. Writes nothing.",
+        "description": "Contributor and above. Every field is a suggestion to show the creator before anything exists: the step\u0027s\nown title, a line naming the run, **no estimate** \u2014 a step carries none and an unknown is never offered as\na number \u2014 no day, and the week holding today in the workspace\u0027s zone (none when no zone is set).\n\u0060workflowRunRoute\u0060 is the run\u0027s address, relative to the workspace. \u0060existingTask\u0060 is the task the caller\nalready added for this step, when they have, so the screen can say so instead of offering it twice.\n\nA run this workspace does not have, or a step not in it, answers \u0060422 planning.work_task.link.unprocessable\u0060\n\u2014 one answer for a run that never existed and another workspace\u0027s. A run no longer in progress, or a step\nalready done or passed over, answers \u0060422 planning.work_task.step.unprocessable\u0060: there is nothing left to\nplan. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowRunId",
+            "in": "query",
+            "description": "The workflow run the step belongs to.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "workflowStepKey",
+            "in": "query",
+            "description": "The step\u0027s key in that run.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskStepSuggestion"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskStepSuggestion"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskStepSuggestion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "\u0022Add to my plan\u0022: makes the caller\u0027s task for one workflow step, or answers with the one they have.",
+        "description": "Contributor and above. **The task is made only here, on confirmation, for the one step named** \u2014 never for\nevery step of a run. Only \u0060workflowRunId\u0060 and \u0060workflowStepKey\u0060 are required; anything left out takes the\nsuggestion, so confirming it unchanged is one click. A \u0060description\u0060 sent blank is none.\n\n**One task per person per step.** \u0060201\u0060 with \u0060created: true\u0060 when this request made it; \u0060200\u0060 with\n\u0060created: false\u0060 and the task the caller already added for this step. The store keeps it so, whatever\narrives at once. A task pointed at the same step by hand is not that task and does not count.\n\n**The run is read, never written.** The task points at the run and step, and its \u0060links.workflowRunRoute\u0060\nleads back there; the run gains nothing and no step changes state. Finishing the task does not finish the\nstep. Refusals are the suggestion route\u0027s. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. For 24 hours, a repeat of the same key and the same request returns the first answer \u2014 the same\nstatus and \u0060created\u0060 \u2014 with \u0060Idempotent-Replayed: true\u0060; the same key with a different request answers\n\u0060422 idempotency.key_reused\u0060. Without a key a repeat still makes nothing more: it answers with the task\nalready there.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWorkTaskFromStep"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWorkTaskFromStep"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/AddWorkTaskFromStep"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskFromStep"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/work-tasks/today": {
       "get": {
         "tags": [
           "WorkTasks"
         ],
         "summary": "Reads the caller\u0027s own day in the workspace named by the route.",
-        "description": "Every member including a Viewer may read, because what comes back is **the caller\u0027s own work and\nnobody else\u0027s**: every group is keyed on the caller\u0027s membership as the task\u0027s assignee, so another\nmember\u0027s list is not something this route can be asked for. A task handed to the caller appears here\neven though someone else captured it, and names that person as its \u0060owner\u0060.\n\n**The groups do not overlap.** A task is placed by the first rule it matches: \u0060completedToday\u0060, then\n\u0060overdue\u0060, then \u0060inProgress\u0060, then \u0060waiting\u0060, then \u0060scheduledToday\u0060. So the day is not double-counted,\nand ticking one thing off does not make it disappear from two places. The precedence hides nothing \u2014\nevery row carries its own \u0060status\u0060, \u0060dueDate\u0060 and \u0060scheduledDate\u0060, so a task in \u0060overdue\u0060 still says\nit is in progress. A task finished on an earlier day is in none of them.\n\n**\u0060date\u0060 and \u0060timeZoneId\u0060 say what \u0022today\u0022 meant**, and are always present, so a client never infers\nthe day boundary. The zone is the workspace\u0027s own, from brand settings. \u0060completedToday\u0060 is a range of\ninstants \u2014 local midnight to the next, the end exclusive \u2014 so a day that springs forward is 23 hours\nlong and nothing is counted twice across a fall-back. \u0060scheduledDate\u0060 and \u0060dueDate\u0060 are plain dates\nand are compared as written.\n\n**A workspace that has set no time zone answers \u0060422 planning.today.time_zone_not_set.unprocessable\u0060**\nrather than guessing a day boundary, because a guessed one does not fail visibly: it quietly files an\nevening\u0027s work under tomorrow. The remedy is brand settings, and the message says so.\n\nEach group holds at most 50, newest or most pressing first, with \u0060...HasMore\u0060 true when there were\nothers. There is no cursor: a day is bounded by what a person can do, and a group past 50 is a sign of\nsomething other than a plan.\n\n\u0060suggested\u0060 is empty unless \u0060includeSuggestions=true\u0060. It offers at most three **unplanned** backlog\ntasks \u2014 never one already in a group above \u2014 each with a plain-language \u0060reason\u0060. **Offering one\nschedules nothing**: no day, no status, no place in the list is written by this route, which is a\n\u0060GET\u0060 and writes nothing at all.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060: it is\none person\u0027s private working list.",
+        "description": "Every member including a Viewer may read, because what comes back is **the caller\u0027s own work and\nnobody else\u0027s**: every group is keyed on the caller\u0027s membership as the task\u0027s assignee, so another\nmember\u0027s list is not something this route can be asked for. A task handed to the caller appears here\neven though someone else captured it, and names that person as its \u0060owner\u0060.\n\n**The groups do not overlap.** A task is placed by the first rule it matches: \u0060completedToday\u0060, then\n\u0060overdue\u0060, then \u0060inProgress\u0060, then \u0060waiting\u0060, then \u0060scheduledToday\u0060. So the day is not double-counted,\nand ticking one thing off does not make it disappear from two places. The precedence hides nothing \u2014\nevery row carries its own \u0060status\u0060, \u0060dueDate\u0060 and \u0060scheduledDate\u0060, so a task in \u0060overdue\u0060 still says\nit is in progress. A task finished on an earlier day is in none of them.\n\n**\u0060date\u0060 and \u0060timeZoneId\u0060 say what \u0022today\u0022 meant**, and are always present, so a client never infers\nthe day boundary. The zone is the workspace\u0027s own, from brand settings. \u0060completedToday\u0060 is a range of\ninstants \u2014 local midnight to the next, the end exclusive \u2014 so a day that springs forward is 23 hours\nlong and nothing is counted twice across a fall-back. \u0060scheduledDate\u0060 and \u0060dueDate\u0060 are plain dates\nand are compared as written.\n\n**A workspace that has set no time zone answers \u0060422 planning.today.time_zone_not_set.unprocessable\u0060**\nrather than guessing a day boundary, because a guessed one does not fail visibly: it quietly files an\nevening\u0027s work under tomorrow. The remedy is brand settings, and the message says so.\n\nEach group holds at most 50, newest or most pressing first, with \u0060...HasMore\u0060 true when there were\nothers. There is no cursor: a day is bounded by what a person can do, and a group past 50 is a sign of\nsomething other than a plan.\n\n\u0060suggested\u0060 is empty unless \u0060includeSuggestions=true\u0060. It offers at most three **unplanned** backlog\ntasks \u2014 never one already in a group above \u2014 each with a plain-language \u0060reason\u0060. **Offering one\nschedules nothing**: no day, no status, no place in the list is written by this route, which is a\n\u0060GET\u0060 and writes nothing at all.\n\n\u0060topThree\u0060 names the tasks the caller chose as today\u0027s top three (13A.32), by id and in order \u2014 each is\nstill in its own group, and only one shown in a group is named. Empty until they choose; see\n\u0060PUT top-three\u0060.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060: it is\none person\u0027s private working list.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -24384,6 +25358,211 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TodayWorkTasks"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/top-three": {
+      "put": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Chooses the caller\u0027s top three for today in the workspace named by the route.",
+        "description": "Contributor and above. **The whole set, replacing the last**: at most three \u0060taskIds\u0060, each once, first the one\nthat matters most; an empty list clears the choice. A repeat writes what is already there, so there is no\nidempotency key. More than three, one named twice, or a missing list is a \u0060400 planning.top_three.invalid\u0060.\n\n**Only a task on the caller\u0027s day may be chosen**: theirs to do, and late, planned for today, in progress,\nwaiting or finished today \u2014 exactly what \u0060GET today\u0060 shows them. Anything else answers\n\u0060422 planning.top_three.unprocessable\u0060, **the same whether the task is planned for another day, somebody\nelse\u0027s, another workspace\u0027s, or was never a task.**\n\n**Choosing changes no task**: no status, day, priority or place in a list. The choice is kept for today in the\nworkspace\u0027s own zone, so tomorrow starts with none; a workspace with no zone set answers\n\u0060422 planning.today.time_zone_not_set.unprocessable\u0060. \u0060GET today\u0060 returns it as \u0060topThree\u0060.\n\n\u0060409 planning.top_three.conflict\u0060 means nothing was written and the request is safe to send again. Answers\n\u0060200\u0060 with the day and the ids as they now stand. The response is \u0060no-store\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkTaskTopThree"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkTaskTopThree"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkTaskTopThree"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskTopThree"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskTopThree"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkTaskTopThree"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/work-tasks/week": {
+      "get": {
+        "tags": [
+          "WorkTasks"
+        ],
+        "summary": "Reads the caller\u0027s own week in the workspace named by the route.",
+        "description": "Every member including a Viewer may read, because what comes back is **the caller\u0027s own work and\nnobody else\u0027s**: every group is keyed on the caller\u0027s membership as the task\u0027s assignee.\n\n**A week runs Monday to Sunday, everywhere.** \u0060weekStart\u0060 is written \u0060yyyy-MM-dd\u0060 and must be a Monday;\nany other day or format answers \u0060400 planning.week.invalid\u0060. The caller\u0027s language does not move the\nweek. Left out, it is the week holding today in the workspace\u0027s own zone. \u0060weekStart\u0060, \u0060weekEnd\u0060,\n\u0060today\u0060 and \u0060timeZoneId\u0060 are always present, so a client never infers a boundary, and \u0060isCurrentWeek\u0060\nsays whether this is the week holding today.\n\n**The groups do not overlap, and none is a content-board column.** \u0060completed\u0060 is what was finished\nbetween this Monday\u0027s local midnight and the next, the end exclusive \u2014 so a week the clocks spring\nforward in is 167 hours long and nothing is counted twice across a fall-back. \u0060inProgress\u0060 and\n\u0060waiting\u0060 are the caller\u0027s now, whatever week they were planned for. Each of the seven \u0060days\u0060 holds the\nnot-started tasks planned for that date. \u0060backlog\u0060 is planned for the week and no day of it;\n\u0060unplanned\u0060 is planned for no week at all; \u0060carriedOver\u0060 is not started and planned for an earlier\nweek, oldest first, and only in the current week \u2014 empty in any other. A not-started task planned for a\nlater week is in none of them.\n\n**Order is the caller\u0027s own arrangement**: the place each task was given, then its id, in every group\nbut \u0060completed\u0060, which is newest first. Unlike \u0060today\u0060, priority does not reorder a week.\n\n**Totals count the whole group**, not the rows returned: \u0060taskCount\u0060, \u0060estimatedTaskCount\u0060, and\n\u0060estimatedMinutes\u0060 \u2014 the sum of the estimates there are. A task with no estimate is never counted as\nnothing, so \u0060estimatedMinutes\u0060 is null when no task in the group has one. \u0060planned\u0060 adds up the seven\ndays and \u0060backlog\u0060: the week\u0027s own work, and nothing nobody planned for it.\n\nEach group, and each day, holds at most 50 rows, with \u0060hasMore\u0060 true when its \u0060taskCount\u0060 is more.\n\n**A workspace that has set no time zone answers \u0060422 planning.week.time_zone_not_set.unprocessable\u0060**,\neven for a week named outright: the week\u0027s edges are local midnights, and a guessed zone would quietly\nmove Sunday evening\u0027s work into the next week. The remedy is brand settings.\n\nAn unknown workspace and another workspace\u0027s answer the same \u0060404\u0060. The response is \u0060no-store\u0060: it is\none person\u0027s private working list.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see the capture route.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "weekStart",
+            "in": "query",
+            "description": "The Monday the week starts on, as yyyy-MM-dd. Leave it out for the week holding today in the workspace\u0027s own time zone.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekWorkTasks"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekWorkTasks"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekWorkTasks"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -24738,6 +25917,69 @@
                 "$ref": "#/components/schemas/CreativeContextReferenceInput"
               }
             ]
+          }
+        }
+      },
+      "AddWorkTaskFromStep": {
+        "type": "object",
+        "properties": {
+          "workflowRunId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowStepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkTaskPriority"
+              }
+            ]
+          },
+          "estimateMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -30498,6 +31740,25 @@
               "null",
               "string"
             ]
+          },
+          "estimateMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "labelIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -34570,6 +35831,48 @@
           }
         }
       },
+      "MoveWorkTask": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkTaskStatus"
+              }
+            ]
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "beforeTaskId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "MyWorkspaceMembership": {
         "required": [
           "workspaceId",
@@ -38143,6 +39446,24 @@
           }
         }
       },
+      "ReorderWorkTask": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "beforeTaskId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "ReplaceAiFeatures": {
         "type": "object",
         "properties": {
@@ -39588,6 +40909,21 @@
           }
         }
       },
+      "SetWorkTaskTopThree": {
+        "type": "object",
+        "properties": {
+          "taskIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "SkipWorkflowStep": {
         "type": "object",
         "properties": {
@@ -40851,7 +42187,8 @@
           "waitingHasMore",
           "completedToday",
           "completedTodayHasMore",
-          "suggested"
+          "suggested",
+          "topThree"
         ],
         "type": "object",
         "properties": {
@@ -40911,6 +42248,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SuggestedWorkTask"
+            }
+          },
+          "topThree": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         }
@@ -41600,6 +42944,123 @@
           }
         }
       },
+      "UpdateWorkTask": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priority": {
+            "enum": [
+              "Low",
+              "Normal",
+              "High"
+            ],
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "dueDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "estimateMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "labelIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "assigneeMembershipId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "recipeId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "contentCardId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "mediaAssetId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowRunId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "workflowStepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {},
+          "position": {}
+        }
+      },
       "ValidationProblemDetails": {
         "required": [
           "code",
@@ -41768,6 +43229,71 @@
             "items": {
               "$ref": "#/components/schemas/WeeklyTheme"
             }
+          }
+        }
+      },
+      "WeekWorkTasks": {
+        "required": [
+          "weekStart",
+          "weekEnd",
+          "today",
+          "timeZoneId",
+          "isCurrentWeek",
+          "planned",
+          "days",
+          "backlog",
+          "unplanned",
+          "carriedOver",
+          "inProgress",
+          "waiting",
+          "completed"
+        ],
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekEnd": {
+            "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "isCurrentWeek": {
+            "type": "boolean"
+          },
+          "planned": {
+            "$ref": "#/components/schemas/WorkTaskTotals"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTaskWeekDay"
+            }
+          },
+          "backlog": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
+          },
+          "unplanned": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
+          },
+          "carriedOver": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
+          },
+          "inProgress": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
+          },
+          "waiting": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
+          },
+          "completed": {
+            "$ref": "#/components/schemas/WorkTaskGroup"
           }
         }
       },
@@ -42714,6 +44240,7 @@
           "owner",
           "assignee",
           "links",
+          "labels",
           "createdAt",
           "updatedAt",
           "concurrencyToken"
@@ -42778,6 +44305,12 @@
           "links": {
             "$ref": "#/components/schemas/WorkTaskLinks"
           },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTaskLabel"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -42798,6 +44331,70 @@
           }
         }
       },
+      "WorkTaskCompletion": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "WorkTaskFromStep": {
+        "required": [
+          "task",
+          "created"
+        ],
+        "type": "object",
+        "properties": {
+          "task": {
+            "$ref": "#/components/schemas/WorkTask"
+          },
+          "created": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkTaskGroup": {
+        "required": [
+          "tasks",
+          "hasMore",
+          "totals"
+        ],
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkTaskTotals"
+          }
+        }
+      },
+      "WorkTaskLabel": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "WorkTaskLinks": {
         "type": "object",
         "properties": {
@@ -42809,6 +44406,12 @@
             "format": "uuid"
           },
           "workflowStepKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "workflowRunRoute": {
             "type": [
               "null",
               "string"
@@ -42871,6 +44474,166 @@
           "Done"
         ],
         "type": "string"
+      },
+      "WorkTaskStepSuggestion": {
+        "required": [
+          "workflowRunId",
+          "workflowStepKey",
+          "runTitle",
+          "stepTitle",
+          "title",
+          "workflowRunRoute"
+        ],
+        "type": "object",
+        "properties": {
+          "workflowRunId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workflowStepKey": {
+            "type": "string"
+          },
+          "runTitle": {
+            "type": "string"
+          },
+          "stepTitle": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "estimateMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scheduledDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "planningWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "workflowRunRoute": {
+            "type": "string"
+          },
+          "existingTask": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkTask"
+              }
+            ]
+          }
+        }
+      },
+      "WorkTaskTopThree": {
+        "required": [
+          "date",
+          "taskIds"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "WorkTaskTotals": {
+        "required": [
+          "taskCount",
+          "estimatedTaskCount"
+        ],
+        "type": "object",
+        "properties": {
+          "taskCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "estimatedTaskCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "estimatedMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "WorkTaskWeekDay": {
+        "required": [
+          "date",
+          "dayOfWeek",
+          "isToday",
+          "tasks",
+          "hasMore",
+          "totals"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "dayOfWeek": {
+            "$ref": "#/components/schemas/DayOfWeek"
+          },
+          "isToday": {
+            "type": "boolean"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkTask"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkTaskTotals"
+          }
+        }
       },
       "YieldReconciliationField": {
         "enum": [

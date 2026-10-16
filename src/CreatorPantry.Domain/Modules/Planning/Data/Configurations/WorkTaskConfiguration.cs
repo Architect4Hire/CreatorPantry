@@ -55,6 +55,16 @@ internal sealed class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
             table.HasCheckConstraint(
                 "CK_WorkTasks_WorkflowStep_WithRun",
                 "WorkflowStepKey IS NULL OR (WorkflowRunId IS NOT NULL AND trim(WorkflowStepKey) <> '')");
+
+            table.HasCheckConstraint(
+                "CK_WorkTasks_Origin_Range",
+                $"Origin >= {(int)WorkTaskOrigin.Capture} AND Origin <= {(int)WorkTaskOrigin.WorkflowStep}");
+
+            // A step's task is the task for a step. Without one it would be the step's task for nothing, and SQL
+            // Server's unique index would treat two such rows as the same.
+            table.HasCheckConstraint(
+                "CK_WorkTasks_WorkflowOrigin_WithStep",
+                $"Origin <> {(int)WorkTaskOrigin.WorkflowStep} OR (WorkflowRunId IS NOT NULL AND WorkflowStepKey IS NOT NULL)");
         });
 
         builder.HasKey(task => task.Id);
@@ -73,17 +83,34 @@ internal sealed class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
         builder.Property(task => task.Status).IsRequired();
         builder.Property(task => task.Priority).IsRequired();
         builder.Property(task => task.SortRank).IsRequired();
+
+        // A default, so every task captured before 13A.29 is what it always was. The sentinel is stated so a task
+        // that reaches an insert without one takes the store's default rather than a zero the range check refuses.
+        builder.Property(task => task.Origin)
+            .IsRequired()
+            .HasDefaultValue(WorkTaskOrigin.Capture)
+            .HasSentinel(default(WorkTaskOrigin));
         builder.Property(task => task.WorkflowStepKey).HasMaxLength(WorkTaskPolicy.WorkflowStepKeyMaxLength);
         builder.Property(task => task.CreatedAt).IsRequired();
         builder.Property(task => task.UpdatedAt).IsRequired();
         builder.Property(task => task.RowVersion).IsRowVersion();
 
-        // The task's one edge to the workspace, and so the one cascade path to its labels. Every link is a
-        // pointer and not a foreign key — see WorkTask.
+        // The task's one edge to the workspace, and so the one cascade path to its labels. Every link to another
+        // module is a pointer and not a foreign key — see WorkTask.
         builder.HasOne<Workspace>()
             .WithMany()
             .HasForeignKey(task => task.WorkspaceId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // The routine an occurrence came from (13A.30): this module's own record, so a real key, workspace-paired
+        // so a task cannot claim another workspace's template, and restricted — a template is paused or ended,
+        // never deleted, and the workspace already cascades to both.
+        builder.HasOne<WorkTaskTemplate>()
+            .WithMany()
+            .HasForeignKey(task => new { task.WorkspaceId, task.WorkTaskTemplateId })
+            .HasPrincipalKey(template => new { template.WorkspaceId, template.Id })
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Today and the week's day columns (13A.25, 13A.26): one person's tasks by status, then day, in order.
         builder.HasIndex(task => new
@@ -120,6 +147,14 @@ internal sealed class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
         builder.HasIndex(task => new { task.WorkspaceId, task.WorkflowRunId, task.WorkflowStepKey })
             .HasDatabaseName("IX_WorkTasks_Workspace_Run_Step")
             .HasFilter("WorkflowRunId IS NOT NULL");
+
+        // One task per person per step added from a workflow (13A.29), kept by the store rather than by a key that
+        // expires: two confirms at once, with different keys or none, still make one. Tasks pointed at the same
+        // step by hand are outside the filter and unaffected.
+        builder.HasIndex(task => new { task.WorkspaceId, task.OwnerMembershipId, task.WorkflowRunId, task.WorkflowStepKey })
+            .IsUnique()
+            .HasDatabaseName("UX_WorkTasks_Workspace_Owner_WorkflowStep")
+            .HasFilter($"Origin = {(int)WorkTaskOrigin.WorkflowStep}");
 
         // One task per occurrence of a template, kept by the store so a materializer that runs twice, or two at
         // once, still makes one (13A.30).

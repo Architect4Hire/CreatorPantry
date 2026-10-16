@@ -1,0 +1,67 @@
+:host {
+  display: contents;
+}
+
+/* One fluid column: an auto track would let a long label or a wide control push the dialog past its width. */
+.capture {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+}
+
+/* A text button that opens the details: a 40px target, its own focus ring, and nothing that reads as a link. */
+.disclosure {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-height: 2.5rem;
+  padding: 0 var(--cp-space-2);
+  border: 0;
+  border-radius: var(--cp-radius-md);
+  background: transparent;
+  color: var(--cp-text);
+  font: 600 var(--cp-font-size-sm) / 1.2 var(--cp-font-sans);
+  cursor: pointer;
+}
+
+.disclosure:hover {
+  background: var(--cp-surface-subtle);
+}
+
+/* The global focus ring's weight, since a button here cannot be the global `.cp-disclosure`, which is a <details>. */
+.disclosure:focus-visible {
+  outline: 3px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.disclosure-count {
+  color: var(--cp-text-muted);
+  font-weight: 400;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+}
+
+.details[hidden] {
+  display: none;
+}
+
+.messages {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+/* Enter submits a form only when it has a submit button; this one is never seen or tabbed to. */
+.submit-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+  padding: 0;
+}

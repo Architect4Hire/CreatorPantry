@@ -13,6 +13,7 @@ using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Media;
+using CreatorPantry.Domain.Modules.Planning;
 using CreatorPantry.Domain.Modules.Publishing;
 using CreatorPantry.Domain.Modules.Publishing.Integration.Buffer;
 using CreatorPantry.Domain.Modules.Recipes;
@@ -132,6 +133,10 @@ public static class WorkerHostRegistration
         // own; AddBufferPublishing replaces its gateways when this host was given a credential — which the
         // AppHost does for the Worker as well as the API now that there is a job here that needs one.
         builder.Services.AddPublishingModule();
+
+        // Routines only (13A.30): an occurrence links to nothing, so the worker takes none of the task routes'
+        // cross-module dependencies to make one.
+        builder.Services.AddPlanningRecurrence();
         builder.Services.AddBufferPublishing(builder.Configuration);
         builder.Services.AddHostedService<OutboxDispatcherHostedService>();
         builder.Services.AddHostedService<AiOperationWorkerHostedService>();
@@ -148,6 +153,7 @@ public static class WorkerHostRegistration
         builder.Services.AddHostedService<MediaRenditionBackfillHostedService>();
         builder.Services.AddHostedService<PublishingReconciliationHostedService>();
         builder.Services.AddHostedService<PublishingReconciliationMaintenanceHostedService>();
+        builder.Services.AddHostedService<WorkTaskRecurrenceHostedService>();
 
         return builder;
     }

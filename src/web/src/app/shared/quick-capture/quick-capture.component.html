@@ -1,0 +1,165 @@
+<!-- Escape on the dialog itself, which holds every focus stop — the form, the footer's Save and the × alike. -->
+<cp-dialog
+  [open]="isOpen()"
+  title="Add a task"
+  titleId="cp-quick-capture-title"
+  (closed)="requestClose()"
+  (keydown.escape)="onEscape($event)"
+>
+  <form class="capture" novalidate (submit)="save($event)">
+    <cp-field
+      label="What needs doing?"
+      forId="cp-quick-capture-title-input"
+      hint="Only this is needed. Everything else is optional."
+      [error]="titleError()"
+      [required]="true"
+    >
+      <input
+        #titleInput
+        id="cp-quick-capture-title-input"
+        type="text"
+        autocomplete="off"
+        [value]="title()"
+        [attr.aria-invalid]="titleError() ? 'true' : null"
+        (input)="onTitleInput($any($event.target).value)"
+      />
+    </cp-field>
+
+    <button
+      type="button"
+      class="disclosure"
+      aria-controls="cp-quick-capture-details"
+      [attr.aria-expanded]="expanded()"
+      (click)="toggleDetails()"
+    >
+      <span aria-hidden="true">{{ expanded() ? '▾' : '▸' }}</span>
+      More details
+      @if (!expanded() && detailsSet() > 0) {
+        <span class="disclosure-count">({{ detailsSet() }} set)</span>
+      }
+    </button>
+
+    <div id="cp-quick-capture-details" class="details" [hidden]="!expanded()">
+      <!-- Rendered with the details, so what loads, or could not, is announced as it happens. -->
+      <div role="status" aria-live="polite">
+        @if (loadingDetails()) {
+          <cp-notice tone="neutral">Loading your calendar and labels…</cp-notice>
+        } @else if (dates().status === 'no_time_zone') {
+          <cp-notice tone="neutral">Today and the weeks need the workspace’s time zone, which is set in brand settings. You can still pick a day.</cp-notice>
+        } @else if (dates().status === 'unavailable') {
+          <cp-notice tone="warning">
+            Today and the weeks couldn’t be worked out just now. You can still pick a day, or
+            <button cpButton type="button" variant="text" size="sm" (click)="retryDetails()">try again</button>.
+          </cp-notice>
+        }
+      </div>
+
+      <cp-choice-group
+        label="When"
+        layout="fit"
+        idPrefix="cp-quick-capture-when-"
+        [options]="whenOptions()"
+        [value]="[when()]"
+        (valueChange)="setWhen($event)"
+      />
+      @if (when() === 'pick') {
+        <cp-field label="Which day" forId="cp-quick-capture-day" [error]="dayError()">
+          <input
+            #dayInput
+            id="cp-quick-capture-day"
+            type="date"
+            [value]="pickedDate()"
+            [attr.aria-invalid]="dayError() ? 'true' : null"
+            (input)="onDayInput($any($event.target).value)"
+          />
+        </cp-field>
+      }
+
+      <cp-choice-group
+        label="Priority"
+        layout="fit"
+        idPrefix="cp-quick-capture-priority-"
+        [options]="priorityOptions"
+        [value]="[priority()]"
+        (valueChange)="setPriority($event)"
+      />
+
+      <cp-field label="How long will it take?" forId="cp-quick-capture-estimate">
+        <select id="cp-quick-capture-estimate" [value]="estimate()" (change)="estimate.set($any($event.target).value)">
+          <option value="">Not sure</option>
+          @for (option of estimates; track option.minutes) {
+            <option [value]="option.minutes" [selected]="estimate() === '' + option.minutes">{{ option.label }}</option>
+          }
+        </select>
+      </cp-field>
+
+      @switch (tagsState().status) {
+        @case ('unavailable') {
+          <cp-notice tone="warning">Your labels couldn’t be loaded just now. You can add one to the task later.</cp-notice>
+        }
+        @default {
+          <cp-field label="Label" forId="cp-quick-capture-label" [error]="labelError()">
+            <cp-combobox
+              inputId="cp-quick-capture-label"
+              mode="restricted"
+              [placeholder]="tagsState().status === 'found' ? 'Start typing a label…' : 'Loading labels…'"
+              [disabled]="tagsState().status !== 'found'"
+              [options]="tagOptions()"
+              [value]="labelText()"
+              (valueChange)="onLabelText($event)"
+              [selected]="label()"
+              (selectedChange)="onLabel($event)"
+            />
+          </cp-field>
+        }
+      }
+
+      @if (link(); as pageRecord) {
+        <cp-checkbox inputId="cp-quick-capture-link" [label]="pageRecord.label" [checked]="linked()" (checkedChange)="linked.set($event)" />
+      }
+    </div>
+
+    <!--
+      Both regions exist from the moment the dialog does, and the offline line is a status kept quiet until it
+      has words, so each is announced when it gets them rather than missed for arriving with its region.
+    -->
+    <div class="messages">
+      <div role="status" aria-live="polite">
+        @if (saved()) {
+          <cp-notice tone="success">{{ saved() }}</cp-notice>
+        }
+      </div>
+      <div role="alert">
+        @if (problem()) {
+          <cp-notice tone="error">{{ problem() }}</cp-notice>
+        }
+      </div>
+      <div id="cp-quick-capture-offline" role="status" aria-live="polite">
+        @if (!online()) {
+          <cp-notice tone="warning">You’re offline. Your task will wait here until you’re back.</cp-notice>
+        }
+      </div>
+    </div>
+
+    <!-- Inside the form, so Enter in the title submits it. Never seen and never tabbed to. -->
+    <button type="submit" class="submit-hidden" tabindex="-1" aria-hidden="true"></button>
+  </form>
+
+  <!--
+    Never disabled: a focused button that becomes disabled drops focus out of the dialog. It says it is busy or
+    unavailable instead, and save() refuses while either is true.
+  -->
+  <div cpDialogActions class="cp-actions">
+    <button
+      cpButton
+      type="button"
+      variant="primary"
+      [attr.aria-disabled]="!canSave()"
+      [attr.aria-busy]="saving()"
+      [attr.aria-describedby]="online() ? null : 'cp-quick-capture-offline'"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</cp-dialog>

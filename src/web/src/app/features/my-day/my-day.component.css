@@ -1,0 +1,60 @@
+/* One column, in reading order, at every width: the frame owns the gutter and the width. */
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+/* The page is a grid whose gap is already the space a page head carries beneath it. */
+cp-page-head {
+  margin-bottom: 0;
+}
+
+.plain {
+  margin: 0;
+}
+
+/* A list of tasks inside a topic card. Not cards of their own: rows of one list, divided by a rule. */
+.tasks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestions > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  align-items: center;
+  padding-block: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+  overflow-wrap: anywhere;
+}
+
+.suggestions > li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.suggestion-main {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.suggestion-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  font-weight: 600;
+}
+
+@media (max-width: 40rem) {
+  .suggestions > li {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+}

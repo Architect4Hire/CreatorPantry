@@ -30,8 +30,8 @@ const SECTION_ROUTES: Routes = [
       },
     ],
   },
-  { path: 'my-day', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Day' } },
-  { path: 'my-week', loadComponent: () => import('./shell/placeholder-section.component').then((m) => m.PlaceholderSectionComponent), data: { title: 'My Week' } },
+  { path: 'my-day', loadComponent: () => import('./features/my-day/my-day.component').then((m) => m.MyDayComponent), data: { title: 'My Day', pageWidth: 'reading' } },
+  { path: 'my-week', loadComponent: () => import('./features/my-week/my-week.component').then((m) => m.MyWeekComponent), data: { title: 'My Week', pageWidth: 'wide' } },
   // The multi-page sections ('recipes', 'brand', 'ai-recipe-studio', 'dam', 'prompt-library') own their route trees (and the guards those trees need) beside their
   // components, so the guards and pages load with the section rather than with the app shell.
   { path: 'recipes', loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.RECIPES_ROUTES) },

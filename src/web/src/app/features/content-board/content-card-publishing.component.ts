@@ -300,7 +300,7 @@ export class ContentCardPublishingComponent {
 
   protected onConfirmed(record: PublishingRecord): void {
     this.scheduling.set(false);
-    this.merge(record);
+    if (!this.merge(record)) return;
 
     // What the creator is told is read from the record, never assumed from the fact that the request worked.
     const view = publishingRecordView(record);
@@ -335,7 +335,9 @@ export class ContentCardPublishingComponent {
     this.cancelling.set(null);
 
     if (outcome.status === 'answered') {
-      this.merge(outcome.record);
+      // An answer about a card the page has moved on from is neither merged nor announced: saying "Cancelled"
+      // under this card's heading would describe a publication that is not on it.
+      if (!this.merge(outcome.record)) return;
 
       // The server's own state, in words. A cancellation it could not confirm says so rather than claiming
       // the post is gone.
@@ -353,14 +355,17 @@ export class ContentCardPublishingComponent {
     }
   }
 
-  private merge(record: PublishingRecord): void {
+  /** Puts the server's record in place; false, and nothing changed, when it is about another card. */
+  private merge(record: PublishingRecord): boolean {
     // Same reason as the read: an answer that arrives after the page moved on is not about this card.
-    if (record.contentCardId !== null && record.contentCardId !== this.cardId()) return;
+    if (record.contentCardId !== null && record.contentCardId !== this.cardId()) return false;
 
     const kept = this.records().filter((candidate) => candidate.id !== record.id);
 
     this.records.set([record, ...kept].sort((left, right) => right.scheduledAt.localeCompare(left.scheduledAt)));
     this.summary.emit(publishingSummary(this.records()));
+
+    return true;
   }
 
   private async read(slug: string, cardId: string): Promise<void> {

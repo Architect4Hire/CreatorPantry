@@ -59,6 +59,12 @@ public sealed record CreateWorkTaskViewModel
 
     /// <summary>A step of <see cref="WorkflowRunId"/>. Not valid without it.</summary>
     public string? WorkflowStepKey { get; init; }
+
+    /// <summary>How long it should take, in minutes. Left out, unknown (13A.31).</summary>
+    public int? EstimateMinutes { get; init; }
+
+    /// <summary>The workspace's tags to give it, each an active one (13A.31). Left out or empty, none.</summary>
+    public IReadOnlyList<Guid>? LabelIds { get; init; }
 }
 
 /// <summary>
@@ -123,6 +129,28 @@ public static class WorkTaskInputChecks
             else if (stepKey.Length > WorkTaskPolicy.WorkflowStepKeyMaxLength)
             {
                 yield return ("workflowStepKey", $"A step key is at most {WorkTaskPolicy.WorkflowStepKeyMaxLength} characters.");
+            }
+        }
+
+        if (model.EstimateMinutes is < 1 or > WorkTaskPolicy.EstimateMaxMinutes)
+        {
+            yield return ("estimateMinutes", $"An estimate is between 1 and {WorkTaskPolicy.EstimateMaxMinutes} minutes.");
+        }
+
+        if (model.LabelIds is { } labels)
+        {
+            if (labels.Count > WorkTaskPolicy.MaxLabels)
+            {
+                yield return ("labelIds", $"A task may carry at most {WorkTaskPolicy.MaxLabels} labels.");
+            }
+
+            if (labels.Any(id => id == Guid.Empty))
+            {
+                yield return ("labelIds", "That is not an identifier.");
+            }
+            else if (labels.Distinct().Count() != labels.Count)
+            {
+                yield return ("labelIds", "Name each label once.");
             }
         }
 

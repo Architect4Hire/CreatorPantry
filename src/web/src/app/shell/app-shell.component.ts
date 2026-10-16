@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, isDevMode, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
@@ -11,6 +11,9 @@ import { ImageStudioDraftService } from '../services/image-studio-draft.service'
 import { SocialStudioDraftService } from '../services/social-studio-draft.service';
 import { LongFormPipelinePlaceService } from '../services/long-form-pipeline-place.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
+import { QuickCaptureComponent } from '../shared/quick-capture/quick-capture.component';
+import { QuickCaptureLink, quickCaptureLinkFrom } from '../shared/quick-capture/quick-capture-link';
+import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 import { CpLogoComponent } from '../features/landing/logo/logo/logo';
 
@@ -59,6 +62,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
     CpStatusPillComponent,
     WorkspaceSwitcherComponent,
     CpLogoComponent,
+    QuickCaptureComponent,
   ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.css',
@@ -107,6 +111,22 @@ export class AppShellComponent {
   readonly currentPageTitle = () => this.routeState().title;
   readonly currentPageWidth = () => this.routeState().pageWidth;
 
+  /** The record on the page behind, when quick capture may offer to link a task to it (13A.31). */
+  readonly quickCaptureLink = () => this.routeState().link;
+
+  /**
+   * Whether the caller can keep work in the current workspace — Contributor and above — and so gets "+ Task". A
+   * Viewer is a read-only member: the button is not offered rather than offered and refused.
+   */
+  readonly canKeepWork = computed(() => {
+    const slug = this.currentWorkspaceSlug();
+    const state = this.membershipService.state();
+    if (!slug || state.status !== 'ready') return false;
+
+    const membership = state.memberships.find((candidate) => candidate.workspaceSlug === slug);
+    return membership !== undefined && membership.role !== 'Viewer';
+  });
+
   /**
    * The allowance, shown in the topbar beside the account rather than in the sidebar.
    *
@@ -143,6 +163,22 @@ export class AppShellComponent {
   constructor() {
     void this.membershipService.ensureLoaded();
     void this.usage.ensureLoaded();
+
+    // A page opens the one dialog through the service (13A.32); there is one only while the workspace offers it.
+    const unregister = inject(QuickCaptureService).register((options) => this.quickCapture()?.open(options));
+    inject(DestroyRef).onDestroy(unregister);
+  }
+
+  /** The capture dialog, while the current workspace offers one. */
+  private readonly quickCapture = viewChild(QuickCaptureComponent);
+
+  /**
+   * Opens quick capture. The button is focused first — a click does not focus a button in every browser — so the
+   * dialog gives focus back to it on close.
+   */
+  protected openQuickCapture(button: HTMLElement): void {
+    button.focus();
+    this.quickCapture()?.open();
   }
 
   async signOut(): Promise<void> {
@@ -150,12 +186,20 @@ export class AppShellComponent {
     await this.router.navigateByUrl('/sign-in');
   }
 
-  private readRouteState(): { slug: string | null; section: string; title: string; pageWidth: PageWidth } {
+  private readRouteState(): {
+    slug: string | null;
+    section: string;
+    title: string;
+    pageWidth: PageWidth;
+    link: QuickCaptureLink | null;
+  } {
     let node = this.route.firstChild;
     let slug: string | null = null;
     let section = 'dashboard';
     let title = 'CreatorPantry';
     let pageWidth: PageWidth = 'standard';
+    // Every parameter down the tree, the deepest winning, so the page's own record id is the one read.
+    const params = new Map<string, string>();
     // A node can exist in the tree with its `snapshot` not yet assigned: this runs once synchronously
     // during construction (this component and its own '' child both activate in the same navigation),
     // before the router has finished wiring up that child's snapshot. Stop at that point rather than
@@ -172,8 +216,12 @@ export class AppShellComponent {
       // three steps is ignored rather than reaching the DOM as an attribute no rule matches.
       const routeWidth: unknown = node.snapshot.data['pageWidth'];
       if (isPageWidth(routeWidth)) pageWidth = routeWidth;
+      for (const key of node.snapshot.paramMap.keys) {
+        const value = node.snapshot.paramMap.get(key);
+        if (value) params.set(key, value);
+      }
       node = node.firstChild;
     }
-    return { slug, section, title, pageWidth };
+    return { slug, section, title, pageWidth, link: quickCaptureLinkFrom(params) };
   }
 }

@@ -104,6 +104,7 @@ public sealed class BulkOperationBoundaryTests
         "Modules/Brand/Data/BrandSourceExtractionClaimRepository.cs",
         "Modules/Media/Data/GeneratedImageClaimRepository.cs",
         "Modules/Media/Data/MediaRenditionClaimRepository.cs",
+        "Modules/Planning/Data/WorkTaskTemplateClaimRepository.cs",
         "Modules/Publishing/Data/PublishingReconciliationClaimRepository.cs",
     ];
 

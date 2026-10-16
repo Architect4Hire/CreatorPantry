@@ -80,6 +80,12 @@ public class WorkTask : IWorkspaceOwned
     /// <summary>Which occurrence of <see cref="WorkTaskTemplateId"/> this is. One task per occurrence.</summary>
     public DateOnly? RecurrenceDate { get; set; }
 
+    /// <summary>
+    /// How the task came to exist. <see cref="WorkTaskOrigin.WorkflowStep"/> is the one task its owner added from
+    /// <see cref="WorkflowStepKey"/> of <see cref="WorkflowRunId"/>, and the store keeps there being one (13A.29).
+    /// </summary>
+    public WorkTaskOrigin Origin { get; set; } = WorkTaskOrigin.Capture;
+
     /// <summary>The workflow run this task is about, when it came from one (13A.29).</summary>
     public Guid? WorkflowRunId { get; set; }
 

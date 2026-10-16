@@ -366,6 +366,10 @@ public sealed class AiFirstDraftRequestEndpointTests
             SetMeasurementPreferenceViewModel model, CancellationToken cancellationToken) =>
             throw new NotSupportedException("A draft request has no business changing a workspace's settings.");
 
+        public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+            IReadOnlyCollection<Guid> membershipIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised here.");
+
         public Task<IReadOnlyDictionary<Guid, string>> FindMemberDisplayNamesAsync(
             IReadOnlyCollection<Guid> membershipIds, CancellationToken cancellationToken) =>
             throw new NotSupportedException("A draft request has no business naming members.");

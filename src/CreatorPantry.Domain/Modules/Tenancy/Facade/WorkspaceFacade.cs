@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Tenancy.Business;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -73,4 +74,10 @@ internal sealed class WorkspaceFacade(
         // No validation and no policy: the ids are not client input, and the lookup answers only for the
         // resolved workspace by way of the query filter beneath it.
         business.FindMemberDisplayNamesAsync(membershipIds, cancellationToken);
+
+    public Task<IReadOnlyDictionary<Guid, WorkspaceRole>> FindActiveMemberRolesAsync(
+        IReadOnlyCollection<Guid> membershipIds,
+        CancellationToken cancellationToken) =>
+        // As above: ids from another module's rows, answered only for the resolved workspace.
+        business.FindActiveMemberRolesAsync(membershipIds, cancellationToken);
 }

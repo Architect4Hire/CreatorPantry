@@ -2,15 +2,10 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Brand.Facade;
-using CreatorPantry.Domain.Modules.Content.Facade;
-using CreatorPantry.Domain.Modules.Media.Facade;
-using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Planning.Data;
 using CreatorPantry.Domain.Modules.Planning.Data.Entities;
 using CreatorPantry.Domain.Modules.Planning.Managers;
-using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
-using CreatorPantry.Domain.Modules.Workflows.Facade;
 
 namespace CreatorPantry.Domain.Modules.Planning.Business;
 
@@ -28,22 +23,14 @@ public interface IWorkTaskBusiness
 
 internal sealed class WorkTaskBusiness(
     IWorkTaskDataLayer dataLayer,
+    IWorkTaskFocusDataLayer focus,
     IWorkspaceContext workspace,
     IWorkspaceFacade workspaces,
     IBrandProfileFacade brandProfiles,
-    IRecipeFacade recipes,
-    IContentCardLookupFacade contentCards,
-    IMediaAssetLookupFacade mediaAssets,
-    IWorkflowRunFacade workflowRuns,
+    WorkTaskLinkChecks links,
     ITimeZoneConverter zones,
     IClock clock) : IWorkTaskBusiness
 {
-    /// <summary>
-    /// One sentence for every link that could not be used, whichever of the reasons it was. Telling an
-    /// absent record from a neighbour's would make capturing a task a way to ask what a neighbour owns.
-    /// </summary>
-    private const string NotFoundHere = "That is not something this workspace can point a task at.";
-
     private const string CannotCapture = "That task could not be captured as described.";
 
     public async Task<OperationResult<WorkTaskServiceModel>> CreateAsync(
@@ -57,7 +44,28 @@ internal sealed class WorkTaskBusiness(
             return Failure(OperationError.Validation(PlanningErrorCodes.WorkTaskInvalid, CannotCapture, invalid));
         }
 
-        if (await RefusedLinksAsync(model, cancellationToken) is { Count: > 0 } refused)
+        var linking = new WorkTaskLinkRequest(
+            model.RecipeId,
+            model.ContentCardId,
+            model.MediaAssetId,
+            model.WorkflowRunId,
+            WorkTaskInputChecks.Normalize(model.WorkflowStepKey));
+
+        // A label is a tag the workspace offers now: absent, retired and another workspace's all read the same.
+        var labelIds = model.LabelIds ?? [];
+        if (labelIds.Count > 0)
+        {
+            var active = await dataLayer.ActiveTagIdsAsync(labelIds, cancellationToken);
+            if (labelIds.Any(id => !active.Contains(id)))
+            {
+                return Failure(OperationError.Validation(
+                    PlanningErrorCodes.WorkTaskLabelUnprocessable,
+                    CannotCapture,
+                    [("labelIds", "One of those is not a tag of this workspace that a task can be given.")]));
+            }
+        }
+
+        if (await links.RefusedAsync(linking, cancellationToken) is { Count: > 0 } refused)
         {
             return Failure(OperationError.Validation(
                 PlanningErrorCodes.WorkTaskLinkUnprocessable, CannotCapture, refused));
@@ -87,11 +95,12 @@ internal sealed class WorkTaskBusiness(
             RecipeId = model.RecipeId,
             ContentCardId = model.ContentCardId,
             MediaAssetId = model.MediaAssetId,
+            EstimateMinutes = model.EstimateMinutes,
             CreatedAt = now,
             UpdatedAt = now,
         };
 
-        if (!await dataLayer.CreateAsync(task, cancellationToken))
+        if (!await dataLayer.CreateAsync(task, labelIds, cancellationToken))
         {
             return Failure(new OperationError(
                 PlanningErrorCodes.WorkTaskNotSaved,
@@ -101,7 +110,11 @@ internal sealed class WorkTaskBusiness(
 
         var names = await workspaces.FindMemberDisplayNamesAsync([membershipId], cancellationToken);
 
-        return OperationResult<WorkTaskServiceModel>.Success(ToServiceModel(task, names));
+        var labels = labelIds.Count == 0
+            ? WorkTaskMapper.NoLabels
+            : WorkTaskMapper.LabelsByTask(await dataLayer.LabelsForAsync([task.Id], cancellationToken));
+
+        return OperationResult<WorkTaskServiceModel>.Success(WorkTaskMapper.ToServiceModel(task, names, labels));
     }
 
     public async Task<OperationResult<TodayWorkTasksServiceModel>> GetTodayAsync(
@@ -141,32 +154,48 @@ internal sealed class WorkTaskBusiness(
                 .Distinct()],
             cancellationToken);
 
+        var labels = WorkTaskMapper.LabelsByTask(day.Labels);
+
+        var overdue = Shown(day.Overdue, names);
+        var scheduledToday = Shown(day.ScheduledToday, names);
+        var inProgress = Shown(day.InProgress, names);
+        var waiting = Shown(day.Waiting, names);
+        var completedToday = Shown(day.CompletedToday, names);
+
+        // The choice names tasks; only those the page shows are passed on, so a pointer never dangles.
+        var shown = new[] { overdue, scheduledToday, inProgress, waiting, completedToday }
+            .SelectMany(group => group)
+            .Select(task => task.Id)
+            .ToHashSet();
+        var chosen = await focus.ChosenAsync(workspace.MembershipId, today, cancellationToken);
+
         return OperationResult<TodayWorkTasksServiceModel>.Success(new TodayWorkTasksServiceModel
         {
             Date = today,
             TimeZoneId = zone,
-            Overdue = Shown(day.Overdue, names),
+            Overdue = overdue,
             OverdueHasMore = WasCut(day.Overdue),
-            ScheduledToday = Shown(day.ScheduledToday, names),
+            ScheduledToday = scheduledToday,
             ScheduledTodayHasMore = WasCut(day.ScheduledToday),
-            InProgress = Shown(day.InProgress, names),
+            InProgress = inProgress,
             InProgressHasMore = WasCut(day.InProgress),
-            Waiting = Shown(day.Waiting, names),
+            Waiting = waiting,
             WaitingHasMore = WasCut(day.Waiting),
-            CompletedToday = Shown(day.CompletedToday, names),
+            CompletedToday = completedToday,
             CompletedTodayHasMore = WasCut(day.CompletedToday),
+            TopThree = [.. chosen.Where(shown.Contains)],
             Suggested =
             [
                 .. day.Unplanned.Select(task => new SuggestedWorkTaskServiceModel
                 {
-                    Task = ToServiceModel(task, names),
+                    Task = WorkTaskMapper.ToServiceModel(task, names, labels),
                     Reason = ReasonFor(task, today),
                 }),
             ],
         });
 
         IReadOnlyList<WorkTaskServiceModel> Shown(IReadOnlyList<WorkTask> group, IReadOnlyDictionary<Guid, string> who) =>
-            [.. group.Take(WorkTaskPolicy.TodayGroupMaxRows).Select(task => ToServiceModel(task, who))];
+            [.. group.Take(WorkTaskPolicy.TodayGroupMaxRows).Select(task => WorkTaskMapper.ToServiceModel(task, who, labels))];
 
         // The data layer asked for one more than it will show, so a longer list means there were others.
         static bool WasCut(IReadOnlyList<WorkTask> group) => group.Count > WorkTaskPolicy.TodayGroupMaxRows;
@@ -190,38 +219,6 @@ internal sealed class WorkTaskBusiness(
 
     /// <summary>How far ahead a due date still counts as soon, for a suggestion's wording.</summary>
     private const int SoonInDays = 7;
-
-    private static WorkTaskServiceModel ToServiceModel(WorkTask task, IReadOnlyDictionary<Guid, string> names) =>
-        new()
-        {
-            Id = task.Id,
-            Title = task.Title,
-            Description = task.Description,
-            Status = task.Status,
-            Priority = task.Priority,
-            ScheduledDate = task.ScheduledDate,
-            PlanningWeekStart = task.PlanningWeekStart,
-            DueDate = task.DueDate,
-            EstimateMinutes = task.EstimateMinutes,
-            Owner = Member(task.OwnerMembershipId, names),
-            Assignee = Member(task.AssigneeMembershipId, names),
-            Links = new WorkTaskLinksServiceModel
-            {
-                WorkflowRunId = task.WorkflowRunId,
-                WorkflowStepKey = task.WorkflowStepKey,
-                RecipeId = task.RecipeId,
-                ContentCardId = task.ContentCardId,
-                MediaAssetId = task.MediaAssetId,
-            },
-            CreatedAt = task.CreatedAt,
-            UpdatedAt = task.UpdatedAt,
-            CompletedAt = task.CompletedAt,
-            ConcurrencyToken = WorkTaskConcurrencyToken.From(task.RowVersion),
-        };
-
-    /// <summary>Null for somebody who has since left the workspace: a task outlives the membership.</summary>
-    private static WorkTaskMemberServiceModel Member(Guid membershipId, IReadOnlyDictionary<Guid, string> names) =>
-        new() { MembershipId = membershipId, DisplayName = names.GetValueOrDefault(membershipId) };
 
     /// <summary>
     /// The week the task belongs to: the one the creator named, the one holding the day they named, or — for
@@ -258,53 +255,6 @@ internal sealed class WorkTaskBusiness(
         return zone is { Length: > 0 } && zones.IsValidZone(zone)
             ? WorkTaskWeek.StartOf(zones.LocalDate(clock.UtcNow, zone))
             : null;
-    }
-
-    /// <summary>
-    /// Each link, checked through the module that owns the record, in the resolved workspace. Every refusal
-    /// is collected rather than returned at the first, so a creator fixes one request instead of several.
-    /// </summary>
-    private async Task<List<(string Field, string Message)>> RefusedLinksAsync(
-        CreateWorkTaskViewModel model, CancellationToken cancellationToken)
-    {
-        var refused = new List<(string Field, string Message)>();
-
-        if (model.RecipeId is { } recipeId
-            && !(await recipes.ListTitlesAsync([recipeId], cancellationToken)).Any(candidate => candidate.Id == recipeId))
-        {
-            refused.Add(("recipeId", NotFoundHere));
-        }
-
-        if (model.ContentCardId is { } cardId && !await contentCards.ExistsAsync(cardId, cancellationToken))
-        {
-            refused.Add(("contentCardId", NotFoundHere));
-        }
-
-        // No version: a task follows the picture as it stands, exactly as it follows a recipe rather than one
-        // of its versions.
-        if (model.MediaAssetId is { } assetId
-            && await mediaAssets.ResolveLinkTargetAsync(assetId, null, cancellationToken) is not MediaAssetLinkTarget.Linkable)
-        {
-            refused.Add(("mediaAssetId", NotFoundHere));
-        }
-
-        if (model.WorkflowRunId is { } runId)
-        {
-            var run = await workflowRuns.GetAsync(runId, cancellationToken);
-            if (!run.Succeeded)
-            {
-                refused.Add(("workflowRunId", NotFoundHere));
-            }
-            else if (WorkTaskInputChecks.Normalize(model.WorkflowStepKey) is { } stepKey
-                && !run.Value!.Steps.Any(step => string.Equals(step.Key, stepKey, StringComparison.Ordinal)))
-            {
-                // The run is this workspace's, so naming the step is no disclosure: it says nothing the
-                // caller could not read from the run itself.
-                refused.Add(("workflowStepKey", "That run has no such step."));
-            }
-        }
-
-        return refused;
     }
 
     private static OperationResult<WorkTaskServiceModel> Failure(OperationError error) =>

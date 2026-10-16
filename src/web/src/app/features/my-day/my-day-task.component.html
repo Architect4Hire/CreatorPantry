@@ -1,0 +1,129 @@
+<div class="task-main">
+  <p class="task-title">
+    @if (link(); as target) {
+      <a [routerLink]="target.commands">{{ task().title }}</a>
+    } @else {
+      <span>{{ task().title }}</span>
+    }
+  </p>
+
+  <dl cpFacts layout="inline">
+    @if (from(); as where) {
+      <div cpFact label="From">{{ where }}</div>
+    }
+    @if (due(); as when) {
+      <div cpFact label="Due">{{ when }}</div>
+    }
+    @if (priority(); as level) {
+      <div cpFact label="Priority">{{ level }}</div>
+    }
+    @if (estimate(); as time) {
+      <div cpFact label="Estimate">{{ time }}</div>
+    }
+    @if (link(); as target) {
+      <div cpFact label="Opens">{{ target.what }}</div>
+    }
+    @for (label of task().labels; track label.id) {
+      <div cpFact label="Label">{{ label.name }}</div>
+    }
+  </dl>
+</div>
+
+@if (canAct()) {
+  <!--
+    Never disabled: a focused button that disables itself drops focus to the page. While a command is on its way, or
+    the page is offline, each says so and the page refuses the click.
+  -->
+  <div class="task-controls cp-actions">
+    @if (finished()) {
+      <button
+        cpButton
+        type="button"
+        variant="text"
+        size="sm"
+        [attr.aria-label]="'Reopen “' + task().title + '”'"
+        [attr.aria-disabled]="unavailable() ? 'true' : null"
+        (click)="reopen.emit()"
+      >
+        Reopen
+      </button>
+    } @else {
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        [attr.aria-label]="'Mark “' + task().title + '” done'"
+        [attr.aria-disabled]="unavailable() ? 'true' : null"
+        (click)="done.emit()"
+      >
+        <span aria-hidden="true">✓</span> Done
+      </button>
+
+      @if (task().status === 'Backlog') {
+        <button
+          cpButton
+          type="button"
+          variant="primary"
+          size="sm"
+          [attr.aria-label]="'Start “' + task().title + '”'"
+          [attr.aria-disabled]="unavailable() ? 'true' : null"
+          (click)="start.emit()"
+        >
+          Start
+        </button>
+      } @else if (link(); as target) {
+        <a
+          cpButton
+          variant="primary"
+          size="sm"
+          [routerLink]="target.commands"
+          [attr.aria-label]="'Resume “' + task().title + '” in ' + target.what"
+        >
+          Resume
+        </a>
+      }
+
+      @if (moves().length > 0) {
+        <button
+          #moveButton
+          cpButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          [attr.aria-label]="'Move “' + task().title + '”'"
+          [attr.aria-expanded]="moveOpen()"
+          [attr.aria-controls]="moveOpen() ? panelId() : null"
+          (click)="moveToggled.emit()"
+        >
+          Move <span aria-hidden="true">{{ moveOpen() ? '▾' : '▸' }}</span>
+        </button>
+      }
+    }
+  </div>
+
+  @if (moveOpen() && !finished()) {
+    <div
+      class="move-choices"
+      role="group"
+      [id]="panelId()"
+      [attr.aria-label]="'Move “' + task().title + '” to'"
+      (keydown.escape)="closeMoves($event)"
+    >
+      @for (choice of moves(); track choice.id) {
+        <button
+          cpButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          [attr.data-move]="choice.id"
+          [attr.aria-label]="'Move “' + task().title + '” to ' + choice.label"
+          [attr.aria-disabled]="unavailable() ? 'true' : null"
+          (click)="move.emit(choice)"
+        >
+          {{ choice.label }}
+        </button>
+      }
+    </div>
+  }
+}

@@ -1,10 +1,13 @@
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CpThemeService } from '@creator-pantry/ui';
 import { EMPTY } from 'rxjs';
 
 import { AppShellComponent } from './app-shell.component';
+import { QuickCaptureComponent } from '../shared/quick-capture/quick-capture.component';
+import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { AuthService, SessionState } from '../services/auth.service';
 import { WorkspaceMembershipService } from '../services/workspace-membership.service';
 
@@ -13,6 +16,8 @@ interface FakeRouteNode {
   readonly section?: string;
   readonly title?: string;
   readonly pageWidth?: string;
+  /** Any other route parameter the node names — a record id, say. */
+  readonly params?: Readonly<Record<string, string>>;
 }
 
 /** Builds a fake ActivatedRoute descendant chain (each entry one level deeper) matching what readRouteState() walks. */
@@ -23,13 +28,18 @@ function buildRouteChain(nodes: readonly FakeRouteNode[]): { firstChild: unknown
     child = {
       firstChild: child,
       snapshot: {
-        paramMap: { get: (key: string) => (key === 'workspaceSlug' ? (node.slug ?? null) : null) },
+        paramMap: fakeParamMap({ ...(node.slug ? { workspaceSlug: node.slug } : {}), ...(node.params ?? {}) }),
         url: node.section ? [{ path: node.section }] : [],
         data: { ...(node.title ? { title: node.title } : {}), ...(node.pageWidth ? { pageWidth: node.pageWidth } : {}) },
       },
     };
   }
   return { firstChild: child };
+}
+
+/** A ParamMap's two members the shell reads: one parameter by name, and the names it holds. */
+function fakeParamMap(params: Readonly<Record<string, string>>) {
+  return { get: (key: string) => params[key] ?? null, keys: Object.keys(params) };
 }
 
 function fakeRouteTree(slug: string | null, section: string) {
@@ -43,7 +53,13 @@ describe('AppShellComponent', () => {
   let toggleThemeSpy: jasmine.Spy;
   let resolvedTheme: ReturnType<typeof signal<'light' | 'dark'>>;
 
-  async function createFixture(session: SessionState, slug: string | null, section = 'recipes', route: { firstChild: unknown } = fakeRouteTree(slug, section)) {
+  async function createFixture(
+    session: SessionState,
+    slug: string | null,
+    section = 'recipes',
+    route: { firstChild: unknown } = fakeRouteTree(slug, section),
+    memberships: unknown = { status: 'loading' },
+  ) {
     navigateByUrlSpy = jasmine.createSpy('navigateByUrl').and.resolveTo(true);
     logoutSpy = jasmine.createSpy('logout').and.resolveTo(undefined);
     ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.resolveTo(undefined);
@@ -54,7 +70,7 @@ describe('AppShellComponent', () => {
       imports: [AppShellComponent],
       providers: [
         { provide: AuthService, useValue: { session: () => session, logout: logoutSpy } },
-        { provide: WorkspaceMembershipService, useValue: { state: () => ({ status: 'loading' }), ensureLoaded: ensureLoadedSpy } },
+        { provide: WorkspaceMembershipService, useValue: { state: () => memberships, ensureLoaded: ensureLoadedSpy } },
         { provide: Router, useValue: { events: EMPTY, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy } },
         { provide: ActivatedRoute, useValue: route },
         { provide: CpThemeService, useValue: { resolved: resolvedTheme, toggle: toggleThemeSpy } },
@@ -110,6 +126,88 @@ describe('AppShellComponent', () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
     expect(fixture.nativeElement.querySelector('h1')).toBeNull();
     expect(fixture.componentInstance.currentPageTitle()).toBe('Recipes');
+  });
+
+  describe('quick capture (13A.31)', () => {
+    const SESSION: SessionState = { status: 'authenticated', displayName: 'Robert' };
+    const RECIPE = '6f1c2a4e-8b1d-4c3e-9f2a-1b2c3d4e5f60';
+
+    function membershipsAs(role: string) {
+      return {
+        status: 'ready',
+        memberships: [
+          { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role, status: 'Active' },
+        ],
+      };
+    }
+
+    function quickCapture(fixture: ComponentFixture<AppShellComponent>): { componentInstance: QuickCaptureComponent } | null {
+      return fixture.debugElement.query(By.directive(QuickCaptureComponent));
+    }
+
+    it('offers "+ Task" on a workspace page to anyone who can keep work there', async () => {
+      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Contributor'));
+
+      expect(quickCapture(fixture)).not.toBeNull();
+      const button = (fixture.nativeElement as HTMLElement).querySelector('header button[aria-label="Add a task"]');
+      expect(button).toBeTruthy();
+      expect(button!.getAttribute('aria-haspopup')).toBe('dialog');
+    });
+
+    it('renders the dialog after the bar, never inside it, so its scrim covers the page', async () => {
+      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Owner'));
+      const root = fixture.nativeElement as HTMLElement;
+
+      (root.querySelector('header button[aria-label="Add a task"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const dialog = root.querySelector('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      expect(dialog!.closest('header')).toBeNull();
+      expect(root.querySelector('header cp-quick-capture')).toBeNull();
+    });
+
+    it('lets a page open the same dialog through QuickCaptureService, and stops when the shell goes (13A.32)', async () => {
+      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Owner'));
+      const root = fixture.nativeElement as HTMLElement;
+      const service = TestBed.inject(QuickCaptureService);
+
+      expect(service.available).toBeTrue();
+      service.open({ today: '2038-10-14' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const dialog = root.querySelector('[role="dialog"]');
+      expect(dialog).not.toBeNull();
+      expect(dialog!.closest('header')).toBeNull();
+
+      fixture.destroy();
+      expect(service.available).toBeFalse();
+    });
+
+    it('offers nothing to a Viewer, while memberships load, or where no workspace is in the URL', async () => {
+      expect(quickCapture(await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Viewer')))).toBeNull();
+      TestBed.resetTestingModule();
+      expect(quickCapture(await createFixture(SESSION, 'cozy-fall'))).toBeNull();
+      TestBed.resetTestingModule();
+      expect(quickCapture(await createFixture(SESSION, null, 'dashboard', fakeRouteTree(null, 'dashboard'), membershipsAs('Owner')))).toBeNull();
+    });
+
+    it('offers to link the record on the page behind, and nothing on a page about no one record', async () => {
+      const onRecipe = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes' }, { params: { recipeId: RECIPE } }]);
+      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', onRecipe, membershipsAs('Editor'));
+
+      expect(quickCapture(fixture)!.componentInstance.link()).toEqual(
+        jasmine.objectContaining({ field: 'recipeId', id: RECIPE }),
+      );
+
+      TestBed.resetTestingModule();
+      const onLibrary = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Editor'));
+      expect(quickCapture(onLibrary)!.componentInstance.link()).toBeNull();
+    });
   });
 
   describe('page frame', () => {

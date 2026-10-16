@@ -24,6 +24,19 @@
   <header class="topbar">
     <button class="icon-btn mobile" aria-label="Toggle menu" aria-controls="cp-shell-sidebar" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">☰</button>
     <span class="spacer"></span>
+    <!-- Quick capture (13A.31): on every signed-in workspace page, for anyone who can keep work there. -->
+    @if (currentWorkspaceSlug() && canKeepWork()) {
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        class="capture-opener"
+        aria-label="Add a task"
+        aria-haspopup="dialog"
+        (click)="openQuickCapture($any($event.currentTarget))"
+      ><span aria-hidden="true">+</span><span class="capture-word" aria-hidden="true"> Task</span></button>
+    }
     <button
       class="icon-btn"
       type="button"
@@ -50,6 +63,16 @@
       }
     }
   </header>
+
+  <!--
+    The capture dialog, after the bar rather than in it: the bar's backdrop filter makes it the box a fixed scrim
+    fills, so a dialog inside it would cover the bar alone and leave the page live beneath.
+  -->
+  @if (currentWorkspaceSlug(); as slug) {
+    @if (canKeepWork()) {
+      <cp-quick-capture [workspaceSlug]="slug" [link]="quickCaptureLink()" />
+    }
+  }
 
   <main>
     <!-- The one gutter and the one width every signed-in page has; a route picks its width with

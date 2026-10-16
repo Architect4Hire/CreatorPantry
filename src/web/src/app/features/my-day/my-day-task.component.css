@@ -1,0 +1,59 @@
+/* One row: what the task is on the left, its controls on the right where there is room, under it where there is not. */
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  align-items: start;
+  padding-block: var(--cp-space-3);
+  border-top: 1px solid var(--cp-border);
+  overflow-wrap: anywhere;
+}
+
+:host(:first-child) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.task-main {
+  display: grid;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.task-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* A title that opens something is a 40px target like every other one; long titles wrap rather than truncate. */
+.task-title a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+}
+
+.task-controls {
+  justify-content: flex-end;
+}
+
+/* Move's choices sit under the row they move, across its full width. */
+.move-choices {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+/* A phone, or 200% zoom: the controls drop under the title and start at its edge. */
+@media (max-width: 40rem) {
+  :host {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-controls {
+    justify-content: flex-start;
+  }
+}
