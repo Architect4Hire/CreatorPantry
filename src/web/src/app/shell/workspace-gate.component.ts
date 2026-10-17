@@ -67,7 +67,7 @@ export class WorkspaceGateComponent {
    * component (NG0953), nothing would navigate, and the creator would be left on a blank page with
    * their new workspace only reachable from the switcher.
    */
-  private readonly firstUse = signal(false);
+  protected readonly firstUse = signal(false);
 
   private destroyed = false;
 
