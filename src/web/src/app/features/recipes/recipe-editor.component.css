@@ -108,6 +108,13 @@ cp-tab-panel:not([hidden]) {
 :host {
   --cp-measure-field: 100%;
   --cp-field-row-measure: 60ch;
+
+  /* The shell's topbar is fixed across the top of the page, so anything scrolled to or stuck at the top has to
+     clear it, and a section's heading must not land beneath it. The second is how far down a sticky thing below
+     the instructions toolbar sits clear of both bars. */
+  --cp-form-section-scroll-margin: calc(var(--cp-topbar-height) + var(--cp-space-4));
+  --cp-sticky-bar: 3.75rem;
+  --cp-sticky-below-bars: calc(var(--cp-topbar-height) + var(--cp-sticky-bar) + var(--cp-space-2));
 }
 
 /* The General tab: one column of sections with a nav, in one of two forms. Narrow — a phone — the nav is a wrapping
@@ -139,7 +146,7 @@ cp-tab-panel:not([hidden]) {
   .general-nav-wide {
     display: block;
     position: sticky;
-    top: var(--cp-space-4);
+    top: calc(var(--cp-topbar-height) + var(--cp-space-4));
     --cp-anchor-nav-direction: column;
   }
 }
@@ -179,12 +186,14 @@ cp-tab-panel:not([hidden]) {
 
   .group-nav {
     position: sticky;
-    top: var(--cp-space-4);
+    top: var(--cp-sticky-below-bars);
     --cp-anchor-nav-direction: column;
   }
 }
 
 .group {
+  /* Jumped to from the group nav: clear of the topbar and the toolbar, so its heading is not hidden. */
+  scroll-margin-top: var(--cp-sticky-below-bars);
   padding: var(--cp-space-4);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-subtle);
@@ -285,6 +294,34 @@ cp-tab-panel:not([hidden]) {
 
 .group-header cp-field {
   flex: 1 1 auto;
+}
+
+/* The buttons at the head of the instructions, as the ingredient editor's toolbar is. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* Kept on screen while a long method scrolls beneath it, as the ingredient editor's is: just under the shell's
+   fixed topbar, opaque, and above the steps. Not on a phone, where the room is worth more. */
+@container cp-editor (min-width: 40rem) {
+  .toolbar {
+    position: sticky;
+    top: var(--cp-topbar-height);
+    z-index: 2;
+    padding-block: var(--cp-space-2);
+    background: var(--cp-surface);
+    border-bottom: 1px solid var(--cp-border);
+  }
+}
+
+/* Move and remove, at the end of the line above a step's own fields. */
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--cp-space-2);
 }
 
 .group-actions,

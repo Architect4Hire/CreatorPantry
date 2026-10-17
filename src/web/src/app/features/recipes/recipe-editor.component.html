@@ -766,13 +766,23 @@
             [problem]="sectionProblem('instructions') ?? ''"
             intro="The method, step by step."
           >
+            <!-- At the top, as the ingredient editor's are, and the same quiet secondary buttons: two ways to add, ahead of
+                 what they add to, rather than a green call to action stranded under a list that may be empty. -->
+            <div class="toolbar">
+              <!-- Only while the method is a single list. Once it has phases each one has its own "Add step" beneath its
+                   steps, which says which phase the new step belongs to. -->
+              @if (!showInstructionGroups()) {
+                <button cpButton variant="secondary" type="button" (click)="addInstructionStep()">Add step</button>
+              }
+              <button cpButton variant="secondary" type="button" (click)="addInstructionGroup()">
+                Add instruction group
+              </button>
+            </div>
+
             @if (instructionGroups().length === 0) {
               <p class="cp-muted">
                 No instructions yet. Add the first step, and give the method phases only if it has them.
               </p>
-              <div class="group-actions">
-                <button cpButton type="button" (click)="addInstructionStep()">Add step</button>
-              </div>
             }
 
             <div class="grouped-layout" [class.has-group-nav]="showInstructionGroupNav()">
@@ -845,6 +855,44 @@
                     <ol class="steps">
                       @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
                         <li class="step">
+                          <!-- Move and remove at the top right of the step, level with nothing but themselves: where they are
+                               found without reading down through the step's fields first, and the same place as an
+                               ingredient line's. -->
+                          <div class="step-head">
+                              <button
+                                cpButton
+                                variant="secondary"
+                                size="sm"
+                                type="button"
+                                [disabled]="stepIndex === 0"
+                                [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
+                                (click)="moveInstructionStep(group.key, step.key, -1)"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                cpButton
+                                variant="secondary"
+                                size="sm"
+                                type="button"
+                                [disabled]="stepIndex === stepCount - 1"
+                                [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
+                                (click)="moveInstructionStep(group.key, step.key, 1)"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                cpButton
+                                variant="danger"
+                                size="sm"
+                                type="button"
+                                [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
+                                (click)="removeInstructionStep(group.key, step.key)"
+                              >
+                                Remove step
+                              </button>
+                          </div>
+
                           <!-- The server reports a refused step at its position, so its sentence lands on the step it is
                        about rather than on the whole method. -->
                           <cp-field
@@ -897,68 +945,37 @@
                             />
                           </cp-field>
 
-                          <div class="step-actions">
+                          @if (!step.showDuration) {
+                            <div class="step-actions">
                             <!-- Offered with the step's other buttons, at the bottom of it, rather than as a line of text
                        among its fields: an action that looks like a link is easy to take for part of the copy.
                        Gone once the field is showing, and focus goes to the field it asked for. -->
-                            @if (!step.showDuration) {
-                              <button
-                                cpButton
-                                variant="secondary"
-                                size="sm"
-                                type="button"
-                                [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
-                                (click)="revealStepDuration(group.key, step.key)"
-                              >
-                                Add a duration
-                              </button>
-                            }
-                            <button
-                              cpButton
-                              variant="secondary"
-                              size="sm"
-                              type="button"
-                              [disabled]="stepIndex === 0"
-                              [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
-                              (click)="moveInstructionStep(group.key, step.key, -1)"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              cpButton
-                              variant="secondary"
-                              size="sm"
-                              type="button"
-                              [disabled]="stepIndex === stepCount - 1"
-                              [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
-                              (click)="moveInstructionStep(group.key, step.key, 1)"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              cpButton
-                              variant="danger"
-                              size="sm"
-                              type="button"
-                              [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
-                              (click)="removeInstructionStep(group.key, step.key)"
-                            >
-                              Remove step
-                            </button>
-                          </div>
+                                <button
+                                  cpButton
+                                  variant="secondary"
+                                  size="sm"
+                                  type="button"
+                                  [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
+                                  (click)="revealStepDuration(group.key, step.key)"
+                                >
+                                  Add a duration
+                                </button>
+                            </div>
+                          }
                         </li>
                       }
                     </ol>
 
-                    <button cpButton variant="secondary" type="button" (click)="addInstructionStep(group.key)">
-                      Add step
-                    </button>
+                    @if (showInstructionGroups()) {
+                      <button cpButton variant="secondary" type="button" (click)="addInstructionStep(group.key)">
+                        Add step
+                      </button>
+                    }
                   </section>
                 }
               </div>
             </div>
 
-            <button cpButton type="button" (click)="addInstructionGroup()">Add instruction group</button>
           </cp-form-section>
         </cp-tab-panel>
       </cp-tabs>

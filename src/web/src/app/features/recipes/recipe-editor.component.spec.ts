@@ -3233,7 +3233,7 @@ describe('RecipeEditorComponent', () => {
       };
 
       const typeInto = (field: string, rowKey: string, value: string) => {
-        const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="row-${field}-${rowKey}"]`);
+        const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`[id="row-${field}-${rowKey}"]`);
         expect(input).withContext(`the row's ${field} input`).toBeTruthy();
         input!.value = value;
         input!.dispatchEvent(new Event('input'));
@@ -3573,7 +3573,7 @@ describe('RecipeEditorComponent', () => {
         const { harness, component } = await loadedWithRange(recipeService);
         selectEditTab(harness, 'Ingredients');
 
-        const prep = harness.routeNativeElement!.querySelector<HTMLInputElement>('input[id="row-prep-ing1"]')!;
+        const prep = harness.routeNativeElement!.querySelector<HTMLInputElement>('[id="row-prep-ing1"]')!;
         prep.value = 'sifted';
         prep.dispatchEvent(new Event('input'));
         harness.detectChanges();
@@ -3735,10 +3735,10 @@ describe('RecipeEditorComponent', () => {
       typeInto(`#ingredient-group-title-${first.key}`, 'For the cake');
       typeInto(`#ingredient-group-title-${second.key}`, 'For the streusel');
 
-      // The toolbar's own "Add ingredient" comes first, so the second group's is the third of them.
+      // Grouped, so the toolbar has no "Add ingredient" of its own: each group's is the only one, and the second is second.
       const addToSecond = Array.from(root().querySelectorAll<HTMLButtonElement>('button')).filter(
         (button) => button.textContent?.trim() === 'Add ingredient',
-      )[2];
+      )[1];
       addToSecond.click();
       harness.detectChanges();
       const rowKey = component.editedIngredientGroups()[1].ingredients[0].key;
@@ -3945,6 +3945,7 @@ describe('RecipeEditorComponent', () => {
       const addSteps = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter(
         (button) => button.textContent?.trim() === 'Add step',
       );
+      // Grouped, so the toolbar has no "Add step" of its own: each group's is the only one, and the second is second.
       addSteps[1].click();
       harness.detectChanges();
 
@@ -4048,6 +4049,62 @@ describe('RecipeEditorComponent', () => {
 
       clickButton(harness, 'Add instruction group');
       expect(navLinks(harness).length).toBe(2);
+    });
+
+    it('keeps the toolbar on screen under the topbar on a wide editor, and not on a phone', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      const root = harness.routeNativeElement!;
+      root.style.setProperty('--cp-topbar-height', '4.25rem');
+      const toolbar = () => root.querySelector<HTMLElement>('.toolbar')!;
+
+      root.style.width = '60rem';
+      harness.detectChanges();
+      expect(getComputedStyle(toolbar()).position).toBe('sticky');
+      expect(getComputedStyle(toolbar()).top).toBe(`${4.25 * 16}px`);
+
+      root.style.width = '30rem';
+      harness.detectChanges();
+      expect(getComputedStyle(toolbar()).position).toBe('static');
+    });
+
+    it('offers one "Add step" at a time: the toolbar one for a single list, one beneath each phase once there are phases', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      const addSteps = () =>
+        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add step');
+
+      expect(addSteps().length).withContext('before anything is added').toBe(1);
+      clickButton(harness, 'Add step');
+      expect(addSteps().length).withContext('a single list: still just the toolbar one').toBe(1);
+      expect(harness.routeNativeElement!.querySelector('.toolbar')!.contains(addSteps()[0])).toBeTrue();
+
+      clickButton(harness, 'Add instruction group');
+      expect(addSteps().length).withContext('two phases: one beneath each').toBe(2);
+      expect(addSteps().every((button) => !harness.routeNativeElement!.querySelector('.toolbar')!.contains(button))).toBeTrue();
+    });
+
+    it('puts move and remove at the top right of a step, above its text, and the duration offer beneath', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      root.style.width = '80rem';
+      harness.detectChanges();
+
+      const stepBox = root.querySelector('.step')!.getBoundingClientRect();
+      const head = root.querySelector('.step-head')!.getBoundingClientRect();
+      const text = root.querySelector(`#step-text-${component.instructionGroups()[0].steps[0].key}`)!.getBoundingClientRect();
+      const offer = root.querySelector('button[aria-label="Add a duration to step 1"]')!.getBoundingClientRect();
+
+      expect(head.bottom).withContext('above the text').toBeLessThanOrEqual(text.top + 1);
+      expect(stepBox.right - head.right).withContext('at the right edge of the step').toBeLessThan(40);
+      expect(offer.top).withContext('the duration offer is beneath the text').toBeGreaterThanOrEqual(text.bottom - 1);
+      expect(root.querySelector('button[aria-label="Remove step 1"]')).toBeTruthy();
+      expect(root.querySelector('.step-head button[aria-label="Move step 1 up"]')).toBeTruthy();
     });
 
     it('gives the steps the full width when no nav sits beside them, and a gutter when one does', async () => {

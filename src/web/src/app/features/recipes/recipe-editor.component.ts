@@ -1117,6 +1117,7 @@ export class RecipeEditorComponent {
   private generalJumpPending = false;
   private generalJumpTimer: ReturnType<typeof setTimeout> | null = null;
   private generalJumpScrollEnd: (() => void) | null = null;
+  private generalJumpScrollStart: (() => void) | null = null;
 
   /** The element holding the General sections, once it is on screen. Absent on the other tabs and while loading. */
   private readonly generalSections = viewChild<ElementRef<HTMLElement>>('generalSections');
@@ -1480,10 +1481,20 @@ export class RecipeEditorComponent {
     this.releaseGeneralJump(null);
     this.generalJumpPending = true;
 
-    const onScrollEnd = () => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS);
+    // Only a scrollend that follows this jump's own scrolling counts: one still on its way from a scroll the
+    // creator made just before clicking would otherwise end the hold at once, with the jump barely begun.
+    let scrolled = false;
+    const onScroll = () => {
+      scrolled = true;
+    };
+    const onScrollEnd = () => {
+      if (scrolled) this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS);
+    };
+    this.generalJumpScrollStart = onScroll;
     this.generalJumpScrollEnd = onScrollEnd;
-    // Captured on the document: `scrollend` does not bubble, and whichever element does the scrolling is the
-    // shell's business rather than this editor's.
+    // Captured on the document: neither event bubbles from an element, and whichever element does the scrolling is
+    // the shell's business rather than this editor's.
+    document.addEventListener('scroll', onScroll, true);
     document.addEventListener('scrollend', onScrollEnd, true);
     this.generalJumpTimer = setTimeout(() => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS), GENERAL_SCROLL_FALLBACK_MS);
   }
@@ -1494,7 +1505,9 @@ export class RecipeEditorComponent {
    */
   private releaseGeneralJump(afterMs: number | null): void {
     if (this.generalJumpScrollEnd) document.removeEventListener('scrollend', this.generalJumpScrollEnd, true);
+    if (this.generalJumpScrollStart) document.removeEventListener('scroll', this.generalJumpScrollStart, true);
     this.generalJumpScrollEnd = null;
+    this.generalJumpScrollStart = null;
     if (this.generalJumpTimer !== null) clearTimeout(this.generalJumpTimer);
     this.generalJumpTimer = null;
     if (afterMs === null) return;
