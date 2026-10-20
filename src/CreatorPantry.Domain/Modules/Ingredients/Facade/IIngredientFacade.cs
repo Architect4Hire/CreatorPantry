@@ -92,5 +92,25 @@ public interface IIngredientFacade
         IReadOnlyCollection<Guid> dietaryProfileIds,
         DateOnly asOf,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The catalogue name and food category of each named ingredient, retired ones included (14.5). An id naming
+    /// nothing is absent; an empty collection reads nothing.
+    /// </summary>
+    /// <remarks>
+    /// Retired entries answer because the caller is reading what a recipe version already names, not choosing
+    /// something new. A category is a classification for a reader to act on, never a statement about the food.
+    /// </remarks>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether evidence of <paramref name="kind"/> can be had on this host, and from which approved source (14.5).
+    /// </summary>
+    /// <remarks>
+    /// A statement about sources, not about any food: <see cref="ReferenceEvidenceAvailability.NoApprovedSource"/>
+    /// means nothing is approved for the kind (B-33), and its evidence is unknown on every host.
+    /// </remarks>
+    ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind);
 }
 

@@ -26,6 +26,10 @@ public interface IIngredientDataLayer
     /// <inheritdoc cref="IIngredientRepository.FindActiveReferenceSourceIdAsync"/>
     Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IIngredientRepository.ListCategoriesAsync"/>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IIngredientRepository.ListApprovedTraitsAsync"/>
     Task<(IReadOnlyList<ApprovedAllergenTraitServiceModel> Allergens, IReadOnlyList<ApprovedDietaryTraitServiceModel> Dietary)> ListApprovedTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds,

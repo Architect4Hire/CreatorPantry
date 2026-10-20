@@ -1,12 +1,13 @@
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Nutrition.Business;
 using CreatorPantry.Domain.Modules.Nutrition.Managers;
+using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Nutrition.Facade;
 
 /// <summary>
 /// A nutrition estimate for one recipe version (14.3). Read-only: it writes nothing, not even to a mapping it finds
-/// out of date. No route serves it yet (14.6a).
+/// out of date. <c>POST .../versions/{versionNumber}/analysis/nutrition</c> serves it by number (14.6a, B-39).
 /// </summary>
 /// <remarks>
 /// Any member may read an estimate, as any member may read the recipe. The workspace is the resolved context's, so
@@ -20,21 +21,44 @@ public interface INutritionEstimateFacade
     /// </param>
     Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
         Guid recipeId, Guid versionId, decimal? servings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same estimate of a version named by the number a creator cites — the form the HTTP route takes (14.6a).
+    /// An unknown or another workspace's recipe is <c>recipes.recipe.not_found</c>, and a number the recipe does not
+    /// have is <c>recipes.version.not_found</c> naming <c>versionNumber</c>.
+    /// </summary>
+    Task<OperationResult<NutritionEstimateServiceModel>> EstimateByNumberAsync(
+        Guid recipeId, int versionNumber, NutritionEstimateRequestViewModel model, CancellationToken cancellationToken);
 }
 
-internal sealed class NutritionEstimateFacade(INutritionEstimateBusiness business) : INutritionEstimateFacade
+internal sealed class NutritionEstimateFacade(
+    INutritionEstimateBusiness business,
+    IValidator<NutritionEstimateRequestViewModel> validator) : INutritionEstimateFacade
 {
-    public Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
-        Guid recipeId, Guid versionId, decimal? servings, CancellationToken cancellationToken)
+    public async Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
+        Guid recipeId, Guid versionId, decimal? servings, CancellationToken cancellationToken) =>
+        await InvalidAsync(new NutritionEstimateRequestViewModel { Servings = servings }, cancellationToken)
+            ?? await business.EstimateAsync(recipeId, versionId, servings, cancellationToken);
+
+    public async Task<OperationResult<NutritionEstimateServiceModel>> EstimateByNumberAsync(
+        Guid recipeId, int versionNumber, NutritionEstimateRequestViewModel model, CancellationToken cancellationToken)
     {
-        if (servings is { } requested && (requested <= 0m || requested > NutritionEstimatePolicy.MaxRequestedServings || requested.Scale > 4))
-        {
-            return Task.FromResult(OperationResult<NutritionEstimateServiceModel>.Failure(OperationError.Validation(
+        ArgumentNullException.ThrowIfNull(model);
+
+        return await InvalidAsync(model, cancellationToken)
+            ?? await business.EstimateByNumberAsync(recipeId, versionNumber, model.Servings, cancellationToken);
+    }
+
+    private async Task<OperationResult<NutritionEstimateServiceModel>?> InvalidAsync(
+        NutritionEstimateRequestViewModel model, CancellationToken cancellationToken)
+    {
+        var validation = await validator.ValidateAsync(model, cancellationToken);
+
+        return validation.IsValid
+            ? null
+            : OperationResult<NutritionEstimateServiceModel>.Failure(OperationError.Validation(
                 NutritionErrorCodes.EstimateInvalid,
                 "That serving count could not be used.",
-                [("servings", $"Give a number of servings above zero and no more than {NutritionEstimatePolicy.MaxRequestedServings}, to at most four decimal places.")])));
-        }
-
-        return business.EstimateAsync(recipeId, versionId, servings, cancellationToken);
+                validation.Errors.Select(error => (error.PropertyName, error.ErrorMessage))));
     }
 }

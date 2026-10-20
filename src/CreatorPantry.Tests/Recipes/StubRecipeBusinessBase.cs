@@ -35,6 +35,9 @@ internal abstract class StubRecipeBusinessBase : IRecipeBusiness
     public virtual Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotAsync(
         Guid recipeId, Guid versionId, CancellationToken cancellationToken) => throw Unused();
 
+    public virtual Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken) => throw Unused();
+
     public virtual Task<OperationResult<RecipeDetailServiceModel>> UpdateAsync(
         Guid recipeId,
         CanonicalRecipePatch patch,

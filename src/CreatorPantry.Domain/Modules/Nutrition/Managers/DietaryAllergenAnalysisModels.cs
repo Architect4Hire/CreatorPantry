@@ -72,6 +72,45 @@ public enum TraitFindingReason
     NotARecognisedIngredient = 2,
 }
 
+/// <summary>
+/// How complete the records behind one allergen's or profile's finding are (14.6). A statement about the records,
+/// not about how likely the finding is: a <see cref="RecipeAllergenFinding.Contains"/> on partial records is still
+/// a finding that the recipe contains it.
+/// </summary>
+public enum AnalysisConfidence
+{
+    /// <summary>No line has a record that counts. The finding is <c>Unknown</c>.</summary>
+    None = 1,
+
+    /// <summary>Some lines have records that count and some have none; the finding rests on the ones that do.</summary>
+    Partial = 2,
+
+    /// <summary>Approved sources disagree about at least one line. The more cautious word was taken; both are cited.</summary>
+    Disputed = 3,
+
+    /// <summary>Every line has a record that counts, and no sources disagree.</summary>
+    Recorded = 4,
+}
+
+/// <summary>How many lines were read, and how many of them have at least one record that counts.</summary>
+public sealed record AnalysisCoverageServiceModel(int LinesRead, int LinesWithCountedRecords);
+
+/// <summary>
+/// One source an analysis cited, with the latest of its records it read (14.6). Trait records carry no version of
+/// their own; a source and the date its statement took effect are what a reader checks a record against.
+/// </summary>
+/// <param name="LatestEffectiveFrom">The newest effective date among this source's records the analysis read.</param>
+/// <param name="IsActive">False for a retired source: cited, never counted as reassurance.</param>
+public sealed record AnalysisSourceServiceModel(
+    string Code,
+    string Name,
+    ReferenceSourceKind Kind,
+    string Citation,
+    string? LicenseCode,
+    string? LicenseUrl,
+    bool IsActive,
+    DateOnly LatestEffectiveFrom);
+
 // ---- Evidence ----
 
 /// <summary>One source's approved word about an allergen in an ingredient, as the analysis read it.</summary>
@@ -102,7 +141,7 @@ public sealed record DietaryTraitEvidenceServiceModel(
     bool Counted);
 
 /// <param name="Conflict">Approved sources disagree; the finding is the more cautious one and both are cited.</param>
-public sealed record AllergenLineFindingServiceModel(
+public sealed record AllergenLineAnalysisServiceModel(
     Guid LineId,
     string DisplayText,
     bool IsOptional,
@@ -112,7 +151,7 @@ public sealed record AllergenLineFindingServiceModel(
     bool Conflict,
     IReadOnlyList<AllergenTraitEvidenceServiceModel> Evidence);
 
-public sealed record DietaryLineFindingServiceModel(
+public sealed record DietaryLineAnalysisServiceModel(
     Guid LineId,
     string DisplayText,
     bool IsOptional,
@@ -131,12 +170,14 @@ public sealed record AllergenAnalysisServiceModel(
     Guid AllergenId,
     string AllergenName,
     RecipeAllergenFinding Finding,
+    AnalysisConfidence Confidence,
+    AnalysisCoverageServiceModel Coverage,
     string Statement,
     IReadOnlyList<Guid> ContainingLines,
     IReadOnlyList<Guid> PossibleSources,
     IReadOnlyList<Guid> UnknownLines,
     IReadOnlyList<Guid> ConflictingLines,
-    IReadOnlyList<AllergenLineFindingServiceModel> Lines);
+    IReadOnlyList<AllergenLineAnalysisServiceModel> Lines);
 
 /// <summary>One selected dietary profile across the recipe.</summary>
 /// <param name="DependsOnProductLines">Lines whose fit varies by product: the hidden sources the records know of.</param>
@@ -144,12 +185,14 @@ public sealed record DietaryAnalysisServiceModel(
     Guid DietaryProfileId,
     string DietaryProfileName,
     RecipeDietaryFinding Finding,
+    AnalysisConfidence Confidence,
+    AnalysisCoverageServiceModel Coverage,
     string Statement,
     IReadOnlyList<Guid> IncompatibleLines,
     IReadOnlyList<Guid> DependsOnProductLines,
     IReadOnlyList<Guid> UnknownLines,
     IReadOnlyList<Guid> ConflictingLines,
-    IReadOnlyList<DietaryLineFindingServiceModel> Lines);
+    IReadOnlyList<DietaryLineAnalysisServiceModel> Lines);
 
 /// <summary>
 /// A deterministic dietary and allergen analysis of one recipe version against selected profiles (14.4, ING-007).
@@ -157,6 +200,7 @@ public sealed record DietaryAnalysisServiceModel(
 /// </summary>
 /// <param name="EvaluatedOn">The date the records were read as of (UTC). A trait dated later was not yet in effect.</param>
 /// <param name="CrossContactDisclaimer">On every analysis, whatever it found.</param>
+/// <param name="Sources">Every source cited anywhere in the analysis, counted or not, by code.</param>
 public sealed record DietaryAllergenAnalysisServiceModel(
     Guid RecipeId,
     Guid RecipeVersionId,
@@ -165,21 +209,37 @@ public sealed record DietaryAllergenAnalysisServiceModel(
     DateOnly EvaluatedOn,
     string CrossContactDisclaimer,
     IReadOnlyList<AllergenAnalysisServiceModel> Allergens,
-    IReadOnlyList<DietaryAnalysisServiceModel> Dietary);
+    IReadOnlyList<DietaryAnalysisServiceModel> Dietary,
+    IReadOnlyList<AnalysisSourceServiceModel> Sources);
 
 // ---- What is asked ----
 
 /// <summary>The allergens and dietary profiles to analyse a recipe version against.</summary>
-public sealed class DietaryAllergenAnalysisViewModel
+/// <remarks>
+/// A JSON <c>null</c> for either list reads as an empty one, so an explicit null is the same request as an omitted
+/// field rather than a crash in validation.
+/// </remarks>
+public sealed class DietaryAllergenSelectionViewModel
 {
-    public List<Guid> AllergenIds { get; set; } = [];
+    private List<Guid> _allergenIds = [];
+    private List<Guid> _dietaryProfileIds = [];
 
-    public List<Guid> DietaryProfileIds { get; set; } = [];
+    public List<Guid> AllergenIds
+    {
+        get => _allergenIds;
+        set => _allergenIds = value ?? [];
+    }
+
+    public List<Guid> DietaryProfileIds
+    {
+        get => _dietaryProfileIds;
+        set => _dietaryProfileIds = value ?? [];
+    }
 }
 
-internal sealed class DietaryAllergenAnalysisViewModelValidator : AbstractValidator<DietaryAllergenAnalysisViewModel>
+internal sealed class DietaryAllergenSelectionViewModelValidator : AbstractValidator<DietaryAllergenSelectionViewModel>
 {
-    public DietaryAllergenAnalysisViewModelValidator()
+    public DietaryAllergenSelectionViewModelValidator()
     {
         RuleFor(model => model)
             .Must(model => model.AllergenIds.Count + model.DietaryProfileIds.Count > 0)

@@ -35,12 +35,19 @@ public static class NutritionServiceCollectionExtensions
         services.AddScoped<INutritionRecipeVersionReader, NutritionRecipeVersionReader>();
         services.AddScoped<INutritionEstimateBusiness, NutritionEstimateBusiness>();
         services.AddScoped<INutritionEstimateFacade, NutritionEstimateFacade>();
+        services.AddScoped<IValidator<NutritionEstimateRequestViewModel>, NutritionEstimateRequestViewModelValidator>();
 
         // Dietary and allergen analysis (14.4): the same version reader, the Ingredients module's approved traits,
         // and the Vocabulary module's allergens and profiles.
         services.AddScoped<IDietaryAllergenAnalysisBusiness, DietaryAllergenAnalysisBusiness>();
         services.AddScoped<IDietaryAllergenAnalysisFacade, DietaryAllergenAnalysisFacade>();
-        services.AddScoped<IValidator<DietaryAllergenAnalysisViewModel>, DietaryAllergenAnalysisViewModelValidator>();
+        services.AddScoped<IValidator<DietaryAllergenSelectionViewModel>, DietaryAllergenSelectionViewModelValidator>();
+
+        // Food-safety warnings (14.5): a version read through the Recipes facade, the Vocabulary module's techniques,
+        // and the Ingredients module's categories and evidence coverage.
+        services.AddScoped<IFoodSafetyRecipeVersionReader, FoodSafetyRecipeVersionReader>();
+        services.AddScoped<IFoodSafetyWarningBusiness, FoodSafetyWarningBusiness>();
+        services.AddScoped<IFoodSafetyWarningFacade, FoodSafetyWarningFacade>();
 
         return services;
     }

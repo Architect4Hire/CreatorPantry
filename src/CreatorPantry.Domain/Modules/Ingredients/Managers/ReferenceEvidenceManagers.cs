@@ -21,6 +21,23 @@ public enum ReferenceEvidenceKind
     FoodSafety = 5,
 }
 
+/// <summary>Whether evidence of one kind can be had on this host (14.5). The cross-module face of the gateway's coverage.</summary>
+public enum ReferenceEvidenceAvailability
+{
+    /// <summary>An approved source covers the kind, and this host can reach it.</summary>
+    Available = 1,
+
+    /// <summary>An approved source covers the kind, but this host has no provider for it.</summary>
+    NotConfigured = 2,
+
+    /// <summary>Nothing is approved for the kind. Its evidence is unknown on every host.</summary>
+    NoApprovedSource = 3,
+}
+
+/// <param name="SourceCode">The approved source's code, when there is one.</param>
+public sealed record ReferenceEvidenceCoverageServiceModel(
+    ReferenceEvidenceKind Kind, ReferenceEvidenceAvailability Availability, string? SourceCode);
+
 /// <summary>
 /// The nutrients CreatorPantry reads from a reference source, in its own terms rather than a provider's numbering.
 /// </summary>

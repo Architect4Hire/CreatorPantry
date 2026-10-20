@@ -8,7 +8,8 @@ namespace CreatorPantry.Domain.Modules.Nutrition.Facade;
 
 /// <summary>
 /// A workspace's nutrition mappings: which external reference each platform ingredient is, as its creators
-/// decided (14.2). The boundary controllers, workers and plugins use; no route serves it yet (14.6b).
+/// decided (14.2). The boundary controllers, workers and plugins use; <c>NutritionMappingsController</c> serves the
+/// read and the confirm, reject and remap commands (14.6b, B-40).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -113,6 +114,16 @@ internal sealed class NutritionMappingFacade(
         if (await InvalidAsync(decisionValidator, model, cancellationToken) is { } invalid)
         {
             return invalid;
+        }
+
+        // There is nothing to reject without a mapping the caller read, so the token is always owed here — unlike
+        // marking unresolved, which may record "none fits" for an ingredient that has no mapping yet.
+        if (model.ExpectedConcurrencyToken is null)
+        {
+            return OperationResult<NutritionMappingServiceModel>.Failure(OperationError.Validation(
+                NutritionErrorCodes.MappingInvalid,
+                "That change could not be read as described.",
+                [("expectedConcurrencyToken", "Send the concurrency token of the mapping you read.")]));
         }
 
         return await business.RejectAsync(ingredientId, model, cancellationToken);

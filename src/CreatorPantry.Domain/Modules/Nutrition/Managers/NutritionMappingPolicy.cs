@@ -33,7 +33,13 @@ public static class NutritionMappingPolicy
     public const int MaxListIngredients = 500;
 }
 
-/// <summary>The stable codes the nutrition mapping seam refuses with. Append-only.</summary>
+/// <summary>The stable codes the nutrition mapping seam refuses with. Append-only once a route returns them.</summary>
+/// <remarks>
+/// Four mapping codes were corrected in 14.6b, before any route had returned them, because their underscored
+/// endings would have answered 400 through <c>ProblemResults.StatusFor</c>: <c>stale</c> → <c>conflict</c>,
+/// <c>state_conflict</c> → <c>state.conflict</c>, <c>source_unavailable</c> → <c>source.unavailable</c>,
+/// <c>not_saved</c> → <c>save.unavailable</c> (B-40).
+/// </remarks>
 public static class NutritionErrorCodes
 {
     /// <summary>The request could not be read as described. Carries field errors.</summary>
@@ -48,11 +54,11 @@ public static class NutritionErrorCodes
     /// <summary>The ingredient is not one the platform catalogue offers, or is retired.</summary>
     public const string IngredientUnprocessable = "nutrition.mapping.ingredient.unprocessable";
 
-    /// <summary>The mapping changed since the caller read it. Nothing was written.</summary>
-    public const string MappingStale = "nutrition.mapping.stale";
+    /// <summary>The mapping changed since the caller read it, as its concurrency token shows. 409; nothing was written.</summary>
+    public const string MappingStale = "nutrition.mapping.conflict";
 
     /// <summary>The mapping is not in a state that allows this; the message says which state it is in.</summary>
-    public const string MappingConflict = "nutrition.mapping.state_conflict";
+    public const string MappingConflict = "nutrition.mapping.state.conflict";
 
     /// <summary>
     /// The reference named is not approved evidence: no such record, or not from an approved data set. One code
@@ -64,22 +70,40 @@ public static class NutritionErrorCodes
     public const string PortionUnprocessable = "nutrition.mapping.portion.unprocessable";
 
     /// <summary>
-    /// The evidence source could not be asked just then — not configured, throttled or down. Nothing was written,
-    /// and nothing is concluded from the silence.
+    /// The evidence source could not be asked just then — not configured, throttled or down. 503; nothing was
+    /// written, and nothing is concluded from the silence.
     /// </summary>
-    public const string SourceUnavailable = "nutrition.mapping.source_unavailable";
+    public const string SourceUnavailable = "nutrition.mapping.source.unavailable";
 
-    /// <summary>The write could not be made just then and nothing was. Safe to send again.</summary>
-    public const string MappingNotSaved = "nutrition.mapping.not_saved";
+    /// <summary>The store refused the write and nothing was written. 503: safe to send again.</summary>
+    public const string MappingNotSaved = "nutrition.mapping.save.unavailable";
 
     /// <summary>The estimate request could not be read as described. Carries field errors.</summary>
     public const string EstimateInvalid = "nutrition.estimate.invalid";
 
     /// <summary>This workspace has no such recipe, or that recipe no such version.</summary>
-    public const string EstimateRecipeNotFound = "nutrition.estimate.recipe_not_found";
+    /// <remarks>
+    /// Was <c>nutrition.estimate.recipe_not_found</c>, which <c>ProblemResults.StatusFor</c> would have answered 400
+    /// for want of a <c>.not_found</c> suffix. Corrected in 14.6, before any route had returned it (B-38).
+    /// </remarks>
+    public const string EstimateRecipeNotFound = "nutrition.estimate.recipe.not_found";
 
     /// <summary>A total is too large to state. Refused rather than overflowed.</summary>
-    public const string EstimateOutOfRange = "nutrition.estimate.out_of_range";
+    /// <remarks>
+    /// Was <c>nutrition.estimate.out_of_range</c>, which would have answered 400 as if the request were at fault. The
+    /// request is well formed; the recipe's quantities are what cannot be stated (14.6a, B-39).
+    /// </remarks>
+    public const string EstimateQuantitiesUnprocessable = "nutrition.estimate.quantities.unprocessable";
+
+    /// <summary>
+    /// The nutrition source could not be asked, so no estimate was made rather than a smaller one. 503, and nothing was
+    /// written. Down or throttled clears by waiting; not available on this installation does not, until it is
+    /// configured — the message says which.
+    /// </summary>
+    /// <remarks>
+    /// The estimate's own, separate from <see cref="SourceUnavailable"/>, which the mapping commands answer with.
+    /// </remarks>
+    public const string EstimateSourceUnavailable = "nutrition.estimate.source.unavailable";
 
     /// <summary>The dietary and allergen analysis request could not be read as described. Carries field errors.</summary>
     public const string AnalysisInvalid = "nutrition.analysis.invalid";

@@ -607,7 +607,8 @@ public sealed class RecipeFacadeTests
         {
             SchemaVersion = RecipeSnapshotDocument.CurrentSchemaVersion,
             Recipe = new RecipeSnapshotHeader { Title = title },
-        });
+        },
+        Guid.NewGuid());
 
     /// <summary>
     /// A detail model built through the real mapper rather than by hand.
@@ -1966,6 +1967,21 @@ public sealed class RecipeFacadeTests
                 : OperationResult<RecipeSnapshotServiceModel>.Success(Snapshot));
         }
 
+        public Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+            Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+        {
+            Calls++;
+            RequestedRecipeId = recipeId;
+            RequestedVersionNumber = versionNumber;
+
+            return Task.FromResult(Snapshot is null
+                ? OperationResult<RecipeSnapshotServiceModel>.Failure(new OperationError(
+                    RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.", new Dictionary<string, string[]>()))
+                : OperationResult<RecipeSnapshotServiceModel>.Success(Snapshot));
+        }
+
+        public int? RequestedVersionNumber { get; private set; }
+
         /// <summary>What <see cref="SearchAsync"/> answers with.</summary>
         public RecipeSearchPageServiceModel Page { get; set; } = new([], null, null);
 
@@ -2492,6 +2508,15 @@ public sealed class RecipeFacadeTests
 
         public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.NutritionReferenceServiceModel> GetNutritionReferenceAsync(
             string sourceCode, string externalRecordId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        // Not exercised here: categories and coverage belong to the food-safety warning tests.
+        public Task<IReadOnlyList<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientCategoryServiceModel>> ListCategoriesAsync(
+            IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public CreatorPantry.Domain.Modules.Ingredients.Managers.ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(
+            CreatorPantry.Domain.Modules.Ingredients.Managers.ReferenceEvidenceKind kind) =>
             throw new NotSupportedException();
 
 

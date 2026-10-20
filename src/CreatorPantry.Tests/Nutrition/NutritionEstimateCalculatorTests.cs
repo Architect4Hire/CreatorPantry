@@ -199,6 +199,12 @@ public sealed class NutritionEstimateCalculatorTests
                 (NutritionLineOutcome.Included, NutritionLineReason.None, true),
             ],
             lines.Select(line => (line.Outcome, line.Reason, line.Required)));
+
+        // What stands between this estimate and publishable, by why — never the optional or unquantified lines.
+        var unresolved = Estimate(input).Unresolved;
+        Assert.Equal([Line(2), Line(3), Line(4)], unresolved.Unmapped);
+        Assert.Equal([Line(5), Line(6), Line(7)], unresolved.NeedsReview);
+        Assert.Equal([Line(8), Line(9), Line(10), Line(11)], unresolved.Unconvertible);
     }
 
     [Fact]

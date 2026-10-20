@@ -90,7 +90,7 @@ public sealed class NutritionEstimateTests(SqlServerNutritionFixture fixture) : 
         try
         {
             var result = await Estimates(WorkspaceA).EstimateAsync(recipe, version, null, Ct);
-            Assert.Equal(NutritionErrorCodes.SourceUnavailable, result.Error?.Code);
+            Assert.Equal(NutritionErrorCodes.EstimateSourceUnavailable, result.Error?.Code);
         }
         finally
         {
@@ -207,7 +207,7 @@ public sealed class NutritionRecipeVersionReaderTests
                     ],
                 },
             ],
-        });
+        }, Guid.NewGuid());
 
         var version = NutritionRecipeVersionReader.FromSnapshot(snapshot);
 

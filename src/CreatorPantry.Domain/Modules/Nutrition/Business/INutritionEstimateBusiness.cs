@@ -28,12 +28,32 @@ public interface INutritionRecipeVersionReader
 {
     /// <summary>The version, or null when this workspace has no such recipe or version.</summary>
     Task<NutritionRecipeVersion?> ReadAsync(Guid recipeId, Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The version a creator names by number, with the id it resolved to (14.6), or the Recipes module's own refusal —
+    /// <c>recipes.recipe.not_found</c> for an unknown or another workspace's recipe, <c>recipes.version.not_found</c>
+    /// naming <c>versionNumber</c> — passed through unchanged, so a route answers as every other recipe route does.
+    /// </summary>
+    Task<OperationResult<NumberedNutritionRecipeVersion>> ReadByNumberAsync(Guid recipeId, int versionNumber, CancellationToken cancellationToken);
 }
+
+/// <summary>A recipe version read by its number, and the permanent id that number named.</summary>
+public sealed record NumberedNutritionRecipeVersion(Guid VersionId, NutritionRecipeVersion Version);
 
 internal sealed class NutritionRecipeVersionReader(IRecipeFacade recipes) : INutritionRecipeVersionReader
 {
     public async Task<NutritionRecipeVersion?> ReadAsync(Guid recipeId, Guid versionId, CancellationToken cancellationToken) =>
         FromResult(await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken));
+
+    public async Task<OperationResult<NumberedNutritionRecipeVersion>> ReadByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+    {
+        var snapshot = await recipes.GetSnapshotByNumberAsync(recipeId, versionNumber, cancellationToken);
+
+        return snapshot is { Succeeded: true, Value: { } version }
+            ? OperationResult<NumberedNutritionRecipeVersion>.Success(new(version.VersionId, FromSnapshot(version)))
+            : OperationResult<NumberedNutritionRecipeVersion>.Failure(snapshot.Error!);
+    }
 
     /// <summary>
     /// The version, or null for any refusal — another workspace's recipe included, which the Recipes module answers
@@ -61,6 +81,10 @@ public interface INutritionEstimateBusiness
     /// <param name="servings">A serving count that overrides the version's own; null to use the version's.</param>
     Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
         Guid recipeId, Guid versionId, decimal? servings, CancellationToken cancellationToken);
+
+    /// <summary>The same estimate of a version named by number (14.6a), refusing as the Recipes module does.</summary>
+    Task<OperationResult<NutritionEstimateServiceModel>> EstimateByNumberAsync(
+        Guid recipeId, int versionNumber, decimal? servings, CancellationToken cancellationToken);
 }
 
 internal sealed class NutritionEstimateBusiness(
@@ -77,6 +101,22 @@ internal sealed class NutritionEstimateBusiness(
             return Failure(NutritionErrorCodes.EstimateRecipeNotFound, "That recipe version was not found.");
         }
 
+        return await EstimateAsync(recipeId, versionId, version, servings, cancellationToken);
+    }
+
+    public async Task<OperationResult<NutritionEstimateServiceModel>> EstimateByNumberAsync(
+        Guid recipeId, int versionNumber, decimal? servings, CancellationToken cancellationToken)
+    {
+        var read = await versions.ReadByNumberAsync(recipeId, versionNumber, cancellationToken);
+
+        return read.Succeeded
+            ? await EstimateAsync(recipeId, read.Value!.VersionId, read.Value.Version, servings, cancellationToken)
+            : OperationResult<NutritionEstimateServiceModel>.Failure(read.Error!);
+    }
+
+    private async Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
+        Guid recipeId, Guid versionId, NutritionRecipeVersion version, decimal? servings, CancellationToken cancellationToken)
+    {
         var ingredientIds = version.Lines.Where(line => line.IngredientId is not null).Select(line => line.IngredientId!.Value).Distinct().ToList();
 
         // This workspace's own mappings, through the filtered data layer: another workspace's decisions never count.
@@ -120,9 +160,15 @@ internal sealed class NutritionEstimateBusiness(
                     break;
                 case NutritionReferenceStatus.NotFound or NutritionReferenceStatus.NoApprovedSource:
                     break;
+
+                // Permanent until configured, not transient: said so, so nobody waits for it to clear.
+                case NutritionReferenceStatus.NotConfigured:
+                    return Failure(
+                        NutritionErrorCodes.EstimateSourceUnavailable,
+                        "The nutrition source is not available on this installation, so no estimate was made.");
                 default:
                     return Failure(
-                        NutritionErrorCodes.SourceUnavailable,
+                        NutritionErrorCodes.EstimateSourceUnavailable,
                         "The nutrition source could not be asked just then, so no estimate was made.");
             }
         }
@@ -139,7 +185,7 @@ internal sealed class NutritionEstimateBusiness(
 
         return outcome.Estimate is { } estimate
             ? OperationResult<NutritionEstimateServiceModel>.Success(estimate)
-            : Failure(NutritionErrorCodes.EstimateOutOfRange, "The quantities in this recipe are too large to estimate.");
+            : Failure(NutritionErrorCodes.EstimateQuantitiesUnprocessable, "The quantities in this recipe are too large to estimate.");
     }
 
     private static OperationResult<NutritionEstimateServiceModel> Failure(string code, string message) =>

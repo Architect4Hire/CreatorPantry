@@ -370,12 +370,106 @@ public sealed class DietaryAllergenAnalyzerTests
             Assert.Single(analysis.Allergens).Statement);
     }
 
+    // ---- Confidence and coverage (14.6): how complete the records are, never how likely the finding ----
+
+    [Fact]
+    public void Every_line_with_a_counted_record_and_no_disagreement_is_recorded()
+    {
+        var milk = Assert.Single(Analyze(
+            [Line(1, Flour), Line(2, OliveOil)],
+            allergens: [Milk],
+            evidence: Evidence(
+                Allergen(Flour, Milk, AllergenPresence.NotListedBySource, Official, "Not in this composition."),
+                Allergen(OliveOil, Milk, AllergenPresence.NotListedBySource, Official, "Not in this composition."))).Allergens);
+
+        Assert.Equal((AnalysisConfidence.Recorded, new AnalysisCoverageServiceModel(2, 2)), (milk.Confidence, milk.Coverage));
+    }
+
+    [Fact]
+    public void Some_lines_without_records_are_partial_and_the_finding_still_stands()
+    {
+        var wheat = Assert.Single(Analyze(
+            [Line(1, Flour), Line(2, Mystery), Line(3, null, text: "a pinch of something")],
+            allergens: [Wheat],
+            evidence: Evidence(Allergen(Flour, Wheat, AllergenPresence.Present, Official))).Allergens);
+
+        Assert.Equal(RecipeAllergenFinding.Contains, wheat.Finding);
+        Assert.Equal((AnalysisConfidence.Partial, new AnalysisCoverageServiceModel(3, 1)), (wheat.Confidence, wheat.Coverage));
+    }
+
+    [Fact]
+    public void Disagreeing_sources_are_disputed()
+    {
+        var milk = Assert.Single(Analyze(
+            [Line(1, Flour)],
+            allergens: [Milk],
+            evidence: Evidence(
+                Allergen(Flour, Milk, AllergenPresence.Present, Publisher),
+                Allergen(Flour, Milk, AllergenPresence.NotListedBySource, Official, "Not in this composition."))).Allergens);
+
+        Assert.Equal((AnalysisConfidence.Disputed, new AnalysisCoverageServiceModel(1, 1)), (milk.Confidence, milk.Coverage));
+    }
+
+    [Fact]
+    public void No_counted_record_and_no_lines_at_all_are_both_none()
+    {
+        var unread = Assert.Single(Analyze([Line(1, Mystery)], profiles: [Vegan]).Dietary);
+        Assert.Equal((AnalysisConfidence.None, new AnalysisCoverageServiceModel(1, 0)), (unread.Confidence, unread.Coverage));
+
+        var empty = Assert.Single(Analyze([], allergens: [Milk]).Allergens);
+        Assert.Equal((AnalysisConfidence.None, new AnalysisCoverageServiceModel(0, 0)), (empty.Confidence, empty.Coverage));
+    }
+
+    [Fact]
+    public void A_reassuring_word_that_does_not_count_does_not_count_as_coverage_either()
+    {
+        var vegan = Assert.Single(Analyze(
+            [Line(1, Sugar)],
+            profiles: [Vegan],
+            evidence: Evidence(Dietary(Sugar, Vegan, DietaryCompatibility.Compatible, Community))).Dietary);
+
+        Assert.Equal((RecipeDietaryFinding.Unknown, AnalysisConfidence.None), (vegan.Finding, vegan.Confidence));
+    }
+
+    // ---- Sources (14.6): every source cited, once, with its licence and the latest record read ----
+
+    [Fact]
+    public void Every_source_cited_is_listed_once_by_code_with_licence_and_latest_effective_date()
+    {
+        var licensed = Official with { LicenseCode = "CC0-1.0", LicenseUrl = "https://creativecommons.org/publicdomain/zero/1.0/" };
+
+        var analysis = Analyze(
+            [Line(1, Flour), Line(2, Sugar)],
+            allergens: [Wheat],
+            profiles: [Vegan],
+            evidence: Evidence(
+                new ApprovedAllergenTraitServiceModel(Flour, Wheat.Id, AllergenPresence.Present, "Stated.", new DateOnly(2025, 3, 1), licensed),
+                new ApprovedDietaryTraitServiceModel(Sugar, Vegan.Id, DietaryCompatibility.DependsOnProduct, "Bone char.", new DateOnly(2026, 6, 1), licensed),
+                Dietary(Sugar, Vegan, DietaryCompatibility.Compatible, Community)));
+
+        Assert.Equal(["a-community", "official-list"], analysis.Sources.Select(source => source.Code));
+
+        var official = analysis.Sources[1];
+        Assert.Equal(
+            ("An official list", ReferenceSourceKind.OfficialDatabase, "CC0-1.0", true, new DateOnly(2026, 6, 1)),
+            (official.Name, official.Kind, official.LicenseCode, official.IsActive, official.LatestEffectiveFrom));
+
+        // Cited even though its word did not count: a reader can see every source the analysis read.
+        Assert.Null(analysis.Sources[0].LicenseCode);
+    }
+
+    [Fact]
+    public void An_analysis_with_no_records_cites_no_sources()
+    {
+        Assert.Empty(Analyze([Line(1, Mystery)], allergens: [Milk]).Sources);
+    }
+
     // ---- Nothing here can say "safe" ----
 
     [Fact]
     public void No_finding_has_a_safe_free_certified_or_suitable_member()
     {
-        var names = new[] { typeof(AllergenLineFinding), typeof(DietaryLineFinding), typeof(RecipeAllergenFinding), typeof(RecipeDietaryFinding) }
+        var names = new[] { typeof(AllergenLineFinding), typeof(DietaryLineFinding), typeof(RecipeAllergenFinding), typeof(RecipeDietaryFinding), typeof(AnalysisConfidence) }
             .SelectMany(Enum.GetNames);
 
         Assert.All(names, name => Assert.DoesNotMatch("(?i)safe|free|certif|suitab|guarantee", name));

@@ -9,4 +9,5 @@ namespace CreatorPantry.Domain.Modules.Recipes.Managers;
 /// creator would recognise it by.
 /// </param>
 /// <param name="Document">The version's full content, already deserialized.</param>
-public sealed record RecipeSnapshotServiceModel(int VersionNumber, RecipeSnapshotDocument Document);
+/// <param name="VersionId">The version's permanent id, whichever way the caller named it.</param>
+public sealed record RecipeSnapshotServiceModel(int VersionNumber, RecipeSnapshotDocument Document, Guid VersionId);

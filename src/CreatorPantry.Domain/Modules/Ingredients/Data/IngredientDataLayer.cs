@@ -27,6 +27,10 @@ internal sealed class IngredientDataLayer(IIngredientRepository ingredients) : I
     public Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken) =>
         ingredients.FindActiveReferenceSourceIdAsync(code, cancellationToken);
 
+    public Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        ingredients.ListCategoriesAsync(ingredientIds, cancellationToken);
+
     public Task<(IReadOnlyList<ApprovedAllergenTraitServiceModel> Allergens, IReadOnlyList<ApprovedDietaryTraitServiceModel> Dietary)> ListApprovedTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds,
         IReadOnlyCollection<Guid> allergenIds,

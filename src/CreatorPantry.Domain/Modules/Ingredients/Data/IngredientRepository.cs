@@ -56,6 +56,14 @@ public interface IIngredientRepository
     Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The name and food category of each named ingredient, <strong>retired ones included</strong>: a recipe
+    /// version that already names an ingredient still names it after the catalogue retires it. An id naming nothing
+    /// is absent.
+    /// </summary>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Every <see cref="TraitReviewStatus.Approved"/> trait in effect on <paramref name="asOf"/> among the
     /// ingredients and subjects named, with its source. Every source's, and every date's up to then: choosing among
     /// them is Business's.
@@ -106,7 +114,7 @@ internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIn
                         trait.Presence,
                         trait.EvidenceNote,
                         trait.EffectiveFrom,
-                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive)))
+                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive, source.LicenseCode, source.LicenseUrl)))
                 .ToListAsync(cancellationToken);
 
         List<ApprovedDietaryTraitServiceModel> dietary = dietaryProfileIds.Count == 0
@@ -127,7 +135,7 @@ internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIn
                         trait.Compatibility,
                         trait.EvidenceNote,
                         trait.EffectiveFrom,
-                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive)))
+                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive, source.LicenseCode, source.LicenseUrl)))
                 .ToListAsync(cancellationToken);
 
         return (allergens, dietary);
@@ -174,6 +182,27 @@ internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIn
 
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         context.Ingredients.AsNoTracking().AnyAsync(ingredient => ingredient.Id == ingredientId && ingredient.IsActive, cancellationToken);
+
+    public async Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken)
+    {
+        if (ingredientIds.Count == 0)
+        {
+            return [];
+        }
+
+        // The category code is projected through its own table, as ListAsync does, so a renamed code cannot go stale.
+        return await context.Ingredients.AsNoTracking()
+            .Where(ingredient => ingredientIds.Contains(ingredient.Id))
+            .Select(ingredient => new IngredientCategoryServiceModel(
+                ingredient.Id,
+                ingredient.CanonicalName,
+                context.FoodCategories
+                    .Where(category => category.Id == ingredient.FoodCategoryId)
+                    .Select(category => category.Code)
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListAsync(
         IngredientQuery query, CancellationToken cancellationToken)

@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ingredients.Managers;
+using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Nutrition.Managers;
 
@@ -193,6 +194,18 @@ public sealed record NutritionLineEstimateServiceModel(
 public sealed record NutritionCitationServiceModel(string SourceCode, string Citation, string LicenseCode, string LicenseUrl);
 
 /// <summary>
+/// The required lines an estimate could not count, by why (14.6a) — what stands between it and publishable. Derived
+/// from <c>Lines</c>, so a screen can say "three ingredients need mapping" without filtering them itself.
+/// </summary>
+/// <param name="Unmapped">No platform ingredient, or no confirmed mapping for it.</param>
+/// <param name="NeedsReview">A confirmed mapping under review, superseded, or withdrawn by the source.</param>
+/// <param name="Unconvertible">Mapped, but the quantity cannot be turned into grams.</param>
+public sealed record NutritionUnresolvedLinesServiceModel(
+    IReadOnlyList<Guid> Unmapped,
+    IReadOnlyList<Guid> NeedsReview,
+    IReadOnlyList<Guid> Unconvertible);
+
+/// <summary>
 /// A nutrition estimate for one recipe version (14.3): deterministic, labelled as an estimate, and explicit about
 /// everything it did not count.
 /// </summary>
@@ -218,4 +231,32 @@ public sealed record NutritionEstimateServiceModel(
     NutritionServingsSource ServingsSource,
     IReadOnlyList<NutritionNutrientEstimateServiceModel> Nutrients,
     IReadOnlyList<NutritionLineEstimateServiceModel> Lines,
-    IReadOnlyList<NutritionCitationServiceModel> Sources);
+    IReadOnlyList<NutritionCitationServiceModel> Sources,
+    NutritionUnresolvedLinesServiceModel Unresolved);
+
+/// <summary>What an estimate divides by (14.6a): a serving count, or nothing to use the version's own.</summary>
+/// <remarks>
+/// Omitted or null uses the version's basis — its serving count, else its yield over its serving size, else no
+/// per-serving figures at all.
+/// </remarks>
+public sealed class NutritionEstimateRequestViewModel
+{
+    public decimal? Servings { get; set; }
+}
+
+internal sealed class NutritionEstimateRequestViewModelValidator : AbstractValidator<NutritionEstimateRequestViewModel>
+{
+    public NutritionEstimateRequestViewModelValidator()
+    {
+        RuleFor(model => model.Servings)
+            .Must(servings => servings is not { } requested
+                || (requested > 0m && requested <= NutritionEstimatePolicy.MaxRequestedServings && Places(requested) <= 4))
+            .WithMessage($"Give a number of servings above zero and no more than {NutritionEstimatePolicy.MaxRequestedServings}, to at most four decimal places.");
+    }
+
+    /// <summary>
+    /// Significant decimal places: "8.00000" is eight servings, not five places. A decimal's scale counts the
+    /// trailing zeros it was written with; dividing by 1 with 28 zeros drops them without changing the value.
+    /// </summary>
+    private static int Places(decimal value) => (value / 1.0000000000000000000000000000m).Scale;
+}

@@ -446,5 +446,12 @@
       "licenseCode": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
     }
-  ]
+  ],
+  "unresolved": {
+    "unmapped": [
+      "00000000-0000-0000-0001-000000000006"
+    ],
+    "needsReview": [],
+    "unconvertible": []
+  }
 }

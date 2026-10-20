@@ -10,6 +10,25 @@ internal sealed class IngredientBusiness(
     IIngredientDataLayer dataLayer,
     IReferenceEvidenceDataLayer evidence) : IIngredientBusiness
 {
+    public Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        dataLayer.ListCategoriesAsync(ingredientIds, cancellationToken);
+
+    public ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind)
+    {
+        var coverage = evidence.Describe(kind);
+
+        return new ReferenceEvidenceCoverageServiceModel(
+            coverage.Kind,
+            coverage.Status switch
+            {
+                EvidenceCoverageStatus.Available => ReferenceEvidenceAvailability.Available,
+                EvidenceCoverageStatus.NotConfigured => ReferenceEvidenceAvailability.NotConfigured,
+                _ => ReferenceEvidenceAvailability.NoApprovedSource,
+            },
+            coverage.SourceCode);
+    }
+
     public async Task<NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
         Guid ingredientId, CancellationToken cancellationToken)
     {

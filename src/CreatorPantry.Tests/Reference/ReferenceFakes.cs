@@ -84,6 +84,15 @@ internal sealed class CountingReferenceBusiness : IMeasurementBusiness, IVocabul
         string sourceCode, string externalRecordId, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
+    // Not exercised here: categories and coverage belong to the food-safety warning tests.
+    public Task<IReadOnlyList<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public CreatorPantry.Domain.Modules.Ingredients.Managers.ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(
+        CreatorPantry.Domain.Modules.Ingredients.Managers.ReferenceEvidenceKind kind) =>
+        throw new NotSupportedException();
+
 
     public int Calls { get; private set; }
 

@@ -125,7 +125,7 @@ public sealed class DietaryAllergenAnalysisTests(SqlServerNutritionFixture fixtu
     [Fact]
     public async Task More_than_twenty_allergens_at_once_is_invalid()
     {
-        var model = new DietaryAllergenAnalysisViewModel { AllergenIds = [.. Enumerable.Range(0, 21).Select(_ => Guid.NewGuid())] };
+        var model = new DietaryAllergenSelectionViewModel { AllergenIds = [.. Enumerable.Range(0, 21).Select(_ => Guid.NewGuid())] };
 
         Assert.Equal(NutritionErrorCodes.AnalysisInvalid, (await Facade().AnalyzeAsync(Guid.NewGuid(), Guid.NewGuid(), model, Ct)).Error?.Code);
     }
@@ -150,9 +150,9 @@ public sealed class DietaryAllergenAnalysisTests(SqlServerNutritionFixture fixtu
 
         foreach (var model in new[]
         {
-            new DietaryAllergenAnalysisViewModel { AllergenIds = [SqlServerNutritionFixture.RetiredAllergenId] },
-            new DietaryAllergenAnalysisViewModel { AllergenIds = [Guid.NewGuid()] },
-            new DietaryAllergenAnalysisViewModel { DietaryProfileIds = [SqlServerNutritionFixture.MilkId] },
+            new DietaryAllergenSelectionViewModel { AllergenIds = [SqlServerNutritionFixture.RetiredAllergenId] },
+            new DietaryAllergenSelectionViewModel { AllergenIds = [Guid.NewGuid()] },
+            new DietaryAllergenSelectionViewModel { DietaryProfileIds = [SqlServerNutritionFixture.MilkId] },
         })
         {
             Assert.Equal(NutritionErrorCodes.AnalysisSubjectUnprocessable, (await facade.AnalyzeAsync(Guid.NewGuid(), Guid.NewGuid(), model, Ct)).Error?.Code);

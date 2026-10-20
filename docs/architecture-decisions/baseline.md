@@ -49,6 +49,10 @@ later documents may reference them.
 | B-34 | Nutrition mappings | TBD | Decided | One creator-confirmed mapping per platform ingredient per workspace; automatic proposals are never confirmed; rejections remembered; refresh flags newer versions for review. |
 | B-35 | Nutrition estimate arithmetic | TBD | Decided | Exact arithmetic over one recipe version; rounded once at output; edible portion as written; unknown nutrients never zero; publishable only when every required line is counted. |
 | B-36 | Dietary and allergen analysis | TBD | Decided | Approved traits only; missing is unknown; most cautious finding wins; conflicts cited; disclaimer always; nothing is ever "safe". |
+| B-37 | High-risk method warnings | TBD | Decided | Deterministic detection from techniques and wording; no approved food-safety source, so every warning says verification is required; ambiguous wording is "possible"; nothing blocks a recipe. |
+| B-38 | Dietary and allergen analysis endpoint | TBD | Decided | Read-only POST per version number; confidence describes record completeness, never likelihood; every cited source listed with licence and latest effective date; refusals as the Recipes routes give them. |
+| B-40 | Nutrition mapping commands | TBD | Decided | GET plus confirm, reject and remap per ingredient, one decision per request; token required for every decision on an existing mapping; Editor; four mapping codes corrected to answer their status. |
+| B-39 | Nutrition estimate endpoint | TBD | Decided | Read-only POST per version number with an optional serving count as the yield basis; labelled estimate; unresolved lines grouped and `publishable` exposed, not wired to readiness; 503 when the source cannot be asked. |
 
 ## Decisions
 
@@ -1482,6 +1486,185 @@ deriving gluten-free from the wheat allergen (rejected as an inference the recor
 analyses read almost entirely as *Unknown* — the correct answer for records that do not exist. No endpoint (14.6),
 no UI (14.6c).
 **Rules:** `recipes.md`, `ai.md`.
+
+### B-37 High-risk method warnings
+
+*Recorded 2026-10-20 by microprompt 14.5. Cites AIREC-GR-005 and AI-009/010, whose text is not in the repository
+(B-12).*
+
+- **Every warning says verification is required, because nothing is approved to cite.** B-33 approves no
+  food-safety source, so each warning carries `VerificationRequired` with its reason — `NoApprovedSource` on every
+  host today, `NotConfigured`, `Unavailable` or `NoReference` when a source exists but cannot answer. FSIS, NCHFP
+  and the like are not cited: approving one is a new decision in this record, after reading its terms. A source
+  that becomes reachable is still reported `Unavailable`, never cited, until a reviewed reader exists for it.
+- **Without a reference, nothing is compared.** A stated internal temperature is detected and recorded as written
+  (value, scale, where — both ends of a range, "165 F" as well as "165°F"); it is never called too low, because no
+  approved minimum exists to call it against. Only the figures the doneness cue is about are recorded — not the
+  425 °F oven earlier in the sentence — and a cue whose figure is in the next sentence reads it from there. No
+  message says what the hazard is or what a reader must do — each would be a claim of its own.
+- **Ten categories:** canning, fermentation, curing or smoking, sous vide, raw or undercooked protein, internal
+  temperature, pregnancy or medical diet, unsupported safety claim, and — because the technique vocabulary already
+  flags them — drying and oil infusion. A technique flagged later that the list does not name is reported as
+  `OtherFlaggedMethod` rather than dropped.
+- **Structured choices first.** A primary or step technique with `RequiresSafetyCaution` is `Detected` on its own.
+  `no-cook` is raw service only beside a meat, poultry, seafood or egg line. A retired technique is not in the
+  active vocabulary and raises nothing structurally; its step's text is still read, and `UnrecognisedTechniques`
+  counts it, so an empty list read from less than the whole record says so.
+- **Text by how it is worded, never by a bare food word.** Canned tomatoes, fermented black beans, kimchi or
+  prosciutto in a line, pink Himalayan salt, baby spinach, a cheesecake's water bath, bread dough's bulk
+  fermentation and "add the raw shrimp" all raise nothing, and a test pins each — as do the misfires an
+  ai-safety review traced in the first draft: freezer headspace, a blender jar, "no need to refrigerate the dough",
+  "no longer safe to eat", beet carpaccio, a raw egg mixed into a meatloaf, "never serve raw chicken",
+  "toddler-approved", air-dried cookies, a stir-fry oil infused and used at once, and "no sodium nitrite added".
+  An ingredient line is something bought: only a curing agent, raw-egg or sushi-grade wording, and bare "pink salt"
+  count from one. A creator's caution is not the thing it warns against.
+- **Ambiguous wording is `Possible`** with a message saying what it might be: sealed jars for the pantry, food left
+  out for days, a low water bath held for hours, bare "pink salt", rare or medium-rare meat and soft eggs, a
+  thermometer test with no figure anywhere in the field, a pink or undercooked centre, a poke bowl, a dish often
+  made with raw egg (hollandaise, mousse, tiramisu, carbonara, homemade mayonnaise) where the recipe has eggs, a
+  mention of pregnancy or a condition, a keeping time where nothing in the recipe says how it is stored, a
+  bought-sounding infused oil. A raw dish named where no line is a protein is `Possible`.
+- **Protein categories scope two checks and infer nothing.** Raw-dish wording counts as `Detected` only when a line
+  is meat, poultry, seafood or eggs. Internal temperatures count when a line is meat, poultry or seafood, or the
+  sentence or its neighbour names a protein — eggs alone do not, so a cake's or a loaf's thermometer reading is not
+  flagged. An ingredient's category never stands in for a method the text does not state.
+- **Allergy assurances are claims.** "Allergy-safe" and "safe for people with nut allergies" are unsupported safety
+  claims here; whether a recipe contains an allergen remains 14.4's analysis.
+- **One warning per category**, its confidence the highest of its triggers, listing every trigger: the field, the
+  line, step or equipment id, and the creator's matched words (at most 120 characters) or the technique code.
+- **Read-only, any member, nothing leaves the workspace.** The version is read through the Recipes facade, so
+  another workspace's is not found; categories and coverage are global reads by ingredient id. A fixed disclaimer
+  on every result says finding nothing is not a statement that the recipe is safe, and a warning is not a ruling
+  that it is unsafe. A guard test holds that no message or statement asserts safety.
+- **Nothing blocks.** No readiness rule, endpoint or UI; `food-safety-warnings/1` is recorded on every result.
+
+**Options considered:** citing FSIS minimum temperatures and the USDA canning guide now (rejected — an unapproved
+source, B-33); flagging every step temperature beside a protein (rejected — every roast would carry a warning);
+"raw chicken" as a trigger (rejected — it is how ordinary recipes say what goes into the pan); medium-rare as
+`Detected` (rejected — it would mark most steak recipes; `Possible` leaves the call to the creator).
+**Consequences:** `IIngredientFacade` gained `ListCategoriesAsync` (retired ingredients included) and
+`DescribeEvidenceCoverage`. Until a food-safety source is approved, every warning reads "verification required" —
+the correct answer for references that do not exist. Readiness, an endpoint and the AI review's reference checks may
+consume these later; none does yet.
+**Rules:** `recipes.md`, `ai.md`, `tenancy.md`.
+
+### B-38 Dietary and allergen analysis endpoint
+
+*Recorded 2026-10-20 by microprompt 14.6. Exposes B-36's analysis (ING-007, whose text is not in the repository —
+B-12).*
+
+- **`POST /api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/dietary-allergen`.**
+  POST because the selection — up to twenty allergens and twenty profiles — belongs in a body, not a URL; it
+  writes nothing, takes no idempotency key and answers `no-store`, because approved traits change as they are
+  reviewed. Any member, a Viewer included. The gateway's catch-all already forwards it.
+- **A version by number**, as every public recipe route names one. The Recipes facade gained
+  `GetSnapshotByNumberAsync`, and `RecipeSnapshotServiceModel` now carries the version's id, so the answer names
+  the exact version it read whichever way it was asked.
+- **Confidence describes the records, never the likelihood.** Per allergen and profile, `coverage` counts the
+  lines read and those with a record that counts, and `confidence` labels it: `Recorded` (every line, no
+  disagreement), `Partial` (some lines have none), `Disputed` (approved sources disagree) or `None`. It is derived
+  from the line findings alone and cannot move one: `Contains` on `Partial` records still contains. A reassuring
+  word that does not count (an unvetted or retired source) does not count as coverage either.
+- **"Evaluated source version" is a source and a date.** Trait records have no version of their own, so `sources`
+  lists every source the analysis read — counted or not — once, with its citation, licence (14.1) and the latest
+  effective date among its records, beside `methodVersion` and `evaluatedOn`. `TraitSourceServiceModel` now
+  carries the licence; no migration.
+- **Refusals as the Recipes routes give them.** `400 nutrition.analysis.invalid` with field errors (a JSON `null`
+  list now reads as empty rather than crashing validation), `422 nutrition.analysis.subject.unprocessable`,
+  `404 recipes.recipe.not_found` for an unknown or another workspace's recipe, and `404 recipes.version.not_found`
+  naming `versionNumber`, passed through from the Recipes module unchanged.
+
+- **`no-store` on success only**, as the readiness route does; a refusal carries nothing worth caching either way.
+  A missing or unparseable body is `400 request.malformed`, as on every route.
+- **No two types may share a public schema name.** The first draft published this route's request body as its
+  response (`DietaryAllergenAnalysisViewModel` and `…ServiceModel` were both `DietaryAllergenAnalysis` once the
+  suffix was stripped) and its two line-finding enums as objects referring to themselves (each shared a name with
+  the record that carries it), and the snapshot test could not see it, having been generated from the same
+  collision. The request is now `DietaryAllergenSelectionViewModel` and the line records `…LineAnalysisServiceModel`;
+  `OpenApiDocumentation` records every collision and `OpenApiContractTests` fails on any but the two it lists.
+- **Two collisions predate this and are listed, not fixed:** `AiDraftAcceptance` (`POST .../recipe-draft-requests/
+  {requestId}/acceptance`) and `AiProposalDisposition` (`POST .../ai-proposals/{aiProposalId}/disposition`) each
+  document the request body with the response's schema, so the real request (`decision`, …) is unpublished.
+  Correcting them renames a shipped schema and belongs in its own reviewed change.
+
+**Options considered:** a version id in the route (rejected — no other public recipe route takes one); coverage
+counts with no label (rejected — the prompt asks for confidence, and a closed label over counts adds no
+judgement); a GET with ids in the query string (rejected — length, and caches that ignore `no-store`); throwing on
+a schema-name collision (rejected — it turns the development document into a 500 with the reason hidden).
+**Consequences:** `NutritionErrorCodes.EstimateRecipeNotFound` was `nutrition.estimate.recipe_not_found`, which
+`ProblemResults.StatusFor` would have answered `400`; it is now `nutrition.estimate.recipe.not_found`, corrected
+before any route returned it. The OpenAPI snapshot grew by 683 lines with nothing removed. No Angular model yet —
+14.6c adds it with the screen.
+**Rules:** `api-contract.md`, `tenancy.md`, `recipes.md`, `backend.md`.
+
+### B-39 Nutrition estimate endpoint
+
+*Recorded 2026-10-20 by microprompt 14.6a. Exposes B-35's estimate (ING-008, whose text is not in the repository —
+B-12).*
+
+- **`POST /api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/nutrition`**, shaped
+  as 14.6's route: read-only, no idempotency key, `no-store` on success, any member, version by number through
+  the same reader, refusals passed through from Recipes. Its own controller, `NutritionEstimateController`.
+- **The yield basis is `servings`, optional.** Omitted or null uses the version's own basis — serving count, else
+  yield ÷ serving size, else none, when every `perServing` is null and no per-100 g of finished dish is invented. A
+  number above 0, at most 10,000 and to four places divides by that instead; the check moved from the facade into
+  `NutritionEstimateRequestViewModelValidator` unchanged. `{}` is a valid body; no body is `request.malformed`.
+- **Labelled as an estimate**, as B-35 made it: `label`, `method`, `methodVersion`, exact and display values, `trace`.
+- **Unresolved mappings stay explicit.** Lines keep their `outcome`, `reason` and `required`; a new `unresolved`
+  groups the required lines not counted (`unmapped`, `needsReview`, `unconvertible`), derived from the lines so it
+  cannot disagree with them. Optional and unquantified lines are never in it.
+- **Publish gating is exposed, not wired.** `publishable`, `partial` and per-nutrient `complete` say what may be
+  published, and B-35's rule stands — nothing from an unpublishable estimate, only complete nutrients from a
+  publishable one. No readiness rule or publish path reads it yet; that is a separate change, not "expose only".
+- **Codes that answer the status they mean.** `nutrition.estimate.source.unavailable` (503) when the source cannot be
+  asked, with a message that says "not available on this installation" when it is not configured, since that does
+  not clear by waiting; `nutrition.estimate.quantities.unprocessable` (422, was `nutrition.estimate.out_of_range`,
+  which would have answered 400) for a total too large to state. Neither had been returned by a route before.
+
+**Options considered:** filtering `lines` client-side instead of `unresolved` (rejected — every screen would
+re-derive the same three lists); correcting the shared `nutrition.mapping.source_unavailable` now (rejected — the
+mapping commands own it, and 14.6b corrects it with their route); a readiness rule (deferred, above).
+**Consequences:** `NutritionEstimateServiceModel` gained `Unresolved`; the two estimate goldens gained it and nothing
+else. The OpenAPI snapshot grew again with nothing removed, and the schema-name guard found no new collision.
+`nutrition.mapping.source_unavailable` ended in `_unavailable` and would have answered 400; 14.6b corrected it (B-40).
+**Rules:** `api-contract.md`, `recipes.md`, `tenancy.md`, `backend.md`.
+
+### B-40 Nutrition mapping commands
+
+*Recorded 2026-10-20 by microprompt 14.6b. Exposes B-34's decisions (ING-008, whose text is not in the repository —
+B-12).*
+
+- **Keyed by the platform ingredient**, because a mapping is one workspace's decision about one ingredient:
+  `GET /api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}` and `POST …/confirm`, `…/reject`,
+  `…/remap` on it. Verb sub-resources, as the recipe routes do, each reusing 14.2's view model and validator.
+  `NutritionMappingsController`; no gateway change.
+- **One ingredient, one decision, never in bulk.** There is no list command, and confirming one mapping leaves every
+  other candidate as it was. Nothing writes to a recipe: a test holds a recipe's lines and concurrency token
+  unchanged across a confirmation.
+- **The read is included** because the commands owe a token and nothing else hands one out — the estimate carries a
+  mapping id, not its token. Any member may read; it is `no-store` so no cache serves a stale token. No mapping, and
+  another workspace's, are both `404 nutrition.mapping.not_found`.
+- **A token for every decision on a mapping that exists.** Confirm always required one; reject now does too (a
+  missing one is `400` naming it — there is nothing to reject without a mapping the caller read); remap needs one
+  when a mapping exists and none when it makes the first. A stale or missing one over an existing mapping is
+  `409 nutrition.mapping.conflict`. A refresh that puts a newer source version under review changes the row
+  version, so nobody confirms a version they did not see.
+- **Editor**, by route policy and again in the facade for workers and plugins; audited, as 14.2 made them. `200`
+  with the mapping for all three, a first remap included — it acts on the ingredient's one mapping, which has no
+  address of its own for a `Location`. No idempotency key: the token makes a repeat a `409`, never a second write.
+- **Codes corrected before any route returned them**, each of which would have answered 400: `stale` →
+  `nutrition.mapping.conflict` (409), `state_conflict` → `nutrition.mapping.state.conflict` (409),
+  `source_unavailable` → `nutrition.mapping.source.unavailable` (503), `not_saved` →
+  `nutrition.mapping.save.unavailable` (503).
+
+**Options considered:** one `POST …/decision` with a discriminator (rejected — three shapes, and three validators
+that already exist); leaving the read to 14.6c (rejected — the commands would be unusable until then); `201` with a
+`Location` for a first remap (rejected — no per-mapping address).
+**Consequences:** the SQLite test host does not bump row versions on update, so a real token going stale is tested
+on SQL Server (`NutritionMappingTests`) and the route tests use a token the mapping never had. The OpenAPI snapshot
+moved some existing paths as the new controller sorted in; checked semantically against HEAD, nothing published was
+removed or changed. Propose, refresh and mark-unresolved have no route.
+**Rules:** `api-contract.md`, `tenancy.md`, `recipes.md`, `backend.md`.
 
 ## Open items
 

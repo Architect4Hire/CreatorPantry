@@ -47,6 +47,13 @@ public interface IIngredientBusiness
     Task<NutritionReferenceServiceModel> GetNutritionReferenceAsync(
         string sourceCode, string externalRecordId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.ListCategoriesAsync"/>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.DescribeEvidenceCoverage"/>
+    ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind);
+
     /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.FindApprovedTraitsAsync"/>
     Task<IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds,

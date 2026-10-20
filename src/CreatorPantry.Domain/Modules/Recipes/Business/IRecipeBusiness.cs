@@ -96,6 +96,17 @@ public interface IRecipeBusiness
         Guid recipeId, Guid versionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The archived content of one version, named by the number a creator cites rather than by id (14.6).
+    /// </summary>
+    /// <returns>
+    /// The snapshot, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> or
+    /// <see cref="RecipeErrorCodes.VersionNotFound"/> naming <c>versionNumber</c>, as the restore and comparison
+    /// routes answer.
+    /// </returns>
+    Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Applies a creator's partial edit and captures the version that records it.
     /// </summary>
     /// <param name="recipeId">The recipe to edit, from the route.</param>
@@ -1164,7 +1175,29 @@ internal sealed class RecipeBusiness(
         }
 
         return OperationResult<RecipeSnapshotServiceModel>.Success(new RecipeSnapshotServiceModel(
-            source.VersionNumber, RecipeSnapshotSerializer.Deserialize(source.Document)));
+            source.VersionNumber, RecipeSnapshotSerializer.Deserialize(source.Document), source.Id));
+    }
+
+    public async Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+    {
+        var (visible, source) = await dataLayer.FindCalculationSourceAsync(recipeId, versionNumber, cancellationToken);
+
+        if (!visible)
+        {
+            return NotFound<RecipeSnapshotServiceModel>();
+        }
+
+        if (source is null)
+        {
+            return OperationResult<RecipeSnapshotServiceModel>.Failure(OperationError.Validation(
+                RecipeErrorCodes.VersionNotFound,
+                "That version could not be read.",
+                [(VersionNumberField, $"This recipe has no version {versionNumber}.")]));
+        }
+
+        return OperationResult<RecipeSnapshotServiceModel>.Success(new RecipeSnapshotServiceModel(
+            source.VersionNumber, RecipeSnapshotSerializer.Deserialize(source.Document), source.Id));
     }
 
     public async Task<OperationResult<RecipeDetailServiceModel>> UpdateAsync(

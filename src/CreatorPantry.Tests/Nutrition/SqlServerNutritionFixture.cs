@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Reference;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
@@ -12,6 +13,7 @@ using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
 using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Nutrition;
 using CreatorPantry.Domain.Modules.Nutrition.Business;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary;
@@ -238,6 +240,20 @@ public sealed class StubRecipeVersions : INutritionRecipeVersionReader
         lock (_versions)
         {
             return Task.FromResult(_versions.GetValueOrDefault((recipeId, versionId)));
+        }
+    }
+
+    /// <summary>The version added under that recipe with that number, or the Recipes module's refusal for none.</summary>
+    public Task<OperationResult<NumberedNutritionRecipeVersion>> ReadByNumberAsync(Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+    {
+        lock (_versions)
+        {
+            var found = _versions.FirstOrDefault(entry => entry.Key.Item1 == recipeId && entry.Value.VersionNumber == versionNumber);
+
+            return Task.FromResult(found.Value is { } version
+                ? OperationResult<NumberedNutritionRecipeVersion>.Success(new(found.Key.Item2, version))
+                : OperationResult<NumberedNutritionRecipeVersion>.Failure(new OperationError(
+                    RecipeErrorCodes.RecipeNotFound, "That recipe could not be found.", new Dictionary<string, string[]>())));
         }
     }
 }

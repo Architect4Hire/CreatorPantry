@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
@@ -158,7 +159,41 @@ public static class OpenApiDocumentation
 
         var generated = OpenApiOptions.CreateDefaultSchemaReferenceId(typeInfo);
 
-        return generated is null ? null : StripLayerSuffix(generated);
+        return generated is null ? null : Claim(StripLayerSuffix(generated), type);
+    }
+
+    /// <summary>The type each public schema name was first given to.</summary>
+    private static readonly ConcurrentDictionary<string, Type> SchemaOwners = new(StringComparer.Ordinal);
+
+    private static readonly ConcurrentDictionary<string, byte> Collisions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Every public schema name two different types have been given since the process started, as
+    /// <c>Name: First.Type, Second.Type</c>. Must hold nothing but the pre-existing collisions
+    /// <c>OpenApiContractTests</c> lists by name, and those are to be fixed and removed, never added to.
+    /// </summary>
+    /// <remarks>
+    /// Stripping the layer suffix makes a collision possible: <c>FooViewModel</c> and <c>FooServiceModel</c> are both
+    /// <c>Foo</c>, and so are an enum <c>FooLineFinding</c> and a record <c>FooLineFindingServiceModel</c>. The
+    /// generator then reuses the first schema for both — 14.6 published its request body as its response that way,
+    /// and two enums as objects referring to themselves — and the snapshot test cannot see it, because the
+    /// snapshot was generated from the same collision. Recorded rather than thrown, so a collision fails a test
+    /// with its names instead of turning the development document into a 500.
+    /// </remarks>
+    public static IReadOnlyCollection<string> SchemaNameCollisions => [.. Collisions.Keys.Order(StringComparer.Ordinal)];
+
+    /// <summary>The id, recording a collision when another type already holds it. <c>T</c> and <c>T?</c> are one type.</summary>
+    private static string Claim(string id, Type type)
+    {
+        var owner = Nullable.GetUnderlyingType(type) ?? type;
+        var existing = SchemaOwners.GetOrAdd(id, owner);
+
+        if (existing != owner)
+        {
+            Collisions.TryAdd($"{id}: {existing.FullName}, {owner.FullName}", 0);
+        }
+
+        return id;
     }
 
     private static string StripLayerSuffix(string name)

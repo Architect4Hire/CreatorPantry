@@ -83,6 +83,8 @@ public static class NutritionEstimateCalculator
                     total.MissingFrom))
                 .ToList();
 
+            var lineModels = lines.Select(line => line.ToServiceModel()).ToList();
+
             var estimate = new NutritionEstimateServiceModel(
                 input.RecipeId,
                 input.RecipeVersionId,
@@ -97,13 +99,14 @@ public static class NutritionEstimateCalculator
                 servings?.ToDecimal(NutritionEstimatePolicy.ExactScale, NutritionEstimatePolicy.Rounding),
                 servingsSource,
                 nutrients,
-                [.. lines.Select(line => line.ToServiceModel())],
+                lineModels,
                 [.. counted
                     .Select(line => line.Reference!)
                     .DistinctBy(reference => reference.SourceCode)
                     .OrderBy(reference => reference.SourceCode, StringComparer.Ordinal)
                     .Select(reference => new NutritionCitationServiceModel(
-                        reference.SourceCode, reference.Citation, reference.LicenseCode, reference.LicenseUrl))]);
+                        reference.SourceCode, reference.Citation, reference.LicenseCode, reference.LicenseUrl))],
+                Unresolved(lineModels));
 
             return new NutritionEstimateOutcome(estimate);
         }
@@ -338,6 +341,12 @@ public static class NutritionEstimateCalculator
     }
 
     /// <summary>Exact division. <see cref="Quantity"/> has no divide of its own; every calculator states its own.</summary>
+    /// <summary>The lines that keep an estimate from being publishable, grouped by why. Optional and unquantified lines are never among them.</summary>
+    private static NutritionUnresolvedLinesServiceModel Unresolved(IReadOnlyList<NutritionLineEstimateServiceModel> lines) => new(
+        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.Unmapped).Select(line => line.LineId)],
+        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.NeedsReview).Select(line => line.LineId)],
+        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.Unconvertible).Select(line => line.LineId)]);
+
     private static Quantity Divide(Quantity dividend, Quantity divisor) =>
         Quantity.FromFraction(dividend.Numerator * divisor.Denominator, dividend.Denominator * divisor.Numerator);
 }

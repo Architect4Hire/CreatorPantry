@@ -2,13 +2,16 @@ namespace CreatorPantry.Domain.Modules.Ingredients.Managers;
 
 /// <summary>Where one approved trait came from, as an analysis must cite it.</summary>
 /// <param name="IsActive">False for a retired source: still citable, but no longer one to rest a reassuring claim on.</param>
+/// <param name="LicenseCode">The SPDX licence the source's data is used under, when recorded (14.1).</param>
 public sealed record TraitSourceServiceModel(
     Guid ReferenceSourceId,
     string Code,
     string Name,
     ReferenceSourceKind Kind,
     string Citation,
-    bool IsActive = true);
+    bool IsActive = true,
+    string? LicenseCode = null,
+    string? LicenseUrl = null);
 
 /// <summary>One approved allergen trait in effect on the date asked about.</summary>
 /// <param name="EvidenceNote">What the source actually said. Required by the schema for the states a reader could mistake.</param>

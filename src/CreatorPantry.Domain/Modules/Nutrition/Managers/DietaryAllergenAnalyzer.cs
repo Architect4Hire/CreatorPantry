@@ -92,8 +92,38 @@ public static class DietaryAllergenAnalyzer
             evaluatedOn,
             DietaryAllergenAnalysisPolicy.CrossContactDisclaimer,
             [.. allergens.OrderBy(subject => subject.Name, StringComparer.Ordinal).Select(subject => Allergen(subject, lines, evidence))],
-            [.. profiles.OrderBy(subject => subject.Name, StringComparer.Ordinal).Select(subject => Dietary(subject, lines, evidence))]);
+            [.. profiles.OrderBy(subject => subject.Name, StringComparer.Ordinal).Select(subject => Dietary(subject, lines, evidence))],
+            Sources(evidence));
     }
+
+    /// <summary>
+    /// How complete the records behind one finding are. Derived from the line findings alone, so it can never move
+    /// a finding: a line with a counted record is exactly a line whose finding is not <c>Unknown</c>.
+    /// </summary>
+    internal static (AnalysisConfidence Confidence, AnalysisCoverageServiceModel Coverage) ConfidenceOf(
+        int linesRead, int linesWithCountedRecords, bool anyConflict) =>
+        (linesWithCountedRecords == 0 ? AnalysisConfidence.None
+            : anyConflict ? AnalysisConfidence.Disputed
+            : linesWithCountedRecords < linesRead ? AnalysisConfidence.Partial
+            : AnalysisConfidence.Recorded,
+        new AnalysisCoverageServiceModel(linesRead, linesWithCountedRecords));
+
+    /// <summary>
+    /// Every source the analysis read a record from, once each, with its licence and the newest effective date among
+    /// its records. The evidence was read for exactly the lines and subjects asked about, so this is what was cited.
+    /// </summary>
+    private static List<AnalysisSourceServiceModel> Sources(IngredientTraitEvidenceServiceModel evidence) =>
+        [.. evidence.Allergens.Select(trait => (trait.Source, trait.EffectiveFrom))
+            .Concat(evidence.Dietary.Select(trait => (trait.Source, trait.EffectiveFrom)))
+            .GroupBy(entry => entry.Source.Code, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var source = group.First().Source;
+                return new AnalysisSourceServiceModel(
+                    source.Code, source.Name, source.Kind, source.Citation, source.LicenseCode, source.LicenseUrl, source.IsActive,
+                    group.Max(entry => entry.EffectiveFrom));
+            })];
 
     // ---- Allergens ----
 
@@ -111,11 +141,14 @@ public static class DietaryAllergenAnalyzer
             : RecipeAllergenFinding.NotListedInRecords;
 
         var unknown = LinesWhere(findings, line => line.Finding is AllergenLineFinding.Unknown);
+        var (confidence, coverage) = ConfidenceOf(findings.Count, findings.Count - unknown.Count, findings.Any(line => line.Conflict));
 
         return new AllergenAnalysisServiceModel(
             allergen.Id,
             allergen.Name,
             finding,
+            confidence,
+            coverage,
             DietaryAllergenAnalysisPolicy.Statement(finding, allergen.Name, unknown.Count),
             LinesWhere(findings, line => line.Finding is AllergenLineFinding.Contains),
             LinesWhere(findings, line => line.Finding is AllergenLineFinding.Possible),
@@ -124,7 +157,7 @@ public static class DietaryAllergenAnalyzer
             findings);
     }
 
-    private static AllergenLineFindingServiceModel AllergenLine(
+    private static AllergenLineAnalysisServiceModel AllergenLine(
         NutritionEstimateLineInput line, Guid allergenId, IngredientTraitEvidenceServiceModel evidence)
     {
         if (line.IngredientId is not { } ingredientId)
@@ -186,11 +219,14 @@ public static class DietaryAllergenAnalyzer
             : RecipeDietaryFinding.FitsAsRecorded;
 
         var unknown = LinesWhere(findings, line => line.Finding is DietaryLineFinding.Unknown);
+        var (confidence, coverage) = ConfidenceOf(findings.Count, findings.Count - unknown.Count, findings.Any(line => line.Conflict));
 
         return new DietaryAnalysisServiceModel(
             profile.Id,
             profile.Name,
             finding,
+            confidence,
+            coverage,
             DietaryAllergenAnalysisPolicy.Statement(finding, profile.Name, unknown.Count),
             LinesWhere(findings, line => line.Finding is DietaryLineFinding.Incompatible),
             LinesWhere(findings, line => line.Finding is DietaryLineFinding.DependsOnProduct),
@@ -199,7 +235,7 @@ public static class DietaryAllergenAnalyzer
             findings);
     }
 
-    private static DietaryLineFindingServiceModel DietaryLine(
+    private static DietaryLineAnalysisServiceModel DietaryLine(
         NutritionEstimateLineInput line, Guid profileId, IngredientTraitEvidenceServiceModel evidence)
     {
         if (line.IngredientId is not { } ingredientId)
@@ -249,8 +285,8 @@ public static class DietaryAllergenAnalyzer
         where T : notnull =>
         [.. findings.Where(predicate).Select(finding => finding switch
         {
-            AllergenLineFindingServiceModel allergen => allergen.LineId,
-            DietaryLineFindingServiceModel dietary => dietary.LineId,
+            AllergenLineAnalysisServiceModel allergen => allergen.LineId,
+            DietaryLineAnalysisServiceModel dietary => dietary.LineId,
             _ => throw new ArgumentException("Not a line finding.", nameof(findings)),
         })];
 }

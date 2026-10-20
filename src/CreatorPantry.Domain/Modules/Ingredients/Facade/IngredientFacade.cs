@@ -85,6 +85,14 @@ internal sealed class IngredientFacade(
         CancellationToken cancellationToken) =>
         business.FindApprovedTraitsAsync(ingredientIds, allergenIds, dietaryProfileIds, asOf, cancellationToken);
 
+    // Uncached: one indexed read by primary keys, for the handful of ingredients one recipe version names.
+    public Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        business.ListCategoriesAsync(ingredientIds, cancellationToken);
+
+    public ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind) =>
+        business.DescribeEvidenceCoverage(kind);
+
     /// <summary>
     /// One global key for the whole flattened match index, not one per candidate: the catalogue is small
     /// enough to hold in memory entirely, and resolving a batch of candidates against it costs one cache read
