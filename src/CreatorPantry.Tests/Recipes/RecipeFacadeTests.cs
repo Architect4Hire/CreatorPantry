@@ -2475,6 +2475,26 @@ public sealed class RecipeFacadeTests
     /// <summary>Stands in for the Ingredients module, and counts that it was consulted.</summary>
     private sealed class StubIngredientModule : CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade
     {
+        // Not exercised here: approved traits belong to the dietary and allergen analysis tests.
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
+            IReadOnlyCollection<Guid> ingredientIds,
+            IReadOnlyCollection<Guid> allergenIds,
+            IReadOnlyCollection<Guid> dietaryProfileIds,
+            DateOnly asOf,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+
+        // Not exercised here: the nutrition reference reads belong to the nutrition mapping tests.
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
+            Guid ingredientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.NutritionReferenceServiceModel> GetNutritionReferenceAsync(
+            string sourceCode, string externalRecordId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+
         public bool UsableIngredient { get; set; } = true;
 
         public int Lookups { get; private set; }

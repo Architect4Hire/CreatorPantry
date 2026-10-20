@@ -35,6 +35,15 @@ public class ReferenceSource
     /// </summary>
     public string Citation { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The SPDX identifier of the licence the source's data is used under, e.g. <c>CC0-1.0</c> (14.1). Null when
+    /// none is recorded — which is never true of an approved evidence source (<c>EvidenceSourceCatalog</c>).
+    /// </summary>
+    public string? LicenseCode { get; set; }
+
+    /// <summary>Where that licence's terms are published. Only ever beside a <see cref="LicenseCode"/>.</summary>
+    public string? LicenseUrl { get; set; }
+
     /// <summary>A retired source stays readable so the facts citing it keep their provenance.</summary>
     public bool IsActive { get; set; } = true;
 }

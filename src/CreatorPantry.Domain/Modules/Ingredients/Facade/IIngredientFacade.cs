@@ -61,5 +61,36 @@ public interface IIngredientFacade
     /// </remarks>
     Task<IReadOnlyList<IngredientAllergenReviewServiceModel>> FindAllergenReviewGapsAsync(
         IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Approved nutrition reference foods for one platform ingredient, searched by its canonical name (14.2).
+    /// </summary>
+    /// <remarks>
+    /// The cross-module way to reach the evidence sources: a caller names a platform ingredient, never text of
+    /// its own, so a creator's words cannot reach a source or the shared cache (B-33). An inactive or unknown
+    /// ingredient answers <see cref="NutritionReferenceStatus.NotFound"/> without a search.
+    /// </remarks>
+    Task<NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
+        Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <summary>One approved nutrition reference food, by its source and the source's id for it (14.2).</summary>
+    Task<NutritionReferenceServiceModel> GetNutritionReferenceAsync(
+        string sourceCode, string externalRecordId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The approved allergen and dietary traits in effect on <paramref name="asOf"/> for the ingredients, allergens
+    /// and profiles named (14.4).
+    /// </summary>
+    /// <remarks>
+    /// Approved only: an unreviewed, rejected or superseded trait is on record without being actionable, and an
+    /// analysis must not see it. A trait dated after <paramref name="asOf"/> is not yet in effect. Uncached, for
+    /// the reason <see cref="FindAllergenReviewGapsAsync"/> gives.
+    /// </remarks>
+    Task<IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken);
 }
 

@@ -256,6 +256,26 @@ public sealed class RecipeReadinessFacadeTests
 
     private sealed class StubIngredientFacade : IIngredientFacade
     {
+        // Not exercised here: approved traits belong to the dietary and allergen analysis tests.
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
+            IReadOnlyCollection<Guid> ingredientIds,
+            IReadOnlyCollection<Guid> allergenIds,
+            IReadOnlyCollection<Guid> dietaryProfileIds,
+            DateOnly asOf,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+
+        // Not exercised here: the nutrition reference reads belong to the nutrition mapping tests.
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
+            Guid ingredientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<CreatorPantry.Domain.Modules.Ingredients.Managers.NutritionReferenceServiceModel> GetNutritionReferenceAsync(
+            string sourceCode, string externalRecordId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+
         public IReadOnlyList<IngredientAllergenReviewServiceModel> Gaps { get; set; } = [];
 
         public int Calls { get; private set; }

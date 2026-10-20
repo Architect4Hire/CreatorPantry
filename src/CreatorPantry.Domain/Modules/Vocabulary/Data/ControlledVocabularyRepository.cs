@@ -66,6 +66,10 @@ internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext cont
                 context.Courses.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
             CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique =>
                 context.CookingTechniques.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Allergen =>
+                context.Allergens.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.DietaryProfile =>
+                context.DietaryProfiles.AsNoTracking().AnyAsync(row => row.Id == id && row.IsActive, cancellationToken),
             // Exhaustive on purpose: a new catalogue must be answered here rather than silently reported
             // unusable, which would reject every id in it with no clue why.
             _ => throw new ArgumentOutOfRangeException(nameof(catalog), catalog, "Unknown vocabulary catalogue."),
@@ -83,6 +87,12 @@ internal sealed class ControlledVocabularyRepository(CreatorPantryDbContext cont
                     .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
             CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.CookingTechnique =>
                 context.CookingTechniques.AsNoTracking().Where(row => row.Id == id)
+                    .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.Allergen =>
+                context.Allergens.AsNoTracking().Where(row => row.Id == id)
+                    .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
+            CreatorPantry.Domain.Modules.Vocabulary.Facade.VocabularyCatalog.DietaryProfile =>
+                context.DietaryProfiles.AsNoTracking().Where(row => row.Id == id)
                     .Select(row => row.DisplayName).SingleOrDefaultAsync(cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalog), catalog, "Unknown vocabulary catalogue."),
         };

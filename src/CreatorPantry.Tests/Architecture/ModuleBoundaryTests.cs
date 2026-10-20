@@ -165,10 +165,12 @@ public sealed class ModuleBoundaryTests
         Assert.True(Directory.Exists(Path.Combine(DomainRoot(), "Modules")), "source scan cannot find the domain project");
         // The upper bound is a scan sanity check, not a budget on the domain: it catches a root that has
         // picked up the wrong tree — bin/obj, or the whole solution — rather than growth. 12.9b crossed the
-        // old ceiling of 1000 honestly, so it was raised rather than the files not counted.
-        Assert.InRange(files.Count, 150, 1400);
-        // Fifteen since 13A.23 added Planning.
-        Assert.Equal(15, files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        // old ceiling of 1000 honestly, so it was raised rather than the files not counted; 14.1 crossed 1400
+        // the same way. Keep it below the whole solution's source count (about 2,270 at 14.1), or a root that
+        // picked up every project would pass.
+        Assert.InRange(files.Count, 150, 1600);
+        // Sixteen since 14.2 added Nutrition.
+        Assert.Equal(16,files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.

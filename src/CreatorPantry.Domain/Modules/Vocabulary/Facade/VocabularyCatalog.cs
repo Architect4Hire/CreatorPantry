@@ -13,4 +13,10 @@ public enum VocabularyCatalog
     Cuisine = 0,
     Course = 1,
     CookingTechnique = 2,
+
+    /// <summary>The allergen vocabulary a dietary and allergen analysis is asked about (14.4).</summary>
+    Allergen = 3,
+
+    /// <summary>The dietary profiles a dietary and allergen analysis is asked about (14.4).</summary>
+    DietaryProfile = 4,
 }

@@ -45,6 +45,10 @@ later documents may reference them.
 | B-20 | Model execution wrapper | TBD | Decided | Resilience pipeline in ServiceDefaults with the transience predicate supplied by the host; classification behind a provider-implemented interface; one attempt record per call; exactly one corrective re-ask for a schema failure. |
 | B-21 | Proposal disposition and atomic acceptance | TBD | Decided | A proposal may only offer a change the recipe patch can apply; accepted changes travel the recipe module's own merge path; the confirmation names the accepted change ids; one explicit transaction in the AI data layer spans both modules; replay compares the decision rather than a key. |
 | B-22 | Platform audit trail | TBD | Decided | Actions taken outside any workspace go to a separate unfiltered, immutable `PlatformAuditLog` with a required reason; `AuditLog` stays workspace-owned and filtered. |
+| B-33 | Evidence sources | TBD | Decided | USDA FoodData Central (Foundation, SR Legacy; CC0) for nutrition and density; no approved source for allergen, dietary or food safety, which read as unknown. |
+| B-34 | Nutrition mappings | TBD | Decided | One creator-confirmed mapping per platform ingredient per workspace; automatic proposals are never confirmed; rejections remembered; refresh flags newer versions for review. |
+| B-35 | Nutrition estimate arithmetic | TBD | Decided | Exact arithmetic over one recipe version; rounded once at output; edible portion as written; unknown nutrients never zero; publishable only when every required line is counted. |
+| B-36 | Dietary and allergen analysis | TBD | Decided | Approved traits only; missing is unknown; most cautious finding wins; conflicts cited; disclaimer always; nothing is ever "safe". |
 
 ## Decisions
 
@@ -171,7 +175,8 @@ stored recipe data.
   data never implies absence of an allergen, and nutrition output is not a medical or dietary guarantee.
 - Unmapped ingredients are surfaced as unresolved rather than guessed.
 
-**Consequences:** until Phase 14 lands, the product shows no computed nutrition.
+**Consequences:** until Phase 14 lands, the product shows no computed nutrition. FDC's terms were verified and
+the source approved in [B-33](#b-33-evidence-sources).
 **Rules:** `recipes.md`, `external.md`; Phase 14.
 
 ### B-10 Buffer as the first publishing adapter
@@ -1280,6 +1285,203 @@ means it was committed, so the body being unreadable is this client's problem an
 removed, so the contract change is additive; `PublishingErrorCodes` gained `ScheduleConflict` for the raced
 case and the board reports it as a race rather than a refusal.
 **Rules:** `publishing.md`, `external.md`, `tenancy.md`, `api-contract.md`, `frontend.md`.
+
+### B-33 Evidence sources
+
+*Recorded 2026-10-20 by microprompt 14.1. Extends B-09. Cites AI-009/010, DATA-RQ-007 and DATA-011, whose text
+is not in the repository (B-12); their meaning here is taken from Phase 14's prompts.*
+
+| Evidence | Approved source | Data sets | Licence |
+|---|---|---|---|
+| Nutrition | USDA FoodData Central | Foundation, SR Legacy | CC0 1.0 (public domain) |
+| Density | USDA FoodData Central (household portions) | Foundation, SR Legacy | CC0 1.0 |
+| Allergen | **None** | — | — |
+| Dietary | **None** | — | — |
+| Food safety | **None** | — | — |
+
+- **FDC's terms were read on 2026-10-20** (fdc.nal.usda.gov/api-guide): REST v1 at
+  `https://api.nal.usda.gov/fdc/v1/`, a free api.data.gov key, 1,000 requests an hour **per IP address**, and
+  going over blocks the **key** for an hour. The data is "in the public domain and … not copyrighted" under CC0
+  1.0. USDA suggests — but CC0 does not require — the citation "U.S. Department of Agriculture, Agricultural
+  Research Service. FoodData Central, 2019. fdc.nal.usda.gov."; it is recorded on the source row without the
+  year, which changes by release, and travels on every piece of evidence.
+- **Branded, Survey (FNDDS) and Experimental foods are not approved.** Branded is manufacturer label data, Survey
+  foods are mostly prepared dishes rather than ingredients, and Experimental is research data. A record from
+  one is answered `NoApprovedSource`, and a search never asks for them and drops them if they come back.
+- **An evidence kind with no approved source is unknown, never absent.** Allergen, dietary and food-safety
+  evidence answer `NoApprovedSource` on every host. Approving a source for any of them is a new decision in
+  this record, made after reading its terms; nothing is scraped or imported to fill the gap.
+- **One catalogue, two readers.** `EvidenceSourceCatalog` is the list of approved sources with their licences.
+  The seeder writes its `ReferenceSource` rows from it in every environment (a citation, not imported data),
+  and the adapter stamps the same code, citation and licence onto every piece of evidence it returns.
+- **Every piece of evidence carries its provenance**: source, data set and publication date as
+  `SourceVersion` (`sr-legacy/2019-04-01`), licence, citation, the source's record id, and `RetrievedAt`.
+  A cached answer keeps its original retrieval date.
+- **The gateway is provider-neutral and maps at the boundary.** `IReferenceEvidenceGateway` returns
+  application records only; FDC's field names, nutrient numbers and unit words exist in one file
+  (`UsdaFdcFoodReader`). Unknown nutrients, mismatched units and unrecognised portion words are dropped, not
+  guessed. Nothing it returns is an EF entity, and nothing becomes a reference fact without a later, reviewed
+  step (14.2).
+- **Searches use a platform ingredient's name only.** `ReferenceFoodSearch` can only be built from an
+  `Ingredient`, so a creator's own text — workspace content — never reaches FDC's logs or the shared cache.
+- **Global cache, answers only.** `global:reference:evidence:usda-fdc:v1:food:{id}` for 24 hours and
+  `…:search:{sha256}` for one hour, in the DataLayer; throttles, outages and refusals are never cached.
+- **The key is a header, and a throttle stops the whole process.** `X-Api-Key`, never the URL, and the client
+  follows no redirects. A 429 blocks every read — retries included — for the stated wait (an hour when none is
+  stated) through a process-wide `UsdaFdcThrottle`, and the standard resilience handler is removed because it
+  would retry the 429s that extend a block. The quota is per address, so other clients on it can spend it
+  unseen; and the throttle is in memory, so it moves to a shared store when a second host reads evidence.
+- **A food with no nutrient table is unreadable, and an unlisted nutrient is unknown.** Neither is ever read as
+  zero; a source's own zero arrives listed, with its derivation ("Assumed zero").
+- **Off by default.** `Usda:Evidence` is `false`, so no machine is prompted for `usda-fdc-api-key`, and a host
+  with none answers `NotConfigured`. Only the API references it until something in the Worker reads evidence.
+
+**Options considered:** Open Food Facts for allergens (rejected for now — ODbL share-alike obligations and
+contributor-entered data need their own decision, not a default); deriving allergen traits from Branded
+ingredient statements (rejected — label text for one product is not evidence about an ingredient); a caching
+decorator around the gateway (rejected — cache-first belongs in the DataLayer, and a gateway owns only the call).
+**Consequences:** migration `AddReferenceSourceLicense` (`LicenseCode`, `LicenseUrl`, and a check that a licence
+URL has a licence code); production now seeds one `ReferenceSource`, `usda-fdc`. No endpoint, facade or import.
+Recorded contract fixtures are in `src/CreatorPantry.Tests/Ingredients/Fixtures/UsdaFdc/`, with what the
+recordings showed that FDC's spec does not.
+**Rules:** `external.md`, `recipes.md`, `ai.md`, `tenancy.md`, `aspire.md`.
+
+### B-34 Nutrition mappings
+
+*Recorded 2026-10-20 by microprompt 14.2. Cites ING-008 and DATA-RQ-007, whose text is not in the repository
+(B-12).*
+
+- **One mapping per platform ingredient per workspace, not per recipe line.** A creator confirms "all-purpose
+  flour is FDC 169761" once and every recipe in the workspace uses it. Line ids are not stable — a move between
+  groups, a duplicate or a client that omits ids mints new ones — so a mapping keyed on them would be lost by
+  ordinary edits. A line with no platform ingredient has nothing to map and is reported as unmapped by the
+  calculator (14.3), never guessed.
+- **A new `Nutrition` module** owns `NutritionMapping` and `NutritionMappingRejection`. It reaches evidence only
+  through two new `IIngredientFacade` methods (search by a platform ingredient, fetch one record), which return
+  ServiceModels because 14.1's gateway types do not cross a module.
+- **Lifecycle:** `Candidate` (automatic), `Confirmed`, `NeedsReview` (a newer source version of a confirmed
+  record), `Unresolved` (no candidates, creator declined, reference rejected, or withdrawn by the source).
+  - **Nothing automatic is ever confirmed**, whatever its confidence — stricter than the prompt, which asked
+    only that low-confidence matches be confirmed. Only `Confirmed` is for estimates.
+  - **Confidence is recorded, not scored:** `High` for the only open hit or an exact normalized name, `Low`
+    otherwise, with the match method beside it.
+  - **A rejection is remembered** per mapping, so no proposal offers that reference again; a creator remapping
+    to it withdraws the rejection.
+  - **A remap** points at any approved record the creator chooses, from any state or none, and is confirmed as
+    `CreatorSelected`; a source other than the one approved for nutrition is refused without being asked.
+  - **Refresh** compares the source's current version: newer moves a confirmed mapping to `NeedsReview` keeping
+    its confirmation, and confirming accepts the new version; a record the source says is gone or unapproved
+    withdraws it. An outage, a throttle or a missing provider writes nothing and concludes nothing.
+- **Quantity basis.** Nutrients are per 100 g (14.1's contract). One optional portion turns volume or count
+  quantities into grams: `Reference` when it is exactly one of the record's own measured portions, otherwise
+  `Creator` — this workspace's override. A mass, temperature or qualitative unit is refused.
+- **Roles.** Any member reads. A Contributor may ask for a proposal, which writes only a candidate or an
+  unresolved mapping nobody decided — never over a confirmation or a creator's "none fits". Confirming,
+  rejecting, remapping and marking unresolved take an Editor, the role that approves a recipe, and are audited
+  with state names only; so does a refresh, because it can withdraw a confirmed reference and its portion.
+- **Nothing crosses a workspace or reaches a recipe.** Mappings, rejections and portions are filtered to their
+  workspace; nothing derives a shared or platform mapping from them; nothing writes to `RecipeIngredient`.
+- **The schema holds the lifecycle:** check constraints for a reference whole exactly when not unresolved, a
+  confidence only on an automatic match, a review version only under review, a confirmation only while
+  confirmed or under review, a portion whole and only beside a reference; unique `(WorkspaceId, IngredientId)`;
+  rejections cascade through a composite key to their mapping with no second path from `Workspaces`.
+
+**Options considered:** per-line mappings (rejected above); auto-confirming high-confidence matches (rejected —
+an estimate is a published claim, and a creator should have said yes to every number it rests on); keeping
+mappings in the Recipes module (rejected — mappings, the calculator and the nutrition endpoint are their own
+context, and Recipes is already the largest module).
+**Consequences:** migration `AddNutritionMappings`; no endpoint (14.6b) and no calculator (14.3). A refresh
+reads the evidence cache, so a newer version can take up to a day to be noticed. One portion per mapping, so an
+ingredient measured both by the cup and by the piece needs the calculator to report one of them as unconverted.
+**Rules:** `tenancy.md`, `recipes.md`, `backend.md`, `external.md`.
+
+### B-35 Nutrition estimate arithmetic
+
+*Recorded 2026-10-20 by microprompt 14.3. Cites ING-008 and CALC-001/006, whose text is not in the repository
+(B-12); their meaning here is taken from the Phase 7 prompts that use them.*
+
+- **Of a version, deterministically.** An estimate reads one immutable recipe version, the workspace's confirmed
+  mappings and the source's current nutrients, and nothing else: no clock, no model. `NutritionEstimateCalculator`
+  is pure, and records `nutrition-estimate/1` on every result.
+- **Exact until shown (CALC-001, CALC-006).** Every step is an exact `Quantity` fraction from the stored values.
+  Each figure is rounded once, at output, ties to even, and returned beside its exact value to six places.
+  Display precision by unit: kcal 0, g 1, mg 0, µg 1 — display only, not a statement of accuracy, and not
+  regulatory label rounding. A non-zero value that rounds to zero is flagged `Trace`, never shown as 0. A total
+  too large to state is refused (`nutrition.estimate.out_of_range`), not thrown.
+- **Grams.** Mass units by their gram factor. Volumes only through the mapping's portion when it is a volume,
+  via millilitres; counts only through a portion in the same count unit. A quantity with no unit ("2 eggs") is
+  not taken to be "each". Qualitative and temperature units, and a missing portion, are `Unconvertible`.
+- **Edible portion as written.** FDC's values are per 100 g edible portion; the creator's quantity is taken as
+  exactly that. No trim, refuse, cooking-loss or nutrient-retention factor is applied, and the method says so.
+- **Ranges** are carried low and high through every step.
+- **Servings:** the caller's count, else the version's `ServingCount`, else `YieldQuantity ÷ ServingSize`, else
+  none — never a per-100 g of finished dish, whose weight is unknown.
+- **Missing data.** Each line is `Included`, `Unmapped`, `NeedsReview` (under review, a different source version
+  than confirmed, or withdrawn), `Unconvertible`, `NotQuantified` or `Optional`. Optional and unquantified lines
+  are not required and not counted. `Publishable` only when every required line is counted; otherwise the
+  totals are returned labelled `Partial` — a known-incomplete lower bound — for 14.6d to show honestly.
+  A nutrient a counted reference does not report is unknown for that line: the nutrient is marked incomplete and
+  names the line, never counted as zero. A caller publishes nothing from an unpublishable estimate, and only
+  complete nutrients from a publishable one.
+- **Confidence** is the weakest quantity basis among counted lines: `Mass`, `ReferencePortion`, `CreatorPortion`.
+- **Reads only.** An estimate never writes, not even to a mapping it finds out of date; a source that cannot be
+  asked fails the estimate rather than shrink it. Any member may read one.
+
+**Options considered:** withholding numbers until complete (rejected — a creator needs to see what is missing
+and how much it matters); counting optional lines (rejected — they are the creator's "if you like"); treating a
+unitless count as "each" when the portion is "each" (rejected as a guess).
+**Consequences:** `NutritionReferenceServiceModel` now carries nutrients, citation and licence. The estimate
+reads recipe versions through `INutritionRecipeVersionReader` over `IRecipeFacade.GetSnapshotAsync`, so a host
+serving it registers Recipes. No endpoint (14.6a), no readiness rule and no JSON-LD nutrition yet.
+**Rules:** `recipes.md`, `ai.md`.
+
+### B-36 Dietary and allergen analysis
+
+*Recorded 2026-10-20 by microprompt 14.4. Cites ING-007, whose text is not in the repository (B-12).*
+
+- **A reading of records, never a verdict about food or a person.** `DietaryAllergenAnalyzer` is pure and records
+  `dietary-allergen/1` and the date it read the records as of. No finding means safe, free from, certified or
+  suitable, and a guard test holds that for every enum name and every sentence the analysis can produce.
+- **What it reads:** one immutable recipe version (the 14.3 reader), the selected allergens and dietary profiles
+  (checked against the vocabulary, which now names both), and the **approved** traits in effect on the evaluation
+  date (UTC). Unreviewed, rejected, superseded and future-dated traits never drive a finding. A source's latest
+  trait in effect supersedes that source's earlier ones and never another source's — and a later "consulted, does
+  not say" is no word at all, so it never supersedes an earlier warning.
+- **Only a vetted, active source may reassure.** "Not listed" and "compatible" count only from a source whose kind
+  may assert absence (not community-contributed or AI-estimated) and that is not retired; from any other they are
+  cited with `Counted = false` and the line stays *Unknown*. Any approved source may give a cautious word. For
+  allergens the database already refuses an unvetted "not listed"; the analyzer refuses it again, and is the only
+  guard for "compatible" and for retired sources.
+- **Every line is analysed**, optional and unquantified ones included — a garnish or "to taste" can still bring
+  an allergen — and a finding says when its line is optional.
+- **Allergens, per line:** no record, a source that does not say, or a line that is not a recognised ingredient
+  → *Unknown*; any `Present` → *Contains*; else any `PossiblePresence` → *Possible*; else all
+  `NotListedBySource` → *Not listed*. **Per recipe**, the most cautious line: *Contains*, *Possible*, *Unknown*,
+  then *Not listed in the cited records* — worded as "not a statement that the recipe is free of …".
+- **Dietary profiles, per line:** *Unknown*, else any `Incompatible` → *Incompatible*, else any `DependsOnProduct`
+  → *Depends on product*, else *Compatible*. **Per recipe:** *Doesn't fit*, *Depends on product*, *Unknown*, then
+  *Fits, as recorded* — stated as "every ingredient is recorded as compatible with … in the cited records", never
+  "fits Nut-Free", which for a profile named for what it leaves out would read as a free-from claim.
+- **A finding drawn from some lines says how many others have no reviewed record.**
+- **Conflicts** — a source listing an allergen (or a possibility) where another publishes a composition without it;
+  a source calling an ingredient compatible where another does not or says it depends — keep the more cautious
+  finding, are flagged, and cite both.
+- **Hidden sources and cross-contact come only from what a source stated** (`PossiblePresence`,
+  `DependsOnProduct`, with the source's required note quoted). Nothing is inferred from an ingredient's category,
+  its neighbours, a line's own text or a model, and the gluten-free profile and the wheat allergen never answer
+  for each other.
+- **A fixed cross-contact disclaimer is on every analysis**, the best answer included.
+- **Read-only, any member;** the workspace's own version only (the Recipes module answers another workspace's as
+  not found). Any later explanation, a model's included, takes the findings as input and cannot change one.
+
+**Options considered:** skipping optional lines as the estimate does (rejected — presence does not depend on
+quantity); resolving conflicts by source kind (rejected — a disagreement is information a creator needs);
+deriving gluten-free from the wheat allergen (rejected as an inference the records do not state).
+**Consequences:** `VocabularyCatalog` gained `Allergen` and `DietaryProfile`; `IIngredientFacade` gained
+`FindApprovedTraitsAsync`. Until reviewed traits are recorded or a source is approved (B-33 approves none), real
+analyses read almost entirely as *Unknown* — the correct answer for records that do not exist. No endpoint (14.6),
+no UI (14.6c).
+**Rules:** `recipes.md`, `ai.md`.
 
 ## Open items
 

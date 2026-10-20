@@ -17,6 +17,9 @@ public static class DensityPolicy
 
     public const int SourceCitationMaxLength = 512;
 
+    /// <summary>An SPDX licence identifier. The longest in common use is well inside this.</summary>
+    public const int SourceLicenseCodeMaxLength = 64;
+
     /// <inheritdoc cref="QuantityFormat.MinDisplayPrecision"/>
 
     /// <inheritdoc cref="QuantityFormat.MaxDisplayPrecision"/>

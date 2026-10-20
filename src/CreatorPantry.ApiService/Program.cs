@@ -17,6 +17,8 @@ using CreatorPantry.Domain.Modules.Auth.Gateways;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Modules.Vocabulary;
 using CreatorPantry.Domain.Modules.Ingredients;
+using CreatorPantry.Domain.Modules.Ingredients.Integration.UsdaFdc;
+using CreatorPantry.Domain.Modules.Nutrition;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Dashboard;
@@ -67,6 +69,12 @@ builder.Services.AddTenancy();
 builder.Services.AddMeasurementModule();
 builder.Services.AddVocabularyModule();
 builder.Services.AddIngredientModule();
+// Evidence sources (14.1). The module answers "not configured" on its own; AddUsdaFdcEvidence replaces that
+// with FoodData Central only when this host has been handed a key. The API alone: nothing in the Worker reads
+// evidence yet.
+builder.Services.AddUsdaFdcEvidence(builder.Configuration);
+// Nutrition mappings (14.2). Reads evidence and units through the Ingredients and Measurement facades above.
+builder.Services.AddNutritionModule();
 builder.Services.AddRecipesModule(builder.Configuration);
 builder.Services.AddBrandModule();
 // The provider-specific failure classifier goes in before AddAiModule, whose TryAdd fallback is deliberately

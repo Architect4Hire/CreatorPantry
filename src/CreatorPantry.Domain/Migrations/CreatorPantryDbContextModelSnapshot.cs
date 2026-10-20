@@ -4369,6 +4369,14 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<int>("Kind")
                         .HasColumnType("int");
 
+                    b.Property<string>("LicenseCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("LicenseUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -4384,7 +4392,10 @@ namespace CreatorPantry.Domain.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_ReferenceSources_Code");
 
-                    b.ToTable("ReferenceSources", (string)null);
+                    b.ToTable("ReferenceSources", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ReferenceSources_LicenseUrl_RequiresLicenseCode", "LicenseUrl IS NULL OR LicenseCode IS NOT NULL");
+                        });
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", b =>
@@ -5124,6 +5135,168 @@ namespace CreatorPantry.Domain.Migrations
 
                             t.HasCheckConstraint("CK_MediaRenditions_Text_NotBlank", "trim(SourceContentChecksum) <> '' AND (ObjectKey IS NULL OR (trim(ObjectKey) <> '' AND trim(MediaType) <> '' AND trim(ContentChecksum) <> ''))");
                         });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Confidence")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ConfirmedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CreatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExternalRecordId")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("IngredientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("MatchMethod")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("PortionAmount")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
+                    b.Property<decimal?>("PortionGrams")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
+                    b.Property<string>("PortionLabel")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("PortionMeasurementUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("PortionOrigin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceDescription")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid?>("ReferenceSourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewSourceVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SourceCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SourceVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UnresolvedReason")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UpdatedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("WorkspaceId", "Id")
+                        .HasName("AK_NutritionMappings_Workspace_Id");
+
+                    b.HasIndex("IngredientId");
+
+                    b.HasIndex("PortionMeasurementUnitId");
+
+                    b.HasIndex("ReferenceSourceId");
+
+                    b.HasIndex("WorkspaceId", "IngredientId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NutritionMappings_Workspace_Ingredient");
+
+                    b.HasIndex("WorkspaceId", "Status")
+                        .HasDatabaseName("IX_NutritionMappings_Workspace_Status");
+
+                    b.ToTable("NutritionMappings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_NutritionMappings_Confidence_Automatic", "(Confidence IS NULL AND (MatchMethod IS NULL OR MatchMethod <> 1)) OR (Confidence IS NOT NULL AND MatchMethod IS NOT NULL AND MatchMethod = 1)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_Confirmation", "(Status IN (20, 30) AND ConfirmedAt IS NOT NULL AND ConfirmedByMembershipId IS NOT NULL) OR (Status NOT IN (20, 30) AND ConfirmedAt IS NULL AND ConfirmedByMembershipId IS NULL)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_Portion_NeedsReference", "Status <> 40 OR PortionMeasurementUnitId IS NULL");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_Portion_Whole", "(PortionMeasurementUnitId IS NULL AND PortionAmount IS NULL AND PortionGrams IS NULL AND PortionOrigin IS NULL AND PortionLabel IS NULL) OR (PortionMeasurementUnitId IS NOT NULL AND PortionAmount IS NOT NULL AND PortionAmount > 0 AND PortionGrams IS NOT NULL AND PortionGrams > 0 AND PortionOrigin IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_Reference_Whole", "(Status = 40 AND ReferenceSourceId IS NULL AND SourceCode IS NULL AND ExternalRecordId IS NULL AND ReferenceDescription IS NULL AND SourceVersion IS NULL AND MatchMethod IS NULL) OR (Status <> 40 AND ReferenceSourceId IS NOT NULL AND SourceCode IS NOT NULL AND ExternalRecordId IS NOT NULL AND ReferenceDescription IS NOT NULL AND SourceVersion IS NOT NULL AND MatchMethod IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_ReviewVersion_NeedsReview", "(Status = 30 AND ReviewSourceVersion IS NOT NULL) OR (Status <> 30 AND ReviewSourceVersion IS NULL)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_Status_Range", "Status IN (10, 20, 30, 40)");
+
+                            t.HasCheckConstraint("CK_NutritionMappings_UnresolvedReason", "(Status = 40 AND UnresolvedReason IS NOT NULL) OR (Status <> 40 AND UnresolvedReason IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMappingRejection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExternalRecordId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("NutritionMappingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("RejectedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("RejectedByMembershipId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkspaceId", "NutritionMappingId", "SourceCode", "ExternalRecordId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_NutritionMappingRejections_Mapping_Reference");
+
+                    b.ToTable("NutritionMappingRejections", (string)null);
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTask", b =>
@@ -8864,6 +9037,41 @@ namespace CreatorPantry.Domain.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMapping", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient", null)
+                        .WithMany()
+                        .HasForeignKey("IngredientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Measurement.Data.Entities.MeasurementUnit", null)
+                        .WithMany()
+                        .HasForeignKey("PortionMeasurementUnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Ingredients.Data.Entities.ReferenceSource", null)
+                        .WithMany()
+                        .HasForeignKey("ReferenceSourceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMappingRejection", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMapping", null)
+                        .WithMany("Rejections")
+                        .HasForeignKey("WorkspaceId", "NutritionMappingId")
+                        .HasPrincipalKey("WorkspaceId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Planning.Data.Entities.WorkTask", b =>
                 {
                     b.HasOne("CreatorPantry.Domain.Modules.Tenancy.Data.Entities.Workspace", null)
@@ -9521,6 +9729,11 @@ namespace CreatorPantry.Domain.Migrations
                     b.Navigation("Tags");
 
                     b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Nutrition.Data.Entities.NutritionMapping", b =>
+                {
+                    b.Navigation("Rejections");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Recipes.Data.Entities.Recipe", b =>

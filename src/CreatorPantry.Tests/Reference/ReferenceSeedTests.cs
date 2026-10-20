@@ -159,7 +159,8 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
 
     /// <summary>
     /// Production gets a working unit and vocabulary catalogue and none of the illustrative facts — no sample
-    /// ingredients, and so no densities or traits citing a development source.
+    /// ingredients, and so no densities or traits citing a development source. The only sources it has are the
+    /// approved evidence sources' citations (14.1), each with the licence it was approved under.
     /// </summary>
     [Fact]
     public async Task Production_tier_seeds_the_catalogue_but_no_sample_data()
@@ -172,7 +173,19 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
         Assert.Equal(MeasurementSeedData.Units().Count, await context.MeasurementUnits.CountAsync(cancellationToken));
         Assert.Equal(CatalogueSeedData.Allergens().Count, await context.Allergens.CountAsync(cancellationToken));
 
-        Assert.Equal(0, await context.ReferenceSources.CountAsync(cancellationToken));
+        var sources = await context.ReferenceSources.AsNoTracking().ToListAsync(cancellationToken);
+        Assert.Equal(
+            EvidenceSourceCatalog.All.Select(source => source.Code).Order(),
+            sources.Select(source => source.Code).Order());
+        Assert.All(sources, source =>
+        {
+            var approved = EvidenceSourceCatalog.All.Single(entry => entry.Code == source.Code);
+            Assert.Equal(approved.Kind, source.Kind);
+            Assert.Equal(approved.Citation, source.Citation);
+            Assert.Equal(approved.LicenseCode, source.LicenseCode);
+            Assert.Equal(approved.LicenseUrl, source.LicenseUrl);
+        });
+
         Assert.Equal(0, await context.Ingredients.CountAsync(cancellationToken));
         Assert.Equal(0, await context.IngredientDensityReferences.CountAsync(cancellationToken));
         Assert.Equal(0, await context.IngredientDietaryTraits.CountAsync(cancellationToken));
@@ -212,9 +225,17 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
         await using var context = CreateContext();
         var cancellationToken = TestContext.Current.CancellationToken;
 
-        var source = Assert.Single(await context.ReferenceSources.AsNoTracking().ToListAsync(cancellationToken));
-        Assert.Equal(ReferenceSourceKind.CommunityContributed, source.Kind);
+        // Every seeded fact cites the development source, whatever else the catalogue lists beside it.
+        var source = Assert.Single(await context.ReferenceSources.AsNoTracking()
+            .Where(candidate => candidate.Kind == ReferenceSourceKind.CommunityContributed)
+            .ToListAsync(cancellationToken));
         Assert.Contains("not suitable for production use", source.Citation, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(source.LicenseCode);
+
+        var cited = (await context.IngredientDensityReferences.AsNoTracking().Select(fact => fact.ReferenceSourceId).ToListAsync(cancellationToken))
+            .Concat(await context.IngredientDietaryTraits.AsNoTracking().Select(fact => fact.ReferenceSourceId).ToListAsync(cancellationToken))
+            .Concat(await context.IngredientAllergenTraits.AsNoTracking().Select(fact => fact.ReferenceSourceId).ToListAsync(cancellationToken));
+        Assert.All(cited, sourceId => Assert.Equal(source.Id, sourceId));
 
         Assert.All(
             await context.IngredientDensityReferences.AsNoTracking().ToListAsync(cancellationToken),
@@ -348,6 +369,8 @@ public sealed class ReferenceSeedTests : IAsyncLifetime
         codes.AddRange(CatalogueSeedData.CookingTechniques().Select(entry => ("CookingTechniques", entry.Code, CodeFormat.CodePattern)));
         codes.AddRange(CatalogueSeedData.EquipmentTypes().Select(entry => ("EquipmentTypes", entry.Code, CodeFormat.CodePattern)));
         codes.AddRange(SampleIngredientSeedData.Sources().Select(source =>
+            ("ReferenceSources", source.Code, CodeFormat.CodePattern)));
+        codes.AddRange(EvidenceSourceSeedData.Sources().Select(source =>
             ("ReferenceSources", source.Code, CodeFormat.CodePattern)));
 
         var offending = codes
