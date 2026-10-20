@@ -321,11 +321,40 @@ what a form is: a single column of controls at a readable width, with the rest o
 them. Empty space to the right of a field is the layout working, not a gap to fill — a control stretched to a
 card's full width is harder to scan and no easier to fill in.
 
+**A long form carries a section nav, and a wide one swaps it for two columns.** The rule above is about fields,
+and it stands: they stack one per line at the measure. What makes a form a dozen fields long hard to use is its
+length, so in a single column it carries a `cp-anchor-nav` over its sections, a wrapping row of links above them.
+`RecipeEditorComponent`'s General tab is the reference. The nav scrolls to a section and focuses it, follows the
+reader down the page, and says in words how many problems a refused save left in each section, which matters
+because that section may be several screens away. Every section stays rendered, so jumping mounts nothing and
+loses no edit.
+
+On a card wide enough that one column would leave a column's width empty down the whole page, the *sections* sit
+side by side instead, fields still stacked inside each: the long section takes one column for its full height and
+the rest stack in the other. There the nav is hidden, because the whole form is on screen and a nav that only
+repeats what is visible is clutter. The DOM order is unchanged, so the tab and reading order are the order they
+are written in, and below the editor's own width threshold (a container query, so it answers a narrowed window and
+200% zoom alike) it is one column with its nav again. Do this for a form that needs it, not by default: a short
+form is better as a single column.
+
+Type in a form is deliberate: a field's label is `--cp-font-size-sm` bold, its hint and error `--cp-font-size-sm`
+regular, and a section's intro `--cp-font-size-md`. A hint at the extra-small size read as fine print next to the
+label it explains; that is not a size to go back to.
+
 A `cp-field-row` is the exception, not the tool for tidying a long form. It is for values that are short *and*
 read as one set: three durations, a quantity and its unit. Prose, lists and anything with a `textarea` stay
 stacked, however many of them there are — `Description` and `Headnote` sit one above the other in the recipe
 editor for that reason, and four comma-separated list fields belong in a column too. Widen `minColumn` when a
-row's fields need more room than the 14rem floor.
+row's fields need more room than the 14rem floor. A row of *quantities* — minutes, a serving count, an amount —
+sets `columns` too, because a row that shares the card out reaches past the right edge every field above it keeps
+to, and puts a two-digit number in a box a third of the card wide. `[columns]="4"` holds the row to the measure and
+divides it into four equal columns, so a quantity is a quarter of the line wherever it appears and lines up
+with the one above it: the recipe editor's Timing, Serves and measured-batch rows are the reference. A lone
+quantity goes in a row of its own for the same reason, and a field that needs two columns (a unit picker with its
+Clear button) takes the `cp-span-2` class, and a short line of text that reads with a quantity beside it — the
+yield's own wording and the serving count — shares a row as `cp-span-3` plus one column; `cp-stack-narrow` gives
+a child the whole row below 30rem, where three columns no longer exist. Put the unit in the section's intro rather than every label, so the
+labels fit a column.
 
 A field projected straight into a section is capped at the measure; a field inside a *component* projected
 there is that component's business and is left alone, which is why the measure rule stops at a direct child.

@@ -562,7 +562,9 @@ describe('RecipeIngredientEditorComponent', () => {
       buttonLabelled(fixture, 'Add ingredient')!.click();
       fixture.detectChanges();
 
-      // Wide enough for a gutter, if there were anything to put in one.
+      // Wide enough for a gutter, if there were anything to put in one. The showcase test target loads no token
+      // sheet, so give the row the one token its column arithmetic reads.
+      element.style.setProperty('--cp-space-4', '1rem');
       element.style.width = '70rem';
       fixture.detectChanges();
 
@@ -582,15 +584,137 @@ describe('RecipeIngredientEditorComponent', () => {
         Array.from(root.querySelector('.row-fields')!.querySelectorAll<HTMLElement>(':scope > cp-field')).map((field) =>
           Math.round(field.getBoundingClientRect().top),
         );
-      expect(fieldTops(element).length).withContext('the four fields of the row').toBe(4);
-      expect(new Set(fieldTops(element)).size).withContext('distinct field rows').toBe(1);
+      // Quantity, unit and ingredient share a line, and the preparation note is in the column beside them.
+      const lineOf = (tops: number[]) => ({ together: new Set(tops).size });
+      const noteBeside = (root: HTMLElement) => {
+        const fields = root.querySelector('.row-fields')!.getBoundingClientRect();
+        const note = root.querySelector('.row-side cp-field')!.getBoundingClientRect();
+        return note.left >= fields.right - 1 && Math.abs(note.top - fields.top) < 40;
+      };
+      expect(fieldTops(element).length).withContext('quantity, unit and ingredient').toBe(3);
+      expect(lineOf(fieldTops(element))).withContext('quantity, unit and ingredient on one line').toEqual({ together: 1 });
+      expect(noteBeside(element)).withContext('the note in the second column').toBeTrue();
 
       // Same for a single titled group: still no nav, still the full width.
       fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
       fixture.detectChanges();
       expect(nav(fixture)).toBeNull();
       expect(trackCount(element.querySelector('.grouped-layout')!)).withContext('columns for one group').toBe(1);
-      expect(new Set(fieldTops(element)).size).withContext('distinct field rows, one group').toBe(1);
+      expect(lineOf(fieldTops(element))).withContext('the same for one group').toEqual({ together: 1 });
+      expect(noteBeside(element)).withContext('and the note beside them for one group').toBeTrue();
+    });
+
+    it('lays a line out in two columns when the row is wide, with the note, scaling and Optional on the right', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+      element.style.setProperty('--cp-space-4', '1rem');
+      element.style.setProperty('--cp-space-6', '1.5rem');
+      element.style.width = '70rem';
+      fixture.detectChanges();
+
+      const box = (selector: string) => element.querySelector(selector)!.getBoundingClientRect();
+      const fields = box('.row-fields');
+      const note = element.querySelector('.row-side textarea')!.getBoundingClientRect();
+      expect(element.querySelector('.row-side textarea')).withContext('the note is a text area').toBeTruthy();
+      expect(note.left).withContext('the note is in the right-hand column').toBeGreaterThanOrEqual(fields.right - 1);
+
+      // Scaling under the note, its label at the column's left edge; Optional at the right end of the same line.
+      const scaling = element.querySelector('.row-toggles cp-field')!.getBoundingClientRect();
+      const optional = element.querySelector('.row-toggles cp-checkbox')!.getBoundingClientRect();
+      expect(scaling.top).toBeGreaterThanOrEqual(note.bottom - 1);
+      expect(Math.abs(scaling.left - note.left)).withContext('Scaling is left-aligned with the note').toBeLessThan(1.5);
+      // Optional is to the right of Scaling, on the same line: after the select, not in front of its label.
+      expect(optional.left).withContext('Optional is to the right of Scaling').toBeGreaterThanOrEqual(scaling.right - 1);
+      expect(optional.bottom).withContext('on the same line').toBeGreaterThan(scaling.top);
+      expect(optional.top).withContext('on the same line').toBeLessThan(scaling.bottom);
+    });
+
+    it('keeps the toolbar on screen under the topbar while a long list scrolls, on a wide editor only', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      for (let count = 0; count < 12; count += 1) {
+        buttonLabelled(fixture, 'Add ingredient')!.click();
+        fixture.detectChanges();
+      }
+      element.style.setProperty('--cp-topbar-height', '4.25rem');
+      element.style.setProperty('--cp-space-2', '0.5rem');
+      // The showcase test target loads no token sheet, so give the toolbar the surface it paints itself with.
+      element.style.setProperty('--cp-surface', '#ffffff');
+      element.style.width = '70rem';
+      fixture.detectChanges();
+      const toolbar = () => element.querySelector<HTMLElement>('.toolbar')!;
+
+      expect(getComputedStyle(toolbar()).position).toBe('sticky');
+      // Scrolled well down the list, the toolbar is still there, just under the fixed topbar.
+      window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY + 900);
+      fixture.detectChanges();
+      expect(toolbar().getBoundingClientRect().top).withContext('stuck beneath the topbar').toBeCloseTo(4.25 * 16, 0);
+      expect(getComputedStyle(toolbar()).backgroundColor).withContext('opaque, not see-through').not.toBe('rgba(0, 0, 0, 0)');
+
+      element.style.width = '30rem';
+      fixture.detectChanges();
+      expect(getComputedStyle(toolbar()).position).withContext('a phone does not give up the room').toBe('static');
+      window.scrollTo(0, 0);
+    });
+
+    it('offers one "Add ingredient" at a time: the toolbar one for a plain list, one beneath each group once there are groups', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      const adds = () =>
+        Array.from(element.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add ingredient');
+      const toolbar = () => element.querySelector('.toolbar')!;
+
+      expect(adds().length).withContext('empty: the toolbar one, and no second one in the empty state').toBe(1);
+      expect(toolbar().contains(adds()[0])).toBeTrue();
+
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+      expect(adds().length).withContext('a plain list: still just the toolbar one').toBe(1);
+
+      buttonLabelled(fixture, 'Add ingredient group')!.click();
+      fixture.detectChanges();
+      expect(adds().length).withContext('grouped: one beneath each group').toBe(fixture.componentInstance.groups().length);
+      expect(adds().some((button) => toolbar().contains(button))).withContext('none left in the toolbar').toBeFalse();
+    });
+
+    it('puts move and remove at the top right of the line, level with its status', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+      element.style.setProperty('--cp-space-4', '1rem');
+      element.style.width = '70rem';
+      fixture.detectChanges();
+
+      const row = element.querySelector('.row')!.getBoundingClientRect();
+      const status = element.querySelector('.row-status')!.getBoundingClientRect();
+      const actions = element.querySelector('.row-actions')!.getBoundingClientRect();
+      const fields = element.querySelector('.row-fields')!.getBoundingClientRect();
+
+      // On the status's line, at the far right of the row, and above the fields rather than beneath them.
+      expect(actions.top).toBeLessThan(status.bottom);
+      expect(actions.bottom).toBeGreaterThan(status.top);
+      expect(row.right - actions.right).withContext('against the right edge, inside the row\'s padding').toBeLessThan(40);
+      expect(actions.bottom).toBeLessThanOrEqual(fields.top + 1);
+      expect(element.querySelector('button[aria-label="Remove ingredient 1"]')).toBeTruthy();
+    });
+
+    it('stacks a line in one column when the row is narrow: fields, then the note, then scaling', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+      element.style.setProperty('--cp-space-4', '1rem');
+      element.style.width = '30rem';
+      fixture.detectChanges();
+
+      const fields = element.querySelector('.row-fields')!.getBoundingClientRect();
+      const note = element.querySelector('.row-side textarea')!.getBoundingClientRect();
+      const scaling = element.querySelector('.row-toggles cp-field')!.getBoundingClientRect();
+      expect(note.top).toBeGreaterThanOrEqual(fields.bottom - 1);
+      expect(scaling.top).toBeGreaterThanOrEqual(note.bottom - 1);
     });
 
     it('collapses to one column at a narrow width, with every item still a full target', async () => {
@@ -776,7 +900,8 @@ describe('RecipeIngredientEditorComponent', () => {
 
     /** Types into one of the row's four real inputs, the way a creator does. */
     function typeInto(fixture: ComponentFixture<RecipeIngredientEditorComponent>, field: string, rowKey: string, value: string): void {
-      const input: HTMLInputElement = fixture.nativeElement.querySelector(`input[id="row-${field}-${rowKey}"]`);
+      // Not `input[...]`: the preparation note is a textarea, and the others are inputs.
+      const input: HTMLInputElement = fixture.nativeElement.querySelector(`[id="row-${field}-${rowKey}"]`);
       expect(input).withContext(`the row's ${field} input`).toBeTruthy();
       input.value = value;
       input.dispatchEvent(new Event('input'));
@@ -1025,7 +1150,7 @@ describe('RecipeIngredientEditorComponent reference pickers', () => {
     field: 'unit' | 'ingredient',
     rowKey: string,
   ): HTMLInputElement {
-    const input: HTMLInputElement = fixture.nativeElement.querySelector(`input[id="row-${field}-${rowKey}"]`);
+    const input: HTMLInputElement = fixture.nativeElement.querySelector(`[id="row-${field}-${rowKey}"]`);
     expect(input).withContext(`the row's ${field} box`).toBeTruthy();
     return input;
   }

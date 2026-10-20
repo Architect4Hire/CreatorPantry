@@ -115,4 +115,29 @@ describe('CpAnchorNavComponent', () => {
 
     expect(getComputedStyle(list).flexDirection).toBe('column');
   });
+
+  // A tapped link on a touch screen stays :hover until the next tap elsewhere, which on this nav read as a second
+  // current item once the page had scrolled on. Asserted on the stylesheet itself, because a test cannot hover.
+  it('applies its hover style only where a pointer can hover', async () => {
+    await createFixture();
+
+    const hoverRules: { rule: CSSStyleRule; inHoverMedia: boolean }[] = [];
+    const walk = (rules: CSSRuleList, inHoverMedia: boolean) => {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSMediaRule) walk(rule.cssRules, inHoverMedia || /hover:\s*hover/.test(rule.conditionText));
+        else if (rule instanceof CSSStyleRule && /^a\[_ngcontent[^\]]*\]:hover$/.test(rule.selectorText))
+          hoverRules.push({ rule, inHoverMedia });
+      }
+    };
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        walk(sheet.cssRules, false);
+      } catch {
+        // A cross-origin sheet cannot be read, and is not this component's.
+      }
+    }
+
+    expect(hoverRules.length).withContext('the nav has a hover rule').toBeGreaterThan(0);
+    expect(hoverRules.filter((entry) => !entry.inHoverMedia).map((entry) => entry.rule.selectorText)).toEqual([]);
+  });
 });

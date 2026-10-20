@@ -103,7 +103,7 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
         text-decoration: none;
       }
       :host ::ng-deep .title a:hover {
-        color: var(--cp-primary);
+        color: var(--cp-primary-text);
         text-decoration: underline;
       }
       :host ::ng-deep .title a:focus {

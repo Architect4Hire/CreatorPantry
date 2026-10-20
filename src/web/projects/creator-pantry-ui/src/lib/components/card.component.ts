@@ -28,6 +28,10 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       --cp-border: #cbbf9e; --cp-border-strong: #b3a582;
       /* A field on this parchment is a lighter sheet than the card, edged at 3:1 against it. */
       --cp-border-control: #7d725f; --cp-field-bg: #f5efe0;
+      /* Primary as *text* on this surface. The brand token is left alone, as above, because it also fills
+         buttons and soft chips that must match the dark page; as text it is a bright mint on parchment, about
+         1.45:1. This is the same green the light theme uses for text, darkened to clear 4.5:1 here. */
+      --cp-primary-text: #146137;
     }
     :host.cp-card--flush { padding:0; overflow:hidden; }
     :host.cp-card--interactive { transition:transform var(--cp-duration-fast) var(--cp-ease),border-color var(--cp-duration-fast),box-shadow var(--cp-duration-fast); cursor:pointer; }
