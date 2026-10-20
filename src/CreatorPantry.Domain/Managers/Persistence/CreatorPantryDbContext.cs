@@ -13,6 +13,7 @@ using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Workflows.Data.Entities;
 using CreatorPantry.Domain.Modules.Planning.Data.Entities;
+using CreatorPantry.Domain.Modules.Nutrition.Data.Entities;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Audit;
@@ -731,6 +732,18 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// task: choosing changes nothing about it.
     /// </remarks>
     public DbSet<WorkTaskFocus> WorkTaskFocuses => Set<WorkTaskFocus>();
+
+    /// <remarks>
+    /// One workspace's decision about which external nutrition reference a platform ingredient is (14.2):
+    /// proposed automatically, confirmed only by a creator, and never written onto a recipe.
+    /// </remarks>
+    public DbSet<NutritionMapping> NutritionMappings =>
+        Set<NutritionMapping>();
+
+    /// <inheritdoc cref="NutritionMappings"/>
+    /// <remarks>A reference a creator turned down for one mapping, so no proposal offers it again.</remarks>
+    public DbSet<NutritionMappingRejection> NutritionMappingRejections =>
+        Set<NutritionMappingRejection>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

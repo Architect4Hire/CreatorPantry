@@ -1,0 +1,443 @@
+{
+  "recipeId": "00000000-0000-0000-0000-0000000000b1",
+  "recipeVersionId": "00000000-0000-0000-0000-0000000000b2",
+  "versionNumber": 3,
+  "label": "Estimate",
+  "methodVersion": "nutrition-estimate/1",
+  "method": "Each counted ingredient\u0027s nutrients per 100 g, from its confirmed reference, multiplied by its weight in grams and summed. Quantities are taken as the edible portion as written: no trim, refuse or cooking-loss adjustment is applied. Volumes and counts become grams only through the portion confirmed for that ingredient. Optional and unquantified ingredients are not counted. Values are exact until shown, then rounded once, with ties to even.",
+  "status": "Complete",
+  "publishable": true,
+  "partial": false,
+  "confidence": "CreatorPortion",
+  "servings": 4,
+  "servingsSource": "ServingCount",
+  "nutrients": [
+    {
+      "code": "Energy",
+      "unit": "Kilocalorie",
+      "wholeRecipe": {
+        "low": 1208.630437,
+        "high": 1317.830437,
+        "displayLow": 1209,
+        "displayHigh": 1318,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 302.157609,
+        "high": 329.457609,
+        "displayLow": 302,
+        "displayHigh": 329,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Protein",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 38.293221,
+        "high": 41.392221,
+        "displayLow": 38.3,
+        "displayHigh": 41.4,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 9.573305,
+        "high": 10.348055,
+        "displayLow": 9.6,
+        "displayHigh": 10.3,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "TotalFat",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 13.7298,
+        "high": 14.0238,
+        "displayLow": 13.7,
+        "displayHigh": 14,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 3.43245,
+        "high": 3.50595,
+        "displayLow": 3.4,
+        "displayHigh": 3.5,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "SaturatedFat",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 6.1082,
+        "high": 6.1547,
+        "displayLow": 6.1,
+        "displayHigh": 6.2,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 1.52705,
+        "high": 1.538675,
+        "displayLow": 1.5,
+        "displayHigh": 1.5,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Cholesterol",
+      "unit": "Milligram",
+      "wholeRecipe": {
+        "low": 34.7165,
+        "high": 34.7165,
+        "displayLow": 35,
+        "displayHigh": 35,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": false,
+        "trace": false
+      },
+      "perServing": {
+        "low": 8.679125,
+        "high": 8.679125,
+        "displayLow": 9,
+        "displayHigh": 9,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": false,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Carbohydrate",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 227.326574,
+        "high": 250.219574,
+        "displayLow": 227.3,
+        "displayHigh": 250.2,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 56.831643,
+        "high": 62.554893,
+        "displayLow": 56.8,
+        "displayHigh": 62.6,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "DietaryFiber",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 7.56,
+        "high": 8.37,
+        "displayLow": 7.6,
+        "displayHigh": 8.4,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 1.89,
+        "high": 2.0925,
+        "displayLow": 1.9,
+        "displayHigh": 2.1,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": false,
+      "linesMissingIt": [
+        "00000000-0000-0000-0001-000000000002"
+      ]
+    },
+    {
+      "code": "TotalSugars",
+      "unit": "Gram",
+      "wholeRecipe": {
+        "low": 10.78532,
+        "high": 10.86632,
+        "displayLow": 10.8,
+        "displayHigh": 10.9,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 2.69633,
+        "high": 2.71658,
+        "displayLow": 2.7,
+        "displayHigh": 2.7,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Sodium",
+      "unit": "Milligram",
+      "wholeRecipe": {
+        "low": 107.961,
+        "high": 108.561,
+        "displayLow": 108,
+        "displayHigh": 109,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 26.99025,
+        "high": 27.14025,
+        "displayLow": 27,
+        "displayHigh": 27,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Potassium",
+      "unit": "Milligram",
+      "wholeRecipe": {
+        "low": 701.645,
+        "high": 733.745,
+        "displayLow": 702,
+        "displayHigh": 734,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 175.41125,
+        "high": 183.43625,
+        "displayLow": 175,
+        "displayHigh": 183,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Calcium",
+      "unit": "Milligram",
+      "wholeRecipe": {
+        "low": 352.66,
+        "high": 357.16,
+        "displayLow": 353,
+        "displayHigh": 357,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 88.165,
+        "high": 89.29,
+        "displayLow": 88,
+        "displayHigh": 89,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "Iron",
+      "unit": "Milligram",
+      "wholeRecipe": {
+        "low": 3.276,
+        "high": 3.627,
+        "displayLow": 3,
+        "displayHigh": 4,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "perServing": {
+        "low": 0.819,
+        "high": 0.90675,
+        "displayLow": 1,
+        "displayHigh": 1,
+        "displayPrecision": 0,
+        "rounding": "ToEven",
+        "isRange": true,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    },
+    {
+      "code": "VitaminD",
+      "unit": "Microgram",
+      "wholeRecipe": {
+        "low": 1.9061,
+        "high": 1.9061,
+        "displayLow": 1.9,
+        "displayHigh": 1.9,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": false,
+        "trace": false
+      },
+      "perServing": {
+        "low": 0.476525,
+        "high": 0.476525,
+        "displayLow": 0.5,
+        "displayHigh": 0.5,
+        "displayPrecision": 1,
+        "rounding": "ToEven",
+        "isRange": false,
+        "trace": false
+      },
+      "complete": true,
+      "linesMissingIt": []
+    }
+  ],
+  "lines": [
+    {
+      "lineId": "00000000-0000-0000-0001-000000000001",
+      "displayText": "250 g all-purpose flour",
+      "outcome": "Included",
+      "reason": "None",
+      "required": true,
+      "gramsLow": 250,
+      "gramsHigh": 250,
+      "basis": "Mass",
+      "mappingId": "000000f1-0000-0000-0000-000000000000",
+      "source": {
+        "sourceCode": "usda-fdc",
+        "externalRecordId": "169761",
+        "sourceVersion": "sr-legacy/2019-04-01"
+      }
+    },
+    {
+      "lineId": "00000000-0000-0000-0001-000000000002",
+      "displayText": "1 cup whole-milk yogurt",
+      "outcome": "Included",
+      "reason": "None",
+      "required": true,
+      "gramsLow": 245,
+      "gramsHigh": 245,
+      "basis": "CreatorPortion",
+      "mappingId": "000000f2-0000-0000-0000-000000000000",
+      "source": {
+        "sourceCode": "usda-fdc",
+        "externalRecordId": "2259793",
+        "sourceVersion": "foundation/2022-04-28"
+      }
+    },
+    {
+      "lineId": "00000000-0000-0000-0001-000000000003",
+      "displayText": "30\u201360 g flour, for dusting",
+      "outcome": "Included",
+      "reason": "None",
+      "required": true,
+      "gramsLow": 30,
+      "gramsHigh": 60,
+      "basis": "Mass",
+      "mappingId": "000000f1-0000-0000-0000-000000000000",
+      "source": {
+        "sourceCode": "usda-fdc",
+        "externalRecordId": "169761",
+        "sourceVersion": "sr-legacy/2019-04-01"
+      }
+    },
+    {
+      "lineId": "00000000-0000-0000-0001-000000000004",
+      "displayText": "salt, to taste",
+      "outcome": "NotQuantified",
+      "reason": "None",
+      "required": false,
+      "gramsLow": null,
+      "gramsHigh": null,
+      "basis": null,
+      "mappingId": null,
+      "source": null
+    },
+    {
+      "lineId": "00000000-0000-0000-0001-000000000005",
+      "displayText": "1 tbsp sesame seeds (optional)",
+      "outcome": "Optional",
+      "reason": "None",
+      "required": false,
+      "gramsLow": null,
+      "gramsHigh": null,
+      "basis": null,
+      "mappingId": null,
+      "source": null
+    }
+  ],
+  "sources": [
+    {
+      "sourceCode": "usda-fdc",
+      "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+      "licenseCode": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  ],
+  "unresolved": {
+    "unmapped": [],
+    "needsReview": [],
+    "unconvertible": []
+  }
+}

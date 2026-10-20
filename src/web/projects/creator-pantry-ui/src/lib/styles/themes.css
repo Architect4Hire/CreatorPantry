@@ -1,18 +1,22 @@
 :root, [data-cp-theme='light'] {
   color-scheme: light;
-  --cp-bg: #faf7ef;
+  --cp-bg: #fbf8f2;
   --cp-surface: #ffffff;
-  --cp-surface-subtle: #f2ede0;
-  --cp-surface-raised: #dfeee0;
-  --cp-text: #16231c;
-  --cp-text-muted: #586a5e;
-  --cp-text-faint: #677566;
-  --cp-border: #e6ddc7;
-  --cp-border-strong: #cdc19d;
+  --cp-surface-subtle: #f4efe5;
+  --cp-surface-raised: #e4efe6;
+  --cp-text: #1f1b16;
+  --cp-text-muted: #635a50;
+  --cp-text-faint: #6d645a;
+  --cp-border: #ebe3d5;
+  --cp-border-strong: #d5c9b4;
+  /* The edge of a control a creator types into or picks from. Hairlines are for surfaces; a field's boundary
+     has to be found (WCAG 1.4.11, 3:1 against what it sits on), so it is a step darker than any border. */
+  --cp-border-control: #998e7f;
+  --cp-field-bg: #ffffff;
   --cp-primary: #1f7a44;
-  --cp-primary-hover: #146137;
+  --cp-primary-hover: #17633a;
   --cp-primary-ink: #ffffff;
-  --cp-primary-soft: #def2e2;
+  --cp-primary-soft: #e1f1e4;
   --cp-pink: #c81457;
   --cp-pink-soft: #fbe3ec;
   --cp-orange: #b8500a;
@@ -26,10 +30,14 @@
      before it existed; a semantic intent that is missing belongs in both themes, not in each caller. */
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   --cp-ink-on-accent: #ffffff;
+  /* Text set over a photograph under --cp-scrim: light in both themes, because the scrim is dark in both. */
+  --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(3,9,7,.66);
   --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
-  --cp-shadow-sm: 0 5px 18px rgba(29,48,36,.07);
-  --cp-shadow-lg: 0 22px 60px rgba(29,48,36,.13);
+  /* Layered: a tight contact shadow for the edge, a wide soft one for the lift. Warm ink, never grey. */
+  --cp-shadow-sm: 0 1px 2px rgba(31,27,22,.05), 0 4px 14px rgba(31,27,22,.05);
+  --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
+  --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
 }
 
 [data-cp-theme='dark'] {
@@ -43,6 +51,8 @@
   --cp-text-faint: #7c8b81;
   --cp-border: #24392f;
   --cp-border-strong: #33493d;
+  --cp-border-control: #5f7468;
+  --cp-field-bg: #0a1a16;
   --cp-primary: #48d593;
   --cp-primary-hover: #72e7ad;
   --cp-primary-ink: #062417;
@@ -58,10 +68,12 @@
   --cp-danger: #ff7a68;
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   --cp-ink-on-accent: #0b120f;
+  --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(0,0,0,.66);
   --cp-focus: color-mix(in srgb, var(--cp-primary) 42%, transparent);
-  --cp-shadow-sm: 0 7px 22px rgba(0,0,0,.22);
-  --cp-shadow-lg: 0 28px 70px rgba(0,0,0,.42);
+  --cp-shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 6px 18px rgba(0,0,0,.18);
+  --cp-shadow-md: 0 2px 6px rgba(0,0,0,.26), 0 14px 34px rgba(0,0,0,.28);
+  --cp-shadow-lg: 0 4px 12px rgba(0,0,0,.28), 0 28px 70px rgba(0,0,0,.42);
 }
 
 /* Paper is light whatever the screen was. Browsers leave backgrounds off a print by default, so a dark
@@ -72,19 +84,21 @@
 @media print {
   [data-cp-theme='dark'] {
     color-scheme: light;
-    --cp-bg: #faf7ef;
+    --cp-bg: #fbf8f2;
     --cp-surface: #ffffff;
-    --cp-surface-subtle: #f2ede0;
-    --cp-surface-raised: #dfeee0;
-    --cp-text: #16231c;
-    --cp-text-muted: #586a5e;
-    --cp-text-faint: #677566;
-    --cp-border: #e6ddc7;
-    --cp-border-strong: #cdc19d;
+    --cp-surface-subtle: #f4efe5;
+    --cp-surface-raised: #e4efe6;
+    --cp-text: #1f1b16;
+    --cp-text-muted: #635a50;
+    --cp-text-faint: #6d645a;
+    --cp-border: #ebe3d5;
+    --cp-border-strong: #d5c9b4;
+    --cp-border-control: #998e7f;
+    --cp-field-bg: #ffffff;
     --cp-primary: #1f7a44;
-    --cp-primary-hover: #146137;
+    --cp-primary-hover: #17633a;
     --cp-primary-ink: #ffffff;
-    --cp-primary-soft: #def2e2;
+    --cp-primary-soft: #e1f1e4;
     --cp-pink: #c81457;
     --cp-pink-soft: #fbe3ec;
     --cp-orange: #b8500a;
@@ -96,9 +110,11 @@
     --cp-danger: #b3261e;
     --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
     --cp-ink-on-accent: #ffffff;
+    --cp-ink-on-scrim: #ffffff;
     --cp-scrim: rgba(3,9,7,.66);
     --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
-    --cp-shadow-sm: 0 5px 18px rgba(29,48,36,.07);
-    --cp-shadow-lg: 0 22px 60px rgba(29,48,36,.13);
+    --cp-shadow-sm: 0 1px 2px rgba(31,27,22,.05), 0 4px 14px rgba(31,27,22,.05);
+    --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
+    --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
   }
 }

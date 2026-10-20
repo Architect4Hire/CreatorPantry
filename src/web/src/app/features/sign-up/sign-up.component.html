@@ -1,4 +1,7 @@
-<div class="sign-up-shell">
+<cp-auth-layout
+  headline="Your recipes, your words, every channel."
+  dek="Keep one canonical recipe and let CreatorPantry help you write the post, the card and the captions around it."
+>
   @if (submitted()) {
     <div class="sign-up-card" role="status">
       <h1>Check your email</h1>
@@ -9,7 +12,10 @@
     </div>
   } @else {
     <form class="sign-up-card" (submit)="$event.preventDefault(); submit()">
-      <h1>Create your CreatorPantry account</h1>
+      <div class="intro">
+        <h1>Create your account</h1>
+        <p>Start a workspace for your recipes and the writing around them.</p>
+      </div>
 
       @if (errorMessage()) {
         <p class="banner banner--error" role="alert">{{ errorMessage() }}</p>
@@ -61,4 +67,4 @@
       <p class="footer-link">Already have an account? <a routerLink="/sign-in">Sign in</a></p>
     </form>
   }
-</div>
+</cp-auth-layout>

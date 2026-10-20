@@ -50,6 +50,12 @@ public sealed class OpenApiContractTests : IDisposable
     // reclassification of every prompt already saved.
     [InlineData("PromptImageKind", "IngredientLayout")]
     [InlineData("PromptRecordSource", "ImagePromptComposition")]
+
+    // 14.6 first published these two as objects referring to themselves: each shared its public name with the
+    // record that carries it. The schema-name guard now refuses that; these say what must appear.
+    [InlineData("AllergenLineFinding", "NotListed")]
+    [InlineData("DietaryLineFinding", "DependsOnProduct")]
+    [InlineData("AnalysisConfidence", "Disputed")]
     public async Task Enum_schemas_publish_their_member_names(string schema, string member)
     {
         var document = JsonNode.Parse(await GetDocumentTextAsync())!;
@@ -142,6 +148,88 @@ public sealed class OpenApiContractTests : IDisposable
         // The floor the check constraint on RecipeVersions.VersionNumber already enforces, so a number no
         // version could carry is refused by a generated client rather than sent and looked up.
         Assert.Equal(1, parameter["schema"]!["minimum"]!.GetValue<int>());
+    }
+
+    /// <summary>
+    /// No two types share a public schema name. Stripping <c>ViewModel</c>/<c>ServiceModel</c> can give two types
+    /// one name, and the generator then documents both with whichever schema it built first.
+    /// </summary>
+    [Fact]
+    public async Task No_two_types_share_a_public_schema_name()
+    {
+        await GetDocumentTextAsync();
+
+        var collided = OpenApiDocumentation.SchemaNameCollisions.Select(collision => collision[..collision.IndexOf(':')]);
+
+        // Exactly these, so a new collision fails here and a fixed one must be removed from the list.
+        Assert.Equal(KnownSchemaNameCollisions, collided.Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Collisions that predate the guard (14.6), each on a shipped route, each documenting the request body with
+    /// the response's schema so the real request is unpublished. Fixing one renames its <c>…ViewModel</c>, which
+    /// changes a shipped schema name — a separate, reviewed change, not a side effect of the guard.
+    /// </summary>
+    private static readonly string[] KnownSchemaNameCollisions =
+    [
+        // POST .../recipe-draft-requests/{requestId}/acceptance: AiDraftAcceptanceViewModel / ...ServiceModel.
+        "AiDraftAcceptance",
+
+        // POST .../recipes/{recipeId}/ai-proposals/{aiProposalId}/disposition: AiProposalDispositionViewModel / ...ServiceModel.
+        "AiProposalDisposition",
+    ];
+
+    /// <summary>
+    /// The dietary and allergen analysis documents the selection it takes, not the analysis it returns.
+    /// </summary>
+    /// <remarks>
+    /// Its request and response types once both became <c>DietaryAllergenAnalysis</c> once their layer suffixes
+    /// were stripped, and the generator reused the response schema for the body — so the route's only input was
+    /// unpublished, and a generated client would have sent an analysis. The snapshot was generated from the same
+    /// collision and could not see it.
+    /// </remarks>
+    [Fact]
+    public async Task The_dietary_allergen_analysis_documents_its_selection_as_the_request_body()
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]!["/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/dietary-allergen"]!["post"]!;
+
+        var reference = operation["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.GetValue<string>();
+        var properties = document["components"]!["schemas"]![reference.Split('/')[^1]]!["properties"]!.AsObject();
+
+        Assert.Equal(["allergenIds", "dietaryProfileIds"], properties.Select(property => property.Key).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>Each nutrition mapping command documents its own request, never the mapping it answers with.</summary>
+    [Theory]
+    [InlineData("confirm", "expectedConcurrencyToken,portion")]
+    [InlineData("reject", "expectedConcurrencyToken")]
+    [InlineData("remap", "expectedConcurrencyToken,externalRecordId,portion,sourceCode")]
+    public async Task Each_nutrition_mapping_command_documents_its_own_request_body(string command, string properties)
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]![$"/api/v1/workspaces/{{workspaceSlug}}/nutrition-mappings/{{ingredientId}}/{command}"]!["post"]!;
+
+        var reference = operation["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.GetValue<string>();
+        var published = document["components"]!["schemas"]![reference.Split('/')[^1]]!["properties"]!.AsObject().Select(property => property.Key);
+
+        Assert.Equal(properties.Split(','), published.Order(StringComparer.Ordinal));
+        Assert.NotNull(document["paths"]!["/api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}"]!["get"]);
+    }
+
+    /// <summary>The nutrition estimate documents its yield basis as the request body, and its estimate as the answer.</summary>
+    [Fact]
+    public async Task The_nutrition_estimate_documents_its_yield_basis_as_the_request_body()
+    {
+        var document = await GetDocumentAsync();
+        var operation = document["paths"]!["/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/nutrition"]!["post"]!;
+
+        var request = operation["requestBody"]!["content"]!["application/json"]!["schema"]!["$ref"]!.GetValue<string>();
+        var response = operation["responses"]!["200"]!["content"]!["application/json"]!["schema"]!["$ref"]!.GetValue<string>();
+
+        Assert.Equal(["servings"], document["components"]!["schemas"]![request.Split('/')[^1]]!["properties"]!.AsObject().Select(property => property.Key));
+        Assert.Contains("unresolved", document["components"]!["schemas"]![response.Split('/')[^1]]!["properties"]!.AsObject().Select(property => property.Key));
+        Assert.NotNull(operation["responses"]!["503"]);
     }
 
     /// <summary>
@@ -344,8 +432,12 @@ public sealed class OpenApiContractTests : IDisposable
     {
         using var client = _factory.CreateClient();
         var response = await client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        // The body says why when the document cannot be built — a schema-name collision, say — which a bare status
+        // comparison would hide.
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"The document could not be generated ({(int)response.StatusCode}): {text}");
+        return text;
     }
 
     private async Task<JsonNode> GetDocumentAsync() => JsonNode.Parse(await GetDocumentTextAsync())!;

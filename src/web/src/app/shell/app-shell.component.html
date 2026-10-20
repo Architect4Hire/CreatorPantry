@@ -7,11 +7,22 @@
     <cp-workspace-switcher [currentSlug]="currentWorkspaceSlug()" />
 
     <nav aria-label="Primary navigation">
-      @for (item of navItems; track item.path) {
-        @if (currentWorkspaceSlug(); as slug) {
-          <a [routerLink]="['/', slug, item.path]" routerLinkActive="active" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
-            <span aria-hidden="true">{{ item.icon }}</span> <span>{{ item.label }}</span>
-          </a>
+      @if (currentWorkspaceSlug(); as slug) {
+        @for (group of navGroups; track group.id) {
+          <!-- A group is a labelled list, so a screen reader hears "Create, list, 5 items" before the links in it. -->
+          <div class="nav-group">
+            <span class="nav-group-label" [id]="'cp-nav-group-' + group.id">{{ group.label }}</span>
+            <ul [attr.aria-labelledby]="'cp-nav-group-' + group.id">
+              @for (item of group.items; track item.path) {
+                <li>
+                  <a [routerLink]="['/', slug, item.path]" routerLinkActive="active" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+                    <span aria-hidden="true" class="nav-icon"><cp-shell-nav-icon [name]="item.icon" /></span>
+                    <span>{{ item.label }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </div>
         }
       }
     </nav>

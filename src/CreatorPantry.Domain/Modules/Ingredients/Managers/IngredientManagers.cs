@@ -67,6 +67,13 @@ public sealed record IngredientServiceModel(
     string? DefaultCountUnitCode,
     IReadOnlyList<string> Aliases);
 
+/// <summary>
+/// The catalogue's name and food category for one platform ingredient, retired or not — what another module reads
+/// about an ingredient a recipe version already names (14.5).
+/// </summary>
+/// <param name="FoodCategoryCode">The category's permanent code, e.g. <c>meat-and-poultry</c>, or null when it has none.</param>
+public sealed record IngredientCategoryServiceModel(Guid IngredientId, string CanonicalName, string? FoodCategoryCode);
+
 /// <summary>Shape rules for this module's list query. See the validator remarks in Measurement for the shared reasoning.</summary>
 public sealed class IngredientQueryViewModelValidator : AbstractValidator<IngredientQueryViewModel>
 {

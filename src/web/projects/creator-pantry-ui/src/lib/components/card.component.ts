@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   host: { '[class.cp-card--interactive]': 'interactive()', '[class.cp-card--flush]': 'flush()' },
   styles: [`
     :host {
-      display:block; padding:var(--cp-space-5); border:1px solid var(--cp-border); border-radius:var(--cp-radius-lg);
+      display:block; padding:var(--cp-space-6); border:1px solid var(--cp-border); border-radius:var(--cp-radius-lg);
       background:var(--cp-surface); color:var(--cp-text); box-shadow:var(--cp-shadow-sm);
     }
     /*
@@ -26,10 +26,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       --cp-bg: #ddd3b8; --cp-surface: #eae2cd; --cp-surface-subtle: #e4dbc4; --cp-surface-raised: #cddccd;
       --cp-text: #16231c; --cp-text-muted: #536459; --cp-text-faint: #576357;
       --cp-border: #cbbf9e; --cp-border-strong: #b3a582;
+      /* A field on this parchment is a lighter sheet than the card, edged at 3:1 against it. */
+      --cp-border-control: #7d725f; --cp-field-bg: #f5efe0;
     }
     :host.cp-card--flush { padding:0; overflow:hidden; }
     :host.cp-card--interactive { transition:transform var(--cp-duration-fast) var(--cp-ease),border-color var(--cp-duration-fast),box-shadow var(--cp-duration-fast); cursor:pointer; }
-    :host.cp-card--interactive:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--cp-primary) 45%,var(--cp-border)); box-shadow:var(--cp-shadow-lg); }
+    :host.cp-card--interactive:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--cp-primary) 45%,var(--cp-border)); box-shadow:var(--cp-shadow-md); }
   `], changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CpCardComponent { readonly interactive = input(false); readonly flush = input(false); }

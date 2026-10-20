@@ -83,6 +83,19 @@ A machine that supplies the whole thing as `ConnectionStrings:publishing-buffer`
 `Endpoint=https://api.buffer.com;Key=<key>;Workspace=<workspace id>` — is not prompted. A missing or half-made one is
 no provider, never a host that will not start.
 
+A seventh is also off by default: `usda-fdc-api-key`, a free api.data.gov key for USDA FoodData Central, the
+approved source of nutrition and density evidence (14.1, B-33). `Usda:Evidence` is `false` in the AppHost's
+`appsettings.json`; the API alone takes it, as the connection string `evidence-usda-fdc`, and sends the key only
+as an `X-Api-Key` header. With none, evidence reads "not configured":
+
+```
+dotnet user-secrets set "Usda:Evidence" "true" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:usda-fdc-api-key" "<value>" --project src/CreatorPantry.AppHost
+```
+
+A machine that supplies `ConnectionStrings:evidence-usda-fdc` — `Endpoint=https://api.nal.usda.gov/fdc/v1;Key=<key>`
+— is not prompted.
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider

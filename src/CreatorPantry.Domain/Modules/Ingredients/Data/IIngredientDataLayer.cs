@@ -18,5 +18,24 @@ public interface IIngredientDataLayer
     /// <inheritdoc cref="IIngredientRepository.CountAllergenTraitsAsync"/>
     Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.FindActiveAsync"/>
+    Task<CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient?> FindActiveIngredientAsync(
+        Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.FindActiveReferenceSourceIdAsync"/>
+    Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.ListCategoriesAsync"/>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IIngredientRepository.ListApprovedTraitsAsync"/>
+    Task<(IReadOnlyList<ApprovedAllergenTraitServiceModel> Allergens, IReadOnlyList<ApprovedDietaryTraitServiceModel> Dietary)> ListApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken);
 }
 

@@ -59,7 +59,8 @@ let nextId = 0;
       }
       .heading {
         margin: 0;
-        font: 400 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
+        font: 500 var(--cp-font-size-xl) / 1.2 var(--cp-font-display);
+        letter-spacing: var(--cp-tracking-display);
         color: var(--cp-text);
         overflow-wrap: anywhere;
       }

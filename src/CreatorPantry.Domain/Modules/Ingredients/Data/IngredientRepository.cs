@@ -47,10 +47,106 @@ public interface IIngredientRepository
     /// </remarks>
     Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <summary>The active ingredient with this id, untracked, or null.</summary>
+    Task<CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient?> FindActiveAsync(
+        Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <summary>The id of the active reference source with this code, or null.</summary>
+    Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The name and food category of each named ingredient, <strong>retired ones included</strong>: a recipe
+    /// version that already names an ingredient still names it after the catalogue retires it. An id naming nothing
+    /// is absent.
+    /// </summary>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every <see cref="TraitReviewStatus.Approved"/> trait in effect on <paramref name="asOf"/> among the
+    /// ingredients and subjects named, with its source. Every source's, and every date's up to then: choosing among
+    /// them is Business's.
+    /// </summary>
+    Task<(IReadOnlyList<ApprovedAllergenTraitServiceModel> Allergens, IReadOnlyList<ApprovedDietaryTraitServiceModel> Dietary)> ListApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken);
 }
 
 internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIngredientRepository
 {
+    public Task<CreatorPantry.Domain.Modules.Ingredients.Data.Entities.Ingredient?> FindActiveAsync(
+        Guid ingredientId, CancellationToken cancellationToken) =>
+        context.Ingredients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ingredient => ingredient.Id == ingredientId && ingredient.IsActive, cancellationToken);
+
+    public async Task<(IReadOnlyList<ApprovedAllergenTraitServiceModel> Allergens, IReadOnlyList<ApprovedDietaryTraitServiceModel> Dietary)> ListApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken)
+    {
+        if (ingredientIds.Count == 0)
+        {
+            return ([], []);
+        }
+
+        List<ApprovedAllergenTraitServiceModel> allergens = allergenIds.Count == 0
+            ? []
+            : await context.IngredientAllergenTraits
+                .AsNoTracking()
+                .Where(trait => trait.ReviewStatus == TraitReviewStatus.Approved
+                    && trait.EffectiveFrom <= asOf
+                    && ingredientIds.Contains(trait.IngredientId)
+                    && allergenIds.Contains(trait.AllergenId))
+                .Join(
+                    context.ReferenceSources,
+                    trait => trait.ReferenceSourceId,
+                    source => source.Id,
+                    (trait, source) => new ApprovedAllergenTraitServiceModel(
+                        trait.IngredientId,
+                        trait.AllergenId,
+                        trait.Presence,
+                        trait.EvidenceNote,
+                        trait.EffectiveFrom,
+                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive, source.LicenseCode, source.LicenseUrl)))
+                .ToListAsync(cancellationToken);
+
+        List<ApprovedDietaryTraitServiceModel> dietary = dietaryProfileIds.Count == 0
+            ? []
+            : await context.IngredientDietaryTraits
+                .AsNoTracking()
+                .Where(trait => trait.ReviewStatus == TraitReviewStatus.Approved
+                    && trait.EffectiveFrom <= asOf
+                    && ingredientIds.Contains(trait.IngredientId)
+                    && dietaryProfileIds.Contains(trait.DietaryProfileId))
+                .Join(
+                    context.ReferenceSources,
+                    trait => trait.ReferenceSourceId,
+                    source => source.Id,
+                    (trait, source) => new ApprovedDietaryTraitServiceModel(
+                        trait.IngredientId,
+                        trait.DietaryProfileId,
+                        trait.Compatibility,
+                        trait.EvidenceNote,
+                        trait.EffectiveFrom,
+                        new TraitSourceServiceModel(source.Id, source.Code, source.Name, source.Kind, source.Citation, source.IsActive, source.LicenseCode, source.LicenseUrl)))
+                .ToListAsync(cancellationToken);
+
+        return (allergens, dietary);
+    }
+
+    public async Task<Guid?> FindActiveReferenceSourceIdAsync(string code, CancellationToken cancellationToken) =>
+        await context.ReferenceSources
+            .Where(source => source.Code == code && source.IsActive)
+            .Select(source => (Guid?)source.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<IReadOnlyList<IngredientAllergenTraitCounts>> CountAllergenTraitsAsync(
         IReadOnlyCollection<Guid> ingredientIds,
         CancellationToken cancellationToken)
@@ -86,6 +182,27 @@ internal sealed class IngredientRepository(CreatorPantryDbContext context) : IIn
 
     public Task<bool> IsUsableAsync(Guid ingredientId, CancellationToken cancellationToken) =>
         context.Ingredients.AsNoTracking().AnyAsync(ingredient => ingredient.Id == ingredientId && ingredient.IsActive, cancellationToken);
+
+    public async Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken)
+    {
+        if (ingredientIds.Count == 0)
+        {
+            return [];
+        }
+
+        // The category code is projected through its own table, as ListAsync does, so a renamed code cannot go stale.
+        return await context.Ingredients.AsNoTracking()
+            .Where(ingredient => ingredientIds.Contains(ingredient.Id))
+            .Select(ingredient => new IngredientCategoryServiceModel(
+                ingredient.Id,
+                ingredient.CanonicalName,
+                context.FoodCategories
+                    .Where(category => category.Id == ingredient.FoodCategoryId)
+                    .Select(category => category.Code)
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+    }
 
     public async Task<(IReadOnlyList<IngredientRecord> Rows, bool HasMore)> ListAsync(
         IngredientQuery query, CancellationToken cancellationToken)

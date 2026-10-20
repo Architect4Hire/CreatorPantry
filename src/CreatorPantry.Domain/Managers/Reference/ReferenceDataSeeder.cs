@@ -62,8 +62,9 @@ internal sealed class ReferenceDataSeeder(
     }
 
     /// <summary>
-    /// Tier A: units, vocabularies, and the definitions behind them. Vocabulary and definitional factors only,
-    /// so this carries no third-party data and runs in every environment.
+    /// Tier A: units, vocabularies, the definitions behind them, and the approved evidence sources' citations.
+    /// Vocabulary, definitional factors and citations only — a source row imports nothing from the source — so
+    /// this carries no third-party data and runs in every environment.
     /// </summary>
     private async Task<int> SeedCatalogueAsync(CancellationToken cancellationToken)
     {
@@ -80,7 +81,8 @@ internal sealed class ReferenceDataSeeder(
             + await ReconcileAsync(context.CookingTechniques, CatalogueSeedData.CookingTechniques(), technique => technique.Id, cancellationToken)
             + await ReconcileAsync(context.CookingTechniqueAliases, CatalogueSeedData.CookingTechniqueAliases(), alias => alias.Id, cancellationToken)
             + await ReconcileAsync(context.EquipmentTypes, CatalogueSeedData.EquipmentTypes(), equipment => equipment.Id, cancellationToken)
-            + await ReconcileAsync(context.EquipmentTypeAliases, CatalogueSeedData.EquipmentTypeAliases(), alias => alias.Id, cancellationToken);
+            + await ReconcileAsync(context.EquipmentTypeAliases, CatalogueSeedData.EquipmentTypeAliases(), alias => alias.Id, cancellationToken)
+            + await ReconcileAsync(context.ReferenceSources, EvidenceSourceSeedData.Sources(), source => source.Id, cancellationToken);
 
         // One save for the tier. EF orders the inserts from the model's relationships, so aliases land after
         // the entries they point at without this method having to know the graph.

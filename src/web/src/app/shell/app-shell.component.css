@@ -15,7 +15,7 @@
   padding: var(--cp-space-5) var(--cp-space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--cp-space-4);
+  gap: var(--cp-space-5);
   background: var(--cp-surface);
   border-right: 1px solid var(--cp-border);
   overflow-y: auto;
@@ -25,14 +25,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-bottom: var(--cp-space-1);
   color: var(--cp-text);
 }
 
 nav {
   display: grid;
+  gap: var(--cp-space-5);
+}
+.nav-group {
+  display: grid;
   gap: var(--cp-space-1);
 }
+/* The sidebar's table of contents, set like a blog's section labels: small, tracked capitals in the faint ink. */
+.nav-group-label {
+  padding: 0 var(--cp-space-3);
+  color: var(--cp-text-faint);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  letter-spacing: var(--cp-tracking-kicker);
+  text-transform: uppercase;
+}
+nav ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 nav a {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--cp-space-3);
@@ -40,17 +62,40 @@ nav a {
   border-radius: var(--cp-radius-md);
   color: var(--cp-text-muted);
   text-decoration: none;
-  font-size: var(--cp-font-size-sm);
-  font-weight: 600;
+  font-size: var(--cp-font-size-control);
+  font-weight: 500;
   min-height: 2.5rem;
+  transition: background var(--cp-duration-fast), color var(--cp-duration-fast);
+}
+.nav-icon {
+  display: inline-grid;
+  place-items: center;
+  color: var(--cp-text-faint);
+  transition: color var(--cp-duration-fast);
 }
 nav a:hover {
   background: var(--cp-surface-subtle);
   color: var(--cp-text);
 }
+nav a:hover .nav-icon {
+  color: var(--cp-text-muted);
+}
+/* The page you are on: a fill, a heavier label and a bar at the edge, so it is never told by colour alone. */
 nav a.active {
   background: var(--cp-primary-soft);
   color: var(--cp-primary);
+  font-weight: 700;
+}
+nav a.active .nav-icon {
+  color: var(--cp-primary);
+}
+nav a.active::before {
+  content: '';
+  position: absolute;
+  inset: var(--cp-space-2) auto var(--cp-space-2) 0;
+  width: 3px;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-primary);
 }
 
 .dev-link {
@@ -76,9 +121,9 @@ nav a.active {
   align-items: center;
   gap: var(--cp-space-3);
   padding: 0 var(--cp-space-5);
-  background: color-mix(in srgb, var(--cp-bg) 88%, transparent);
+  background: color-mix(in srgb, var(--cp-bg) 82%, transparent);
   border-bottom: 1px solid var(--cp-border);
-  backdrop-filter: blur(16px);
+  backdrop-filter: saturate(1.4) blur(16px);
 }
 
 .spacer {
@@ -142,7 +187,7 @@ main {
    include the gutter, so the box is the token and the content is the token less two gutters. */
 .page-frame {
   max-width: var(--cp-page-width-standard);
-  padding: var(--cp-space-5) var(--cp-page-gutter) var(--cp-page-gutter);
+  padding: var(--cp-space-8) var(--cp-page-gutter) var(--cp-page-gutter);
 }
 .page-frame[data-page-width='reading'] {
   max-width: var(--cp-page-width-reading);

@@ -91,5 +91,15 @@ describe('CreatorPantry design tokens', () => {
       expect(contrastRatio(tokens['--cp-text-faint'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-surface-subtle'])).toBeGreaterThanOrEqual(4.5);
     });
+
+    // WCAG 1.4.11: a field's boundary is what tells a creator where to type, so it holds 3:1 against the field
+    // it edges and against the surface that field sits on.
+    it(`edges a form control at 3:1 or better in the ${theme} theme`, () => {
+      const tokens = readTokens(theme, ['--cp-border-control', '--cp-field-bg', '--cp-surface', '--cp-bg']);
+
+      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-field-bg'])).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
+    });
   }
 });

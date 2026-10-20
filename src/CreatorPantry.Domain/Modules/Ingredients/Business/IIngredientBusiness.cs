@@ -38,5 +38,28 @@ public interface IIngredientBusiness
     /// </remarks>
     Task<IReadOnlyList<IngredientAllergenReviewServiceModel>> FindAllergenReviewGapsAsync(
         IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.SearchNutritionReferencesAsync"/>
+    Task<NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
+        Guid ingredientId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.GetNutritionReferenceAsync"/>
+    Task<NutritionReferenceServiceModel> GetNutritionReferenceAsync(
+        string sourceCode, string externalRecordId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.ListCategoriesAsync"/>
+    Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.DescribeEvidenceCoverage"/>
+    ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind);
+
+    /// <inheritdoc cref="CreatorPantry.Domain.Modules.Ingredients.Facade.IIngredientFacade.FindApprovedTraitsAsync"/>
+    Task<IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken);
 }
 

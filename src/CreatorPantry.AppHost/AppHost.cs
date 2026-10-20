@@ -273,6 +273,7 @@ else
 
 AddImages();
 AddPublishing();
+AddEvidence();
 
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
 var web = builder.AddProject<Projects.CreatorPantry_Web>("web", launchProfileName: "https")
@@ -415,6 +416,50 @@ void AddPublishing()
     string Required(string key) => builder.Configuration[key]?.Trim() is { Length: > 0 } value
         ? value
         : throw new InvalidOperationException($"'{key}' is required when Buffer:Publishing is true.");
+}
+
+// Reference evidence is USDA FoodData Central (14.1, B-33): nutrition and density, public domain under CC0.
+// OFF by default like publishing — evidence is optional (B-09), and nothing reads it until Phase 14's mapping
+// lands — so no machine is prompted. A free api.data.gov key (https://fdc.nal.usda.gov/api-key-signup) turns it on:
+//
+//   dotnet user-secrets set "Usda:Evidence" "true" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Parameters:usda-fdc-api-key" "<value>" --project src/CreatorPantry.AppHost
+//
+// The API reads both back as one connection string, `evidence-usda-fdc`; a whole one supplied as
+// ConnectionStrings:evidence-usda-fdc — "Endpoint=https://api.nal.usda.gov/fdc/v1;Key=<key>" — takes precedence.
+// With neither, the API starts with no evidence provider and says "not configured".
+void AddEvidence()
+{
+    const string Name = "evidence-usda-fdc";
+    IResourceBuilder<IResourceWithConnectionString> evidence;
+
+    if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(Name)))
+    {
+        // Named, not copied, for the reason AddImages gives: the key is never a literal in the app model.
+        evidence = builder.AddConnectionString(Name);
+    }
+    else if (builder.Configuration.GetValue("Usda:Evidence", false))
+    {
+        var fdcKey = builder.AddParameter("usda-fdc-api-key", secret: true)
+            .WithDescription(
+                "An **api.data.gov key** for USDA FoodData Central (free at fdc.nal.usda.gov/api-key-signup), "
+                + "used to read nutrition and density evidence. Tick *Save to user secret* so it is not asked for "
+                + "again. It is sent only as a request header, and never written to source control, logged, or "
+                + "returned by the API.",
+                enableMarkdown: true);
+
+        var endpoint = builder.Configuration["Usda:Endpoint"]?.Trim().TrimEnd('/') is { Length: > 0 } configured
+            ? configured
+            : throw new InvalidOperationException("'Usda:Endpoint' is required when Usda:Evidence is true.");
+
+        evidence = builder.AddConnectionString(Name, ReferenceExpression.Create($"Endpoint={endpoint};Key={fdcKey}"));
+    }
+    else
+    {
+        return;
+    }
+
+    api.WithReference(evidence);
 }
 
 // Images are Venice.ai (B-15 as amended for Venice), not a Foundry deployment, so they are decided here on

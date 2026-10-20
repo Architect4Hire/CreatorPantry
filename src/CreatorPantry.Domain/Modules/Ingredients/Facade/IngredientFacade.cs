@@ -68,6 +68,31 @@ internal sealed class IngredientFacade(
         IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
         business.FindAllergenReviewGapsAsync(ingredientIds, cancellationToken);
 
+    // Not cached here: the evidence data layer already caches the source's answers under global keys.
+    public Task<NutritionReferenceSearchServiceModel> SearchNutritionReferencesAsync(
+        Guid ingredientId, CancellationToken cancellationToken) =>
+        business.SearchNutritionReferencesAsync(ingredientId, cancellationToken);
+
+    public Task<NutritionReferenceServiceModel> GetNutritionReferenceAsync(
+        string sourceCode, string externalRecordId, CancellationToken cancellationToken) =>
+        business.GetNutritionReferenceAsync(sourceCode, externalRecordId, cancellationToken);
+
+    public Task<IngredientTraitEvidenceServiceModel> FindApprovedTraitsAsync(
+        IReadOnlyCollection<Guid> ingredientIds,
+        IReadOnlyCollection<Guid> allergenIds,
+        IReadOnlyCollection<Guid> dietaryProfileIds,
+        DateOnly asOf,
+        CancellationToken cancellationToken) =>
+        business.FindApprovedTraitsAsync(ingredientIds, allergenIds, dietaryProfileIds, asOf, cancellationToken);
+
+    // Uncached: one indexed read by primary keys, for the handful of ingredients one recipe version names.
+    public Task<IReadOnlyList<IngredientCategoryServiceModel>> ListCategoriesAsync(
+        IReadOnlyCollection<Guid> ingredientIds, CancellationToken cancellationToken) =>
+        business.ListCategoriesAsync(ingredientIds, cancellationToken);
+
+    public ReferenceEvidenceCoverageServiceModel DescribeEvidenceCoverage(ReferenceEvidenceKind kind) =>
+        business.DescribeEvidenceCoverage(kind);
+
     /// <summary>
     /// One global key for the whole flattened match index, not one per candidate: the catalogue is small
     /// enough to hold in memory entirely, and resolving a batch of candidates against it costs one cache read

@@ -2,12 +2,12 @@
 
 ## Direction
 
-CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. The interface pairs the brand's warm, hand-in-the-kitchen energy with productivity-tool density: bold and rounded where the [logo](public/images/logo.png) is bold and rounded, vivid where a pantry of fresh produce is vivid, never flattened into a muted corporate palette. Fredoka gives content moments the same friendly, chunky display voice as the wordmark; DM Sans keeps controls and data highly legible. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
+CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. Its audience writes for the web, so the product should feel like the kind of food blog they run, with a working tool underneath: an editorial voice where they read, productivity-tool density where they work. Fredoka gives every heading the same friendly, rounded display voice as the wordmark, set large and confident the way a food blog sets its headlines; DM Sans keeps controls, labels and data highly legible. The surfaces are paper and warm ink — an off-white page, white sheets with hairline edges, layered soft shadows — and the [logo](public/images/logo.png) and the food photography bring the colour, never flattened into a muted corporate palette. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
 
 ## Layers
 
 1. Primitive tokens define scale: spacing, type, radii, motion, z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), and three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating).
 3. Angular primitives implement interaction and accessibility.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
@@ -19,11 +19,11 @@ Print is always light. Browsers leave backgrounds off a printed page, so `themes
 
 ## Content hierarchy
 
-- Display rounded sans (Fredoka): page moments, feature headings, editorial quotes.
-- Sans bold: controls, labels, item titles, metrics.
+- Display rounded sans (Fredoka): page titles, card and section headings, editorial quotes. Weight 500, untracked (`--cp-tracking-display`).
+- Sans semibold: controls, labels, item titles, metrics. A button's label is `--cp-font-size-control`.
 - Muted sans: metadata and supporting copy.
-- Uppercase micro-label: category or workflow context only.
-- The page title is one size on every page: `--cp-font-size-title` (2rem), Fredoka at weight 400. It is the `h1` `CpPageHeadComponent` prints, and a card heading on the same page sits a step below it at `--cp-font-size-xl`.
+- Uppercase micro-label, tracked at `--cp-tracking-kicker`: a category line, as a blog sets one over a headline. The breadcrumb (`cpBackLink`) and the sidebar's group labels are the two places it appears; it is not for emphasis.
+- The page title is one size on every page: `--cp-font-size-title` (fluid, about 2.1rem on a phone to 2.9rem on a wide screen), Fredoka at weight 500. It is the `h1` `CpPageHeadComponent` prints, over a hairline that closes the head off from the page, and a card heading on the same page sits a step below it at `--cp-font-size-xl`.
 
 ## Composing a page
 
@@ -313,6 +313,8 @@ optional `intro` of one sentence, an optional `problem` — the server's word on
 showing it is described by it, so a form that moves focus to a refused section reads the heading and then the
 reason. `sectionId` gives the `<section>` an id for a form that scrolls or focuses it; it is already
 `tabindex="-1"`, and never in the tab order.
+
+**A field is a white sheet with an edge you can find.** `CpFieldComponent` draws every projected control on `--cp-field-bg` with a `--cp-border-control` edge, a soft ring of the action colour on focus (`--cp-ring-width`, inside a transparent outline so forced-colours mode keeps the system focus line), a drawn caret on a single `select`, and an error that carries a `!` glyph as well as its colour. Consecutive form sections are ruled off from one another by a hairline, the way a magazine rules between two parts of one piece; the form is still one thing under one Save.
 
 **Fields stack, one per line, each capped at `--cp-measure-field`.** That is the default and it is most of
 what a form is: a single column of controls at a readable width, with the rest of the card left empty beside

@@ -9,13 +9,19 @@
   --cp-font-display: 'Fredoka', 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --cp-font-size-xs: .6875rem;
   --cp-font-size-sm: .8125rem;
+  /* A button's or a control's own label: a step between supporting copy and body text. */
+  --cp-font-size-control: .875rem;
   --cp-font-size-md: .9375rem;
   --cp-font-size-lg: 1.125rem;
-  --cp-font-size-xl: 1.375rem;
-  /* The page title: the one h1 cp-page-head prints. Above -xl, which a card heading on the same page uses. */
-  --cp-font-size-title: 2rem;
+  --cp-font-size-xl: 1.5rem;
+  /* The page title: the one h1 cp-page-head prints, set like a masthead. Fluid between a phone and a wide
+     screen, and always above -xl, which a card heading on the same page uses. */
+  --cp-font-size-title: clamp(2.125rem, 1.6rem + 1.4vw, 2.875rem);
   --cp-font-size-2xl: clamp(2.125rem, 4vw, 3.5rem);
-  --cp-leading-tight: 1.1;
+  --cp-leading-tight: 1.15;
+  /* Display headings are set untracked: Fredoka's rounded letters crowd one another when pulled together. */
+  --cp-tracking-display: 0;
+  --cp-tracking-kicker: .08em;
   --cp-leading-normal: 1.5;
   /* Reading measures. A form control is read in short bursts and may hold a number; a paragraph is read as
      prose. Both are ch-based, so they follow the font rather than fighting it. */
@@ -37,6 +43,8 @@
   --cp-duration-fast: 150ms;
   --cp-duration-normal: 250ms;
   --cp-ease: cubic-bezier(.2,.8,.2,1);
+  /* The ring a focused field or control draws inside its own border, on top of the global outline. */
+  --cp-ring-width: 4px;
   --cp-z-topbar: 15;
   --cp-z-sidebar: 20;
   --cp-z-overlay: 90;

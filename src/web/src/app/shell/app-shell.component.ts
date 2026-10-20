@@ -16,6 +16,7 @@ import { QuickCaptureLink, quickCaptureLinkFrom } from '../shared/quick-capture/
 import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 import { CpLogoComponent } from '../features/landing/logo/logo/logo';
+import { ShellNavIcon, ShellNavIconComponent } from './shell-nav-icon.component';
 
 /**
  * The width a routed page asks the shell's frame for, through `data: { pageWidth }` beside its `title`.
@@ -32,24 +33,55 @@ function isPageWidth(value: unknown): value is PageWidth {
 interface ShellNavItem {
   readonly path: string;
   readonly label: string;
-  readonly icon: string;
+  readonly icon: ShellNavIcon;
 }
 
-const NAV_ITEMS: readonly ShellNavItem[] = [
-  { path: 'dashboard', label: 'Dashboard', icon: '⌂' },
-  { path: 'workflows', label: 'Workflows', icon: '⇄' },
-  { path: 'my-day', label: 'My Day', icon: '☀' },
-  { path: 'my-week', label: 'My Week', icon: '▦' },
-  { path: 'recipes', label: 'Recipes', icon: '⌘' },
-  { path: 'brand', label: 'Brand', icon: '◆' },
-  { path: 'ai-recipe-studio', label: 'AI Recipe Studio', icon: '✦' },
-  { path: 'image-studio', label: 'Image Studio', icon: '▧' },
-  { path: 'social-studio', label: 'Social Studio', icon: '◎' },
-  { path: 'dam', label: 'Pictures', icon: '▤' },
-  { path: 'content-board', label: 'Content Board', icon: '▥' },
-  { path: 'prompt-library', label: 'Prompt Library', icon: '❝' },
-  { path: 'settings', label: 'Settings', icon: '⚙' },
+/** A run of sidebar entries under one small heading. The order of the entries across groups is the nav's order. */
+interface ShellNavGroup {
+  readonly id: string;
+  readonly label: string;
+  readonly items: readonly ShellNavItem[];
+}
+
+const NAV_GROUPS: readonly ShellNavGroup[] = [
+  {
+    id: 'plan',
+    label: 'Plan',
+    items: [
+      { path: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+      { path: 'workflows', label: 'Workflows', icon: 'workflows' },
+      { path: 'my-day', label: 'My Day', icon: 'my-day' },
+      { path: 'my-week', label: 'My Week', icon: 'my-week' },
+    ],
+  },
+  {
+    id: 'create',
+    label: 'Create',
+    items: [
+      { path: 'recipes', label: 'Recipes', icon: 'recipes' },
+      { path: 'brand', label: 'Brand', icon: 'brand' },
+      { path: 'ai-recipe-studio', label: 'AI Recipe Studio', icon: 'ai' },
+      { path: 'image-studio', label: 'Image Studio', icon: 'image' },
+      { path: 'social-studio', label: 'Social Studio', icon: 'social' },
+    ],
+  },
+  {
+    id: 'library',
+    label: 'Library',
+    items: [
+      { path: 'dam', label: 'Pictures', icon: 'pictures' },
+      { path: 'content-board', label: 'Content Board', icon: 'board' },
+      { path: 'prompt-library', label: 'Prompt Library', icon: 'prompts' },
+    ],
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    items: [{ path: 'settings', label: 'Settings', icon: 'settings' }],
+  },
 ];
+
+const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 @Component({
   selector: 'cp-app-shell',
@@ -63,13 +95,14 @@ const NAV_ITEMS: readonly ShellNavItem[] = [
     WorkspaceSwitcherComponent,
     CpLogoComponent,
     QuickCaptureComponent,
+    ShellNavIconComponent,
   ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShellComponent {
-  logoClass = 'display: block; width: 100%; height: auto;';
+  logoClass = 'display: block; width: 100%; max-width: 8.5rem; height: auto;';
 
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -93,6 +126,7 @@ export class AppShellComponent {
   readonly theme = inject(CpThemeService);
 
   readonly navItems = NAV_ITEMS;
+  readonly navGroups = NAV_GROUPS;
   readonly isDevMode = isDevMode();
   readonly menuOpen = signal(false);
   readonly session = this.auth.session;

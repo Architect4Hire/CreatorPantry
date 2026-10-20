@@ -82,6 +82,19 @@ public interface IRecipeFacade
         Guid recipeId, Guid versionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The archived content of one version of a recipe in the workspace resolved for this scope, named by the
+    /// number a creator cites (14.6) — for a route that, like every other public one here, addresses versions by
+    /// number.
+    /// </summary>
+    /// <returns>
+    /// The snapshot, or a failure carrying <see cref="RecipeErrorCodes.RecipeNotFound"/> (unknown, or another
+    /// workspace's) or <see cref="RecipeErrorCodes.VersionNotFound"/> naming <c>versionNumber</c>.
+    /// </returns>
+    /// <remarks>No role gate, for the reason <see cref="GetSnapshotAsync"/> gives.</remarks>
+    Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Applies a partial edit to one recipe of the workspace resolved for this scope, and returns the recipe
     /// as it now stands.
     /// </summary>
@@ -819,6 +832,12 @@ internal sealed class RecipeFacade(
         Guid versionId,
         CancellationToken cancellationToken) =>
         business.GetSnapshotAsync(recipeId, versionId, cancellationToken);
+
+    public Task<OperationResult<RecipeSnapshotServiceModel>> GetSnapshotByNumberAsync(
+        Guid recipeId,
+        int versionNumber,
+        CancellationToken cancellationToken) =>
+        business.GetSnapshotByNumberAsync(recipeId, versionNumber, cancellationToken);
 
     public async Task<OperationResult<CursorPageServiceModel<RecipeVersionHistoryServiceModel>>> GetVersionHistoryAsync(
         Guid recipeId,

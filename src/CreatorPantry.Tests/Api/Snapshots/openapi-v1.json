@@ -9930,6 +9930,138 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/dietary-allergen": {
+      "post": {
+        "tags": [
+          "DietaryAllergenAnalysis"
+        ],
+        "summary": "Reads one recipe version\u0027s approved ingredient records against the allergens and dietary profiles chosen,\nand returns what they say, what they do not, and where each word came from.",
+        "description": "**A reading of records, never a verdict about food or a person.** Nothing here says a recipe is safe, free\nfrom anything, certified or suitable for anyone, and \u0060crossContactDisclaimer\u0060 is on every answer, the best\none included. Findings come only from approved traits in effect on \u0060evaluatedOn\u0060 (UTC); no model, no\ningredient category and no line\u0027s own words decide one. Missing data is \u0060Unknown\u0060, never absent.\n\n**POST, but read-only.** The selection travels in the body because forty ids do not belong in a URL. It\nwrites nothing, takes no idempotency key, and a successful answer is \u0060no-store\u0060: the records change as they\nare reviewed, so an answer describes the moment it was read. Every member including a Viewer may ask.\n\nPer allergen and per profile: \u0060finding\u0060 is the most cautious of its lines, and \u0060statement\u0060 says it in one\nfixed sentence. \u0060confidence\u0060 says how complete the records behind it are \u2014 \u0060Recorded\u0060 (every line has a\nrecord that counts, no disagreement), \u0060Partial\u0060 (some lines have none), \u0060Disputed\u0060 (approved sources\ndisagree; the more cautious word was taken and both are cited) or \u0060None\u0060 \u2014 and \u0060coverage\u0060 gives the counts.\nIt describes the records, not how likely the finding is: \u0060Contains\u0060 on \u0060Partial\u0060 records still contains.\n\u0060unknownLines\u0060 and each line\u0027s \u0060reason\u0060 say what could not be read; \u0060possibleSources\u0060 and\n\u0060dependsOnProductLines\u0060 are the hidden sources and cross-contact the sources themselves state.\n\nEach line\u0027s \u0060evidence\u0060 cites the source, the date its statement took effect and its own note; \u0060counted\u0060 is\nfalse for a reassuring word from a source that may not give one (an unvetted kind, or a retired source),\nwhich is cited so it can be seen and never moves a finding. \u0060sources\u0060 lists every source cited, once, with\nits licence and the latest effective date read \u2014 a trait record has no version of its own, so a source and\nthat date are what a reader checks it against. \u0060methodVersion\u0060 names the decision table.\n\nRefusals: a missing or unparseable body is \u0060400 request.malformed\u0060, as on every route. A selection that\ncannot be read \u2014 nothing chosen, more than twenty of either, an empty or repeated id \u2014 is\n\u0060400 nutrition.analysis.invalid\u0060 with field errors; an allergen or profile the catalogue does not\noffer, or has retired, is \u0060422 nutrition.analysis.subject.unprocessable\u0060. An unknown recipe and another\nworkspace\u0027s both answer \u0060404 recipes.recipe.not_found\u0060; a version number the recipe does not have answers\n\u0060404 recipes.version.not_found\u0060, naming \u0060versionNumber\u0060; a number below 1 matches no route and is a plain\n\u0060404 not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe. Constrained to a Guid, so a malformed id never reaches this action \u2014 routing answers 404, the\nsame status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version, by the number the history lists it under. Versions are immutable.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DietaryAllergenSelection"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DietaryAllergenSelection"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/DietaryAllergenSelection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DietaryAllergenAnalysis"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DietaryAllergenAnalysis"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DietaryAllergenAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/dish-facet-requests": {
       "post": {
         "tags": [
@@ -13764,6 +13896,665 @@
                   "items": {
                     "$ref": "#/components/schemas/AccountAiUsagePeriod"
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/nutrition": {
+      "post": {
+        "tags": [
+          "NutritionEstimate"
+        ],
+        "summary": "Estimates one recipe version\u0027s nutrition from the workspace\u0027s confirmed ingredient mappings, whole-recipe and\nper serving, and says exactly what it could not count.",
+        "description": "**An estimate, and labelled as one.** \u0060label\u0060 is always \u0060Estimate\u0060; \u0060method\u0060 says in words how it was made\nand \u0060methodVersion\u0060 names the rules. Nothing here is a measured, certified or regulatory value. The\narithmetic is deterministic \u2014 the same version, mappings and source records give the same estimate \u2014 and no\nmodel computes any of it.\n\n**POST, but read-only.** It writes nothing, not even to a mapping it finds out of date, takes no idempotency\nkey, and a successful answer is \u0060no-store\u0060: mappings and source records change. Every member including a\nViewer may ask; only this workspace\u0027s recipe and this workspace\u0027s mappings are read.\n\n**The yield basis.** With \u0060servings\u0060 omitted or null the version\u0027s own basis is used \u2014 its serving count,\nelse its yield divided by its serving size, else none \u2014 and \u0060servingsSource\u0060 says which. With none, every\n\u0060perServing\u0060 is null and only whole-recipe figures are given; a per-100 g of finished dish is never\ninvented, because its weight is unknown. A \u0060servings\u0060 value divides by that instead.\n\n**Unresolved mappings stay explicit.** Every line has an \u0060outcome\u0060 (\u0060Included\u0060, \u0060Unmapped\u0060, \u0060NeedsReview\u0060,\n\u0060Unconvertible\u0060, \u0060NotQuantified\u0060, \u0060Optional\u0060), a \u0060reason\u0060 and whether it is \u0060required\u0060; \u0060unresolved\u0060 groups\nthe required lines that were not counted. \u0060publishable\u0060 is true only when every required line is counted;\notherwise \u0060partial\u0060 is true, \u0060status\u0060 is \u0060Incomplete\u0060, and the totals are a known-incomplete lower bound.\nPublish nothing from an estimate that is not publishable, and of one that is, only the nutrients whose\n\u0060complete\u0060 is true: a nutrient a counted line\u0027s source does not report is unknown for that line \u2014 named in\n\u0060linesMissingIt\u0060 \u2014 never zero.\n\nEach value is exact (\u0060low\u0060/\u0060high\u0060, six places; a range when a counted line was) and rounded once for\ndisplay; \u0060trace\u0060 marks a value that is not zero but rounds to zero \u2014 show \u0022trace\u0022, never 0. \u0060confidence\u0060 is\nthe weakest way a counted line\u0027s grams were known. \u0060sources\u0060 cites each source used, with its licence.\n\nRefusals: a missing or unparseable body is \u0060400 request.malformed\u0060, as on every route; a \u0060servings\u0060 that is\nnot above zero, above 10,000 or past four decimal places is \u0060400 nutrition.estimate.invalid\u0060 naming it. An\nunknown recipe and another workspace\u0027s both answer \u0060404 recipes.recipe.not_found\u0060; a version number the\nrecipe does not have answers \u0060404 recipes.version.not_found\u0060, naming \u0060versionNumber\u0060; a number below 1 matches no route and is a plain\n\u0060404 not_found\u0060. A total too large to\nstate is \u0060422 nutrition.estimate.quantities.unprocessable\u0060. When the nutrition source cannot be asked \u2014 down,\nthrottled, or not available on this installation \u2014 the answer is \u0060503 nutrition.estimate.source.unavailable\u0060\nand no estimate at all, rather than a smaller one that looks complete.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe. Constrained to a Guid, so a malformed id never reaches this action \u2014 routing answers 404, the\nsame status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version, by the number the history lists it under. Versions are immutable.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionEstimateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionEstimateRequest"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionEstimateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionEstimate"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionEstimate"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionEstimate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}": {
+      "get": {
+        "tags": [
+          "NutritionMappings"
+        ],
+        "summary": "This workspace\u0027s mapping for one platform ingredient, with the concurrency token a decision quotes.",
+        "description": "Any member may read. \u0060concurrencyToken\u0060 is what confirm, reject and remap must quote, and the answer is\n\u0060no-store\u0060 so a stale token is never served from a cache. A workspace with no mapping for the ingredient \u2014\nnothing proposed, nothing decided \u2014 answers \u0060404 nutrition.mapping.not_found\u0060, as it does for an ingredient\nanother workspace has mapped.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ingredientId",
+            "in": "path",
+            "description": "The platform ingredient. Constrained to a Guid; a malformed id matches no route.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}/confirm": {
+      "post": {
+        "tags": [
+          "NutritionMappings"
+        ],
+        "summary": "Confirms the reference the mapping holds: a proposal, or a newer version of the reference under review.",
+        "description": "Takes an Editor, and is audited: a confirmed reference is what a published estimate rests on. Nothing is\never confirmed automatically, and this confirms exactly one mapping. \u0060expectedConcurrencyToken\u0060 is required;\none the mapping has moved past \u2014 another decision, or a refresh that put a newer version under review \u2014 is\n\u0060409 nutrition.mapping.conflict\u0060, so nobody confirms a version they did not see. Confirming a mapping with\nnothing to confirm (already confirmed, or unresolved) is \u0060409 nutrition.mapping.state.conflict\u0060.\n\nA \u0060portion\u0060 replaces the mapping\u0027s own; it is recorded as the source\u0027s when it is exactly one of the\nreference\u0027s measured portions, and as this workspace\u0027s figure otherwise. A unit that is not a volume or count\nis \u0060422 nutrition.mapping.portion.unprocessable\u0060.\n\nOther refusals: \u0060400 nutrition.mapping.invalid\u0060 (field errors), \u0060400 request.malformed\u0060 (no body),\n\u0060403 nutrition.mapping.forbidden\u0060 or a policy 403 below Editor, \u0060404 nutrition.mapping.not_found\u0060,\n\u0060503 nutrition.mapping.source.unavailable\u0060 when the source cannot be asked and\n\u0060503 nutrition.mapping.save.unavailable\u0060 when the store refused \u2014 nothing written either way, safe to send\nagain. No idempotency key: the token makes a repeat a \u0060409\u0060, never a second write.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see .",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ingredientId",
+            "in": "path",
+            "description": "The platform ingredient whose mapping to confirm.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmNutritionMapping"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmNutritionMapping"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmNutritionMapping"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}/reject": {
+      "post": {
+        "tags": [
+          "NutritionMappings"
+        ],
+        "summary": "Turns down the reference the mapping holds, so no proposal offers it again, and leaves the mapping unresolved.",
+        "description": "Takes an Editor, and is audited. The rejection is remembered for this workspace: a later proposal never\noffers that reference, and remapping to it withdraws the rejection. A missing \u0060expectedConcurrencyToken\u0060 is\n\u0060400 nutrition.mapping.invalid\u0060 naming it \u2014 there is nothing to reject without a mapping the caller read \u2014 and\na stale one is \u0060409 nutrition.mapping.conflict\u0060. An unresolved mapping has no reference to reject:\n\u0060409 nutrition.mapping.state.conflict\u0060. No mapping is \u0060404 nutrition.mapping.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see .",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ingredientId",
+            "in": "path",
+            "description": "The platform ingredient whose mapping\u0027s reference to reject.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionMappingDecision"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionMappingDecision"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionMappingDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/nutrition-mappings/{ingredientId}/remap": {
+      "post": {
+        "tags": [
+          "NutritionMappings"
+        ],
+        "summary": "Points the mapping at a reference the creator chose, from any state or none, and confirms it.",
+        "description": "Takes an Editor, and is audited. The creator\u0027s own choice overrides whatever was proposed and is confirmed as\n\u0060CreatorSelected\u0060. With no mapping yet, this makes the first one and needs no token; with one, the token is\nrequired, and a missing or stale one is \u0060409 nutrition.mapping.conflict\u0060 \u2014 someone decided before you did.\nEither way the answer is \u0060200\u0060 with the mapping: it acts on the ingredient\u0027s one mapping, which has no address\nof its own to send back.\n\nThe reference must be approved evidence: a source other than the one approved for nutrition, a record the\nsource does not have, or one from an unapproved data set is \u0060422 nutrition.mapping.reference.unprocessable\u0060,\nand a retired or unknown ingredient \u0060422 nutrition.mapping.ingredient.unprocessable\u0060. Remapping to a reference\nthis workspace rejected withdraws the rejection. Other refusals as for confirm.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed; see .",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ingredientId",
+            "in": "path",
+            "description": "The platform ingredient to map.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemapNutritionMapping"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemapNutritionMapping"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RemapNutritionMapping"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NutritionMapping"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -26913,6 +27704,262 @@
         ],
         "type": "string"
       },
+      "AllergenAnalysis": {
+        "required": [
+          "allergenId",
+          "allergenName",
+          "finding",
+          "confidence",
+          "coverage",
+          "statement",
+          "containingLines",
+          "possibleSources",
+          "unknownLines",
+          "conflictingLines",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "allergenId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "allergenName": {
+            "type": "string"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/RecipeAllergenFinding"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/AnalysisConfidence"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/AnalysisCoverage"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "containingLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "possibleSources": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "unknownLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "conflictingLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllergenLineAnalysis"
+            }
+          }
+        }
+      },
+      "AllergenLineAnalysis": {
+        "required": [
+          "lineId",
+          "displayText",
+          "isOptional",
+          "ingredientId",
+          "finding",
+          "reason",
+          "conflict",
+          "evidence"
+        ],
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "isOptional": {
+            "type": "boolean"
+          },
+          "ingredientId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/AllergenLineFinding"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/TraitFindingReason"
+          },
+          "conflict": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllergenTraitEvidence"
+            }
+          }
+        }
+      },
+      "AllergenLineFinding": {
+        "enum": [
+          "Unknown",
+          "Contains",
+          "Possible",
+          "NotListed"
+        ],
+        "type": "string"
+      },
+      "AllergenPresence": {
+        "enum": [
+          "Unknown",
+          "Present",
+          "PossiblePresence",
+          "NotListedBySource"
+        ],
+        "type": "string"
+      },
+      "AllergenTraitEvidence": {
+        "required": [
+          "presence",
+          "sourceCode",
+          "sourceName",
+          "sourceKind",
+          "citation",
+          "effectiveFrom",
+          "evidenceNote",
+          "counted"
+        ],
+        "type": "object",
+        "properties": {
+          "presence": {
+            "$ref": "#/components/schemas/AllergenPresence"
+          },
+          "sourceCode": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "$ref": "#/components/schemas/ReferenceSourceKind"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "evidenceNote": {
+            "type": "string"
+          },
+          "counted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AnalysisConfidence": {
+        "enum": [
+          "None",
+          "Partial",
+          "Disputed",
+          "Recorded"
+        ],
+        "type": "string"
+      },
+      "AnalysisCoverage": {
+        "required": [
+          "linesRead",
+          "linesWithCountedRecords"
+        ],
+        "type": "object",
+        "properties": {
+          "linesRead": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "linesWithCountedRecords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AnalysisSource": {
+        "required": [
+          "code",
+          "name",
+          "kind",
+          "citation",
+          "licenseCode",
+          "licenseUrl",
+          "isActive",
+          "latestEffectiveFrom"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReferenceSourceKind"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "licenseCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "licenseUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "latestEffectiveFrom": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
       "ApproveBrandStyleGuideVersion": {
         "type": "object",
         "properties": {
@@ -29754,6 +30801,27 @@
           },
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "ConfirmNutritionMapping": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "portion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionPortion"
+              }
+            ]
           }
         }
       },
@@ -32991,6 +34059,261 @@
           }
         }
       },
+      "DietaryAllergenAnalysis": {
+        "required": [
+          "recipeId",
+          "recipeVersionId",
+          "versionNumber",
+          "methodVersion",
+          "evaluatedOn",
+          "crossContactDisclaimer",
+          "allergens",
+          "dietary",
+          "sources"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "methodVersion": {
+            "type": "string"
+          },
+          "evaluatedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "crossContactDisclaimer": {
+            "type": "string"
+          },
+          "allergens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllergenAnalysis"
+            }
+          },
+          "dietary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DietaryAnalysis"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalysisSource"
+            }
+          }
+        }
+      },
+      "DietaryAllergenSelection": {
+        "type": "object",
+        "properties": {
+          "allergenIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "dietaryProfileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "DietaryAnalysis": {
+        "required": [
+          "dietaryProfileId",
+          "dietaryProfileName",
+          "finding",
+          "confidence",
+          "coverage",
+          "statement",
+          "incompatibleLines",
+          "dependsOnProductLines",
+          "unknownLines",
+          "conflictingLines",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "dietaryProfileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dietaryProfileName": {
+            "type": "string"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/RecipeDietaryFinding"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/AnalysisConfidence"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/AnalysisCoverage"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "incompatibleLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "dependsOnProductLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "unknownLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "conflictingLines": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DietaryLineAnalysis"
+            }
+          }
+        }
+      },
+      "DietaryCompatibility": {
+        "enum": [
+          "Unknown",
+          "Compatible",
+          "Incompatible",
+          "DependsOnProduct"
+        ],
+        "type": "string"
+      },
+      "DietaryLineAnalysis": {
+        "required": [
+          "lineId",
+          "displayText",
+          "isOptional",
+          "ingredientId",
+          "finding",
+          "reason",
+          "conflict",
+          "evidence"
+        ],
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "isOptional": {
+            "type": "boolean"
+          },
+          "ingredientId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "finding": {
+            "$ref": "#/components/schemas/DietaryLineFinding"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/TraitFindingReason"
+          },
+          "conflict": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DietaryTraitEvidence"
+            }
+          }
+        }
+      },
+      "DietaryLineFinding": {
+        "enum": [
+          "Unknown",
+          "Incompatible",
+          "DependsOnProduct",
+          "Compatible"
+        ],
+        "type": "string"
+      },
+      "DietaryTraitEvidence": {
+        "required": [
+          "compatibility",
+          "sourceCode",
+          "sourceName",
+          "sourceKind",
+          "citation",
+          "effectiveFrom",
+          "evidenceNote",
+          "counted"
+        ],
+        "type": "object",
+        "properties": {
+          "compatibility": {
+            "$ref": "#/components/schemas/DietaryCompatibility"
+          },
+          "sourceCode": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "$ref": "#/components/schemas/ReferenceSourceKind"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "evidenceNote": {
+            "type": "string"
+          },
+          "counted": {
+            "type": "boolean"
+          }
+        }
+      },
       "DuplicateRecipe": {
         "type": "object",
         "properties": {
@@ -36027,6 +37350,706 @@
           }
         }
       },
+      "NutrientCode": {
+        "enum": [
+          "Energy",
+          "Protein",
+          "TotalFat",
+          "SaturatedFat",
+          "TransFat",
+          "Cholesterol",
+          "Carbohydrate",
+          "DietaryFiber",
+          "TotalSugars",
+          "AddedSugars",
+          "Sodium",
+          "Potassium",
+          "Calcium",
+          "Iron",
+          "VitaminD"
+        ],
+        "type": "string"
+      },
+      "NutrientUnit": {
+        "enum": [
+          "Kilocalorie",
+          "Gram",
+          "Milligram",
+          "Microgram"
+        ],
+        "type": "string"
+      },
+      "NutritionAmount": {
+        "required": [
+          "low",
+          "high",
+          "displayLow",
+          "displayHigh",
+          "displayPrecision",
+          "rounding",
+          "isRange",
+          "trace"
+        ],
+        "type": "object",
+        "properties": {
+          "low": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "high": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "displayLow": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "displayHigh": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "displayPrecision": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rounding": {
+            "$ref": "#/components/schemas/MidpointRounding"
+          },
+          "isRange": {
+            "type": "boolean"
+          },
+          "trace": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NutritionCitation": {
+        "required": [
+          "sourceCode",
+          "citation",
+          "licenseCode",
+          "licenseUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceCode": {
+            "type": "string"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "licenseCode": {
+            "type": "string"
+          },
+          "licenseUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "NutritionEstimate": {
+        "required": [
+          "recipeId",
+          "recipeVersionId",
+          "versionNumber",
+          "label",
+          "methodVersion",
+          "method",
+          "status",
+          "publishable",
+          "partial",
+          "confidence",
+          "servings",
+          "servingsSource",
+          "nutrients",
+          "lines",
+          "sources",
+          "unresolved"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "label": {
+            "type": "string"
+          },
+          "methodVersion": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NutritionEstimateStatus"
+          },
+          "publishable": {
+            "type": "boolean"
+          },
+          "partial": {
+            "type": "boolean"
+          },
+          "confidence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionQuantityBasis"
+              }
+            ]
+          },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "servingsSource": {
+            "$ref": "#/components/schemas/NutritionServingsSource"
+          },
+          "nutrients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NutritionNutrientEstimate"
+            }
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NutritionLineEstimate"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NutritionCitation"
+            }
+          },
+          "unresolved": {
+            "$ref": "#/components/schemas/NutritionUnresolvedLines"
+          }
+        }
+      },
+      "NutritionEstimateRequest": {
+        "type": "object",
+        "properties": {
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "NutritionEstimateSource": {
+        "required": [
+          "sourceCode",
+          "externalRecordId",
+          "sourceVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceCode": {
+            "type": "string"
+          },
+          "externalRecordId": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "NutritionEstimateStatus": {
+        "enum": [
+          "Complete",
+          "Incomplete"
+        ],
+        "type": "string"
+      },
+      "NutritionLineEstimate": {
+        "required": [
+          "lineId",
+          "displayText",
+          "outcome",
+          "reason",
+          "required",
+          "gramsLow",
+          "gramsHigh",
+          "basis",
+          "mappingId",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/NutritionLineOutcome"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/NutritionLineReason"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "gramsLow": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "gramsHigh": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "basis": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionQuantityBasis"
+              }
+            ]
+          },
+          "mappingId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionEstimateSource"
+              }
+            ]
+          }
+        }
+      },
+      "NutritionLineOutcome": {
+        "enum": [
+          "Included",
+          "Unmapped",
+          "NeedsReview",
+          "Unconvertible",
+          "NotQuantified",
+          "Optional"
+        ],
+        "type": "string"
+      },
+      "NutritionLineReason": {
+        "enum": [
+          "None",
+          "NoIngredient",
+          "NoMapping",
+          "MappingNotConfirmed",
+          "MappingUnderReview",
+          "SourceVersionChanged",
+          "ReferenceWithdrawn",
+          "NoUnit",
+          "UnitUnknown",
+          "UnitNotMeasurable",
+          "NoPortion",
+          "PortionDoesNotMatch"
+        ],
+        "type": "string"
+      },
+      "NutritionMapping": {
+        "required": [
+          "id",
+          "ingredientId",
+          "status",
+          "matchMethod",
+          "confidence",
+          "reference",
+          "reviewSourceVersion",
+          "unresolvedReason",
+          "portion",
+          "rejectedReferenceCount",
+          "confirmedAt",
+          "updatedAt",
+          "concurrencyToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ingredientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NutritionMappingStatus"
+          },
+          "matchMethod": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionMatchMethod"
+              }
+            ]
+          },
+          "confidence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionMatchConfidence"
+              }
+            ]
+          },
+          "reference": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionMappingReference"
+              }
+            ]
+          },
+          "reviewSourceVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unresolvedReason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionUnresolvedReason"
+              }
+            ]
+          },
+          "portion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionMappingPortion"
+              }
+            ]
+          },
+          "rejectedReferenceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "confirmedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "concurrencyToken": {
+            "type": "string"
+          }
+        }
+      },
+      "NutritionMappingDecision": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "NutritionMappingPortion": {
+        "required": [
+          "measurementUnitId",
+          "amount",
+          "grams",
+          "label",
+          "origin"
+        ],
+        "type": "object",
+        "properties": {
+          "measurementUnitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "grams": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "origin": {
+            "$ref": "#/components/schemas/NutritionPortionOrigin"
+          }
+        }
+      },
+      "NutritionMappingReference": {
+        "required": [
+          "sourceCode",
+          "externalRecordId",
+          "description",
+          "sourceVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceCode": {
+            "type": "string"
+          },
+          "externalRecordId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "NutritionMappingStatus": {
+        "enum": [
+          "Candidate",
+          "Confirmed",
+          "NeedsReview",
+          "Unresolved"
+        ],
+        "type": "string"
+      },
+      "NutritionMatchConfidence": {
+        "enum": [
+          "Low",
+          "High"
+        ],
+        "type": "string"
+      },
+      "NutritionMatchMethod": {
+        "enum": [
+          "AutomaticSearch",
+          "CreatorSelected"
+        ],
+        "type": "string"
+      },
+      "NutritionNutrientEstimate": {
+        "required": [
+          "code",
+          "unit",
+          "wholeRecipe",
+          "perServing",
+          "complete",
+          "linesMissingIt"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/NutrientCode"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/NutrientUnit"
+          },
+          "wholeRecipe": {
+            "$ref": "#/components/schemas/NutritionAmount"
+          },
+          "perServing": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionAmount"
+              }
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "linesMissingIt": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "NutritionPortion": {
+        "type": "object",
+        "properties": {
+          "measurementUnitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "grams": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "NutritionPortionOrigin": {
+        "enum": [
+          "Reference",
+          "Creator"
+        ],
+        "type": "string"
+      },
+      "NutritionQuantityBasis": {
+        "enum": [
+          "Mass",
+          "ReferencePortion",
+          "CreatorPortion"
+        ],
+        "type": "string"
+      },
+      "NutritionServingsSource": {
+        "enum": [
+          "Requested",
+          "ServingCount",
+          "YieldOverServingSize",
+          "None"
+        ],
+        "type": "string"
+      },
+      "NutritionUnresolvedLines": {
+        "required": [
+          "unmapped",
+          "needsReview",
+          "unconvertible"
+        ],
+        "type": "object",
+        "properties": {
+          "unmapped": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "needsReview": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "unconvertible": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "NutritionUnresolvedReason": {
+        "enum": [
+          "NoCandidates",
+          "CreatorDeclined",
+          "ReferenceRejected",
+          "ReferenceWithdrawn"
+        ],
+        "type": "string"
+      },
       "PackageQuantityToken": {
         "required": [
           "span",
@@ -37132,6 +39155,15 @@
           }
         }
       },
+      "RecipeAllergenFinding": {
+        "enum": [
+          "Contains",
+          "Possible",
+          "Unknown",
+          "NotListedInRecords"
+        ],
+        "type": "string"
+      },
       "RecipeAssetLink": {
         "required": [
           "id",
@@ -37553,6 +39585,15 @@
             }
           }
         }
+      },
+      "RecipeDietaryFinding": {
+        "enum": [
+          "DoesNotFit",
+          "DependsOnProduct",
+          "Unknown",
+          "FitsAsRecorded"
+        ],
+        "type": "string"
       },
       "RecipeDuplicateSource": {
         "required": [
@@ -39389,6 +41430,17 @@
           }
         }
       },
+      "ReferenceSourceKind": {
+        "enum": [
+          "OfficialDatabase",
+          "Publisher",
+          "Manufacturer",
+          "LabMeasured",
+          "CommunityContributed",
+          "AiEstimated"
+        ],
+        "type": "string"
+      },
       "RegisterUser": {
         "type": "object",
         "properties": {
@@ -39411,6 +41463,33 @@
         "properties": {
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "RemapNutritionMapping": {
+        "type": "object",
+        "properties": {
+          "expectedConcurrencyToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceCode": {
+            "type": "string"
+          },
+          "externalRecordId": {
+            "type": "string"
+          },
+          "portion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NutritionPortion"
+              }
+            ]
           }
         }
       },
@@ -42323,6 +44402,14 @@
           }
         }
       },
+      "TraitFindingReason": {
+        "enum": [
+          "None",
+          "NoRecord",
+          "NotARecognisedIngredient"
+        ],
+        "type": "string"
+      },
       "UnitConversionMethod": {
         "enum": [
           "SameDimensionFactor",
@@ -45228,6 +47315,9 @@
       "name": "Dashboard"
     },
     {
+      "name": "DietaryAllergenAnalysis"
+    },
+    {
       "name": "DishFacetRequests"
     },
     {
@@ -45253,6 +47343,12 @@
     },
     {
       "name": "Me"
+    },
+    {
+      "name": "NutritionEstimate"
+    },
+    {
+      "name": "NutritionMappings"
     },
     {
       "name": "PhotographyConceptRequests"

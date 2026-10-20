@@ -1,7 +1,15 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { background: var(--cp-bg); color: var(--cp-text); font-family: var(--cp-font-sans); }
-body { margin: 0; min-width: 320px; background: var(--cp-bg); color: var(--cp-text); }
+body { margin: 0; min-width: 320px; background: var(--cp-bg); color: var(--cp-text); line-height: var(--cp-leading-normal); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 button, input, textarea, select { font: inherit; }
+/* Headings break where a reader would, not where the box ran out; prose avoids a one-word last line. */
+h1, h2, h3, h4 { text-wrap: balance; }
+p, li, dd { text-wrap: pretty; }
+/* A link in running text reads as one: the action colour, a fine underline set clear of the descenders. A
+   component that is drawn as something else — a button, a nav item, a card title — sets its own colour. */
+a { color: var(--cp-primary); text-decoration-thickness: from-font; text-underline-offset: .2em; }
+a:hover { color: var(--cp-primary-hover); }
+::selection { background: color-mix(in srgb, var(--cp-primary) 22%, transparent); color: var(--cp-text); }
 button, a { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--cp-focus); outline-offset: 2px; }
 .cp-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
