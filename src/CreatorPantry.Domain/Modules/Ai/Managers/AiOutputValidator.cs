@@ -321,7 +321,53 @@ public static class AiOutputValidator
             }
         }
 
-        return Conflicts(document) ?? WarningIndices(document);
+        return Conflicts(document) ?? WarningIndices(document) ?? NoSafetyAssurance(document);
+    }
+
+    /// <summary>
+    /// No proposed value and no warning assures safety, absence or suitability (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Here rather than in each capability's own validator because this is the one validator a change-shaped
+    /// answer always passes through: the recipe revision handler uses it directly, and
+    /// <see cref="AiAdaptationOutputValidator"/> runs on top of it. Both could rewrite a recipe's title,
+    /// headnote and steps, and neither read those strings for a claim — the audit's blocker. The dedicated
+    /// recipe capabilities with their own documents (first draft, substitution, review) carry the same rule
+    /// against their own fields.
+    /// </para>
+    /// <para>
+    /// Only an assurance, never the subject: see <see cref="AiRecipeSafetyClaimScanner"/> for why the broad
+    /// editorial scanner cannot be used here. Correctable, so the model is asked again.
+    /// </para>
+    /// </remarks>
+    private static AiOutputValidationResult? NoSafetyAssurance(AiOutputDocument document)
+    {
+        foreach (var change in document.Changes)
+        {
+            if (AiRecipeSafetyClaimScanner.FirstAssurance(change.AfterValue) is { } assurance)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(
+                        assurance,
+                        $"A proposed {change.FieldName ?? change.TargetKind.ToString().ToLowerInvariant()} value"),
+                    correctable: true);
+            }
+        }
+
+        foreach (var warning in document.Warnings)
+        {
+            if (AiRecipeSafetyClaimScanner.FirstHardAssurance(warning.Message) is { } assurance)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "A warning"),
+                    correctable: true);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -384,6 +430,9 @@ public static class AiOutputValidator
             or AiOutputReason.ConflictingChanges
             or AiOutputReason.OutsideScope
             or AiOutputReason.WarningIndexInvalid
+            // A safety assurance is a broken domain rule, not a malformed document: the answer parsed and
+            // fitted the schema perfectly, and what it said was the problem (14.7, BL-2).
+            or AiOutputReason.UnsupportedSafetyAssurance
             ? AiFailureCategory.DomainInvalid
             : AiFailureCategory.OutputSchemaInvalid;
 

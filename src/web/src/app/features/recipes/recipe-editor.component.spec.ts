@@ -939,7 +939,7 @@ describe('RecipeEditorComponent', () => {
       expect(root.querySelector('cp-recipe-history')).toBeNull();
     });
 
-    it('opens Tools as a wide drawer over the recipe, listing the seven tools in order', async () => {
+    it('opens Tools as a wide drawer over the recipe, listing the ten tools in order', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
@@ -960,6 +960,9 @@ describe('RecipeEditorComponent', () => {
         'Scale',
         'Convert',
         'Yield & display',
+        'Dietary & allergens',
+        'Nutrition',
+        'Safety checks',
         'Revise with AI',
         'Adapt with AI',
         'Substitute an ingredient',
@@ -996,6 +999,69 @@ describe('RecipeEditorComponent', () => {
 
       expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Tools');
       expect(document.activeElement?.id).toBe('recipe-tool-choice-converting');
+    });
+
+    it('opens the dietary and allergen review on the saved version, reading nothing of the unsaved form', async () => {
+      const recipeService = recipeServiceSpy();
+      // A saved version, because that is what records are read against: this panel refuses to ask without one.
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          currentVersion: {
+            id: 'v3',
+            versionNumber: 3,
+            source: 'CreatorEdit',
+            readiness: 'Draft',
+            reason: null,
+            createdAt: '2026-03-01T00:00:00Z',
+          },
+        },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      component.title.set('Edited but not saved');
+      harness.detectChanges();
+
+      const drawer = openTool(harness, 'Dietary & allergens');
+
+      expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Dietary & allergens');
+      const panel = harness.fixture.debugElement.query(By.css('cp-recipe-dietary-allergen'));
+      expect(panel).toBeTruthy();
+      // The version the records are read against is the saved one, never a number this panel guessed, and
+      // the unsaved edit beside it is carried in so the panel can say it is not included.
+      expect(panel.componentInstance.sourceVersionNumber()).toBe(3);
+      expect(panel.componentInstance.recipeId()).toBe('r1');
+      expect(panel.componentInstance.editorIsDirty()).toBeTrue();
+    });
+
+    it('opens the nutrition estimate on the saved version, with the saved lines it needs to map', async () => {
+      const recipeService = recipeServiceSpy();
+      // A saved version and saved lines: a mapping is addressed by platform ingredient, and an estimate line
+      // carries only a line id, so the panel joins the two through the recipe as saved.
+      recipeService.getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: {
+          ...RECIPE_DETAIL,
+          currentVersion: {
+            id: 'v3',
+            versionNumber: 3,
+            source: 'CreatorEdit',
+            readiness: 'Draft',
+            reason: null,
+            createdAt: '2026-03-01T00:00:00Z',
+          },
+        },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+
+      const drawer = openTool(harness, 'Nutrition');
+
+      expect(drawer.querySelector('h2')?.textContent?.trim()).toBe('Nutrition');
+      const panel = harness.fixture.debugElement.query(By.css('cp-recipe-nutrition'));
+      expect(panel).toBeTruthy();
+      expect(panel.componentInstance.sourceVersionNumber()).toBe(3);
+      expect(panel.componentInstance.savedIngredientGroups()).toBe(component.ingredientGroups());
     });
 
     it('keeps an opened tool alive while the drawer is shut, and reopens on it', async () => {

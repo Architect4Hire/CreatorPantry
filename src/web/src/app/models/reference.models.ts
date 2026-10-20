@@ -227,6 +227,28 @@ export function decodeReferenceEntry(value: unknown): ReferenceEntry | null {
 }
 
 /**
+ * A dietary pattern, or an allergen. Mirrors DescribedReferenceEntryServiceModel.
+ *
+ * The description is **required**, and required for a reason the server states: what `tree-nuts` or
+ * `gluten-free` covers is what decides the meaning of everything recorded against it, so a client that shows
+ * the name without the description is showing half the fact. Any surface that offers one of these to pick
+ * shows its description too.
+ */
+export interface DescribedReferenceEntry extends ReferenceEntry {
+  readonly description: string;
+}
+
+export function decodeDescribedReferenceEntry(value: unknown): DescribedReferenceEntry | null {
+  const entry = decodeReferenceEntry(value);
+  if (entry === null || !isRecord(value)) return null;
+
+  const { description } = value;
+  if (typeof description !== 'string') return null;
+
+  return { ...entry, description };
+}
+
+/**
  * A photography style or an occasion an idea can be pinned to. Mirrors IdeaFacetEntryServiceModel.
  */
 export interface IdeaFacetEntry {

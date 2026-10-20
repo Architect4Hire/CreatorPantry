@@ -101,6 +101,38 @@ public sealed class ModuleBoundaryTests
         "ViewModel", "Validator", "QueryFactory", "Record", "Query", "Policy",
     ];
 
+    /// <summary>
+    /// Manager types that never cross a module boundary even though their suffix is not on the list above
+    /// (14.7's audit).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The comment on <see cref="PermittedCrossModule"/> says opening a module's <c>Managers</c> namespace is
+    /// safe because what crosses is "the ServiceModels a facade returns, and the stateless calculators over
+    /// them". Measurement's conversion calculators are exactly that, and Recipes names them on purpose —
+    /// sharing one deterministic conversion is the point.
+    /// </para>
+    /// <para>
+    /// Nutrition's three are not that. <c>DietaryAllergenAnalyzer</c>, <c>NutritionEstimateCalculator</c> and
+    /// <c>FoodSafetyWarningDetector</c> *are* the module's product, and each needs what only its facade and
+    /// business layer supply: the resolved workspace, the approved-and-effective-dated records, the evaluation
+    /// date, and the sentences a creator reads. A caller reaching one directly would get a well-formed answer
+    /// computed from whatever it happened to pass in. Nothing stopped that before this list; nothing does it
+    /// today either, which is the only reason this is a guard rather than a bug.
+    /// </para>
+    /// <para>
+    /// Named individually rather than by suffix, because a blanket <c>Calculator</c> rule would forbid the
+    /// sanctioned sharing above — the test that proved it is the one that failed when this was first written
+    /// that way.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] FacadeOnlyManagerTypes =
+    [
+        "DietaryAllergenAnalyzer",
+        "NutritionEstimateCalculator",
+        "FoodSafetyWarningDetector",
+    ];
+
     [Fact]
     public void The_shared_kernel_does_not_depend_on_any_module()
     {
@@ -224,7 +256,9 @@ public sealed class ModuleBoundaryTests
         var internalTypes = files
             .Where(file => file.RelativePath.Contains("/Managers/", StringComparison.Ordinal))
             .SelectMany(file => TypeNames(file.Text).Select(name => (file.Module, Name: name)))
-            .Where(entry => InternalManagerSuffixes.Any(suffix => entry.Name.EndsWith(suffix, StringComparison.Ordinal)))
+            .Where(entry =>
+                InternalManagerSuffixes.Any(suffix => entry.Name.EndsWith(suffix, StringComparison.Ordinal))
+                || FacadeOnlyManagerTypes.Contains(entry.Name, StringComparer.Ordinal))
             .ToList();
 
         var offenders = new List<string>();

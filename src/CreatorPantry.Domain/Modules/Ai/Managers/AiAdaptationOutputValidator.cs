@@ -67,8 +67,13 @@ public static class AiAdaptationOutputValidator
 
         var document = baseResult.Document!;
 
+        // The base validator this sits on refuses a safety assurance in any proposed value or warning
+        // (AiOutputValidator.NoSafetyAssurance), so the blocker's prose half is already closed by the time
+        // these goal-specific rules run.
         return TooManyWarnings(document)
             ?? YieldMathIsDeterministic(document, goal, deterministicScaling)
+            ?? RecipeYieldIsDeterministic(document, goal, deterministicScaling)
+            ?? CautionedDietaryAdaptation(document, goal)
             ?? AnswerIsExplained(document)
             ?? AiOutputValidationOutcome<AiOutputDocument>.Success(document);
     }
@@ -126,6 +131,112 @@ public static class AiAdaptationOutputValidator
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// A yield-goal answer may not set the recipe's own yield or servings to a figure of its own (14.7, H-2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="YieldMathIsDeterministic"/> checked ingredient quantities and nothing else, so the three
+    /// fields the goal is actually *about* — <c>yieldQuantity</c>, <c>servingCount</c> and <c>servingSize</c> —
+    /// were the model's to choose. That matters more than a line quantity: a servings figure becomes the
+    /// divisor for every per-serving nutrition estimate, so a model-chosen number would silently set what a
+    /// creator publishes as "per serving".
+    /// </para>
+    /// <para>
+    /// <c>yieldQuantity</c> must be the deterministic scaled yield where there is one. <c>servingCount</c> and
+    /// <c>servingSize</c> are refused outright under this goal: the deterministic preview computes no scaled
+    /// servings, so there is no figure to check against, and ai.md puts yield arithmetic in domain code. A
+    /// creator who wants the servings changed edits them, or scales the recipe and keeps the result.
+    /// </para>
+    /// </remarks>
+    private static AiOutputValidationOutcome<AiOutputDocument>? RecipeYieldIsDeterministic(
+        AiOutputDocument document, AiAdaptationGoal goal, RecipeScalingPreview? deterministicScaling)
+    {
+        if (goal is not AiAdaptationGoal.Yield || deterministicScaling is null)
+        {
+            return null;
+        }
+
+        foreach (var change in document.Changes)
+        {
+            if (change.ChangeKind is not AiChangeKind.Set || change.TargetKind is not AiChangeTargetKind.Recipe)
+            {
+                continue;
+            }
+
+            if (change.FieldName is "servingCount" or "servingSize")
+            {
+                return Reject(
+                    AiOutputReason.YieldMathNotDeterministic,
+                    $"A yield-goal answer set '{change.FieldName}', which is arithmetic this product does "
+                        + "deterministically rather than a value to propose.",
+                    correctable: false);
+            }
+
+            if (change.FieldName is not "yieldQuantity")
+            {
+                continue;
+            }
+
+            if (!MatchesDeterministicValue(change.AfterValue, deterministicScaling.ScaledYieldQuantity))
+            {
+                return Reject(
+                    AiOutputReason.YieldMathNotDeterministic,
+                    "A yield-goal answer set a recipe yield that does not match the deterministic scaling "
+                        + "already computed for it. Use the figure given rather than computing a new one.",
+                    correctable: false);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A dietary adaptation that changes what is in the recipe arrives with a safety caution, or it does not
+    /// arrive (14.7, H-1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rule <see cref="AiSubstitutionOutputValidator"/> has enforced all along, finally enforced here. The
+    /// adaptation prompt declares <c>safetyClass: DietaryOrAllergen</c> and asks for a caution beside any
+    /// change touching preservation, temperature, allergens or dietary suitability; no validator checked, so
+    /// the whole rule rested on the model's goodwill. A dietary goal is precisely the one that swaps an
+    /// ingredient for another a reader may react to.
+    /// </para>
+    /// <para>
+    /// Required once for the answer rather than per change: unlike a substitution, an adaptation's changes are
+    /// one coherent edit to one recipe, and a caution on each of eleven rows is noise that buries itself. What
+    /// is refused is an answer that changes ingredients or method under a dietary goal and carries no caution
+    /// at all.
+    /// </para>
+    /// </remarks>
+    private static AiOutputValidationOutcome<AiOutputDocument>? CautionedDietaryAdaptation(
+        AiOutputDocument document, AiAdaptationGoal goal)
+    {
+        if (goal is not AiAdaptationGoal.Dietary)
+        {
+            return null;
+        }
+
+        var changesContent = document.Changes.Any(change =>
+            change.TargetKind is AiChangeTargetKind.Ingredient
+                or AiChangeTargetKind.InstructionStep
+                or AiChangeTargetKind.Recipe);
+
+        if (!changesContent)
+        {
+            return null;
+        }
+
+        return document.Warnings.Any(warning => warning.Kind is AiWarningKind.SafetyCaution)
+            ? null
+            : Reject(
+                AiOutputReason.AllergenEffectUncautioned,
+                "A dietary adaptation changed the recipe with no safety caution beside it. A dietary change "
+                    + "is an allergen question for whoever is eating, and it may not arrive without one.",
+                correctable: true);
     }
 
     /// <summary>

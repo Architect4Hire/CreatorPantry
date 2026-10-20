@@ -42,8 +42,11 @@ export const SUBSTITUTION_FIELD_LABELS: Readonly<Record<string, string>> = {
   textureImpact: 'Effect on texture',
   dietaryEffects: 'Dietary effects',
   allergenEffects: 'Allergen effects',
-  confidence: 'Confidence',
-  evidenceBasis: 'Basis',
+  // Whose confidence and whose basis, said in the label (14.7, M-5 of the audit). "Confidence: High" beside a
+  // food finding read as the product's assessment; it is the model rating its own answer, and the basis is
+  // what it says that rating rests on — often nothing but itself.
+  confidence: "The model's confidence",
+  evidenceBasis: "The model's basis",
   evidenceNote: 'Evidence',
   testRecommendation: 'Test before trusting it',
 };

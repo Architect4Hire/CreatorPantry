@@ -328,6 +328,72 @@ public sealed class NutritionMappingEndpointTests : IAsyncLifetime
         Assert.Equal("Candidate", (await BodyOf(await ownerB.GetAsync(MappingRoute(_fixture.WorkspaceB, _reference.Flour), Ct))).GetProperty("status").GetString());
     }
 
+    /// <summary>
+    /// Reject is isolated at the HTTP layer too, not only confirm (14.7, M-7 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// The business layer pins all three commands; the route pinned confirm alone, so a controller wired to
+    /// the wrong facade method, or a policy left off one action, would have been caught for one command out of
+    /// three.
+    /// </remarks>
+    [Fact]
+    public async Task Another_workspaces_mapping_cannot_be_rejected()
+    {
+        await SeedMappingAsync(_fixture.WorkspaceB.Id, _reference.Flour, NutritionMappingStatus.Candidate);
+        using var ownerB = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail, cancellationToken: Ct);
+        var tokenB = await TokenAsync(ownerB, _fixture.WorkspaceB, _reference.Flour);
+
+        using var ownerA = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: Ct);
+        var body = new { expectedConcurrencyToken = tokenB };
+
+        // In A's own workspace, where A has no mapping for this ingredient to reject.
+        var inA = await ownerA.PostAsJsonAsync(CommandRoute(_fixture.WorkspaceA, _reference.Flour, "reject"), body, Ct);
+        Assert.Equal(HttpStatusCode.NotFound, inA.StatusCode);
+
+        // And at B's route, which A is not a member of.
+        var atB = await ownerA.PostAsJsonAsync(CommandRoute(_fixture.WorkspaceB, _reference.Flour, "reject"), body, Ct);
+        Assert.Equal(HttpStatusCode.NotFound, atB.StatusCode);
+
+        Assert.Equal("Candidate", await StatusOfAsync(ownerB, _fixture.WorkspaceB));
+    }
+
+    /// <summary>
+    /// A remap acts on the caller's own workspace, and a token quoted from another one changes nothing there.
+    /// </summary>
+    /// <remarks>
+    /// Remap is the one command that may run with no mapping yet — that is how a first mapping is made (B-40)
+    /// — so "not found" is the wrong thing to expect of it in a workspace that has none. What isolation means
+    /// here is that A's remap creates *A's* mapping, that the foreign token it quoted is simply not A's to
+    /// quote, and that B's own mapping is untouched. The route at B stays a 404, because A is not a member.
+    /// </remarks>
+    [Fact]
+    public async Task A_remap_quoting_another_workspaces_token_touches_only_the_callers_own_mapping()
+    {
+        await SeedMappingAsync(_fixture.WorkspaceB.Id, _reference.Flour, NutritionMappingStatus.Candidate);
+        using var ownerB = await _fixture.SignInAsync(_fixture.WorkspaceB.OwnerEmail, cancellationToken: Ct);
+        var tokenB = await TokenAsync(ownerB, _fixture.WorkspaceB, _reference.Flour);
+
+        using var ownerA = await _fixture.SignInAsync(_fixture.WorkspaceA.OwnerEmail, cancellationToken: Ct);
+        var body = new { expectedConcurrencyToken = tokenB, sourceCode = "usda-fdc", externalRecordId = FlourRecord };
+
+        var inA = await ownerA.PostAsJsonAsync(CommandRoute(_fixture.WorkspaceA, _reference.Flour, "remap"), body, Ct);
+        Assert.Equal(HttpStatusCode.OK, inA.StatusCode);
+
+        // A's own, newly made and confirmed — and nothing of B's reached it.
+        var mappingA = await BodyOf(inA);
+        Assert.Equal("Confirmed", mappingA.GetProperty("status").GetString());
+        Assert.NotEqual(tokenB, mappingA.GetProperty("concurrencyToken").GetString());
+
+        // B's route refuses A outright, and B's mapping is exactly as it was.
+        var atB = await ownerA.PostAsJsonAsync(CommandRoute(_fixture.WorkspaceB, _reference.Flour, "remap"), body, Ct);
+        Assert.Equal(HttpStatusCode.NotFound, atB.StatusCode);
+        Assert.Equal("Candidate", await StatusOfAsync(ownerB, _fixture.WorkspaceB));
+    }
+
+    private async Task<string?> StatusOfAsync(GatewayClient client, SeededWorkspace workspace) =>
+        (await BodyOf(await client.GetAsync(MappingRoute(workspace, _reference.Flour), Ct)))
+            .GetProperty("status").GetString();
+
     // ---- What a decision never touches, and what it cannot do without the source ----
 
     [Fact]

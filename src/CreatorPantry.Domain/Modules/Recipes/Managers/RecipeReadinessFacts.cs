@@ -153,9 +153,23 @@ public sealed record RecipeReadinessFacts
 /// which owns the meaning of "reviewed" — and which names no allergen, so nothing here can become a claim about
 /// the dish.
 /// </param>
+/// <param name="AllergenRecordsRead">
+/// Whether the allergen read happened at all (14.7, H-5).
+/// </param>
+/// <remarks>
+/// <para>
+/// <strong>Why the flag, and not just an empty list.</strong> The facade skips the read entirely when no
+/// ingredient line matched a platform ingredient, so an empty gap list meant two different things: every
+/// recognised ingredient has complete records, and nothing was looked at. The rule read both as satisfied, so
+/// a recipe whose only line was "a splash of house sauce" showed a green "allergen records" row. The audit
+/// found it; the same evaluator already uses <c>NotApplicable</c> for attribution for exactly this reason —
+/// "nothing was checked" must not read as a pass.
+/// </para>
+/// </remarks>
 public sealed record RecipeReadinessExternalFacts(
     AiOutstandingSummaryServiceModel Ai,
-    IReadOnlyList<IngredientAllergenReviewServiceModel> AllergenReviewGaps)
+    IReadOnlyList<IngredientAllergenReviewServiceModel> AllergenReviewGaps,
+    bool AllergenRecordsRead = true)
 {
     /// <summary>
     /// What to evaluate with when neither module was asked — a recipe with no matched lines needs no allergen
@@ -166,5 +180,5 @@ public sealed record RecipeReadinessExternalFacts(
     /// difference between it and a real empty answer is a decision somebody made rather than a default they got.
     /// </remarks>
     public static RecipeReadinessExternalFacts None { get; } =
-        new(new AiOutstandingSummaryServiceModel(0, [], []), []);
+        new(new AiOutstandingSummaryServiceModel(0, [], []), [], AllergenRecordsRead: false);
 }

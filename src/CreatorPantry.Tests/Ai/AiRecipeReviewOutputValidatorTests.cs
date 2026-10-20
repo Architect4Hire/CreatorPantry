@@ -84,6 +84,89 @@ public sealed class AiRecipeReviewOutputValidatorTests
         Assert.Null(result.Document);
     }
 
+    /// <summary>
+    /// A temperature or timing finding must say it needs a reference check, whatever severity the model gave
+    /// it (14.7, H-6).
+    /// </summary>
+    /// <remarks>
+    /// The floor used to be allergen and dietary categories plus major-or-critical severity, and the model
+    /// chooses the severity — so a "minor" finding about an internal temperature shipped as a food-safety
+    /// figure with no reference flag and, through the caution rule keyed off that flag, no caution either.
+    /// </remarks>
+    [Theory]
+    [InlineData(AiRecipeReviewFindingCategory.Temperature)]
+    [InlineData(AiRecipeReviewFindingCategory.Timing)]
+    public void A_temperature_or_timing_finding_must_require_a_reference_check(
+        AiRecipeReviewFindingCategory category)
+    {
+        var finding = Completeness() with
+        {
+            Category = category,
+            Severity = AiRecipeReviewSeverity.Minor,
+            Summary = "165 °F is the usual internal temperature for chicken thighs.",
+            RequiresReferenceCheck = false,
+        };
+
+        var result = AiRecipeReviewOutputValidator.Validate(Payload(finding), Schema);
+
+        Assert.Equal(AiOutputReason.ReferenceCheckRequired, result.Failure!.ReasonCode);
+    }
+
+    /// <remarks>
+    /// The categories that are not about a figure keep the old floor: a minor completeness note does not need
+    /// a reference, and requiring one everywhere would make the flag meaningless.
+    /// </remarks>
+    [Fact]
+    public void A_minor_completeness_finding_still_needs_no_reference_check()
+    {
+        var result = AiRecipeReviewOutputValidator.Validate(Payload(Completeness()), Schema);
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+    }
+
+    /// <summary>A finding's own prose may not assure safety, absence or suitability (14.7, BL-2).</summary>
+    [Theory]
+    [InlineData("summary")]
+    [InlineData("evidence")]
+    [InlineData("unknown")]
+    public void A_safety_assurance_in_a_finding_is_rejected(string field)
+    {
+        var claim = "this is safe for people with a nut allergy";
+        var finding = field switch
+        {
+            "summary" => Completeness() with { Summary = claim },
+            "evidence" => Completeness() with { EvidenceNote = claim },
+            _ => Completeness() with { UnknownFactors = [claim] },
+        };
+
+        var result = AiRecipeReviewOutputValidator.Validate(Payload(finding), Schema);
+
+        Assert.Equal(AiOutputReason.UnsupportedSafetyAssurance, result.Failure!.ReasonCode);
+        Assert.True(result.Failure.IsCorrectableByReprompt);
+    }
+
+    [Fact]
+    public void A_safety_assurance_in_a_general_warning_is_rejected()
+    {
+        var payload = Serialize(new AiRecipeReviewOutputDocument
+        {
+            SchemaVersion = Schema,
+            Findings = [],
+            Warnings =
+            [
+                new AiRecipeReviewOutputWarning
+                {
+                    Kind = AiWarningKind.Limitation,
+                    Message = "Nothing stood out; the recipe is safe to serve as written.",
+                },
+            ],
+        });
+
+        var result = AiRecipeReviewOutputValidator.Validate(payload, Schema);
+
+        Assert.Equal(AiOutputReason.UnsupportedSafetyAssurance, result.Failure!.ReasonCode);
+    }
+
     // ---- fixtures ----------------------------------------------------------------------------------------
 
     private static AiRecipeReviewFinding Completeness() => new()

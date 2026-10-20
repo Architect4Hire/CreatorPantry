@@ -7,7 +7,8 @@ namespace CreatorPantry.Domain.Modules.Nutrition.Facade;
 
 /// <summary>
 /// A dietary and allergen analysis of one recipe version against selected allergens and profiles (14.4). Read-only,
-/// for any member; no route serves it yet (14.6).
+/// for any member; served by <c>POST .../analysis/dietary-allergen</c> (14.6) and shown by the recipe editor's
+/// Dietary &amp; allergens tool (14.6c).
 /// </summary>
 /// <remarks>
 /// Its findings are the only facts. Anything that explains them later — a model included — takes them as input

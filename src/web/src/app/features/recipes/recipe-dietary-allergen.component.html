@@ -1,0 +1,308 @@
+<!--
+  No heading of its own: the drawer this opens in already prints "Dietary & allergens" as its title, and a
+  second heading saying the same thing is one more thing to read past. The region is named instead, and its
+  parts — the two pick lists and the answer — carry the headings.
+-->
+<section class="analysis" [attr.aria-label]="copy.regionLabel">
+  <!-- Said once, plainly, at the top. A panel that answers questions about allergens has to be clear about
+       what kind of answer it is giving before it gives one (recipes.md). -->
+  <p class="analysis-intro">{{ copy.intro }}</p>
+
+  <!--
+    In the DOM from first render, and empty until there is something to say: a live region populated at the
+    moment it is created is not reliably announced, so it cannot live inside the answer it describes.
+  -->
+  <p class="cp-sr-only" role="status">{{ liveMessage() }}</p>
+
+  @if (editorIsDirty()) {
+    <!-- The role on the paragraph, not the pill: the pill is three words, the sentence is the part to hear. -->
+    <p class="caveat-row" role="status">
+      <cp-status-pill tone="warning">{{ copy.dirtyPill }}</cp-status-pill>
+      <span>{{ copy.dirty }}</span>
+    </p>
+  }
+
+  @if (sourceVersionNumber() === null) {
+    <cp-notice tone="neutral" role="status">{{ copy.noVersion }}</cp-notice>
+  }
+
+  <!-- The selection ------------------------------------------------------ -->
+
+  @switch (lists().status) {
+    @case ('loading') {
+      <p class="cp-muted measure" role="status">{{ copy.listsLoading }}</p>
+    }
+    @case ('unavailable') {
+      <!-- The way out sits in the sentence it belongs to, which is what cp-notice projects content for. -->
+      <cp-notice tone="error" role="alert">
+        {{ copy.listsUnavailable }}
+        <button cpButton variant="text" size="sm" type="button" (click)="loadLists()">Try again</button>
+      </cp-notice>
+    }
+    @default {
+      <form class="selection" (ngSubmit)="analyse()">
+        <cp-form-section heading="Allergens" [intro]="copy.allergenIntro" [problem]="allergenProblem()">
+          <cp-choice-group
+            label="Allergens"
+            [multiple]="true"
+            [max]="maxSubjects"
+            [options]="allergenOptions()"
+            [value]="selectedAllergenIds()"
+            (valueChange)="selectedAllergenIds.set($event)"
+          />
+        </cp-form-section>
+
+        <cp-form-section heading="Dietary patterns" [intro]="copy.dietaryIntro" [problem]="dietaryProblem()">
+          <cp-choice-group
+            label="Dietary patterns"
+            [multiple]="true"
+            [max]="maxSubjects"
+            [options]="dietaryOptions()"
+            [value]="selectedDietaryProfileIds()"
+            (valueChange)="selectedDietaryProfileIds.set($event)"
+          />
+        </cp-form-section>
+
+        <div class="cp-actions">
+          <!--
+            `disabled` only for what is true before anyone reaches the button. While a request is in flight it
+            stays focusable and says so with `aria-disabled`: disabling a focused button drops focus to the
+            body, and inside an open drawer that costs the creator their place.
+          -->
+          <button
+            cpButton
+            variant="primary"
+            type="submit"
+            [disabled]="!canRequest()"
+            [attr.aria-disabled]="isWorking() ? 'true' : null"
+            [attr.aria-describedby]="hasSelection() ? null : pickReasonId"
+          >
+            @if (isWorking()) {
+              {{ copy.working }}
+            } @else if (analysis() === null) {
+              {{ copy.submit }}
+            } @else {
+              {{ copy.recheck }}
+            }
+          </button>
+
+          @if (!hasSelection()) {
+            <!-- Why the button is greyed out, said beside it and named by it. -->
+            <span class="cp-muted" [id]="pickReasonId">{{ copy.pickSomething }}</span>
+          }
+        </div>
+      </form>
+    }
+  }
+
+  @if (problem(); as message) {
+    <cp-notice tone="error" role="alert">
+      {{ message }}
+      @if (canReloadLists()) {
+        <button cpButton variant="text" size="sm" type="button" (click)="loadLists()">Reload lists</button>
+      }
+    </cp-notice>
+  }
+
+  <!-- The answer ---------------------------------------------------------- -->
+
+  @if (analysis(); as result) {
+    <section class="results" [attr.aria-labelledby]="resultsHeadingId">
+      <h2 class="results-heading" [id]="resultsHeadingId">{{ copy.resultsHeading }}</h2>
+
+      <p class="cp-muted measure">
+        Read against version {{ result.versionNumber }} · records as of
+        {{ result.evaluatedOn | date: 'd MMMM y' }} · method {{ result.methodVersion }}
+      </p>
+
+      @if (isStale()) {
+        <p class="caveat-row" role="status">
+          <cp-status-pill tone="stale">{{ copy.stalePill }}</cp-status-pill>
+          <span>{{ copy.stale }}</span>
+        </p>
+      }
+
+      <!--
+        The server's own disclaimer, verbatim, above the findings and on every answer including the best one
+        (B-36). Never collapsed, never a footnote, and never summarised into something shorter.
+      -->
+      <cp-notice class="disclaimer" tone="warning" glyph="!" role="note">
+        {{ result.crossContactDisclaimer }}
+      </cp-notice>
+
+      <p class="cp-muted measure">{{ copy.scope }}</p>
+
+      @if (nothingRecorded()) {
+        <p class="measure">{{ copy.nothingRecorded }}</p>
+      }
+
+      @for (subject of subjects(); track subject.key) {
+        @let subjectNameId = subjectHeadingId(subject.key);
+
+        <article class="subject" [attr.aria-labelledby]="subjectNameId">
+          <header class="subject-head">
+            <h3 class="subject-name" [id]="subjectNameId">
+              {{ subject.name }}
+              <cp-badge tone="neutral">{{ subject.kindLabel }}</cp-badge>
+            </h3>
+            <div class="subject-pills">
+              <!-- Tone and word together: the word is the finding, the tone is the quieter half of it. -->
+              <cp-status-pill [tone]="subject.findingTone">{{ subject.findingLabel }}</cp-status-pill>
+              <cp-status-pill [tone]="subject.confidenceTone">{{ subject.confidenceLabel }}</cp-status-pill>
+            </div>
+          </header>
+
+          <!-- The server's sentence. The one place a finding is stated in prose, and it is not written here. -->
+          <p class="statement">{{ subject.statement }}</p>
+
+          <p class="cp-muted measure">{{ subject.coverage }}</p>
+
+          @if (subject.caveat) {
+            <p class="cp-muted measure">{{ subject.caveat }}</p>
+          }
+
+          @if (subject.conflict) {
+            <p class="conflict measure">{{ subject.conflict }}</p>
+          }
+
+          @if (subject.empty) {
+            <p class="cp-muted measure">{{ subject.empty }}</p>
+          }
+
+          @for (group of subject.groups; track group.id) {
+            @let groupId = groupElementId(subject.key, group.id);
+            @let open = isGroupOpen(subject.key, group);
+
+            <section class="group" [attr.aria-labelledby]="groupId + '-title'">
+              <div class="group-head">
+                <h4 class="group-title" [id]="groupId + '-title'">
+                  {{ group.heading }}
+                  <cp-status-pill [tone]="group.tone">
+                    {{ group.rows.length }}<span class="cp-sr-only">
+                      {{ group.rows.length === 1 ? 'line' : 'lines' }}</span>
+                  </cp-status-pill>
+                </h4>
+
+                <button
+                  cpButton
+                  variant="text"
+                  size="sm"
+                  type="button"
+                  [attr.aria-expanded]="open"
+                  [attr.aria-controls]="groupId"
+                  (click)="toggleGroup(subject.key, group)"
+                >
+                  {{ open ? 'Hide' : 'Show' }}
+                </button>
+              </div>
+
+              @if (group.note) {
+                <p class="cp-muted measure group-note" [hidden]="!open">{{ group.note }}</p>
+              }
+
+              <ul class="lines" [id]="groupId" [hidden]="!open">
+                @for (line of group.rows; track line.lineId) {
+                  @let evidenceId = evidenceElementId(subject.key, line.lineId);
+                  @let evidenceOpen = isEvidenceOpen(subject.key, line.lineId);
+
+                  <li class="line">
+                    <p class="line-text">
+                      <!-- The creator's own words for the line, as written. -->
+                      {{ line.displayText }}
+                      @if (line.isOptional) {
+                        <cp-badge tone="neutral">Optional</cp-badge>
+                      }
+                    </p>
+
+                    @if (line.reason) {
+                      <p class="line-note">{{ line.reason }}</p>
+                    }
+
+                    @if (line.conflict) {
+                      <p class="line-note line-conflict">{{ copy.lineConflict }}</p>
+                    }
+
+                    @if (line.evidence.length > 0) {
+                      <button
+                        cpButton
+                        variant="text"
+                        size="sm"
+                        type="button"
+                        [attr.aria-expanded]="evidenceOpen"
+                        [attr.aria-controls]="evidenceId"
+                        (click)="toggleEvidence(subject.key, line.lineId)"
+                      >
+                        {{ evidenceOpen ? 'Hide where this comes from' : 'Where this comes from' }}
+                      </button>
+
+                      <ul class="evidence" [id]="evidenceId" [hidden]="!evidenceOpen">
+                        @for (item of line.evidence; track item.key) {
+                          <li class="evidence-item">
+                            <p class="evidence-word">
+                              {{ item.word }}
+                              @if (!item.counted) {
+                                <cp-status-pill tone="neutral">Cited, not counted</cp-status-pill>
+                              }
+                            </p>
+                            <p class="cp-muted">
+                              {{ item.sourceName }} · {{ item.kindLabel }} · in effect from
+                              {{ item.effectiveFrom | date: 'd MMMM y' }}
+                            </p>
+                            <!-- The source's own note, quoted rather than paraphrased. -->
+                            <p class="evidence-note">“{{ item.note }}”</p>
+                            @if (item.notCounted) {
+                              <p class="line-note">{{ item.notCounted }}</p>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        </article>
+      }
+
+      @if (result.sources.length > 0) {
+        <section class="sources" [attr.aria-labelledby]="sourcesHeadingId">
+          <h3 class="sources-heading" [id]="sourcesHeadingId">{{ copy.sourcesHeading }}</h3>
+          <p class="cp-muted measure">{{ copy.sourcesIntro }}</p>
+
+          <ul class="source-list">
+            @for (source of result.sources; track source.code) {
+              <li class="source">
+                <p class="source-name">
+                  {{ source.name }}
+                  @if (!source.isActive) {
+                    <cp-badge tone="orange">{{ copy.retiredSource }}</cp-badge>
+                  }
+                </p>
+                <p class="cp-muted">
+                  {{ sourceKindLabel(source) }} · latest record in effect from
+                  {{ source.latestEffectiveFrom | date: 'd MMMM y' }}
+                </p>
+                <p class="source-citation">{{ source.citation }}</p>
+                @if (!source.licenseCode) {
+                  <p class="cp-muted">{{ copy.noLicence }}</p>
+                } @else {
+                  <p class="cp-muted">
+                    Licence:
+                    @if (source.licenseUrl) {
+                      <a [href]="source.licenseUrl" target="_blank" rel="noopener noreferrer">
+                        {{ source.licenseCode }}
+                      </a>
+                    } @else {
+                      {{ source.licenseCode }}
+                    }
+                  </p>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </section>
+  }
+</section>

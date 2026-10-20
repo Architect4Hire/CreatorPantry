@@ -78,4 +78,42 @@ public static class TraitPolicy
     /// </remarks>
     public static bool MayAssertAllergenAbsence(ReferenceSourceKind kind) =>
         kind is not (ReferenceSourceKind.CommunityContributed or ReferenceSourceKind.AiEstimated);
+
+    /// <summary>
+    /// Whether a trait citing this source may reach <see cref="TraitReviewStatus.Approved"/> — the only state
+    /// an analysis acts on (14.7, H-7).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>What this closes.</strong> The schema checks a trait's source *kind* and its review status, and
+    /// a composite foreign key stops a row misreporting its kind. Nothing checked that the source was one the
+    /// product has actually approved for this evidence kind. Today no write path creates an approved trait at
+    /// all, so B-33's "no approved allergen or dietary source" held by absence rather than by a rule — and the
+    /// first writer added would have inherited nothing.
+    /// </para>
+    /// <para>
+    /// <strong>Why a policy rather than a check constraint.</strong> The approved list lives in
+    /// <see cref="EvidenceSourceCatalog"/>, in code, because approving a source is a decision recorded in the
+    /// baseline and not a row somebody can insert. A SQL constraint cannot read it, and copying the codes into
+    /// a constraint would be a second list to keep in step. Any writer of an approved trait calls this, and
+    /// <c>DietaryAllergenTraitConstraintTests</c> pins that the kind and status rules stay in the schema
+    /// underneath it.
+    /// </para>
+    /// <para>
+    /// A trait from an unapproved source may still be *stored* — an unreviewed note about what some source
+    /// said is a fact about that source — and an analysis will not count it, because it is not approved.
+    /// </para>
+    /// </remarks>
+    public static bool MayBeApproved(string? sourceCode, ReferenceEvidenceKind evidenceKind)
+    {
+        if (string.IsNullOrWhiteSpace(sourceCode))
+        {
+            return false;
+        }
+
+        var approved = EvidenceSourceCatalog.For(evidenceKind);
+
+        return approved is not null
+            && string.Equals(approved.Code, sourceCode, StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -27,9 +27,12 @@ export const REVIEW_FIELD_LABELS: Readonly<Record<string, string>> = {
   allergenEffect: 'Allergen effect',
   diet: 'Diet',
   dietaryEffect: 'Dietary effect',
-  evidenceBasis: 'Basis',
+  // Whose basis and whose confidence, said in the label (14.7, M-5 of the audit). "Confidence: High" beside a
+  // food finding read as the product's assessment; it is the model rating its own answer, and the basis is
+  // what it says that rating rests on — often nothing but itself.
+  evidenceBasis: "The model's basis",
   evidenceNote: 'Evidence',
-  confidence: 'Confidence',
+  confidence: "The model's confidence",
   requiresReferenceCheck: 'Needs checking against a reference',
   unknownFactors: 'What is unknown',
 };

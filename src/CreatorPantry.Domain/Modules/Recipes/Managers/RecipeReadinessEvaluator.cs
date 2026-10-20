@@ -103,6 +103,14 @@ public static class RecipeReadinessEvaluator
 
         internal static RuleOutcome NotApplicable() => new(true, false, null, []);
 
+        /// <summary>Not applicable, with a sentence saying why — because the rule's own summary cannot.</summary>
+        /// <remarks>
+        /// A finding always carries its rule's summary, which is written for the satisfied case. For a rule
+        /// that can also be *unread*, that sentence would read as the pass it is not: "Every recognised
+        /// ingredient has reviewed allergen records" over a recipe where none was read (14.7, H-5).
+        /// </remarks>
+        internal static RuleOutcome NotApplicable(string detail) => new(true, false, detail, []);
+
         internal static RuleOutcome Unmet(string detail, params RecipeReadinessEvidence[] evidence) =>
             new(false, true, detail, evidence);
     }
@@ -393,8 +401,20 @@ public static class RecipeReadinessEvaluator
     /// <see cref="IngredientAllergenReviewServiceModel"/>.
     /// </para>
     /// </remarks>
-    private static RuleOutcome AllergensTraitUnreviewed(RecipeReadinessExternalFacts external) =>
-        external.AllergenReviewGaps is { Count: > 0 } gaps
+    private static RuleOutcome AllergensTraitUnreviewed(RecipeReadinessExternalFacts external)
+    {
+        // Nothing was read, so nothing is known: not applicable, never satisfied (14.7, H-5). A recipe with no
+        // line matched to a platform ingredient has no allergen records to be complete or incomplete, and the
+        // unrecognised-lines rule is what reports that situation in its own words.
+        if (!external.AllergenRecordsRead)
+        {
+            return RuleOutcome.NotApplicable(
+                "No ingredient line is matched to a platform ingredient, so there are no allergen records to "
+                    + "read. Nothing was checked, and nothing here says anything about this recipe's "
+                    + "allergens.");
+        }
+
+        return external.AllergenReviewGaps is { Count: > 0 } gaps
             ? RuleOutcome.Unmet(
                 Sentence(gaps.Count, "recognised ingredient has", "recognised ingredients have")
                     + " incomplete allergen records, so this recipe's allergen picture cannot be stated from "
@@ -405,6 +425,7 @@ public static class RecipeReadinessEvaluator
                     gap.State.ToString(),
                     gap.CanonicalName.Length is 0 ? null : gap.CanonicalName))])
             : RuleOutcome.Satisfied();
+    }
 
     // ---- Test coverage ----
 

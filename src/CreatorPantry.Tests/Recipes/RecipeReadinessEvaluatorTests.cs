@@ -60,6 +60,8 @@ public sealed class RecipeReadinessEvaluatorTests
     [Fact]
     public void A_complete_recipe_has_no_blockers_and_no_recommendations()
     {
+        // Its lines are recognised, so the allergen read happened and found nothing (14.7, H-5). With
+        // `None` the allergen rule is NotApplicable, which is a different and equally correct answer.
         var result = Evaluate(Ready());
 
         Assert.False(result.HasBlockers);
@@ -72,8 +74,20 @@ public sealed class RecipeReadinessEvaluatorTests
             RecipeReadinessStatus.NotApplicable,
             Finding(result, RecipeReadinessCatalogue.AttributionPresent).Status);
 
+        // The allergen rule for the same reason, with the default facts: no line is matched here, so no
+        // allergen record was read (14.7, H-5).
+        Assert.Equal(
+            RecipeReadinessStatus.NotApplicable,
+            Finding(result, RecipeReadinessCatalogue.AllergensTraitUnreviewed).Status);
+
+        string[] unchecked_ =
+        [
+            RecipeReadinessCatalogue.AttributionPresent,
+            RecipeReadinessCatalogue.AllergensTraitUnreviewed,
+        ];
+
         Assert.All(
-            result.Findings.Where(finding => finding.RuleId != RecipeReadinessCatalogue.AttributionPresent),
+            result.Findings.Where(finding => !unchecked_.Contains(finding.RuleId)),
             finding => Assert.Equal(RecipeReadinessStatus.Satisfied, finding.Status));
     }
 
@@ -440,10 +454,38 @@ public sealed class RecipeReadinessEvaluatorTests
         Assert.Equal("wheat flour", evidence.Label);
     }
 
+    /// <summary>
+    /// A read that happened and found nothing satisfies the rule (14.7, H-5).
+    /// </summary>
+    /// <remarks>
+    /// The flag is what makes this different from <see cref="No_allergen_read_is_not_a_pass"/>: an empty gap
+    /// list used to mean both "every recognised ingredient is complete" and "nobody looked".
+    /// </remarks>
     [Fact]
     public void No_allergen_gap_satisfies_the_allergen_rule()
     {
-        Satisfied(Evaluate(Ready(), RecipeReadinessExternalFacts.None), RecipeReadinessCatalogue.AllergensTraitUnreviewed);
+        var external = new RecipeReadinessExternalFacts(
+            new AiOutstandingSummaryServiceModel(0, [], []), [], AllergenRecordsRead: true);
+
+        Satisfied(Evaluate(Ready(), external), RecipeReadinessCatalogue.AllergensTraitUnreviewed);
+    }
+
+    /// <summary>
+    /// A recipe with no line matched to a platform ingredient has nothing to report, so the rule is not
+    /// applicable rather than satisfied (14.7, H-5).
+    /// </summary>
+    /// <remarks>
+    /// The audit's finding: a green "allergen records" row for a recipe whose only line is "a splash of house
+    /// sauce" is the absence of evidence shown as a pass. This evaluator already draws that distinction for
+    /// attribution, and now draws it here.
+    /// </remarks>
+    [Fact]
+    public void No_allergen_read_is_not_a_pass()
+    {
+        var finding = Evaluate(Ready(), RecipeReadinessExternalFacts.None)
+            .Findings.Single(candidate => candidate.RuleId == RecipeReadinessCatalogue.AllergensTraitUnreviewed);
+
+        Assert.Equal(RecipeReadinessStatus.NotApplicable, finding.Status);
     }
 
     // ---- Test coverage ----

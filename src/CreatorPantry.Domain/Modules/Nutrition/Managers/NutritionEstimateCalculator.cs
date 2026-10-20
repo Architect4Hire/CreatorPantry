@@ -67,6 +67,11 @@ public static class NutritionEstimateCalculator
         var lines = input.Lines.Select(line => Weigh(line, input)).ToList();
         var counted = lines.Where(line => line.Outcome is NutritionLineOutcome.Included).ToList();
         var complete = lines.All(line => !line.Required || line.Outcome is NutritionLineOutcome.Included);
+
+        // An estimate that counted nothing is not complete, whatever the line list says (14.7, H-4). With no
+        // lines at all, or none that could be weighed, `complete` is vacuously true and every total is zero —
+        // and "publishable" over a table of zeroes is the worst answer this calculator could give.
+        var countedSomething = counted.Count > 0;
         var (servings, servingsSource) = ServingsOf(input.Servings);
 
         try
@@ -92,8 +97,8 @@ public static class NutritionEstimateCalculator
                 NutritionEstimatePolicy.Label,
                 NutritionEstimatePolicy.MethodVersion,
                 NutritionEstimatePolicy.Method,
-                complete ? NutritionEstimateStatus.Complete : NutritionEstimateStatus.Incomplete,
-                Publishable: complete,
+                complete && countedSomething ? NutritionEstimateStatus.Complete : NutritionEstimateStatus.Incomplete,
+                Publishable: complete && countedSomething,
                 Partial: !complete,
                 counted.Count == 0 ? null : counted.Max(line => line.Basis!.Value),
                 servings?.ToDecimal(NutritionEstimatePolicy.ExactScale, NutritionEstimatePolicy.Rounding),
@@ -153,9 +158,14 @@ public static class NutritionEstimateCalculator
             return new(line, NutritionLineOutcome.Optional, NutritionLineReason.None, Required: false);
         }
 
+        // Required, as of 14.7's H-4. A line the creator did not make optional is an ingredient of the dish:
+        // "butter, softened" with no amount cannot be weighed, and leaving it out of the required set meant
+        // the estimate called itself Complete while silently omitting it. It cannot be counted either — there
+        // is nothing to multiply — so it is a required line that is not counted, which is exactly what
+        // `Unresolved` is for.
         if (line.Quantity is not { } quantity)
         {
-            return new(line, NutritionLineOutcome.NotQuantified, NutritionLineReason.None, Required: false);
+            return new(line, NutritionLineOutcome.NotQuantified, NutritionLineReason.None, Required: true);
         }
 
         if (line.IngredientId is not { } ingredientId)
@@ -328,25 +338,52 @@ public static class NutritionEstimateCalculator
     {
         var precision = NutritionEstimatePolicy.DisplayPrecisionOf(unit);
         var displayHigh = high.ToDecimal(precision, NutritionEstimatePolicy.Rounding);
+        var displayLow = low.ToDecimal(precision, NutritionEstimatePolicy.Rounding);
 
         return new NutritionAmountServiceModel(
             low.ToDecimal(NutritionEstimatePolicy.ExactScale, NutritionEstimatePolicy.Rounding),
             high.ToDecimal(NutritionEstimatePolicy.ExactScale, NutritionEstimatePolicy.Rounding),
-            low.ToDecimal(precision, NutritionEstimatePolicy.Rounding),
+            displayLow,
             displayHigh,
             precision,
             NutritionEstimatePolicy.Rounding,
             IsRange: low != high,
-            Trace: !high.IsZero && displayHigh == 0m);
+            // Either bound (14.7, M-3). It was the high bound alone, so a range whose low bound was non-zero
+            // but displayed as zero — "0.0 to 0.4 g" — showed a bare 0 with no trace flag, which is the one
+            // thing a trace value may not look like.
+            Trace: (!high.IsZero && displayHigh == 0m) || (!low.IsZero && displayLow == 0m));
     }
 
     /// <summary>Exact division. <see cref="Quantity"/> has no divide of its own; every calculator states its own.</summary>
-    /// <summary>The lines that keep an estimate from being publishable, grouped by why. Optional and unquantified lines are never among them.</summary>
+    /// <summary>
+    /// The lines that keep an estimate from being publishable, grouped by why. Optional lines are never among
+    /// them; unquantified ones are, as of 14.7's H-4.
+    /// </summary>
     private static NutritionUnresolvedLinesServiceModel Unresolved(IReadOnlyList<NutritionLineEstimateServiceModel> lines) => new(
         [.. lines.Where(line => line.Outcome is NutritionLineOutcome.Unmapped).Select(line => line.LineId)],
         [.. lines.Where(line => line.Outcome is NutritionLineOutcome.NeedsReview).Select(line => line.LineId)],
-        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.Unconvertible).Select(line => line.LineId)]);
+        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.Unconvertible).Select(line => line.LineId)],
+        [.. lines.Where(line => line.Outcome is NutritionLineOutcome.NotQuantified).Select(line => line.LineId)]);
 
-    private static Quantity Divide(Quantity dividend, Quantity divisor) =>
-        Quantity.FromFraction(dividend.Numerator * divisor.Denominator, dividend.Denominator * divisor.Numerator);
+    /// <summary>
+    /// Exact division. <see cref="Quantity"/> has no divide of its own; every calculator states its own.
+    /// </summary>
+    /// <remarks>
+    /// A zero divisor is refused here rather than left to <see cref="Quantity.FromFraction"/>'s
+    /// <see cref="ArgumentException"/> (14.7, L-5 of the audit): only <c>OverflowException</c> is caught
+    /// upstream, so a corrupt portion of zero grams would have left this calculator by throwing instead of by
+    /// refusing. Unreachable through the ordinary paths — a creator's portion is validated above zero, and a
+    /// reference-matched portion equals it — which is exactly why it should fail as a refusal if it ever is.
+    /// </remarks>
+    private static Quantity Divide(Quantity dividend, Quantity divisor)
+    {
+        if (divisor.IsZero)
+        {
+            throw new InvalidOperationException(
+                "A nutrition estimate cannot divide by zero: a portion or serving count of zero reached the "
+                    + "calculator, which the validators and the database check constraints should refuse.");
+        }
+
+        return Quantity.FromFraction(dividend.Numerator * divisor.Denominator, dividend.Denominator * divisor.Numerator);
+    }
 }

@@ -36,7 +36,7 @@ public sealed class AiEvaluationHarnessTests
     [Fact]
     public void The_fixture_store_loaded_every_known_fixture()
     {
-        Assert.Equal(508, Store().All.Count);
+        Assert.Equal(515, Store().All.Count);
     }
 
     /// <summary>Every category this task's SCOPE names has at least one fixture demonstrating it.</summary>
@@ -48,6 +48,48 @@ public sealed class AiEvaluationHarnessTests
         foreach (var category in Enum.GetValues<AiEvaluationCategory>())
         {
             Assert.Contains(category, covered);
+        }
+    }
+
+    /// <summary>
+    /// Every capability that advises a creator about food carries its own safety and isolation fixtures
+    /// (14.7, M-1 of the test audit).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Every_category_has_at_least_one_fixture"/> checks each category across *all* capabilities at
+    /// once, so a category stayed green while the three recipe capabilities had nothing in it — which is how
+    /// substitution, adaptation and review came to have no WorkspaceIsolation fixture at all. Per-capability
+    /// is the check that notices.
+    /// </para>
+    /// <para>
+    /// Scoped to the capabilities whose output is advice about food, because those are the ones where a
+    /// missing refusal case costs somebody more than a bad paragraph. <c>.claude/rules/ai.md</c> asks every
+    /// capability for an evaluation set; this is the part of that promise worth failing a build over.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("recipe.substitution")]
+    [InlineData("recipe.adaptation")]
+    [InlineData("recipe.review")]
+    [InlineData("recipe.first-draft")]
+    public void Every_food_advising_capability_has_its_own_safety_and_isolation_fixtures(string capability)
+    {
+        var mine = Store().All
+            .Where(fixture => fixture.Id.StartsWith($"{capability}.", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(mine);
+
+        foreach (var category in new[]
+            {
+                AiEvaluationCategory.RefusalSafety,
+                AiEvaluationCategory.SchemaValidity,
+                AiEvaluationCategory.WorkspaceIsolation,
+                AiEvaluationCategory.PromptInjection,
+            })
+        {
+            Assert.Contains(category, mine.Select(fixture => fixture.Category));
         }
     }
 

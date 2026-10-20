@@ -88,11 +88,12 @@ internal sealed class RecipeReadinessFacade(
 
         // Skipped entirely when no line resolved to anything: a read of nothing is a read nobody needs, and the
         // unrecognised-lines rule is already reporting that situation in its own words.
-        var allergenGaps = matchedIngredientIds.Count is 0
-            ? []
-            : await ingredients.FindAllergenReviewGapsAsync(matchedIngredientIds, cancellationToken);
+        var allergenRecordsRead = matchedIngredientIds.Count > 0;
+        var allergenGaps = allergenRecordsRead
+            ? await ingredients.FindAllergenReviewGapsAsync(matchedIngredientIds, cancellationToken)
+            : [];
 
         return OperationResult<RecipeReadinessServiceModel>.Success(
-            business.Evaluate(facts, new RecipeReadinessExternalFacts(ai, allergenGaps)));
+            business.Evaluate(facts, new RecipeReadinessExternalFacts(ai, allergenGaps, allergenRecordsRead)));
     }
 }

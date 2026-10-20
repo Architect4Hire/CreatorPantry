@@ -105,6 +105,113 @@ public sealed class AiSubstitutionOutputValidatorTests
     }
 
     /// <summary>A field nobody declared is a widened contract, not a bonus.</summary>
+    /// <summary>
+    /// The prose half of the no-claims rule (14.7, BL-2). Every free-text field, because the one an answer
+    /// uses is the one nobody thought to check.
+    /// </summary>
+    [Theory]
+    [InlineData("flavor")]
+    [InlineData("texture")]
+    [InlineData("role")]
+    [InlineData("quantity")]
+    [InlineData("technique")]
+    [InlineData("evidence")]
+    [InlineData("test")]
+    [InlineData("alternative")]
+    public void A_safety_assurance_in_any_prose_field_is_rejected(string field)
+    {
+        var claim = "oat milk is dairy-free, safe for your readers";
+        var substitution = field switch
+        {
+            "flavor" => Buttermilk() with { FlavorImpact = claim },
+            "texture" => Buttermilk() with { TextureImpact = claim },
+            "role" => Buttermilk() with { FunctionalRole = claim },
+            "quantity" => Buttermilk() with { QuantityGuidance = claim },
+            "technique" => Buttermilk() with { TechniqueImpact = claim },
+            "evidence" => Buttermilk() with { EvidenceNote = claim },
+            "test" => Buttermilk() with { TestRecommendation = claim },
+            _ => Buttermilk() with { Alternative = "dairy-free soured milk" },
+        };
+
+        var result = AiSubstitutionOutputValidator.Validate(Payload(substitution), Schema);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(AiOutputReason.UnsupportedSafetyAssurance, result.Failure!.ReasonCode);
+        // Correctable: the structured effects plus a caution are how the same thing is said properly.
+        Assert.True(result.Failure.IsCorrectableByReprompt);
+    }
+
+    [Fact]
+    public void A_safety_assurance_in_a_warning_is_rejected()
+    {
+        var result = AiSubstitutionOutputValidator.Validate(
+            Payload(
+                Almond(),
+                cautionIndex: 0,
+                warningMessage: "Safe for people with a dairy allergy."),
+            Schema);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(AiOutputReason.UnsupportedSafetyAssurance, result.Failure!.ReasonCode);
+    }
+
+    /// <remarks>
+    /// The other direction, and the reason this rule uses its own scanner: an answer that discusses a dietary
+    /// consequence in plain words is the capability working, not a claim.
+    /// </remarks>
+    [Fact]
+    public void An_answer_that_discusses_a_dietary_consequence_without_assuring_anything_validates()
+    {
+        // Note what the schema will not let an answer say even here: AiDietaryEffectKind has Conflicts and
+        // MayConflict and no "satisfies" member, so the structured side cannot claim a diet is met at all.
+        // This is the prose side saying what a swap does without assuring anyone of anything.
+        var substitution = Buttermilk() with
+        {
+            Alternative = "a plant-based soured milk",
+            FlavorImpact = "less tangy; this is the swap that makes the recipe vegan as written",
+        };
+
+        var result = AiSubstitutionOutputValidator.Validate(Payload(substitution), Schema);
+
+        Assert.True(result.Succeeded, result.Failure?.Message);
+    }
+
+    /// <summary>
+    /// The two cautious effect kinds are valid, and still owe a caution (14.7, L-3 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// <c>MayIntroduce</c> and <c>MayConflict</c> were named nowhere in this file, so the enum members that
+    /// carry an *uncertain* consequence — the ones most in need of the caution rule — were unpinned. An
+    /// uncertain allergen effect is not a lesser one: "this might bring sesame, depending on the brand" is
+    /// exactly what a creator has to check a label for.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void An_uncertain_allergen_or_dietary_effect_is_valid_only_with_a_caution(bool cautioned)
+    {
+        var substitution = Buttermilk() with
+        {
+            Alternative = "tahini-thinned yoghurt",
+            AllergenEffects =
+                [new AiAllergenEffect { Allergen = "sesame", Effect = AiAllergenEffectKind.MayIntroduce }],
+            DietaryEffects =
+                [new AiDietaryEffect { Diet = "vegan", Effect = AiDietaryEffectKind.MayConflict }],
+        };
+
+        var result = AiSubstitutionOutputValidator.Validate(
+            Payload(substitution, cautionIndex: cautioned ? 0 : null), Schema);
+
+        if (cautioned)
+        {
+            Assert.True(result.Succeeded, result.Failure?.Message);
+        }
+        else
+        {
+            Assert.Equal(AiOutputReason.AllergenEffectUncautioned, result.Failure!.ReasonCode);
+        }
+    }
+
     [Fact]
     public void An_undeclared_field_is_rejected()
     {
@@ -251,18 +358,41 @@ public sealed class AiSubstitutionOutputValidatorTests
         Assert.True(result.Succeeded, result.Failure?.Message);
     }
 
+    /// <summary>
+    /// High confidence on the model's own knowledge is fine for culinary guidance (14.7, H-8).
+    /// </summary>
+    /// <remarks>
+    /// The line this draws: how a swap tastes and behaves is what a model is for, and asking it to hedge
+    /// everything would make the confidence field meaningless. What it may not do is state an allergen or
+    /// dietary consequence as settled on its own authority — see the test below.
+    /// </remarks>
     [Fact]
-    public void High_confidence_on_evidence_that_says_something_is_fine()
+    public void High_confidence_on_model_knowledge_is_valid_for_ordinary_guidance()
     {
-        var result = AiSubstitutionOutputValidator.Validate(
-            Payload(Buttermilk() with
-            {
-                Confidence = AiSubstitutionConfidence.High,
-                EvidenceBasis = AiEvidenceBasis.ModelKnowledge,
-            }),
-            Schema);
+        var substitution = Buttermilk() with
+        {
+            Confidence = AiSubstitutionConfidence.High,
+            EvidenceBasis = AiEvidenceBasis.ModelKnowledge,
+        };
+
+        var result = AiSubstitutionOutputValidator.Validate(Payload(substitution), Schema);
 
         Assert.True(result.Succeeded, result.Failure?.Message);
+    }
+
+    [Fact]
+    public void High_confidence_for_an_allergen_consequence_on_model_knowledge_is_rejected()
+    {
+        var substitution = Almond() with
+        {
+            Confidence = AiSubstitutionConfidence.High,
+            EvidenceBasis = AiEvidenceBasis.ModelKnowledge,
+        };
+
+        var result = AiSubstitutionOutputValidator.Validate(Payload(substitution, cautionIndex: 0), Schema);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(AiOutputReason.ConfidenceUnevidenced, result.Failure!.ReasonCode);
     }
 
     // ---- plausibility is not safety ----------------------------------------------------------------------
@@ -585,15 +715,22 @@ public sealed class AiSubstitutionOutputValidatorTests
             [new AiAllergenEffect { Allergen = "tree nuts", Effect = AiAllergenEffectKind.Introduces }],
     };
 
-    private static string Payload(AiIngredientSubstitution substitution, string? schema = null, int? cautionIndex = null) =>
-        Payload([substitution], schema, cautionIndex);
+    private static string Payload(
+        AiIngredientSubstitution substitution,
+        string? schema = null,
+        int? cautionIndex = null,
+        string? warningMessage = null) =>
+        Payload([substitution], schema, cautionIndex, warningMessage);
 
     private static string Payload(
         AiIngredientSubstitution first, AiIngredientSubstitution second, int? cautionIndex = null) =>
         Payload([first, second], schema: null, cautionIndex);
 
     private static string Payload(
-        AiIngredientSubstitution[] substitutions, string? schema = null, int? cautionIndex = null) =>
+        AiIngredientSubstitution[] substitutions,
+        string? schema = null,
+        int? cautionIndex = null,
+        string? warningMessage = null) =>
         Serialize(new AiSubstitutionOutputDocument
         {
             SchemaVersion = schema ?? Schema,
@@ -604,7 +741,7 @@ public sealed class AiSubstitutionOutputValidatorTests
                     new AiSubstitutionOutputWarning
                     {
                         Kind = AiWarningKind.SafetyCaution,
-                        Message = "Check the label, and check with whoever is eating.",
+                        Message = warningMessage ?? "Check the label, and check with whoever is eating.",
                         SubstitutionIndex = index,
                     },
                 ]

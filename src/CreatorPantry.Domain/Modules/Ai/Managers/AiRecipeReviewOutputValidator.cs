@@ -39,7 +39,31 @@ public static class AiRecipeReviewOutputValidator
         RespectNullableAnnotations = true,
     };
 
-    /// <summary>Every category a finding needing a reference check floor covers. See <see cref="ReferenceCheckFloor"/>.</summary>
+    /// <summary>
+    /// The categories whose findings must say they need checking against a reference, at any severity. See
+    /// <see cref="ReferenceCheckFloor"/>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Temperature and timing are here as of 14.7 (audit H-6).</strong> The floor used to be allergen
+    /// and dietary categories plus major-or-critical severity, which let a finding the model called "moderate"
+    /// — "165 °F is the right internal temperature for chicken" — ship with no reference flag and, through
+    /// <see cref="ReferenceCheckedFindingsAreCautioned"/>, no caution either. The model chooses the severity,
+    /// so keying a safety floor off it let the model decide whether its own food-safety figure needed checking.
+    /// The prompt already asked for the flag on any preservation, raw or internal-temperature finding.
+    /// </remarks>
+    private static readonly AiRecipeReviewFindingCategory[] ReferenceCheckCategories =
+    [
+        AiRecipeReviewFindingCategory.AllergenConflict,
+        AiRecipeReviewFindingCategory.DietaryConflict,
+        AiRecipeReviewFindingCategory.Temperature,
+        AiRecipeReviewFindingCategory.Timing,
+    ];
+
+    /// <summary>The categories whose findings must be at least major. See <see cref="AllergenOrDietarySeverityFloor"/>.</summary>
+    /// <remarks>
+    /// Narrower than <see cref="ReferenceCheckCategories"/> on purpose: a timing note worth a glance is not
+    /// automatically a major finding, but it is automatically one a reference should settle.
+    /// </remarks>
     private static readonly AiRecipeReviewFindingCategory[] SafetyCategories =
     [
         AiRecipeReviewFindingCategory.AllergenConflict,
@@ -270,6 +294,7 @@ public static class AiRecipeReviewOutputValidator
             ?? ReferenceCheckFloor(document)
             ?? ReferenceCheckedFindingsAreCautioned(document)
             ?? WarningIndexes(document)
+            ?? NoSafetyAssurance(document)
             ?? ExplainedEmptyAnswer(document);
 
     /// <remarks>
@@ -445,14 +470,14 @@ public static class AiRecipeReviewOutputValidator
     {
         var missing = document.Findings.Any(finding =>
             !finding.RequiresReferenceCheck
-            && (SafetyCategories.Contains(finding.Category)
+            && (ReferenceCheckCategories.Contains(finding.Category)
                 || finding.Severity is AiRecipeReviewSeverity.Major or AiRecipeReviewSeverity.Critical));
 
         return missing
             ? Reject(
                 AiOutputReason.ReferenceCheckRequired,
-                "An allergen conflict, a dietary conflict, or a major or critical finding must say it needs "
-                    + "checking against a reference.",
+                "An allergen conflict, a dietary conflict, a temperature or timing finding, or any major or "
+                    + "critical finding must say it needs checking against a reference.",
                 correctable: true)
             : null;
     }
@@ -507,6 +532,49 @@ public static class AiRecipeReviewOutputValidator
             : null;
     }
 
+    /// <summary>
+    /// No sentence in a finding or a warning assures safety, absence or suitability (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="SafetyEffectShape"/> and <see cref="AllergenOrDietarySeverityFloor"/> close the structured
+    /// half of AIREC-006's "no guaranteed removal or suitability" rule. This closes the prose half: a summary
+    /// reading "safe for people with nut allergies", or an evidence note reading "dairy-free", was a valid
+    /// answer until this rule, because every check before it looked at enums, indexes and field refs. A review
+    /// is read as advice about food, so its sentences are where an assurance does the most damage.
+    /// </remarks>
+    private static AiOutputValidationOutcome<AiRecipeReviewOutputDocument>? NoSafetyAssurance(
+        AiRecipeReviewOutputDocument document)
+    {
+        foreach (var finding in document.Findings)
+        {
+            var assurance = AiRecipeSafetyClaimScanner.FirstAssurance(
+                finding.Summary,
+                finding.EvidenceNote,
+                string.Join(' ', finding.UnknownFactors));
+
+            if (assurance is not null)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "A finding"),
+                    correctable: true);
+            }
+        }
+
+        foreach (var warning in document.Warnings)
+        {
+            if (AiRecipeSafetyClaimScanner.FirstHardAssurance(warning.Message) is { } assurance)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "A warning"),
+                    correctable: true);
+            }
+        }
+
+        return null;
+    }
+
     /// <remarks>
     /// Proposing no finding is allowed and is sometimes the only honest answer. Proposing none in silence is
     /// not: a creator cannot tell it from a call that went wrong, and it leaves them without the one thing that
@@ -539,6 +607,7 @@ public static class AiRecipeReviewOutputValidator
             or AiOutputReason.SafetyFindingUncautioned
             or AiOutputReason.SafetyFindingSeverityTooLow
             or AiOutputReason.ReviewAnswerUnexplained
+            or AiOutputReason.UnsupportedSafetyAssurance
             or AiOutputReason.KindNotDeclared
             or AiOutputReason.WarningIndexInvalid
             ? AiFailureCategory.DomainInvalid

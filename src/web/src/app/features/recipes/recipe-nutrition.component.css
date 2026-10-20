@@ -1,0 +1,293 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is carried by words as well as tone.
+ */
+
+:host {
+  display: block;
+}
+
+/*
+ * `[hidden]` is a UA rule and every author `display` below beats it, so a collapsed list would stay on screen
+ * with its button still saying "Show". `!important` rather than source order: `.lines[_ngcontent]` and
+ * `[hidden][_ngcontent]` have the same specificity, so the next rule added to this file would otherwise
+ * decide it. The specs pin the computed display.
+ */
+[hidden] {
+  display: none !important;
+}
+
+/* `minmax(0, 1fr)`: an auto track's floor is its content's max-content width, so one long citation would hold
+   the panel wider than the drawer and push it sideways. */
+.nutrition,
+.results,
+.estimate,
+.unresolved,
+.counted,
+.sources,
+.group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.nutrition {
+  gap: var(--cp-space-5);
+}
+
+.nutrition-intro,
+.measure {
+  max-width: var(--cp-measure-prose);
+  line-height: var(--cp-leading-normal);
+}
+
+.nutrition-intro {
+  margin: 0;
+}
+
+/* Nothing in here is written by this product: a citation, a source's own description and a creator's own
+   ingredient line can each be one unbroken string. */
+.nutrition-intro,
+.measure,
+.line-text,
+.line-note,
+.source-citation,
+.method-text,
+.figure {
+  overflow-wrap: anywhere;
+}
+
+cp-notice {
+  max-width: var(--cp-measure-prose);
+}
+
+/* A pill and the sentence that explains it, on one line until the line runs out. */
+.caveat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.ask {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* One short field: held to the field measure, as a stacked field is everywhere else. */
+.ask cp-field {
+  max-width: var(--cp-measure-field);
+}
+
+/* The answer ------------------------------------------------------------- */
+
+.results {
+  gap: var(--cp-space-6);
+  padding-block-start: var(--cp-space-5);
+  border-block-start: 1px solid var(--cp-border);
+}
+
+.label-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.estimate,
+.unresolved,
+.counted,
+.sources {
+  gap: var(--cp-space-3);
+}
+
+.part-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+}
+
+.group-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-sm);
+}
+
+/* The figures ------------------------------------------------------------ */
+
+/*
+ * Three columns of figures do not fit a drawer that becomes a full-screen sheet at 40rem, so the table
+ * scrolls in its own box. Focusable, so the scroll is reachable from a keyboard, with the usual ring.
+ */
+.table-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.table-scroll:focus-visible {
+  outline: 3px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.nutrients {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cp-font-size-sm);
+}
+
+.nutrients th,
+.nutrients td {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-block-end: 1px solid var(--cp-border);
+  text-align: start;
+  vertical-align: baseline;
+}
+
+.nutrients thead th {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nutrient-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  font-weight: 700;
+}
+
+/* Tabular figures, so a column of numbers lines up on its digits. */
+.figure {
+  font-variant-numeric: tabular-nums;
+}
+
+/* "at least", beside an incomplete nutrient's figure: the qualifier belongs in the cell, not only in a note
+   under it, because the number is what gets read and copied (14.7, M-1). */
+.qualifier {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  font-variant-numeric: normal;
+}
+
+/* The gap in an incomplete nutrient, under the row it is about. */
+.nutrient-note td {
+  padding-block-start: 0;
+  border-block-end: 1px solid var(--cp-border);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+dl[cpFacts] {
+  min-width: 0;
+}
+
+.disclosure {
+  display: flex;
+}
+
+/* Lines ------------------------------------------------------------------ */
+
+.lines,
+.source-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.line,
+.source {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface);
+  min-width: 0;
+}
+
+/* The creator's own words for the line: the part worth reading, so it carries the weight. */
+.line-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.line-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+/* The mapping under the line it is about ---------------------------------- */
+
+.mapping:focus {
+  outline: none;
+}
+
+/* It takes focus after a decision; the ring shows only when focus arrived by keyboard. */
+.mapping:focus-visible {
+  outline: 3px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.mapping {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-2);
+  width: 100%;
+  padding-inline-start: var(--cp-space-3);
+  border-inline-start: 2px solid var(--cp-border);
+  min-width: 0;
+}
+
+.mapping-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+.method-text {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.source-citation {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}

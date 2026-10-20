@@ -1,0 +1,18 @@
+{
+  "id": "recipe.adaptation.a-free-from-title-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "AdaptationOutputValidation",
+  "description": "14.7's BL-2, pinned in the direction it belongs. This exact payload was a SchemaValidity fixture expecting Accepted: a dietary goal may rewrite the recipe's own title, so accepting it meant a creator could take \"Gluten-Free\" into the canonical recipe and publish a free-from claim that no record supports. The caution beside it does not redeem it — a caution explains a consequence, it does not license a claim.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"title\",\"afterValue\":\"Gluten-Free Buttermilk Soda Bread\"},{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"Made with a 1:1 gluten-free flour blend.\"}],\"warnings\":[{\"kind\":\"Rationale\",\"message\":\"Retitled to flag the adaptation for a reader scanning the list.\",\"changeIndex\":0},{\"kind\":\"SafetyCaution\",\"message\":\"Check the flour blend's own label for cross-contact.\",\"changeIndex\":1}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Dietary"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.unsupported_safety_assurance",
+    "category": "DomainInvalid"
+  }
+}

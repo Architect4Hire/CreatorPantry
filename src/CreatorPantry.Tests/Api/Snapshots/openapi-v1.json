@@ -10520,6 +10520,95 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/food-safety": {
+      "get": {
+        "tags": [
+          "FoodSafetyWarnings"
+        ],
+        "summary": "Reads one recipe version\u0027s own text and choices for a fixed set of high-risk methods and claims, and says\nwhat each one needs checked.",
+        "description": "**Not a safety verdict, in either direction.** \u0060disclaimer\u0060 is on every answer, an empty one most of all:\nfinding nothing is not a statement that a recipe is safe, and a warning is not a ruling that it is unsafe.\nNo message says what a hazard is or what a reader must do \u2014 each would be a claim this product has no\napproved reference to make (B-33 approves no food-safety source, so every warning carries\n\u0060verificationRequired\u0060 with its reason).\n\n**What it reads:** the recipe\u0027s own words \u2014 title, description, headnote, notes, storage notes, ingredient\nlines and their preparation notes, steps and their notes \u2014 plus its structured technique and equipment\nchoices. A stated internal temperature is recorded as written and never called too low, because no\napproved minimum exists to call it against. \u0060unrecognisedTechniques\u0060 counts the techniques named that are\nnot in the active vocabulary, so an empty \u0060warnings\u0060 list read from less than the whole record says so.\n\n**GET, and read-only.** It writes nothing, takes no body, and answers \u0060no-store\u0060: the technique vocabulary\nand the ingredient categories it reads change as they are curated. Every member including a Viewer may ask.\n\nRefusals: an unknown recipe and another workspace\u0027s both answer \u0060404 recipes.recipe.not_found\u0060; a version\nnumber the recipe does not have answers \u0060404 recipes.version.not_found\u0060, naming \u0060versionNumber\u0060; a number\nbelow 1 matches no route and is a plain \u0060404 not_found\u0060.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and the\ncaller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipeId",
+            "in": "path",
+            "description": "The recipe. Constrained to a Guid, so a malformed id never reaches this action \u2014 routing answers 404, the\nsame status as an unknown recipe and as one belonging to another workspace.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionNumber",
+            "in": "path",
+            "description": "The version, by the number the history lists it under. Versions are immutable.",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodSafetyWarnings"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodSafetyWarnings"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodSafetyWarnings"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/generated-images": {
       "post": {
         "tags": [
@@ -34384,6 +34473,289 @@
           }
         }
       },
+      "FoodSafetyCategory": {
+        "enum": [
+          "Canning",
+          "Fermentation",
+          "CuringOrSmoking",
+          "SousVide",
+          "RawOrUndercookedProtein",
+          "InternalTemperature",
+          "PregnancyOrMedicalDiet",
+          "UnsupportedSafetyClaim",
+          "Drying",
+          "OilInfusion",
+          "OtherFlaggedMethod"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyCitation": {
+        "required": [
+          "sourceCode",
+          "sourceName",
+          "sourceVersion",
+          "citation",
+          "licenseCode",
+          "url",
+          "retrievedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sourceCode": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceVersion": {
+            "type": "string"
+          },
+          "citation": {
+            "type": "string"
+          },
+          "licenseCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retrievedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FoodSafetyConfidence": {
+        "enum": [
+          "Possible",
+          "Detected"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyEvidence": {
+        "required": [
+          "status",
+          "citation",
+          "statement"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/FoodSafetyEvidenceStatus"
+          },
+          "citation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FoodSafetyCitation"
+              }
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "verificationRequired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FoodSafetyEvidenceStatus": {
+        "enum": [
+          "Cited",
+          "NoApprovedSource",
+          "NotConfigured",
+          "Unavailable",
+          "NoReference"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyField": {
+        "enum": [
+          "Title",
+          "Description",
+          "Headnote",
+          "Notes",
+          "StorageNotes",
+          "PrimaryTechnique",
+          "IngredientLine",
+          "IngredientPreparation",
+          "Step",
+          "StepNote",
+          "StepTechnique",
+          "Equipment",
+          "EquipmentNote"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyStatedTemperature": {
+        "required": [
+          "value",
+          "scale",
+          "field",
+          "itemId"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "scale": {
+            "$ref": "#/components/schemas/FoodSafetyTemperatureScale"
+          },
+          "field": {
+            "$ref": "#/components/schemas/FoodSafetyField"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "FoodSafetyTemperatureScale": {
+        "enum": [
+          "Fahrenheit",
+          "Celsius"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyTrigger": {
+        "required": [
+          "field",
+          "itemId",
+          "kind",
+          "matched"
+        ],
+        "type": "object",
+        "properties": {
+          "field": {
+            "$ref": "#/components/schemas/FoodSafetyField"
+          },
+          "itemId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FoodSafetyTriggerKind"
+          },
+          "matched": {
+            "type": "string"
+          }
+        }
+      },
+      "FoodSafetyTriggerKind": {
+        "enum": [
+          "Technique",
+          "Text",
+          "IngredientCategory"
+        ],
+        "type": "string"
+      },
+      "FoodSafetyWarning": {
+        "required": [
+          "category",
+          "confidence",
+          "message",
+          "triggers",
+          "evidence",
+          "statedTemperatures"
+        ],
+        "type": "object",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/FoodSafetyCategory"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/FoodSafetyConfidence"
+          },
+          "message": {
+            "type": "string"
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodSafetyTrigger"
+            }
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/FoodSafetyEvidence"
+          },
+          "statedTemperatures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodSafetyStatedTemperature"
+            }
+          }
+        }
+      },
+      "FoodSafetyWarnings": {
+        "required": [
+          "recipeId",
+          "recipeVersionId",
+          "versionNumber",
+          "methodVersion",
+          "warnings",
+          "unrecognisedTechniques",
+          "disclaimer"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipeVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "methodVersion": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodSafetyWarning"
+            }
+          },
+          "unrecognisedTechniques": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "disclaimer": {
+            "type": "string"
+          }
+        }
+      },
       "FractionPresentation": {
         "enum": [
           "Whole",
@@ -38014,7 +38386,8 @@
         "required": [
           "unmapped",
           "needsReview",
-          "unconvertible"
+          "unconvertible",
+          "notQuantified"
         ],
         "type": "object",
         "properties": {
@@ -38033,6 +38406,13 @@
             }
           },
           "unconvertible": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "notQuantified": {
             "type": "array",
             "items": {
               "type": "string",
@@ -47322,6 +47702,9 @@
     },
     {
       "name": "EditorialPackageRequests"
+    },
+    {
+      "name": "FoodSafetyWarnings"
     },
     {
       "name": "GeneratedImages"

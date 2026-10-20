@@ -1,0 +1,143 @@
+<!--
+  No heading of its own: the drawer this opens in prints "Safety checks" as its title. The region is named,
+  and the answer carries the headings.
+-->
+<section class="safety" [attr.aria-label]="copy.regionLabel">
+  <p class="safety-intro">{{ copy.intro }}</p>
+
+  <!-- Mounted from first render and empty until there is something to say, so the answer is announced. -->
+  <p class="cp-sr-only" role="status">{{ liveMessage() }}</p>
+
+  @if (editorIsDirty()) {
+    <p class="caveat-row" role="status">
+      <cp-status-pill tone="warning">{{ copy.dirtyPill }}</cp-status-pill>
+      <span>{{ copy.dirty }}</span>
+    </p>
+  }
+
+  @if (sourceVersionNumber() === null) {
+    <cp-notice tone="neutral" role="status">{{ copy.noVersion }}</cp-notice>
+  }
+
+  <div class="cp-actions">
+    <!--
+      `disabled` only for what is true before anyone reaches the button; in flight it stays focusable and says
+      `aria-disabled`, because disabling a focused button inside a drawer drops focus to the body.
+    -->
+    <button
+      cpButton
+      variant="primary"
+      type="button"
+      [disabled]="!canRequest()"
+      [attr.aria-disabled]="isWorking() ? 'true' : null"
+      (click)="check()"
+    >
+      @if (isWorking()) {
+        {{ copy.loading }}
+      } @else if (result() === null) {
+        {{ copy.check }}
+      } @else {
+        {{ copy.recheck }}
+      }
+    </button>
+  </div>
+
+  @if (problem(); as message) {
+    <cp-notice tone="error" role="alert">{{ message }}</cp-notice>
+  }
+
+  @if (result(); as answer) {
+    <section class="results" [attr.aria-labelledby]="resultsHeadingId">
+      <h2 class="part-heading" [id]="resultsHeadingId">{{ copy.resultsHeading }}</h2>
+
+      @if (isStale()) {
+        <p class="caveat-row" role="status">
+          <cp-status-pill tone="stale">{{ copy.stalePill }}</cp-status-pill>
+          <span>{{ copy.stale }}</span>
+        </p>
+      }
+
+      <p class="cp-muted measure">
+        Read against version {{ answer.versionNumber }} · method {{ answer.methodVersion }}
+      </p>
+
+      <!--
+        The server's own disclaimer, verbatim, above the answer and on every one of them — an empty answer
+        most of all, because that is the one a reader could take as a clearance (B-37).
+      -->
+      <cp-notice class="disclaimer" tone="warning" glyph="!" role="note">{{ answer.disclaimer }}</cp-notice>
+
+      @if (answer.unrecognisedTechniques > 0) {
+        <cp-notice tone="warning">{{ copy.unrecognised }}</cp-notice>
+      }
+
+      @if (warnings().length === 0) {
+        <p class="measure">{{ copy.nothingFound }}</p>
+      }
+
+      @for (warning of warnings(); track warning.key) {
+        <article class="warning" [attr.aria-labelledby]="warning.key + '-name'">
+          <header class="warning-head">
+            <h3 class="warning-name" [id]="warning.key + '-name'">{{ warning.label }}</h3>
+            <div class="warning-pills">
+              <!-- Tone and word together, and the word is about the text rather than about risk. -->
+              <cp-status-pill [tone]="warning.confidenceTone">{{ warning.confidenceLabel }}</cp-status-pill>
+              @if (warning.verificationRequired) {
+                <cp-badge tone="orange">{{ copy.verificationHeading }}</cp-badge>
+              }
+            </div>
+          </header>
+
+          <!-- The server's sentence about what the record shows. The one place this is stated in prose. -->
+          <p class="message">{{ warning.message }}</p>
+
+          <!-- And its sentence about the evidence: today, that verification is still required. -->
+          <p class="cp-muted measure">{{ warning.evidenceStatement }}</p>
+
+          @if (warning.temperatures.length > 0) {
+            <h4 class="group-title">{{ copy.temperaturesHeading }}</h4>
+            <p class="cp-muted measure">{{ copy.temperaturesNote }}</p>
+            <ul class="rows">
+              @for (temperature of warning.temperatures; track temperature.key) {
+                <li class="row">
+                  <span class="row-value">{{ temperature.text }}</span>
+                  <span class="cp-muted">{{ temperature.field }}</span>
+                </li>
+              }
+            </ul>
+          }
+
+          @if (warning.triggers.length > 0) {
+            @let triggersId = triggersElementId(warning.key);
+            @let open = areTriggersOpen(warning.key);
+
+            <div class="disclosure">
+              <button
+                cpButton
+                variant="text"
+                size="sm"
+                type="button"
+                [attr.aria-expanded]="open"
+                [attr.aria-controls]="triggersId"
+                (click)="toggleTriggers(warning.key)"
+              >
+                {{ open ? 'Hide' : 'Show' }} {{ copy.triggersHeading }}
+                <span class="cp-sr-only">for {{ warning.label }}</span>
+              </button>
+            </div>
+
+            <ul class="rows" [id]="triggersId" [hidden]="!open">
+              @for (trigger of warning.triggers; track trigger.key) {
+                <li class="row row--stacked">
+                  <!-- The creator's own matched words, as written and never rewritten. -->
+                  <span class="row-value">“{{ trigger.matched }}”</span>
+                  <span class="cp-muted">{{ trigger.field }} · {{ trigger.kind }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </article>
+      }
+    </section>
+  }
+</section>

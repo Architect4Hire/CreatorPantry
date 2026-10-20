@@ -331,8 +331,64 @@ public static class AiRecipeDraftOutputValidator
     }
 
     /// <summary>Stage 5: the rules the type system cannot state.</summary>
+    /// <summary>
+    /// No text in the draft assures safety, absence or suitability (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// The draft's prompt forbids a free-from title and an allergen assurance; nothing checked. A first draft
+    /// is the most consequential place for it, because accepting one *creates* the recipe — "Nut-Free Granola"
+    /// would arrive as the canonical title of version 1. Every creator-facing string is read: a step, a note
+    /// and an unresolved question are as publishable as the title.
+    /// </remarks>
+    private static AiOutputValidationOutcome<AiRecipeDraftOutputDocument>? NoSafetyAssurance(
+        AiRecipeDraftOutputDocument document)
+    {
+        var texts = new List<string?>
+        {
+            document.Title,
+            document.Description,
+            document.Notes,
+            document.Yield?.YieldText,
+        };
+
+        texts.AddRange(document.UnresolvedQuestions);
+        texts.AddRange(document.IngredientGroups.Select(group => group.Title));
+        texts.AddRange(document.IngredientGroups.SelectMany(group => group.Ingredients)
+            .SelectMany(ingredient => new[] { ingredient.DisplayText, ingredient.PreparationNote }));
+        texts.AddRange(document.Instructions.Select(group => group.Title));
+        texts.AddRange(document.Instructions.SelectMany(group => group.Steps).Select(step => step.Text));
+
+        if (AiRecipeSafetyClaimScanner.FirstAssurance([.. texts]) is { } claim)
+        {
+            return Reject(
+                AiOutputReason.UnsupportedSafetyAssurance,
+                AiRecipeSafetyClaimScanner.Message(claim, "The draft"),
+                correctable: true);
+        }
+
+        // A warning is where a limitation names what the draft could not be made, so only the assurances
+        // count there — see AiRecipeSafetyClaimScanner's two tiers.
+        foreach (var warning in document.Warnings)
+        {
+            if (AiRecipeSafetyClaimScanner.FirstHardAssurance(warning.Message) is { } assurance)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "A warning"),
+                    correctable: true);
+            }
+        }
+
+        return null;
+    }
+
     private static AiOutputValidationOutcome<AiRecipeDraftOutputDocument>? Domain(AiRecipeDraftOutputDocument document)
     {
+        if (NoSafetyAssurance(document) is { } assured)
+        {
+            return assured;
+        }
+
         if (string.IsNullOrWhiteSpace(document.Title))
         {
             return Reject(AiOutputReason.RecipeDraftFieldMissing, "The draft has no title.", correctable: true);
@@ -449,6 +505,7 @@ public static class AiRecipeDraftOutputValidator
             or AiOutputReason.RecipeDraftTooManyItems
             or AiOutputReason.DomainInvalid
             or AiOutputReason.KindNotDeclared
+            or AiOutputReason.UnsupportedSafetyAssurance
             ? AiFailureCategory.DomainInvalid
             : AiFailureCategory.OutputSchemaInvalid;
 

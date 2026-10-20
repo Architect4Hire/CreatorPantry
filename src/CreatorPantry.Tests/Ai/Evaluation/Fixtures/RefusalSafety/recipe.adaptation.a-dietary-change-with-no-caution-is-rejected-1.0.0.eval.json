@@ -1,0 +1,18 @@
+{
+  "id": "recipe.adaptation.a-dietary-change-with-no-caution-is-rejected",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "AdaptationOutputValidation",
+  "description": "14.7's H-1. The adaptation prompt declares safetyClass DietaryOrAllergen and asks for a caution beside any change touching allergens or dietary suitability; no validator checked, so the rule rested on the model's goodwill. A dietary goal is the one that swaps an ingredient for another a reader may react to.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"title\",\"afterValue\":\"Buttermilk Soda Bread, adapted\"}],\"warnings\":[{\"kind\":\"Rationale\",\"message\":\"Retitled to flag the adaptation.\",\"changeIndex\":0}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Dietary"
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.allergen_effect_uncautioned",
+    "category": "DomainInvalid"
+  }
+}

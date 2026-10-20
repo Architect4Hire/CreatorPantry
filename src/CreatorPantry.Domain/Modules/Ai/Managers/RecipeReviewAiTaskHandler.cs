@@ -177,6 +177,21 @@ internal sealed class RecipeReviewAiTaskHandler(
     /// field it supplied. A warning about one finding is re-addressed to that finding's Add row by index, so
     /// <see cref="AiProposalAssembler"/> resolves it exactly as it resolves a substitution's warning.
     /// </summary>
+    /// <summary>
+    /// What an empty review means, said by this product and not by the model (14.7, BL-1).
+    /// </summary>
+    /// <remarks>
+    /// The 1.0.0 prompt asked the model to say so "when the recipe reads as complete, consistent, and safe as
+    /// written", and the validator accepted any general warning, so a model-written all-clear reached the
+    /// creator on a capability whose own safety class is <c>FoodSafety</c>. 1.1.0 asks it to say only what it
+    /// looked at; this sentence is what is shown either way, so the wording cannot drift back with the next
+    /// model or the next prompt.
+    /// </remarks>
+    public const string EmptyAnswerMessage =
+        "Nothing in the ten kinds of finding this review looks for stood out. That is not a check of whether "
+            + "the recipe is safe, correct or complete: a review reads the words of one version, it verifies "
+            + "nothing against a reference, and finding nothing is not a clearance.";
+
     private static (List<AiResolvedChange> Changes, List<AiOutputWarning> Warnings) Translate(
         AiRecipeReviewOutputDocument document)
     {
@@ -218,11 +233,17 @@ internal sealed class RecipeReviewAiTaskHandler(
             AddSet(changes, targetId, AiRecipeReviewFields.UnknownFactors, Describe(finding.UnknownFactors));
         }
 
+        // An empty answer says what an empty answer means, in this product's words rather than the model's
+        // (14.7, BL-1). The model is asked for a general warning so that "nothing found" can be told apart
+        // from a call that failed — but whatever sentence it writes there is about the recipe as a whole, and
+        // a sentence about a whole recipe from a model is exactly where "safe as written" used to arrive.
+        var empty = document.Findings.Count == 0;
+
         var warnings = document.Warnings
             .Select(warning => new AiOutputWarning
             {
                 Kind = warning.Kind,
-                Message = warning.Message,
+                Message = empty && warning.FindingIndex is null ? EmptyAnswerMessage : warning.Message,
                 ChangeIndex = warning.FindingIndex is { } findingIndex
                     ? addRowIndexByFinding[findingIndex]
                     : null,

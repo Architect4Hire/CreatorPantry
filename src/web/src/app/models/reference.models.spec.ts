@@ -1,4 +1,4 @@
-import { decodeCursorPage, decodeMeasurementUnit } from './reference.models';
+import { decodeCursorPage, decodeDescribedReferenceEntry, decodeMeasurementUnit } from './reference.models';
 
 function gram(): Record<string, unknown> {
   return {
@@ -89,6 +89,35 @@ describe('reference.models', () => {
 
     it('refuses a page whose items are not an array', () => {
       expect(decodeCursorPage({ items: 'gram', nextCursor: null }, decodeMeasurementUnit)).toBeNull();
+    });
+  });
+
+  describe('decodeDescribedReferenceEntry', () => {
+    it('decodes an allergen or dietary pattern with the description that says what it covers', () => {
+      expect(
+        decodeDescribedReferenceEntry({
+          id: 'a-milk',
+          code: 'milk',
+          displayName: 'Milk',
+          description: 'Milk and milk-derived ingredients, including butter, cream and whey.',
+        }),
+      ).toEqual({
+        id: 'a-milk',
+        code: 'milk',
+        displayName: 'Milk',
+        description: 'Milk and milk-derived ingredients, including butter, cream and whey.',
+      });
+    });
+
+    // The description decides the meaning of every record kept under the entry, so an entry without one is
+    // not an entry this app can offer someone to pick.
+    it('refuses an entry with no description', () => {
+      expect(decodeDescribedReferenceEntry({ id: 'a-milk', code: 'milk', displayName: 'Milk' })).toBeNull();
+    });
+
+    it('refuses an entry that is not a reference entry at all', () => {
+      expect(decodeDescribedReferenceEntry({ description: 'Milk products.' })).toBeNull();
+      expect(decodeDescribedReferenceEntry(null)).toBeNull();
     });
   });
 });

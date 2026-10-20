@@ -1,0 +1,282 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is always carried by words as well — a
+ * pill's tone is the quieter half of something its label already says.
+ */
+
+:host {
+  display: block;
+}
+
+/*
+ * `[hidden]` is a UA rule, and every author `display` below beats it — a collapsed group whose list is
+ * `display: grid` stays on screen with its button still saying "Show". `!important` rather than a rule placed
+ * last, because `.lines[_ngcontent]` and `[hidden][_ngcontent]` have the *same* specificity: source order
+ * would decide it, and the next rule added to this file would silently decide it again. Scoped to this
+ * component's own template by view encapsulation, and the specs pin the computed display.
+ */
+[hidden] {
+  display: none !important;
+}
+
+/* `minmax(0, 1fr)`: an auto track's floor is its content's max-content width, so one long citation would hold
+   the whole panel wider than the drawer and push it sideways. */
+.analysis,
+.results,
+.subject,
+.group,
+.sources {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.analysis {
+  gap: var(--cp-space-5);
+}
+
+.analysis-intro,
+.measure {
+  max-width: var(--cp-measure-prose);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Nothing in here is written by this product: a citation, a source's note and a creator's own line can each
+   be one unbroken string, and a column that cannot break it widens the whole panel. */
+.analysis-intro,
+.measure,
+.statement,
+.conflict,
+.line-note,
+.group-note,
+.evidence-word {
+  overflow-wrap: anywhere;
+}
+
+.analysis-intro {
+  margin: 0;
+}
+
+/* A pill and the sentence that explains it, on one line until the line runs out. */
+.caveat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+cp-notice {
+  max-width: var(--cp-measure-prose);
+}
+
+/* The selection ----------------------------------------------------------- */
+
+.selection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-8);
+  min-width: 0;
+}
+
+/* The answer -------------------------------------------------------------- */
+
+.results {
+  gap: var(--cp-space-5);
+  padding-block-start: var(--cp-space-5);
+  border-block-start: 1px solid var(--cp-border);
+}
+
+.results-heading {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+}
+
+.subject {
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.subject-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+}
+
+.subject-name {
+  font-family: var(--cp-font-display);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  min-width: 0;
+  font-size: var(--cp-font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.subject-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+/* The server's own sentence about the finding. The thing to read first, so it is not muted. */
+.statement {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.conflict {
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Groups of lines --------------------------------------------------------- */
+
+.group {
+  gap: var(--cp-space-2);
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.group-title {
+  font-family: var(--cp-font-display);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+.group-note {
+  margin: 0;
+  font-size: var(--cp-font-size-xs);
+}
+
+.lines,
+.evidence,
+.source-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.line,
+.source {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface);
+  min-width: 0;
+}
+
+/* The creator's own words for the line: the part worth reading, so it carries the weight. */
+.line-text,
+.source-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.line-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+.line-conflict {
+  font-style: italic;
+}
+
+/* Evidence ---------------------------------------------------------------- */
+
+.evidence {
+  width: 100%;
+  padding-block-start: var(--cp-space-1);
+}
+
+.evidence-item {
+  display: grid;
+  gap: var(--cp-space-1);
+  padding-inline-start: var(--cp-space-3);
+  border-inline-start: 2px solid var(--cp-border);
+  min-width: 0;
+}
+
+.evidence-word {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+/* The source's own note, quoted. Italic because it is someone else's wording, not this product's. */
+.evidence-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-xs);
+  font-style: italic;
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+/* Sources ----------------------------------------------------------------- */
+
+.sources {
+  gap: var(--cp-space-3);
+  padding-block-start: var(--cp-space-4);
+  border-block-start: 1px solid var(--cp-border);
+}
+
+.sources-heading {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-md);
+}
+
+.source-citation {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-xs);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}

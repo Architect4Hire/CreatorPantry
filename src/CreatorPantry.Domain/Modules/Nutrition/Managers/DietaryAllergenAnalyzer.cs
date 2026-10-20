@@ -84,6 +84,8 @@ public static class DietaryAllergenAnalyzer
         ArgumentNullException.ThrowIfNull(lines);
         ArgumentNullException.ThrowIfNull(evidence);
 
+        evidence = InEffectOn(evidence, evaluatedOn);
+
         return new DietaryAllergenAnalysisServiceModel(
             recipeId,
             recipeVersionId,
@@ -95,6 +97,29 @@ public static class DietaryAllergenAnalyzer
             [.. profiles.OrderBy(subject => subject.Name, StringComparer.Ordinal).Select(subject => Dietary(subject, lines, evidence))],
             Sources(evidence));
     }
+
+    /// <summary>
+    /// The traits in effect on the evaluation date, and only those (14.7, M-2 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The repository already filters by review status and effective date, and the database test that proves a
+    /// future-dated trait drives no finding goes through it. This is the same rule restated where the finding
+    /// is actually made: the analyzer took <c>evaluatedOn</c>, recorded it on the answer, and never compared
+    /// anything with it, so a second read path — a cache, a batch job, a test harness — that passed unfiltered
+    /// traits would have produced an analysis citing records that had not taken effect.
+    /// </para>
+    /// <para>
+    /// Approval cannot be re-checked here: an approved trait is all the facade returns, and the service model
+    /// carries no review status to test. That half stays the repository's, with
+    /// <c>TraitPolicy.MayBeApproved</c> now guarding what may reach it.
+    /// </para>
+    /// </remarks>
+    private static IngredientTraitEvidenceServiceModel InEffectOn(
+        IngredientTraitEvidenceServiceModel evidence, DateOnly evaluatedOn) =>
+        new(
+            [.. evidence.Allergens.Where(trait => trait.EffectiveFrom <= evaluatedOn)],
+            [.. evidence.Dietary.Where(trait => trait.EffectiveFrom <= evaluatedOn)]);
 
     /// <summary>
     /// How complete the records behind one finding are. Derived from the line findings alone, so it can never move

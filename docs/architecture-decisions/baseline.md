@@ -53,6 +53,8 @@ later documents may reference them.
 | B-38 | Dietary and allergen analysis endpoint | TBD | Decided | Read-only POST per version number; confidence describes record completeness, never likelihood; every cited source listed with licence and latest effective date; refusals as the Recipes routes give them. |
 | B-40 | Nutrition mapping commands | TBD | Decided | GET plus confirm, reject and remap per ingredient, one decision per request; token required for every decision on an existing mapping; Editor; four mapping codes corrected to answer their status. |
 | B-39 | Nutrition estimate endpoint | TBD | Decided | Read-only POST per version number with an optional serving count as the yield basis; labelled estimate; unresolved lines grouped and `publishable` exposed, not wired to readiness; 503 when the source cannot be asked. |
+| B-41 | Dietary and allergen review UI | TBD | Decided | A tool in the recipe editor's drawer over the saved version; the server's statements and disclaimer verbatim; no finding is ever a success tone and no sentence of its own says safe, free from, certified or suitable; decoded whole or not at all. |
+| B-42 | Nutrition mapping and estimate UI | TBD | Decided | A tool in the recipe editor's drawer: the server's figures rendered as given with no arithmetic in the browser, a partial estimate shown with its gaps named, and confirm/turn-down for the mappings it rests on — reached through the estimate, because a mapping has no other address. |
 
 ## Decisions
 
@@ -1665,6 +1667,152 @@ on SQL Server (`NutritionMappingTests`) and the route tests use a token the mapp
 moved some existing paths as the new controller sorted in; checked semantically against HEAD, nothing published was
 removed or changed. Propose, refresh and mark-unresolved have no route.
 **Rules:** `api-contract.md`, `tenancy.md`, `recipes.md`, `backend.md`.
+
+### B-41 Dietary and allergen review UI
+
+*Recorded 2026-10-20 by microprompt 14.6c. Shows B-36's analysis through B-38's route (ING-007 and AI-UI-002,
+neither of whose text is in the repository — B-12).*
+
+- **A tool on a recipe, not an area of it.** The eighth entry in the recipe editor's Tools drawer, beside Scale,
+  Convert and Yield & display and before the AI requests: it reads the *saved* version, as every tool there does,
+  and says so when the form beside it has edits that were never sent. Not a page — it has no address worth
+  linking, the route answers `no-store`, and the selection is the question. Not a dialog — the recipe stays in
+  view behind it. It prints no title of its own: the drawer already names the tool, so the region is named and
+  its parts carry the headings.
+- **The panel decides nothing and writes nothing.** Findings, confidences, coverage counts and the sentence about
+  each finding are the server's; the panel groups lines, names findings in words and renders `statement` and
+  `crossContactDisclaimer` verbatim. No finding is derived, re-worded or re-ranked here — subjects render in the
+  order they were asked about, because a ranking the server did not give would be the panel's own judgement.
+- **No finding is ever a success tone.** `NotListedInRecords` and `FitsAsRecorded` get the same neutral pill as
+  `Unknown`, and a test holds those pairs equal: a tick beside "not listed" is exactly how a reading of records
+  becomes read as a clearance. Nothing on screen carries a certification badge, and no nutrition number appears.
+- **The copy is guarded like the server's.** Every sentence the panel writes itself lives in exported constants
+  (`PANEL_COPY`, the label maps, `GROUP_HEADINGS`, `conflictSentence`, `notCountedReason`), and a spec asserts
+  none of them says safe, unsafe, free from, free of, certified or suitable. The two sentences that *do* carry
+  those words are the server's own denials, rendered untouched.
+- **The disclaimer is on every answer**, in a warning notice above the findings, including the best one — never
+  collapsed and never summarised.
+- **Confidence is shown as what it is:** a pill about the records (`Records: some lines have none`,
+  `Records: sources disagree`), the coverage counts in words, and, wherever the records are not complete and in
+  agreement, one line saying this describes the records and not how likely the finding is.
+- **Hidden sources, unknowns and conflicts each have their own group**, collapsible, cautious ones open: lines a
+  source says contain it, lines a source says may contain it (with a line saying nothing was inferred from a
+  category, a neighbour or the line's own words), lines with no reviewed record (each with its reason), and —
+  shut by default — the lines whose records do not list it, stated as a fact about the records. A conflict is
+  flagged on the line and counted under the finding, both saying the more cautious word was kept and both sources
+  cited. Evidence opens per line and names the source, its kind, the date its statement took effect and its own
+  note quoted; a word that does not count is shown as `Cited, not counted` with the reason — an unvetted kind,
+  or a retired source.
+- **The pick lists are the catalogue's**, read through two new `ReferenceService` catalogue reads
+  (`/reference/allergens`, `/reference/dietary-profiles`, cached for the session like the rest). Each option
+  carries its description, because what an entry covers decides the meaning of every record under it. Both lists
+  failing is one state with nothing to pick; a reload drops any id the catalogue no longer offers.
+- **The analysis is decoded whole or not at all.** Every finding, confidence, presence, compatibility, reason and
+  source-kind enum is closed, and an answer missing its disclaimer is refused: a half-read analysis would drop a
+  finding, and a dropped finding reads as "nothing was found about this". An unreadable answer is reported as
+  unavailable rather than shown in part.
+- **A refusal never erases an answer on screen.** The previous analysis names its own version and read-date, so
+  it cannot be mistaken for the answer to the attempt that failed. `400` field errors land on the list they name;
+  `422` offers to reload the lists; a newer version than the one read shows an `Out of date` pill and keeps the
+  findings.
+- **One live region, mounted empty from first render**, saying that a request is in flight and then what came
+  back — a region created along with its text is not reliably announced. The Submit button is `disabled` only on
+  what is true before anyone reaches it; while a request is in flight it stays focusable and says `aria-disabled`,
+  because disabling a focused button drops focus to the body, and inside an open drawer that costs the creator
+  their place.
+
+**Options considered:** a routed page (rejected — no address worth linking, and the answer describes a moment);
+sorting subjects most-cautious-first (rejected — a ranking the server did not give); a separate group for
+conflicting lines (rejected — it would list the same lines twice; the flag sits on the line and the count under
+the finding); tolerant decoding of an unknown finding (rejected — the only safe guess would be the most cautious
+one, which would state something no source said).
+**Consequences:** a collapsed group needs `[hidden] { display: none !important }` in the panel's own stylesheet:
+every author `display` rule beats the UA rule behind the attribute, and `.lines[_ngcontent]` and
+`[hidden][_ngcontent]` have the same specificity, so source order alone would decide it. Two specs pin the
+computed display. **`RecipeReadinessComponent` has the same defect and is left alone here** — `.findings` is
+`display: grid` and its Satisfied and NotApplicable groups are collapsed by default, so those lists show while
+their buttons say "Show". The fix is that component's own line, or one rule in `global.css`; either is its own
+change. `CpFormSectionComponent` hard-codes an `h2`, so the two pick lists are `h2`s beside the answer's — a
+`headingLevel` input would let a panel demote them, and is not added here.
+`DescribedReferenceEntry` and its decoder are new, as are
+`ListDescribedReferenceEntriesOutcome`, `listAllergens` and `listDietaryProfiles`. Nothing was added to
+`@creator-pantry/ui`; the panel is composed from `cp-form-section`, `cp-choice-group`, `cp-status-pill`,
+`cp-badge`, `cp-notice` and `cp-button`. No nutrition UI (14.6d), and no readiness rule reads this.
+**Rules:** `frontend.md`, `design-system.md`, `recipes.md`, `ai.md`.
+
+### B-42 Nutrition mapping and estimate UI
+
+*Recorded 2026-10-20 by microprompt 14.6d. Shows B-35's arithmetic through B-39's route, and decides B-34's
+mappings through B-40's commands (ING-008, whose text is not in the repository — B-12).*
+
+- **A tool on a recipe, like the dietary review beside it.** The ninth entry in the recipe editor's Tools
+  drawer, over the *saved* version, printing no title of its own because the drawer names it. The estimate is
+  asked for, never fetched on open: a creator who opens Tools has not asked for a figure yet.
+- **No arithmetic in the browser.** Every figure is the server's own display value, rounded once server-side;
+  `toFixed` is called only with the precision the server already rounded to, so it pads trailing zeros and
+  cannot change a value, and a test pins that. Changing the serving basis re-asks the route rather than
+  dividing. The exact values sit behind a disclosure and are never used to re-round.
+- **Nothing is hidden.** A partial estimate shows its totals *and* says they are a lower bound; an incomplete
+  nutrient shows its figure *and* names how many counted ingredients' sources are silent about it, "never
+  zero"; a trace shows as `trace`; a range shows as a range; a `Low` confidence mapping shows its confidence.
+  The three groups of uncounted lines are the server's own `unresolved`, rendered as given rather than
+  filtered out of `lines` a second time, and the optional and unquantified lines are listed too, under "Left
+  out on purpose" — a line in no list at all reads as one that was counted.
+- **Publishing is stated, not enforced.** `publishable` and `partial` become one sentence: don't publish a
+  partial estimate, and of a publishable one only the nutrients marked complete. It says in the same breath
+  that nothing in CreatorPantry stops a publish on an estimate yet, because nothing does (B-39) — implying a
+  gate would be worse than naming its absence.
+- **Mapping review lives inside the estimate**, because a mapping is addressed by platform ingredient and
+  nothing else says which ingredients matter: there is no list route and no mapping inbox. An estimate line
+  carries a line id, so the panel joins it to the recipe **as saved** to find the ingredient id; a line matched
+  to no platform ingredient says so and offers no control.
+- **The review is offered on a counted line too**, not only an uncounted one. `NutritionLineEstimate` carries
+  `basis`, `mappingId` and `source` and nothing else about the mapping, so a counted figure resting on a
+  reference matched with `Low` confidence is invisible from the figures alone; opening its mapping is the only
+  way to it, and leaving the control off those rows would hide exactly what this screen may not hide. Carrying
+  the match confidence on the line is a server change, not made here.
+- **A decision moves focus to the mapping it decided.** Confirming leaves nothing to decide, so the focused
+  button is removed from the DOM — inside a drawer whose page is `inert`, focus would fall to the body. The
+  region takes it, named by its line, so the new state is what gets read.
+- **Confirm and turn-down only.** Each quotes the token of the mapping as read. A `409` — a stale token, or
+  nothing left to decide — re-reads the mapping and never resends the decision; both `503`s say nothing was
+  saved and leave the control there, because both are safe to send again. A refusal below Editor is reported
+  as a role refusal rather than a lost session, and the control is not offered to a Contributor in the first
+  place. **No remap**: it needs a reference the creator cannot search for, since no route exposes one, and a
+  box for FDC record ids is not a feature. **No propose, no refresh, no mark-unresolved** — none has a route.
+- **A turn-down is asked about first**, through `ConfirmService`, because it cannot be undone from here: the
+  rejection is remembered for the whole workspace and withdrawing it needs the remap no screen can do.
+- **A decision never rewrites the figures.** It marks the estimate "a mapping changed" and leaves the table
+  alone; a creator reading numbers should not have them replaced underneath them, and the stale pill says what
+  to do. A newer recipe version shows the same way.
+- **An estimate is decoded whole or not at all**, and one that arrives without its `label` or its `method` is
+  refused: those two are what mark the figures as an estimate. A source that cannot be asked is the server's
+  own `503` sentence, which distinguishes "down" from "not available on this installation" — one clears by
+  waiting and the other does not — and no partial estimate is shown in its place.
+
+**From the design review**, fixed here: focus after a decision (above); the review on counted lines (above);
+the parts demoted to `h3` under the drawer's own `h2`; the nutrient table in a focusable, named scroll box,
+because three columns of figures do not fit a drawer that becomes a full-screen sheet at 40rem; the exact
+values and the reference block moved onto `cp-facts`; the lower-bound sentence onto `cp-notice`; each review
+control naming its line; the per-line decisions demoted to `secondary` beside the one primary; the
+per-serving dash given a said alternative; an incomplete nutrient's note tied to its row by
+`aria-describedby`; and a `displayPrecision` outside 0–20 refused in the decoder, since `toFixed` throws
+outside 0–100. Two wordings were corrected because they claimed more than the data does: the confidence line
+said "the least precise way any ingredient's weight was known" over a label that may read *Weighed amounts*
+— it now says "weakest basis across the counted ingredients", and the word *confidence* is no longer shared
+with a mapping's match confidence — and the publishable sentence said the complete nutrients "may be
+published", which is the clause a creator reads and reads as permission; it now states the server's rule and
+says who checks it.
+
+**Options considered:** fetching an estimate when the tool opens (rejected — a figure nobody asked for);
+auto-refetching after a mapping decision (rejected, above); deriving the uncounted groups from `lines`
+(rejected — the server derives them so the two cannot disagree); a mappings page (impossible: no list route);
+re-rounding the exact values for display (rejected — that is the arithmetic this screen may not do).
+**Consequences:** `nutrition.models.ts` and `NutritionService` are new and cover both routes; the panel reuses
+`roleAllows` from `recipe-readiness.models.ts`. The nutrient table is a hand-rolled `<table>` — the library has
+no data table, and `cp-list-shell` frames a list without columns. No readiness rule, no publish path and no
+JSON-LD read any of this yet.
+**Rules:** `frontend.md`, `design-system.md`, `recipes.md`, `ai.md`, `tenancy.md`.
 
 ## Open items
 

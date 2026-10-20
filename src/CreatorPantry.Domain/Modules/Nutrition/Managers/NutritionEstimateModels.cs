@@ -200,10 +200,20 @@ public sealed record NutritionCitationServiceModel(string SourceCode, string Cit
 /// <param name="Unmapped">No platform ingredient, or no confirmed mapping for it.</param>
 /// <param name="NeedsReview">A confirmed mapping under review, superseded, or withdrawn by the source.</param>
 /// <param name="Unconvertible">Mapped, but the quantity cannot be turned into grams.</param>
+/// <param name="NotQuantified">
+/// Required lines the recipe states no amount for — "butter, softened" (14.7, H-4).
+/// </param>
+/// <remarks>
+/// <strong>`NotQuantified` is new, and it amends B-35.</strong> That decision put optional *and* unquantified
+/// lines outside the required set, so neither affected publishability. For an optional line that is right: it
+/// is the creator's "if you like". For an unquantified one it meant an estimate could call itself Complete
+/// while leaving out the salt or the oil, which is the direction this model exists not to fail in.
+/// </remarks>
 public sealed record NutritionUnresolvedLinesServiceModel(
     IReadOnlyList<Guid> Unmapped,
     IReadOnlyList<Guid> NeedsReview,
-    IReadOnlyList<Guid> Unconvertible);
+    IReadOnlyList<Guid> Unconvertible,
+    IReadOnlyList<Guid> NotQuantified);
 
 /// <summary>
 /// A nutrition estimate for one recipe version (14.3): deterministic, labelled as an estimate, and explicit about
@@ -211,8 +221,9 @@ public sealed record NutritionUnresolvedLinesServiceModel(
 /// </summary>
 /// <param name="Label">Always "Estimate". Nothing here is a measured or certified value.</param>
 /// <param name="Publishable">
-/// True only when the estimate is complete. A caller that publishes nutrition publishes nothing when this is
-/// false, and of a publishable estimate only the nutrients that are themselves complete.
+/// True only when the estimate is complete and something was actually counted. A caller that publishes
+/// nutrition publishes nothing when this is false, and of a publishable estimate only the nutrients that are
+/// themselves complete.
 /// </param>
 /// <param name="Partial">The totals leave out at least one required line, so they are a lower bound.</param>
 /// <param name="Confidence">The weakest quantity basis among the counted lines; null when none was counted.</param>

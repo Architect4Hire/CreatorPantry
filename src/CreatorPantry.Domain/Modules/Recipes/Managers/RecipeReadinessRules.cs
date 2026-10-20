@@ -139,10 +139,11 @@ public sealed record RecipeReadinessRule(
 /// <strong>Three areas the SCOPE names have no rules here, and each absence is deliberate.</strong>
 /// </para>
 /// <para>
-/// <em>Nutrition.</em> There is no nutrition model in this product — <c>Ingredient</c>'s own remarks say
-/// nutrition "carries its own provenance and uncertainty model and is modelled separately", and nothing has
-/// modelled it. A rule needs a record to read, and inventing a column to give one something to check would be
-/// the worse of the two outcomes. When nutrition arrives, its rule arrives with it.
+/// <em>Nutrition.</em> Modelled since 14.2 and 14.3, and deliberately still not a readiness rule. An estimate
+/// says whether it is <c>publishable</c>, which is a statement about whether every required ingredient could be
+/// counted — not about whether a recipe is ready to approve. Wiring the two would make an unmapped ingredient
+/// block an approval, which is a product decision nobody has taken; 14.6a recorded the gate as "exposed, not
+/// wired" (B-39), and 14.7's audit confirmed nothing reads it. The rule arrives with that decision.
 /// </para>
 /// <para>
 /// <em>Publication metadata beyond the recipe.</em> No <c>Publication</c>, <c>SEOBrief</c> or

@@ -133,9 +133,12 @@ public sealed class AiAdaptationOutputValidatorTests
     [Fact]
     public void A_non_yield_goal_never_runs_the_determinism_check()
     {
-        var payload = Document(changes: $$"""
-            {"changeKind":"Set","targetKind":"Ingredient","targetId":"{{Line1}}","fieldName":"quantity","afterValue":"anything"}
-            """);
+        var payload = Document(
+            changes: $$"""
+                {"changeKind":"Set","targetKind":"Ingredient","targetId":"{{Line1}}","fieldName":"quantity","afterValue":"anything"}
+                """,
+            // A dietary change owes a safety caution (14.7, H-1); this test is about the determinism check.
+            warnings: """{"kind":"SafetyCaution","message":"Check every label; whether this suits a reader is theirs to judge."}""");
 
         var result = AiAdaptationOutputValidator.Validate(
             payload, SchemaVersion, AiOperationScope.WholeRecipe, AiAdaptationGoal.Dietary, null);
@@ -202,7 +205,9 @@ public sealed class AiAdaptationOutputValidatorTests
     [Fact]
     public void Non_empty_changes_need_no_limitation()
     {
-        var payload = Document(changes: """{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"New title"}""");
+        var payload = Document(
+            changes: """{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"New title"}""",
+            warnings: """{"kind":"SafetyCaution","message":"Check every label; whether this suits a reader is theirs to judge."}""");
 
         var result = AiAdaptationOutputValidator.Validate(
             payload, SchemaVersion, AiOperationScope.WholeRecipe, AiAdaptationGoal.Dietary, null);

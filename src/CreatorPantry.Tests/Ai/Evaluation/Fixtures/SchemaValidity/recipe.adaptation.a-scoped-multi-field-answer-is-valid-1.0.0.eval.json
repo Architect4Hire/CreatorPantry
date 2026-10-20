@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "category": "SchemaValidity",
   "kind": "AdaptationOutputValidation",
-  "description": "AIREC-005 answers with an ordinary recipe-diff document, so a dietary adaptation touching the recipe's own fields is exactly as valid as a revision's would be. Reuses AiOutputValidator's stages unchanged; AiAdaptationOutputValidator adds nothing to reject here.",
+  "description": "A dietary adaptation touching the recipe's own fields is an ordinary recipe-diff document, and valid — said without assuring anyone of anything. The retitle names the adaptation, the headnote says what was used, and the safety caution leaves the judgement with the creator. Replaces the version of this fixture that used \"Gluten-Free\" as the title (14.7, BL-2).",
   "input": {
-    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"title\",\"afterValue\":\"Gluten-Free Buttermilk Soda Bread\"},{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"Made with a 1:1 gluten-free flour blend.\"}],\"warnings\":[{\"kind\":\"Rationale\",\"message\":\"Retitled to flag the adaptation for a reader scanning the list.\",\"changeIndex\":0},{\"kind\":\"SafetyCaution\",\"message\":\"Check the flour blend's own label for cross-contact.\",\"changeIndex\":1}]}",
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"title\",\"afterValue\":\"Buttermilk Soda Bread, adapted\"},{\"changeKind\":\"Set\",\"targetKind\":\"Recipe\",\"fieldName\":\"headnote\",\"afterValue\":\"Made with a 1:1 flour blend in place of the wheat flour.\"}],\"warnings\":[{\"kind\":\"Rationale\",\"message\":\"Retitled to flag the adaptation for a reader scanning the list.\",\"changeIndex\":0},{\"kind\":\"SafetyCaution\",\"message\":\"Check the flour blend's own label for cross-contact.\",\"changeIndex\":1}]}",
     "expectedSchemaVersion": "fixture.adaptation.v1",
     "scope": "WholeRecipe",
     "goal": "Dietary"

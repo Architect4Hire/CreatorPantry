@@ -13,12 +13,36 @@ public interface IFoodSafetyRecipeVersionReader
 {
     /// <summary>The version, or null when this workspace has no such recipe or version.</summary>
     Task<FoodSafetyRecipeInput?> ReadAsync(Guid recipeId, Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The version by the number the history lists it under, with its id, or the Recipes module's own refusal.
+    /// </summary>
+    /// <remarks>
+    /// Added by 14.7's H-3, so these warnings can be served on the route shape every public recipe route uses.
+    /// The refusal is passed through unchanged, which is what makes an unknown version answer
+    /// <c>recipes.version.not_found</c> naming <c>versionNumber</c>, as its siblings do.
+    /// </remarks>
+    Task<OperationResult<NumberedFoodSafetyRecipeVersion>> ReadByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken);
 }
+
+/// <summary>One version read by number: its id, and the parts the checks read.</summary>
+public sealed record NumberedFoodSafetyRecipeVersion(Guid VersionId, FoodSafetyRecipeInput Version);
 
 internal sealed class FoodSafetyRecipeVersionReader(IRecipeFacade recipes) : IFoodSafetyRecipeVersionReader
 {
     public async Task<FoodSafetyRecipeInput?> ReadAsync(Guid recipeId, Guid versionId, CancellationToken cancellationToken) =>
         FromResult(await recipes.GetSnapshotAsync(recipeId, versionId, cancellationToken));
+
+    public async Task<OperationResult<NumberedFoodSafetyRecipeVersion>> ReadByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+    {
+        var snapshot = await recipes.GetSnapshotByNumberAsync(recipeId, versionNumber, cancellationToken);
+
+        return snapshot is { Succeeded: true, Value: { } version }
+            ? OperationResult<NumberedFoodSafetyRecipeVersion>.Success(new(version.VersionId, FromSnapshot(version)))
+            : OperationResult<NumberedFoodSafetyRecipeVersion>.Failure(snapshot.Error!);
+    }
 
     /// <summary>
     /// The version, or null for any refusal — another workspace's recipe included, which the Recipes module answers
@@ -59,6 +83,10 @@ public interface IFoodSafetyWarningBusiness
 {
     Task<OperationResult<FoodSafetyWarningsServiceModel>> DetectAsync(
         Guid recipeId, Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>The same checks, for the version the history lists under <paramref name="versionNumber"/>.</summary>
+    Task<OperationResult<FoodSafetyWarningsServiceModel>> DetectByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken);
 }
 
 internal sealed class FoodSafetyWarningBusiness(
@@ -74,6 +102,23 @@ internal sealed class FoodSafetyWarningBusiness(
             return OperationResult<FoodSafetyWarningsServiceModel>.Failure(
                 new OperationError(NutritionErrorCodes.EstimateRecipeNotFound, "That recipe version was not found.", new Dictionary<string, string[]>()));
         }
+
+        return await DetectForAsync(recipeId, versionId, version, cancellationToken);
+    }
+
+    public async Task<OperationResult<FoodSafetyWarningsServiceModel>> DetectByNumberAsync(
+        Guid recipeId, int versionNumber, CancellationToken cancellationToken)
+    {
+        var read = await versions.ReadByNumberAsync(recipeId, versionNumber, cancellationToken);
+
+        return read.Succeeded
+            ? await DetectForAsync(recipeId, read.Value!.VersionId, read.Value.Version, cancellationToken)
+            : OperationResult<FoodSafetyWarningsServiceModel>.Failure(read.Error!);
+    }
+
+    private async Task<OperationResult<FoodSafetyWarningsServiceModel>> DetectForAsync(
+        Guid recipeId, Guid versionId, FoodSafetyRecipeInput version, CancellationToken cancellationToken)
+    {
 
         var techniques = (await vocabulary.ListActiveTechniquesAsync(cancellationToken)).ToDictionary(technique => technique.Id);
 

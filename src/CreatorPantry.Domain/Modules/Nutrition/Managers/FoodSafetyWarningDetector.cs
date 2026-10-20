@@ -673,7 +673,18 @@ public static partial class FoodSafetyWarningDetector
         Options)]
     private static partial Regex TemperatureRangeLow();
 
-    [GeneratedRegex(@"\b\d+(?:\.\d+)?\s*(?:-\s*\d+\s*)?(?:hours?|hrs?)\b|\bovernight\b", Options)]
+    /// <summary>
+    /// A hold long enough to matter: hours, overnight, or a figure in minutes from 45 upwards (14.7, M-6).
+    /// </summary>
+    /// <remarks>
+    /// Minutes were missing, so "hold at 63 °C in a water bath for 90 minutes" — a sous vide by any reading —
+    /// raised nothing at all, because the rule wanted the literal word "hours". The floor is there because a
+    /// low water bath for ten minutes is a tempering or a melting step, not a cook.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\b\d+(?:\.\d+)?\s*(?:-\s*\d+\s*)?(?:hours?|hrs?)\b|\bovernight\b"
+            + @"|\b(?:4[5-9]|[5-9]\d|\d{3,})\s*(?:minutes?|mins?)\b",
+        Options)]
     private static partial Regex Hours();
 
     // Canning.
@@ -811,7 +822,7 @@ public static partial class FoodSafetyWarningDetector
     // Pregnancy and medical diets.
 
     [GeneratedRegex(
-        @"\b(?:pregnancy|pregnant)[- ](?:safe|approved)\b|\b(?:baby|infant|toddler)[- ]safe\b|\b(?:diabetic|diabetes|celiac|coeliac|kidney|renal|ibs|fodmap)[- ](?:safe|friendly|approved)\b|\b(?:heart|gut|liver)[- ]safe\b|\b(?:safe|suitable|ideal|perfect|good|great|fine|okay|ok|appropriate|recommended|approved)\s+(?:to\s+eat\s+)?(?:for|during|while)\s+(?:a\s+|your\s+)?(?:pregnan\w+|expecting mothers?|moms?[- ]to[- ]be|mums?[- ]to[- ]be|breastfeeding|nursing mothers?|diabetics?|celiacs?|coeliacs?|(?:people|anyone|those) with (?:diabetes|celiac|coeliac|kidney disease|ibs|crohn'?s|heart disease|high blood pressure)|(?:diabetic|renal|cardiac|low[- ]fodmap|gestational diabetes) diets?)\b|\b(?:safe|suitable|appropriate|recommended|fine|okay|ok)\s+(?:to\s+(?:eat|serve)\s+)?for\s+(?:babies|infants|toddlers|young children|little ones)\b|\b(?:cures?|treats?|prevents?|heals?|reverses?|fights?)\s+(?:the\s+)?(?:common\s+)?(?:colds?|flu|cancer|diabetes|inflammation|ibs|anxiety|depression|acne|arthritis|disease|infections?|morning sickness)\b|\b(?:lowers?|reduces?|regulates?|balances?|stabili[sz]es?|controls?)\s+(?:your\s+)?(?:blood sugar|blood pressure|cholesterol|insulin)\b",
+        @"\b(?:pregnancy|pregnant)[- ](?:safe|approved)\b|\b(?:baby|infant|toddler)[- ]safe\b|\b(?:diabetic|diabetes|celiac|coeliac|kidney|renal|ibs|fodmap)[- ](?:safe|friendly|approved)\b|\b(?:heart|gut|liver)[- ]safe\b|\b(?:safe|suitable|ideal|perfect|good|great|fine|okay|ok|appropriate|recommended|approved)\s+(?:to\s+eat\s+)?(?:for|during|while)\s+(?:a\s+|your\s+)?(?:pregnan\w+|expecting mothers?|moms?[- ]to[- ]be|mums?[- ]to[- ]be|breastfeeding|nursing mothers?|diabetics?|celiacs?|coeliacs?|(?:people|anyone|those) with (?:diabetes|celiac|coeliac|kidney disease|ibs|crohn'?s|heart disease|high blood pressure)|(?:diabetic|renal|cardiac|low[- ]fodmap|gestational diabetes) diets?|gestational diabetes)\b|\b(?:safe|suitable|appropriate|recommended|fine|okay|ok)\s+(?:to\s+(?:eat|serve)\s+)?for\s+(?:babies|infants|toddlers|young children|little ones)\b|\b(?:cures?|treats?|prevents?|heals?|reverses?|fights?)\s+(?:the\s+)?(?:common\s+)?(?:colds?|flu|cancer|diabetes|inflammation|ibs|anxiety|depression|acne|arthritis|disease|infections?|morning sickness)\b|\b(?:lowers?|reduces?|regulates?|balances?|stabili[sz]es?|controls?)\s+(?:your\s+)?(?:blood sugar|blood pressure|cholesterol|insulin)\b",
         Options)]
     private static partial Regex MedicalClaim();
 
@@ -823,7 +834,7 @@ public static partial class FoodSafetyWarningDetector
     // Safety and keeping claims.
 
     [GeneratedRegex(
-        @"(?<!\b(?:not|longer|never|isn't|aren't|wasn't|nor)\s+(?:(?:perfectly|completely|totally|entirely|always|still)\s+)?)\b(?:(?:perfectly|completely|totally|100%|always|still|entirely)\s+)?safe\s+(?:to\s+(?:eat|serve|consume|store|keep|leave|give)\b|at room temperature\b|for (?:days|weeks|months)\b)|\bfood[- ]safe\b|\bkills?\s+(?:all\s+|any\s+|the\s+|off\s+)?(?:bacteria|germs|pathogens|botulism|salmonella|listeria|e\.?\s?coli|parasites)\b|\b(?:is|are|it's|they're|becomes?|stays?|keeps?|remains?|making (?:it|them)|makes? (?:it|them))\s+(?:\w+\s+)?shelf[- ]stable\b|\b(?:won't|will not|can't|cannot|never|doesn't|does not)\s+(?:spoil|go bad|go off|grow mou?ld)\b|\b(?:keeps?|lasts?|good)\s+(?:for\s+)?(?:up to\s+)?(?:\d+|a few|several|many|two|three|six|twelve|a)\s*(?:months?|years?)\s+(?:at room temperature|in the pantry|in the cupboard|on the (?:shelf|counter))\b|\b(?:at room temperature|in the pantry|in the cupboard|on the counter)\s+for\s+(?:up to\s+)?(?:\d+|a few|several|many|two|three|six|twelve)\s*(?:months?|years?)\b|\b(?:botulism|bacteria|salmonella)[- ]free\b|\bno risk of\s+(?:food poisoning|botulism|salmonella|listeria|bacteria|illness|getting sick)\b|\bguaranteed?\s+(?:safe|fresh|to keep)\b|\b(?:vinegar|salt|sugar|alcohol|acid|acidity|honey|oil)\s+(?:preserves (?:it|them|everything)|keeps (?:it|them) safe|makes (?:it|them) safe)\b|\ballerg(?:y|en)[- ](?:safe|friendly)\b|\bsafe for (?:people with |those with |anyone with )?(?:\w+[- ])?allerg\w*",
+        @"(?<!\b(?:not|longer|never|isn't|aren't|wasn't|nor)\s+(?:(?:perfectly|completely|totally|entirely|always|still)\s+)?)\b(?:(?:perfectly|completely|totally|100%|always|still|entirely)\s+)?safe\s+(?:to\s+(?:eat|serve|consume|store|keep|leave|give)\b|at room temperature\b|for (?:days|weeks|months)\b)|\bfood[- ]safe\b|\bkills?\s+(?:all\s+|any\s+|the\s+|off\s+)?(?:bacteria|germs|pathogens|botulism|salmonella|listeria|e\.?\s?coli|parasites)\b|\b(?:is|are|it's|they're|becomes?|stays?|keeps?|remains?|making (?:it|them)|makes? (?:it|them))\s+(?:\w+\s+)?shelf[- ]stable\b|\b(?:won't|will not|can't|cannot|never|doesn't|does not)\s+(?:spoil|go bad|go off|grow mou?ld)\b|\b(?:keeps?|lasts?|good)\s+(?:for\s+)?(?:up to\s+)?(?:\d+|a few|several|many|two|three|six|twelve|a)\s*(?:months?|years?)\s+(?:at room temperature|in the pantry|in the cupboard|on the (?:shelf|counter))\b|\b(?:at room temperature|in the pantry|in the cupboard|on the counter)\s+for\s+(?:up to\s+)?(?:\d+|a few|several|many|two|three|six|twelve)\s*(?:months?|years?)\b|\b(?:botulism|bacteria|salmonella)[- ]free\b|\bno risk of\s+(?:food poisoning|botulism|salmonella|listeria|bacteria|illness|getting sick)\b|\bno\s+(?:botulism|salmonella|listeria|bacteria|food poisoning|illness)\s+risk\b|\bno\s+(?:chance|danger|possibility)\s+of\s+(?:food poisoning|botulism|salmonella|listeria|bacteria|illness|getting sick)\b|\b(?:prevents?|stops?|eliminates?|destroys?)\s+(?:all\s+|any\s+|the\s+)?(?:bacteria|germs|pathogens|botulism|salmonella|listeria|e\.?\s?coli|parasites|food poisoning|spoilage)\b|\bguaranteed?\s+(?:safe|fresh|to keep)\b|\b(?:vinegar|salt|sugar|alcohol|acid|acidity|honey|oil)\s+(?:preserves (?:it|them|everything)|keeps (?:it|them) safe|makes (?:it|them) safe)\b|\ballerg(?:y|en)[- ](?:safe|friendly)\b|\bsafe for (?:people with |those with |anyone with )?(?:\w+[- ])?allerg\w*",
         Options)]
     private static partial Regex SafetyClaim();
 

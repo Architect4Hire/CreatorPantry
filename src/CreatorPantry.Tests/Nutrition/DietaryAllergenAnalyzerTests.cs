@@ -464,36 +464,138 @@ public sealed class DietaryAllergenAnalyzerTests
         Assert.Empty(Analyze([Line(1, Mystery)], allergens: [Milk]).Sources);
     }
 
-    // ---- Nothing here can say "safe" ----
-
+    /// <summary>
+    /// A trait dated after the evaluation date drives no finding, even when it is handed straight to the
+    /// analyzer (14.7, M-2 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// The repository filters by effective date, and a database test proves that. This proves the analyzer
+    /// does not depend on it having happened: it took the date, stamped it on the answer, and compared nothing
+    /// with it, so any second read path would have produced a finding from a record that had not taken effect.
+    /// </remarks>
     [Fact]
-    public void No_finding_has_a_safe_free_certified_or_suitable_member()
+    public void A_trait_that_takes_effect_later_drives_no_finding_even_unfiltered()
     {
-        var names = new[] { typeof(AllergenLineFinding), typeof(DietaryLineFinding), typeof(RecipeAllergenFinding), typeof(RecipeDietaryFinding), typeof(AnalysisConfidence) }
-            .SelectMany(Enum.GetNames);
+        var future = new ApprovedAllergenTraitServiceModel(
+            Flour, Milk.Id, AllergenPresence.Present, "Not yet in effect.", Today.AddDays(1), Official);
 
-        Assert.All(names, name => Assert.DoesNotMatch("(?i)safe|free|certif|suitab|guarantee", name));
+        var analysis = DietaryAllergenAnalyzer.Analyze(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1,
+            [Line(1, Flour)],
+            [Milk],
+            [],
+            new IngredientTraitEvidenceServiceModel([future], []),
+            Today);
+
+        var milk = Assert.Single(analysis.Allergens);
+        Assert.Equal(RecipeAllergenFinding.Unknown, milk.Finding);
+        // And it is cited nowhere: a record not yet in effect is not evidence this analysis read.
+        Assert.Empty(analysis.Sources);
     }
 
+    // ---- Nothing here can say "safe" ----
+
+    /// <summary>
+    /// No member of any vocabulary this analysis reads or returns may be named for safety (14.7, H-5 of the
+    /// test audit).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It used to name five types by hand, so the three it did not name — <c>AllergenPresence</c>,
+    /// <c>DietaryCompatibility</c>, <c>TraitFindingReason</c> — were unguarded, and so was every type added
+    /// later. Found by reflection instead: every enum in the two modules this analysis spans, so a
+    /// <c>SafeForAllergic</c> added anywhere fails here.
+    /// </para>
+    /// <para>
+    /// "Free" is matched as a whole word: <c>NotListedBySource</c> is fine and <c>GlutenFree</c> would not be,
+    /// while a legitimate <c>FreeText</c> elsewhere is not this test's business — no such member exists in
+    /// these two modules, and the day one does, this test is the right place to argue about it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void No_member_of_any_safety_vocabulary_is_named_for_safety()
+    {
+        var enums = new[] { typeof(AllergenLineFinding).Assembly }
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type.IsEnum)
+            .Where(type => type.Namespace is { } space
+                && (space.Contains(".Modules.Nutrition.", StringComparison.Ordinal)
+                    || space.Contains(".Modules.Ingredients.", StringComparison.Ordinal)))
+            .ToList();
+
+        Assert.NotEmpty(enums);
+
+        // The five the old test named, by way of proving the net still catches them.
+        Assert.Contains(typeof(AllergenLineFinding), enums);
+        Assert.Contains(typeof(AnalysisConfidence), enums);
+
+        // And the three it did not.
+        Assert.Contains(typeof(AllergenPresence), enums);
+        Assert.Contains(typeof(DietaryCompatibility), enums);
+        Assert.Contains(typeof(TraitFindingReason), enums);
+
+        Assert.All(
+            enums.SelectMany(type => Enum.GetNames(type).Select(name => $"{type.Name}.{name}")),
+            name => Assert.DoesNotMatch(@"(?i)\bsafe|\bfree\b|certif|suitab|guarantee|cleared|hypoallergen", name));
+    }
+
+    /// <remarks>
+    /// Every seeded subject, not three pairs (14.7). The statements are composed from a subject's name, so a
+    /// profile named for what it leaves out is exactly the case that can go wrong — and the seeded list is
+    /// where those names come from.
+    /// </remarks>
     [Theory]
     [InlineData("Milk", "Vegan")]
     [InlineData("Tree Nuts", "Nut-Free")]
     [InlineData("Wheat", "Gluten-Free")]
+    [InlineData("Egg", "Egg-Free")]
+    [InlineData("Soy", "Dairy-Free")]
+    [InlineData("Sesame", "Vegetarian")]
+    [InlineData("Crustacean Shellfish", "Pescatarian")]
+    [InlineData("Peanut", "Paleo")]
     public void No_statement_claims_safety_and_free_of_appears_only_where_it_is_denied(string allergen, string profile)
     {
         var statements = Enum.GetValues<RecipeAllergenFinding>().SelectMany(finding => new[] { 0, 1, 3 }.Select(unknown => DietaryAllergenAnalysisPolicy.Statement(finding, allergen, unknown)))
             .Concat(Enum.GetValues<RecipeDietaryFinding>().SelectMany(finding => new[] { 0, 1, 3 }.Select(unknown => DietaryAllergenAnalysisPolicy.Statement(finding, profile, unknown))))
-            .Append(DietaryAllergenAnalysisPolicy.CrossContactDisclaimer);
+            .ToList();
 
         Assert.All(statements, statement =>
         {
-            Assert.DoesNotMatch("(?i)\\bsafe|certified|hypoallergenic|allergen-free", statement);
-            Assert.DoesNotMatch("(?i)(?<!not a statement that the recipe is |not a guarantee that a dish is )free (of|from)", statement);
+            // Each word is forbidden as an assertion and allowed as a denial, which is the only form it takes
+            // in a composed statement: "not a medical statement", "not a statement that the recipe is free of".
+            Assert.DoesNotMatch("(?i)\\bsafe|certified|hypoallergenic|allergen-free|\\bsuitab", statement);
+            Assert.DoesNotMatch("(?i)(?<!not a )medical", statement);
+            Assert.DoesNotMatch("(?i)(?<!not a )guarantee", statement);
+            Assert.DoesNotMatch("(?i)(?<!not a statement that the recipe is )free (of|from)", statement);
 
             // A profile named for what it leaves out is never the dish's description: no "Fits Nut-Free", no
             // "is Gluten-Free".
             Assert.DoesNotMatch($"(?i)^fits {profile}|\\bis {profile}", statement);
         });
+    }
+
+    /// <summary>
+    /// The fixed disclaimer is swept separately, because it is a denial from end to end.
+    /// </summary>
+    /// <remarks>
+    /// It is the one sentence in this policy that has to use the words the statements may not: "not a
+    /// guarantee that a dish is free of any allergen or suitable for any person" is the whole point of it. A
+    /// regex clever enough to tell that from a claim is a regex nobody can check by reading, so it is asserted
+    /// here to be a denial instead, and the endpoint tests pin that it reaches the wire verbatim.
+    /// </remarks>
+    [Fact]
+    public void The_disclaimer_denies_rather_than_claims()
+    {
+        var disclaimer = DietaryAllergenAnalysisPolicy.CrossContactDisclaimer;
+
+        Assert.Contains("not a guarantee", disclaimer, StringComparison.Ordinal);
+        Assert.Contains("free of any allergen", disclaimer, StringComparison.Ordinal);
+        Assert.Contains("Check every label", disclaimer, StringComparison.Ordinal);
+
+        // And nowhere in it does the product assert any of it: every occurrence is inside the denial above.
+        Assert.DoesNotMatch("(?i)\\bis safe|\\bcertified|\\bhypoallergenic", disclaimer);
     }
 
     // ---- The version reader, as this analysis uses it ----

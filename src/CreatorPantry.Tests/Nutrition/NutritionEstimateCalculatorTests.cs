@@ -96,7 +96,10 @@ public sealed class NutritionEstimateCalculatorTests
             new(Line(1), "250 g all-purpose flour", 250m, null, Gram, Flour, false),
             new(Line(2), "1 cup whole-milk yogurt", 1m, null, Cup, Yogurt, false),
             new(Line(3), "30–60 g flour, for dusting", 30m, 60m, Gram, Flour, false),
-            new(Line(4), "salt, to taste", null, null, null, null, false),
+            // Optional, because that is what "to taste" is, and the creator's own flag is what says so. It
+            // was `false` while an unquantified line was outside the required set either way (B-35); since
+            // 14.7's H-4 the two are different things, and this line is the first kind.
+            new(Line(4), "salt, to taste", null, null, null, null, true),
             new(Line(5), "1 tbsp sesame seeds (optional)", 1m, null, Tablespoon, null, true),
         ];
 
@@ -185,7 +188,10 @@ public sealed class NutritionEstimateCalculatorTests
         Assert.Equal(
             [
                 (NutritionLineOutcome.Optional, NutritionLineReason.None, false),
-                (NutritionLineOutcome.NotQuantified, NutritionLineReason.None, false),
+
+                // Required, as of 14.7's H-4: an ingredient the creator did not mark optional is part of the
+                // dish even when no amount is stated, so it keeps the estimate from being complete.
+                (NutritionLineOutcome.NotQuantified, NutritionLineReason.None, true),
                 (NutritionLineOutcome.Unmapped, NutritionLineReason.NoIngredient, true),
                 (NutritionLineOutcome.Unmapped, NutritionLineReason.NoMapping, true),
                 (NutritionLineOutcome.Unmapped, NutritionLineReason.MappingNotConfirmed, true),
@@ -305,12 +311,32 @@ public sealed class NutritionEstimateCalculatorTests
         Assert.Empty(estimate.Sources);
     }
 
+    /// <summary>
+    /// A recipe nothing could be counted from is not publishable, whatever its line list says (14.7, H-4).
+    /// </summary>
+    /// <remarks>
+    /// It used to be: `complete` was vacuously true over a list with no required lines, so an empty table of
+    /// nutrients came back marked publishable. The unquantified line is now required and unresolved, and the
+    /// "something was counted" floor catches the rest — including a recipe with no lines at all.
+    /// </remarks>
     [Fact]
-    public void A_recipe_of_only_optional_and_unquantified_lines_is_complete_and_empty()
+    public void A_recipe_of_only_optional_and_unquantified_lines_is_not_publishable()
     {
         var estimate = Estimate(Input([LineOf(0, 1m, Gram, null, optional: true), LineOf(1, null, null, null)], [], []));
 
-        Assert.True(estimate.Publishable);
+        Assert.False(estimate.Publishable);
+        Assert.True(estimate.Partial);
+        Assert.Equal(NutritionEstimateStatus.Incomplete, estimate.Status);
+        Assert.Empty(estimate.Nutrients);
+        Assert.Single(estimate.Unresolved.NotQuantified);
+    }
+
+    [Fact]
+    public void A_recipe_with_no_lines_at_all_is_not_publishable()
+    {
+        var estimate = Estimate(Input([], [], []));
+
+        Assert.False(estimate.Publishable);
         Assert.Empty(estimate.Nutrients);
     }
 
@@ -465,25 +491,58 @@ public sealed class NutritionEstimateCalculatorTests
     }
 
     [Fact]
-    public void An_optional_or_unquantified_line_never_changes_a_total_or_whether_it_is_publishable()
+    public void An_optional_line_never_changes_a_total_or_whether_it_is_publishable()
     {
         Recipes.Sample(recipe =>
         {
             var mapped = recipe.Lines[0].IngredientId;
-            var withExtras = recipe with
+            var withGarnish = recipe with
             {
                 Lines =
                 [
                     .. recipe.Lines,
                     new NutritionEstimateLineInput(Guid.NewGuid(), "a garnish", 50m, null, Gram, mapped, true),
-                    new NutritionEstimateLineInput(Guid.NewGuid(), "salt to taste", null, null, null, null, false),
                 ],
             };
 
             var before = Estimate(recipe);
-            var after = Estimate(withExtras);
+            var after = Estimate(withGarnish);
 
             return before.Publishable == after.Publishable && Totals(before).SequenceEqual(Totals(after));
+        });
+    }
+
+    /// <summary>
+    /// A required line with no amount changes nothing about the totals, and everything about whether they may
+    /// be published (14.7, H-4).
+    /// </summary>
+    /// <remarks>
+    /// This is the amendment to B-35. "Salt to taste" is the creator's own marking and stays optional; "butter,
+    /// softened" with no amount is an ingredient of the dish that nothing can weigh, and an estimate that
+    /// called itself Complete while omitting it was the audit's finding. The totals are unchanged because
+    /// there is still nothing to add; what changes is the claim made about them.
+    /// </remarks>
+    [Fact]
+    public void A_required_line_with_no_amount_keeps_the_estimate_from_being_publishable()
+    {
+        Recipes.Sample(recipe =>
+        {
+            var withUnweighable = recipe with
+            {
+                Lines =
+                [
+                    .. recipe.Lines,
+                    new NutritionEstimateLineInput(Guid.NewGuid(), "butter, softened", null, null, null, null, false),
+                ],
+            };
+
+            var before = Estimate(recipe);
+            var after = Estimate(withUnweighable);
+
+            return !after.Publishable
+                && after.Partial
+                && after.Unresolved.NotQuantified.Count == 1
+                && Totals(before).SequenceEqual(Totals(after));
         });
     }
 

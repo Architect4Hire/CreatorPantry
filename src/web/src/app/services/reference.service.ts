@@ -5,12 +5,14 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 import { ApiBaseService } from '../core/api-base.service';
 import {
   CookingTechnique,
+  DescribedReferenceEntry,
   IdeaFacetEntry,
   Ingredient,
   MeasurementUnit,
   ReferenceEntry,
   decodeCookingTechnique,
   decodeCursorPage,
+  decodeDescribedReferenceEntry,
   decodeIdeaFacetEntries,
   decodeIngredient,
   decodeMeasurementUnit,
@@ -24,6 +26,17 @@ export type ListUnitsOutcome =
 /** One plain controlled vocabulary, whole. */
 export type ListReferenceEntriesOutcome =
   | { readonly status: 'found'; readonly entries: readonly ReferenceEntry[] }
+  | { readonly status: 'unavailable' };
+
+/**
+ * One vocabulary whose entries each carry a required description — the allergens, or the dietary patterns.
+ *
+ * Whole or `unavailable`, like every other catalogue read here: half a list of allergens reads as "that one is
+ * not in the catalogue" rather than as a failure, and this is the catalogue where that reading does the most
+ * damage.
+ */
+export type ListDescribedReferenceEntriesOutcome =
+  | { readonly status: 'found'; readonly entries: readonly DescribedReferenceEntry[] }
   | { readonly status: 'unavailable' };
 
 /** One of the two idea catalogues that are not vocabulary tables: photography styles, or occasions. */
@@ -112,6 +125,10 @@ export class ReferenceService {
   private coursesInFlight: Promise<ListReferenceEntriesOutcome> | null = null;
   private techniquesInFlight: Promise<ListTechniquesOutcome> | null = null;
 
+  /** The two described vocabularies, on the same terms as the rest: global data, cached for the session. */
+  private allergensInFlight: Promise<ListDescribedReferenceEntriesOutcome> | null = null;
+  private dietaryProfilesInFlight: Promise<ListDescribedReferenceEntriesOutcome> | null = null;
+
   /**
    * Every active unit of measure, following the cursor until the catalogue is exhausted.
    *
@@ -174,6 +191,39 @@ export class ReferenceService {
     return this.techniquesInFlight;
   }
 
+  /**
+   * The active allergen vocabulary, each entry with the description that fixes what it covers.
+   *
+   * **Naming an allergen only.** Nothing here says what any ingredient or recipe contains: that is recorded
+   * separately, with evidence and a cited source, and read through the analysis route (ING-007). Retired
+   * entries are not listed, so an id from this list is one the analysis will accept.
+   */
+  listAllergens(): Promise<ListDescribedReferenceEntriesOutcome> {
+    this.allergensInFlight ??= this.readDescribedEntries('/api/v1/reference/allergens').then((outcome) => {
+      if (outcome.status !== 'found') this.allergensInFlight = null;
+      return outcome;
+    });
+
+    return this.allergensInFlight;
+  }
+
+  /**
+   * The active dietary patterns a recipe can be described against, each with its description.
+   *
+   * Descriptive vocabulary: none of these is a certification or a suitability ruling, and each description
+   * says so where it could be read otherwise.
+   */
+  listDietaryProfiles(): Promise<ListDescribedReferenceEntriesOutcome> {
+    this.dietaryProfilesInFlight ??= this.readDescribedEntries('/api/v1/reference/dietary-profiles').then(
+      (outcome) => {
+        if (outcome.status !== 'found') this.dietaryProfilesInFlight = null;
+        return outcome;
+      },
+    );
+
+    return this.dietaryProfilesInFlight;
+  }
+
   /** Every photography style an idea can be pinned to, retired ones included and marked. */
   listPhotographyStyles(): Promise<ListIdeaFacetEntriesOutcome> {
     return this.readIdeaFacetEntries('/api/v1/reference/photography-styles');
@@ -197,6 +247,12 @@ export class ReferenceService {
     } catch {
       return { status: 'unavailable' };
     }
+  }
+
+  private async readDescribedEntries(path: string): Promise<ListDescribedReferenceEntriesOutcome> {
+    const entries = await this.readCatalogue(path, decodeDescribedReferenceEntry);
+
+    return entries === null ? { status: 'unavailable' } : { status: 'found', entries };
   }
 
   private async readEntries(path: string): Promise<ListReferenceEntriesOutcome> {

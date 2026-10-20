@@ -51,8 +51,10 @@ public static class EvidenceSourceCatalog
 
     /// <summary>
     /// USDA FoodData Central, approved for nutrition and density (B-09, B-33). Public domain under CC0 1.0. The
-    /// citation is the one USDA suggests ("…FoodData Central, 2019. fdc.nal.usda.gov.") with the year left out
-    /// deliberately: the year changes with each release, and every fact records its own publication date.
+    /// citation is the one USDA suggests, with the "[cited (enter date)]" clause left out deliberately: every
+    /// fact records its own retrieval and publication dates, so a date in the citation string would be a
+    /// second, staler copy. Updated in 14.7 to USDA's current wording, which names the Beltsville Human
+    /// Nutrition Research Center and gives the URL in full.
     /// </summary>
     /// <remarks>
     /// Branded, Survey (FNDDS) and Experimental foods are not approved: Branded is manufacturer label data,
@@ -63,7 +65,8 @@ public static class EvidenceSourceCatalog
         Name: "USDA FoodData Central",
         Kind: ReferenceSourceKind.OfficialDatabase,
         Url: "https://fdc.nal.usda.gov/",
-        Citation: "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+        Citation: "U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human Nutrition "
+            + "Research Center. FoodData Central. https://fdc.nal.usda.gov/.",
         LicenseCode: "CC0-1.0",
         LicenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
         Covers: [ReferenceEvidenceKind.Nutrition, ReferenceEvidenceKind.Density],

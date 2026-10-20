@@ -1,0 +1,16 @@
+{
+  "id": "recipe.adaptation.a-limitation-may-name-an-absence-it-cannot-reach",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "AdaptationOutputValidation",
+  "description": "The other direction of 14.7's BL-2, and the reason the scanner has two tiers. \"Cannot be made nut-free\" is the honest limitation the capability exists to give; refusing the word there would push the model toward a vaguer answer and teach it to avoid saying what it could not do. An absence claim is refused in a proposed value, where it would become the recipe's own words; an assurance about a person is refused everywhere.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.adaptation.v1\",\"changes\":[],\"warnings\":[{\"kind\":\"Limitation\",\"message\":\"This recipe cannot be made nut-free without losing the intended texture.\"}]}",
+    "expectedSchemaVersion": "fixture.adaptation.v1",
+    "scope": "WholeRecipe",
+    "goal": "Dietary"
+  },
+  "expect": {
+    "outcome": "Accepted"
+  }
+}

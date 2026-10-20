@@ -292,6 +292,7 @@ public static class AiSubstitutionOutputValidator
             ?? WarningIndexes(document)
             ?? EvidencedConfidence(document)
             ?? CautionedConsequences(document)
+            ?? NoSafetyAssurance(document)
             ?? ExplainedEmptyAnswer(document);
 
     /// <remarks>
@@ -429,10 +430,29 @@ public static class AiSubstitutionOutputValidator
             substitution.Confidence is AiSubstitutionConfidence.High
             && substitution.EvidenceBasis is AiEvidenceBasis.Unknown);
 
-        return unevidenced
-            ? Reject(
+        if (unevidenced)
+        {
+            return Reject(
                 AiOutputReason.ConfidenceUnevidenced,
                 "An alternative claims high confidence while declaring its evidence unknown.",
+                correctable: true);
+        }
+
+        // An allergen or dietary consequence at high confidence on the model's own knowledge (14.7, H-8). The
+        // rule above catches only `Unknown` evidence, so "well established" resting on nothing but the model
+        // was a valid answer for exactly the alternatives where a creator's trust has consequences for
+        // somebody else. Culinary guidance may still be offered at any confidence; a consequence may not,
+        // because there is no vetted record behind it (B-33 approves no allergen or dietary source).
+        var overconfident = document.Substitutions.Any(substitution =>
+            substitution.Confidence is AiSubstitutionConfidence.High
+            && substitution.EvidenceBasis is AiEvidenceBasis.ModelKnowledge
+            && (substitution.AllergenEffects.Count > 0 || substitution.DietaryEffects.Count > 0));
+
+        return overconfident
+            ? Reject(
+                AiOutputReason.ConfidenceUnevidenced,
+                "An alternative claims high confidence for an allergen or dietary consequence resting on the "
+                    + "model's own knowledge. Offer it at a lower confidence, or cite a reference.",
                 correctable: true)
             : null;
     }
@@ -482,6 +502,61 @@ public static class AiSubstitutionOutputValidator
         return null;
     }
 
+    /// <summary>
+    /// No sentence in the answer assures safety, absence or suitability (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="CautionedConsequences"/> closes the structured half: there is no "removes" member to pick and
+    /// a consequence owes a caution. Prose was the half left open, and this type's own remarks said so — "a
+    /// sentence asserting that something is safe for someone fits in any of them". The prompt forbids it; until
+    /// this rule, nothing checked. A flavour note reading "oat milk is dairy-free, safe for your readers" was a
+    /// valid answer.
+    /// </para>
+    /// <para>
+    /// Every free-text field, not a chosen few: the one an answer uses is the one nobody thought to check. The
+    /// phrase is quoted in the refusal so the audit record says which words, and the answer is correctable —
+    /// the structured effects plus a caution are how the same thing is said properly.
+    /// </para>
+    /// </remarks>
+    private static AiOutputValidationOutcome<AiSubstitutionOutputDocument>? NoSafetyAssurance(
+        AiSubstitutionOutputDocument document)
+    {
+        foreach (var substitution in document.Substitutions)
+        {
+            var assurance = AiRecipeSafetyClaimScanner.FirstAssurance(
+                substitution.Alternative,
+                substitution.FunctionalRole,
+                substitution.QuantityGuidance,
+                substitution.TechniqueImpact,
+                substitution.FlavorImpact,
+                substitution.TextureImpact,
+                substitution.EvidenceNote,
+                substitution.TestRecommendation);
+
+            if (assurance is not null)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "An alternative"),
+                    correctable: true);
+            }
+        }
+
+        foreach (var warning in document.Warnings)
+        {
+            if (AiRecipeSafetyClaimScanner.FirstHardAssurance(warning.Message) is { } assurance)
+            {
+                return Reject(
+                    AiOutputReason.UnsupportedSafetyAssurance,
+                    AiRecipeSafetyClaimScanner.Message(assurance, "A warning"),
+                    correctable: true);
+            }
+        }
+
+        return null;
+    }
+
     /// <remarks>
     /// Proposing nothing is allowed and is sometimes the only honest answer. Proposing nothing in silence is
     /// not: a creator cannot tell it from a call that went wrong, and it leaves them without the one thing
@@ -511,6 +586,7 @@ public static class AiSubstitutionOutputValidator
             or AiOutputReason.DuplicateSubstitution
             or AiOutputReason.ConfidenceUnevidenced
             or AiOutputReason.AllergenEffectUncautioned
+            or AiOutputReason.UnsupportedSafetyAssurance
             or AiOutputReason.SubstitutionAnswerUnexplained
             or AiOutputReason.KindNotDeclared
             or AiOutputReason.WarningIndexInvalid

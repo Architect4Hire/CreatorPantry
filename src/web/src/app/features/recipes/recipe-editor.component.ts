@@ -62,7 +62,10 @@ import {
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
+import { RecipeDietaryAllergenComponent } from './recipe-dietary-allergen.component';
+import { RecipeFoodSafetyComponent } from './recipe-food-safety.component';
 import { RecipeDuplicated } from './recipe-duplicate.component';
+import { RecipeNutritionComponent } from './recipe-nutrition.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
 import { RecipeMediaChanged, RecipeMediaComponent } from './recipe-media.component';
 import { RecipeReadinessComponent } from './recipe-readiness.component';
@@ -355,6 +358,9 @@ export type RecipeToolId =
   | 'scaling'
   | 'converting'
   | 'yield-display'
+  | 'dietary-allergen'
+  | 'nutrition'
+  | 'food-safety'
   | 'ai-revision'
   | 'ai-adaptation'
   | 'ai-substitution'
@@ -408,6 +414,9 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
     RecipeIngredientEditorComponent,
     RecipeDisplayNormalizationComponent,
     RecipeScalingPreviewComponent,
+    RecipeDietaryAllergenComponent,
+    RecipeNutritionComponent,
+    RecipeFoodSafetyComponent,
     RecipeTemperatureConversionComponent,
     RecipeUnitConversionComponent,
     RecipeYieldReconciliationComponent,
@@ -512,13 +521,37 @@ export class RecipeEditorComponent {
   ]);
 
   /**
-   * The seven tools, in the order they are listed. Each reads the saved recipe; none is a field of the form.
+   * The ten tools, in the order they are listed. Each reads the saved recipe; none is a field of the form.
    * A tool is mounted the first time it is chosen, so each fetches only when it is first opened.
+   *
+   * The deterministic ones come first and the AI requests after: reading records and working out amounts are
+   * not the same kind of act as asking for a draft, and the order says so.
    */
   readonly tools: readonly RecipeTool[] = [
     { id: 'scaling', label: 'Scale', note: 'See every amount at a different yield.' },
     { id: 'converting', label: 'Convert', note: 'Change the units of an amount, or the scale of a temperature.' },
     { id: 'yield-display', label: 'Yield & display', note: "Check the recipe's yield against its amounts, and see how amounts will read." },
+    {
+      id: 'dietary-allergen',
+      label: 'Dietary & allergens',
+      // What it reads, and what kind of answer that is. Never "check whether this recipe is safe": the
+      // records cannot answer that, and a tool list is the first place a creator would read it as a promise.
+      note: 'See what reviewed ingredient records say about allergens and dietary patterns.',
+    },
+    {
+      id: 'nutrition',
+      label: 'Nutrition',
+      // An estimate, and the word is in the note: the figures rest on reference records for the ingredients,
+      // not on an analysis of the dish, and a tool list is where that is first read.
+      note: "See an estimate from your confirmed ingredient references, and what isn't counted yet.",
+    },
+    {
+      id: 'food-safety',
+      label: 'Safety checks',
+      // What it reads and what it cannot do. Never "check whether this is safe": the checks read the recipe's
+      // own words against a fixed list, and nothing here carries the guidance that would settle one.
+      note: 'See the flagged methods and claims in this recipe, and what each one still needs checked.',
+    },
     { id: 'ai-revision', label: 'Revise with AI', note: 'Ask for changes to one part of the recipe, to review before anything is kept.' },
     { id: 'ai-adaptation', label: 'Adapt with AI', note: 'Ask for a version adapted to a need, to review before anything is kept.' },
     { id: 'ai-substitution', label: 'Substitute an ingredient', note: 'Ask what could stand in for one ingredient.' },

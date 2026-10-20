@@ -68,6 +68,25 @@ public sealed class FoodSafetyWarningDetectorTests
     [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "Keeps for 6 months in the pantry.")]
     [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "Perfectly safe to eat after a week on the counter.")]
     [InlineData(FoodSafetyCategory.Drying, "Dehydrate at 60°C for 8 hours.")]
+    [InlineData(FoodSafetyCategory.Drying, "Sun-dry the tomatoes on a rack for two days.")]
+    [InlineData(FoodSafetyCategory.Drying, "Oven-dry the slices at the lowest setting.")]
+    [InlineData(FoodSafetyCategory.Drying, "Spread into a fruit leather and dry overnight.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "The brine prevents salmonella.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "No risk of listeria in this cheese.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "There is no botulism risk here.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "The acid kills germs.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "No chance of food poisoning.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "It won't spoil on the shelf.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "Guaranteed safe for a month.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "The jars are bacteria-free once sealed.")]
+    [InlineData(FoodSafetyCategory.UnsupportedSafetyClaim, "It will not grow mould in the cupboard.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Safe for diabetic readers.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Fine for celiac guests.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "This lowers cholesterol.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Turmeric reverses inflammation.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Ginger fights inflammation.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Good for gestational diabetes.")]
+    [InlineData(FoodSafetyCategory.PregnancyOrMedicalDiet, "Suitable for infants.")]
     [InlineData(FoodSafetyCategory.OilInfusion, "Gently infuse the oil with the garlic over low heat, then bottle it.")]
     [InlineData(FoodSafetyCategory.OilInfusion, "Make a garlic confit and keep it in the fridge.")]
     public void A_step_naming_the_method_or_making_the_claim_is_detected(FoodSafetyCategory category, string step)
@@ -79,10 +98,21 @@ public sealed class FoodSafetyWarningDetectorTests
         Assert.Equal((FoodSafetyField.Step, FoodSafetyTriggerKind.Text), (trigger.Field, trigger.Kind));
     }
 
+    /// <remarks>
+    /// Every alternative in the curing-agent pattern, not a sample of three (14.7, H-9). "sodium nitrite"
+    /// appeared only in the two negatives ("no sodium nitrite added"), so removing it from the pattern would
+    /// have dropped the warning for a cure line while every test still passed.
+    /// </remarks>
     [Theory]
     [InlineData("1 tsp Prague powder #1")]
     [InlineData("2 g curing salt")]
     [InlineData("1 tsp pink curing salt")]
+    [InlineData("1 tsp sodium nitrite")]
+    [InlineData("2 g sodium nitrites")]
+    [InlineData("1/4 tsp sodium nitrate")]
+    [InlineData("a pinch of saltpetre")]
+    [InlineData("1 tsp Insta-Cure #1")]
+    [InlineData("2 g cure #1")]
     public void A_curing_agent_in_an_ingredient_line_is_detected(string line)
     {
         var warning = Single(Detect(lines: [(line, null)]), FoodSafetyCategory.CuringOrSmoking);
@@ -93,10 +123,17 @@ public sealed class FoodSafetyWarningDetectorTests
 
     [Theory]
     [InlineData(FoodSafetyCategory.SousVide, "Immersion circulator")]
+    [InlineData(FoodSafetyCategory.SousVide, "Precision cooker")]
+    [InlineData(FoodSafetyCategory.SousVide, "Immersion cooker")]
     [InlineData(FoodSafetyCategory.Canning, "Pressure canner")]
+    [InlineData(FoodSafetyCategory.Canning, "Jar lifter")]
+    [InlineData(FoodSafetyCategory.Canning, "Canning rack")]
     [InlineData(FoodSafetyCategory.Drying, "Dehydrator")]
     [InlineData(FoodSafetyCategory.CuringOrSmoking, "Smoker")]
+    [InlineData(FoodSafetyCategory.CuringOrSmoking, "Curing chamber")]
+    [InlineData(FoodSafetyCategory.CuringOrSmoking, "Cold smoke generator")]
     [InlineData(FoodSafetyCategory.Fermentation, "Fermentation crock")]
+    [InlineData(FoodSafetyCategory.Fermentation, "Airlock")]
     public void Equipment_that_only_one_method_uses_is_detected(FoodSafetyCategory category, string equipment)
     {
         Assert.Equal(FoodSafetyConfidence.Detected, Single(Detect(equipment: [equipment]), category).Confidence);
@@ -118,6 +155,52 @@ public sealed class FoodSafetyWarningDetectorTests
         Assert.Equal(FoodSafetyConfidence.Detected, warning.Confidence);
         Assert.Contains(warning.Triggers, trigger => trigger is { Field: FoodSafetyField.Title, Kind: FoodSafetyTriggerKind.Text });
         Assert.Contains(warning.Triggers, trigger => trigger is { Field: FoodSafetyField.IngredientLine, Kind: FoodSafetyTriggerKind.IngredientCategory, Matched: "200 g beef fillet" });
+    }
+
+    /// <remarks>
+    /// Every raw-dish name the pattern carries (14.7, H-9). Only "tartare" was pinned, so the rest could have
+    /// been removed without a single test noticing — and a raw-fish dish that raises nothing is exactly the
+    /// silence this category exists to prevent.
+    /// </remarks>
+    [Theory]
+    [InlineData("Ceviche with lime and chilli", "200 g sea bass")]
+    [InlineData("Salmon sashimi", "200 g salmon")]
+    [InlineData("Beef kitfo", "200 g beef fillet")]
+    [InlineData("Yukhoe for two", "200 g beef fillet")]
+    [InlineData("Kibbeh nayyeh", "200 g lamb")]
+    [InlineData("Scallop crudo", "200 g scallops")]
+    [InlineData("Sea bass tiradito", "200 g sea bass")]
+    public void A_raw_dish_by_any_of_its_names_is_detected(string title, string line)
+    {
+        var warning = Single(
+            Detect(title: title, lines: [(line, Beef)]), FoodSafetyCategory.RawOrUndercookedProtein);
+
+        Assert.Equal(FoodSafetyConfidence.Detected, warning.Confidence);
+    }
+
+    /// <summary>A long hold in a low water bath is a sous vide whether the recipe says hours or minutes.</summary>
+    /// <remarks>
+    /// 14.7's M-6: the rule required the literal word "hours", so "90 minutes" at 63 °C raised nothing at all.
+    /// </remarks>
+    [Theory]
+    [InlineData("Hold at 63°C in a water bath for 90 minutes.")]
+    [InlineData("Keep the bag in a 60°C water bath for 2 hours.")]
+    public void A_long_low_water_bath_is_possible_sous_vide(string step)
+    {
+        Assert.Equal(
+            FoodSafetyConfidence.Possible,
+            Single(Detect(steps: [step]), FoodSafetyCategory.SousVide).Confidence);
+    }
+
+    /// <remarks>
+    /// The floor that keeps it from firing on a tempering or melting step, which is not a cook.
+    /// </remarks>
+    [Fact]
+    public void A_short_low_water_bath_is_not_sous_vide()
+    {
+        Assert.Empty(
+            Detect(steps: ["Melt the chocolate in a 50°C water bath for 10 minutes."])
+                .Warnings.Where(warning => warning.Category is FoodSafetyCategory.SousVide));
     }
 
     [Theory]
@@ -668,6 +751,24 @@ public sealed class FoodSafetyWarningDetectorTests
         Assert.Empty(evidence.Citations);
     }
 
+    /// <summary>
+    /// "Food-safe container" is a shopping instruction, not a safety claim (14.7, L-1).
+    /// </summary>
+    /// <remarks>
+    /// The exemption that keeps it quiet was unpinned, so removing it would have turned every recipe that
+    /// names a container into an unsupported-claim warning — the kind of false positive that teaches a creator
+    /// to ignore the whole panel.
+    /// </remarks>
+    [Theory]
+    [InlineData("Decant into a food-safe container.")]
+    [InlineData("Use food-safe gloves to handle the chillies.")]
+    public void Food_safe_equipment_wording_is_not_a_claim(string step)
+    {
+        Assert.Empty(
+            Detect(steps: [step]).Warnings.Where(warning =>
+                warning.Category is FoodSafetyCategory.UnsupportedSafetyClaim));
+    }
+
     // ---- Nothing here can say "safe" ----
 
     [Fact]
@@ -678,7 +779,45 @@ public sealed class FoodSafetyWarningDetectorTests
             .Concat(Enum.GetValues<FoodSafetyEvidenceStatus>().Select(status => FoodSafetyWarningPolicy.Statement(status)))
             .ToList();
 
-        Assert.All(sentences, sentence => Assert.DoesNotMatch(@"(?i)\bsafe\b|\bunsafe\b|guarantee|certif|risk-free|\bapproved for\b", sentence));
+        Assert.All(
+            sentences,
+            sentence => Assert.DoesNotMatch(
+                // Widened in 14.7: "suitable", "medical", "allergen-free" and every "free of/from" were not
+                // covered, and a message is the one place in this module that reaches a creator directly.
+                @"(?i)\bsafe\b|\bunsafe\b|guarantee|certif|risk-free|\bapproved for\b"
+                    // "medical" alone is this category's own subject — "mentions pregnancy or a medical
+                    // condition" is the warning working — so only a medical *claim* is forbidden.
+                    + @"|\bsuitab|medically\s+(?:safe|suitable|approved)|medical\s+(?:advice|clearance|approval)"
+                    + @"|allergen-free|hypoallergen|free (?:of|from)|\bcleared\b",
+                sentence));
+    }
+
+    /// <summary>
+    /// No member of the food-safety vocabulary is named for safety either (14.7, M-5 of the test audit).
+    /// </summary>
+    /// <remarks>
+    /// The messages were guarded and the enum names were not, so a <c>SafeAsWritten</c> category or a
+    /// <c>Cleared</c> confidence would have passed. Found by reflection, so a member added later is covered
+    /// without anyone remembering to list it.
+    /// </remarks>
+    [Fact]
+    public void No_member_of_the_food_safety_vocabulary_is_named_for_safety()
+    {
+        var names = new[]
+            {
+                typeof(FoodSafetyCategory),
+                typeof(FoodSafetyConfidence),
+                typeof(FoodSafetyEvidenceStatus),
+                typeof(FoodSafetyField),
+                typeof(FoodSafetyTriggerKind),
+                typeof(FoodSafetyTemperatureScale),
+            }
+            .SelectMany(type => Enum.GetNames(type).Select(name => $"{type.Name}.{name}"))
+            .ToList();
+
+        Assert.All(
+            names,
+            name => Assert.DoesNotMatch(@"(?i)\bsafe(?!ty)|cleared|certif|guarantee|suitab|hypoallergen", name));
     }
 
     [Fact]

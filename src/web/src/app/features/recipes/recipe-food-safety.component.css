@@ -1,0 +1,159 @@
+/*
+ * Layout only. Every colour is a semantic --cp-* token, and status is carried by words as well as tone.
+ */
+
+:host {
+  display: block;
+}
+
+/*
+ * `[hidden]` is a UA rule and every author `display` below beats it, so a collapsed list would stay on screen
+ * with its button still saying "Show". `!important` rather than source order: `.rows[_ngcontent]` and
+ * `[hidden][_ngcontent]` have the same specificity. The spec pins the computed display.
+ */
+[hidden] {
+  display: none !important;
+}
+
+.safety,
+.results,
+.warning {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.safety {
+  gap: var(--cp-space-5);
+}
+
+.safety-intro,
+.measure {
+  max-width: var(--cp-measure-prose);
+  line-height: var(--cp-leading-normal);
+}
+
+.safety-intro {
+  margin: 0;
+}
+
+/* None of this text is written by this product: a matched span is the creator's own words. */
+.safety-intro,
+.measure,
+.message,
+.row-value {
+  overflow-wrap: anywhere;
+}
+
+cp-notice {
+  max-width: var(--cp-measure-prose);
+}
+
+.caveat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.results {
+  gap: var(--cp-space-4);
+  padding-block-start: var(--cp-space-5);
+  border-block-start: 1px solid var(--cp-border);
+}
+
+.part-heading {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+}
+
+.warning {
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+}
+
+.warning-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-3);
+}
+
+.warning-name {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-md);
+  overflow-wrap: anywhere;
+}
+
+.warning-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+/* The server's sentence about what the record shows: the thing to read first, so it is not muted. */
+.message {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 700;
+  line-height: var(--cp-leading-normal);
+}
+
+.group-title {
+  margin: 0;
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-sm);
+}
+
+.disclosure {
+  display: flex;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface);
+  min-width: 0;
+  font-size: var(--cp-font-size-sm);
+}
+
+/* A quoted span can run long, so its provenance sits under it rather than beside it. */
+.row--stacked {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-1);
+}
+
+.row-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

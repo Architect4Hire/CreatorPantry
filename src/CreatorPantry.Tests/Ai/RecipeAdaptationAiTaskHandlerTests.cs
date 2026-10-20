@@ -115,6 +115,32 @@ public sealed class RecipeAdaptationAiTaskHandlerTests : IAsyncDisposable
         Assert.Equal("title", change.FieldName);
     }
 
+    [Fact]
+    public async Task A_free_from_title_is_refused_however_the_goal_was_phrased()
+    {
+        var recipe = await SeedRecipeAsync();
+
+        var outcome = await Run(
+            FakeChatClient.Returning(FreeFromTitleChange), recipe, AiAdaptationGoal.Dietary, "gluten-free");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Contains("assures safety", outcome.FailureSummary ?? string.Empty, StringComparison.Ordinal);
+        Assert.Contains("Gluten-Free", outcome.FailureSummary ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_dietary_change_with_no_safety_caution_is_refused()
+    {
+        var recipe = await SeedRecipeAsync();
+
+        var outcome = await Run(
+            FakeChatClient.Returning(UncautionedDietaryChange), recipe, AiAdaptationGoal.Dietary, "dairy");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Contains(
+            "no safety caution beside it", outcome.FailureSummary ?? string.Empty, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// A goal that cannot be met produces a limitation, not fabricated success — and this is still a
     /// successful operation, because the honest answer is what was asked for.
@@ -324,8 +350,33 @@ public sealed class RecipeAdaptationAiTaskHandlerTests : IAsyncDisposable
 
     private const string DietaryChange = """
         {"schemaVersion":"recipe.adaptation.v1",
+         "changes":[{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"Buttermilk Soda Bread, adapted"}],
+         "warnings":[
+           {"kind":"Rationale","message":"Retitled to flag the adaptation for a reader scanning the list.","changeIndex":0},
+           {"kind":"SafetyCaution","message":"Check every label: whether this suits a reader is theirs to judge.","changeIndex":0}]}
+        """;
+
+    /// <summary>
+    /// The answer this capability used to accept, kept as the thing that must now be refused (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// A free-from title is the whole blocker: under a dietary goal the model may rewrite the title, and a
+    /// creator who accepts the proposal publishes "Gluten-Free" as the recipe's own name, with no record
+    /// behind it. This exact payload was pinned as a *valid* answer until the audit.
+    /// </remarks>
+    private const string FreeFromTitleChange = """
+        {"schemaVersion":"recipe.adaptation.v1",
          "changes":[{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"Gluten-Free Buttermilk Soda Bread"}],
-         "warnings":[{"kind":"Rationale","message":"Retitled to flag the adaptation for a reader scanning the list.","changeIndex":0}]}
+         "warnings":[
+           {"kind":"Rationale","message":"Retitled to flag the adaptation.","changeIndex":0},
+           {"kind":"SafetyCaution","message":"Check every label.","changeIndex":0}]}
+        """;
+
+    /// <summary>A dietary change with no caution at all — the rule substitution always had, now enforced here.</summary>
+    private const string UncautionedDietaryChange = """
+        {"schemaVersion":"recipe.adaptation.v1",
+         "changes":[{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"Buttermilk Soda Bread, adapted"}],
+         "warnings":[{"kind":"Rationale","message":"Retitled to flag the adaptation.","changeIndex":0}]}
         """;
 
     private const string LimitationOnly = """

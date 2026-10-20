@@ -405,7 +405,7 @@
     {
       "lineId": "00000000-0000-0000-0001-000000000004",
       "displayText": "salt, to taste",
-      "outcome": "NotQuantified",
+      "outcome": "Optional",
       "reason": "None",
       "required": false,
       "gramsLow": null,
@@ -430,7 +430,7 @@
   "sources": [
     {
       "sourceCode": "usda-fdc",
-      "citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+      "citation": "U.S. Department of Agriculture, Agricultural Research Service, Beltsville Human Nutrition Research Center. FoodData Central. https://fdc.nal.usda.gov/.",
       "licenseCode": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
     }
@@ -438,6 +438,7 @@
   "unresolved": {
     "unmapped": [],
     "needsReview": [],
-    "unconvertible": []
+    "unconvertible": [],
+    "notQuantified": []
   }
 }

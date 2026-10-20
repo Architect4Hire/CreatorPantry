@@ -93,6 +93,16 @@ internal sealed class NutritionEstimateBusiness(
     IIngredientFacade ingredients,
     IMeasurementFacade measurement) : INutritionEstimateBusiness
 {
+    /// <summary>
+    /// What a citation's licence reads as when the source row records none (14.7).
+    /// </summary>
+    /// <remarks>
+    /// Unreachable through an approved source, which always carries one. Said rather than null-forgiven
+    /// because the estimate's model declares the licence non-null and a screen links it: a missing licence
+    /// should read as missing, not as a broken link or the word "null".
+    /// </remarks>
+    private const string UnknownLicence = "No licence recorded";
+
     public async Task<OperationResult<NutritionEstimateServiceModel>> EstimateAsync(
         Guid recipeId, Guid versionId, decimal? servings, CancellationToken cancellationToken)
     {
@@ -154,8 +164,14 @@ internal sealed class NutritionEstimateBusiness(
                         reference.ExternalRecordId!,
                         reference.SourceVersion!,
                         reference.Citation!,
-                        reference.LicenseCode!,
-                        reference.LicenseUrl!,
+
+                        // Not null-forgiven (14.7). `ReferenceSource` allows a null licence, and an approved
+                        // source in `EvidenceSourceCatalog` always sets one — but the estimate's own model
+                        // declares both non-null and the UI binds the URL straight into an href, so a row
+                        // created without one would have reached a creator as the string "null" or a broken
+                        // link. There is no licence to invent here, so the gap is said instead.
+                        reference.LicenseCode ?? UnknownLicence,
+                        reference.LicenseUrl ?? string.Empty,
                         [.. (reference.Nutrients ?? []).Select(nutrient => new NutritionEstimateNutrientInput(nutrient.Code, nutrient.AmountPer100Grams, nutrient.Unit))]);
                     break;
                 case NutritionReferenceStatus.NotFound or NutritionReferenceStatus.NoApprovedSource:

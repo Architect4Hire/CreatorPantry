@@ -444,6 +444,37 @@
           />
         </div>
       }
+      @if (toolMounted('dietary-allergen')) {
+        <div class="tool" [hidden]="openToolId() !== 'dietary-allergen'">
+          <cp-recipe-dietary-allergen
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [editorIsDirty]="isDirty()"
+          />
+        </div>
+      }
+      @if (toolMounted('nutrition')) {
+        <div class="tool" [hidden]="openToolId() !== 'nutrition'">
+          <cp-recipe-nutrition
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [savedIngredientGroups]="ingredientGroups()"
+            [editorIsDirty]="isDirty()"
+          />
+        </div>
+      }
+      @if (toolMounted('food-safety')) {
+        <div class="tool" [hidden]="openToolId() !== 'food-safety'">
+          <cp-recipe-food-safety
+            [workspaceSlug]="workspaceSlug"
+            [recipeId]="recipeIdOrEmpty"
+            [sourceVersionNumber]="currentVersionNumber()"
+            [editorIsDirty]="isDirty()"
+          />
+        </div>
+      }
       @if (toolMounted('ai-revision')) {
         <div class="tool" [hidden]="openToolId() !== 'ai-revision'">
           @if (currentVersionId(); as versionId) {

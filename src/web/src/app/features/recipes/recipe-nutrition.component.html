@@ -1,0 +1,522 @@
+<!--
+  No heading of its own: the drawer this opens in already prints "Nutrition" as its title. The region is
+  named, and its parts carry the headings.
+-->
+<section class="nutrition" [attr.aria-label]="copy.regionLabel">
+  <p class="nutrition-intro">{{ copy.intro }}</p>
+
+  <!-- What an estimate is not, said before any number appears rather than under it (recipes.md). -->
+  <cp-notice tone="neutral" glyph="i">{{ copy.notALabel }}</cp-notice>
+
+  <!--
+    In the DOM from first render, and empty until there is something to say: a live region populated at the
+    moment it is created is not reliably announced.
+  -->
+  <p class="cp-sr-only" role="status">{{ liveMessage() }}</p>
+
+  @if (editorIsDirty()) {
+    <p class="caveat-row" role="status">
+      <cp-status-pill tone="warning">{{ copy.dirtyPill }}</cp-status-pill>
+      <span>{{ copy.dirty }}</span>
+    </p>
+  }
+
+  @if (sourceVersionNumber() === null) {
+    <cp-notice tone="neutral" role="status">{{ copy.noVersion }}</cp-notice>
+  }
+
+  <form class="ask" (ngSubmit)="estimateRecipe()">
+    <cp-field
+      [label]="copy.servingsLabel"
+      [forId]="servingsFieldId"
+      [hint]="copy.servingsHint"
+      [error]="servingsError() ?? ''"
+    >
+      <input
+        type="number"
+        inputmode="decimal"
+        step="any"
+        min="0"
+        [max]="maxServings"
+        [id]="servingsFieldId"
+        name="servings"
+        [ngModel]="servingsValue()"
+        (ngModelChange)="servingsValue.set($event)"
+        [attr.aria-invalid]="servingsError() ? 'true' : null"
+      />
+    </cp-field>
+
+    <div class="cp-actions">
+      <!--
+        `disabled` only for what is true before anyone reaches the button; while a request is in flight it
+        stays focusable and says `aria-disabled`, because disabling a focused button inside a drawer drops
+        focus to the body.
+      -->
+      <button
+        cpButton
+        variant="primary"
+        type="submit"
+        [disabled]="!canRequest()"
+        [attr.aria-disabled]="isWorking() ? 'true' : null"
+      >
+        @if (isWorking()) {
+          {{ copy.working }}
+        } @else if (estimate() === null) {
+          {{ copy.submit }}
+        } @else {
+          {{ copy.recheck }}
+        }
+      </button>
+    </div>
+  </form>
+
+  @if (problem(); as message) {
+    <cp-notice tone="error" role="alert">{{ message }}</cp-notice>
+  }
+
+  <!-- The estimate --------------------------------------------------------- -->
+
+  @if (estimate(); as result) {
+    <div class="results">
+      @if (isStale()) {
+        <p class="caveat-row" role="status">
+          <cp-status-pill tone="stale">{{ copy.stalePill }}</cp-status-pill>
+          <span>{{ copy.stale }}</span>
+        </p>
+      }
+
+      @if (mappingChanged()) {
+        <p class="caveat-row" role="status">
+          <cp-status-pill tone="stale">{{ copy.staleMappingPill }}</cp-status-pill>
+          <span>{{ copy.staleMapping }}</span>
+        </p>
+      }
+
+      <p class="label-line">
+        <!-- The server's own label for what this is. Rendered as given, beside what made it. -->
+        <cp-badge tone="orange">{{ result.label }}</cp-badge>
+        <span class="cp-muted">
+          Read against version {{ result.versionNumber }} · method {{ result.methodVersion }}
+        </span>
+      </p>
+
+      <!--
+        What may be published, said as a rule rather than as a gate: nothing in the product reads `publishable`
+        yet, and implying that something does would be worse than saying so (B-39).
+      -->
+      <cp-notice [tone]="publishTone()">{{ publishSentence() }}</cp-notice>
+
+      <section class="estimate" [attr.aria-labelledby]="estimateHeadingId">
+        <h3 class="part-heading" [id]="estimateHeadingId">{{ copy.estimateHeading }}</h3>
+
+        <p class="cp-muted measure">
+          {{ countedCount() }} of
+          {{ requiredCount() }}
+          {{ requiredCount() === 1 ? 'required ingredient' : 'required ingredients' }} counted.
+        </p>
+
+        @if (confidenceText(); as confidence) {
+          <p class="cp-muted measure">{{ confidence }}</p>
+        }
+
+        @if (servingsText(); as servings) {
+          <p class="cp-muted measure">{{ servings }}</p>
+        }
+
+        @if (result.partial) {
+          <!-- The totals are shown anyway: hiding them would leave the creator with nothing to act on. -->
+          <cp-notice tone="neutral" glyph="i">{{ copy.partialTotals }}</cp-notice>
+        }
+
+        <!-- Scrolls sideways rather than pushing the drawer wide; focusable and named so a keyboard can
+             reach the scroll (WCAG 2.2, and the drawer is a full-screen sheet at 40rem and narrower). -->
+        <div class="table-scroll" tabindex="0" role="group" [attr.aria-labelledby]="estimateHeadingId">
+        <table class="nutrients">
+          <caption class="cp-sr-only">
+            {{ copy.estimateHeading }}, {{ result.label }}, against version {{ result.versionNumber }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ copy.nutrientColumn }}</th>
+              <th scope="col">{{ copy.wholeRecipeColumn }}</th>
+              @if (hasPerServing()) {
+                <th scope="col">{{ copy.perServingColumn }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of nutrientRows(); track row.code) {
+              <tr>
+                <th
+                  scope="row"
+                  class="nutrient-name"
+                  [attr.aria-describedby]="row.incomplete ? sectionElementId(row.code + '-note') : null"
+                >
+                  {{ row.label }}
+                  @if (!row.complete) {
+                    <cp-status-pill tone="warning">Incomplete</cp-status-pill>
+                  }
+                </th>
+                <td class="figure">
+                  @if (row.qualifier) {
+                    <span class="qualifier">{{ row.qualifier }}</span>
+                  }
+                  {{ row.whole }} {{ row.unit }}
+                </td>
+                @if (hasPerServing()) {
+                  <td class="figure">
+                    @if (row.perServing) {
+                      @if (row.qualifier) {
+                        <span class="qualifier">{{ row.qualifier }}</span>
+                      }
+                      {{ row.perServing }} {{ row.unit }}
+                    } @else {
+                      <span aria-hidden="true">—</span>
+                      <span class="cp-sr-only">{{ copy.notStated }}</span>
+                    }
+                  </td>
+                }
+              </tr>
+              @if (row.incomplete) {
+                <tr class="nutrient-note">
+                  <td [id]="sectionElementId(row.code + '-note')" [attr.colspan]="hasPerServing() ? 3 : 2">
+                    {{ row.incomplete }}
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+        </div>
+
+        @if (nutrientsNotReported().length > 0) {
+          <p class="cp-muted measure">{{ copy.nutrientsNotReported }}{{ nutrientsNotReported().join(', ') }}.</p>
+        }
+
+        @let exactId = sectionElementId('exact');
+        <div class="disclosure">
+          <button
+            cpButton
+            variant="text"
+            size="sm"
+            type="button"
+            [attr.aria-expanded]="isSectionOpen('exact')"
+            [attr.aria-controls]="exactId"
+            (click)="toggleSection('exact')"
+          >
+            {{ isSectionOpen('exact') ? 'Hide' : 'Show' }} {{ copy.exactHeading }}
+          </button>
+        </div>
+
+        <div [id]="exactId" [hidden]="!isSectionOpen('exact')">
+          <p class="cp-muted measure">{{ copy.exactNote }}</p>
+          <dl cpFacts layout="inline">
+            @for (row of nutrientRows(); track row.code) {
+              <div cpFact [label]="row.label">
+                {{ row.exactWhole }} {{ row.unit }} whole recipe
+                @if (row.exactPerServing) {
+                  · {{ row.exactPerServing }} {{ row.unit }} per serving
+                }
+              </div>
+            }
+          </dl>
+        </div>
+      </section>
+
+      <!-- Not counted yet, with the mapping review that would change it --------- -->
+
+      <section class="unresolved" [attr.aria-labelledby]="unresolvedHeadingId">
+        <h3 class="part-heading" [id]="unresolvedHeadingId">
+          {{ copy.unresolvedHeading }}
+          <cp-status-pill [tone]="unresolvedCount() === 0 ? 'neutral' : 'warning'">
+            {{ unresolvedCount() }}<span class="cp-sr-only">
+              {{ unresolvedCount() === 1 ? 'ingredient' : 'ingredients' }}</span>
+          </cp-status-pill>
+        </h3>
+        <p class="cp-muted measure">{{ copy.unresolvedIntro }}</p>
+
+        @if (unresolvedGroups().length === 0) {
+          <p class="measure">{{ copy.everythingCounted }}</p>
+        }
+
+        @for (group of unresolvedGroups(); track group.id) {
+          <section class="group" [attr.aria-labelledby]="sectionElementId(group.id) + '-title'">
+            <h4 class="group-title" [id]="sectionElementId(group.id) + '-title'">
+              {{ group.heading }}
+              <cp-status-pill [tone]="group.tone">
+                {{ group.rows.length }}<span class="cp-sr-only">
+                  {{ group.rows.length === 1 ? 'ingredient' : 'ingredients' }}</span>
+              </cp-status-pill>
+            </h4>
+
+            <ul class="lines">
+              @for (row of group.rows; track row.lineId) {
+                <li class="line">
+                  <p class="line-text">
+                    <!-- The creator's own words for the line, as written. -->
+                    {{ row.displayText }}
+                    <cp-status-pill tone="neutral">{{ row.outcomeLabel }}</cp-status-pill>
+                  </p>
+
+                  @if (row.reason) {
+                    <p class="line-note">{{ row.reason }}</p>
+                  }
+
+                  <ng-container [ngTemplateOutlet]="mappingReview" [ngTemplateOutletContext]="{ $implicit: row }" />
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </section>
+
+      <!-- What was counted, and what was left out on purpose ------------------- -->
+
+      <section class="counted" [attr.aria-labelledby]="countedHeadingId">
+        <h3 class="part-heading" [id]="countedHeadingId">
+          {{ copy.countedHeading }}
+          <cp-status-pill tone="neutral">
+            {{ countedRows().length }}<span class="cp-sr-only">
+              {{ countedRows().length === 1 ? 'ingredient' : 'ingredients' }}</span>
+          </cp-status-pill>
+        </h3>
+
+        @let countedId = sectionElementId('counted');
+        <div class="disclosure">
+          <button
+            cpButton
+            variant="text"
+            size="sm"
+            type="button"
+            [attr.aria-expanded]="isSectionOpen('counted')"
+            [attr.aria-controls]="countedId"
+            (click)="toggleSection('counted')"
+          >
+            {{ isSectionOpen('counted') ? 'Hide' : 'Show' }} what was counted
+          </button>
+        </div>
+
+        <ul class="lines" [id]="countedId" [hidden]="!isSectionOpen('counted')">
+          @for (row of countedRows(); track row.lineId) {
+            <li class="line">
+              <p class="line-text">{{ row.displayText }}</p>
+              <p class="cp-muted">
+                @if (row.grams) {
+                  {{ row.grams }}
+                }
+                @if (row.basis) {
+                  · {{ row.basis }}
+                }
+              </p>
+              @if (row.sourceText) {
+                <p class="line-note">{{ row.sourceText }}</p>
+              }
+
+              <!-- The line was counted, which says nothing about how confidently it was matched. -->
+              <ng-container [ngTemplateOutlet]="mappingReview" [ngTemplateOutletContext]="{ $implicit: row }" />
+            </li>
+          }
+        </ul>
+
+        @if (otherRows().length > 0) {
+          <h4 class="group-title">{{ copy.otherLinesHeading }}</h4>
+          <ul class="lines">
+            @for (row of otherRows(); track row.lineId) {
+              <li class="line">
+                <p class="line-text">
+                  {{ row.displayText }}
+                  <cp-status-pill tone="neutral">{{ row.outcomeLabel }}</cp-status-pill>
+                </p>
+                @if (row.reason) {
+                  <p class="line-note">{{ row.reason }}</p>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <!-- Method and sources --------------------------------------------------- -->
+
+      @let methodId = sectionElementId('method');
+      <div class="method">
+        <div class="disclosure">
+          <button
+            cpButton
+            variant="text"
+            size="sm"
+            type="button"
+            [attr.aria-expanded]="isSectionOpen('method')"
+            [attr.aria-controls]="methodId"
+            (click)="toggleSection('method')"
+          >
+            {{ isSectionOpen('method') ? 'Hide' : 'Show' }} {{ copy.methodHeading }}
+          </button>
+        </div>
+        <!-- The server's own description of the arithmetic, verbatim. -->
+        <p class="measure method-text" [id]="methodId" [hidden]="!isSectionOpen('method')">{{ result.method }}</p>
+      </div>
+
+      @if (result.sources.length > 0) {
+        <section class="sources" [attr.aria-labelledby]="sourcesHeadingId">
+          <h3 class="part-heading" [id]="sourcesHeadingId">{{ copy.sourcesHeading }}</h3>
+          <ul class="source-list">
+            @for (source of result.sources; track source.sourceCode) {
+              <li class="source">
+                <p class="source-citation">{{ source.citation }}</p>
+                <p class="cp-muted">
+                  {{ source.sourceCode }} · Licence:
+                  <a [href]="source.licenseUrl" target="_blank" rel="noopener noreferrer"
+                    >{{ source.licenseCode }} <span class="cp-sr-only">{{ copy.newTab }}</span></a
+                  >
+                </p>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+  }
+</section>
+
+<!--
+  The mapping behind one ingredient line, used by both line lists. It is offered on a counted line as well
+  as an uncounted one: an estimate line carries no match confidence, so this is the only way to see that a
+  counted figure rests on a reference matched with low confidence.
+-->
+<ng-template #mappingReview let-row>
+  @if (!canReviewMapping(row)) {
+    <p class="line-note">{{ copy.mappingNoIngredient }}</p>
+  } @else {
+    @let mappingId = mappingElementId(row.lineId);
+
+    <button
+      cpButton
+      variant="text"
+      size="sm"
+      type="button"
+      [attr.aria-expanded]="mappingState(row.lineId) !== null"
+      [attr.aria-controls]="mappingId"
+      (click)="toggleMapping(row)"
+    >
+      {{ mappingState(row.lineId) === null ? copy.reviewMapping : copy.hideMapping }}
+      <span class="cp-sr-only">{{ copy.reviewMappingFor }} {{ row.displayText }}</span>
+    </button>
+
+    <div
+    class="mapping"
+    [id]="mappingId"
+    tabindex="-1"
+    [attr.aria-label]="copy.regionLabel + ': ' + row.displayText"
+    [hidden]="mappingState(row.lineId) === null"
+  >
+      @if (mappingState(row.lineId); as state) {
+        @switch (state.status) {
+          @case ('loading') {
+            <p class="cp-muted" role="status">{{ copy.mappingLoading }}</p>
+          }
+          @case ('not_found') {
+            <p class="line-note">{{ copy.mappingNone }}</p>
+          }
+          @case ('unauthorized') {
+            <p class="line-note">{{ copy.unauthorized }}</p>
+          }
+          @case ('unavailable') {
+            <p class="line-note">{{ copy.mappingUnavailable }}</p>
+          }
+        }
+      }
+
+      @if (mappingOf(row.lineId); as mapping) {
+        <p class="mapping-head">
+          <cp-status-pill [tone]="statusTone(mapping)">{{ statusLabel(mapping) }}</cp-status-pill>
+          @if (confidenceLabel(mapping); as confidence) {
+            <!-- Recorded, not scored (B-34). Shown whichever way it came out. -->
+            <cp-status-pill [tone]="confidenceTone(mapping)">{{ confidence }}</cp-status-pill>
+          }
+          @if (matchMethodLabel(mapping); as method) {
+            <cp-badge tone="neutral">{{ method }}</cp-badge>
+          }
+        </p>
+
+        @if (mapping.reference; as reference) {
+          <dl class="reference">
+            <div class="reference-row">
+              <dt>Record</dt>
+              <dd>{{ reference.description }}</dd>
+            </div>
+            <div class="reference-row">
+              <dt>From</dt>
+              <dd>
+                {{ reference.sourceCode }} · {{ reference.externalRecordId }} · version
+                {{ reference.sourceVersion }}
+              </dd>
+            </div>
+            @if (mapping.reviewSourceVersion) {
+              <div class="reference-row">
+                <dt>Newer version</dt>
+                <dd>{{ mapping.reviewSourceVersion }}</dd>
+              </div>
+            }
+            @if (portionLine(mapping); as portion) {
+              <div class="reference-row">
+                <dt>Portion</dt>
+                <dd>{{ portion }}</dd>
+              </div>
+            }
+          </dl>
+        }
+
+        @if (unresolvedReasonText(mapping); as reason) {
+          <p class="line-note">{{ reason }}</p>
+        }
+
+        @if (rejectedReferencesText(mapping); as rejected) {
+          <p class="line-note">{{ rejected }}</p>
+        }
+
+        @if (hasDecision(mapping)) {
+          @if (canDecide()) {
+            <div class="cp-actions">
+              <button
+                cpButton
+                variant="primary"
+                size="sm"
+                type="button"
+                [attr.aria-disabled]="isDeciding(row.lineId) ? 'true' : null"
+                (click)="confirmMapping(row)"
+              >
+                @if (isDeciding(row.lineId)) {
+                  {{ copy.deciding }}
+                } @else {
+                  {{ confirmLabel(mapping) }}
+                }
+              </button>
+              <button
+                cpButton
+                variant="danger"
+                size="sm"
+                type="button"
+                [attr.aria-disabled]="isDeciding(row.lineId) ? 'true' : null"
+                (click)="rejectMapping(row)"
+              >
+                {{ copy.reject }}
+              </button>
+            </div>
+          } @else {
+            <p class="line-note">{{ copy.mappingNeedsEditor }}</p>
+          }
+        } @else {
+          <p class="line-note">{{ copy.mappingNothingToDecide }}</p>
+        }
+
+        @if (mappingMessage(row.lineId); as message) {
+          <cp-notice
+            [tone]="message.isProblem ? 'error' : 'success'"
+            [attr.role]="message.isProblem ? 'alert' : 'status'"
+          >{{ message.text }}</cp-notice>
+        }
+      }
+    </div>
+  }
+</ng-template>

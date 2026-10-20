@@ -228,6 +228,21 @@ public static class AiOutputReason
     public const string ReviewAnswerUnexplained = "ai.output.review_answer_unexplained";
 
     /// <summary>
+    /// Free text in a recipe answer assured safety, the absence of an allergen, suitability for a person, or a
+    /// guarantee (14.7, BL-2).
+    /// </summary>
+    /// <remarks>
+    /// The prose half of the rule <see cref="AllergenEffectUncautioned"/> and
+    /// <see cref="SafetyEffectMisplaced"/> enforce structurally. Those two close the schema: there is no
+    /// "removes" member to choose and a consequence owes a caution. Neither reaches a sentence, and a sentence
+    /// is where "dairy-free" and "safe for coeliacs" were still arriving — in a substitution's flavour note, a
+    /// review's summary, or an adaptation's new recipe title, from capabilities whose prompts forbid exactly
+    /// that and whose validators were not checking. <see cref="AiRecipeSafetyClaimScanner"/> is the check.
+    /// Correctable: the model is asked again, and the structured effects plus a caution are the way to say it.
+    /// </remarks>
+    public const string UnsupportedSafetyAssurance = "ai.output.unsupported_safety_assurance";
+
+    /// <summary>
     /// A section or rule claims the sources support it but cites none, or cites a passage the request never
     /// offered.
     /// </summary>
