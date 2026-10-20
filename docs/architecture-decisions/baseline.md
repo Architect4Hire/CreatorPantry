@@ -55,6 +55,7 @@ later documents may reference them.
 | B-39 | Nutrition estimate endpoint | TBD | Decided | Read-only POST per version number with an optional serving count as the yield basis; labelled estimate; unresolved lines grouped and `publishable` exposed, not wired to readiness; 503 when the source cannot be asked. |
 | B-41 | Dietary and allergen review UI | TBD | Decided | A tool in the recipe editor's drawer over the saved version; the server's statements and disclaimer verbatim; no finding is ever a success tone and no sentence of its own says safe, free from, certified or suitable; decoded whole or not at all. |
 | B-42 | Nutrition mapping and estimate UI | TBD | Decided | A tool in the recipe editor's drawer: the server's figures rendered as given with no arithmetic in the browser, a partial estimate shown with its gaps named, and confirm/turn-down for the mappings it rests on — reached through the estimate, because a mapping has no other address. |
+| B-43 | Food-domain safety audit | TBD | Decided | A recipe capability's free text may not assure safety, absence or suitability, enforced by a scanner rather than asked for in a prompt; a dietary adaptation owes a caution and may not set its own yield; an unquantified required line makes an estimate unpublishable (amends B-35); 14.5's warnings get a route and a screen. |
 
 ## Decisions
 
@@ -1424,7 +1425,10 @@ ingredient measured both by the cup and by the piece needs the calculator to rep
   none — never a per-100 g of finished dish, whose weight is unknown.
 - **Missing data.** Each line is `Included`, `Unmapped`, `NeedsReview` (under review, a different source version
   than confirmed, or withdrawn), `Unconvertible`, `NotQuantified` or `Optional`. Optional and unquantified lines
-  are not required and not counted. `Publishable` only when every required line is counted; otherwise the
+  are not required and not counted. **Amended by [B-43](#b-43-food-domain-safety-audit) (14.7):** an
+  *unquantified* line the creator did not mark optional is required after all, and appears in
+  `unresolved.notQuantified`. Treating the two alike let an estimate report `Complete` while omitting the salt.
+  An optional line is unchanged — it is the creator's "if you like". `Publishable` only when every required line is counted; otherwise the
   totals are returned labelled `Partial` — a known-incomplete lower bound — for 14.6d to show honestly.
   A nutrient a counted reference does not report is unknown for that line: the nutrient is marked incomplete and
   names the line, never counted as zero. A caller publishes nothing from an unpublishable estimate, and only
@@ -1813,6 +1817,73 @@ re-rounding the exact values for display (rejected — that is the arithmetic th
 no data table, and `cp-list-shell` frames a list without columns. No readiness rule, no publish path and no
 JSON-LD read any of this yet.
 **Rules:** `frontend.md`, `design-system.md`, `recipes.md`, `ai.md`, `tenancy.md`.
+
+### B-43 Food-domain safety audit
+
+*Recorded 2026-10-20 by microprompt 14.7. The findings, the matrix and what was deliberately left undone are in
+[docs/food-domain-safety-audit.md](../food-domain-safety-audit.md); this records the decisions that changed
+behaviour. Cites AIREC-GR-005, AI-009/010 and ING-007/008, none of whose text is in the repository (B-12).*
+
+- **An assurance is refused; a subject is not.** `AiRecipeSafetyClaimScanner` refuses free text that says
+  something is free of an allergen, safe to eat, suitable for a person, or guaranteed — in a substitution's
+  prose, a review's finding, a proposed recipe value or a first draft. It is deliberately *not* the editorial
+  claim scanner, which also matches "vegan", "fermentation" and "medium-rare": those are what these
+  capabilities are about, and pointing that scanner at them would either break every answer or be switched off.
+  Two tiers, because a warning is where a limitation legitimately names what a recipe *cannot* be made: an
+  absence claim is refused in a value that becomes the recipe, an assurance about a person is refused everywhere.
+  Correctable, so the model is asked again; the structured effects plus a caution remain the way to say it.
+- **A prompt may not ask for a verdict the product cannot give.** `recipe.review-1.1.0` replaces 1.0.0's
+  instruction to say a recipe "reads as complete, consistent, and safe as written", and CreatorPantry supplies
+  the empty-answer sentence itself rather than printing the model's. A capability's `safetyClass` is a label
+  until something enforces it; this is the first thing that does.
+- **A dietary adaptation owes a caution, and may not do its own yield arithmetic.** The caution rule
+  substitution and review already enforced now covers adaptation. Under the yield goal a proposed
+  `yieldQuantity` must equal the deterministic figure, and `servingCount`/`servingSize` are refused outright —
+  a model-chosen servings figure would silently become the divisor of every per-serving nutrition estimate.
+- **A review's temperature and timing findings always need a reference check**, at any severity, because the
+  model chooses the severity. Keying a safety floor off a model's own judgement let it decide whether its own
+  food-safety figure needed checking.
+- **An unquantified required line makes an estimate unpublishable. This amends B-35.** That decision put
+  optional *and* unquantified lines outside the required set; for an optional line that is right — it is the
+  creator's "if you like" — but for a line they did not mark optional it meant an estimate could report
+  `Complete` and `publishable` while omitting the salt or the oil. Such a line is now required and appears in a
+  new `unresolved.notQuantified` group, and publishability also requires that something was counted at all,
+  which an empty or wholly unweighable recipe failed vacuously before. No arithmetic changed and no figure
+  moved; what changed is the claim made about them.
+- **"Nothing was checked" is never a pass.** Readiness answers `NotApplicable`, with its own sentence, when no
+  ingredient line matched a platform ingredient — the same distinction the evaluator already drew for
+  attribution. An empty gap list meant both "every record is complete" and "nobody looked".
+- **An approved trait may cite only an approved source.** `TraitPolicy.MayBeApproved` states the rule the schema
+  could not: the approved list lives in code because approving a source is a recorded decision, not a row.
+  Nothing writes an approved trait today, which is why B-33 held — by absence rather than by a rule.
+- **A model's own knowledge cannot carry high confidence for an allergen or dietary consequence.** Culinary
+  guidance still can: how a swap tastes is what a model is for, and asking it to hedge everything would make the
+  field meaningless.
+- **14.5's warnings get a route and a screen** — `GET .../analysis/food-safety` and the editor's Safety checks
+  tool. They were computed, disclaimed, guard-tested and seen by nobody. Still nothing blocks: no readiness rule
+  reads them, as B-37 decided.
+- **A refusal says which rule refused it.** `TraitCountedReason` is on every piece of cited evidence, so a
+  screen no longer has to work out from a source's kind and its active flag why a reassuring word did not
+  count. That derivation was a copy of `MayReassure` in the browser; the three reasons are kept apart because
+  they are different — a source that does not say, a kind that may not reassure, and one that is retired.
+- **The analyzer enforces its own effective date.** It took `evaluatedOn`, recorded it on the answer and
+  compared nothing with it, so any second read path would have produced findings from records not yet in effect.
+  Approval stays the repository's, since the service model carries no review status to re-check.
+
+**Options considered:** pointing the existing editorial claim scanner at the recipe capabilities (rejected
+above); rejecting an absence claim in a warning too (rejected — "cannot be made nut-free" is the honest
+limitation, and refusing the word would teach the model to be vaguer); making `publishable` block approval
+(rejected — a product decision nobody has taken, and B-39 left the gate exposed and unread); approving a
+food-safety reference to close the verification-required wording (refused — the fabrication this task's
+RESTRICTION forbids); `Calculator` as a forbidden cross-module suffix (rejected — it forbade Measurement's
+deliberately shared conversion calculators, so the three Nutrition analyzers are named individually).
+**Consequences:** `unresolved.notQuantified` and the food-safety route are additive OpenAPI changes; both
+estimate goldens were regenerated and show only the reclassified line, the new group and USDA's refreshed
+citation. The two tests that pinned the blockers now pin the refusals. `npm test` gained
+`scripts/check-safety-copy.mjs`, which scans both halves of the three safety panels. Still open, with reasons,
+in the audit document: `Manufacturer` asserting an allergen absence (needs a migration), and a mapping's match
+confidence being absent from an estimate line (needs a server field).
+**Rules:** `ai.md`, `recipes.md`, `tenancy.md`, `backend.md`, `api-contract.md`, `frontend.md`.
 
 ## Open items
 

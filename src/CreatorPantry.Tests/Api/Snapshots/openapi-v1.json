@@ -27938,7 +27938,8 @@
           "citation",
           "effectiveFrom",
           "evidenceNote",
-          "counted"
+          "counted",
+          "countedReason"
         ],
         "type": "object",
         "properties": {
@@ -27966,6 +27967,9 @@
           },
           "counted": {
             "type": "boolean"
+          },
+          "countedReason": {
+            "$ref": "#/components/schemas/TraitCountedReason"
           }
         }
       },
@@ -34372,7 +34376,8 @@
           "citation",
           "effectiveFrom",
           "evidenceNote",
-          "counted"
+          "counted",
+          "countedReason"
         ],
         "type": "object",
         "properties": {
@@ -34400,6 +34405,9 @@
           },
           "counted": {
             "type": "boolean"
+          },
+          "countedReason": {
+            "$ref": "#/components/schemas/TraitCountedReason"
           }
         }
       },
@@ -44781,6 +44789,15 @@
             }
           }
         }
+      },
+      "TraitCountedReason": {
+        "enum": [
+          "Counted",
+          "SourceDoesNotSay",
+          "UnvettedKind",
+          "RetiredSource"
+        ],
+        "type": "string"
       },
       "TraitFindingReason": {
         "enum": [

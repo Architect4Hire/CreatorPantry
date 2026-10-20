@@ -26,8 +26,8 @@ import {
   RecipeDietaryFinding,
   ReferenceSourceKind,
   TraitFindingReason,
-  UNVETTED_SOURCE_KINDS,
   AllergenPresence,
+  TraitCountedReason,
 } from '../../models/dietary-allergen-analysis.models';
 import { DescribedReferenceEntry } from '../../models/reference.models';
 import { DietaryAllergenAnalysisService } from '../../services/dietary-allergen-analysis.service';
@@ -211,14 +211,22 @@ export function conflictSentence(lines: number): string {
   return `Approved sources disagree about ${subject}. The more cautious word was kept, and both are cited.`;
 }
 
-/** Why a cited word was not counted. The source's kind decides it; a retired source is the other case. */
-export function notCountedReason(kind: ReferenceSourceKind, sourceIsRetired: boolean): string {
-  if (UNVETTED_SOURCE_KINDS.includes(kind)) {
-    return "This kind of source isn't vetted to state that something is absent, so it doesn't move the finding.";
-  }
-  if (sourceIsRetired) return "This source has been retired, so it doesn't move the finding.";
+/**
+ * Why a cited word was not counted, in the server's own terms (14.7, L-2 of the audit).
+ *
+ * This used to take the source's kind and whether it was retired and apply the rule itself, which was a copy
+ * of the domain's `MayReassure` living here. The server sends the reason now; this maps it to a sentence.
+ */
+export const NOT_COUNTED_REASONS: Readonly<Record<TraitCountedReason, string | null>> = {
+  Counted: null,
+  SourceDoesNotSay: "This source was consulted and does not say, so it doesn't move the finding.",
+  UnvettedKind:
+    "This kind of source isn't vetted to state that something is absent, so it doesn't move the finding.",
+  RetiredSource: "This source has been retired, so it doesn't move the finding.",
+};
 
-  return "This word doesn't move the finding.";
+export function notCountedReason(reason: TraitCountedReason): string {
+  return NOT_COUNTED_REASONS[reason] ?? "This word doesn't move the finding.";
 }
 
 // ---------------------------------------------------------------------------
@@ -646,7 +654,6 @@ export class RecipeDietaryAllergenComponent {
 
   private toAllergenView(subject: AllergenAnalysis, analysis: DietaryAllergenAnalysis): SubjectView {
     const key = `allergen-${subject.allergenId}`;
-    const retired = this.retiredSourceCodes(analysis);
     const rowFor = (line: AllergenLineAnalysis): LineRow => ({
       lineId: line.lineId,
       displayText: line.displayText,
@@ -662,7 +669,7 @@ export class RecipeDietaryAllergenComponent {
         effectiveFrom: item.effectiveFrom,
         note: item.evidenceNote,
         counted: item.counted,
-        notCounted: item.counted ? null : notCountedReason(item.sourceKind, retired.has(item.sourceCode)),
+        notCounted: item.counted ? null : notCountedReason(item.countedReason),
       })),
     });
 
@@ -730,7 +737,6 @@ export class RecipeDietaryAllergenComponent {
 
   private toDietaryView(subject: DietaryAnalysis, analysis: DietaryAllergenAnalysis): SubjectView {
     const key = `dietary-${subject.dietaryProfileId}`;
-    const retired = this.retiredSourceCodes(analysis);
     const rowFor = (line: DietaryLineAnalysis): LineRow => ({
       lineId: line.lineId,
       displayText: line.displayText,
@@ -746,7 +752,7 @@ export class RecipeDietaryAllergenComponent {
         effectiveFrom: item.effectiveFrom,
         note: item.evidenceNote,
         counted: item.counted,
-        notCounted: item.counted ? null : notCountedReason(item.sourceKind, retired.has(item.sourceCode)),
+        notCounted: item.counted ? null : notCountedReason(item.countedReason),
       })),
     });
 
@@ -814,9 +820,6 @@ export class RecipeDietaryAllergenComponent {
     };
   }
 
-  private retiredSourceCodes(analysis: DietaryAllergenAnalysis): ReadonlySet<string> {
-    return new Set(analysis.sources.filter((source) => !source.isActive).map((source) => source.code));
-  }
 
   sourceKindLabel(source: AnalysisSource): string {
     return SOURCE_KIND_LABELS[source.kind];

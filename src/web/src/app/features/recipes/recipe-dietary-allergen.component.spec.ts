@@ -27,7 +27,7 @@ import {
   RecipeDietaryAllergenComponent,
   SOURCE_KIND_LABELS,
   conflictSentence,
-  notCountedReason,
+  NOT_COUNTED_REASONS,
 } from './recipe-dietary-allergen.component';
 
 const DISCLAIMER =
@@ -79,6 +79,7 @@ function allergen(overrides: Partial<AllergenAnalysis> = {}): AllergenAnalysis {
             effectiveFrom: '2026-01-01',
             evidenceNote: 'Butter is a milk product.',
             counted: true,
+            countedReason: 'Counted',
           },
         ],
       },
@@ -100,6 +101,7 @@ function allergen(overrides: Partial<AllergenAnalysis> = {}): AllergenAnalysis {
             effectiveFrom: '2026-02-02',
             evidenceNote: 'May contain milk; made on shared equipment.',
             counted: true,
+            countedReason: 'Counted',
           },
         ],
       },
@@ -149,6 +151,7 @@ function dietary(overrides: Partial<DietaryAnalysis> = {}): DietaryAnalysis {
             effectiveFrom: '2025-06-01',
             evidenceNote: 'Someone reported a plant-based version.',
             counted: false,
+            countedReason: 'UnvettedKind',
           },
         ],
       },
@@ -626,7 +629,8 @@ describe('RecipeDietaryAllergenComponent', () => {
 
     expect(text(element)).toContain(COMPATIBILITY_WORDS.Compatible);
     expect(text(element)).toContain('Cited, not counted');
-    expect(text(element)).toContain(notCountedReason('CommunityContributed', false));
+    // The server says which rule refused the word; this panel maps that reason to a sentence (14.7, L-2).
+    expect(text(element)).toContain(NOT_COUNTED_REASONS.UnvettedKind!);
   });
 
   it('lists every source read, counted or not, with its licence and the date of its latest record', async () => {
@@ -822,10 +826,7 @@ describe('RecipeDietaryAllergenComponent', () => {
       CONFIDENCE_CAVEAT,
       conflictSentence(1),
       conflictSentence(2),
-      notCountedReason('CommunityContributed', false),
-      notCountedReason('AiEstimated', false),
-      notCountedReason('OfficialDatabase', true),
-      notCountedReason('OfficialDatabase', false),
+      ...Object.values(NOT_COUNTED_REASONS).filter((value): value is string => value !== null),
     ];
 
     for (const sentence of ownCopy) {

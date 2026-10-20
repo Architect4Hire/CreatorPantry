@@ -99,6 +99,20 @@ public static class DietaryAllergenAnalyzer
     }
 
     /// <summary>
+    /// Whether a reassuring word from this source counts, and why not (14.7, L-2 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// The two halves of <see cref="DietaryAllergenAnalysisPolicy.MayReassure"/>, told apart so the answer can
+    /// say which one applied. An unvetted kind and a retired source are refused for different reasons and a
+    /// creator reading the citation deserves the right one; working it out from the kind and the active flag
+    /// was what every screen had been doing for itself.
+    /// </remarks>
+    private static TraitCountedReason ReassuranceReason(TraitSourceServiceModel source) =>
+        !DietaryAllergenAnalysisPolicy.MayReassure(source.Kind, isActive: true) ? TraitCountedReason.UnvettedKind
+        : !source.IsActive ? TraitCountedReason.RetiredSource
+        : TraitCountedReason.Counted;
+
+    /// <summary>
     /// The traits in effect on the evaluation date, and only those (14.7, M-2 of the audit).
     /// </summary>
     /// <remarks>
@@ -198,12 +212,14 @@ public static class DietaryAllergenAnalyzer
         // A source that was consulted and does not say is no more than no source at all, and "not listed" counts
         // only from a source that may reassure. The database already refuses it from an unvetted kind; this is the
         // second guard, and the one that also covers a retired source.
-        var counted = traits.Select(trait => (Trait: trait, Counted: trait.Presence switch
+        var counted = traits.Select(trait => (Trait: trait, Reason: trait.Presence switch
         {
-            AllergenPresence.Unknown => false,
-            AllergenPresence.NotListedBySource => DietaryAllergenAnalysisPolicy.MayReassure(trait.Source.Kind, trait.Source.IsActive),
-            _ => true,
-        })).ToList();
+            AllergenPresence.Unknown => TraitCountedReason.SourceDoesNotSay,
+            AllergenPresence.NotListedBySource => ReassuranceReason(trait.Source),
+            _ => TraitCountedReason.Counted,
+        }))
+            .Select(entry => (entry.Trait, Counted: entry.Reason is TraitCountedReason.Counted, entry.Reason))
+            .ToList();
         var states = counted.Where(entry => entry.Counted).Select(entry => entry.Trait.Presence).ToHashSet();
 
         var finding =
@@ -226,7 +242,7 @@ public static class DietaryAllergenAnalyzer
             conflict,
             [.. counted.Select(entry => new AllergenTraitEvidenceServiceModel(
                 entry.Trait.Presence, entry.Trait.Source.Code, entry.Trait.Source.Name, entry.Trait.Source.Kind, entry.Trait.Source.Citation,
-                entry.Trait.EffectiveFrom, entry.Trait.EvidenceNote, entry.Counted))]);
+                entry.Trait.EffectiveFrom, entry.Trait.EvidenceNote, entry.Counted, entry.Reason))]);
     }
 
     // ---- Dietary profiles ----
@@ -275,12 +291,14 @@ public static class DietaryAllergenAnalyzer
 
         // "Compatible" counts only from a source that may reassure; there is no database guard for it, so this is
         // the only one.
-        var counted = traits.Select(trait => (Trait: trait, Counted: trait.Compatibility switch
+        var counted = traits.Select(trait => (Trait: trait, Reason: trait.Compatibility switch
         {
-            DietaryCompatibility.Unknown => false,
-            DietaryCompatibility.Compatible => DietaryAllergenAnalysisPolicy.MayReassure(trait.Source.Kind, trait.Source.IsActive),
-            _ => true,
-        })).ToList();
+            DietaryCompatibility.Unknown => TraitCountedReason.SourceDoesNotSay,
+            DietaryCompatibility.Compatible => ReassuranceReason(trait.Source),
+            _ => TraitCountedReason.Counted,
+        }))
+            .Select(entry => (entry.Trait, Counted: entry.Reason is TraitCountedReason.Counted, entry.Reason))
+            .ToList();
         var states = counted.Where(entry => entry.Counted).Select(entry => entry.Trait.Compatibility).ToHashSet();
 
         var finding =
@@ -303,7 +321,7 @@ public static class DietaryAllergenAnalyzer
             conflict,
             [.. counted.Select(entry => new DietaryTraitEvidenceServiceModel(
                 entry.Trait.Compatibility, entry.Trait.Source.Code, entry.Trait.Source.Name, entry.Trait.Source.Kind, entry.Trait.Source.Citation,
-                entry.Trait.EffectiveFrom, entry.Trait.EvidenceNote, entry.Counted))]);
+                entry.Trait.EffectiveFrom, entry.Trait.EvidenceNote, entry.Counted, entry.Reason))]);
     }
 
     private static List<Guid> LinesWhere<T>(IEnumerable<T> findings, Func<T, bool> predicate)

@@ -495,6 +495,47 @@ public sealed class DietaryAllergenAnalyzerTests
         Assert.Empty(analysis.Sources);
     }
 
+    /// <summary>
+    /// A cited word that does not count says why, in the server's own terms (14.7, L-2 of the audit).
+    /// </summary>
+    /// <remarks>
+    /// <c>Counted = false</c> said only that a word did not move the finding, so every screen worked out why
+    /// from the source's kind and its active flag — a copy of <c>MayReassure</c> in a browser, correct the day
+    /// it was written and wrong the day the rule changes. The three reasons are told apart because they are
+    /// different: a source that does not say, a kind that may not reassure, and one that has been retired.
+    /// </remarks>
+    [Fact]
+    public void A_word_that_does_not_count_says_which_rule_refused_it()
+    {
+        var analysis = Analyze(
+            [Line(1, Flour), Line(2, Sugar), Line(3, Oats)],
+            allergens: [Milk],
+            evidence: Evidence(
+                // A kind that may not reassure, a retired source, and a source that was asked and does not say.
+                Allergen(Flour, Milk, AllergenPresence.NotListedBySource, Community, "Not listed."),
+                Allergen(Sugar, Milk, AllergenPresence.NotListedBySource, Retired, "Not listed."),
+                Allergen(Oats, Milk, AllergenPresence.Unknown, Official, "Asked; does not say.")));
+
+        var milk = Assert.Single(analysis.Allergens);
+        var reasons = milk.Lines
+            .SelectMany(line => line.Evidence)
+            .ToDictionary(evidence => evidence.SourceCode, evidence => evidence.CountedReason);
+
+        Assert.Equal(TraitCountedReason.UnvettedKind, reasons[Community.Code]);
+        Assert.Equal(TraitCountedReason.RetiredSource, reasons[Retired.Code]);
+        Assert.Equal(TraitCountedReason.SourceDoesNotSay, reasons[Official.Code]);
+
+        // And a word that did count says so rather than leaving the field to be read as a refusal.
+        var counting = Analyze(
+            [Line(1, Flour)],
+            allergens: [Milk],
+            evidence: Evidence(Allergen(Flour, Milk, AllergenPresence.Present, Official, "Present.")));
+
+        var evidence = Assert.Single(Assert.Single(counting.Allergens).Lines.Single().Evidence);
+        Assert.True(evidence.Counted);
+        Assert.Equal(TraitCountedReason.Counted, evidence.CountedReason);
+    }
+
     // ---- Nothing here can say "safe" ----
 
     /// <summary>

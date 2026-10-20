@@ -136,8 +136,21 @@ const REFERENCE_SOURCE_KINDS: ReadonlySet<string> = new Set<ReferenceSourceKind>
   'AiEstimated',
 ]);
 
-/** The kinds that may not state absence, so a reassuring word from one is cited and never counted. */
-export const UNVETTED_SOURCE_KINDS: readonly ReferenceSourceKind[] = ['CommunityContributed', 'AiEstimated'];
+/**
+ * Why a cited word was not counted. Mirrors TraitCountedReason.
+ *
+ * The server's answer, as of 14.7's audit. This client used to work it out from the source's kind and whether
+ * it was retired, which was a second copy of the domain's `MayReassure` rule living in a browser — correct
+ * when it was written, and wrong the day that rule changed.
+ */
+export type TraitCountedReason = 'Counted' | 'SourceDoesNotSay' | 'UnvettedKind' | 'RetiredSource';
+
+const COUNTED_REASONS: ReadonlySet<string> = new Set<TraitCountedReason>([
+  'Counted',
+  'SourceDoesNotSay',
+  'UnvettedKind',
+  'RetiredSource',
+]);
 
 // ---------------------------------------------------------------------------
 // Shapes
@@ -176,6 +189,8 @@ export interface AllergenTraitEvidence {
   readonly evidenceNote: string;
   /** False for a reassuring word from a source that may not give one. Cited, and never allowed to move a finding. */
   readonly counted: boolean;
+  /** Why not, when `counted` is false. */
+  readonly countedReason: TraitCountedReason;
 }
 
 /** Mirrors DietaryTraitEvidenceServiceModel. */
@@ -188,6 +203,8 @@ export interface DietaryTraitEvidence {
   readonly effectiveFrom: string;
   readonly evidenceNote: string;
   readonly counted: boolean;
+  /** Why not, when `counted` is false. */
+  readonly countedReason: TraitCountedReason;
 }
 
 /** Mirrors AllergenLineAnalysisServiceModel: one recipe line, read for one allergen. */
@@ -339,9 +356,12 @@ function decodeEvidenceCommon(value: unknown): Omit<AllergenTraitEvidence, 'pres
 
   if (typeof sourceCode !== 'string' || typeof sourceName !== 'string') return null;
   if (typeof citation !== 'string' || typeof evidenceNote !== 'string') return null;
-  if (typeof counted !== 'boolean' || sourceKind === null || effectiveFrom === null) return null;
+  const countedReason = decodeClosedEnum<TraitCountedReason>(COUNTED_REASONS, value['countedReason']);
 
-  return { sourceCode, sourceName, sourceKind, citation, effectiveFrom, evidenceNote, counted };
+  if (typeof counted !== 'boolean' || sourceKind === null || effectiveFrom === null) return null;
+  if (countedReason === null) return null;
+
+  return { sourceCode, sourceName, sourceKind, citation, effectiveFrom, evidenceNote, counted, countedReason };
 }
 
 function decodeAllergenEvidence(value: unknown): AllergenTraitEvidence | null {

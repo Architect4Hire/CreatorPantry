@@ -73,6 +73,35 @@ public enum TraitFindingReason
 }
 
 /// <summary>
+/// Why a cited word was not counted (14.7, L-2 of the audit).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <c>Counted = false</c> said that a word did not move the finding; it did not say why, so every screen had
+/// to work that out from the source's kind and whether it was retired — a second copy of
+/// <see cref="DietaryAllergenAnalysisPolicy.MayReassure"/> living in a browser, drifting the moment the rule
+/// changes. The reason is the server's to give.
+/// </para>
+/// <para>
+/// <see cref="Counted"/> means the word moved the finding, and needs no reason.
+/// </para>
+/// </remarks>
+public enum TraitCountedReason
+{
+    /// <summary>It counted.</summary>
+    Counted = 0,
+
+    /// <summary>The source was consulted and does not say, which is no word at all.</summary>
+    SourceDoesNotSay = 1,
+
+    /// <summary>A reassuring word from a kind that may not give one — community-contributed, or AI-estimated.</summary>
+    UnvettedKind = 2,
+
+    /// <summary>A reassuring word from a source that has been retired.</summary>
+    RetiredSource = 3,
+}
+
+/// <summary>
 /// How complete the records behind one allergen's or profile's finding are (14.6). A statement about the records,
 /// not about how likely the finding is: a <see cref="RecipeAllergenFinding.Contains"/> on partial records is still
 /// a finding that the recipe contains it.
@@ -118,6 +147,9 @@ public sealed record AnalysisSourceServiceModel(
 /// False for a reassuring word — "not listed" — from a source that may not give one: an unvetted kind, or a
 /// retired source. Cited so a reader can see it, and never allowed to move a finding away from caution.
 /// </param>
+/// <param name="CountedReason">
+/// Why, when <paramref name="Counted"/> is false. <see cref="TraitCountedReason.Counted"/> otherwise.
+/// </param>
 public sealed record AllergenTraitEvidenceServiceModel(
     AllergenPresence Presence,
     string SourceCode,
@@ -126,10 +158,12 @@ public sealed record AllergenTraitEvidenceServiceModel(
     string Citation,
     DateOnly EffectiveFrom,
     string EvidenceNote,
-    bool Counted);
+    bool Counted,
+    TraitCountedReason CountedReason);
 
 /// <summary>One source's approved word about an ingredient against a dietary profile.</summary>
 /// <param name="Counted">False for "compatible" from a source that may not reassure; see <see cref="AllergenTraitEvidenceServiceModel.Counted"/>.</param>
+/// <param name="CountedReason">See <see cref="AllergenTraitEvidenceServiceModel.CountedReason"/>.</param>
 public sealed record DietaryTraitEvidenceServiceModel(
     DietaryCompatibility Compatibility,
     string SourceCode,
@@ -138,7 +172,8 @@ public sealed record DietaryTraitEvidenceServiceModel(
     string Citation,
     DateOnly EffectiveFrom,
     string EvidenceNote,
-    bool Counted);
+    bool Counted,
+    TraitCountedReason CountedReason);
 
 /// <param name="Conflict">Approved sources disagree; the finding is the more cautious one and both are cited.</param>
 public sealed record AllergenLineAnalysisServiceModel(
