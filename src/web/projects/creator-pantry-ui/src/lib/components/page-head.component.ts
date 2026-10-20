@@ -33,13 +33,20 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
   </header>`,
   styles: [
     `
+      /* A masthead: the title over a hairline that closes the head off from the page, as a blog post's
+         headline and dek sit above the rule where the piece begins. */
       :host {
         display: block;
         margin-bottom: var(--cp-space-6);
       }
+      header {
+        padding-bottom: var(--cp-space-6);
+        border-bottom: 1px solid var(--cp-border);
+      }
       h1 {
         margin: 0;
-        font: 400 var(--cp-font-size-title) / 1.2 var(--cp-font-display);
+        font: 500 var(--cp-font-size-title) / 1.08 var(--cp-font-display);
+        letter-spacing: var(--cp-tracking-display);
         color: var(--cp-text);
         /* A title is the creator's own words as often as not, and one long unbroken word must not push the
            page sideways at 320px or 200% zoom. */
@@ -50,7 +57,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
         outline-offset: 2px;
       }
       .breadcrumb {
-        margin-bottom: var(--cp-space-2);
+        margin-bottom: var(--cp-space-1);
       }
       .badges {
         display: flex;
@@ -59,16 +66,18 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
         margin-top: var(--cp-space-3);
       }
       .lede {
-        margin: var(--cp-space-2) 0 0;
+        margin: var(--cp-space-3) 0 0;
         max-width: var(--cp-measure-prose);
         color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-lg);
+        line-height: 1.5;
       }
       .actions {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: var(--cp-space-3);
-        margin-top: var(--cp-space-4);
+        margin-top: var(--cp-space-5);
       }
       /* A slot nothing was projected into takes no room and, for the nav, announces no empty landmark. A
          presence test on rendered children, as cp-toolbar's overflow uses: the wrapper has to exist for the

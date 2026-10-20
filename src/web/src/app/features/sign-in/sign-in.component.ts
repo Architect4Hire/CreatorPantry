@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
 
 import { AuthService, LoginOutcome } from '../../services/auth.service';
+import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 const OUTCOME_MESSAGES: Record<Exclude<LoginOutcome['status'], 'success'>, string> = {
   invalid_credentials: "That email or password didn't work. Please try again.",
@@ -15,7 +16,7 @@ const OUTCOME_MESSAGES: Record<Exclude<LoginOutcome['status'], 'success'>, strin
 @Component({
   selector: 'cp-sign-in',
   standalone: true,
-  imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent],
+  imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent, AuthLayoutComponent],
   templateUrl: './sign-in.component.html',
   styleUrl: './sign-in.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

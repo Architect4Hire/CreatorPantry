@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
 
 import { RegistrationService } from '../../services/registration.service';
+import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 @Component({
   selector: 'cp-sign-up',
   standalone: true,
-  imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent],
+  imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent, AuthLayoutComponent],
   templateUrl: './sign-up.component.html',
   styleUrl: './sign-up.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

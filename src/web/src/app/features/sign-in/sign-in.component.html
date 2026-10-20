@@ -1,6 +1,12 @@
-<div class="sign-in-shell">
+<cp-auth-layout
+  headline="Where your recipes become stories."
+  dek="Develop, version and publish your food writing — recipe card, blog post and captions from one source."
+>
   <form class="sign-in-card" (submit)="$event.preventDefault(); submit()">
-    <h1>Sign in to CreatorPantry</h1>
+    <div class="intro">
+      <h1>Welcome back</h1>
+      <p>Sign in to pick up where you left off in your kitchen.</p>
+    </div>
 
     @if (degraded) {
       <p class="banner" role="status">We couldn't confirm your session just now. You can still try signing in.</p>
@@ -40,4 +46,4 @@
 
     <p class="footer-link">New to CreatorPantry? <a routerLink="/sign-up">Create an account</a></p>
   </form>
-</div>
+</cp-auth-layout>

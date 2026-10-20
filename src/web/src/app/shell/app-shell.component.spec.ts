@@ -216,7 +216,7 @@ describe('AppShellComponent', () => {
     const TOKENS: Record<string, string> = {
       '--cp-page-gutter': '28px',
       // The frame's top padding. Left unset, the whole padding shorthand would be invalid and compute to 0.
-      '--cp-space-5': '20px',
+      '--cp-space-8': '20px',
       '--cp-page-width-reading': '500px',
       '--cp-page-width-standard': '700px',
       '--cp-page-width-wide': '900px',

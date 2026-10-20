@@ -21,6 +21,17 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         min-height: 2.5rem;
         color: var(--cp-text-muted);
         overflow-wrap: anywhere;
+        /* Set like a blog's category line over a headline: small capitals, tracked, the underline left to
+           hover. Uppercase is presentation only; the link's text, and what a screen reader reads, is unchanged. */
+        font-size: var(--cp-font-size-xs);
+        font-weight: 700;
+        letter-spacing: var(--cp-tracking-kicker);
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+      :host(:hover) {
+        color: var(--cp-primary);
+        text-decoration: underline;
       }
       :host(:focus-visible) {
         outline: 2px solid var(--cp-focus);

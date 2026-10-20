@@ -47,7 +47,7 @@ let cpFormSectionUid = 0;
       section {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        gap: var(--cp-space-4);
+        gap: var(--cp-space-5);
         min-width: 0;
         scroll-margin-top: var(--cp-space-6);
       }
@@ -58,9 +58,18 @@ let cpFormSectionUid = 0;
         outline: none;
       }
 
+      /* A section after another is set off by a hairline, the way a magazine rules between two parts of one
+         piece: the form still reads as one thing under one Save, in named parts. :first-of-type counts
+         cp-form-section siblings only, so a legend before the first one does not earn it a rule. */
+      :host(:not(:first-of-type)) section {
+        padding-top: var(--cp-space-6);
+        border-top: 1px solid var(--cp-border);
+      }
+
       .heading {
         margin: 0;
-        font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
+        font: 500 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
+        letter-spacing: var(--cp-tracking-display);
         color: var(--cp-text);
       }
 
@@ -68,7 +77,7 @@ let cpFormSectionUid = 0;
         margin: 0;
         max-width: var(--cp-measure-prose);
         color: var(--cp-text-muted);
-        font-size: var(--cp-font-size-sm);
+        font-size: var(--cp-font-size-md);
       }
 
       /* Tightened only when it actually follows the heading — with a problem between them it is a paragraph
