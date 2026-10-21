@@ -186,7 +186,7 @@
                  the right. One column, in the same order, when it is not. -->
             <div class="row-body">
               <div class="row-grid">
-                <cp-field-row class="row-fields" [columns]="4" minColumn="5.5rem" style="--cp-field-row-measure: 100%">
+                <cp-field-row class="row-fields" [columns]="1" style="--cp-field-row-measure: 100%">
               <cp-field label="Quantity" [forId]="'row-quantity-' + row.key">
                 <input
                   [id]="'row-quantity-' + row.key"
@@ -215,7 +215,7 @@
               <!-- Server-filtered, so `filterLocally` is off: the ingredient catalogue is too large to hold in
                    a browser, and filtering the search's own answers again would hide matches it found by
                    alias. -->
-              <cp-field class="cp-span-2" label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
+              <cp-field label="Ingredient" [forId]="'row-ingredient-' + row.key" [required]="true">
                 <cp-combobox
                   [inputId]="'row-ingredient-' + row.key"
                   [options]="ingredientOptionsFor(row.key)"

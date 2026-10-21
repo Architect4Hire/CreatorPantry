@@ -1209,10 +1209,24 @@
                               ></textarea>
                             </cp-field>
 
+                            <cp-field label="Note" [forId]="'step-note-' + step.key">
+                              <input
+                                [id]="'step-note-' + step.key"
+                                type="text"
+                                placeholder="A tip, a warning, a doneness cue"
+                                [ngModel]="step.note"
+                                (ngModelChange)="updateInstructionStep(group.key, step.key, { note: $event })"
+                                [name]="'stepNote' + step.key"
+                              />
+                            </cp-field>
+
                             <!-- Most steps have no duration, and a number box on every one of a dozen reads as a field
                          the creator is expected to fill in. So it is offered rather than presented — except on a
                          step that already records one, which is shown without being looked for. Once on it stays
-                         on, because a field disappearing mid-edit is worse than an empty one. -->
+                         on, because a field disappearing mid-edit is worse than an empty one.
+                         After the step's text and its note, at the foot of the step where the button that offers it is: the
+                         field arrives where the creator was already looking, instead of opening above the note and pushing
+                         everything beneath it down. -->
                             @if (step.showDuration) {
                               <cp-field-row [columns]="2" minColumn="10rem">
                                 <cp-field
@@ -1233,17 +1247,6 @@
                                 </cp-field>
                               </cp-field-row>
                             }
-
-                            <cp-field label="Note" [forId]="'step-note-' + step.key">
-                              <input
-                                [id]="'step-note-' + step.key"
-                                type="text"
-                                placeholder="A tip, a warning, a doneness cue"
-                                [ngModel]="step.note"
-                                (ngModelChange)="updateInstructionStep(group.key, step.key, { note: $event })"
-                                [name]="'stepNote' + step.key"
-                              />
-                            </cp-field>
 
                             @if (!step.showDuration) {
                               <div class="step-actions">

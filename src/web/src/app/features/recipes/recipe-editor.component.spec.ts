@@ -4174,6 +4174,31 @@ describe('RecipeEditorComponent', () => {
       expect(addSteps().every((button) => !harness.routeNativeElement!.querySelector('.toolbar')!.contains(button))).toBeTrue();
     });
 
+    it('opens the duration after the step text and its note, at the foot of the step, and nothing above it moves', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      const key = component.instructionGroups()[0].steps[0].key;
+      const top = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().top;
+      const bottom = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().bottom;
+      const textTop = top(`#step-text-${key}`);
+      const noteTop = top(`#step-note-${key}`);
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Add a duration to step 1"]')!.click();
+      harness.detectChanges();
+
+      expect(root.querySelector(`#step-duration-${key}`)).withContext('the duration field is there').toBeTruthy();
+      // After the note, not between the text and the note.
+      expect(top(`#step-duration-${key}`)).toBeGreaterThanOrEqual(bottom(`#step-note-${key}`) - 1);
+      // And nothing above it was pushed: the text and the note are exactly where they were.
+      expect(top(`#step-text-${key}`)).toBe(textTop);
+      expect(top(`#step-note-${key}`)).toBe(noteTop);
+      // The button that offered it has gone.
+      expect(root.querySelector('button[aria-label="Add a duration to step 1"]')).toBeNull();
+    });
+
     it('puts move and remove at the top right of a step, above its text, and the duration offer beneath', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);

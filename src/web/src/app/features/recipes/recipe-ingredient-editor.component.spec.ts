@@ -584,15 +584,15 @@ describe('RecipeIngredientEditorComponent', () => {
         Array.from(root.querySelector('.row-fields')!.querySelectorAll<HTMLElement>(':scope > cp-field')).map((field) =>
           Math.round(field.getBoundingClientRect().top),
         );
-      // Quantity, unit and ingredient share a line, and the preparation note is in the column beside them.
-      const lineOf = (tops: number[]) => ({ together: new Set(tops).size });
+      // Quantity, unit and ingredient are one above the other, and the preparation note is in the column beside them.
+      const stackOf = (tops: number[]) => ({ distinct: new Set(tops).size, inOrder: tops.every((top, index) => index === 0 || top > tops[index - 1]) });
       const noteBeside = (root: HTMLElement) => {
         const fields = root.querySelector('.row-fields')!.getBoundingClientRect();
         const note = root.querySelector('.row-side cp-field')!.getBoundingClientRect();
         return note.left >= fields.right - 1 && Math.abs(note.top - fields.top) < 40;
       };
       expect(fieldTops(element).length).withContext('quantity, unit and ingredient').toBe(3);
-      expect(lineOf(fieldTops(element))).withContext('quantity, unit and ingredient on one line').toEqual({ together: 1 });
+      expect(stackOf(fieldTops(element))).withContext('quantity, unit and ingredient one above the other').toEqual({ distinct: 3, inOrder: true });
       expect(noteBeside(element)).withContext('the note in the second column').toBeTrue();
 
       // Same for a single titled group: still no nav, still the full width.
@@ -600,7 +600,7 @@ describe('RecipeIngredientEditorComponent', () => {
       fixture.detectChanges();
       expect(nav(fixture)).toBeNull();
       expect(trackCount(element.querySelector('.grouped-layout')!)).withContext('columns for one group').toBe(1);
-      expect(lineOf(fieldTops(element))).withContext('the same for one group').toEqual({ together: 1 });
+      expect(stackOf(fieldTops(element))).withContext('the same for one group').toEqual({ distinct: 3, inOrder: true });
       expect(noteBeside(element)).withContext('and the note beside them for one group').toBeTrue();
     });
 
@@ -619,6 +619,12 @@ describe('RecipeIngredientEditorComponent', () => {
       const note = element.querySelector('.row-side textarea')!.getBoundingClientRect();
       expect(element.querySelector('.row-side textarea')).withContext('the note is a text area').toBeTruthy();
       expect(note.left).withContext('the note is in the right-hand column').toBeGreaterThanOrEqual(fields.right - 1);
+      // The first column is a vertical stack: three fields, one left edge, each beneath the one before.
+      const stacked = Array.from(element.querySelectorAll('.row-fields > cp-field')).map((field) => field.getBoundingClientRect());
+      expect(stacked.length).toBe(3);
+      expect(stacked.every((box) => Math.abs(box.left - stacked[0].left) < 1.5)).withContext('one left edge').toBeTrue();
+      expect(stacked[1].top).toBeGreaterThanOrEqual(stacked[0].bottom - 1);
+      expect(stacked[2].top).toBeGreaterThanOrEqual(stacked[1].bottom - 1);
 
       // Scaling under the note, its label at the column's left edge; Optional at the right end of the same line.
       const scaling = element.querySelector('.row-toggles cp-field')!.getBoundingClientRect();

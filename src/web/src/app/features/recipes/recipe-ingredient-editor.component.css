@@ -161,8 +161,9 @@
   min-width: 0;
 }
 
-/* Wide enough for the left column to hold quantity, unit and ingredient on one line at their smallest. */
-@container cp-ingredient-row (min-width: 52rem) {
+/* Two columns from 40rem, the width the design system already treats as a phone's. The first holds quantity, unit
+   and ingredient one above the other, so it only needs the width of one field, not of three side by side. */
+@container cp-ingredient-row (min-width: 40rem) {
   .row-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--cp-space-6);
