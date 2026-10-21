@@ -58,15 +58,23 @@ cp-tab-panel:not([hidden]) {
   }
 }
 
-/* Sits between the tablist and the first panel, so it reads as a note about the tabs above it. Muted,
-   because it explains a state rather than reporting a problem — the greyed-out tabs are not an error. */
+/* A recipe being created has no row of areas, so its form is laid out the way an Edit panel is: the same
+   one-column grid and gap, minus the panel's entrance animation, which belongs to switching tabs. */
+.edit-surface {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+}
+
+/* Sits under the required-fields legend, so the two read as the notes about the form. Muted, because it
+   explains a state rather than reporting a problem — the unavailable areas are not an error. */
 .area-lock-note {
   display: flex;
   align-items: flex-start;
   gap: var(--cp-space-2);
-  margin: var(--cp-space-3) 0 0;
+  margin: 0;
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
 }
 
 .area-lock-icon {
@@ -97,6 +105,63 @@ cp-tab-panel:not([hidden]) {
 
 .hosted cp-notice {
   margin-bottom: 0;
+}
+
+/* TRIAL: full-width fields. A text field, a textarea and a combobox fill the card's width rather than stopping at
+   the 60ch measure, so the form has one right edge and no column of empty card beside it. The two tokens are
+   the whole of the switch and are set here, on the editor, so no other form is touched:
+
+   --cp-measure-field   what cp-form-section holds a field it projects directly to. Open here.
+   --cp-field-row-measure   what a cp-field-row (and the fields in it) is held to. Kept at the old 60ch: a row of
+                        quantities spread over a card this wide is a two-digit number in a box 340px across, which
+                        is what a quantity row exists to prevent. Quantities line up on the left under full-width
+                        text, which is ragged on the right by design.
+
+   To go back, delete this :host rule and restore the two-column block (see the backup noted in the change). */
+:host {
+  --cp-measure-field: 100%;
+  --cp-field-row-measure: 60ch;
+
+  /* The shell's topbar is fixed across the top of the page, so anything scrolled to or stuck at the top has to
+     clear it, and a section's heading must not land beneath it. The second is how far down a sticky thing below
+     the instructions toolbar sits clear of both bars. */
+  --cp-form-section-scroll-margin: calc(var(--cp-topbar-height) + var(--cp-space-4));
+  --cp-sticky-bar: 3.75rem;
+  --cp-sticky-below-bars: calc(var(--cp-topbar-height) + var(--cp-sticky-bar) + var(--cp-space-2));
+}
+
+/* The General tab: one column of sections with a nav, in one of two forms. Narrow — a phone — the nav is a wrapping
+   row of four links above the sections, for getting down a column that is several screens long. From 40rem, the
+   width the design system already treats as a phone's, the three short sections are a screen apart at most, so the
+   four links give way to two in a sticky gutter beside the column: Details, and the rest together.
+   `display: none` and not a removed element, so the one not shown is out of the accessibility tree and back,
+   with its state, the moment the editor changes width. */
+.general-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  align-items: start;
+}
+
+.general-nav-wide {
+  display: none;
+}
+
+@container cp-editor (min-width: 40rem) {
+  .general-layout {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  .general-nav {
+    display: none;
+  }
+
+  .general-nav-wide {
+    display: block;
+    position: sticky;
+    top: calc(var(--cp-topbar-height) + var(--cp-space-4));
+    --cp-anchor-nav-direction: column;
+  }
 }
 
 /* The instruction groups and the nav beside them. Its own container, like the ingredient editor's: the
@@ -134,12 +199,14 @@ cp-tab-panel:not([hidden]) {
 
   .group-nav {
     position: sticky;
-    top: var(--cp-space-4);
+    top: var(--cp-sticky-below-bars);
     --cp-anchor-nav-direction: column;
   }
 }
 
 .group {
+  /* Jumped to from the group nav: clear of the topbar and the toolbar, so its heading is not hidden. */
+  scroll-margin-top: var(--cp-sticky-below-bars);
   padding: var(--cp-space-4);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-subtle);
@@ -170,17 +237,19 @@ cp-tab-panel:not([hidden]) {
   display: inline-flex;
   align-items: center;
   gap: var(--cp-space-1);
-  padding: 0 var(--cp-space-2);
-  min-height: 1.75rem;
+  padding: 0 0 0 var(--cp-space-3);
+  min-height: 2.25rem;
+  border: 1px solid var(--cp-border-strong);
   border-radius: var(--cp-radius-full);
-  background: var(--cp-surface-subtle);
+  background: var(--cp-surface-raised);
   color: var(--cp-text);
-  font-size: var(--cp-font-size-xs);
-  transition: background var(--cp-duration-fast) var(--cp-ease);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
 }
 
 .tag-chip:hover {
-  background: var(--cp-surface-raised);
+  border-color: var(--cp-primary-text);
 }
 
 .tag-chip button {
@@ -193,7 +262,7 @@ cp-tab-panel:not([hidden]) {
   background: transparent;
   color: var(--cp-text-muted);
   cursor: pointer;
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
   line-height: 1;
   transition: color var(--cp-duration-fast) var(--cp-ease);
 }
@@ -209,6 +278,13 @@ cp-tab-panel:not([hidden]) {
 
 .tag-input-row input {
   flex: 1 1 auto;
+}
+
+/* The input takes the room and the button its own width. Without this the button is squeezed to the width of
+   its longest word and "Add tag" wraps onto two lines. */
+.tag-input-row button {
+  flex: none;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -231,6 +307,34 @@ cp-tab-panel:not([hidden]) {
 
 .group-header cp-field {
   flex: 1 1 auto;
+}
+
+/* The buttons at the head of the instructions, as the ingredient editor's toolbar is. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* Kept on screen while a long method scrolls beneath it, as the ingredient editor's is: just under the shell's
+   fixed topbar, opaque, and above the steps. Not on a phone, where the room is worth more. */
+@container cp-editor (min-width: 40rem) {
+  .toolbar {
+    position: sticky;
+    top: var(--cp-topbar-height);
+    z-index: 2;
+    padding-block: var(--cp-space-2);
+    background: var(--cp-surface);
+    border-bottom: 1px solid var(--cp-border);
+  }
+}
+
+/* Move and remove, at the end of the line above a step's own fields. */
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--cp-space-2);
 }
 
 .group-actions,
@@ -290,7 +394,7 @@ cp-tab-panel:not([hidden]) {
 .required-legend {
   margin: 0 0 var(--cp-space-3);
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-md);
 }
 
 .required-legend span[aria-hidden='true'] {
@@ -298,9 +402,25 @@ cp-tab-panel:not([hidden]) {
   font-weight: 700;
 }
 
-/* The slot "Add a duration" sits in, so revealing the field does not shift the step's other rows sideways. */
-.step-reveal {
+/* The buttons at the foot of a section, for an action that adds something to it rather than edits what is there.
+   A flex row so the button keeps its own width instead of stretching across the section's grid. */
+/* The measured-batch fields with their Remove button to the right, at the foot of the inputs they belong to. */
+.batch-row {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.batch-row cp-field-row {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
 }
 
 /* The derived total, which is read and never typed into. Given the height an input in this row would have

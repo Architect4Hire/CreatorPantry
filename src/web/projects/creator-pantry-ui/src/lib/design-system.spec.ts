@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 
 import { CpButtonComponent } from './components/button.component';
+import { CpCardComponent } from './components/card.component';
 import { CpProgressComponent } from './components/progress.component';
 import { CpThemeService } from './theme.service';
 
@@ -102,4 +103,37 @@ describe('CreatorPantry design tokens', () => {
       expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
     });
   }
+
+  describe('primary as text', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      it(`reads at 4.5:1 on the ${theme} theme's surface`, () => {
+        const tokens = readTokens(theme, ['--cp-primary-text', '--cp-surface', '--cp-surface-subtle']);
+
+        expect(contrastRatio(tokens['--cp-primary-text'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(tokens['--cp-primary-text'], tokens['--cp-surface-subtle'])).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+
+    // The card re-colours its neutrals to parchment in the dark theme and leaves the brand tokens alone, so the
+    // bright mint that reads on the dark page is about 1.45:1 on it. Text buttons, tabs and the nav use this
+    // token, which the card re-declares.
+    it("reads at 4.5:1 on the parchment card in the dark theme", async () => {
+      await TestBed.configureTestingModule({ imports: [CpCardComponent] }).compileComponents();
+      const page = document.createElement('div');
+      page.setAttribute('data-cp-theme', 'dark');
+      document.body.appendChild(page);
+
+      const fixture = TestBed.createComponent(CpCardComponent);
+      page.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      const computed = getComputedStyle(fixture.nativeElement as HTMLElement);
+      const text = computed.getPropertyValue('--cp-primary-text').trim();
+      const surface = computed.getPropertyValue('--cp-surface').trim();
+      expect(contrastRatio(text, surface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(text, computed.getPropertyValue('--cp-surface-subtle').trim())).toBeGreaterThanOrEqual(4.5);
+
+      page.remove();
+    });
+  });
 });

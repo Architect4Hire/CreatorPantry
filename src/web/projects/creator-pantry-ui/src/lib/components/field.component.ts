@@ -14,7 +14,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
   :host{display:grid;align-content:start;gap:var(--cp-space-2)}
   label{font-size:var(--cp-font-size-sm);font-weight:600;line-height:1.3;color:var(--cp-text)}
   label span{margin-inline-start:.125rem;color:var(--cp-danger)}
-  small{font-size:var(--cp-font-size-xs);line-height:1.45;color:var(--cp-text-muted)}
+  small{font-size:var(--cp-font-size-sm);line-height:1.45;color:var(--cp-text-muted)}
   /* An error says so with a glyph as well as a colour, so it never depends on telling two hues apart. */
   .error{display:flex;align-items:baseline;gap:var(--cp-space-2);font-size:var(--cp-font-size-sm);font-weight:600;color:var(--cp-danger)}
   .error::before{content:'!';flex:none;display:inline-grid;place-items:center;width:1.05rem;height:1.05rem;border-radius:var(--cp-radius-full);background:var(--cp-danger);color:var(--cp-ink-on-accent);font-size:.6875rem;font-weight:700;line-height:1;transform:translateY(.1rem)}
