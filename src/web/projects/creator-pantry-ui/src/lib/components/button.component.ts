@@ -21,9 +21,9 @@ export type CpButtonSize = 'sm' | 'md' | 'lg';
     :host(.cp-button--primary) { background:var(--cp-primary); color:var(--cp-primary-ink); box-shadow:0 1px 2px color-mix(in srgb,var(--cp-primary) 30%,transparent), 0 6px 16px color-mix(in srgb,var(--cp-primary) 20%,transparent); }
     :host(.cp-button--primary:hover) { background:var(--cp-primary-hover); color:var(--cp-primary-ink); transform:translateY(-1px); box-shadow:0 2px 4px color-mix(in srgb,var(--cp-primary) 30%,transparent), 0 10px 24px color-mix(in srgb,var(--cp-primary) 26%,transparent); }
     :host(.cp-button--secondary) { background:var(--cp-surface); color:var(--cp-text); border-color:var(--cp-border-strong); box-shadow:0 1px 2px color-mix(in srgb,var(--cp-text) 6%,transparent); }
-    :host(.cp-button--secondary:hover),:host(.cp-button--ghost:hover) { border-color:var(--cp-primary); background:var(--cp-primary-soft); color:var(--cp-primary); }
+    :host(.cp-button--secondary:hover),:host(.cp-button--ghost:hover) { border-color:var(--cp-primary); background:var(--cp-primary-soft); color:var(--cp-primary-text); }
     :host(.cp-button--ghost) { background:transparent; color:var(--cp-text); border-color:var(--cp-border-strong); }
-    :host(.cp-button--text) { background:transparent; color:var(--cp-primary); padding-inline:var(--cp-space-2); }
+    :host(.cp-button--text) { background:transparent; color:var(--cp-primary-text); padding-inline:var(--cp-space-2); }
     :host(.cp-button--text:hover) { text-decoration:underline; }
     :host(.cp-button--danger) { background:var(--cp-danger); color:var(--cp-ink-on-accent); }
     :host(.cp-button--danger:hover) { color:var(--cp-ink-on-accent); filter:brightness(.92); transform:translateY(-1px); }

@@ -49,7 +49,8 @@ let cpFormSectionUid = 0;
         grid-template-columns: minmax(0, 1fr);
         gap: var(--cp-space-5);
         min-width: 0;
-        scroll-margin-top: var(--cp-space-6);
+        /* Overridable, for a page with a fixed bar across its top that a section scrolled to would otherwise land under. */
+        scroll-margin-top: var(--cp-form-section-scroll-margin, var(--cp-space-6));
       }
 
       /* The section is a scroll and focus target of last resort; the ring belongs to the field a form reveals,

@@ -1,5 +1,12 @@
 <div class="toolbar">
   <button cpButton variant="secondary" type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
+  <!-- Ahead of the group button: grouping is opt-in, and the way to a plain list should not be the one a creator
+       has to discover under an empty state. Only while the list is plain. Once it has groups, each one has its own
+       "Add ingredient" beneath its lines, which says which group the new line goes to; a second, up here, could only
+       guess. -->
+  @if (!showGroups()) {
+    <button cpButton variant="secondary" type="button" (click)="addRow()">Add ingredient</button>
+  }
   <button cpButton variant="secondary" type="button" (click)="addGroup()">Add ingredient group</button>
 </div>
 
@@ -21,9 +28,9 @@
 }
 
 @if (groups().length === 0) {
-  <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add them one at a time." variant="first-use">
-    <button cpButton cpEmptyStateActions variant="secondary" type="button" (click)="addRow()">Add ingredient</button>
-  </cp-empty-state>
+  <!-- No button of its own: the toolbar above has the two ways to start, and a third "Add ingredient" in the middle of
+       the empty state was the same button twice. -->
+  <cp-empty-state title="No ingredients yet" description="Paste a list of ingredient lines, or add them one at a time." variant="first-use" />
 } @else {
   <div class="grouped-layout" [class.has-group-nav]="showGroupNav()">
     @if (showGroupNav()) {
@@ -107,11 +114,42 @@
               <p class="row-problem" role="alert">{{ problem }}</p>
             }
 
-            <div class="row-status">
-              <cp-status-pill [tone]="toneFor(row.matchState)">{{ labelFor(row.matchState) }}</cp-status-pill>
-              @if (row.detectedQuantityText) {
-                <span class="detected">Detected quantity: {{ row.detectedQuantityText }}</span>
-              }
+            <!-- The line's state on the left, the ways to move or remove it on the right: in the corner a creator
+                 reaches for them, and out of a row of their own at the foot of the line. -->
+            <div class="row-head">
+              <div class="row-status">
+                <cp-status-pill [tone]="toneFor(row.matchState)">{{ labelFor(row.matchState) }}</cp-status-pill>
+                @if (row.detectedQuantityText) {
+                  <span class="detected">Detected quantity: {{ row.detectedQuantityText }}</span>
+                }
+              </div>
+              <div class="row-actions">
+                <button
+                  cpButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="rowIndex === 0"
+                  [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' up'"
+                  (click)="moveRow(group.key, row.key, -1)"
+                >
+                  ↑
+                </button>
+                <button
+                  cpButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  [disabled]="rowIndex === rowCount - 1"
+                  [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' down'"
+                  (click)="moveRow(group.key, row.key, 1)"
+                >
+                  ↓
+                </button>
+                <button cpButton variant="danger" size="sm" type="button" [attr.aria-label]="'Remove ingredient ' + (rowIndex + 1)" (click)="removeRow(group.key, row.key)">
+                  Remove
+                </button>
+              </div>
             </div>
 
             @if (row.ingredientCandidates.length > 0) {
@@ -144,7 +182,11 @@
               </cp-field>
             }
 
-            <cp-field-row class="row-fields" minColumn="10rem">
+            <!-- Two columns once the row is wide enough for them: what the line is on the left, how it is treated on
+                 the right. One column, in the same order, when it is not. -->
+            <div class="row-body">
+              <div class="row-grid">
+                <cp-field-row class="row-fields" [columns]="1" style="--cp-field-row-measure: 100%">
               <cp-field label="Quantity" [forId]="'row-quantity-' + row.key">
                 <input
                   [id]="'row-quantity-' + row.key"
@@ -190,25 +232,22 @@
                 </cp-combobox>
               </cp-field>
 
-              <cp-field label="Preparation note" [forId]="'row-prep-' + row.key">
-                <input
-                  [id]="'row-prep-' + row.key"
-                  type="text"
-                  placeholder="e.g. sifted"
-                  [ngModel]="row.preparationNote"
-                  (ngModelChange)="updateRow(group.key, row.key, { preparationNote: $event })"
-                  [name]="'rowPrep' + row.key"
-                />
-              </cp-field>
-            </cp-field-row>
+                </cp-field-row>
 
-            <div class="row-toggles">
-              <cp-checkbox
-                label="Optional"
-                [checked]="row.isOptional"
-                (checkedChange)="updateRow(group.key, row.key, { isOptional: $event })"
-              />
+                <div class="row-side">
+                  <cp-field label="Preparation note" [forId]="'row-prep-' + row.key">
+                    <textarea
+                      [id]="'row-prep-' + row.key"
+                      rows="3"
+                      placeholder="e.g. sifted"
+                      [ngModel]="row.preparationNote"
+                      (ngModelChange)="updateRow(group.key, row.key, { preparationNote: $event })"
+                      [name]="'rowPrep' + row.key"
+                    ></textarea>
+                  </cp-field>
 
+                  <!-- Scaling first, so its label starts at the column's left edge, and Optional at the right end of the line. -->
+                  <div class="row-toggles">
               <cp-field label="Scaling" [forId]="'row-scaling-' + row.key">
                 <select
                   [id]="'row-scaling-' + row.key"
@@ -221,40 +260,22 @@
                   }
                 </select>
               </cp-field>
-            </div>
-
-            <div class="row-actions">
-              <button
-                cpButton
-                variant="secondary"
-                size="sm"
-                type="button"
-                [disabled]="rowIndex === 0"
-                [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' up'"
-                (click)="moveRow(group.key, row.key, -1)"
-              >
-                ↑
-              </button>
-              <button
-                cpButton
-                variant="secondary"
-                size="sm"
-                type="button"
-                [disabled]="rowIndex === rowCount - 1"
-                [attr.aria-label]="'Move ingredient ' + (rowIndex + 1) + ' down'"
-                (click)="moveRow(group.key, row.key, 1)"
-              >
-                ↓
-              </button>
-              <button cpButton variant="danger" size="sm" type="button" [attr.aria-label]="'Remove ingredient ' + (rowIndex + 1)" (click)="removeRow(group.key, row.key)">
-                Remove
-              </button>
+              <cp-checkbox
+                label="Optional"
+                [checked]="row.isOptional"
+                (checkedChange)="updateRow(group.key, row.key, { isOptional: $event })"
+              />
+                  </div>
+                </div>
+              </div>
             </div>
           </li>
         }
       </ol>
 
-      <button cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
+      @if (showGroups()) {
+        <button cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
+      }
     </section>
   }
     </div>

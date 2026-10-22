@@ -1,4 +1,5 @@
-:root, [data-cp-theme='light'] {
+:root,
+[data-cp-theme='light'] {
   color-scheme: light;
   --cp-bg: #fbf8f2;
   --cp-surface: #ffffff;
@@ -17,6 +18,7 @@
   --cp-primary-hover: #17633a;
   --cp-primary-ink: #ffffff;
   --cp-primary-soft: #e1f1e4;
+  --cp-primary-text: var(--cp-primary);
   --cp-pink: #c81457;
   --cp-pink-soft: #fbe3ec;
   --cp-orange: #b8500a;
@@ -57,6 +59,7 @@
   --cp-primary-hover: #72e7ad;
   --cp-primary-ink: #062417;
   --cp-primary-soft: #153d2e;
+  --cp-primary-text: var(--cp-primary);
   --cp-pink: #ff6fa0;
   --cp-pink-soft: #3c2029;
   --cp-orange: #ff9d4d;
@@ -99,6 +102,7 @@
     --cp-primary-hover: #17633a;
     --cp-primary-ink: #ffffff;
     --cp-primary-soft: #e1f1e4;
+    --cp-primary-text: var(--cp-primary);
     --cp-pink: #c81457;
     --cp-pink-soft: #fbe3ec;
     --cp-orange: #b8500a;

@@ -410,10 +410,12 @@ FodyWeavers.xsd
 # VS Code files for those working on multiple tools
 .vscode/*
 !.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+# launch.json and tasks.json are each developer's own run/debug setup, so they are not shared.
+
+# Angular CLI build cache, at any level. It changes with every build and is rebuilt on demand.
+.angular/
 
 # Local History for Visual Studio Code
 .history/

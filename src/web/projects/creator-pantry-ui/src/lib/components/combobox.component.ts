@@ -108,7 +108,7 @@ export function cpComboboxResultsLabel(count: number): string {
     .option.active { background:var(--cp-surface-subtle); border-inline-start-color:var(--cp-primary); }
     .option[aria-disabled='true'] { color:var(--cp-text-faint); cursor:not-allowed; }
     .row { display:flex; align-items:center; justify-content:space-between; gap:var(--cp-space-2); }
-    .chosen { color:var(--cp-primary); }
+    .chosen { color:var(--cp-primary-text); }
     .detail { color:var(--cp-text-muted); font-size:var(--cp-font-size-xs); }
     .empty { padding:var(--cp-space-2); color:var(--cp-text-muted); font-size:var(--cp-font-size-sm); }
     .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
