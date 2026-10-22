@@ -68,15 +68,32 @@ internal sealed class AiOperationClaimRepository(CreatorPantryDbContext context)
     /// rather than blocking on a lock. That keeps a slow claim from holding up every other worker, and it is
     /// why a batch is read rather than a single row.
     /// </remarks>
+    /// <param name="runningPerWorkspace">
+    /// The most of one workspace's operations that may run at once (15.3). A due row whose workspace already has
+    /// that many running is passed over for the next workspace's, so one workspace with a deep queue cannot hold
+    /// every worker. A share, not a hard cap: two workers claiming in the same instant can each take one.
+    /// </param>
     public async Task<AiOperationClaim?> ClaimNextAsync(
         Guid leaseToken,
         DateTimeOffset now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int runningPerWorkspace = int.MaxValue)
     {
-        var candidates = await context.AiOperations
+        var due = context.AiOperations
             .IgnoreQueryFilters()
             .Where(operation => operation.Status == AiOperationStatus.Requested
-                && operation.AvailableAt <= now)
+                && operation.AvailableAt <= now);
+
+        if (runningPerWorkspace < int.MaxValue)
+        {
+            // A count, never a row: the queue-claim carve-out reads identifiers and nothing else (tenancy.md).
+            due = due.Where(operation => context.AiOperations
+                .IgnoreQueryFilters()
+                .Count(running => running.WorkspaceId == operation.WorkspaceId
+                    && running.Status == AiOperationStatus.Running) < runningPerWorkspace);
+        }
+
+        var candidates = await due
             .OrderBy(operation => operation.AvailableAt)
             .Take(AiPolicy.ClaimBatchSize)
             .ToListAsync(cancellationToken);

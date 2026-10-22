@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -56,6 +58,7 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// version's media type and dimensions so a grid can lay out without fetching every asset — and never
     /// the bytes, a checksum, an object key or any address. The response is `no-store`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Search)]
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<MediaAssetSearchPageServiceModel>(StatusCodes.Status200OK)]
@@ -631,8 +634,10 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// asset does not gain versions. Storage failures answer `503`, and a commit that fails answers
     /// `409 media.asset.conflict` with the object already removed — nothing partial is ever left behind.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost("{assetId:guid}/versions")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(MediaPolicy.AssetUploadRequestMaxBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MediaPolicy.AssetUploadRequestMaxBytes)]
     [ProducesResponseType<MediaAssetVersionServiceModel>(StatusCodes.Status201Created)]
@@ -692,6 +697,7 @@ public sealed class DamAssetsController(IMediaAssetFacade assets) : ControllerBa
     /// `201 Created` carries the asset; storage that could not be reached answers
     /// `503 media.asset.unavailable` with nothing written.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [Consumes("multipart/form-data")]

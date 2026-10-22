@@ -16,6 +16,12 @@ All product routes are versioned from the first endpoint: `/api/v1/...`.
 - Use ISO 8601 UTC timestamps and explicit local-zone fields when editorial schedules depend on a workspace timezone.
 - Paginated collections use a stable cursor for large/changing datasets.
 - Errors use `ProblemDetails` plus a stable machine-readable error code and correlation id.
+- Every problem also carries `retry` — `none`, `reread`, `same` or `later` — set centrally by
+  `ProblemResults.RetryFor`, never by a controller or an `OperationError`. A 409's value comes from its code, not
+  its name: a new `.conflict` code goes into `ProblemResults.RereadCodes` or `SameRequestCodes`, or onto
+  `ProblemCatalogTests.ReviewedStateConflicts`, and that test fails until it does.
+- Problem bodies never carry exception text, provider bodies, connection strings, storage paths, SQL, or
+  anything that tells an inaccessible record from a missing one. `ProblemFamilyWireTests` asserts this per family.
 - Concurrency-sensitive updates use row versions/ETags or an equivalent explicit check.
 
 ## Compatibility

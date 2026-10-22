@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using CreatorPantry.Domain.Managers.Limits;
 using FluentValidation;
 
 namespace CreatorPantry.Domain.Modules.Content.Managers;
@@ -64,8 +65,14 @@ public enum ChannelPostDecision
 /// One channel, one decision. Nothing here can reach another channel's slot, which is what makes "regenerating
 /// one channel leaves the others untouched" a property of the contract rather than of the implementation.
 /// </remarks>
-public sealed class ChannelPostDispositionViewModel
+public sealed class ChannelPostDispositionViewModel : ILimitCost
 {
+    /// <summary>
+    /// Only a regeneration asks a model for anything, so only a regeneration is charged as an AI request (15.3).
+    /// Explicit, so it is never part of the wire shape.
+    /// </summary>
+    int ILimitCost.LimitCost => Decision is ChannelPostDecision.Regenerate ? 1 : 0;
+
     /// <summary>The decision.</summary>
     [Description("accept, reject, regenerate, or reaffirm.")]
     public ChannelPostDecision? Decision { get; set; }

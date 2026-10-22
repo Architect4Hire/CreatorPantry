@@ -64,7 +64,7 @@ internal sealed class AiRevisionRequestBusiness(
         // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
         // allowance to say the allowance is spent (USAGE-006). Before the recipe lookup too: an account that
         // cannot spend is refused whatever it named, which is also one fewer read for a request going nowhere.
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeRevision, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeRevision, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

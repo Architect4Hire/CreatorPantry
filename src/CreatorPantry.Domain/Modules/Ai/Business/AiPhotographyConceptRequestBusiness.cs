@@ -87,7 +87,7 @@ internal sealed class AiPhotographyConceptRequestBusiness(
                 "This workspace has no piece of work with that id.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.PhotographyConcept, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.PhotographyConcept, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

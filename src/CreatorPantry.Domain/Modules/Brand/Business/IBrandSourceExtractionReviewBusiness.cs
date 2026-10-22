@@ -170,6 +170,19 @@ internal sealed class BrandSourceExtractionReviewBusiness(
 
             BrandSourceCorrectionOutcome.Conflict => Conflict(),
 
+            // Says nothing of what was recognised, as an upload's refusal does not.
+            BrandSourceCorrectionOutcome.Rejected => OperationResult<BrandSourceExtractionServiceModel>.Failure(
+                new OperationError(
+                    BrandErrorCodes.SourceFileRejected,
+                    "This text did not pass the safety check, so nothing was changed.",
+                    new Dictionary<string, string[]>())),
+
+            BrandSourceCorrectionOutcome.ScanUnavailable => OperationResult<BrandSourceExtractionServiceModel>.Failure(
+                new OperationError(
+                    BrandErrorCodes.SourceScanUnavailable,
+                    "Text cannot be checked for safety right now, so nothing was changed. Try again shortly.",
+                    new Dictionary<string, string[]>())),
+
             _ => OperationResult<BrandSourceExtractionServiceModel>.Failure(StorageUnavailable(
                 "That correction could not be stored, so nothing was changed. Try again shortly.")),
         };

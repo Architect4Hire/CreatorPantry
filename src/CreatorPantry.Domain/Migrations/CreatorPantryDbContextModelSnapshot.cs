@@ -4900,6 +4900,9 @@ namespace CreatorPantry.Domain.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool?>("ContainsLocationMetadata")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ContentChecksum")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -5972,6 +5975,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.HasIndex("Status", "AvailableAt")
                         .HasDatabaseName("IX_PublishingRecords_Status_AvailableAt")
                         .HasFilter("Status IN (1, 2, 3, 5)");
+
+                    b.HasIndex("WorkspaceId", "CreatedAt")
+                        .HasDatabaseName("IX_PublishingRecords_Workspace_CreatedAt");
 
                     b.HasIndex("WorkspaceId", "IdempotencyKey")
                         .IsUnique()

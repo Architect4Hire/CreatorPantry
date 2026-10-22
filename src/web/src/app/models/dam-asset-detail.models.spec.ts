@@ -159,6 +159,14 @@ describe('DAM asset detail models', () => {
     it('refuses a source this build does not know', () => {
       expect(decodeDamAssetVersion(versionBody({ source: 'Unspecified' }))).toBeNull();
     });
+
+    it('reads whether the original carries a location, and anything but an answer as "not checked"', () => {
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: true }))?.containsLocationMetadata).toBe(true);
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: false }))?.containsLocationMetadata).toBe(false);
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: null }))?.containsLocationMetadata).toBeNull();
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: 'yes' }))?.containsLocationMetadata).toBeNull();
+      expect(decodeDamAssetVersion(versionBody())?.containsLocationMetadata).toBeNull();
+    });
   });
 
   describe('usage history', () => {

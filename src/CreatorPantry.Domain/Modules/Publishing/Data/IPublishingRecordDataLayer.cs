@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Publishing.Data.Entities;
 using CreatorPantry.Domain.Modules.Publishing.Gateways;
@@ -162,6 +163,18 @@ public interface IPublishingRecordRepository
     Task<PublishingRecordRow?> FindRowByKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// How many publications this workspace has confirmed since <paramref name="since"/> (15.3), whatever became of
+    /// them. Inside the workspace filter, so no other workspace's ledger is ever in the count.
+    /// </summary>
+    Task<int> CountConfirmedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Where <paramref name="recordId"/> falls in its own UTC day's confirmations, counting itself. Null when the
+    /// record is not this workspace's.
+    /// </summary>
+    Task<int?> ConfirmedThroughAsync(Guid recordId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// One card's publications, newest scheduled first, capped at
     /// <see cref="PublishingLedgerPolicy.RecordsPerCard"/>.
     /// </summary>
@@ -228,6 +241,27 @@ internal sealed class PublishingRecordRepository(CreatorPantryDbContext context)
     public Task<PublishingRecordRow?> FindRowAsync(Guid recordId, CancellationToken cancellationToken) =>
         Rows(context.PublishingRecords.AsNoTracking().Where(record => record.Id == recordId))
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<int> CountConfirmedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken) =>
+        context.PublishingRecords.CountAsync(record => record.CreatedAt >= since, cancellationToken);
+
+    public async Task<int?> ConfirmedThroughAsync(Guid recordId, CancellationToken cancellationToken)
+    {
+        var createdAt = await context.PublishingRecords
+            .Where(record => record.Id == recordId)
+            .Select(record => (DateTimeOffset?)record.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (createdAt is not { } instant)
+        {
+            return null;
+        }
+
+        var dayStart = LimitDay.StartOf(instant);
+
+        return await context.PublishingRecords.CountAsync(
+            record => record.CreatedAt >= dayStart && record.CreatedAt <= instant, cancellationToken);
+    }
 
     public Task<PublishingRecordRow?> FindRowByKeyAsync(string idempotencyKey, CancellationToken cancellationToken) =>
         Rows(context.PublishingRecords.AsNoTracking().Where(record => record.IdempotencyKey == idempotencyKey))
@@ -387,6 +421,12 @@ public interface IPublishingRecordDataLayer
     /// <inheritdoc cref="IPublishingRecordRepository.FindRowByKeyAsync"/>
     Task<PublishingRecordRow?> FindByKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IPublishingRecordRepository.CountConfirmedSinceAsync"/>
+    Task<int> CountConfirmedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IPublishingRecordRepository.ConfirmedThroughAsync"/>
+    Task<int?> ConfirmedThroughAsync(Guid recordId, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IPublishingRecordRepository.ListForCardAsync"/>
     Task<IReadOnlyList<PublishingRecordRow>> ListForCardAsync(Guid contentCardId, CancellationToken cancellationToken);
 
@@ -473,6 +513,12 @@ internal sealed class PublishingRecordDataLayer(
 
     public Task<PublishingRecordRow?> FindByKeyAsync(string idempotencyKey, CancellationToken cancellationToken) =>
         repository.FindRowByKeyAsync(idempotencyKey, cancellationToken);
+
+    public Task<int> CountConfirmedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken) =>
+        repository.CountConfirmedSinceAsync(since, cancellationToken);
+
+    public Task<int?> ConfirmedThroughAsync(Guid recordId, CancellationToken cancellationToken) =>
+        repository.ConfirmedThroughAsync(recordId, cancellationToken);
 
     public Task<IReadOnlyList<PublishingRecordRow>> ListForCardAsync(
         Guid contentCardId, CancellationToken cancellationToken) =>

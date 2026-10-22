@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -55,6 +57,7 @@ public sealed class BrandStyleTestDrivesController(IAiBrandStyleTestDriveFacade 
     /// disposition, and no path from a stored sample to a guide, a recipe, a draft or a publication. A test
     /// drive is read and then it is history.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<BrandStyleTestDriveServiceModel>(StatusCodes.Status202Accepted)]

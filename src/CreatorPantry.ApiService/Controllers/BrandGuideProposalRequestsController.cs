@@ -7,6 +7,8 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -60,6 +62,7 @@ public sealed class BrandGuideProposalRequestsController(
     /// reported with both sides cited; and the result is a proposal the creator reads, edits and writes their
     /// own version from. There is no code path from a stored row to a guide.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]

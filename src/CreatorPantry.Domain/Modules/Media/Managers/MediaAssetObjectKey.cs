@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using CreatorPantry.Domain.Managers.Storage;
 
 namespace CreatorPantry.Domain.Modules.Media.Managers;
 
@@ -34,8 +35,8 @@ public static partial class MediaAssetObjectKey
 
     public static string For(Guid workspaceId, Guid mediaAssetId, int versionNumber)
     {
-        ThrowIfEmpty(workspaceId, nameof(workspaceId));
-        ThrowIfEmpty(mediaAssetId, nameof(mediaAssetId));
+        _ = ObjectKeyGrammar.Segment(workspaceId, nameof(workspaceId));
+        _ = ObjectKeyGrammar.Segment(mediaAssetId, nameof(mediaAssetId));
         ArgumentOutOfRangeException.ThrowIfLessThan(versionNumber, 1);
 
         return $"workspaces/{workspaceId:N}/media-assets/{mediaAssetId:N}/"
@@ -45,7 +46,7 @@ public static partial class MediaAssetObjectKey
     /// <summary>Every DAM object of one workspace sits under this. The only prefix a sweep may list.</summary>
     public static string PrefixFor(Guid workspaceId)
     {
-        ThrowIfEmpty(workspaceId, nameof(workspaceId));
+        _ = ObjectKeyGrammar.Segment(workspaceId, nameof(workspaceId));
 
         return $"workspaces/{workspaceId:N}/media-assets/";
     }
@@ -55,7 +56,7 @@ public static partial class MediaAssetObjectKey
     {
         parts = default;
 
-        if (objectKey is null || objectKey.Length > MediaPolicy.ObjectKeyMaxLength)
+        if (!ObjectKeyGrammar.IsWithinLength(objectKey))
         {
             return false;
         }
@@ -73,14 +74,6 @@ public static partial class MediaAssetObjectKey
             int.Parse(match.Groups["version"].Value, CultureInfo.InvariantCulture));
 
         return true;
-    }
-
-    private static void ThrowIfEmpty(Guid id, string name)
-    {
-        if (id == Guid.Empty)
-        {
-            throw new ArgumentException("An object key needs a real identifier.", name);
-        }
     }
 
     // \z rather than $, which would also accept a trailing newline. Nine digits keeps the version inside an

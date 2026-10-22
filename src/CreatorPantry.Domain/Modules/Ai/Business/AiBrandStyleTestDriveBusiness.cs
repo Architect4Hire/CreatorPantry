@@ -67,7 +67,7 @@ internal sealed class AiBrandStyleTestDriveBusiness(
                 "Trying your style out is not enabled for this workspace's deployment.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.BrandStyleTestDrive, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.BrandStyleTestDrive, cancellationToken, idempotencyKey) is { } spent)
         {
             return new IdempotentOutcome<BrandStyleTestDriveServiceModel>(
                 OperationResult<BrandStyleTestDriveServiceModel>.Failure(spent.Result.Error!), Replayed: false);

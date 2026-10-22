@@ -20,19 +20,23 @@ internal static class BrandSourceSampleFiles
 
     public static byte[] PdfWithoutTrailer() => Encoding.ASCII.GetBytes("%PDF-1.7\n1 0 obj\n<< >>\nendobj\n");
 
-    public static byte[] Png(uint width = 4, uint height = 3)
-    {
-        var bytes = new byte[8 + 25 + 12];
-        new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(bytes, 0);
-        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(8), 13);
-        "IHDR"u8.CopyTo(bytes.AsSpan(12));
-        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(16), width);
-        BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(20), height);
-        bytes[24] = 8;
-        bytes[25] = 2;
-        "IEND"u8.CopyTo(bytes.AsSpan(37));
-        return bytes;
-    }
+    /// <summary>
+    /// A whole PNG: IHDR, image data and IEND, every chunk with its CRC — what the upload walk requires (15.2).
+    /// </summary>
+    /// <remarks>
+    /// Small sizes carry real black scanlines, so the same file decodes. A size too big to hold in a test carries
+    /// one byte of compressed data instead: still a file that holds together, refused on the size it declares.
+    /// </remarks>
+    public static byte[] Png(uint width = 4, uint height = 3) =>
+        (ulong)width * height <= 2_000_000
+            ? new Media.PngSampleFile
+            {
+                Width = width, Height = height, ColourType = 2, Samples = new byte[checked((int)(width * height * 3))],
+            }.Build()
+            : new Media.PngSampleFile
+            {
+                Width = width, Height = height, ColourType = 2, CompressedData = Media.PngSampleFile.Compress([0]),
+            }.Build();
 
     /// <summary>
     /// A structurally valid GIF: the header, the logical screen descriptor, and one image block per frame.
@@ -72,6 +76,10 @@ internal static class BrandSourceSampleFiles
         return [.. bytes];
     }
 
+    /// <summary>
+    /// A whole JPEG: SOI, an APP0 the walk steps over, the frame header, one scan with entropy-coded data that
+    /// carries a stuffed byte and a restart marker, and EOI.
+    /// </summary>
     public static byte[] Jpeg(ushort width = 4, ushort height = 3)
     {
         var bytes = new List<byte> { 0xFF, 0xD8 };
@@ -82,15 +90,25 @@ internal static class BrandSourceSampleFiles
         bytes.AddRange(new byte[9]);
 
         bytes.AddRange([0xFF, 0xC0, 0x00, 0x0B, 0x08, (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 0x01, 0x01, 0x11, 0x00]);
+
+        // Start of scan: one component, then entropy-coded data in which 0xFF 0x00 is a stuffed byte and
+        // 0xFF 0xD0 a restart, neither of which ends the scan.
+        bytes.AddRange([0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00]);
+        bytes.AddRange([0x12, 0xFF, 0x00, 0x34, 0xFF, 0xD0, 0x56]);
+
         bytes.AddRange([0xFF, 0xD9]);
         return [.. bytes];
     }
 
+    /// <summary>
+    /// A whole extended WebP: the <c>VP8X</c> canvas, then a <c>VP8L</c> bitstream chunk padded to an even
+    /// length, inside a RIFF whose size is exactly the rest of the file.
+    /// </summary>
     public static byte[] Webp(int width = 4, int height = 3)
     {
-        var bytes = new byte[30];
+        var bytes = new byte[12 + 18 + 14];
         "RIFF"u8.CopyTo(bytes);
-        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 22);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), (uint)(bytes.Length - 8));
         "WEBP"u8.CopyTo(bytes.AsSpan(8));
         "VP8X"u8.CopyTo(bytes.AsSpan(12));
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(16), 10);
@@ -100,6 +118,13 @@ internal static class BrandSourceSampleFiles
         bytes[27] = (byte)(height - 1);
         bytes[28] = (byte)((height - 1) >> 8);
         bytes[29] = (byte)((height - 1) >> 16);
+
+        // The bitstream: its signature byte and its own 14-bit size fields, then a pad byte.
+        "VP8L"u8.CopyTo(bytes.AsSpan(30));
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(34), 5);
+        bytes[38] = 0x2F;
+        var edge = (uint)(Math.Min(width, 16384) - 1) | ((uint)(Math.Min(height, 16384) - 1) << 14);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(39), edge);
         return bytes;
     }
 

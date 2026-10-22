@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -46,6 +48,7 @@ public sealed class LongFormSeoPackageRequestsController(IAiSeoPackageRequestFac
     /// `400 ai.seoPackage.not_enabled`, and an account that cannot pay for it is refused before anything is
     /// queued.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]

@@ -73,6 +73,16 @@ on a module, with `CreatorPantryDbContext` the single documented exception.
 - DataLayer defines the transaction boundary for multi-write operations.
 - Side effects that must follow a committed transaction use an outbox or durable job record.
 
+## Limits (15.3)
+
+- A route that starts AI or image work, stores an upload, renders an export, searches, asks an evidence or
+  publishing provider, or creates a workspace carries `[OperationLimit(LimitedOperation.X)]`. The numbers live in
+  `Limits` (`LimitsOptions`), never in a controller.
+- In-progress caps and daily budgets are counted from the rows the work writes, inside the workspace filter.
+  They are checked at the request — after replay detection, so a replay is never refused — and checked again in
+  the worker before anything is spent.
+- A refusal is `LimitRefusal.*`: a `limits.*.exhausted` 429 carrying the caller's own figures only.
+
 ## Defects
 
 The following are architectural defects: `DbContext` in controllers/facades, a repository called from Business, provider SDK types in ServiceModels, `Facade/Business/Data` folders under the API project, synchronous blocking of asynchronous I/O, or tenant/workspace identifiers trusted from the client.

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using CreatorPantry.Domain.Managers.Storage;
 
 namespace CreatorPantry.Domain.Modules.Media.Managers;
 
@@ -33,15 +34,15 @@ public static partial class GeneratedImageObjectKey
     /// <summary>Every staging object of one workspace sits under this. The only prefix a sweep may list.</summary>
     public static string PrefixFor(Guid workspaceId)
     {
-        ThrowIfEmpty(workspaceId, nameof(workspaceId));
+        _ = ObjectKeyGrammar.Segment(workspaceId, nameof(workspaceId));
 
         return $"workspaces/{workspaceId:N}/generated-images/";
     }
 
     public static string For(Guid workspaceId, Guid operationId, int variantIndex)
     {
-        ThrowIfEmpty(workspaceId, nameof(workspaceId));
-        ThrowIfEmpty(operationId, nameof(operationId));
+        _ = ObjectKeyGrammar.Segment(workspaceId, nameof(workspaceId));
+        _ = ObjectKeyGrammar.Segment(operationId, nameof(operationId));
         ArgumentOutOfRangeException.ThrowIfNegative(variantIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(variantIndex, MediaPolicy.MaxVariantsPerOperation);
 
@@ -54,7 +55,7 @@ public static partial class GeneratedImageObjectKey
     {
         parts = default;
 
-        if (objectKey is null || objectKey.Length > MediaPolicy.ObjectKeyMaxLength)
+        if (!ObjectKeyGrammar.IsWithinLength(objectKey))
         {
             return false;
         }
@@ -81,14 +82,6 @@ public static partial class GeneratedImageObjectKey
             variant);
 
         return true;
-    }
-
-    private static void ThrowIfEmpty(Guid id, string name)
-    {
-        if (id == Guid.Empty)
-        {
-            throw new ArgumentException("An object key needs a real identifier.", name);
-        }
     }
 
     // \z rather than $, which would also accept a trailing newline. One digit, with the policy cap checked

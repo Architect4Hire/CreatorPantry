@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Data;
@@ -5,6 +6,7 @@ using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Media.Managers;
 
@@ -33,6 +35,7 @@ internal sealed class GeneratedImageWorker(
     GeneratedImageClaimRepository claims,
     IServiceScopeFactory scopeFactory,
     IClock clock,
+    IOptions<LimitsOptions> limits,
     ILogger<GeneratedImageWorker> logger) : IGeneratedImageWorker
 {
     public async Task<GeneratedImagePassSummary> RunPendingAsync(CancellationToken cancellationToken)
@@ -47,7 +50,11 @@ internal sealed class GeneratedImageWorker(
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            var claim = await claims.ClaimNextAsync(Guid.NewGuid(), clock.UtcNow, cancellationToken);
+            var claim = await claims.ClaimNextAsync(
+                Guid.NewGuid(),
+                clock.UtcNow,
+                cancellationToken,
+                limits.Value.Enabled ? limits.Value.ImageRunningPerWorkspace : int.MaxValue);
 
             if (claim is null)
             {

@@ -163,6 +163,14 @@ internal sealed class GeneratedImageGenerationFacade(
                 [(nameof(subject.CreativeContextId), "That piece of work is not in this workspace.")]));
         }
 
+        // After every check that is about the request and before anything is written (15.3): a refused request
+        // leaves no operation behind, and a replay of one already bought is never refused.
+        if (await business.RefuseIfOverLimitsAsync(request.IdempotencyKey.Trim(), request.VariantCount, cancellationToken)
+            is { } overLimit)
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(overLimit);
+        }
+
         var result = await business.RequestAsync(
             promptText,
             avoidText,

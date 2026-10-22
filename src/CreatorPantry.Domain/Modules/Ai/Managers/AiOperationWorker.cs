@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Data;
@@ -9,6 +10,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -49,6 +51,7 @@ internal sealed class AiOperationWorker(
     AiOperationClaimRepository claims,
     IServiceScopeFactory scopeFactory,
     IClock clock,
+    IOptions<LimitsOptions> limits,
     ILogger<AiOperationWorker> logger) : IAiOperationWorker
 {
     private enum ClaimOutcome { Proposed, Failed, Skipped }
@@ -64,7 +67,11 @@ internal sealed class AiOperationWorker(
         {
             // Its own scope, on the DbContext this instance already holds -- unresolved, and deliberately so:
             // the claim step is cross-workspace and runs before any workspace is known.
-            var claim = await claims.ClaimNextAsync(Guid.NewGuid(), clock.UtcNow, cancellationToken);
+            var claim = await claims.ClaimNextAsync(
+                Guid.NewGuid(),
+                clock.UtcNow,
+                cancellationToken,
+                limits.Value.Enabled ? limits.Value.AiRunningPerWorkspace : int.MaxValue);
             if (claim is null)
             {
                 break;

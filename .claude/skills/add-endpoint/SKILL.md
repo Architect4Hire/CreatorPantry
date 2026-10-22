@@ -109,7 +109,7 @@ Resolve workspace from the route, verify membership, and use `IWorkspaceContext`
 
 ### Concurrency
 
-For editable creator content, use a row version/ETag or explicit expected version. A stale write returns a stable conflict response and preserves both the server state and the creator's attempted changes.
+For editable creator content, use a row version/ETag or explicit expected version. A stale write returns a stable conflict response and preserves both the server state and the creator's attempted changes. Every new `.conflict` code is classified in `ProblemResults` (`RereadCodes` for a stale token, `SameRequestCodes` for a lost race where nothing was written) or on `ProblemCatalogTests.ReviewedStateConflicts`; the catalogue test fails until it is.
 
 ### Idempotency
 

@@ -27,6 +27,8 @@ internal sealed class AzureBlobPrivateObjectStore(BlobServiceClient client) : IP
     public async Task<ObjectWriteResult> PutAsync(
         string container, string key, Stream content, string mediaType, long maxBytes, CancellationToken cancellationToken)
     {
+        ObjectKeyGrammar.ThrowIfMalformed(container, key);
+
         var blob = client.GetBlobContainerClient(container).GetBlobClient(key);
         await using var metered = new MeteredReadStream(content, maxBytes);
 
@@ -74,6 +76,8 @@ internal sealed class AzureBlobPrivateObjectStore(BlobServiceClient client) : IP
 
     public async Task<StoredObjectContent?> OpenReadAsync(string container, string key, CancellationToken cancellationToken)
     {
+        ObjectKeyGrammar.ThrowIfMalformed(container, key);
+
         var blob = client.GetBlobContainerClient(container).GetBlobClient(key);
 
         try
@@ -113,6 +117,12 @@ internal sealed class AzureBlobPrivateObjectStore(BlobServiceClient client) : IP
         ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
         ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
 
+        // Whole segments only: a prefix that stops mid-identifier would list a neighbour's objects too.
+        if (!ObjectKeyGrammar.IsWellFormedContainer(container) || !ObjectKeyGrammar.IsWellFormedPrefix(prefix))
+        {
+            throw new ArgumentException("That is not a listing this application makes.", nameof(prefix));
+        }
+
         try
         {
             await foreach (var page in client.GetBlobContainerClient(container)
@@ -144,6 +154,8 @@ internal sealed class AzureBlobPrivateObjectStore(BlobServiceClient client) : IP
 
     public async Task<bool> DeleteAsync(string container, string key, CancellationToken cancellationToken)
     {
+        ObjectKeyGrammar.ThrowIfMalformed(container, key);
+
         var blob = client.GetBlobContainerClient(container).GetBlobClient(key);
 
         try

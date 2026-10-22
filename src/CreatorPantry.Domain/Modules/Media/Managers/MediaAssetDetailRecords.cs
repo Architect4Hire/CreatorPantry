@@ -57,7 +57,8 @@ public sealed record MediaAssetVersionRecord(
     Guid? SourceGeneratedImageId,
     DateTimeOffset CreatedAt,
     long? WebSizeBytes = null,
-    long? ThumbnailSizeBytes = null);
+    long? ThumbnailSizeBytes = null,
+    bool? ContainsLocationMetadata = null);
 
 /// <summary>One tag on an asset, with the name resolved from the workspace's own vocabulary.</summary>
 public sealed record MediaAssetTagRecord(Guid Id, string Name);

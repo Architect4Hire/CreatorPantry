@@ -26,6 +26,11 @@ internal static class TestDatabase
         web.UseSetting($"ConnectionStrings:{CreatorPantryDbContext.ConnectionName}", ConnectionString);
         web.UseSetting("InternalToken:PublicKeyPem", TestKeyPair.Shared.PublicKeyPem);
         web.UseSetting("Idempotency:FingerprintKey", FingerprintKey);
+
+        // Off for every host that is not about limits (15.3). A test host never drains a queue, so an in-progress
+        // cap would refuse the eleventh AI request in any test that makes eleven; the tests that are about limits
+        // switch them back on with the numbers they need (LimitsTestConfiguration).
+        web.UseSetting("Limits:Enabled", "false");
     }
 
     /// <summary>A fixed test-only HMAC key for idempotency fingerprints.</summary>

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
+using CreatorPantry.Domain.Managers.FileInspection;
 
 namespace CreatorPantry.Domain.Modules.Media.Managers;
 
@@ -58,8 +59,6 @@ public static class PngDecoder
     private const int ChunkOverhead = 12;
     private const int MaxPaletteBytes = 256 * 3;
 
-    private static readonly uint[] CrcTable = BuildCrcTable();
-
     private static ReadOnlySpan<byte> Signature => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
     public static PngDecodeResult Decode(ReadOnlyMemory<byte> file, CancellationToken cancellationToken = default)
@@ -76,27 +75,22 @@ public static class PngDecoder
             return Failed(PngDecodeOutcome.NotPng);
         }
 
-        var inspection = GeneratedImageInspector.Inspect(bytes);
-
-        if (inspection.Outcome != GeneratedImageInspectionOutcome.Accepted)
-        {
-            return Failed(inspection.Outcome == GeneratedImageInspectionOutcome.TooLarge
-                ? PngDecodeOutcome.TooLarge
-                : PngDecodeOutcome.Corrupt);
-        }
-
         if (bytes.Length < HeaderLength
             || BinaryPrimitives.ReadUInt32BigEndian(bytes[8..]) != HeaderDataLength
+            || !bytes[12..16].SequenceEqual("IHDR"u8)
             || !ChecksumHolds(bytes, position: 8, HeaderDataLength))
         {
             return Failed(PngDecodeOutcome.Corrupt);
         }
 
-        int width = inspection.Width, height = inspection.Height;
+        // The size the header declares, judged before anything else is read: a few bytes claiming a vast canvas
+        // are refused as that, whatever else is wrong with them.
+        uint declaredWidth = BinaryPrimitives.ReadUInt32BigEndian(bytes[16..]),
+            declaredHeight = BinaryPrimitives.ReadUInt32BigEndian(bytes[20..]);
 
-        if (width > MediaPolicy.RenditionMaxEdge
-            || height > MediaPolicy.RenditionMaxEdge
-            || (long)width * height > MediaPolicy.RenditionMaxPixels)
+        if (declaredWidth > MediaPolicy.RenditionMaxEdge
+            || declaredHeight > MediaPolicy.RenditionMaxEdge
+            || (long)declaredWidth * declaredHeight > MediaPolicy.RenditionMaxPixels)
         {
             return Failed(PngDecodeOutcome.TooLarge);
         }
@@ -112,6 +106,18 @@ public static class PngDecoder
         {
             return Failed(PngDecodeOutcome.Unsupported);
         }
+
+        // Then the whole file, the way an upload is accepted: every chunk, through IEND, with nothing after it.
+        var inspection = GeneratedImageInspector.Inspect(bytes);
+
+        if (inspection.Outcome != GeneratedImageInspectionOutcome.Accepted)
+        {
+            return Failed(inspection.Outcome == GeneratedImageInspectionOutcome.TooLarge
+                ? PngDecodeOutcome.TooLarge
+                : PngDecodeOutcome.Corrupt);
+        }
+
+        int width = inspection.Width, height = inspection.Height;
 
         var compressed = new List<(int Offset, int Length)>();
         (int Offset, int Length)? palette = null, transparency = null;
@@ -457,37 +463,10 @@ public static class PngDecoder
     /// </summary>
     /// <remarks>
     /// CRC-32 by hand because <c>System.IO.Hashing</c> is a package, and B-28 is the decision not to take one.
+    /// The table is <see cref="ImageFileInspector"/>'s, which checks every chunk at acceptance too.
     /// </remarks>
-    private static bool ChecksumHolds(ReadOnlySpan<byte> bytes, int position, int length)
-    {
-        var crc = uint.MaxValue;
-
-        foreach (var value in bytes.Slice(position + 4, 4 + length))
-        {
-            crc = CrcTable[(crc ^ value) & 0xFF] ^ (crc >> 8);
-        }
-
-        return (crc ^ uint.MaxValue) == BinaryPrimitives.ReadUInt32BigEndian(bytes[(position + 8 + length)..]);
-    }
-
-    private static uint[] BuildCrcTable()
-    {
-        var table = new uint[256];
-
-        for (uint entry = 0; entry < table.Length; entry++)
-        {
-            var value = entry;
-
-            for (var bit = 0; bit < 8; bit++)
-            {
-                value = (value & 1) != 0 ? 0xEDB88320u ^ (value >> 1) : value >> 1;
-            }
-
-            table[entry] = value;
-        }
-
-        return table;
-    }
+    private static bool ChecksumHolds(ReadOnlySpan<byte> bytes, int position, int length) =>
+        ImageFileInspector.PngChecksumHolds(bytes, position, length);
 
     /// <summary>
     /// The compressed chunks of one file, read end to end as the single stream they are, in place.

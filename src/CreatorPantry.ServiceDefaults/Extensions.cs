@@ -60,7 +60,11 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+
+                    // The application's own meters, by prefix, so a module adding one needs nothing here. The limits
+                    // decisions (15.3) are the first: CreatorPantry.Limits.
+                    .AddMeter("CreatorPantry.*");
             })
             .WithTracing(tracing =>
             {

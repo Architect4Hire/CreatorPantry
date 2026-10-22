@@ -1,5 +1,6 @@
 using System.Globalization;
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
@@ -39,7 +40,8 @@ public sealed record MediaAssetCreation(
     IReadOnlyList<Guid> TagIds,
     MediaAssetRecipeLinkInput? RecipeLink,
     PromptRecordSaveInput? Prompt,
-    string UserId);
+    string UserId,
+    bool? ContainsLocationMetadata = null);
 
 /// <summary>
 /// Names a just-written asset version on the piece of work it was kept for: null when named, or the refusal.
@@ -213,6 +215,13 @@ public interface IMediaAssetDataLayer
     /// <c>/versions/{n}/download</c> working for every version an asset has ever had.
     /// </para>
     /// </remarks>
+    /// <inheritdoc cref="IMalwareScanGateway.ScanAsync"/>
+    /// <remarks>
+    /// Here rather than in Business, which calls this layer only: the scanner is a gateway, and this is the layer
+    /// that chooses gateway calls. One call for both the create and the new-version upload.
+    /// </remarks>
+    Task<MalwareScanVerdict> ScanAsync(Stream content, CancellationToken cancellationToken);
+
     Task<MediaAssetVersionAdd> AddVersionAsync(
         Guid mediaAssetId,
         Stream content,
@@ -222,7 +231,8 @@ public interface IMediaAssetDataLayer
         long sizeBytes,
         string? originalFileName,
         Guid actorMembershipId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool? containsLocationMetadata = null);
 
     /// <inheritdoc cref="IMediaAssetRepository.FindForDeleteAsync"/>
     Task<MediaAsset?> FindForDeleteAsync(Guid mediaAssetId, CancellationToken cancellationToken);
@@ -369,6 +379,7 @@ internal sealed class MediaAssetDataLayer(
     IGeneratedImageRepository generatedImages,
     IMediaRenditionRepository renditions,
     IMediaRenditionObjectGateway renditionObjects,
+    IMalwareScanGateway scanner,
     IOutboxWriter outbox,
     IWorkspaceContext workspace,
     IAuditWriter auditWriter,
@@ -377,6 +388,9 @@ internal sealed class MediaAssetDataLayer(
 {
     public Task<bool> ExistsAsync(Guid mediaAssetId, CancellationToken cancellationToken) =>
         assets.ExistsAsync(mediaAssetId, cancellationToken);
+
+    public Task<MalwareScanVerdict> ScanAsync(Stream content, CancellationToken cancellationToken) =>
+        scanner.ScanAsync(content, cancellationToken);
 
     public Task<bool> VersionExistsAsync(Guid mediaAssetId, int versionNumber, CancellationToken cancellationToken) =>
         assets.VersionExistsAsync(mediaAssetId, versionNumber, cancellationToken);
@@ -616,7 +630,8 @@ internal sealed class MediaAssetDataLayer(
         long sizeBytes,
         string? originalFileName,
         Guid actorMembershipId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool? containsLocationMetadata = null)
     {
         if (await assets.NextVersionNumberAsync(mediaAssetId, cancellationToken) is not { } versionNumber)
         {
@@ -658,8 +673,8 @@ internal sealed class MediaAssetDataLayer(
         }
 
         return await CommitVersionAsync(
-            mediaAssetId, versionNumber, stored, mediaType, width, height, originalFileName, actorMembershipId,
-            cancellationToken);
+            mediaAssetId, versionNumber, stored, mediaType, width, height, originalFileName, containsLocationMetadata,
+            actorMembershipId, cancellationToken);
     }
 
     /// <summary>
@@ -679,6 +694,7 @@ internal sealed class MediaAssetDataLayer(
         int width,
         int height,
         string? originalFileName,
+        bool? containsLocationMetadata,
         Guid actorMembershipId,
         CancellationToken cancellationToken)
     {
@@ -695,6 +711,7 @@ internal sealed class MediaAssetDataLayer(
             Width = width,
             Height = height,
             ContentChecksum = stored.ContentChecksum,
+            ContainsLocationMetadata = containsLocationMetadata,
             ObjectKey = stored.ObjectKey,
             OriginalFileName = originalFileName,
             Source = MediaAssetVersionSource.Upload,
@@ -742,7 +759,8 @@ internal sealed class MediaAssetDataLayer(
                     version.OriginalFileName,
                     version.Source,
                     version.SourceGeneratedImageId,
-                    version.CreatedAt));
+                    version.CreatedAt,
+                    ContainsLocationMetadata: version.ContainsLocationMetadata));
         }
         catch (Exception exception) when (exception is DbUpdateException or DbUpdateConcurrencyException)
         {
@@ -1326,6 +1344,7 @@ internal sealed class MediaAssetDataLayer(
             Width = creation.Width,
             Height = creation.Height,
             ContentChecksum = string.Empty,
+            ContainsLocationMetadata = creation.ContainsLocationMetadata,
             OriginalFileName = Trimmed(creation.OriginalFileName),
             Source = creation.Source,
             SourceGeneratedImageId = creation.SourceGeneratedImageId,

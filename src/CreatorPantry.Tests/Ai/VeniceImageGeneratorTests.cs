@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Modules.Media.Gateways;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -188,6 +189,83 @@ public sealed class VeniceImageGeneratorTests
         Assert.Equal(GeneratedImageModelStatus.Identified, model.Status);
         Assert.Equal(VeniceImageGenerator.ProviderName, model.ProviderName);
         Assert.Equal(Model, model.ModelName);
+    }
+
+    /// <summary>
+    /// A body that says it is larger than any image can be is not read at all, and is an invalid response rather
+    /// than an outage to retry and pay for again (15.2).
+    /// </summary>
+    [Fact]
+    public async Task A_body_declaring_more_than_an_image_can_be_is_invalid_without_being_read()
+    {
+        var gateway = GatewayOver(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent([]) { Headers = { ContentLength = VeniceImageGenerator.ResponseMaxBytes + 1 } },
+        }));
+
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageProviderOutcome.InvalidResponse, result.Outcome);
+    }
+
+    [Fact]
+    public async Task A_body_of_unknown_length_is_abandoned_at_the_cap_rather_than_held_whole()
+    {
+        var endless = new EndlessStream();
+        var gateway = GatewayOver(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(endless),
+        }));
+
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageProviderOutcome.InvalidResponse, result.Outcome);
+        Assert.InRange(endless.BytesRead, VeniceImageGenerator.ResponseMaxBytes, VeniceImageGenerator.ResponseMaxBytes + (1024 * 1024));
+    }
+
+    [Fact]
+    public void The_response_cap_holds_an_image_at_the_staging_cap_once_it_is_base64()
+    {
+        var encoded = 4 * ((MediaPolicy.ImageMaxBytes + 2) / 3);
+
+        Assert.True(VeniceImageGenerator.ResponseMaxBytes > encoded + 64 * 1024);
+    }
+
+    /// <summary>Spaces forever, of no declared length: what a provider that never stops talking looks like.</summary>
+    private sealed class EndlessStream : Stream
+    {
+        public long BytesRead { get; private set; }
+
+        public override bool CanRead => true;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => false;
+
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            buffer.AsSpan(offset, count).Fill((byte)' ');
+            BytesRead += count;
+            return count;
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private static GeneratedImageProviderGateway GatewayOver(StubHandler handler) =>

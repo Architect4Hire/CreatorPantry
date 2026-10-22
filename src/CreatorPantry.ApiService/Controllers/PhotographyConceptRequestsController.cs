@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -55,6 +57,7 @@ public sealed class PhotographyConceptRequestsController(
     /// also carry no numeral other than a crop ratio, no claim about what the food is, and no brand or person —
     /// a concept that breaks any of those is refused rather than trimmed.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]

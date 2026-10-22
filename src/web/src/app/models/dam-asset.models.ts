@@ -283,6 +283,11 @@ export interface DamAssetVersion {
   readonly webSizeBytes?: number | null;
   /** The thumbnail's bytes, or null while there is none. */
   readonly thumbnailSizeBytes?: number | null;
+  /**
+   * Whether the original carries a GPS position in its EXIF or XMP, read from the bytes when they were accepted.
+   * Null when nobody checked — never "none". The original is kept as uploaded; renditions carry no metadata.
+   */
+  readonly containsLocationMetadata?: boolean | null;
   /** The creator's own file name, for display only. Never what a download is named. */
   readonly originalFileName: string | null;
   readonly source: DamAssetVersionSource;
@@ -411,6 +416,9 @@ export function decodeDamAssetVersion(value: unknown): DamAssetVersion | null {
     // Optional on the wire and optional here: an older server says nothing, which reads as "no smaller copy".
     webSizeBytes: decodeRenditionSize(value['webSizeBytes']),
     thumbnailSizeBytes: decodeRenditionSize(value['thumbnailSizeBytes']),
+    // Optional too: anything but a boolean reads as "not checked" rather than as an answer.
+    containsLocationMetadata:
+      typeof value['containsLocationMetadata'] === 'boolean' ? value['containsLocationMetadata'] : null,
     originalFileName,
     source,
     createdAt,

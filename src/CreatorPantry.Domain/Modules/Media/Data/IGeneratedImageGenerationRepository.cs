@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Managers;
@@ -27,6 +28,22 @@ public interface IGeneratedImageGenerationRepository
 
     /// <summary>The operation already recorded under this idempotency key, or null.</summary>
     Task<GeneratedImageOperation?> FindByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// This workspace's image requests queued or running, and the variants it has asked for since
+    /// <paramref name="dayStart"/> (15.3).
+    /// </summary>
+    /// <remarks>
+    /// Counted from the operations themselves, inside the workspace filter: exact whatever a worker did since, a
+    /// replay adds nothing because it is the same row, and no other workspace's requests are ever in the sum.
+    /// </remarks>
+    Task<(int InFlight, int VariantsToday)> CountForLimitsAsync(DateTimeOffset dayStart, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The variants this workspace had asked for on <paramref name="operationId"/>'s day, up to and including it.
+    /// Null when the operation is not this workspace's.
+    /// </summary>
+    Task<int?> VariantsRequestedThroughAsync(Guid operationId, CancellationToken cancellationToken);
 
     void Add(GeneratedImageOperation operation);
 
@@ -68,6 +85,42 @@ internal sealed class GeneratedImageGenerationRepository(CreatorPantryDbContext 
         string idempotencyKey, CancellationToken cancellationToken) =>
         context.GeneratedImageOperations.FirstOrDefaultAsync(
             operation => operation.IdempotencyKey == idempotencyKey, cancellationToken);
+
+    public async Task<(int InFlight, int VariantsToday)> CountForLimitsAsync(
+        DateTimeOffset dayStart, CancellationToken cancellationToken)
+    {
+        var inFlight = await context.GeneratedImageOperations.CountAsync(
+            operation => operation.Status == GeneratedImageOperationStatus.Requested
+                || operation.Status == GeneratedImageOperationStatus.Running,
+            cancellationToken);
+
+        var variants = await context.GeneratedImageOperations
+            .Where(operation => operation.RequestedAt >= dayStart)
+            .SumAsync(operation => (int?)operation.VariantCount, cancellationToken) ?? 0;
+
+        return (inFlight, variants);
+    }
+
+    public async Task<int?> VariantsRequestedThroughAsync(Guid operationId, CancellationToken cancellationToken)
+    {
+        var requestedAt = await context.GeneratedImageOperations
+            .Where(operation => operation.Id == operationId)
+            .Select(operation => (DateTimeOffset?)operation.RequestedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (requestedAt is not { } instant)
+        {
+            return null;
+        }
+
+        var dayStart = LimitDay.StartOf(instant);
+
+        // Up to and including this one, in request order. Two requests in the same instant are both counted, which
+        // can only ever refuse sooner, never let more through.
+        return await context.GeneratedImageOperations
+            .Where(operation => operation.RequestedAt >= dayStart && operation.RequestedAt <= instant)
+            .SumAsync(operation => (int?)operation.VariantCount, cancellationToken) ?? 0;
+    }
 
     public void Add(GeneratedImageOperation operation) => context.GeneratedImageOperations.Add(operation);
 

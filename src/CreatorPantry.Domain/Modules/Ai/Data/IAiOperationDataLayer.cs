@@ -168,6 +168,12 @@ internal interface IAiOperationDataLayer
 {
     Task<AiOperationRequest> RequestAsync(AiOperation operation, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IAiOperationRepository.CountInFlightAsync"/>
+    Task<(int Workspace, int Member)> CountInFlightAsync(Guid membershipId, CancellationToken cancellationToken);
+
+    /// <summary>Whether this key has already bought an operation in this workspace. False for no key.</summary>
+    Task<bool> IsReplayAsync(string? idempotencyKey, CancellationToken cancellationToken);
+
     /// <summary>
     /// What this request's key already stands for, without writing anything: the operation it replays, a
     /// refusal because the key was used for a different request, or <c>null</c> when the key is new.
@@ -383,6 +389,13 @@ internal sealed class AiOperationDataLayer(
     IAiUsageRecordingFacade usage,
     IAiQuotaAdmissionFacade quota) : IAiOperationDataLayer
 {
+    public Task<(int Workspace, int Member)> CountInFlightAsync(Guid membershipId, CancellationToken cancellationToken) =>
+        operations.CountInFlightAsync(membershipId, cancellationToken);
+
+    public async Task<bool> IsReplayAsync(string? idempotencyKey, CancellationToken cancellationToken) =>
+        !string.IsNullOrWhiteSpace(idempotencyKey)
+        && await operations.FindByIdempotencyKeyAsync(idempotencyKey, cancellationToken) is not null;
+
     public async Task<AiOperationRequest> RequestAsync(
         AiOperation operation,
         CancellationToken cancellationToken)

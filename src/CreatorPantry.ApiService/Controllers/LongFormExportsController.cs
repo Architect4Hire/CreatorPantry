@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Content.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -65,6 +67,7 @@ public sealed class LongFormExportsController(ILongFormExportFacade exports) : C
     /// The response is private and must be revalidated: `ETag` and `If-None-Match` are supported and a match
     /// answers 304. A refusal is never stored.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("markdown")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, MarkdownContentType)]
@@ -102,6 +105,7 @@ public sealed class LongFormExportsController(ILongFormExportFacade exports) : C
     /// The response is private and must be revalidated: `ETag` and `If-None-Match` are supported and a match
     /// answers 304. A refusal is never stored.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("html")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, HtmlContentType)]

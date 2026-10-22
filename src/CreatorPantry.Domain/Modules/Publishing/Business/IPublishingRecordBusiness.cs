@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
@@ -11,6 +12,7 @@ using CreatorPantry.Domain.Modules.Publishing.Data;
 using CreatorPantry.Domain.Modules.Publishing.Data.Entities;
 using CreatorPantry.Domain.Modules.Publishing.Gateways;
 using CreatorPantry.Domain.Modules.Publishing.Managers;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Publishing.Business;
 
@@ -113,7 +115,8 @@ internal sealed class PublishingRecordBusiness(
     IBrandProfileFacade brand,
     ITimeZoneConverter zones,
     IWorkspaceContext workspace,
-    IClock clock) : IPublishingRecordBusiness
+    IClock clock,
+    IOptions<LimitsOptions> limits) : IPublishingRecordBusiness
 {
     private const string CannotSchedule = "That publication could not be scheduled as described.";
 
@@ -253,6 +256,18 @@ internal sealed class PublishingRecordBusiness(
                 "That publication is already going out to that profile at that time.",
                 new Dictionary<string, string[]>(),
                 new Dictionary<string, object?> { ["publishingRecordId"] = live }));
+        }
+
+        // The workspace's day of confirmations (15.3), after every check about the request and the replays above,
+        // and before anything is written or sent: a refusal here costs the provider nothing.
+        if (limits.Value is { Enabled: true } options
+            && await dataLayer.CountConfirmedSinceAsync(LimitDay.StartOf(now), cancellationToken)
+                >= options.PublicationsPerWorkspacePerDay)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.PublishingCommand, "budget", LimitScope.Workspace);
+
+            return Refused(LimitRefusal.Budget(
+                LimitedOperation.PublishingCommand, options.PublicationsPerWorkspacePerDay, LimitDay.NextAfter(now)));
         }
 
         var record = new PublishingRecord

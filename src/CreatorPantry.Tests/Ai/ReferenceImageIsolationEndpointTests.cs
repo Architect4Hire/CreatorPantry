@@ -230,7 +230,7 @@ public sealed class ReferenceImageIsolationEndpointTests : IAsyncLifetime
         using var mine = await OwnerOf(_fixture.WorkspaceA);
 
         var big = await UploadImageAsync(
-            mine, _fixture.WorkspaceA, Padded(BrandSourceSampleFiles.Png(), 5 * 1024 * 1024), "huge.png");
+            mine, _fixture.WorkspaceA, Padded(5 * 1024 * 1024), "huge.png");
 
         var response = await AskAsync(mine, _fixture.WorkspaceA, Body(big));
 
@@ -241,20 +241,17 @@ public sealed class ReferenceImageIsolationEndpointTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// A real image header followed by enough bytes to pass the upload cap and fail the envelope's.
+    /// A whole PNG made big by an ancillary chunk, enough to pass the upload cap and fail the envelope's.
     /// </summary>
     /// <remarks>
-    /// The brand inspector reads a PNG's dimensions from its header and measures the whole file; neither
-    /// cares what follows. 5MB sits between the two limits — under the 20MB a brand upload allows, over the
-    /// 4MB one request can carry — which is exactly the gap the request-time check exists to close.
+    /// The padding is inside the file, in a private chunk with its own CRC, because bytes after IEND are refused
+    /// at upload (15.2). 5MB sits between the two limits — under the 20MB a brand upload allows, over the 4MB one
+    /// request can carry — which is exactly the gap the request-time check exists to close.
     /// </remarks>
-    private static byte[] Padded(byte[] image, int totalLength)
+    private static byte[] Padded(int paddingLength) => new CreatorPantry.Tests.Media.PngSampleFile
     {
-        var padded = new byte[totalLength];
-        image.CopyTo(padded, 0);
-
-        return padded;
-    }
+        Width = 4, Height = 3, ColourType = 2, Samples = new byte[36], BeforeData = [("ruSt", new byte[paddingLength])],
+    }.Build();
 
     private static string Route(SeededWorkspace workspace) =>
         $"/api/v1/workspaces/{workspace.Slug}/reference-image-requests";

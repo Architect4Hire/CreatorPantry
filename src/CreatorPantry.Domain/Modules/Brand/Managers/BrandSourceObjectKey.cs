@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using CreatorPantry.Domain.Managers.Storage;
 
 namespace CreatorPantry.Domain.Modules.Brand.Managers;
 
@@ -43,7 +44,7 @@ public static partial class BrandSourceObjectKey
     {
         parts = default;
 
-        if (objectKey is null || objectKey.Length > BrandPolicy.ObjectKeyMaxLength)
+        if (!ObjectKeyGrammar.IsWithinLength(objectKey))
         {
             return false;
         }
@@ -66,19 +67,11 @@ public static partial class BrandSourceObjectKey
 
     private static string Prefix(Guid workspaceId, Guid documentId, Guid versionId)
     {
-        ThrowIfEmpty(workspaceId, nameof(workspaceId));
-        ThrowIfEmpty(documentId, nameof(documentId));
-        ThrowIfEmpty(versionId, nameof(versionId));
+        _ = ObjectKeyGrammar.Segment(workspaceId, nameof(workspaceId));
+        _ = ObjectKeyGrammar.Segment(documentId, nameof(documentId));
+        _ = ObjectKeyGrammar.Segment(versionId, nameof(versionId));
 
         return $"workspaces/{workspaceId:N}/brand-sources/{documentId:N}/{versionId:N}";
-    }
-
-    private static void ThrowIfEmpty(Guid id, string name)
-    {
-        if (id == Guid.Empty)
-        {
-            throw new ArgumentException("An object key needs a real identifier.", name);
-        }
     }
 
     // \z rather than $, which would also accept a trailing newline. Nine ordinal digits keeps it inside an int.

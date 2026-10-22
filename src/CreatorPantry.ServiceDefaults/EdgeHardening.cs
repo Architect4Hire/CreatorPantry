@@ -40,14 +40,15 @@ public static class EdgeHardening
         _ => $"http_{status}",
     };
 
-    /// <summary>Adds <see cref="CodeForStatus"/> to framework-generated problems that carry no code.</summary>
-    public static void AddStatusCode(ProblemDetailsContext context)
+    /// <summary>
+    /// Adds <see cref="CodeForStatus"/> and the status's <see cref="ProblemRetry"/> advice to problems that do not
+    /// already carry them.
+    /// </summary>
+    public static void AddStandardExtensions(ProblemDetailsContext context)
     {
-        if (!context.ProblemDetails.Extensions.ContainsKey("code"))
-        {
-            context.ProblemDetails.Extensions["code"] =
-                CodeForStatus(context.ProblemDetails.Status ?? context.HttpContext.Response.StatusCode);
-        }
+        var status = context.ProblemDetails.Status ?? context.HttpContext.Response.StatusCode;
+        context.ProblemDetails.Extensions.TryAdd("code", CodeForStatus(status));
+        context.ProblemDetails.Extensions.TryAdd(ProblemRetry.Extension, ProblemRetry.ForStatus(status));
     }
 
     /// <summary>

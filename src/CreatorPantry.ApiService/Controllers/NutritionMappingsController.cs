@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Nutrition.Facade;
 using CreatorPantry.Domain.Modules.Nutrition.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -65,6 +67,7 @@ public sealed class NutritionMappingsController(INutritionMappingFacade mappingF
     /// `503 nutrition.mapping.save.unavailable` when the store refused — nothing written either way, safe to send
     /// again. No idempotency key: the token makes a repeat a `409`, never a second write.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Nutrition)]
     [HttpPost("confirm")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [ProducesResponseType<NutritionMappingServiceModel>(StatusCodes.Status200OK)]
@@ -125,6 +128,7 @@ public sealed class NutritionMappingsController(INutritionMappingFacade mappingF
     /// and a retired or unknown ingredient `422 nutrition.mapping.ingredient.unprocessable`. Remapping to a reference
     /// this workspace rejected withdraws the rejection. Other refusals as for confirm.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Nutrition)]
     [HttpPost("remap")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [ProducesResponseType<NutritionMappingServiceModel>(StatusCodes.Status200OK)]

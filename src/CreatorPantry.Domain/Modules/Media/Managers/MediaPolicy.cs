@@ -31,9 +31,9 @@ public static class MediaPolicy
     /// </summary>
     /// <remarks>
     /// Server-generated and opaque, so this is a storage bound rather than a creator-facing one — see
-    /// <c>GeneratedImage.ObjectKey</c> for why it is never a URL.
+    /// <c>GeneratedImage.ObjectKey</c> for why it is never a URL. The one cap every key family shares (15.2).
     /// </remarks>
-    public const int ObjectKeyMaxLength = 400;
+    public const int ObjectKeyMaxLength = CreatorPantry.Domain.Managers.Storage.ObjectKeyGrammar.MaxLength;
 
     /// <summary>The longest a stored media type may be.</summary>
     public const int MediaTypeMaxLength = 100;

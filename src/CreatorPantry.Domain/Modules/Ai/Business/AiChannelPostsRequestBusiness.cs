@@ -62,7 +62,7 @@ internal sealed class AiChannelPostsRequestBusiness(
 
         // Before the operation is written, so a refused request leaves no orphan behind and spends no
         // allowance to say the allowance is spent (USAGE-006).
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.ChannelPosts, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.ChannelPosts, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

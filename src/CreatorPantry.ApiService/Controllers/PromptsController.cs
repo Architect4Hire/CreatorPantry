@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.Net.Http.Headers;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -51,6 +53,7 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
     /// is the same — a read keeps answering for keys the catalogue has retired, because a prompt that stored one
     /// is still in the library. The response is `no-store`: it is workspace-private creator content.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Search)]
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<PromptSearchPageServiceModel>(StatusCodes.Status200OK)]
@@ -149,6 +152,7 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
     /// non-member's request all answer exactly as they do on the detail route — `404
     /// content.prompt.not_found`, the same code, sentence and body, with no `Content-Disposition` on a refusal.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("{promptRecordId:guid}/text")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, PlainTextContentType)]
@@ -227,6 +231,7 @@ public sealed class PromptsController(IPromptRecordFacade prompts) : ControllerB
     /// and an unknown id, another workspace's prompt and a non-member's request answer exactly as they do on
     /// the other two routes — `404 content.prompt.not_found`, with no `Content-Disposition` on a refusal.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("{promptRecordId:guid}/record")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, JsonContentType)]

@@ -180,6 +180,11 @@ internal sealed class PublishingRecordConfiguration : IEntityTypeConfiguration<P
         builder.HasIndex(record => new { record.WorkspaceId, record.Status, record.ScheduledAt })
             .HasDatabaseName("IX_PublishingRecords_Workspace_Status_ScheduledAt");
 
+        // A workspace's confirmations in a day (15.3): read at every confirmation and again before the worker
+        // sends one, so it is a seek into one workspace's day rather than a scan of its whole ledger.
+        builder.HasIndex(record => new { record.WorkspaceId, record.CreatedAt })
+            .HasDatabaseName("IX_PublishingRecords_Workspace_CreatedAt");
+
         // The reconciliation worker's claim (13.10c), and deliberately not led by WorkspaceId: a claim looks
         // for due work before it knows whose it is, which is tenancy.md's documented queue-claim carve-out.
         // Filtered to the states a worker can act on, so a table of finished posts costs the sweep nothing.

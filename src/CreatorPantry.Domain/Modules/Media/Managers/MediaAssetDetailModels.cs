@@ -24,6 +24,11 @@ namespace CreatorPantry.Domain.Modules.Media.Managers;
 /// The creator's own filename, for display only. <strong>Not</strong> what a download is named, and never what
 /// an object key is built from.
 /// </param>
+/// <param name="ContainsLocationMetadata">
+/// Whether the original carries a GPS position in its EXIF or XMP, read from the bytes when they were accepted.
+/// Null when that was not checked — a version from before the check, or one kept from a staged image. The original
+/// is never stripped; renditions carry no metadata.
+/// </param>
 public sealed record MediaAssetVersionServiceModel(
     int VersionNumber,
     string MediaType,
@@ -36,7 +41,8 @@ public sealed record MediaAssetVersionServiceModel(
     Guid? SourceGeneratedImageId,
     DateTimeOffset CreatedAt,
     long? WebSizeBytes = null,
-    long? ThumbnailSizeBytes = null);
+    long? ThumbnailSizeBytes = null,
+    bool? ContainsLocationMetadata = null);
 
 /// <summary>A tag on an asset, named rather than left as an id.</summary>
 public sealed record MediaAssetTagServiceModel(Guid Id, string Name);

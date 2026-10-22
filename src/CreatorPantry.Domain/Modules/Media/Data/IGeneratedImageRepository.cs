@@ -25,7 +25,7 @@ public interface IGeneratedImageRepository
 
     /// <summary>
     /// Whether this workspace holds that image and it is still one a creator can work from: staged or kept,
-    /// and not declined or expired.
+    /// its bytes not collected, and not declined or expired.
     /// </summary>
     /// <remarks>False for an unknown id and for another workspace's image, exactly as <see cref="ExistsAsync"/>.</remarks>
     Task<bool> IsAvailableAsync(Guid generatedImageId, CancellationToken cancellationToken);
@@ -90,7 +90,11 @@ internal sealed class GeneratedImageRepository(CreatorPantryDbContext context) :
             // Inside the filtered set, as above.
             .AnyAsync(
                 image => image.Id == generatedImageId
-                    && (image.Status == GeneratedImageStatus.Staged || image.Status == GeneratedImageStatus.Kept),
+                    && (image.Status == GeneratedImageStatus.Staged || image.Status == GeneratedImageStatus.Kept)
+
+                    // Bytes collected are not available, whatever the status says (15.2): the same rule the
+                    // picture resolution applies, so a reference and a read cannot disagree.
+                    && image.ObjectDeletedAt == null,
                 cancellationToken);
 
     public Task<GeneratedImage?> FindAsync(Guid generatedImageId, CancellationToken cancellationToken) =>

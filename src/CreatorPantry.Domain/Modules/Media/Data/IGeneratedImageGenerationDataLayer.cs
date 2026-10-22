@@ -126,6 +126,15 @@ public interface IGeneratedImageGenerationDataLayer
     /// <summary>Records a new request, or returns the one this idempotency key already bought.</summary>
     Task<GeneratedImageRequestResult> RequestAsync(
         GeneratedImageOperation operation, CancellationToken cancellationToken);
+
+    /// <summary>Whether this idempotency key has already bought an operation in this workspace.</summary>
+    Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageGenerationRepository.CountForLimitsAsync"/>
+    Task<(int InFlight, int VariantsToday)> CountForLimitsAsync(DateTimeOffset dayStart, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="IGeneratedImageGenerationRepository.VariantsRequestedThroughAsync"/>
+    Task<int?> VariantsRequestedThroughAsync(Guid operationId, CancellationToken cancellationToken);
 }
 
 /// <param name="Abandoned">True when no attempts remained and the operation was settled instead.</param>
@@ -464,6 +473,16 @@ internal sealed class GeneratedImageGenerationDataLayer(
 
     public Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken) =>
         operations.StagedCountAsync(operationId, cancellationToken);
+
+    public async Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken) =>
+        await operations.FindByIdempotencyKeyAsync(idempotencyKey, cancellationToken) is not null;
+
+    public Task<(int InFlight, int VariantsToday)> CountForLimitsAsync(
+        DateTimeOffset dayStart, CancellationToken cancellationToken) =>
+        operations.CountForLimitsAsync(dayStart, cancellationToken);
+
+    public Task<int?> VariantsRequestedThroughAsync(Guid operationId, CancellationToken cancellationToken) =>
+        operations.VariantsRequestedThroughAsync(operationId, cancellationToken);
 
     public async Task<GeneratedImageRequestResult> RequestAsync(
         GeneratedImageOperation operation, CancellationToken cancellationToken)

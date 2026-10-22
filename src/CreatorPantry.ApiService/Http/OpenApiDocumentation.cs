@@ -3,10 +3,12 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
 using Asp.Versioning;
+using CreatorPantry.ApiService.RateLimiting;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Patching;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.ServiceDefaults;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -376,6 +378,27 @@ public static class OpenApiDocumentation
         UseSharedPagingParameters(operation, context);
 
         operation.Responses ??= new OpenApiResponses();
+
+        // A limited route (15.3) can answer 429 whether or not its controller remembered to say so, so the
+        // document says it from the attribute that does the limiting. Added rather than declared on the action:
+        // a declared response would stop the explorer inferring the route's own success response.
+        if (metadata.OfType<OperationLimitAttribute>().Any() && !operation.Responses.ContainsKey("429"))
+        {
+            operation.Responses["429"] = new OpenApiResponse
+            {
+                Description = "A limit was reached: `limits.rate.exhausted`, `limits.concurrency.exhausted` or "
+                    + "`limits.budget.exhausted`, with `operation`, `scope` and `limit`, and `resetsAt` with a "
+                    + "`Retry-After` header when the limit names an instant.",
+                Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    ["application/problem+json"] = new()
+                    {
+                        Schema = new OpenApiSchemaReference(ProblemDetailsSchema, context.Document),
+                    },
+                },
+            };
+        }
+
         operation.Responses["default"] = new OpenApiResponse
         {
             Description = "Problem details with a stable `code` and `traceId`.",
@@ -521,6 +544,14 @@ public static class OpenApiDocumentation
                 Type = JsonSchemaType.String,
                 Description = "Correlation id for support and tracing.",
             },
+            [ProblemRetry.Extension] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                Enum = [.. ProblemRetry.All.Select(value => (JsonNode)JsonValue.Create(value))],
+                Description = "What to do before sending the request again: `none` (it will not end differently), "
+                    + "`reread` (read the resource again, then decide), `same` (nothing was written; send it "
+                    + "unchanged), or `later` (wait, until `Retry-After` when present).",
+            },
         };
 
         if (validation)
@@ -540,7 +571,7 @@ public static class OpenApiDocumentation
         return new OpenApiSchema
         {
             Type = JsonSchemaType.Object,
-            Required = new HashSet<string> { "code", "traceId" },
+            Required = new HashSet<string> { "code", "traceId", ProblemRetry.Extension },
             Properties = properties,
         };
     }

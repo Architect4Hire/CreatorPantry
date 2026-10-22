@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CreatorPantry.Domain.Managers.FileInspection;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
@@ -71,10 +72,14 @@ public sealed class VeniceImageGenerator(
 
         var clock = Stopwatch.StartNew();
 
-        using var response = await http.PostAsJsonAsync(
-            GeneratePath,
-            new GenerateRequest(options?.ModelId ?? model, request.Prompt),
-            cancellationToken);
+        using var message = new HttpRequestMessage(HttpMethod.Post, GeneratePath)
+        {
+            Content = JsonContent.Create(new GenerateRequest(options?.ModelId ?? model, request.Prompt)),
+        };
+
+        // Headers first, so the body is read under this class's own bound rather than buffered whole by the
+        // client before anything here can look at its size.
+        using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -130,11 +135,43 @@ public sealed class VeniceImageGenerator(
         response.Headers.TryGetValues(header, out var values)
         && values.Any(value => string.Equals(value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// The most of a 200 body this will read: one base64 image at the staging cap (32 MB becomes about 43 MB of
+    /// text) and the JSON around it.
+    /// </summary>
+    /// <remarks>
+    /// A body past it is an invalid response, like any other answer without a usable image: not an outage to
+    /// retry and pay for again, and not something to hold in memory to find out. <c>VeniceImageGeneratorTests</c>
+    /// holds this above what the staging cap encodes to.
+    /// </remarks>
+    public const long ResponseMaxBytes = 48L * 1024 * 1024;
+
     private async Task<byte[]?> ReadImageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
+        if (response.Content.Headers.ContentLength > ResponseMaxBytes)
+        {
+            logger.LogError("Venice answered 200 with a body larger than an image can be; it was not read.");
+
+            return null;
+        }
+
         try
         {
-            var body = await response.Content.ReadFromJsonAsync<GenerateResponse>(cancellationToken);
+            using var buffered = new MemoryStream();
+
+            await using (var content = await response.Content.ReadAsStreamAsync(cancellationToken))
+            {
+                if (!await BoundedCopy.TryCopyAsync(content, buffered, ResponseMaxBytes, cancellationToken))
+                {
+                    logger.LogError("Venice answered 200 with a body larger than an image can be; it was not read.");
+
+                    return null;
+                }
+            }
+
+            buffered.Position = 0;
+            var body = await JsonSerializer.DeserializeAsync<GenerateResponse>(
+                buffered, JsonSerializerOptions.Web, cancellationToken);
 
             return body?.Images?.FirstOrDefault() is { Length: > 0 } image
                 ? Convert.FromBase64String(image)

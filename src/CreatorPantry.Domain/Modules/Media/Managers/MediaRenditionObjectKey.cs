@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Storage;
+
 namespace CreatorPantry.Domain.Modules.Media.Managers;
 
 /// <summary>
@@ -55,7 +57,7 @@ public static class MediaRenditionObjectKey
     {
         parts = default;
 
-        if (objectKey is null || objectKey.Length > MediaPolicy.ObjectKeyMaxLength)
+        if (!ObjectKeyGrammar.IsWithinLength(objectKey))
         {
             return false;
         }

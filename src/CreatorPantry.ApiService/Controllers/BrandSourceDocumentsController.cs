@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.Net.Http.Headers;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -41,6 +43,7 @@ public sealed class BrandSourceDocumentsController(
     /// the superseded version's text is still on record. An item never carries the file, extracted text, a
     /// checksum or a storage location. The response is `no-store`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Search)]
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<CursorPageServiceModel<BrandSourceDocumentSummaryServiceModel>>(StatusCodes.Status200OK)]
@@ -91,6 +94,7 @@ public sealed class BrandSourceDocumentsController(
     /// The response is the document's metadata at version 1, with `mediaType` as established from the bytes.
     /// It never carries a storage location, and no text has been extracted from the file yet.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [Consumes("multipart/form-data")]
@@ -153,6 +157,7 @@ public sealed class BrandSourceDocumentsController(
     /// exactly as an upload of that file: the same 5 MB limit, inspection and malware scan, and the same error
     /// codes. Text that is empty or only whitespace answers `400` on `text`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost("text")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [Consumes("application/json")]
@@ -407,6 +412,7 @@ public sealed class BrandSourceDocumentsController(
     ///
     /// The response is the document's metadata at its new version. It never carries a storage location.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost("{documentId:guid}/versions")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [Consumes("multipart/form-data")]
@@ -787,6 +793,7 @@ public sealed class BrandSourceDocumentsController(
     /// An unknown id, another workspace's document, a removed one and a version this document does not have all
     /// answer `404 brand.source.not_found`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost("{documentId:guid}/versions/{versionNumber:int}/extraction/retry")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [Consumes("application/json")]
@@ -861,9 +868,14 @@ public sealed class BrandSourceDocumentsController(
     /// answer `404 brand.source.not_found`. Private storage that cannot be reached answers
     /// `503 brand.source.storage.unavailable` with nothing recorded, after which the same key may be resent.
     ///
+    /// The text is scanned before it is stored, as an upload is: text the scanner refuses answers
+    /// `422 brand.source.file.rejected.unprocessable`, and no verdict at all answers
+    /// `503 brand.source.scan.unavailable`. Neither records anything.
+    ///
     /// The corrected text stays private and stays untrusted: it is delimited source material wherever it later
     /// reaches a prompt, never instruction.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Upload)]
     [HttpPost("{documentId:guid}/versions/{versionNumber:int}/extraction/corrections")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
 

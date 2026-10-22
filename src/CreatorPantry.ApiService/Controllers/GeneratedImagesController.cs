@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -83,6 +85,7 @@ public sealed class GeneratedImagesController(
     /// away with: this one reads `ControllerBase.Request` for the conditional download below, and an
     /// action of that name hides it.
     /// </remarks>
+    [OperationLimit(LimitedOperation.ImageGeneration)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<GeneratedImageOperationServiceModel>(StatusCodes.Status202Accepted)]

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using CreatorPantry.Domain.Managers.FileInspection;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
@@ -74,10 +75,10 @@ internal sealed class ReferenceImageAnalysisAiTaskHandler(
     /// </remarks>
     private static readonly HashSet<string> ImageMediaTypes = new(StringComparer.Ordinal)
     {
-        BrandSourceFileInspector.PngMediaType,
-        BrandSourceFileInspector.JpegMediaType,
-        BrandSourceFileInspector.WebpMediaType,
-        BrandSourceFileInspector.GifMediaType,
+        ImageFileInspector.PngMediaType,
+        ImageFileInspector.JpegMediaType,
+        ImageFileInspector.WebpMediaType,
+        ImageFileInspector.GifMediaType,
     };
 
     public async Task<AiTaskHandlerOutcome> HandleAsync(
@@ -278,9 +279,9 @@ internal sealed class ReferenceImageAnalysisAiTaskHandler(
         // rather than assumed still. Anything else is a single frame because the format has only one.
         var frames = download.MediaType switch
         {
-            BrandSourceFileInspector.GifMediaType => GifFrames.Count(bytes),
-            BrandSourceFileInspector.PngMediaType => Signature.IsAnimatedPng(bytes) ? null : 1,
-            BrandSourceFileInspector.WebpMediaType => Signature.IsAnimatedWebp(bytes) ? null : 1,
+            ImageFileInspector.GifMediaType => GifFrames.Count(bytes),
+            ImageFileInspector.PngMediaType => Signature.IsAnimatedPng(bytes) ? null : 1,
+            ImageFileInspector.WebpMediaType => Signature.IsAnimatedWebp(bytes) ? null : 1,
             _ => 1,
         };
 
@@ -637,30 +638,18 @@ internal sealed record Unreadable(AiFailureCategory Category, string Message);
 internal static class Signature
 {
     /// <summary>Whether the bytes begin the way the stored media type says they should.</summary>
-    public static bool Matches(string mediaType, ReadOnlySpan<byte> bytes) => mediaType switch
-    {
-        BrandSourceFileInspector.PngMediaType => bytes.StartsWith(PngMagic),
-        BrandSourceFileInspector.JpegMediaType => bytes.StartsWith(JpegMagic),
-        BrandSourceFileInspector.GifMediaType =>
-            bytes.StartsWith("GIF87a"u8) || bytes.StartsWith("GIF89a"u8),
-        BrandSourceFileInspector.WebpMediaType => bytes.Length >= 12
-            && bytes.StartsWith("RIFF"u8)
-            && bytes[8..12].SequenceEqual("WEBP"u8),
-
-        // Unreachable: the caller has already refused every type but those four. False rather than true, so
-        // a fifth type added above without a signature here fails closed.
-        _ => false,
-    };
+    /// <remarks>
+    /// The signatures are <see cref="ImageFileInspector"/>'s, so this and every upload agree on what a PNG
+    /// begins with. A type it does not know never matches, so a fifth type added to the caller fails closed.
+    /// </remarks>
+    public static bool Matches(string mediaType, ReadOnlySpan<byte> bytes) =>
+        string.Equals(ImageFileInspector.MediaTypeOf(bytes), mediaType, StringComparison.Ordinal);
 
     /// <summary>Whether a PNG carries the <c>acTL</c> chunk that makes it an APNG.</summary>
     public static bool IsAnimatedPng(ReadOnlySpan<byte> bytes) => Contains(bytes, "acTL"u8);
 
     /// <summary>Whether a WebP carries the <c>ANIM</c> chunk.</summary>
     public static bool IsAnimatedWebp(ReadOnlySpan<byte> bytes) => Contains(bytes, "ANIM"u8);
-
-    private static readonly byte[] PngMagic = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-
-    private static readonly byte[] JpegMagic = [0xFF, 0xD8, 0xFF];
 
     /// <summary>
     /// Whether a four-byte chunk name appears early in the file.

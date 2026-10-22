@@ -53,7 +53,7 @@ internal sealed class AiEditorialPackageRequestBusiness(
                 "Editorial packages are not enabled for this workspace's deployment.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.EditorialPackage, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.EditorialPackage, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

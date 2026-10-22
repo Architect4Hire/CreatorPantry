@@ -7,8 +7,10 @@ namespace CreatorPantry.Domain.Managers.Storage;
 /// <remarks>
 /// <para>
 /// <strong>Not a place for policy.</strong> It does not know what a workspace is, what a key means, or who
-/// may read it. The typed gateway above it generates and validates keys; this stores what it is handed. That
-/// is also why nothing but a module gateway should take a dependency on it.
+/// may read it. The typed gateway above it generates and validates keys; this stores what it is handed —
+/// provided it is inside <see cref="ObjectKeyGrammar"/>, which an implementation enforces as a second line, so a
+/// gateway that forgot its own check is still not a path into storage (15.2). Nothing but a module gateway takes
+/// a dependency on it, and <c>ObjectStoreBoundaryTests</c> keeps it that way.
 /// </para>
 /// <para>
 /// <strong>No addresses.</strong> Nothing here returns a URL, a signed link or a provider type, so nothing

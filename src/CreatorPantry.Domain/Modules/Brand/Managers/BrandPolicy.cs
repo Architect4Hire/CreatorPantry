@@ -59,7 +59,13 @@ public static class BrandPolicy
     /// <summary>The name the file arrived with. Shown back to the creator; never part of an object key.</summary>
     public const int OriginalFileNameMaxLength = 255;
 
-    /// <summary>A server-generated blob name under the workspace/document/version prefix.</summary>
+    /// <summary>
+    /// The column width for a server-generated blob name under the workspace/document/version prefix.
+    /// </summary>
+    /// <remarks>
+    /// A storage width, wider than any key: what a key may be is <c>ObjectKeyGrammar.MaxLength</c>, the one cap
+    /// every family shares (15.2), and narrowing the column to it would be a migration for no gain.
+    /// </remarks>
     public const int ObjectKeyMaxLength = 512;
 
     /// <summary><c>sha256:</c> plus 64 hex characters.</summary>

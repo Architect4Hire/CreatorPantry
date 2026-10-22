@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -61,6 +63,7 @@ public sealed class ChannelPostRequestsController(IAiChannelPostsRequestFacade r
     /// count its channel's writing profile measured beside it; a body over its channel's limit is stored as
     /// written and flagged, never trimmed. Nothing is accepted until a creator says so.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]

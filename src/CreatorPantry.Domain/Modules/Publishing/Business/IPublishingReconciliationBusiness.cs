@@ -1,9 +1,11 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Publishing.Data;
 using CreatorPantry.Domain.Modules.Publishing.Gateways;
 using CreatorPantry.Domain.Modules.Publishing.Managers;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Publishing.Business;
 
@@ -73,7 +75,8 @@ internal sealed class PublishingReconciliationBusiness(
     IPublishingRecordDataLayer dataLayer,
     IPublishingRecordBusiness records,
     IWorkspaceContext workspace,
-    IClock clock) : IPublishingReconciliationBusiness
+    IClock clock,
+    IOptions<LimitsOptions> limits) : IPublishingReconciliationBusiness
 {
     public async Task<PublishingReconcileSummary> ReconcileProfileAsync(
         Guid publishingProfileId, IReadOnlyList<Guid> recordIds, CancellationToken cancellationToken)
@@ -172,6 +175,24 @@ internal sealed class PublishingReconciliationBusiness(
                 target,
                 "provider_profile_not_ready",
                 "The profile this was confirmed for can no longer be posted to.",
+                cancellationToken);
+
+            return new PublishingReconcileSummary(NeedsAttention: 1);
+        }
+
+        // The same day's allowance the confirmation was admitted against (15.3). A record retried tomorrow is still
+        // the record confirmed today, and counts there once; one that two confirmations raced past the request-time
+        // check is held here, in confirmation order, before the provider is asked.
+        if (limits.Value is { Enabled: true } options
+            && await dataLayer.ConfirmedThroughAsync(target.Row.Id, cancellationToken) is { } through
+            && through > options.PublicationsPerWorkspacePerDay)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.PublishingCommand, "budget", LimitScope.Workspace);
+
+            await NeedsAttentionAsync(
+                target,
+                "daily_budget_exhausted",
+                "This workspace had already confirmed its day's publications when this one was confirmed.",
                 cancellationToken);
 
             return new PublishingReconcileSummary(NeedsAttention: 1);

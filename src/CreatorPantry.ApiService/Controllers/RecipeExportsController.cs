@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -54,6 +56,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
     /// each fact the document cannot be published without — it never invents one. The response is private
     /// and must be revalidated: `ETag` and `If-None-Match` are supported and a match answers 304.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("json-ld")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, JsonLdContentType)]
@@ -115,6 +118,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
     /// The response is private and must be revalidated: `ETag` and `If-None-Match` are supported and a match
     /// answers 304.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("markdown")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<string>(StatusCodes.Status200OK, MarkdownContentType)]
@@ -181,6 +185,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
     /// and must be revalidated: `ETag` and `If-None-Match` are supported over the inputs the document is
     /// rendered from, so a match answers 304 although the PDF's bytes are not reproducible.
     /// </remarks>
+    [OperationLimit(LimitedOperation.PdfExport)]
     [HttpGet("pdf")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<byte[]>(StatusCodes.Status200OK, PdfContentType)]
@@ -238,6 +243,7 @@ public sealed class RecipeExportsController(IRecipeExportFacade exports) : Contr
     /// address; download links are built from the export routes alone. The response is private and must be
     /// revalidated: it is never served from an earlier answer.
     /// </remarks>
+    [OperationLimit(LimitedOperation.TextExport)]
     [HttpGet("summary")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<RecipeExportSummaryServiceModel>(StatusCodes.Status200OK)]

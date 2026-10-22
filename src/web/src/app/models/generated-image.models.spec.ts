@@ -25,6 +25,7 @@ const SERVER_FAILURE_CATEGORIES = [
   'model-unidentified',
   'provider-unavailable',
   'rate-limited',
+  'budget-exhausted',
   'provider-refused',
   'invalid-response',
   'unsupported-media-type',

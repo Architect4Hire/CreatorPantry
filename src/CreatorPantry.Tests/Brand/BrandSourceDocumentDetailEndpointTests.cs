@@ -206,6 +206,41 @@ public sealed class BrandSourceDocumentDetailEndpointTests : IAsyncLifetime
         Assert.Equal(BrandErrorCodes.SourceNotFound, (await BodyOf(download)).GetProperty("code").GetString());
     }
 
+    /// <summary>
+    /// The second line under that refusal (15.2): the version query itself finds no bytes for a tombstone, so a
+    /// caller that reached the data layer without passing through Business still has nothing to serve. An
+    /// archived document's bytes stay reachable, because archiving is a shelf and not a removal.
+    /// </summary>
+    [Fact]
+    public async Task The_version_query_itself_finds_no_bytes_for_a_removed_document()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA);
+        var id = await UploadAsync(client, _fixture.WorkspaceA);
+
+        await SetStatusAsync(id, BrandSourceDocumentStatus.Archived, archivedAt: DateTimeOffset.UtcNow);
+        Assert.NotNull(await VersionObjectAsync(id));
+
+        // The same query under the other workspace's context finds nothing even while the document is readable.
+        Assert.Null(await VersionObjectAsync(id, _fixture.WorkspaceB));
+
+        await SetStatusAsync(id, BrandSourceDocumentStatus.Removed, archivedAt: null);
+        Assert.Null(await VersionObjectAsync(id));
+        Assert.Null(await VersionObjectAsync(id, _fixture.WorkspaceB));
+    }
+
+    private async Task<Domain.Modules.Brand.Managers.BrandSourceVersionObjectRecord?> VersionObjectAsync(
+        Guid documentId, SeededWorkspace? workspace = null)
+    {
+        var target = workspace ?? _fixture.WorkspaceA;
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
+            target.Id, target.Slug, Guid.NewGuid(), WorkspaceRole.Owner, "test-account");
+
+        return await scope.ServiceProvider
+            .GetRequiredService<Domain.Modules.Brand.Data.IBrandSourceDocumentRepository>()
+            .FindVersionObjectAsync(documentId, 1, TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task An_unknown_document_is_not_found()
     {

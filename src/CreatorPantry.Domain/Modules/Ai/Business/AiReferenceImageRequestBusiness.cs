@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using CreatorPantry.Domain.Managers.FileInspection;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
@@ -56,10 +57,10 @@ internal sealed class AiReferenceImageRequestBusiness(
     /// <inheritdoc cref="ReferenceImageAnalysisAiTaskHandler"/>
     private static readonly HashSet<string> ImageMediaTypes = new(StringComparer.Ordinal)
     {
-        BrandSourceFileInspector.PngMediaType,
-        BrandSourceFileInspector.JpegMediaType,
-        BrandSourceFileInspector.WebpMediaType,
-        BrandSourceFileInspector.GifMediaType,
+        ImageFileInspector.PngMediaType,
+        ImageFileInspector.JpegMediaType,
+        ImageFileInspector.WebpMediaType,
+        ImageFileInspector.GifMediaType,
     };
 
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>> RequestAsync(
@@ -86,7 +87,7 @@ internal sealed class AiReferenceImageRequestBusiness(
         }
 
         if (await quota.RefuseIfUnaffordableAsync(
-                AiTaskType.ReferenceImageAnalysis, cancellationToken) is { } spent)
+                AiTaskType.ReferenceImageAnalysis, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

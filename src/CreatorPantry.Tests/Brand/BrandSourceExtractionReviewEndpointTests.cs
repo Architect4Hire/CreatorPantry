@@ -536,6 +536,45 @@ public sealed class BrandSourceExtractionReviewEndpointTests : IAsyncLifetime
         Assert.Single(await ArtifactsAsync(_fixture.WorkspaceA, seeded.VersionId));
     }
 
+    /// <summary>
+    /// Typed text becomes a stored object exactly as an upload does, so it is scanned as one is (15.2).
+    /// </summary>
+    [Fact]
+    public async Task A_correction_the_scanner_refuses_records_nothing_and_says_nothing_of_what_was_found()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA);
+        var seeded = await SeedDocumentAsync(client);
+        var first = await SeedTextAsync(seeded, ordinal: 1, Text);
+        var keysBefore = _store.Keys.ToList();
+
+        var response = await CorrectAsync(
+            client, seeded.DocumentId, 1, first, $"Warm, plain. {BrandSourceSampleFiles.MalwareMarker}\n");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var body = await BodyOf(response);
+        Assert.Equal(BrandErrorCodes.SourceFileRejected, body.GetProperty("code").GetString());
+        Assert.DoesNotContain(BrandSourceSampleFiles.MalwareMarker, body.GetRawText(), StringComparison.Ordinal);
+        Assert.Single(await ArtifactsAsync(_fixture.WorkspaceA, seeded.VersionId));
+        Assert.Equal(keysBefore.Order(), _store.Keys.Order());
+    }
+
+    [Fact]
+    public async Task A_correction_with_no_scanner_verdict_records_nothing()
+    {
+        using var client = await SignInAsync(_fixture.WorkspaceA);
+        var seeded = await SeedDocumentAsync(client);
+        var first = await SeedTextAsync(seeded, ordinal: 1, Text);
+
+        _scanner.Unavailable = true;
+        var response = await CorrectAsync(client, seeded.DocumentId, 1, first, "Mine.\n");
+        _scanner.Unavailable = false;
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal(
+            BrandErrorCodes.SourceScanUnavailable, (await BodyOf(response)).GetProperty("code").GetString());
+        Assert.Single(await ArtifactsAsync(_fixture.WorkspaceA, seeded.VersionId));
+    }
+
     // ---- Isolation ----
 
     [Fact]

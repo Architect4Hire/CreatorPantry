@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Content.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -155,6 +157,7 @@ public sealed class CreativeContextPostsController(
     /// `409 content.social.decision.conflict`. Accepting words pinned to a recipe version that is no longer
     /// the latest is `409 content.social.source_stale.conflict` — edit, regenerate, or reaffirm.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost("{channelKey}/disposition")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<SocialPackageServiceModel>(StatusCodes.Status200OK)]

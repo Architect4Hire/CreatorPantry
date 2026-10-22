@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Limits;
+using Microsoft.Extensions.Options;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -209,6 +211,68 @@ public sealed partial class PublishingScheduleTests(SqlServerRecipeFixture fixtu
             Assert.True(result.Succeeded);
             Assert.False(result.Value!.Replayed);
         }
+    }
+
+    // ---- The day's confirmations (15.3) ----
+
+    [Fact]
+    public async Task A_workspace_that_has_confirmed_its_day_is_refused_before_anything_is_written_or_sent()
+    {
+        var provider = new ScriptedProvider(WsA) { Next = Accepted("update_EXTERNAL_D1") };
+        var profile = await SeedProfileAsync(WsA, provider.Key);
+        var limits = new LimitsOptions { PublicationsPerWorkspacePerDay = await ConfirmedTodayAsync(WsA) + 1 };
+
+        var member = Guid.NewGuid();
+        var firstCard = await SeedCardAsync(WsA);
+        var key = NewKey();
+        var first = await ScheduleAsync(
+            WsA, provider, Confirmation(firstCard.Id, profile.Id), key, membershipId: member, limits: limits);
+        Assert.True(first.Succeeded, first.Error?.Code);
+
+        var secondCard = await SeedCardAsync(WsA);
+        var refused = await ScheduleAsync(WsA, provider, Confirmation(secondCard.Id, profile.Id), limits: limits);
+
+        Assert.Equal(LimitErrorCodes.BudgetExhausted, refused.Error!.Code);
+        Assert.Equal("PublishingCommand", refused.Error.Extensions!["operation"]);
+        Assert.Equal(LimitDay.NextAfter(new MovableClock().UtcNow), refused.Error.Extensions["resetsAt"]);
+        Assert.Single(provider.Sent);
+        Assert.Equal(0, await InAsync(WsA, db => db.PublishingRecords.AsNoTracking()
+            .CountAsync(record => record.ContentCardId == secondCard.Id, Ct)));
+
+        // A replay of the confirmation that was admitted is its answer, spent allowance or not.
+        var replay = await ScheduleAsync(
+            WsA, provider, Confirmation(firstCard.Id, profile.Id), key, membershipId: member, limits: limits);
+        Assert.True(replay.Succeeded, replay.Error?.Code);
+        Assert.True(replay.Value!.Replayed);
+    }
+
+    [Fact]
+    public async Task One_workspaces_day_of_confirmations_is_not_anothers()
+    {
+        var providerA = new ScriptedProvider(WsA) { Next = Accepted("update_EXTERNAL_D2") };
+        var profileA = await SeedProfileAsync(WsA, providerA.Key);
+        var providerB = new ScriptedProvider(WsB) { Next = Accepted("update_EXTERNAL_D3") };
+        var profileB = await SeedProfileAsync(WsB, providerB.Key);
+
+        // A's allowance is exactly what A has already used; B has room under the same number.
+        var usedA = await ConfirmedTodayAsync(WsA);
+        var limits = new LimitsOptions { PublicationsPerWorkspacePerDay = Math.Max(usedA, await ConfirmedTodayAsync(WsB) + 1) };
+
+        while (await ConfirmedTodayAsync(WsA) < limits.PublicationsPerWorkspacePerDay)
+        {
+            providerA.Next = Accepted($"update_EXTERNAL_{Guid.NewGuid():N}"[..24]);
+            var filler = await SeedCardAsync(WsA);
+            Assert.True((await ScheduleAsync(WsA, providerA, Confirmation(filler.Id, profileA.Id), limits: limits)).Succeeded);
+        }
+
+        var cardA = await SeedCardAsync(WsA);
+        Assert.Equal(
+            LimitErrorCodes.BudgetExhausted,
+            (await ScheduleAsync(WsA, providerA, Confirmation(cardA.Id, profileA.Id), limits: limits)).Error!.Code);
+
+        var cardB = await SeedCardAsync(WsB);
+        var admitted = await ScheduleAsync(WsB, providerB, Confirmation(cardB.Id, profileB.Id), limits: limits);
+        Assert.True(admitted.Succeeded, admitted.Error?.Code);
     }
 
     // ---- A new key is not a second post either ----
@@ -699,13 +763,19 @@ public sealed partial class PublishingScheduleTests(SqlServerRecipeFixture fixtu
         MovableClock? clock = null,
         string? zone = Zone,
         MediaAssetLinkTarget media = MediaAssetLinkTarget.Linkable,
-        Guid? membershipId = null)
+        Guid? membershipId = null,
+        LimitsOptions? limits = null)
     {
         await using var scope = fixture.ScopeFor(workspaceId, membershipId: membershipId);
 
-        return await Business(scope, provider, clock ?? new MovableClock(), zone, media)
+        return await Business(scope, provider, clock ?? new MovableClock(), zone, media, limits)
             .ScheduleAsync("test-account", model, idempotencyKey ?? NewKey(), Ct);
     }
+
+    /// <summary>What this workspace has already confirmed today: the fixture's other tests share both.</summary>
+    private Task<int> ConfirmedTodayAsync(Guid workspaceId) =>
+        InAsync(workspaceId, db => new PublishingRecordRepository(db)
+            .CountConfirmedSinceAsync(LimitDay.StartOf(new MovableClock().UtcNow), Ct));
 
     private async Task<OperationResult<PublishingRecordServiceModel>> GetAsync(
         Guid workspaceId, ScriptedProvider provider, Guid recordId)
@@ -734,7 +804,8 @@ public sealed partial class PublishingScheduleTests(SqlServerRecipeFixture fixtu
         ScriptedProvider provider,
         MovableClock clock,
         string? zone,
-        MediaAssetLinkTarget media)
+        MediaAssetLinkTarget media,
+        LimitsOptions? limits = null)
     {
         var db = SqlServerRecipeFixture.Db(scope);
 
@@ -752,7 +823,8 @@ public sealed partial class PublishingScheduleTests(SqlServerRecipeFixture fixtu
             new ScriptedBrand(zone),
             Zones,
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            clock);
+            clock,
+            Options.Create(limits ?? new LimitsOptions()));
     }
 
     private static readonly ITimeZoneConverter Zones =

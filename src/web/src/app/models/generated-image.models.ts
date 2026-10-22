@@ -136,6 +136,8 @@ export const GENERATED_IMAGE_FAILURE_SENTENCES: Readonly<Record<string, string>>
     "Whatever answered would not say what had made the picture, so we did not keep it. If you might publish a picture, you are entitled to know what made it.",
   'provider-unavailable': 'Something on our side did not answer. Asking again usually works.',
   'rate-limited': 'Too many requests at once. Waiting a moment and asking again usually works.',
+  'budget-exhausted':
+    "This workspace had already used today's picture allowance when this request's turn came. It comes back at midnight UTC.",
   'provider-refused':
     'This request was turned down, and asking again as it stands would be turned down too. Changing the prompt is the thing to try.',
   'invalid-response': 'Something came back, but there was no picture in it.',

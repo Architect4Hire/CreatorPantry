@@ -47,6 +47,16 @@ internal interface IAiOperationRepository
     Task<AiOperation?> FindByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// How many of this workspace's operations are queued or running, and how many of those one member asked for.
+    /// </summary>
+    /// <remarks>
+    /// Inside the workspace filter like every read here, so a neighbour's queue is never counted and never
+    /// visible in a refusal (15.3). Read from the rows rather than kept as a counter, so it is exact whatever a
+    /// worker did since — finished, failed, or crashed and requeued.
+    /// </remarks>
+    Task<(int Workspace, int Member)> CountInFlightAsync(Guid membershipId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// This workspace's most recent operations of one task whose stored inputs contain a piece of text, newest
     /// first, each with the id of its proposal when it has one.
     /// </summary>
@@ -182,6 +192,22 @@ internal interface IAiOperationRepository
 internal sealed class AiOperationRepository(CreatorPantryDbContext context) : IAiOperationRepository
 {
     public void Add(AiOperation operation) => context.AiOperations.Add(operation);
+
+    public async Task<(int Workspace, int Member)> CountInFlightAsync(
+        Guid membershipId, CancellationToken cancellationToken)
+    {
+        var inFlight = context.AiOperations
+            .AsNoTracking()
+            .Where(operation => operation.Status == AiOperationStatus.Requested
+                || operation.Status == AiOperationStatus.Running);
+
+        var workspace = await inFlight.CountAsync(cancellationToken);
+        var member = workspace == 0
+            ? 0
+            : await inFlight.CountAsync(operation => operation.RequestedByMembershipId == membershipId, cancellationToken);
+
+        return (workspace, member);
+    }
 
     /// <remarks>
     /// No <c>WorkspaceId</c> predicate and no <c>IgnoreQueryFilters</c>: the global query filter is what makes

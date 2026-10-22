@@ -8,6 +8,8 @@ using CreatorPantry.Domain.Modules.Publishing.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -80,6 +82,7 @@ public sealed class PublishingRecordsController(IPublishingRecordFacade records)
     /// A confirmation that was committed but could not be submitted answers `503
     /// publishing.schedule.unavailable`, and retrying it with the same key is safe. The response is `no-store`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.PublishingCommand)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [ProducesResponseType<PublishingRecordServiceModel>(StatusCodes.Status201Created)]
@@ -197,6 +200,7 @@ public sealed class PublishingRecordsController(IPublishingRecordFacade records)
     /// publishing.not_cancellable.conflict`, because nothing is going out to stop. An id this workspace does
     /// not have answers `404`, as does another workspace's. The response is `no-store`.
     /// </remarks>
+    [OperationLimit(LimitedOperation.PublishingCommand)]
     [HttpPost("{recordId:guid}/cancellation")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceEditor)]
     [ProducesResponseType<PublishingRecordServiceModel>(StatusCodes.Status200OK)]

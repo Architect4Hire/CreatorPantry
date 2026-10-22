@@ -50,6 +50,23 @@ public class MediaAssetVersion : IWorkspaceOwned, IImmutableRecord
     /// <summary><c>sha256:</c> and the digest of the stored bytes.</summary>
     public string ContentChecksum { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Whether the stored bytes carry a GPS position in readable EXIF or XMP. Null when nobody looked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A fact about these bytes, read when they were accepted, so it belongs on the immutable row. The original is
+    /// kept exactly as uploaded (DAM-010) — a location is reported to the creator rather than stripped, and
+    /// renditions, which are re-encoded with no metadata, are what pages show (15.2).
+    /// </para>
+    /// <para>
+    /// Null for a version stored before this was checked, and for one kept from a staged image, whose bytes the
+    /// keep copies without reading. Null is "not checked", never "none": a column that defaulted those to false
+    /// would tell a creator a photograph has no location when nobody knows.
+    /// </para>
+    /// </remarks>
+    public bool? ContainsLocationMetadata { get; set; }
+
     /// <summary>The creator's own filename, for display only. Never used to build a key or a header.</summary>
     public string? OriginalFileName { get; set; }
 

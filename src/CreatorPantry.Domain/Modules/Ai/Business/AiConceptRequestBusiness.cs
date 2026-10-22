@@ -66,7 +66,7 @@ internal sealed class AiConceptRequestBusiness(
                 "This workspace has no piece of work with that id.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeConcepts, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeConcepts, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

@@ -56,7 +56,7 @@ internal sealed class AiProposalExplanationRequestBusiness(
         // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
         // allowance to say the allowance is spent (USAGE-006).
         if (await quota.RefuseIfUnaffordableAsync(
-            AiTaskType.ProposalExplanation, cancellationToken) is { } spent)
+            AiTaskType.ProposalExplanation, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

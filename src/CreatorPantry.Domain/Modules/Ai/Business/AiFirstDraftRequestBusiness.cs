@@ -70,7 +70,7 @@ internal sealed class AiFirstDraftRequestBusiness(
 
         // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
         // allowance to say the allowance is spent (USAGE-006).
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeFirstDraft, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.RecipeFirstDraft, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

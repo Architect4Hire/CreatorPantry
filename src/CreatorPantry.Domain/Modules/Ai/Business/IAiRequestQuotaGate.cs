@@ -1,9 +1,12 @@
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Ai.Data;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Ai.Business;
 
@@ -39,8 +42,12 @@ internal interface IAiRequestQuotaGate
     /// Returns the caller's own reply type rather than a bare error, so the eight call sites are one line each
     /// and "a refusal never replays" is stated once here instead of eight times in their words.
     /// </remarks>
+    /// <param name="idempotencyKey">
+    /// The request's key. One that has already bought an operation in this workspace is a replay, and a replay is
+    /// never refused by the in-progress cap (15.3): its answer is the operation it bought.
+    /// </param>
     Task<IdempotentOutcome<AiProposalStatusServiceModel>?> RefuseIfUnaffordableAsync(
-        AiTaskType taskType, CancellationToken cancellationToken);
+        AiTaskType taskType, CancellationToken cancellationToken, string? idempotencyKey = null);
 
     /// <summary>
     /// The refusal a request for several runs of one task should be answered with, or <c>null</c> when the
@@ -69,11 +76,21 @@ internal interface IAiRequestQuotaGate
 
 /// <inheritdoc cref="IAiRequestQuotaGate"/>
 internal sealed class AiRequestQuotaGate(
-    IAiQuotaAdmissionFacade quota, IWorkspaceContext workspace) : IAiRequestQuotaGate
+    IAiQuotaAdmissionFacade quota,
+    IAiOperationDataLayer operations,
+    IOptions<LimitsOptions> limits,
+    IWorkspaceContext workspace) : IAiRequestQuotaGate
 {
     public async Task<IdempotentOutcome<AiProposalStatusServiceModel>?> RefuseIfUnaffordableAsync(
-        AiTaskType taskType, CancellationToken cancellationToken)
+        AiTaskType taskType, CancellationToken cancellationToken, string? idempotencyKey = null)
     {
+        if (!await operations.IsReplayAsync(idempotencyKey, cancellationToken)
+            && await RefuseIfTooMuchQueuedAsync(runs: 1, cancellationToken) is { } queued)
+        {
+            return new IdempotentOutcome<AiProposalStatusServiceModel>(
+                OperationResult<AiProposalStatusServiceModel>.Failure(queued), Replayed: false);
+        }
+
         // The account, from the resolved context -- never a request field, never an unsigned header, and
         // never anything a model supplied (USAGE-001, ai.md). A workspace role grants no exemption and cannot:
         // there is nothing here to read a role from, because an allowance belongs to the person rather than to
@@ -135,6 +152,11 @@ internal sealed class AiRequestQuotaGate(
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(runs, 1);
 
+        if (await RefuseIfTooMuchQueuedAsync(runs, cancellationToken) is { } queued)
+        {
+            return queued;
+        }
+
         var state = await quota.PeekAsync(
             workspace.AccountId,
             taskType,
@@ -177,5 +199,44 @@ internal sealed class AiRequestQuotaGate(
                     [requestedExtension] = runs,
                     [coverableExtension] = coverable,
                 });
+    }
+
+    /// <summary>
+    /// The in-progress caps (15.3): what this member, and this workspace, already have queued or running, plus what
+    /// this request would add. Asked before the allowance, which is the more expensive question, and before anything
+    /// is written.
+    /// </summary>
+    /// <remarks>
+    /// Counted inside the resolved workspace, so the figures are this workspace's and this member's own. Two requests
+    /// racing for the last place can both be admitted: that is the price of not locking every AI request, and the
+    /// worker's per-workspace share is what keeps an overshoot of one from crowding anyone else out.
+    /// </remarks>
+    private async Task<OperationError?> RefuseIfTooMuchQueuedAsync(int runs, CancellationToken cancellationToken)
+    {
+        var options = limits.Value;
+
+        if (!options.Enabled)
+        {
+            return null;
+        }
+
+        var (inWorkspace, byMember) = await operations.CountInFlightAsync(workspace.MembershipId, cancellationToken);
+
+        if (byMember + runs > options.AiInFlightPerMember)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.AiRequest, "concurrency", LimitScope.User);
+            return LimitRefusal.Concurrency(LimitedOperation.AiRequest, LimitScope.User, options.AiInFlightPerMember);
+        }
+
+        if (inWorkspace + runs > options.AiInFlightPerWorkspace)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.AiRequest, "concurrency", LimitScope.Workspace);
+            return LimitRefusal.Concurrency(
+                LimitedOperation.AiRequest, LimitScope.Workspace, options.AiInFlightPerWorkspace);
+        }
+
+        LimitsTelemetry.Admitted(LimitedOperation.AiRequest, "concurrency", LimitScope.Workspace);
+
+        return null;
     }
 }

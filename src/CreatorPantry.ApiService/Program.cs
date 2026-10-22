@@ -4,6 +4,7 @@ using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Caching;
 using CreatorPantry.ApiService.Development;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.ApiService.RateLimiting;
 using CreatorPantry.ApiService.Storage;
 using CreatorPantry.ApiService.Tenancy;
 using CreatorPantry.Domain.Managers.Audit;
@@ -54,6 +55,10 @@ builder.EnrichSqlServerDbContext<CreatorPantryDbContext>();
 
 // Redis where the AppHost supplies it, in-process otherwise. Reference reads are the only consumer today.
 builder.AddCreatorPantryCache();
+
+// Per-user and per-workspace limits (15.3): rates in Redis beside the cache, with this instance's own buckets
+// when Redis cannot be reached; in-progress caps and daily budgets from the rows the work writes.
+builder.AddOperationLimits();
 
 // Private object storage for creator files. Nothing is served from it directly: bytes are read through a
 // module gateway after the metadata has been authorized.
@@ -219,16 +224,9 @@ else
 // Registering a real adapter is still a prerequisite for deploying anywhere (media.md).
 builder.Services.AddDevelopmentMalwareScanning(builder.Environment);
 
-builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
-{
-    // Problems written by the framework (exceptions, status-code pages) get a stable code; problems built by
-    // controllers already carry their own.
-    if (!context.ProblemDetails.Extensions.ContainsKey(ProblemResults.CodeExtension))
-    {
-        context.ProblemDetails.Extensions[ProblemResults.CodeExtension] =
-            ProblemResults.CodeForStatus(context.ProblemDetails.Status ?? context.HttpContext.Response.StatusCode);
-    }
-});
+// Problems written by the framework (exceptions, status-code pages) get a stable code and retry advice;
+// problems built by controllers already carry their own.
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = ProblemResults.Customize);
 
 builder.Services.AddCreatorPantryApiVersioning();
 
@@ -239,11 +237,17 @@ builder.Services.AddControllers(options =>
         // With implicit [Required] suppressed, model state only fails for unreadable bodies.
         options.InvalidModelStateResponseFactory = ProblemResults.MalformedRequest)
     .AddJsonOptions(options =>
+    {
+        // An unreadable value answers "The input was not valid." under its JSON path, not System.Text.Json's
+        // own sentence, which names the CLR type it was bound to and the byte it failed at.
+        options.AllowInputFormatterExceptionMessages = false;
+
         // Enums as their declared names, not their numbers. Numbers make the contract asymmetric — the
         // dimension filter already accepts "Temperature" while the response would answer 3 — and they publish
         // as a bare "integer" with no names, so a client has to keep a private mapping the document never
         // gave it. Names also make inserting an enum member a visible change rather than a silent renumbering.
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // The same converter again, for the minimal-API endpoints (health, development tooling), which serialize
 // through this options instance rather than MVC's. The OpenAPI document reads neither — a schema transformer
@@ -253,7 +257,9 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
+// An unhandled exception is a 500 with no detail, except the two whose status is known: a bad request the
+// framework threw keeps its own, and an uncaught concurrency failure is the 409 it is (ProblemResults).
+app.UseExceptionHandler(new ExceptionHandlerOptions { StatusCodeSelector = ProblemResults.StatusForException });
 
 // Empty error responses (unknown route, unsupported API version, wrong method) become ProblemDetails.
 app.UseStatusCodePages();

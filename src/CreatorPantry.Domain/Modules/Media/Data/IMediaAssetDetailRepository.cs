@@ -142,7 +142,8 @@ internal sealed class MediaAssetDetailRepository(CreatorPantryDbContext context)
                         && rendition.MediaAssetVersionNumber == version.VersionNumber
                         && rendition.Purpose == MediaRenditionPurpose.Thumbnail)
                     .Select(rendition => rendition.SizeBytes)
-                    .FirstOrDefault()))
+                    .FirstOrDefault(),
+                version.ContainsLocationMetadata))
             .ToListAsync(cancellationToken);
 
         // Joined to the workspace's own tag vocabulary so the name comes back with the id. WorkspaceTag is the

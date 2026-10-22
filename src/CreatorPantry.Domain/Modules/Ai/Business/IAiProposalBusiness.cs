@@ -120,7 +120,7 @@ internal sealed class AiProposalBusiness(
         // Before the operation is written, so a refused request leaves no orphan to clean up and spends no
         // allowance to say the allowance is spent (USAGE-006). The task is resolved by now, which this route
         // needs and the fixed-task routes do not: what a run costs depends on which capability it is.
-        if (await quota.RefuseIfUnaffordableAsync(task.Value, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(task.Value, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

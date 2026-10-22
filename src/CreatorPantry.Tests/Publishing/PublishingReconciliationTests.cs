@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Limits;
+using Microsoft.Extensions.Options;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
@@ -637,6 +639,51 @@ public sealed class PublishingReconciliationTests(SqlServerRecipeFixture fixture
         Assert.Equal("provider_profile_not_ready", record.FailureCategory);
     }
 
+    /// <summary>
+    /// The worker holds a pending record to the day's confirmations it was admitted against (15.3): one that two
+    /// confirmations raced past the request-time check is never sent, and is handed to a person instead.
+    /// </summary>
+    [Fact]
+    public async Task A_pending_record_past_its_days_confirmations_is_not_sent()
+    {
+        var profile = await SeedProfileAsync(WsA);
+        var recordId = await SeedRecordAsync(WsA, profile, PublishingRecordStatus.Pending, availableAt: Now);
+
+        // This fixture's other tests share the workspace and the day, so the allowance is set from where this
+        // record actually falls: one short of it.
+        var through = await InAsync(WsA, db => new PublishingRecordRepository(db).ConfirmedThroughAsync(recordId, Ct));
+        var limits = new LimitsOptions { PublicationsPerWorkspacePerDay = through!.Value - 1 };
+
+        var provider = Listing();
+        var summary = await ReconcileAsync(WsA, provider, profile.Id, [recordId], limits);
+
+        Assert.Equal(1, summary.NeedsAttention);
+        Assert.Empty(provider.Sent);
+
+        var record = await InAsync(WsA, db => db.PublishingRecords.AsNoTracking()
+            .SingleAsync(item => item.Id == recordId, Ct));
+        Assert.Equal(PublishingRecordStatus.NeedsAttention, record.Status);
+        Assert.Equal("daily_budget_exhausted", record.FailureCategory);
+    }
+
+    [Fact]
+    public async Task A_pending_record_inside_its_days_confirmations_is_sent_whichever_day_it_is_retried()
+    {
+        var profile = await SeedProfileAsync(WsA);
+        var recordId = await SeedRecordAsync(WsA, profile, PublishingRecordStatus.Pending, availableAt: Now);
+        var through = await InAsync(WsA, db => new PublishingRecordRepository(db).ConfirmedThroughAsync(recordId, Ct));
+
+        var provider = Listing();
+        provider.Next = new PublishingSubmissionResult(
+            PublishingSubmissionOutcome.Scheduled, "update_EXTERNAL_B1", ProviderStatusCode: 200);
+
+        var summary = await ReconcileAsync(
+            WsA, provider, profile.Id, [recordId], new LimitsOptions { PublicationsPerWorkspacePerDay = through!.Value });
+
+        Assert.Equal(1, summary.Submitted);
+        Assert.Single(provider.Sent);
+    }
+
     // ---- Bounds ----
 
     [Fact]
@@ -769,7 +816,11 @@ public sealed class PublishingReconciliationTests(SqlServerRecipeFixture fixture
     }
 
     private async Task<PublishingReconcileSummary> ReconcileAsync(
-        Guid workspaceId, ScriptedProvider provider, Guid profileId, IReadOnlyList<Guid> recordIds)
+        Guid workspaceId,
+        ScriptedProvider provider,
+        Guid profileId,
+        IReadOnlyList<Guid> recordIds,
+        LimitsOptions? limits = null)
     {
         await using var scope = fixture.ScopeFor(workspaceId);
         var db = SqlServerRecipeFixture.Db(scope);
@@ -791,13 +842,15 @@ public sealed class PublishingReconciliationTests(SqlServerRecipeFixture fixture
             new ZonedBrand(),
             zones,
             scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-            new FixedClock());
+            new FixedClock(),
+            Options.Create(new LimitsOptions()));
 
         return await new PublishingReconciliationBusiness(
                 dataLayer,
                 records,
                 scope.ServiceProvider.GetRequiredService<IWorkspaceContext>(),
-                new FixedClock())
+                new FixedClock(),
+                Options.Create(limits ?? new LimitsOptions()))
             .ReconcileProfileAsync(profileId, recordIds, Ct);
     }
 

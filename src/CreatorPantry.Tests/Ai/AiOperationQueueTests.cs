@@ -135,6 +135,30 @@ public sealed class AiOperationQueueTests : IDisposable
         Assert.Null(second);
     }
 
+    /// <summary>
+    /// A workspace already running its share is passed over for the next workspace's work (15.3), so one deep
+    /// queue cannot hold every worker — and with no share set, the queue is simply oldest first.
+    /// </summary>
+    [Fact]
+    public async Task A_workspace_running_its_share_waits_while_another_workspace_is_served()
+    {
+        var running = await RequestAsync(WorkspaceA, "key-1");
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var waiting = await RequestAsync(WorkspaceA, "key-2");
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var theirs = await RequestAsync(WorkspaceB, "key-1");
+
+        using var scope = _provider.CreateScope();
+        var claims = Claim(scope);
+        var ct = TestContext.Current.CancellationToken;
+
+        Assert.Equal(running.Operation!.Id, (await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, ct, runningPerWorkspace: 1))!.OperationId);
+        Assert.Equal(theirs.Operation!.Id, (await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, ct, runningPerWorkspace: 1))!.OperationId);
+        Assert.Null(await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, ct, runningPerWorkspace: 1));
+
+        Assert.Equal(waiting.Operation!.Id, (await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, ct))!.OperationId);
+    }
+
     [Fact]
     public async Task A_claim_moves_the_operation_to_running_and_counts_the_attempt()
     {

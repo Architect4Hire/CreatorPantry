@@ -184,6 +184,46 @@ public sealed class MediaRenditionEndpointTests : IAsyncLifetime
         Assert.Equal(MediaErrorCodes.AssetInvalidRequest, await CodeAsync(refused));
     }
 
+    /// <summary>
+    /// A removed asset's smaller copies are as gone as its original (15.2): every selector, on every route, is the
+    /// one not-found an unknown asset gets, though the rendition rows and objects are still there.
+    /// </summary>
+    [Fact]
+    public async Task A_removed_library_assets_renditions_are_not_served_either()
+    {
+        var asset = await AddAssetAsync(_fixture.WorkspaceA);
+        await AddRenditionAsync(_fixture.WorkspaceA, asset.ObjectKey, MediaRenditionPurpose.Web, WebBytes, mediaAssetId: asset.Id);
+        await AddRenditionAsync(_fixture.WorkspaceA, asset.ObjectKey, MediaRenditionPurpose.Thumbnail, ThumbnailBytes, mediaAssetId: asset.Id);
+
+        await using (var scope = ScopeFor(_fixture.WorkspaceA))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            var row = await db.MediaAssets.SingleAsync(candidate => candidate.Id == asset.Id, Ct);
+            row.DeletedAt = Now;
+            row.DeletedByMembershipId = Guid.NewGuid();
+            await db.SaveChangesAsync(Ct);
+        }
+
+        using var client = await SignInAsync(_fixture.WorkspaceA);
+        using var neighbour = await SignInAsync(_fixture.WorkspaceB);
+
+        foreach (var route in new[] { "content", "download", "versions/1/download" })
+        {
+            foreach (var rendition in new string?[] { null, "web", "thumbnail", "original" })
+            {
+                var unknown = await client.GetAsync(Asset(_fixture.WorkspaceA, Guid.NewGuid(), route, rendition), Ct);
+                var removed = await client.GetAsync(Asset(_fixture.WorkspaceA, asset.Id, route, rendition), Ct);
+                var theirs = await neighbour.GetAsync(Asset(_fixture.WorkspaceB, asset.Id, route, rendition), Ct);
+
+                foreach (var response in new[] { unknown, removed, theirs })
+                {
+                    Assert.True(response.StatusCode == HttpStatusCode.NotFound, $"{route}?rendition={rendition}");
+                    Assert.Equal(MediaErrorCodes.AssetNotFound, await CodeAsync(response));
+                }
+            }
+        }
+    }
+
     [Fact]
     public async Task The_models_state_each_renditions_size_beside_the_originals()
     {

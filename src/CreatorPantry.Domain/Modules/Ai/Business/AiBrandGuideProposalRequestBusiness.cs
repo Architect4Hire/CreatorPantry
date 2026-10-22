@@ -66,7 +66,7 @@ internal sealed class AiBrandGuideProposalRequestBusiness(
                 "Brand guide proposals are not enabled for this workspace's deployment.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.BrandGuideProposal, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.BrandGuideProposal, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

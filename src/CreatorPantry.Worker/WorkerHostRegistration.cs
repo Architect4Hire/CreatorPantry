@@ -1,6 +1,7 @@
 using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -77,6 +78,10 @@ public static class WorkerHostRegistration
         // without it every StoreProposalAsync/FailAsync fails to resolve its dependencies at startup rather
         // than quietly recording no usage (USAGE-001) or admitting a run against nothing (USAGE-004).
         builder.Services.AddAiUsageModule(builder.Configuration);
+
+        // The same in-progress caps and daily budgets the API checks a request against (15.3): the worker checks
+        // them again before it spends anything, and shares the queues by them.
+        builder.Services.AddLimits(builder.Configuration);
 
         // Registered deliberately, for the AI operation worker: it loads the exact recipe/version an operation
         // names through the recipe module's own facade, never its repositories, and that facade needs the whole

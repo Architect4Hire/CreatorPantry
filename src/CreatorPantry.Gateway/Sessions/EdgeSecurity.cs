@@ -26,7 +26,7 @@ public static partial class EdgeSecurity
 
         // Every gateway-generated failure (framework 4xx, cookie 401/403, 500, YARP 502/504) is ProblemDetails
         // with the same code/traceId shape the API uses.
-        services.AddProblemDetails(options => options.CustomizeProblemDetails = EdgeHardening.AddStatusCode);
+        services.AddProblemDetails(options => options.CustomizeProblemDetails = EdgeHardening.AddStandardExtensions);
 
         // Session tickets and the Data Protection key ring live in Redis so every gateway instance shares them.
         builder.AddRedisDistributedCache("cache");

@@ -72,7 +72,7 @@ internal sealed class AiSeoPackageRequestBusiness(
                 "SEO packages are not enabled for this workspace's deployment.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.SeoPackage, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.SeoPackage, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }
@@ -165,7 +165,7 @@ internal sealed class AiSeoPackageRequestBusiness(
                 "SEO packages are not enabled for this workspace's deployment.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.SeoPackage, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.SeoPackage, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

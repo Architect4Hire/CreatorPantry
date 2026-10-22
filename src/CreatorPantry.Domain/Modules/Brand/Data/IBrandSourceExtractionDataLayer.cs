@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Managers.Time;
@@ -219,6 +220,12 @@ public enum BrandSourceCorrectionOutcome
 
     /// <summary>The corrected text could not be stored. Nothing was written.</summary>
     StorageUnavailable = 3,
+
+    /// <summary>The scanner refused the corrected text. Nothing was written.</summary>
+    Rejected = 4,
+
+    /// <summary>No scanner verdict could be had, so nothing was written.</summary>
+    ScanUnavailable = 5,
 }
 
 /// <param name="Artifact">Present exactly when <paramref name="Outcome"/> is <see cref="BrandSourceCorrectionOutcome.Corrected"/>.</param>
@@ -362,6 +369,7 @@ public interface IBrandSourceExtractionDataLayer
 internal sealed class BrandSourceExtractionDataLayer(
     IBrandSourceExtractionRepository extractions,
     IBrandSourceObjectGateway objects,
+    IMalwareScanGateway scanner,
     IAuditWriter auditWriter,
     IWorkspaceContext workspace,
     CreatorPantryDbContext context,
@@ -775,6 +783,24 @@ internal sealed class BrandSourceExtractionDataLayer(
             // Re-checked here as well as by the caller that read it, because the read and this write are
             // separate round trips and a collaborator's correction can land between them.
             return new BrandSourceCorrectionResult(BrandSourceCorrectionOutcome.Conflict);
+        }
+
+        // A person's text becomes a stored object here exactly as an upload does, so it is scanned as one is
+        // (15.2), before anything is written. Anything but a clean verdict stores nothing.
+        using (var scanned = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(correction.Text), writable: false))
+        {
+            switch (await scanner.ScanAsync(scanned, cancellationToken))
+            {
+                case MalwareScanVerdict.Clean:
+                    break;
+
+                case MalwareScanVerdict.Infected:
+                    logger.LogWarning("A text correction was refused by the scanner.");
+                    return new BrandSourceCorrectionResult(BrandSourceCorrectionOutcome.Rejected);
+
+                default:
+                    return new BrandSourceCorrectionResult(BrandSourceCorrectionOutcome.ScanUnavailable);
+            }
         }
 
         // One past the artifact this was composed against, so the key is new and the previous text stays

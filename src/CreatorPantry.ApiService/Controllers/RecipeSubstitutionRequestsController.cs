@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -50,6 +52,7 @@ public sealed class RecipeSubstitutionRequestsController(IAiSubstitutionRequestF
     /// request is durable and the model is called by the worker afterwards, so the API does not stay open
     /// around unbounded provider work (api-contract.md).
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]

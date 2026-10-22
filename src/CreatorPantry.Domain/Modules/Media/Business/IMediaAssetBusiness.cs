@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.FileInspection;
 using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Results;
@@ -161,7 +162,6 @@ internal sealed class MediaAssetBusiness(
     ICreativeContextKeptPictureFacade keptPictures,
     IRecipeFacade recipes,
     IGeneratedImageDataLayer stagedImages,
-    IMalwareScanGateway scanner,
     ILogger<MediaAssetBusiness> logger) : IMediaAssetBusiness
 {
 
@@ -476,7 +476,8 @@ internal sealed class MediaAssetBusiness(
             buffered.Length,
             upload.FileName,
             actorMembershipId,
-            cancellationToken);
+            cancellationToken,
+            inspection.HasLocationMetadata);
 
         return added.Outcome switch
         {
@@ -564,7 +565,8 @@ internal sealed class MediaAssetBusiness(
                 upload.Metadata.WorkspaceTagIds ?? [],
                 upload.RecipeLink,
                 upload.Prompt,
-                upload.UserId),
+                upload.UserId,
+                inspection.HasLocationMetadata),
             cancellationToken);
     }
 
@@ -669,8 +671,9 @@ internal sealed class MediaAssetBusiness(
     /// stricter, and a limit enforced in only one of them would be no limit at all.
     /// </para>
     /// <para>
-    /// <strong>Buffered first, because three things need the bytes:</strong> the size bound, the signature
-    /// inspection, and the scanner. A stream read once could satisfy only the first of them.
+    /// <strong>Buffered first, because three things need the bytes:</strong> the size bound, the structural
+    /// inspection, and the scanner. A stream read once could satisfy only the first of them. The copy stops at the
+    /// first byte past the cap, so the bound holds in memory and not only at the form reader.
     /// </para>
     /// <para>
     /// <strong>The type comes from the bytes.</strong> Neither the declared content type nor the filename is
@@ -684,14 +687,24 @@ internal sealed class MediaAssetBusiness(
     private async Task<(GeneratedImageInspection? Inspection, OperationError? Error)> AcceptBytesAsync(
         Stream content, MemoryStream buffered, CancellationToken cancellationToken)
     {
-        await content.CopyToAsync(buffered, cancellationToken);
-
-        if (buffered.Length > MediaPolicy.ImageMaxBytes)
+        // Nothing past the cap is kept, however the request arrived, and no read reaches more than one byte past
+        // it (15.2).
+        if (!await BoundedCopy.TryCopyAsync(content, buffered, MediaPolicy.ImageMaxBytes, cancellationToken))
         {
             return (null, Refusal("That file is larger than this library accepts."));
         }
 
-        var inspection = GeneratedImageInspector.Inspect(buffered.ToArray());
+        // Read where it lies: the buffer is this method's own expandable stream, so its array is reachable
+        // without a second copy of a file that may be 32 MB.
+        var inspection = GeneratedImageInspector.Inspect(
+            buffered.TryGetBuffer(out var written) ? written.AsSpan() : buffered.ToArray());
+
+        if (inspection.Outcome is GeneratedImageInspectionOutcome.TrailingData)
+        {
+            return (null, Refusal(
+                "That image carries something after the picture itself, such as a motion photo's video. "
+                    + "Export it as a still image and upload that."));
+        }
 
         if (inspection.Outcome is not GeneratedImageInspectionOutcome.Accepted)
         {
@@ -701,7 +714,7 @@ internal sealed class MediaAssetBusiness(
 
         buffered.Position = 0;
 
-        if (await scanner.ScanAsync(buffered, cancellationToken) is not MalwareScanVerdict.Clean)
+        if (await assets.ScanAsync(buffered, cancellationToken) is not MalwareScanVerdict.Clean)
         {
             // Without saying what was found: a scanner's verdict is not something to describe back to a caller who
             // may have sent the file deliberately.
@@ -891,7 +904,8 @@ internal sealed class MediaAssetBusiness(
             version.SourceGeneratedImageId,
             version.CreatedAt,
             version.WebSizeBytes,
-            version.ThumbnailSizeBytes);
+            version.ThumbnailSizeBytes,
+            version.ContainsLocationMetadata);
 
     private static MediaAssetUtilizationServiceModel MapUse(MediaAssetUtilizationRecord use) =>
         new(

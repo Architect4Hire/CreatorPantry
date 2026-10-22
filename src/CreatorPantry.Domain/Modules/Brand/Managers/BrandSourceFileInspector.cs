@@ -1,7 +1,8 @@
-using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+
+using CreatorPantry.Domain.Managers.FileInspection;
 
 namespace CreatorPantry.Domain.Modules.Brand.Managers;
 
@@ -44,10 +45,11 @@ public sealed record BrandSourceInspection(
 /// <c>notes.txt</c> is refused rather than quietly relabelled.
 /// </para>
 /// <para>
-/// "Holds together" is structural, not a render: a PDF has its header and trailer, a DOCX opens as a package
-/// with a main document part and no macro project inside its expansion caps, and an image's header yields
-/// sane dimensions. No pixel is decoded and no document is parsed; extraction (11A.10) does that, and still
-/// treats the content as untrusted.
+/// "Holds together" is structural, not a render: a PDF has its header and ends at its trailer with nothing but
+/// white-space after it, a DOCX opens as a package with a main document part and no macro project inside its
+/// expansion caps, and an image walks end to end through <see cref="ImageFileInspector"/> (15.2). Neither a PDF
+/// nor an image may also be a ZIP. No pixel is decoded and no document is parsed; extraction (11A.10) does
+/// that, and still treats the content as untrusted.
 /// </para>
 /// </remarks>
 internal static class BrandSourceFileInspector
@@ -56,11 +58,11 @@ internal static class BrandSourceFileInspector
 
     public const string DocxMediaType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    public const string PngMediaType = "image/png";
+    public const string PngMediaType = ImageFileInspector.PngMediaType;
 
-    public const string JpegMediaType = "image/jpeg";
+    public const string JpegMediaType = ImageFileInspector.JpegMediaType;
 
-    public const string WebpMediaType = "image/webp";
+    public const string WebpMediaType = ImageFileInspector.WebpMediaType;
 
     /// <summary>
     /// Accepted for IMG-004, which analyzes reference images and takes GIF alongside the other three.
@@ -80,7 +82,7 @@ internal static class BrandSourceFileInspector
     /// <c>BrandSourceTextExtractorTests</c> is what refuses to let the two lists drift.
     /// </para>
     /// </remarks>
-    public const string GifMediaType = "image/gif";
+    public const string GifMediaType = ImageFileInspector.GifMediaType;
 
     private const string DocxMainPartContentType =
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
@@ -175,10 +177,8 @@ internal static class BrandSourceFileInspector
         {
             PdfMediaType => (PdfMediaType, await PdfAsync(content, signature, length, cancellationToken)),
             DocxMediaType => (DocxMediaType, Docx(content)),
-            PngMediaType => (PngMediaType, Png(signature.Span)),
-            JpegMediaType => (JpegMediaType, await JpegAsync(content, length, cancellationToken)),
-            WebpMediaType => (WebpMediaType, Webp(signature.Span, length)),
-            GifMediaType => (GifMediaType, Gif(signature.Span)),
+            (PngMediaType or JpegMediaType or WebpMediaType or GifMediaType) and var image =>
+                (image, await ImageAsync(content, length, cancellationToken)),
             _ => await TextAsync(content, extension, length, cancellationToken),
         };
 
@@ -216,29 +216,7 @@ internal static class BrandSourceFileInspector
             return DocxMediaType;
         }
 
-        if (head.StartsWith((ReadOnlySpan<byte>)[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))
-        {
-            return PngMediaType;
-        }
-
-        if (head.StartsWith((ReadOnlySpan<byte>)[0xFF, 0xD8, 0xFF]))
-        {
-            return JpegMediaType;
-        }
-
-        if (head.Length >= 12 && head.StartsWith("RIFF"u8) && head[8..12].SequenceEqual("WEBP"u8))
-        {
-            return WebpMediaType;
-        }
-
-        // Both header versions. 89a is what anything with animation or transparency writes; 87a still turns
-        // up in older saved files, and refusing it would refuse a perfectly readable reference image.
-        if (head.Length >= 6 && (head.StartsWith("GIF87a"u8) || head.StartsWith("GIF89a"u8)))
-        {
-            return GifMediaType;
-        }
-
-        return null;
+        return ImageFileInspector.MediaTypeOf(head);
     }
 
     private static async Task<BrandSourceInspectionOutcome> PdfAsync(
@@ -250,13 +228,32 @@ internal static class BrandSourceFileInspector
             return BrandSourceInspectionOutcome.Corrupt;
         }
 
-        var tail = new byte[(int)Math.Min(2048, length)];
+        // The tail a ZIP reader would search, which also holds the trailer: a PDF ends at its last %%EOF and
+        // whitespace, and a ZIP directory reachable from the end makes it an archive as well (15.2).
+        var tail = new byte[(int)Math.Min(ArchiveTrailer.ZipSearchWindow, length)];
         var read = await ReadAtAsync(content, length - tail.Length, tail, cancellationToken);
+        var span = tail.AsSpan(0, read);
+        var trailerStart = Math.Max(0, span.Length - PdfTrailerWindow);
+        var trailer = span[trailerStart..].LastIndexOf("%%EOF"u8);
 
-        return tail.AsSpan(0, read).IndexOf("%%EOF"u8) >= 0
-            ? BrandSourceInspectionOutcome.Accepted
-            : BrandSourceInspectionOutcome.Corrupt;
+        if (trailer < 0)
+        {
+            return BrandSourceInspectionOutcome.Corrupt;
+        }
+
+        var after = span[(trailerStart + trailer + "%%EOF"u8.Length)..];
+
+        return after.ContainsAnyExcept(PdfWhitespace) || ArchiveTrailer.EndsInZipDirectory(span)
+            ? BrandSourceInspectionOutcome.Corrupt
+            : BrandSourceInspectionOutcome.Accepted;
     }
+
+    /// <summary>How far from the end the final <c>%%EOF</c> is looked for.</summary>
+    private const int PdfTrailerWindow = 2048;
+
+    /// <summary>The six bytes PDF defines as white-space, the only thing that may follow the final <c>%%EOF</c>.</summary>
+    private static readonly System.Buffers.SearchValues<byte> PdfWhitespace =
+        System.Buffers.SearchValues.Create([0x00, 0x09, 0x0A, 0x0C, 0x0D, 0x20]);
 
     private static BrandSourceInspectionOutcome Docx(Stream content)
     {
@@ -302,142 +299,26 @@ internal static class BrandSourceFileInspector
         }
     }
 
-    private static BrandSourceInspectionOutcome Png(ReadOnlySpan<byte> head)
-    {
-        // The first chunk is always IHDR, thirteen bytes long, and opens with the width and height.
-        if (head.Length < 24
-            || BinaryPrimitives.ReadUInt32BigEndian(head[8..]) != 13
-            || !head[12..16].SequenceEqual("IHDR"u8))
-        {
-            return BrandSourceInspectionOutcome.Corrupt;
-        }
-
-        return Dimensions(BinaryPrimitives.ReadUInt32BigEndian(head[16..]), BinaryPrimitives.ReadUInt32BigEndian(head[20..]));
-    }
-
-    private static async Task<BrandSourceInspectionOutcome> JpegAsync(Stream content, long length, CancellationToken cancellationToken)
-    {
-        var segment = new byte[9];
-        long position = 2;
-
-        // Walks the marker segments to the frame header, which is where a JPEG states its size.
-        while (position + 4 <= length)
-        {
-            var read = await ReadAtAsync(content, position, segment, cancellationToken);
-
-            if (read < 4 || segment[0] != 0xFF)
-            {
-                return BrandSourceInspectionOutcome.Corrupt;
-            }
-
-            var marker = segment[1];
-
-            if (marker == 0xFF)
-            {
-                // A fill byte before the marker proper.
-                position++;
-                continue;
-            }
-
-            if (marker is 0x01 or (>= 0xD0 and <= 0xD7))
-            {
-                position += 2;
-                continue;
-            }
-
-            // The image data or the end arrived before any frame header.
-            if (marker is 0xD9 or 0xDA)
-            {
-                return BrandSourceInspectionOutcome.Corrupt;
-            }
-
-            var segmentLength = BinaryPrimitives.ReadUInt16BigEndian(segment.AsSpan(2));
-
-            if (segmentLength < 2)
-            {
-                return BrandSourceInspectionOutcome.Corrupt;
-            }
-
-            // SOF0 to SOF15, less the three in that range that are tables rather than frames.
-            if (marker is >= 0xC0 and <= 0xCF and not (0xC4 or 0xC8 or 0xCC))
-            {
-                return read < 9
-                    ? BrandSourceInspectionOutcome.Corrupt
-                    : Dimensions(
-                        BinaryPrimitives.ReadUInt16BigEndian(segment.AsSpan(7)),
-                        BinaryPrimitives.ReadUInt16BigEndian(segment.AsSpan(5)));
-            }
-
-            position += 2 + segmentLength;
-        }
-
-        return BrandSourceInspectionOutcome.Corrupt;
-    }
-
-    private static BrandSourceInspectionOutcome Webp(ReadOnlySpan<byte> head, long length)
-    {
-        if (head.Length < 30 || BinaryPrimitives.ReadUInt32LittleEndian(head[4..]) > length - 8)
-        {
-            return BrandSourceInspectionOutcome.Corrupt;
-        }
-
-        var chunk = head[12..16];
-
-        if (chunk.SequenceEqual("VP8 "u8))
-        {
-            return head[23..26].SequenceEqual((ReadOnlySpan<byte>)[0x9D, 0x01, 0x2A])
-                ? Dimensions(
-                    (uint)(BinaryPrimitives.ReadUInt16LittleEndian(head[26..]) & 0x3FFF),
-                    (uint)(BinaryPrimitives.ReadUInt16LittleEndian(head[28..]) & 0x3FFF))
-                : BrandSourceInspectionOutcome.Corrupt;
-        }
-
-        if (chunk.SequenceEqual("VP8L"u8))
-        {
-            var bits = BinaryPrimitives.ReadUInt32LittleEndian(head[21..]);
-
-            return head[20] == 0x2F
-                ? Dimensions((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
-                : BrandSourceInspectionOutcome.Corrupt;
-        }
-
-        if (chunk.SequenceEqual("VP8X"u8))
-        {
-            return Dimensions(
-                (uint)(head[24] | (head[25] << 8) | (head[26] << 16)) + 1,
-                (uint)(head[27] | (head[28] << 8) | (head[29] << 16)) + 1);
-        }
-
-        return BrandSourceInspectionOutcome.Corrupt;
-    }
-
     /// <summary>
-    /// A GIF's logical screen size, from the descriptor that follows the six-byte header.
+    /// The whole file through <see cref="ImageFileInspector"/>, the one reading of a picture every module shares,
+    /// held to <see cref="BrandPolicy.SourceImageMaxPixels"/>.
     /// </summary>
     /// <remarks>
-    /// Two little-endian 16-bit values at offsets 6 and 8, so a GIF cannot exceed the pixel cap by arithmetic
-    /// alone — 65,535 squared is well past it, which is exactly what <see cref="Dimensions"/> is for. A file
-    /// that claims a zero dimension is corrupt, as it is for every other format here. Frames are not counted:
-    /// validating the file needs the canvas, and whether there is more than one frame is IMG-004's question,
-    /// answered by <c>GifFrames</c> when it reads the bytes it is about to send.
+    /// Read into memory whole, which the size check before it bounds at <see cref="BrandPolicy.SourceUploadMaxBytes"/>:
+    /// the walk runs to the format's own end, and anything after it is refused as damage rather than kept.
     /// </remarks>
-    private static BrandSourceInspectionOutcome Gif(ReadOnlySpan<byte> head) =>
-        head.Length < 10
-            ? BrandSourceInspectionOutcome.Corrupt
-            : Dimensions(
-                BinaryPrimitives.ReadUInt16LittleEndian(head[6..]),
-                BinaryPrimitives.ReadUInt16LittleEndian(head[8..]));
-
-    private static BrandSourceInspectionOutcome Dimensions(uint width, uint height)
+    private static async Task<BrandSourceInspectionOutcome> ImageAsync(
+        Stream content, long length, CancellationToken cancellationToken)
     {
-        if (width == 0 || height == 0)
-        {
-            return BrandSourceInspectionOutcome.Corrupt;
-        }
+        var bytes = new byte[length];
+        var read = await ReadAtAsync(content, 0, bytes, cancellationToken);
 
-        return (long)width * height > BrandPolicy.SourceImageMaxPixels
-            ? BrandSourceInspectionOutcome.ImageTooLarge
-            : BrandSourceInspectionOutcome.Accepted;
+        return ImageFileInspector.Inspect(bytes.AsSpan(0, read), BrandPolicy.SourceImageMaxPixels).Outcome switch
+        {
+            ImageFileInspectionOutcome.Accepted => BrandSourceInspectionOutcome.Accepted,
+            ImageFileInspectionOutcome.TooLarge => BrandSourceInspectionOutcome.ImageTooLarge,
+            _ => BrandSourceInspectionOutcome.Corrupt,
+        };
     }
 
     private static async Task<(string? MediaType, BrandSourceInspectionOutcome Outcome)> TextAsync(

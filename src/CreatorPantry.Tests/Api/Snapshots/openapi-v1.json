@@ -2205,6 +2205,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -2357,6 +2367,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -2482,6 +2502,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -2816,6 +2846,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -3813,6 +3853,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -3837,7 +3887,7 @@
           "BrandSourceDocuments"
         ],
         "summary": "Corrects the text extracted from a brand source document\u0027s current version.",
-        "description": "Editor or above. **Nothing is overwritten.** The correction becomes a new artifact at the next \u0060ordinal\u0060\nwith \u0060origin: Corrected\u0060, recording who made it and why; the uploaded file, the parser\u0027s artifact and\nevery earlier correction all stay exactly where they are and stay readable. The document\u0027s own\n\u0060extraction.state\u0060 then reads \u0060Succeeded\u0060 with \u0060origin: Corrected\u0060.\n\n**Correcting an \u0060Unsupported\u0060 or \u0060Failed\u0060 extraction is the point of this route**, not an edge case: a\nscanned PDF or an image has no text to read, and typing it in is how a creator makes that document usable.\n\n\u0060text\u0060 is stored as the creator wrote it. Line endings become \u0060\\n\u0060, a leading byte-order mark is dropped\nand the text ends on one newline, because that is the stored form; nothing else is reshaped, and text\ncarrying control or invisible formatting characters is **refused** rather than quietly cleaned \u2014\n\u0060400 brand.source.invalid_request\u0060, as for text longer than four megabytes or a missing \u0060reason\u0060.\n\n\u0060expectedExtractionId\u0060 is required and names the artifact this correction was composed against. One that\nhas since been superseded answers \u0060409 brand.source.extraction.conflict\u0060 and writes nothing, leaving the\ncreator\u0027s attempted text in their own client rather than merging it into something they have not seen.\nA version whose text has not been read yet answers \u0060409 brand.source.extraction.pending.conflict\u0060 \u2014 wait\nfor the extraction, then correct it. A version that is not the document\u0027s current one answers\n\u0060409 brand.source.extraction.superseded.conflict\u0060: only the current version\u0027s text has consumers, so\ncorrecting an older one would be a write with no visible effect. Reading an older version\u0027s text stays\nallowed. An **archived** document answers \u0060409 brand.source.archived.conflict\u0060 \u2014 restore it first.\n\nText byte-identical to what is already stored is answered with the current artifact and writes nothing:\nan ordinal that changes nothing is provenance a later reader has to explain for no gain.\n\nAn unknown id, another workspace\u0027s document, a removed one and a version this document does not have all\nanswer \u0060404 brand.source.not_found\u0060. Private storage that cannot be reached answers\n\u0060503 brand.source.storage.unavailable\u0060 with nothing recorded, after which the same key may be resent.\n\nThe corrected text stays private and stays untrusted: it is delimited source material wherever it later\nreaches a prompt, never instruction.",
+        "description": "Editor or above. **Nothing is overwritten.** The correction becomes a new artifact at the next \u0060ordinal\u0060\nwith \u0060origin: Corrected\u0060, recording who made it and why; the uploaded file, the parser\u0027s artifact and\nevery earlier correction all stay exactly where they are and stay readable. The document\u0027s own\n\u0060extraction.state\u0060 then reads \u0060Succeeded\u0060 with \u0060origin: Corrected\u0060.\n\n**Correcting an \u0060Unsupported\u0060 or \u0060Failed\u0060 extraction is the point of this route**, not an edge case: a\nscanned PDF or an image has no text to read, and typing it in is how a creator makes that document usable.\n\n\u0060text\u0060 is stored as the creator wrote it. Line endings become \u0060\\n\u0060, a leading byte-order mark is dropped\nand the text ends on one newline, because that is the stored form; nothing else is reshaped, and text\ncarrying control or invisible formatting characters is **refused** rather than quietly cleaned \u2014\n\u0060400 brand.source.invalid_request\u0060, as for text longer than four megabytes or a missing \u0060reason\u0060.\n\n\u0060expectedExtractionId\u0060 is required and names the artifact this correction was composed against. One that\nhas since been superseded answers \u0060409 brand.source.extraction.conflict\u0060 and writes nothing, leaving the\ncreator\u0027s attempted text in their own client rather than merging it into something they have not seen.\nA version whose text has not been read yet answers \u0060409 brand.source.extraction.pending.conflict\u0060 \u2014 wait\nfor the extraction, then correct it. A version that is not the document\u0027s current one answers\n\u0060409 brand.source.extraction.superseded.conflict\u0060: only the current version\u0027s text has consumers, so\ncorrecting an older one would be a write with no visible effect. Reading an older version\u0027s text stays\nallowed. An **archived** document answers \u0060409 brand.source.archived.conflict\u0060 \u2014 restore it first.\n\nText byte-identical to what is already stored is answered with the current artifact and writes nothing:\nan ordinal that changes nothing is provenance a later reader has to explain for no gain.\n\nAn unknown id, another workspace\u0027s document, a removed one and a version this document does not have all\nanswer \u0060404 brand.source.not_found\u0060. Private storage that cannot be reached answers\n\u0060503 brand.source.storage.unavailable\u0060 with nothing recorded, after which the same key may be resent.\n\nThe text is scanned before it is stored, as an upload is: text the scanner refuses answers\n\u0060422 brand.source.file.rejected.unprocessable\u0060, and no verdict at all answers\n\u0060503 brand.source.scan.unavailable\u0060. Neither records anything.\n\nThe corrected text stays private and stays untrusted: it is delimited source material wherever it later\nreaches a prompt, never instruction.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -3974,6 +4024,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -8494,6 +8554,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -8666,6 +8736,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -9613,7 +9693,7 @@
         ],
         "requestBody": {
           "content": {
-            "application/x-www-form-urlencoded": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
                 "properties": {
@@ -9699,6 +9779,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -10705,6 +10795,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -13474,6 +13574,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -13566,6 +13676,16 @@
           },
           "422": {
             "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -14131,6 +14251,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -14350,6 +14480,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -14640,6 +14780,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -14970,6 +15120,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -15240,6 +15400,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -15299,6 +15469,16 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -15726,6 +15906,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -15936,6 +16126,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -17254,6 +17454,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -17392,6 +17602,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -17557,6 +17777,16 @@
               }
             }
           },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
             "content": {
@@ -17630,6 +17860,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -18649,6 +18889,16 @@
               "application/problem\u002Bjson": {
                 "schema": {
                   "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -24768,6 +25018,16 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -37543,6 +37803,12 @@
               "string"
             ],
             "format": "int64"
+          },
+          "containsLocationMetadata": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -38691,7 +38957,8 @@
       "ProblemDetails": {
         "required": [
           "code",
-          "traceId"
+          "traceId",
+          "retry"
         ],
         "type": "object",
         "properties": {
@@ -38733,6 +39000,16 @@
           "traceId": {
             "type": "string",
             "description": "Correlation id for support and tracing."
+          },
+          "retry": {
+            "enum": [
+              "none",
+              "reread",
+              "same",
+              "later"
+            ],
+            "type": "string",
+            "description": "What to do before sending the request again: \u0060none\u0060 (it will not end differently), \u0060reread\u0060 (read the resource again, then decide), \u0060same\u0060 (nothing was written; send it unchanged), or \u0060later\u0060 (wait, until \u0060Retry-After\u0060 when present)."
           }
         }
       },
@@ -45612,7 +45889,8 @@
       "ValidationProblemDetails": {
         "required": [
           "code",
-          "traceId"
+          "traceId",
+          "retry"
         ],
         "type": "object",
         "properties": {
@@ -45654,6 +45932,16 @@
           "traceId": {
             "type": "string",
             "description": "Correlation id for support and tracing."
+          },
+          "retry": {
+            "enum": [
+              "none",
+              "reread",
+              "same",
+              "later"
+            ],
+            "type": "string",
+            "description": "What to do before sending the request again: \u0060none\u0060 (it will not end differently), \u0060reread\u0060 (read the resource again, then decide), \u0060same\u0060 (nothing was written; send it unchanged), or \u0060later\u0060 (wait, until \u0060Retry-After\u0060 when present)."
           },
           "errors": {
             "type": "object",

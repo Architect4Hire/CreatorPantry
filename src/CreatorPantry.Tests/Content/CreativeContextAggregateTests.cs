@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
+using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Tests.Recipes;
@@ -615,6 +616,31 @@ public sealed class CreativeContextAggregateTests : IDisposable
             [recipeId, assetId, imageId],
             loaded.References.OrderBy(reference => reference.SortOrder)
                 .Select(reference => reference.RecipeId ?? reference.MediaAssetId ?? reference.GeneratedImageId));
+    }
+
+    /// <summary>
+    /// A staged image whose bytes have been collected is not one a new reference may name, whatever its status
+    /// still says (15.2) — the same answer the picture resolution gives, so a reference and a read agree. Another
+    /// workspace's image is not available either, and is not distinguished from an unknown one.
+    /// </summary>
+    [Fact]
+    public async Task A_staged_image_whose_bytes_were_collected_is_not_available_to_reference()
+    {
+        var imageId = await InAsync(A, db => CreativeContextSeeds.GeneratedImageAsync(db, Now, Ct));
+
+        Assert.True(await InAsync(A, db => new GeneratedImageRepository(db).IsAvailableAsync(imageId, Ct)));
+        Assert.False(await InAsync(B, db => new GeneratedImageRepository(db).IsAvailableAsync(imageId, Ct)));
+
+        await InAsync(A, async db =>
+        {
+            (await db.GeneratedImages.SingleAsync(item => item.Id == imageId, Ct)).ObjectDeletedAt = Now.AddDays(1);
+            await db.SaveChangesAsync(Ct);
+
+            return 0;
+        });
+
+        Assert.False(await InAsync(A, db => new GeneratedImageRepository(db).IsAvailableAsync(imageId, Ct)));
+        Assert.False(await InAsync(B, db => new GeneratedImageRepository(db).IsAvailableAsync(imageId, Ct)));
     }
 
     [Fact]

@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -15,6 +17,7 @@ namespace CreatorPantry.ApiService.Controllers;
 public sealed class WorkspacesController(IWorkspaceFacade workspaceFacade) : ControllerBase
 {
     /// <summary>Creates a workspace. The caller becomes its Owner atomically with the workspace itself.</summary>
+    [OperationLimit(LimitedOperation.WorkspaceCreate)]
     [HttpPost]
     [ProducesResponseType<WorkspaceServiceModel>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]

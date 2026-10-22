@@ -5,6 +5,8 @@ using CreatorPantry.Domain.Modules.Nutrition.Facade;
 using CreatorPantry.Domain.Modules.Nutrition.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -64,6 +66,7 @@ public sealed class NutritionEstimateController(INutritionEstimateFacade estimat
     /// throttled, or not available on this installation — the answer is `503 nutrition.estimate.source.unavailable`
     /// and no estimate at all, rather than a smaller one that looks complete.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Nutrition)]
     [HttpPost("nutrition")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<NutritionEstimateServiceModel>(StatusCodes.Status200OK)]

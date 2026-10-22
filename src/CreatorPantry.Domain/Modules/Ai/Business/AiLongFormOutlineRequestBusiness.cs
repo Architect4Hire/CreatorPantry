@@ -61,7 +61,7 @@ internal sealed class AiLongFormOutlineRequestBusiness(
 
         var kind = model.Kind!.Value;
 
-        if (await RefuseBeforeQueueingAsync(kind, model, cancellationToken) is { } refused)
+        if (await RefuseBeforeQueueingAsync(kind, model, idempotencyKey, cancellationToken) is { } refused)
         {
             return refused;
         }
@@ -119,7 +119,7 @@ internal sealed class AiLongFormOutlineRequestBusiness(
                 "This draft's sections are already being written, so its plan can no longer be changed.");
         }
 
-        if (await RefuseBeforeQueueingAsync(draft.Kind, model, cancellationToken) is { } refused)
+        if (await RefuseBeforeQueueingAsync(draft.Kind, model, idempotencyKey, cancellationToken) is { } refused)
         {
             return refused;
         }
@@ -158,7 +158,7 @@ internal sealed class AiLongFormOutlineRequestBusiness(
 
     /// <summary>The checks every outline request passes before anything is queued or spent.</summary>
     private async Task<IdempotentOutcome<StartedLongFormDraftServiceModel>?> RefuseBeforeQueueingAsync(
-        LongFormKind kind, RequestLongFormOutlineViewModel model, CancellationToken cancellationToken)
+        LongFormKind kind, RequestLongFormOutlineViewModel model, string idempotencyKey, CancellationToken cancellationToken)
     {
         if (!await tasks.IsEnabledAsync(AiTaskCatalog.LongFormOutline, cancellationToken))
         {
@@ -186,7 +186,7 @@ internal sealed class AiLongFormOutlineRequestBusiness(
 
         // Before the operation is written, so a refused request leaves no orphan behind and spends no
         // allowance to say the allowance is spent (USAGE-006).
-        return await quota.RefuseIfUnaffordableAsync(AiTaskType.LongFormOutline, cancellationToken) is { } spent
+        return await quota.RefuseIfUnaffordableAsync(AiTaskType.LongFormOutline, cancellationToken, idempotencyKey) is { } spent
             ? new IdempotentOutcome<StartedLongFormDraftServiceModel>(
                 OperationResult<StartedLongFormDraftServiceModel>.Failure(spent.Result.Error!), Replayed: false)
             : null;

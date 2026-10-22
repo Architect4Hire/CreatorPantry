@@ -243,4 +243,52 @@ public sealed class BrandSourceFileInspectorTests
             string.IsNullOrWhiteSpace(BrandSourceFileInspector.CanonicalExtension(mediaType)),
             $"{mediaType} has no extension for a download to use."));
     }
+
+    // ---- 15.2: polyglots and trailing data -------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_pdf_with_anything_but_white_space_after_its_last_trailer_is_corrupt()
+    {
+        var trailing = FileInspection.HostileSamples.Concat(BrandSourceSampleFiles.Pdf(), "<script>x</script>"u8.ToArray());
+
+        Assert.Equal(BrandSourceInspectionOutcome.Corrupt, (await InspectAsync(trailing, "guide.pdf")).Outcome);
+    }
+
+    [Fact]
+    public async Task A_pdf_followed_by_white_space_is_still_a_pdf()
+    {
+        var padded = FileInspection.HostileSamples.Concat(BrandSourceSampleFiles.Pdf(), "\r\n  \0\t\f"u8.ToArray());
+
+        Assert.Equal(BrandSourceInspectionOutcome.Accepted, (await InspectAsync(padded, "guide.pdf")).Outcome);
+    }
+
+    [Fact]
+    public async Task A_pdf_that_is_also_a_zip_is_corrupt_even_though_it_ends_like_a_pdf()
+    {
+        var polyglot = FileInspection.HostileSamples.PdfHidingZip();
+
+        Assert.True(FileInspection.HostileSamples.OpensAsZip(polyglot));
+        Assert.EndsWith("%%EOF\n", System.Text.Encoding.ASCII.GetString(polyglot), StringComparison.Ordinal);
+        Assert.Equal(BrandSourceInspectionOutcome.Corrupt, (await InspectAsync(polyglot, "guide.pdf")).Outcome);
+    }
+
+    [Theory]
+    [InlineData("png", "logo.png")]
+    [InlineData("jpeg", "photo.jpg")]
+    [InlineData("webp", "photo.webp")]
+    [InlineData("gif", "loaf.gif")]
+    public async Task An_image_carrying_a_zip_after_it_is_corrupt(string kind, string fileName)
+    {
+        var polyglot = FileInspection.HostileSamples.AppendZip(Sample(kind));
+
+        Assert.Equal(BrandSourceInspectionOutcome.Corrupt, (await InspectAsync(polyglot, fileName)).Outcome);
+    }
+
+    [Fact]
+    public async Task An_image_hiding_a_zip_inside_a_valid_chunk_is_corrupt()
+    {
+        Assert.Equal(
+            BrandSourceInspectionOutcome.Corrupt,
+            (await InspectAsync(FileInspection.HostileSamples.PngHidingZip(), "logo.png")).Outcome);
+    }
 }

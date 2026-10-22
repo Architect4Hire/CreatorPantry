@@ -100,7 +100,7 @@ internal sealed class AiImagePromptRequestBusiness(
                 "This workspace has no document with that id.");
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.ImagePrompt, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.ImagePrompt, cancellationToken, idempotencyKey) is { } spent)
         {
             return spent;
         }

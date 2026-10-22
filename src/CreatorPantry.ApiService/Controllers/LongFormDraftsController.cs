@@ -10,6 +10,8 @@ using CreatorPantry.Domain.Modules.Content.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -96,6 +98,7 @@ public sealed class LongFormDraftsController(
     /// **What comes back is a plan to review.** The outline lands as the draft's first revision and the draft
     /// stays `Draft` until a creator approves it. No prose is written by this request.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<StartedLongFormDraftServiceModel>(StatusCodes.Status202Accepted)]
@@ -157,6 +160,7 @@ public sealed class LongFormDraftsController(
     /// `409 content.long_form.plan.locked.conflict`. The allowance, key and wanted-section rules are those of
     /// the route that starts a draft.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost("{draftId:guid}/outline-requests")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<StartedLongFormDraftServiceModel>(StatusCodes.Status202Accepted)]
@@ -393,6 +397,7 @@ public sealed class LongFormDraftsController(
     /// is settled, or when its text has changed. The first request closes the draft's plan. Writing a section
     /// never changes another.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost("{draftId:guid}/sections/{sectionId:guid}/writing-requests")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<LongFormSectionRequestedServiceModel>(StatusCodes.Status202Accepted)]
@@ -425,6 +430,7 @@ public sealed class LongFormDraftsController(
     /// answer is `429` with `sectionsRequested` and `sectionsCoverable`, and nothing is queued. `requests` is
     /// empty when there was nothing to write. Each section's run still holds its own allowance when it starts.
     /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
     [HttpPost("{draftId:guid}/section-writing-batches")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
     [ProducesResponseType<LongFormSectionBatchServiceModel>(StatusCodes.Status202Accepted)]

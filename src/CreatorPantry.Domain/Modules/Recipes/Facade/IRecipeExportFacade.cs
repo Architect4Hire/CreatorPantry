@@ -197,9 +197,10 @@ internal sealed class RecipeExportFacade(
             editorial = accepted.Value;
         }
 
-        // No media module exists yet, so there is no authorized image to read: the PDF is produced without a
-        // figure rather than with one fetched, guessed or derived from an asset id or a storage path. When
-        // media lands, the authorized bytes are read here, through its facade, and passed in.
+        // No figure is chosen for a recipe PDF yet, so there is no authorized image to read: the PDF is produced
+        // without one rather than with one fetched, guessed or derived from an asset id or a storage path. When a
+        // figure is chosen, its authorized bytes are read here through the Media module's facade and passed in,
+        // and RecipePdfImageInspector reads them end to end as an upload is read (15.2).
         return business.BuildPdf(
             source.Value!, template, units, pageSize, unitsById, targetUnits, editorial, image: null, clock.UtcNow);
     }

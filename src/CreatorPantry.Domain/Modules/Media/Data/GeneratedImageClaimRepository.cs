@@ -61,15 +61,31 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
     /// oldest row: the loser of the conditional update moves to the next candidate rather than sleeping and
     /// starting over.
     /// </remarks>
+    /// <param name="runningPerWorkspace">
+    /// The most of one workspace's operations that may run at once (15.3). A due row whose workspace already has
+    /// that many running is passed over for the next workspace's, so one workspace with a deep queue cannot hold
+    /// every worker. A share, not a hard cap: two workers claiming in the same instant can each take one.
+    /// </param>
     public async Task<GeneratedImageClaim?> ClaimNextAsync(
-        Guid leaseToken, DateTimeOffset now, CancellationToken cancellationToken)
+        Guid leaseToken, DateTimeOffset now, CancellationToken cancellationToken, int runningPerWorkspace = int.MaxValue)
     {
         var expiresAt = (DateTimeOffset?)(now + MediaPolicy.GenerationLeaseDuration);
 
-        var candidates = await context.GeneratedImageOperations
+        var due = context.GeneratedImageOperations
             .IgnoreQueryFilters()
             .Where(operation => operation.Status == GeneratedImageOperationStatus.Requested
-                && operation.AvailableAt <= now)
+                && operation.AvailableAt <= now);
+
+        if (runningPerWorkspace < int.MaxValue)
+        {
+            // A count, never a row: the queue-claim carve-out reads identifiers and nothing else (tenancy.md).
+            due = due.Where(operation => context.GeneratedImageOperations
+                .IgnoreQueryFilters()
+                .Count(running => running.WorkspaceId == operation.WorkspaceId
+                    && running.Status == GeneratedImageOperationStatus.Running) < runningPerWorkspace);
+        }
+
+        var candidates = await due
             .OrderBy(operation => operation.AvailableAt)
             .Take(MediaPolicy.GenerationClaimBatchSize)
             .Select(operation => operation.Id)

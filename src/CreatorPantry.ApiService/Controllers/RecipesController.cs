@@ -8,6 +8,8 @@ using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.JsonWebTokens;
+using CreatorPantry.ApiService.RateLimiting;
+using CreatorPantry.Domain.Managers.Limits;
 
 namespace CreatorPantry.ApiService.Controllers;
 
@@ -69,6 +71,7 @@ public sealed class RecipesController(IRecipeFacade recipeFacade) : ControllerBa
     /// orderings; there is no arbitrary sort column. An empty library and filters matching nothing are both an
     /// empty page rather than a 404.
     /// </remarks>
+    [OperationLimit(LimitedOperation.Search)]
     [HttpGet]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceViewer)]
     [ProducesResponseType<RecipeSearchPageServiceModel>(StatusCodes.Status200OK)]

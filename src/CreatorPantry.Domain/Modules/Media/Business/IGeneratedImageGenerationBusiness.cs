@@ -1,10 +1,13 @@
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Media.Business;
 
@@ -53,6 +56,13 @@ public interface IGeneratedImageGenerationBusiness
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The in-progress cap and the daily variant budget (15.3), or null when this request may be queued. A key that
+    /// has already bought an operation is never refused: its answer is the operation it bought.
+    /// </summary>
+    Task<OperationError?> RefuseIfOverLimitsAsync(
+        string idempotencyKey, int variantCount, CancellationToken cancellationToken);
+
+    /// <summary>
     /// One operation of the resolved workspace with its images, or null when it has none with that id.
     /// </summary>
     /// <remarks>
@@ -87,8 +97,43 @@ internal sealed class GeneratedImageGenerationBusiness(
     IGeneratedImageGenerationDataLayer dataLayer,
     IWorkspaceContext workspace,
     IClock clock,
+    IOptions<LimitsOptions> limits,
     ILogger<GeneratedImageGenerationBusiness> logger) : IGeneratedImageGenerationBusiness
 {
+    public async Task<OperationError?> RefuseIfOverLimitsAsync(
+        string idempotencyKey, int variantCount, CancellationToken cancellationToken)
+    {
+        var options = limits.Value;
+
+        if (!options.Enabled || await dataLayer.IsReplayAsync(idempotencyKey, cancellationToken))
+        {
+            return null;
+        }
+
+        var now = clock.UtcNow;
+        var (inFlight, variantsToday) = await dataLayer.CountForLimitsAsync(LimitDay.StartOf(now), cancellationToken);
+
+        if (inFlight >= options.ImageInFlightPerWorkspace)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.ImageGeneration, "concurrency", LimitScope.Workspace);
+            return LimitRefusal.Concurrency(
+                LimitedOperation.ImageGeneration, LimitScope.Workspace, options.ImageInFlightPerWorkspace);
+        }
+
+        // All of this request or none of it: a request for four that would end the day at two over is refused,
+        // rather than queued to be cut short by the worker.
+        if (variantsToday + variantCount > options.ImageVariantsPerWorkspacePerDay)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.ImageGeneration, "budget", LimitScope.Workspace);
+            return LimitRefusal.Budget(
+                LimitedOperation.ImageGeneration, options.ImageVariantsPerWorkspacePerDay, LimitDay.NextAfter(now));
+        }
+
+        LimitsTelemetry.Admitted(LimitedOperation.ImageGeneration, "budget", LimitScope.Workspace);
+
+        return null;
+    }
+
     public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
         Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.FindDetailAsync(operationId, cancellationToken);
@@ -172,6 +217,23 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             case GeneratedImageWriteOutcome.LeaseLost:
                 return GeneratedImageRunOutcome.Skipped;
+        }
+
+        // The budget the request was admitted against, asked again before anything is spent (15.3). Two requests
+        // that raced past the request-time check are told apart here: the later one is past the day's allowance in
+        // request order, and fails before a single provider call rather than after.
+        if (limits.Value.Enabled
+            && await dataLayer.VariantsRequestedThroughAsync(operationId, cancellationToken) is { } through
+            && through > limits.Value.ImageVariantsPerWorkspacePerDay)
+        {
+            LimitsTelemetry.Refused(LimitedOperation.ImageGeneration, "budget", LimitScope.Workspace);
+
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.BudgetExhausted,
+                "This workspace had already used today's image allowance when this request's turn came.",
+                cancellationToken);
         }
 
         var model = dataLayer.DescribeModel();
@@ -280,6 +342,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 return true;
 
             case GeneratedImageInspectionOutcome.Corrupt:
+            case GeneratedImageInspectionOutcome.TrailingData:
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
@@ -287,6 +350,15 @@ internal sealed class GeneratedImageGenerationBusiness(
             case GeneratedImageInspectionOutcome.TooLarge:
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned an image with more pixels than this workspace will stage.");
+                return true;
+
+            case GeneratedImageInspectionOutcome.Accepted:
+                break;
+
+            default:
+                // An outcome added to the inspector and not named here is a refusal, never a staged image.
+                run.Terminal(GeneratedImageFailureCategory.CorruptImage,
+                    "The image provider returned an image that does not hold together as one.");
                 return true;
         }
 

@@ -39,6 +39,12 @@ public static class GeneratedImageFailureCategory
     public const string RateLimited = "rate-limited";
 
     /// <summary>
+    /// The workspace had already asked for its day's variants when this request's turn came (15.3). Terminal: the
+    /// allowance comes back at midnight UTC, and a new request then is a new decision.
+    /// </summary>
+    public const string BudgetExhausted = "budget-exhausted";
+
+    /// <summary>
     /// The provider refused the request and would refuse it again.
     /// </summary>
     /// <remarks>

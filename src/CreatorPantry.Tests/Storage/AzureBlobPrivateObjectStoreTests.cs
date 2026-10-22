@@ -166,4 +166,33 @@ public sealed class AzureBlobPrivateObjectStoreTests : IAsyncLifetime
 
         Assert.Equal(PublicAccessType.None, policy.Value.BlobPublicAccess);
     }
+
+    /// <summary>
+    /// A key outside the shared grammar is refused before the provider is asked anything (15.2): the store is
+    /// the second line behind every gateway's own parse, so a gateway that forgot its check is not a way in.
+    /// </summary>
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("workspaces/../../etc/passwd")]
+    [InlineData("workspaces/aaaa/photo.jpg")]
+    [InlineData("workspaces\\aaaa\\1")]
+    [InlineData("/workspaces/aaaa/1")]
+    [InlineData("workspaces/%2e%2e/1")]
+    public async Task A_key_outside_the_grammar_never_reaches_the_provider(string key)
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        await Assert.ThrowsAsync<ArgumentException>(() => Store.PutAsync(Container, key, Bytes("x"), "text/plain", 1024, ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => Store.OpenReadAsync(Container, key, ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => Store.DeleteAsync(Container, key, ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => Store.ListAsync(Container, key, 10, null, ct));
+    }
+
+    [Fact]
+    public async Task A_listing_that_stops_part_way_through_an_identifier_is_refused()
+    {
+        // "workspaces/aa" would list every workspace whose identifier starts with those two digits.
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Store.ListAsync(Container, "workspaces/aa", 10, null, TestContext.Current.CancellationToken));
+    }
 }

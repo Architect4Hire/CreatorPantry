@@ -384,7 +384,11 @@ internal sealed class BrandSourceDocumentRepository(CreatorPantryDbContext conte
             .AsNoTracking()
             .Where(version => version.BrandSourceDocumentId == documentId && version.VersionNumber == versionNumber)
             .Join(
-                context.BrandSourceDocuments.AsNoTracking(),
+                // A removed document's bytes are not found here either (15.2). Business decides that a removed
+                // document is unreadable and says so first; this is the second line, so a caller that reached
+                // the data layer some other way still cannot serve a tombstone.
+                context.BrandSourceDocuments.AsNoTracking()
+                    .Where(document => document.Status != BrandSourceDocumentStatus.Removed),
                 version => version.BrandSourceDocumentId,
                 document => document.Id,
                 (version, document) => new BrandSourceVersionObjectRecord(

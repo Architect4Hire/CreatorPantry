@@ -100,7 +100,7 @@ internal sealed class AiLongFormSectionRequestBusiness(
             return Refuse<LongFormSectionRequestedServiceModel>(writable.Error!);
         }
 
-        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.LongFormSection, cancellationToken) is { } spent)
+        if (await quota.RefuseIfUnaffordableAsync(AiTaskType.LongFormSection, cancellationToken, idempotencyKey) is { } spent)
         {
             return Refuse<LongFormSectionRequestedServiceModel>(spent.Result.Error!);
         }

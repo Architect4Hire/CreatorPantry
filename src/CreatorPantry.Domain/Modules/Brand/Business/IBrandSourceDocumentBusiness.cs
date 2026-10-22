@@ -867,10 +867,9 @@ internal sealed class BrandSourceDocumentBusiness(
         // its metadata. A status and nothing else: the version query below cannot see a status, and the full
         // detail read would project a version this does not want and then read tag names nobody will show.
         //
-        // The rule lives here rather than in the version query on purpose — "removed is not readable" is a
-        // decision about a document, and one place deciding it is what keeps the two routes agreeing. The
-        // consequence is that a future caller reaching the DataLayer directly would not get the check, which
-        // is why nothing below this layer is a supported entry point.
+        // The rule is decided here — "removed is not readable" is a decision about a document, and one place
+        // deciding it is what keeps the two routes agreeing. The version query repeats it as a second line
+        // (15.2), so a future caller reaching the DataLayer directly still finds nothing to serve.
         if (await dataLayer.FindStatusAsync(documentId, cancellationToken)
             is not { } status || status == BrandSourceDocumentStatus.Removed)
         {
