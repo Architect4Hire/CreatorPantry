@@ -197,7 +197,7 @@ describe('"Test and approve" step screens (13A.16)', () => {
       expect(root(fixture).querySelector('#section-ingredients')).not.toBeNull();
       expect(root(fixture).querySelector('#section-timing')).not.toBeNull();
 
-      editorOf(fixture)!.notes.set('x');
+      editorOf(fixture)!.form.notes.set('x');
       getReadiness.and.resolveTo({ status: 'found', readiness: basics([]) });
       await expectAsync(port.flush()).toBeResolvedTo(true);
       await settle(fixture);
@@ -225,7 +225,7 @@ describe('"Test and approve" step screens (13A.16)', () => {
       getReadiness.and.resolveTo({ status: 'found', readiness: basics(['recipe.ingredients.present']) });
       const fixture = await render(RecipeTestBasicsStepComponent, { run: testRun(), workspaceSlug: SLUG });
 
-      editorOf(fixture)!.notes.set('x');
+      editorOf(fixture)!.form.notes.set('x');
 
       expect(port.registration()!.ready!()).toBeFalse();
     });
@@ -295,7 +295,7 @@ describe('"Test and approve" step screens (13A.16)', () => {
       root(fixture).querySelector<HTMLInputElement>('#recipe-test-fix-change')!.click();
       await settle(fixture);
       expect(root(fixture).querySelector('#section-details')).not.toBeNull();
-      editorOf(fixture)!.notes.set('Less soda.');
+      editorOf(fixture)!.form.notes.set('Less soda.');
 
       root(fixture).querySelector<HTMLInputElement>('#recipe-test-fix-check')!.click();
       await settle(fixture);

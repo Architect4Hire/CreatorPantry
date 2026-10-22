@@ -1,0 +1,73 @@
+<cp-form-section sectionId="section-timing" heading="Timing">
+  @if (form.totalTimeReplacementNote(); as note) {
+    <p class="total-time-replacement">{{ note }}</p>
+  }
+
+  @if (form.totalTimeOverflowNote(); as note) {
+    <cp-notice id="recipe-total-time-overflow" tone="warning">{{ note }}</cp-notice>
+  }
+
+  <cp-field-row [columns]="4" minColumn="6.5rem" style="--cp-field-row-measure: 100%">
+    <cp-field label="Prep time" forId="recipe-prep-time" [error]="form.fieldError('prepTimeMinutes')">
+      <input
+        id="recipe-prep-time"
+        placeholder="e.g. 15 min"
+        type="number"
+        min="0"
+        [attr.aria-invalid]="form.fieldError('prepTimeMinutes') ? 'true' : null"
+        [ngModel]="form.prepTimeMinutes()"
+        (ngModelChange)="form.prepTimeMinutes.set($event)"
+        name="prepTimeMinutes"
+      />
+    </cp-field>
+
+    <cp-field label="Cook time" forId="recipe-cook-time" [error]="form.fieldError('cookTimeMinutes')">
+      <input
+        id="recipe-cook-time"
+        placeholder="e.g. 30 min"
+        type="number"
+        min="0"
+        [attr.aria-invalid]="form.fieldError('cookTimeMinutes') ? 'true' : null"
+        [ngModel]="form.cookTimeMinutes()"
+        (ngModelChange)="form.cookTimeMinutes.set($event)"
+        name="cookTimeMinutes"
+      />
+    </cp-field>
+
+    <cp-field label="Rest time" forId="recipe-rest-time" [error]="form.fieldError('restTimeMinutes')">
+      <input
+        id="recipe-rest-time"
+        placeholder="e.g. 10 min"
+        type="number"
+        min="0"
+        [attr.aria-invalid]="form.fieldError('restTimeMinutes') ? 'true' : null"
+        [ngModel]="form.restTimeMinutes()"
+        (ngModelChange)="form.restTimeMinutes.set($event)"
+        name="restTimeMinutes"
+      />
+    </cp-field>
+
+    <!-- Derived, and so not a control. The total is prep + cook + rest and updates as they do, which is
+         why there is nothing here to type into: an editable box that rewrote itself would be worse than
+         no box. `output` rather than a div because it is a labelable element, so cp-field's own label
+         names it.
+
+         `aria-live="off"` explicitly, and not merely by omitting the attribute: `output` carries an
+         implicit `role="status"`, which is itself a polite live region, so leaving it alone would
+         announce a bare integer on every keystroke in prep, cook and rest — three fields feeding one
+         region, each character its own announcement. What a creator needs is the sentence under the
+         field, which cp-field wires up as `aria-describedby` and which says what the number came from.
+         The unit is written into the value for the same reason: in browse mode this element is read on its
+         own. -->
+    <cp-field label="Total time" forId="recipe-total-time" [error]="form.fieldError('totalTimeMinutes')">
+      <output id="recipe-total-time" class="derived-total" aria-live="off">
+        @if (form.totalTimeMinutes() !== null) {
+          {{ form.totalTimeMinutes() }} minutes
+        } @else {
+          <span aria-hidden="true" class="derived-total-absent">Calculated for you</span>
+          <span class="cp-sr-only">No total yet. It is added up from prep, cook and rest time.</span>
+        }
+      </output>
+    </cp-field>
+  </cp-field-row>
+</cp-form-section>

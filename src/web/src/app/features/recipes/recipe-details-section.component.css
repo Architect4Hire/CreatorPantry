@@ -1,0 +1,72 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-bottom: var(--cp-space-2);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-1);
+  padding: 0 0 0 var(--cp-space-3);
+  min-height: 2.25rem;
+  border: 1px solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-raised);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tag-chip:hover {
+  border-color: var(--cp-primary-text);
+}
+
+.tag-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  font-size: var(--cp-font-size-md);
+  line-height: 1;
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tag-chip button:hover {
+  color: var(--cp-danger);
+}
+
+.tag-input-row {
+  display: flex;
+  gap: var(--cp-space-2);
+}
+
+.tag-input-row input {
+  flex: 1 1 auto;
+}
+
+/* The input takes the room and the button its own width. Without this the button is squeezed to the width of
+   its longest word and "Add tag" wraps onto two lines. */
+.tag-input-row button {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-chip,
+  .tag-chip button {
+    transition: none;
+  }
+}

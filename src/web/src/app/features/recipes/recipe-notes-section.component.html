@@ -1,0 +1,23 @@
+<cp-form-section sectionId="section-notes" heading="Notes">
+  <cp-field label="Notes" forId="recipe-notes" [error]="form.fieldError('notes')">
+    <textarea
+      id="recipe-notes"
+      placeholder="Tweaks to try next time, variations, things you learned"
+      [attr.aria-invalid]="form.fieldError('notes') ? 'true' : null"
+      [ngModel]="form.notes()"
+      (ngModelChange)="form.notes.set($event)"
+      name="notes"
+    ></textarea>
+  </cp-field>
+
+  <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="form.fieldError('storageNotes')">
+    <textarea
+      id="recipe-storage-notes"
+      placeholder="e.g. Store airtight, reheat gently"
+      [attr.aria-invalid]="form.fieldError('storageNotes') ? 'true' : null"
+      [ngModel]="form.storageNotes()"
+      (ngModelChange)="form.storageNotes.set($event)"
+      name="storageNotes"
+    ></textarea>
+  </cp-field>
+</cp-form-section>

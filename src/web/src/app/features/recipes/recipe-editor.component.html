@@ -41,7 +41,7 @@
     <!-- The head holds the way back, the recipe's name, and everything that acts on the whole recipe. The
          breadcrumb is a plain link, so leaving with unsaved changes is the route guard's to confirm, exactly
          as it is for the sidebar. -->
-    <cp-page-head [heading]="isCreateMode ? 'New recipe' : title() || 'Edit recipe'">
+    <cp-page-head [heading]="isCreateMode ? 'New recipe' : form.title() || 'Edit recipe'">
       <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
       <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
       <ng-container ngProjectAs="[cpPageHeadActions]">
@@ -54,7 +54,7 @@
              would otherwise replace the stored total having never been near the sentence that says so. Not a
              confirmation: the total is derived now, and a modal on every save of a recipe whose stored total
              disagrees would be a toll rather than a choice. -->
-        @if (totalTimeReplacementNote()) {
+        @if (form.totalTimeReplacementNote()) {
           <cp-status-pill tone="warning" role="status" class="dirty-indicator"
             >Total time will be recalculated</cp-status-pill
           >
@@ -253,7 +253,7 @@
                 [recipeId]="recipeIdOrEmpty"
                 [concurrencyToken]="concurrencyToken()"
                 [editorIsDirty]="isDirty()"
-                [recipeTitle]="title()"
+                [recipeTitle]="form.title()"
                 (restored)="onVersionRestored($event)"
                 (duplicated)="onRecipeDuplicated($event)"
                 (reloadRequested)="onHistoryReloadRequested()"
@@ -362,18 +362,18 @@
               (activated)="onGeneralNavActivated($event)"
             />
             <div class="tab-sections" #generalSections>
-              <ng-container *ngTemplateOutlet="detailsSection" />
+              <cp-recipe-details-section />
 
-              <ng-container *ngTemplateOutlet="notesSection" />
+              <cp-recipe-notes-section />
 
-              <ng-container *ngTemplateOutlet="timingSection" />
+              <cp-recipe-timing-section />
 
               <!-- Its own section rather than four more cells in the timing grid. Two things were wrong with that:
            yield fields interleaved with time fields in one auto-fitting row, and — the substantive one — the
            only structured amount a recipe could record was a measured batch, so a creator had no way at all to
            say how many people it feeds. "Serves" is that field, and it is first here because it is the yield
            most recipes state. -->
-              <ng-container *ngTemplateOutlet="yieldSection" />
+              <cp-recipe-yield-section />
             </div>
           </div>
         </cp-tab-panel>
@@ -386,10 +386,8 @@
         </cp-tab-panel>
 
         <cp-tab-panel id="instructions">
-          <!-- The same pairing as the Ingredients section above, for the method's own one sentence. The class is
-           what the container query below hangs off: the id belongs to the inner section this component draws,
-           which this stylesheet cannot reach. -->
-          <ng-container *ngTemplateOutlet="instructionsSection" />
+          <!-- The same pairing as the Ingredients section above, for the method's own one sentence. -->
+          <cp-recipe-instructions-section />
         </cp-tab-panel>
       </cp-tabs>
     </ng-template>
@@ -403,7 +401,7 @@
         [recipeId]="recipeIdOrEmpty"
         [currentVersionNumber]="currentVersionNumber()"
         [currentVersionId]="currentVersionId()"
-        [savedIngredientGroups]="ingredientGroups()"
+        [savedIngredientGroups]="form.ingredientGroups()"
         [savedInstructionGroups]="savedInstructionGroups()"
         [savedYieldQuantity]="savedYieldQuantity()"
         [savedYieldText]="savedYieldText()"
@@ -450,22 +448,22 @@
     @for (section of hostedSections; track section) {
       @switch (section) {
         @case ('section-details') {
-          <ng-container *ngTemplateOutlet="detailsSection" />
+          <cp-recipe-details-section />
         }
         @case ('section-notes') {
-          <ng-container *ngTemplateOutlet="notesSection" />
+          <cp-recipe-notes-section />
         }
         @case ('section-timing') {
-          <ng-container *ngTemplateOutlet="timingSection" />
+          <cp-recipe-timing-section />
         }
         @case ('section-yield') {
-          <ng-container *ngTemplateOutlet="yieldSection" />
+          <cp-recipe-yield-section />
         }
         @case ('section-ingredients') {
           <ng-container *ngTemplateOutlet="ingredientsSection" />
         }
         @case ('section-instructions') {
-          <ng-container *ngTemplateOutlet="instructionsSection" />
+          <cp-recipe-instructions-section />
         }
       }
     }
@@ -498,605 +496,23 @@
     }
 </ng-template>
 
-<!-- The form's sections, each written once. The tabbed page places them in its tabs; a host (RecipeEditorHost)
-     places only the ones its step is about. Template references, so either layout renders the same markup. -->
-<ng-template #detailsSection>
-  <cp-form-section sectionId="section-details" heading="Details" intro="The essentials creators see first.">
-                  <cp-field label="Title" forId="recipe-title" [required]="true" [error]="fieldError('title')">
-                    <input
-                      id="recipe-title"
-                      placeholder="e.g. Brown butter banana bread"
-                      type="text"
-                      required
-                      [attr.aria-invalid]="fieldError('title') ? 'true' : null"
-                      [ngModel]="title()"
-                      (ngModelChange)="title.set($event)"
-                      name="title"
-                    />
-                  </cp-field>
-
-                  <cp-field label="Description" forId="recipe-description" [error]="fieldError('description')">
-                    <textarea
-                      id="recipe-description"
-                      placeholder="A sentence or two for your recipe cards and library"
-                      [attr.aria-invalid]="fieldError('description') ? 'true' : null"
-                      [ngModel]="description()"
-                      (ngModelChange)="description.set($event)"
-                      name="description"
-                    ></textarea>
-                  </cp-field>
-
-                  <cp-field label="Headnote" forId="recipe-headnote" [error]="fieldError('headnote')">
-                    <textarea
-                      id="recipe-headnote"
-                      placeholder="The story behind it: why you make it, when it shines"
-                      [attr.aria-invalid]="fieldError('headnote') ? 'true' : null"
-                      [ngModel]="headnote()"
-                      (ngModelChange)="headnote.set($event)"
-                      name="headnote"
-                    ></textarea>
-                  </cp-field>
-
-                  <cp-field label="Attribution" forId="recipe-attribution" [error]="fieldError('attributionText')">
-                    <input
-                      id="recipe-attribution"
-                      placeholder="e.g. Adapted from my grandmother's notebook"
-                      type="text"
-                      [attr.aria-invalid]="fieldError('attributionText') ? 'true' : null"
-                      [ngModel]="attributionText()"
-                      (ngModelChange)="attributionText.set($event)"
-                      name="attributionText"
-                    />
-                  </cp-field>
-
-                  <cp-field label="Source URL" forId="recipe-source-url" [error]="fieldError('sourceUrl')">
-                    <input
-                      id="recipe-source-url"
-                      placeholder="https://…"
-                      type="url"
-                      [attr.aria-invalid]="fieldError('sourceUrl') ? 'true' : null"
-                      [ngModel]="sourceUrl()"
-                      (ngModelChange)="sourceUrl.set($event)"
-                      name="sourceUrl"
-                    />
-                  </cp-field>
-
-                  <!-- No status field. Editorial state is a machine (TESTRUN-005) and an edit is not one of its moves;
-               the component's own remarks say what went and why. -->
-
-                  <cp-field label="Tags" forId="recipe-new-tag" [error]="fieldError('tags')">
-                    <div class="tags">
-                      @for (tag of tags(); track tag) {
-                        <span class="tag-chip">
-                          {{ tag }}
-                          <button type="button" [attr.aria-label]="'Remove tag ' + tag" (click)="removeTag(tag)">
-                            ×
-                          </button>
-                        </span>
-                      }
-                    </div>
-                    <div class="tag-input-row">
-                      <input
-                        id="recipe-new-tag"
-                        type="text"
-                        placeholder="Type a tag and press Enter"
-                        [ngModel]="newTagText()"
-                        (ngModelChange)="newTagText.set($event)"
-                        (keydown.enter)="$event.preventDefault(); addTag()"
-                        name="newTag"
-                      />
-                      <button cpButton variant="secondary" type="button" (click)="addTag()">Add tag</button>
-                    </div>
-                  </cp-field>
-                </cp-form-section>
-</ng-template>
-
-<ng-template #notesSection>
-  <cp-form-section
-                  sectionId="section-notes"
-                  heading="Notes"
-                >
-                  <cp-field label="Notes" forId="recipe-notes" [error]="fieldError('notes')">
-                    <textarea
-                      id="recipe-notes"
-                      placeholder="Tweaks to try next time, variations, things you learned"
-                      [attr.aria-invalid]="fieldError('notes') ? 'true' : null"
-                      [ngModel]="notes()"
-                      (ngModelChange)="notes.set($event)"
-                      name="notes"
-                    ></textarea>
-                  </cp-field>
-
-                  <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="fieldError('storageNotes')">
-                    <textarea
-                      id="recipe-storage-notes"
-                      placeholder="e.g. Store airtight, reheat gently"
-                      [attr.aria-invalid]="fieldError('storageNotes') ? 'true' : null"
-                      [ngModel]="storageNotes()"
-                      (ngModelChange)="storageNotes.set($event)"
-                      name="storageNotes"
-                    ></textarea>
-                  </cp-field>
-                </cp-form-section>
-</ng-template>
-
-<ng-template #timingSection>
-  <cp-form-section
-                  sectionId="section-timing"
-                  heading="Timing"
-                >
-                  @if (totalTimeReplacementNote(); as note) {
-                    <p class="total-time-replacement">{{ note }}</p>
-                  }
-
-                  @if (totalTimeOverflowNote(); as note) {
-                    <cp-notice id="recipe-total-time-overflow" tone="warning">{{ note }}</cp-notice>
-                  }
-
-                  <cp-field-row [columns]="4" minColumn="6.5rem" style="--cp-field-row-measure: 100%">
-                    <cp-field label="Prep time" forId="recipe-prep-time" [error]="fieldError('prepTimeMinutes')">
-                      <input
-                        id="recipe-prep-time"
-                        placeholder="e.g. 15 min"
-                        type="number"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('prepTimeMinutes') ? 'true' : null"
-                        [ngModel]="prepTimeMinutes()"
-                        (ngModelChange)="prepTimeMinutes.set($event)"
-                        name="prepTimeMinutes"
-                      />
-                    </cp-field>
-
-                    <cp-field label="Cook time" forId="recipe-cook-time" [error]="fieldError('cookTimeMinutes')">
-                      <input
-                        id="recipe-cook-time"
-                        placeholder="e.g. 30 min"
-                        type="number"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('cookTimeMinutes') ? 'true' : null"
-                        [ngModel]="cookTimeMinutes()"
-                        (ngModelChange)="cookTimeMinutes.set($event)"
-                        name="cookTimeMinutes"
-                      />
-                    </cp-field>
-
-                    <cp-field label="Rest time" forId="recipe-rest-time" [error]="fieldError('restTimeMinutes')">
-                      <input
-                        id="recipe-rest-time"
-                        placeholder="e.g. 10 min"
-                        type="number"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('restTimeMinutes') ? 'true' : null"
-                        [ngModel]="restTimeMinutes()"
-                        (ngModelChange)="restTimeMinutes.set($event)"
-                        name="restTimeMinutes"
-                      />
-                    </cp-field>
-
-                    <!-- Derived, and so not a control. The total is prep + cook + rest and updates as they do, which is
-               why there is nothing here to type into: an editable box that rewrote itself would be worse than
-               no box. `output` rather than a div because it is a labelable element, so cp-field's own label
-               names it.
-
-               `aria-live="off"` explicitly, and not merely by omitting the attribute: `output` carries an
-               implicit `role="status"`, which is itself a polite live region, so leaving it alone would
-               announce a bare integer on every keystroke in prep, cook and rest — three fields feeding one
-               region, each character its own announcement. What a creator needs is the sentence under the
-               field, which cp-field wires up as `aria-describedby` and which says what the number came from.
-               The unit is written into the value for the same reason: in browse mode this element is read on its
-               own. -->
-                    <cp-field label="Total time" forId="recipe-total-time" [error]="fieldError('totalTimeMinutes')">
-                      <output id="recipe-total-time" class="derived-total" aria-live="off">
-                        @if (totalTimeMinutes() !== null) {
-                          {{ totalTimeMinutes() }} minutes
-                        } @else {
-                          <span aria-hidden="true" class="derived-total-absent">Calculated for you</span>
-                          <span class="cp-sr-only">No total yet. It is added up from prep, cook and rest time.</span>
-                        }
-                      </output>
-                    </cp-field>
-                  </cp-field-row>
-                </cp-form-section>
-</ng-template>
-
-<ng-template #yieldSection>
-  <cp-form-section
-                  sectionId="section-yield"
-                  heading="Yield"
-                >
-                  <cp-field
-                    label="Yield, in your own words"
-                    forId="recipe-yield-text"
-                    [error]="fieldError('yieldText')"
-                  >
-                    <input
-                      id="recipe-yield-text"
-                      type="text"
-                      placeholder="e.g. Makes 2 loaves, serves 12"
-                      [attr.aria-invalid]="fieldError('yieldText') ? 'true' : null"
-                      [ngModel]="yieldText()"
-                      (ngModelChange)="yieldText.set($event)"
-                      name="yieldText"
-                    />
-                  </cp-field>
-
-                  <cp-field-row [columns]="3" minColumn="6.5rem">
-                    <cp-field
-                      label="Serves"
-                      forId="recipe-serving-count"
-                      [error]="fieldError('servingCount')"
-                    >
-                      <input
-                        id="recipe-serving-count"
-                        placeholder="e.g. 12"
-                        type="number"
-                        inputmode="decimal"
-                        step="any"
-                        min="0"
-                        [attr.aria-invalid]="fieldError('servingCount') ? 'true' : null"
-                        [ngModel]="servingCount()"
-                        (ngModelChange)="servingCount.set($event)"
-                        name="servingCount"
-                      />
-                    </cp-field>
-                  </cp-field-row>
-
-                  <!-- Offered rather than presented, the way a step's duration is: see measuredBatchRevealed. Open on its
-               own for a recipe that already records any of the three, or one a save was refused over. -->
-                  @if (measuredBatchOpen()) {
-                    <div class="batch-row">
-                      <cp-field-row [columns]="4" minColumn="6.5rem">
-                        <cp-field
-                          label="Batch yield"
-                          forId="recipe-yield-quantity"
-                          [error]="fieldError('yieldQuantity')"
-                        >
-                          <input
-                            id="recipe-yield-quantity"
-                            placeholder="e.g. 24"
-                            type="number"
-                            inputmode="decimal"
-                            step="any"
-                            min="0"
-                            [attr.aria-invalid]="fieldError('yieldQuantity') ? 'true' : null"
-                            [ngModel]="yieldQuantity()"
-                            (ngModelChange)="yieldQuantity.set($event)"
-                            name="yieldQuantity"
-                          />
-                        </cp-field>
-
-                        <!-- The unit both measured amounts are read in, beside the creator's own wording rather than instead of
-                 it: both facts exist deliberately (recipes.md), and nothing here touches the field above.
-
-                 `restricted`, unlike the ingredient editor's unit box, because text that names no unit has nowhere
-                 to go — yieldUnitId is an id or nothing, and the creator's own words already have a home. Which is
-                 also why removing one needs the explicit Clear: restricted text reverts to the chosen unit's name
-                 when the field is left. -->
-                        <cp-field
-                          class="cp-span-2"
-                          label="Yield unit"
-                          forId="recipe-yield-unit"
-                          [hint]="yieldUnitHint()"
-                          [error]="fieldError('yieldUnitId')"
-                        >
-                          <div class="yield-unit-control">
-                            <cp-combobox
-                              inputId="recipe-yield-unit"
-                              [options]="yieldUnitOptions()"
-                              [disabled]="unitCatalogue().status !== 'ready'"
-                              mode="restricted"
-                              placeholder="e.g. loaves"
-                              [value]="yieldUnitText()"
-                              (valueChange)="yieldUnitText.set($event)"
-                              [selected]="yieldUnitSelection()"
-                              (selectedChange)="onYieldUnitPicked($event)"
-                            />
-                            @if (yieldUnitId() !== null) {
-                              <button
-                                cpButton
-                                variant="text"
-                                size="sm"
-                                type="button"
-                                aria-label="Clear the yield unit"
-                                (click)="clearYieldUnit()"
-                              >
-                                Clear
-                              </button>
-                            }
-                            @if (unitCatalogue().status === 'unavailable') {
-                              <button
-                                cpButton
-                                variant="text"
-                                size="sm"
-                                type="button"
-                                aria-label="Try reading the unit list again"
-                                (click)="loadUnitCatalogue()"
-                              >
-                                Try again
-                              </button>
-                            }
-                          </div>
-                        </cp-field>
-
-                        <cp-field
-                          label="One serving is"
-                          forId="recipe-serving-size"
-                          [hint]="servingSizeHint()"
-                          [error]="fieldError('servingSize')"
-                        >
-                          <input
-                            id="recipe-serving-size"
-                            [placeholder]="servingSizePlaceholder()"
-                            type="number"
-                            inputmode="decimal"
-                            step="any"
-                            min="0"
-                            [attr.aria-invalid]="fieldError('servingSize') ? 'true' : null"
-                            [ngModel]="servingSize()"
-                            (ngModelChange)="servingSize.set($event)"
-                            name="servingSize"
-                          />
-                        </cp-field>
-                      </cp-field-row>
-                      <!-- On the right of the fields it removes, not a button of its own beneath them. Its name says what it
-                           removes, because the word on the button is only "Remove". -->
-                      <button
-                        cpButton
-                        variant="secondary"
-                        type="button"
-                        aria-label="Remove measured batch"
-                        (click)="removeMeasuredBatch()"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  } @else {
-                    <div class="section-actions">
-                      <button cpButton id="recipe-add-measured-batch" variant="secondary" type="button" (click)="revealMeasuredBatch()">
-                        Add a measured batch (for scaling)
-                      </button>
-                    </div>
-                  }
-                </cp-form-section>
-</ng-template>
-
+<!-- The form's sections, each a component of its own over the one RecipeFormState. The tabbed page places them in its
+     tabs; a host (RecipeEditorHost) places only the ones its step is about, so either layout renders the same
+     markup. Ingredients is the one still drawn here: it is a single child component and has two places to go. -->
 <ng-template #ingredientsSection>
   <cp-form-section
-              sectionId="section-ingredients"
-              heading="Ingredients"
-              [problem]="sectionProblem('ingredientGroups') ?? ''"
-              intro="Paste ingredient lines to get a parsed proposal, or add and edit them directly. Ingredient edits save together with the rest of the recipe when you select Save."
-            >
-              <cp-recipe-ingredient-editor
-                [workspaceSlug]="workspaceSlug"
-                [initialGroups]="ingredientGroups()"
-                [rowErrors]="ingredientRowErrors()"
-                [groupErrors]="ingredientGroupErrors()"
-                (groupsChanged)="onIngredientGroupsChanged($event)"
-              />
-            </cp-form-section>
+    sectionId="section-ingredients"
+    heading="Ingredients"
+    [problem]="form.sectionProblem('ingredientGroups') ?? ''"
+    intro="Paste ingredient lines to get a parsed proposal, or add and edit them directly. Ingredient edits save together with the rest of the recipe when you select Save."
+  >
+    <cp-recipe-ingredient-editor
+      [workspaceSlug]="workspaceSlug"
+      [initialGroups]="form.ingredientGroups()"
+      [rowErrors]="form.ingredientRowErrors()"
+      [groupErrors]="form.ingredientGroupErrors()"
+      (groupsChanged)="form.editedIngredientGroups.set($event)"
+    />
+  </cp-form-section>
 </ng-template>
 
-<ng-template #instructionsSection>
-  <cp-form-section
-              class="instructions-section"
-              sectionId="section-instructions"
-              heading="Instructions"
-              [problem]="sectionProblem('instructions') ?? ''"
-              intro="The method, step by step."
-            >
-              <!-- At the top, as the ingredient editor's are, and the same quiet secondary buttons: two ways to add, ahead of
-                   what they add to, rather than a green call to action stranded under a list that may be empty. -->
-              <div class="toolbar">
-                <!-- Only while the method is a single list. Once it has phases each one has its own "Add step" beneath its
-                     steps, which says which phase the new step belongs to. -->
-                @if (!showInstructionGroups()) {
-                  <button cpButton variant="secondary" type="button" (click)="addInstructionStep()">Add step</button>
-                }
-                <button cpButton variant="secondary" type="button" (click)="addInstructionGroup()">
-                  Add instruction group
-                </button>
-              </div>
-
-              @if (instructionGroups().length === 0) {
-                <p class="cp-muted">
-                  No instructions yet. Add the first step, and give the method phases only if it has them.
-                </p>
-              }
-
-              <div class="grouped-layout" [class.has-group-nav]="showInstructionGroupNav()">
-                @if (showInstructionGroupNav()) {
-                  <!-- The same component the ingredient editor renders, so the two navs cannot drift apart. It says
-                   which group was asked for; scrolling and focus are this editor's business. -->
-                  <cp-anchor-nav
-                    class="group-nav"
-                    ariaLabel="Instruction groups"
-                    [items]="instructionGroupNav()"
-                    [activeTargetId]="activeInstructionGroupTargetId()"
-                    (activated)="onInstructionGroupNavActivated($event)"
-                  />
-                }
-
-                <div class="groups">
-                  @for (group of instructionGroups(); track group.key; let groupIndex = $index, groupCount = $count) {
-                    <section class="group instruction-group" [id]="'instruction-group-' + group.key">
-                      <!-- Only a method with phases has headings to show; see the same @if in the ingredient editor. -->
-                      @if (showInstructionGroups()) {
-                        <div class="group-header">
-                          <cp-field
-                            [label]="'Group ' + (groupIndex + 1) + ' heading'"
-                            [forId]="'group-title-' + group.key"
-                            [error]="instructionGroupProblem(group.key)"
-                          >
-                            <input
-                              [id]="'group-title-' + group.key"
-                              type="text"
-                              placeholder="e.g. For the streusel"
-                              [ngModel]="group.title"
-                              (ngModelChange)="updateInstructionGroupTitle(group.key, $event)"
-                              [name]="'groupTitle' + group.key"
-                            />
-                          </cp-field>
-                          <div class="group-actions">
-                            <button
-                              cpButton
-                              variant="secondary"
-                              type="button"
-                              [disabled]="groupIndex === 0"
-                              [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' up'"
-                              (click)="moveInstructionGroup(group.key, -1)"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              cpButton
-                              variant="secondary"
-                              type="button"
-                              [disabled]="groupIndex === groupCount - 1"
-                              [attr.aria-label]="'Move group ' + (groupIndex + 1) + ' down'"
-                              (click)="moveInstructionGroup(group.key, 1)"
-                            >
-                              ↓
-                            </button>
-                            <button
-                              cpButton
-                              variant="danger"
-                              type="button"
-                              [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
-                              (click)="removeInstructionGroup(group.key)"
-                            >
-                              Remove group
-                            </button>
-                          </div>
-                        </div>
-                      }
-
-                      <ol class="steps">
-                        @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
-                          <li class="step">
-                            <!-- Move and remove at the top right of the step, level with nothing but themselves: where they are
-                                 found without reading down through the step's fields first, and the same place as an
-                                 ingredient line's. -->
-                            <div class="step-head">
-                                <button
-                                  cpButton
-                                  variant="secondary"
-                                  size="sm"
-                                  type="button"
-                                  [disabled]="stepIndex === 0"
-                                  [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
-                                  (click)="moveInstructionStep(group.key, step.key, -1)"
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  cpButton
-                                  variant="secondary"
-                                  size="sm"
-                                  type="button"
-                                  [disabled]="stepIndex === stepCount - 1"
-                                  [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
-                                  (click)="moveInstructionStep(group.key, step.key, 1)"
-                                >
-                                  ↓
-                                </button>
-                                <button
-                                  cpButton
-                                  variant="danger"
-                                  size="sm"
-                                  type="button"
-                                  [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
-                                  (click)="removeInstructionStep(group.key, step.key)"
-                                >
-                                  Remove step
-                                </button>
-                            </div>
-
-                            <!-- The server reports a refused step at its position, so its sentence lands on the step it is
-                         about rather than on the whole method. -->
-                            <cp-field
-                              [label]="'Step ' + (stepIndex + 1)"
-                              [forId]="'step-text-' + step.key"
-                              [required]="true"
-                              [error]="stepProblem(step.key)"
-                            >
-                              <textarea
-                                [id]="'step-text-' + step.key"
-                                [ngModel]="step.text"
-                                (ngModelChange)="updateInstructionStep(group.key, step.key, { text: $event })"
-                                [name]="'stepText' + step.key"
-                              ></textarea>
-                            </cp-field>
-
-                            <cp-field label="Note" [forId]="'step-note-' + step.key">
-                              <input
-                                [id]="'step-note-' + step.key"
-                                type="text"
-                                placeholder="A tip, a warning, a doneness cue"
-                                [ngModel]="step.note"
-                                (ngModelChange)="updateInstructionStep(group.key, step.key, { note: $event })"
-                                [name]="'stepNote' + step.key"
-                              />
-                            </cp-field>
-
-                            <!-- Most steps have no duration, and a number box on every one of a dozen reads as a field
-                         the creator is expected to fill in. So it is offered rather than presented — except on a
-                         step that already records one, which is shown without being looked for. Once on it stays
-                         on, because a field disappearing mid-edit is worse than an empty one.
-                         After the step's text and its note, at the foot of the step where the button that offers it is: the
-                         field arrives where the creator was already looking, instead of opening above the note and pushing
-                         everything beneath it down. -->
-                            @if (step.showDuration) {
-                              <cp-field-row [columns]="2" minColumn="10rem">
-                                <cp-field
-                                  label="Duration"
-                                  [forId]="'step-duration-' + step.key"
-                                >
-                                  <input
-                                    [id]="'step-duration-' + step.key"
-                                    type="number"
-                                    placeholder="e.g. 10 min"
-                                    min="0"
-                                    [ngModel]="step.durationMinutes"
-                                    (ngModelChange)="
-                                      updateInstructionStep(group.key, step.key, { durationMinutes: $event })
-                                    "
-                                    [name]="'stepDuration' + step.key"
-                                  />
-                                </cp-field>
-                              </cp-field-row>
-                            }
-
-                            @if (!step.showDuration) {
-                              <div class="step-actions">
-                              <!-- Offered with the step's other buttons, at the bottom of it, rather than as a line of text
-                         among its fields: an action that looks like a link is easy to take for part of the copy.
-                         Gone once the field is showing, and focus goes to the field it asked for. -->
-                                  <button
-                                    cpButton
-                                    variant="secondary"
-                                    size="sm"
-                                    type="button"
-                                    [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
-                                    (click)="revealStepDuration(group.key, step.key)"
-                                  >
-                                    Add a duration
-                                  </button>
-                              </div>
-                            }
-                          </li>
-                        }
-                      </ol>
-
-                      @if (showInstructionGroups()) {
-                        <button cpButton variant="secondary" type="button" (click)="addInstructionStep(group.key)">
-                          Add step
-                        </button>
-                      }
-                    </section>
-                  }
-                </div>
-              </div>
-
-            </cp-form-section>
-</ng-template>

@@ -1,0 +1,41 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+/* The yield-unit box and the actions that go with it on one line. The combobox takes the room because its
+   popup is positioned against its own box, so a collapsed host would give a popup narrower than the list in
+   it; the buttons take their content width. Wraps at narrow widths and at 200% zoom rather than squeezing the
+   box below a usable size. */
+.yield-unit-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.yield-unit-control cp-combobox {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* The buttons at the foot of a section, for an action that adds something to it rather than edits what is there.
+   A flex row so the button keeps its own width instead of stretching across the section's grid. */
+/* The measured-batch fields with their Remove button to the right, at the foot of the inputs they belong to. */
+.batch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+.batch-row cp-field-row {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}

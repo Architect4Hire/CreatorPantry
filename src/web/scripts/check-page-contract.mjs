@@ -71,7 +71,7 @@ export const EXEMPTIONS = [
     reason: "Under @media print only: takes the page head's actions slot off the paper, in the same rule as the breadcrumb.",
   },
   {
-    file: 'src/app/features/recipes/recipe-editor.component.css',
+    file: 'src/app/features/recipes/recipe-instructions-section.component.css',
     rule: 'stepper',
     reason: "`.steps` is the list of the recipe's instruction steps being edited, not progress through a flow.",
   },

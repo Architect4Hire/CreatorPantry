@@ -346,7 +346,7 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       await pick(fixture, 'recipe-improve-way-edit');
       expect(port.registration()!.ready!()).toBeFalse();
 
-      editorOf(fixture)!.notes.set('More salt.');
+      editorOf(fixture)!.form.notes.set('More salt.');
 
       expect(port.registration()!.ready!()).toBeTrue();
     });
@@ -354,8 +354,8 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     it('keeps the editor, and the tile that says so, when its edits cannot be kept on switching', async () => {
       const fixture = await change();
       await pick(fixture, 'recipe-improve-way-edit');
-      editorOf(fixture)!.title.set('');
-      editorOf(fixture)!.notes.set('x');
+      editorOf(fixture)!.form.title.set('');
+      editorOf(fixture)!.form.notes.set('x');
 
       await pick(fixture, 'recipe-improve-way-check');
 
@@ -373,7 +373,7 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(root(fixture).querySelector('#section-instructions')).not.toBeNull();
       expect(port.registration()!.capabilityKey!()).toBe('recipes.edit');
 
-      editorOf(fixture)!.notes.set('More salt.');
+      editorOf(fixture)!.form.notes.set('More salt.');
       expect(port.unsaved()).toBeTrue();
       await pick(fixture, 'recipe-improve-way-check');
 

@@ -206,7 +206,7 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).querySelector('#section-details')).not.toBeNull();
       expect(port.registration()!.capabilityKey!()).toBe('recipes.new');
 
-      editorOf(fixture)!.title.set('Soda bread');
+      editorOf(fixture)!.form.title.set('Soda bread');
       expect(port.unsaved()).toBeTrue();
       await expectAsync(port.flush()).toBeResolvedTo(true);
       await settle(fixture);
@@ -230,7 +230,7 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       keepDraft.and.resolveTo(false);
       const fixture = await start(startRun());
       await pick(fixture, 'write');
-      editorOf(fixture)!.title.set('Soda bread');
+      editorOf(fixture)!.form.title.set('Soda bread');
 
       await expectAsync(port.flush()).toBeResolvedTo(false);
       await settle(fixture);
@@ -372,7 +372,7 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       const fixture = await render(RecipeCreatePartStepComponent, { run: laterRun(), workspaceSlug: SLUG, focus: 'ingredients' });
 
       expect(port.unsaved()).toBeFalse();
-      editorOf(fixture)!.notes.set('x');
+      editorOf(fixture)!.form.notes.set('x');
       expect(port.unsaved()).toBeTrue();
 
       await expectAsync(port.flush()).toBeResolvedTo(true);

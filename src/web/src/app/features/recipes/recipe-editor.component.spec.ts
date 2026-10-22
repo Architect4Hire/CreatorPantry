@@ -395,7 +395,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.canSave()).toBeFalse();
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       expect(component.canSave()).toBeTrue();
     });
 
@@ -480,7 +480,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
 
       expect(recipeService.createRecipe).toHaveBeenCalledTimes(1);
@@ -497,7 +497,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.createRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors: {} });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('x');
+      component.form.title.set('x');
       await component.save();
       harness.detectChanges();
 
@@ -515,7 +515,7 @@ describe('RecipeEditorComponent', () => {
 
       expect(recipeService.getRecipeDetail).toHaveBeenCalledWith('cozy-fall', 'r1');
       expect(component.loadState()).toEqual({ status: 'ready' });
-      expect(component.title()).toBe('Chili');
+      expect(component.form.title()).toBe('Chili');
     });
 
     /** Both go to the kitchen view, which shows the saved recipe; Print arrives there asking for the dialog. */
@@ -619,7 +619,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('Edited but not saved');
+      component.form.title.set('Edited but not saved');
       component.selectedAreaId.set('readiness');
       harness.detectChanges();
 
@@ -664,7 +664,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('Edited but not saved');
+      component.form.title.set('Edited but not saved');
       component.selectedAreaId.set('tests');
       harness.detectChanges();
 
@@ -724,7 +724,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       await component.save();
       harness.detectChanges();
 
@@ -748,7 +748,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'conflict' });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       await component.save();
       harness.detectChanges();
 
@@ -771,7 +771,7 @@ describe('RecipeEditorComponent', () => {
       await harness.fixture.whenStable();
       harness.detectChanges();
 
-      expect(component.title()).toBe('Server Chili');
+      expect(component.form.title()).toBe('Server Chili');
       expect(component.saveState()).toEqual({ status: 'idle' });
     });
 
@@ -781,9 +781,9 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'conflict' });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
-      component.notes.set('My private notes');
-      component.addInstructionGroup();
+      component.form.title.set('New Chili');
+      component.form.notes.set('My private notes');
+      component.form.addInstructionGroup();
       await component.save();
 
       const latest = { ...RECIPE_DETAIL, title: 'Server Chili', notes: null, concurrencyToken: 'AAAAAAAAB9Z=' };
@@ -793,9 +793,9 @@ describe('RecipeEditorComponent', () => {
       confirmService.answer(true);
       await reloadPromise;
 
-      expect(component.title()).toBe('Server Chili');
-      expect(component.notes()).toBe('');
-      expect(component.instructionGroups()).toEqual([]);
+      expect(component.form.title()).toBe('Server Chili');
+      expect(component.form.notes()).toBe('');
+      expect(component.form.instructionGroups()).toEqual([]);
     });
   });
 
@@ -920,9 +920,9 @@ describe('RecipeEditorComponent', () => {
       const root = harness.routeNativeElement!;
 
       revealMeasuredBatch(harness);
-      component.yieldQuantity.set(4);
+      component.form.yieldQuantity.set(4);
       harness.detectChanges();
-      component.yieldQuantity.set(null);
+      component.form.yieldQuantity.set(null);
       harness.detectChanges();
 
       expect(root.querySelector('#recipe-yield-quantity')).toBeTruthy();
@@ -958,7 +958,7 @@ describe('RecipeEditorComponent', () => {
         const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
         revealMeasuredBatch(harness);
-        component.yieldQuantity.set(4);
+        component.form.yieldQuantity.set(4);
         harness.detectChanges();
 
         removeButton(root)!.click();
@@ -967,7 +967,7 @@ describe('RecipeEditorComponent', () => {
         await harness.fixture.whenStable();
         harness.detectChanges();
 
-        expect(component.yieldQuantity()).toBe(4);
+        expect(component.form.yieldQuantity()).toBe(4);
         expect(root.querySelector('#recipe-yield-quantity')).toBeTruthy();
       });
 
@@ -986,13 +986,13 @@ describe('RecipeEditorComponent', () => {
         await harness.fixture.whenStable();
         harness.detectChanges();
 
-        expect(component.yieldQuantity()).toBeNull();
-        expect(component.yieldUnitId()).toBeNull();
-        expect(component.servingSize()).toBeNull();
+        expect(component.form.yieldQuantity()).toBeNull();
+        expect(component.form.yieldUnitId()).toBeNull();
+        expect(component.form.servingSize()).toBeNull();
         expect(root.querySelector('#recipe-yield-quantity')).toBeNull();
         // What is not part of it stays: the creator's own wording and the serving count.
-        expect(component.yieldText()).toBe('Serves six');
-        expect(component.servingCount()).toBe(6);
+        expect(component.form.yieldText()).toBe('Serves six');
+        expect(component.form.servingCount()).toBe(6);
         expect(component.isDirty()).withContext('removing a saved batch is an edit').toBeTrue();
 
         await component.save();
@@ -1013,7 +1013,7 @@ describe('RecipeEditorComponent', () => {
       const root = harness.routeNativeElement!;
       expect(root.querySelector('#recipe-serving-size')).toBeNull();
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
       harness.detectChanges();
 
@@ -1217,7 +1217,7 @@ describe('RecipeEditorComponent', () => {
         const root = harness.routeNativeElement!;
         expect(navLinksOf(root).map((link) => link.textContent?.trim())).toEqual(['Details', 'Notes', 'Timing', 'Yield']);
 
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
         await component.save();
         harness.detectChanges();
 
@@ -1341,7 +1341,7 @@ describe('RecipeEditorComponent', () => {
         const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
 
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
         await component.save();
         harness.detectChanges();
 
@@ -1435,7 +1435,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('An unsaved edit');
+      component.form.title.set('An unsaved edit');
       harness.detectChanges();
       expect(component.isDirty()).toBeTrue();
 
@@ -1447,7 +1447,7 @@ describe('RecipeEditorComponent', () => {
       expect(confirmService.isOpen).toBeFalse();
       expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/r1');
       expect(component.isDirty()).toBeTrue();
-      expect(component.title()).toBe('An unsaved edit');
+      expect(component.form.title()).toBe('An unsaved edit');
     });
 
     it('stays within its own width at a narrow size, tabs included', async () => {
@@ -1588,7 +1588,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('Edited but not saved');
+      component.form.title.set('Edited but not saved');
       harness.detectChanges();
 
       const drawer = openTool(harness, 'Dietary & allergens');
@@ -1629,7 +1629,7 @@ describe('RecipeEditorComponent', () => {
       const panel = harness.fixture.debugElement.query(By.css('cp-recipe-nutrition'));
       expect(panel).toBeTruthy();
       expect(panel.componentInstance.sourceVersionNumber()).toBe(3);
-      expect(panel.componentInstance.savedIngredientGroups()).toBe(component.ingredientGroups());
+      expect(panel.componentInstance.savedIngredientGroups()).toBe(component.form.ingredientGroups());
     });
 
     it('keeps an opened tool alive while the drawer is shut, and reopens on it', async () => {
@@ -1865,11 +1865,11 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('x'.repeat(300));
+      component.form.title.set('x'.repeat(300));
       await component.save();
       harness.detectChanges();
 
-      expect(component.fieldError('title')).toBe('Title is too long.');
+      expect(component.form.fieldError('title')).toBe('Title is too long.');
       const titleInput = harness.routeNativeElement!.querySelector('#recipe-title') as HTMLInputElement;
       expect(titleInput.getAttribute('aria-invalid')).toBe('true');
       expect(titleInput.closest('cp-field')?.textContent).toContain('Title is too long.');
@@ -1883,11 +1883,11 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
       harness.detectChanges();
 
-      expect(component.fieldError('title')).toBe('');
+      expect(component.form.fieldError('title')).toBe('');
       const titleInput = harness.routeNativeElement!.querySelector('#recipe-title') as HTMLInputElement;
       expect(titleInput.getAttribute('aria-invalid')).toBeNull();
     });
@@ -1900,9 +1900,9 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('x'.repeat(300));
+      component.form.title.set('x'.repeat(300));
       await component.save();
-      expect(component.fieldError('title')).toBe('Title is too long.');
+      expect(component.form.fieldError('title')).toBe('Title is too long.');
 
       recipeService.createRecipe.and.resolveTo({
         status: 'created',
@@ -1915,10 +1915,10 @@ describe('RecipeEditorComponent', () => {
           createdAt: '2026-01-01T00:00:00Z',
         },
       });
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
 
-      expect(component.fieldError('title')).toBe('');
+      expect(component.form.fieldError('title')).toBe('');
     });
 
     it('brings an errored field that is out of view back into view and focuses it, from another area entirely', async () => {
@@ -1933,7 +1933,7 @@ describe('RecipeEditorComponent', () => {
 
       // Save lives in the header, so it can be pressed from an area that is not the form at all.
       component.selectedAreaId.set('history');
-      component.yieldQuantity.set(0);
+      component.form.yieldQuantity.set(0);
       harness.detectChanges();
 
       await component.save();
@@ -1968,7 +1968,7 @@ describe('RecipeEditorComponent', () => {
       // The creator is on Instructions; the field at fault is in General, whose panel is mounted but hidden —
       // and a control inside a hidden panel cannot take focus, which is why the tab has to be selected first.
       selectEditTab(harness, 'Instructions');
-      component.yieldQuantity.set(0);
+      component.form.yieldQuantity.set(0);
       harness.detectChanges();
       const target = harness.routeNativeElement!.querySelector<HTMLElement>('#recipe-yield-quantity')!;
       expect(target.closest('cp-tab-panel')!.hasAttribute('hidden')).withContext('hidden before the save').toBeTrue();
@@ -2046,8 +2046,8 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
-      component.sourceUrl.set('not-a-url');
+      component.form.title.set('Weeknight Chili');
+      component.form.sourceUrl.set('not-a-url');
       await component.save();
       harness.detectChanges();
       await harness.fixture.whenStable();
@@ -2189,7 +2189,7 @@ describe('RecipeEditorComponent', () => {
           status: 'updated',
           recipe: { ...RECIPE_DETAIL, concurrencyToken: 'AAAAAAAAB9I=' },
         });
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
         await component.save();
         harness.detectChanges();
 
@@ -2396,7 +2396,7 @@ describe('RecipeEditorComponent', () => {
           status: 'updated',
           recipe: { ...THREE_LINES, concurrencyToken: 'AAAAAAAAB9I=' },
         });
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
         await component.save();
         harness.detectChanges();
 
@@ -2450,8 +2450,8 @@ describe('RecipeEditorComponent', () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      expect(component.timingSum()).toBeNull();
-      expect(component.totalTimeMinutes()).toBeNull();
+      expect(component.form.timingSum()).toBeNull();
+      expect(component.form.totalTimeMinutes()).toBeNull();
       // The dash is aria-hidden and the words beside it are what is announced: an em dash is not spoken at
       // default punctuation levels, so on its own the state would read as an empty field.
       expect(total(harness)).toContain('No total yet');
@@ -2465,38 +2465,38 @@ describe('RecipeEditorComponent', () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.cookTimeMinutes.set(45);
+      component.form.cookTimeMinutes.set(45);
       harness.detectChanges();
 
-      expect(component.totalTimeMinutes()).toBe(45);
+      expect(component.form.totalTimeMinutes()).toBe(45);
       // Self-describing, because an `output` is read on its own in browse mode.
       expect(total(harness)).toBe('45 minutes');
       // Nothing to explain in the ordinary case: the total is the parts added up, and the section says so.
       expect(overflowNote(harness)).toBe('');
 
-      component.prepTimeMinutes.set(15);
+      component.form.prepTimeMinutes.set(15);
       harness.detectChanges();
 
-      expect(component.totalTimeMinutes()).toBe(60);
+      expect(component.form.totalTimeMinutes()).toBe(60);
       expect(total(harness)).toBe('60 minutes');
 
       // And downwards too, which a sum that only ever grew would get wrong.
-      component.cookTimeMinutes.set(5);
+      component.form.cookTimeMinutes.set(5);
       harness.detectChanges();
 
-      expect(component.totalTimeMinutes()).toBe(20);
+      expect(component.form.totalTimeMinutes()).toBe(20);
     });
 
     it('a recorded zero counts, because the creator recorded it', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.prepTimeMinutes.set(0);
-      component.cookTimeMinutes.set(20);
+      component.form.prepTimeMinutes.set(0);
+      component.form.cookTimeMinutes.set(20);
       harness.detectChanges();
 
-      expect(component.timingSum()).toEqual({ minutes: 20, parts: ['prep 0', 'cook 20'] });
-      expect(component.totalTimeMinutes()).toBe(20);
+      expect(component.form.timingSum()).toEqual({ minutes: 20, parts: ['prep 0', 'cook 20'] });
+      expect(component.form.totalTimeMinutes()).toBe(20);
     });
 
     it('the derived total is what a create submits', async () => {
@@ -2514,9 +2514,9 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
-      component.prepTimeMinutes.set(15);
-      component.cookTimeMinutes.set(30);
+      component.form.title.set('Weeknight Chili');
+      component.form.prepTimeMinutes.set(15);
+      component.form.cookTimeMinutes.set(30);
       harness.detectChanges();
 
       await component.save();
@@ -2548,7 +2548,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      expect(component.totalTimeMinutes()).withContext('the sum, not the stored 65').toBe(90);
+      expect(component.form.totalTimeMinutes()).withContext('the sum, not the stored 65').toBe(90);
       expect(replacementNote(harness)).toBe(
         'This recipe is saved with a total of 65 minutes. Saving will replace it with 90.',
       );
@@ -2580,7 +2580,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      expect(component.totalTimeMinutes()).toBe(90);
+      expect(component.form.totalTimeMinutes()).toBe(90);
       expect(replacementNote(harness)).toBe('');
     });
 
@@ -2601,12 +2601,12 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Aged Vinegar');
-      component.prepTimeMinutes.set(525_600);
-      component.cookTimeMinutes.set(60);
+      component.form.title.set('Aged Vinegar');
+      component.form.prepTimeMinutes.set(525_600);
+      component.form.cookTimeMinutes.set(60);
       harness.detectChanges();
 
-      expect(component.totalTimeMinutes()).toBeNull();
+      expect(component.form.totalTimeMinutes()).toBeNull();
       expect(total(harness)).toContain('No total yet');
       // Said once, across the section: the total column is too narrow to carry a sentence.
       expect(overflowNote(harness)).toContain('more than the longest time that can be recorded');
@@ -2642,7 +2642,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.createRecipe.and.resolveTo({ status: 'unavailable' });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
       const [, , firstKey] = recipeService.createRecipe.calls.mostRecent().args;
 
@@ -2650,7 +2650,7 @@ describe('RecipeEditorComponent', () => {
       const [, , secondKey] = recipeService.createRecipe.calls.mostRecent().args;
       expect(secondKey).toBe(firstKey);
 
-      component.title.set('Weeknight Chili With Beans'); // a different, new logical operation
+      component.form.title.set('Weeknight Chili With Beans'); // a different, new logical operation
       await component.save();
       const [, , thirdKey] = recipeService.createRecipe.calls.mostRecent().args;
       expect(thirdKey).not.toBe(firstKey);
@@ -2693,14 +2693,14 @@ describe('RecipeEditorComponent', () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-      component.addInstructionGroup();
+      component.form.addInstructionGroup();
       harness.detectChanges();
-      expect(component.instructionGroups().length).toBe(1);
+      expect(component.form.instructionGroups().length).toBe(1);
 
-      const groupKey = component.instructionGroups()[0].key;
-      component.addInstructionStep(groupKey);
+      const groupKey = component.form.instructionGroups()[0].key;
+      component.form.addInstructionStep(groupKey);
       harness.detectChanges();
-      expect(component.instructionGroups()[0].steps.length).toBe(1);
+      expect(component.form.instructionGroups()[0].steps.length).toBe(1);
 
       const removeStep = harness.routeNativeElement!.querySelector('[aria-label="Remove step 1"]') as HTMLButtonElement;
       const moveGroupUp = harness.routeNativeElement!.querySelector('[aria-label="Move group 1 up"]');
@@ -2709,56 +2709,56 @@ describe('RecipeEditorComponent', () => {
 
       removeStep.click();
       harness.detectChanges();
-      expect(component.instructionGroups()[0].steps.length).toBe(0);
+      expect(component.form.instructionGroups()[0].steps.length).toBe(0);
     });
 
     it('removes a group entirely, steps and all', async () => {
       const recipeService = recipeServiceSpy();
       const { component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-      component.addInstructionGroup();
-      const groupKey = component.instructionGroups()[0].key;
-      component.addInstructionStep(groupKey);
+      component.form.addInstructionGroup();
+      const groupKey = component.form.instructionGroups()[0].key;
+      component.form.addInstructionStep(groupKey);
 
-      component.removeInstructionGroup(groupKey);
+      component.form.removeInstructionGroup(groupKey);
 
-      expect(component.instructionGroups().length).toBe(0);
+      expect(component.form.instructionGroups().length).toBe(0);
     });
 
     it('reorders steps within a group with the move buttons, disabled at each end', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-      component.addInstructionGroup();
-      const groupKey = component.instructionGroups()[0].key;
-      component.addInstructionStep(groupKey);
-      component.addInstructionStep(groupKey);
-      component.updateInstructionStep(groupKey, component.instructionGroups()[0].steps[0].key, { text: 'First' });
-      component.updateInstructionStep(groupKey, component.instructionGroups()[0].steps[1].key, { text: 'Second' });
+      component.form.addInstructionGroup();
+      const groupKey = component.form.instructionGroups()[0].key;
+      component.form.addInstructionStep(groupKey);
+      component.form.addInstructionStep(groupKey);
+      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[0].key, { text: 'First' });
+      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[1].key, { text: 'Second' });
       harness.detectChanges();
 
-      const firstStepKey = component.instructionGroups()[0].steps[0].key;
-      component.moveInstructionStep(groupKey, firstStepKey, 1);
+      const firstStepKey = component.form.instructionGroups()[0].steps[0].key;
+      component.form.moveInstructionStep(groupKey, firstStepKey, 1);
 
-      expect(component.instructionGroups()[0].steps.map((step) => step.text)).toEqual(['Second', 'First']);
+      expect(component.form.instructionGroups()[0].steps.map((step) => step.text)).toEqual(['Second', 'First']);
 
       // A move past either end is a no-op, not an out-of-range mutation.
-      component.moveInstructionStep(groupKey, firstStepKey, 1);
-      expect(component.instructionGroups()[0].steps.map((step) => step.text)).toEqual(['Second', 'First']);
+      component.form.moveInstructionStep(groupKey, firstStepKey, 1);
+      expect(component.form.instructionGroups()[0].steps.map((step) => step.text)).toEqual(['Second', 'First']);
     });
 
     it('reorders groups with the move buttons', async () => {
       const recipeService = recipeServiceSpy();
       const { component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-      component.addInstructionGroup();
-      component.updateInstructionGroupTitle(component.instructionGroups()[0].key, 'Batter');
-      component.addInstructionGroup();
-      component.updateInstructionGroupTitle(component.instructionGroups()[1].key, 'Frosting');
+      component.form.addInstructionGroup();
+      component.form.updateInstructionGroupTitle(component.form.instructionGroups()[0].key, 'Batter');
+      component.form.addInstructionGroup();
+      component.form.updateInstructionGroupTitle(component.form.instructionGroups()[1].key, 'Frosting');
 
-      component.moveInstructionGroup(component.instructionGroups()[1].key, -1);
+      component.form.moveInstructionGroup(component.form.instructionGroups()[1].key, -1);
 
-      expect(component.instructionGroups().map((group) => group.title)).toEqual(['Frosting', 'Batter']);
+      expect(component.form.instructionGroups().map((group) => group.title)).toEqual(['Frosting', 'Batter']);
     });
 
     it('submits instructions on save, dropping steps left blank and trimming the rest', async () => {
@@ -2776,14 +2776,14 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
-      component.addInstructionGroup();
-      const groupKey = component.instructionGroups()[0].key;
-      component.updateInstructionGroupTitle(groupKey, ' Batter ');
-      component.addInstructionStep(groupKey); // left blank — must not reach the request
-      component.addInstructionStep(groupKey);
-      const [, secondStepKey] = component.instructionGroups()[0].steps.map((step) => step.key);
-      component.updateInstructionStep(groupKey, secondStepKey, {
+      component.form.title.set('Weeknight Chili');
+      component.form.addInstructionGroup();
+      const groupKey = component.form.instructionGroups()[0].key;
+      component.form.updateInstructionGroupTitle(groupKey, ' Batter ');
+      component.form.addInstructionStep(groupKey); // left blank — must not reach the request
+      component.form.addInstructionStep(groupKey);
+      const [, secondStepKey] = component.form.instructionGroups()[0].steps.map((step) => step.key);
+      component.form.updateInstructionStep(groupKey, secondStepKey, {
         text: '  Cream the butter.  ',
         note: 'Room temperature',
         durationMinutes: 5,
@@ -2842,7 +2842,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
-      expect(component.instructionGroups()).toEqual([
+      expect(component.form.instructionGroups()).toEqual([
         {
           key: 'g1',
           id: 'g1',
@@ -2896,7 +2896,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: RECIPE_DETAIL });
       const { component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
-      component.updateInstructionStep('g1', 's1', { text: 'Mix thoroughly.' });
+      component.form.updateInstructionStep('g1', 's1', { text: 'Mix thoroughly.' });
       await component.save();
 
       const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
@@ -2969,7 +2969,7 @@ describe('RecipeEditorComponent', () => {
       }
 
       function stepKeys(component: RecipeEditorComponent): readonly string[] {
-        return component.instructionGroups()[0].steps.map((step) => step.key);
+        return component.form.instructionGroups()[0].steps.map((step) => step.key);
       }
 
       it('offers the field on a new step rather than presenting it, and saves cleanly without one', async () => {
@@ -2987,10 +2987,10 @@ describe('RecipeEditorComponent', () => {
         });
         const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/new', recipeService);
 
-        component.title.set('Weeknight Chili');
-        component.addInstructionStep();
+        component.form.title.set('Weeknight Chili');
+        component.form.addInstructionStep();
         const [stepKey] = stepKeys(component);
-        component.updateInstructionStep(component.instructionGroups()[0].key, stepKey, { text: 'Brown the beef.' });
+        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, stepKey, { text: 'Brown the beef.' });
         harness.detectChanges();
 
         expect(durationBox(harness, stepKey)).withContext('no box until it is asked for').toBeNull();
@@ -3043,7 +3043,7 @@ describe('RecipeEditorComponent', () => {
         expect(component.isDirty()).withContext('asking for a field is not filling one in').toBeFalse();
 
         // Typing in it is.
-        component.updateInstructionStep(component.instructionGroups()[0].key, 's2', { durationMinutes: 4 });
+        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, 's2', { durationMinutes: 4 });
         expect(component.isDirty()).toBeTrue();
       });
 
@@ -3058,7 +3058,7 @@ describe('RecipeEditorComponent', () => {
         });
         const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
-        component.updateInstructionStep(component.instructionGroups()[0].key, 's1', { durationMinutes: null });
+        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, 's1', { durationMinutes: null });
         harness.detectChanges();
 
         expect(durationBox(harness, 's1')).withContext('still there').toBeTruthy();
@@ -3120,8 +3120,8 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
-      component.onIngredientGroupsChanged([
+      component.form.title.set('Weeknight Chili');
+      component.form.editedIngredientGroups.set([
         editableGroup({
           title: ' Dry ingredients ',
           ingredients: [
@@ -3204,7 +3204,7 @@ describe('RecipeEditorComponent', () => {
 
       // Asserted with no harness.detectChanges() in between: applyDetail sets editedIngredientGroups
       // synchronously rather than waiting on the child editor's own effect to resync from [initialGroups].
-      expect(component.editedIngredientGroups()).toEqual([
+      expect(component.form.editedIngredientGroups()).toEqual([
         {
           key: 'g1',
           id: 'g1',
@@ -3270,8 +3270,8 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: RECIPE_DETAIL });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      const [group] = component.editedIngredientGroups();
-      component.onIngredientGroupsChanged([
+      const [group] = component.form.editedIngredientGroups();
+      component.form.editedIngredientGroups.set([
         {
           ...group,
           ingredients: group.ingredients.map((row) =>
@@ -3338,7 +3338,7 @@ describe('RecipeEditorComponent', () => {
       clickButton('Add ingredient group');
       clickButton('Add ingredient');
 
-      const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+      const rowKey = component.form.editedIngredientGroups()[0].ingredients[0].key;
       typeInto('quantity', rowKey, '2');
       typeInto('unit', rowKey, 'cups');
       typeInto('ingredient', rowKey, 'all-purpose flour');
@@ -3415,7 +3415,7 @@ describe('RecipeEditorComponent', () => {
       await component.reloadAfterConflict();
       harness.detectChanges();
 
-      expect(component.editedIngredientGroups()[0].ingredients[0].displayText).toBe('2 cups all-purpose flour, sifted');
+      expect(component.form.editedIngredientGroups()[0].ingredients[0].displayText).toBe('2 cups all-purpose flour, sifted');
       expect(harness.routeNativeElement!.textContent).toContain('2 cups all-purpose flour, sifted');
     });
 
@@ -3461,14 +3461,14 @@ describe('RecipeEditorComponent', () => {
         const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
         selectEditTab(harness, 'Ingredients');
 
-        const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+        const rowKey = component.form.editedIngredientGroups()[0].ingredients[0].key;
         const input = harness.routeNativeElement!.querySelector<HTMLInputElement>(`input[id="row-quantity-${rowKey}"]`);
         expect(input).withContext('the row quantity input').toBeTruthy();
         input!.value = value;
         input!.dispatchEvent(new Event('input'));
         harness.detectChanges();
 
-        return component.editedIngredientGroups()[0].ingredients[0];
+        return component.form.editedIngredientGroups()[0].ingredients[0];
       };
 
       // The unit and the name come back as the creator wrote them — they have no reference to be read from.
@@ -3487,7 +3487,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.onIngredientGroupsChanged([
+      component.form.editedIngredientGroups.set([
         editableGroup({
           title: 'Dry ingredients',
           ingredients: [editableRow({ displayText: '2 cups flour', quantityText: '2', unitId: 'unit1' })],
@@ -3530,15 +3530,15 @@ describe('RecipeEditorComponent', () => {
 
       // Survives the save: dirty clears, and the working copy now carries the server-assigned ids.
       expect(component.isDirty()).toBeFalse();
-      expect(component.editedIngredientGroups()[0].id).toBe('g1');
-      expect(component.editedIngredientGroups()[0].ingredients[0].id).toBe('ing1');
+      expect(component.form.editedIngredientGroups()[0].id).toBe('g1');
+      expect(component.form.editedIngredientGroups()[0].ingredients[0].id).toBe('ing1');
 
       // Survives a full reload too (e.g. coming back to this recipe later) — not just the in-memory
       // post-save state. The form is clean, so this reloads without asking.
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: saved });
       await component.reloadAfterConflict();
 
-      expect(component.editedIngredientGroups()).toEqual([
+      expect(component.form.editedIngredientGroups()).toEqual([
         {
           key: 'g1',
           id: 'g1',
@@ -3725,7 +3725,7 @@ describe('RecipeEditorComponent', () => {
       // the wire needs.
       selectEditTab(harness, 'Ingredients');
       clickButton(harness, 'Add ingredient');
-      const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+      const rowKey = component.form.editedIngredientGroups()[0].ingredients[0].key;
       typeInto(harness, `#row-quantity-${rowKey}`, '2');
       typeInto(harness, `#row-unit-${rowKey}`, 'cups');
       typeInto(harness, `#row-ingredient-${rowKey}`, 'kidney beans');
@@ -3734,7 +3734,7 @@ describe('RecipeEditorComponent', () => {
       // Instructions: the same, from its own empty state.
       selectEditTab(harness, 'Instructions');
       clickButton(harness, 'Add step');
-      const stepKey = component.instructionGroups()[0].steps[0].key;
+      const stepKey = component.form.instructionGroups()[0].steps[0].key;
       typeInto(harness, `#step-text-${stepKey}`, 'Simmer for an hour.');
       expect(harness.routeNativeElement!.querySelector('input[id^="group-title-"]')).toBeNull();
 
@@ -3820,13 +3820,13 @@ describe('RecipeEditorComponent', () => {
         harness.detectChanges();
       };
 
-      component.title.set('Streusel cake');
+      component.form.title.set('Streusel cake');
       selectEditTab(harness, 'Ingredients');
 
       // Two groups, the second of which gets the line.
       clickButton('Add ingredient group');
       clickButton('Add ingredient group');
-      const [first, second] = component.editedIngredientGroups();
+      const [first, second] = component.form.editedIngredientGroups();
       typeInto(`#ingredient-group-title-${first.key}`, 'For the cake');
       typeInto(`#ingredient-group-title-${second.key}`, 'For the streusel');
 
@@ -3836,7 +3836,7 @@ describe('RecipeEditorComponent', () => {
       )[1];
       addToSecond.click();
       harness.detectChanges();
-      const rowKey = component.editedIngredientGroups()[1].ingredients[0].key;
+      const rowKey = component.form.editedIngredientGroups()[1].ingredients[0].key;
       typeInto(`#row-quantity-${rowKey}`, '3');
       typeInto(`#row-unit-${rowKey}`, 'tbsp');
       typeInto(`#row-ingredient-${rowKey}`, 'demerara sugar');
@@ -3932,7 +3932,7 @@ describe('RecipeEditorComponent', () => {
       selectEditTab(harness, 'Instructions');
       await harness.fixture.whenStable();
       harness.detectChanges();
-      expect(component.showInstructionGroups()).toBeTrue();
+      expect(component.form.showInstructionGroups()).toBeTrue();
       expect(
         Array.from(harness.routeNativeElement!.querySelectorAll<HTMLInputElement>('input[id^="group-title-"]')).map(
           (input) => input.value,
@@ -3941,7 +3941,7 @@ describe('RecipeEditorComponent', () => {
 
       // An edit elsewhere must not flatten or rename anything: both groups go back with their own ids and
       // titles, and the empty second group is still a group.
-      component.title.set('Renamed');
+      component.form.title.set('Renamed');
       await component.save();
 
       const [, , request] = recipeService.updateRecipe.calls.mostRecent().args;
@@ -3966,23 +3966,23 @@ describe('RecipeEditorComponent', () => {
       selectEditTab(harness, 'Instructions');
 
       clickButton(harness, 'Add step');
-      const firstGroupKey = component.instructionGroups()[0].key;
-      const firstStepKey = component.instructionGroups()[0].steps[0].key;
+      const firstGroupKey = component.form.instructionGroups()[0].key;
+      const firstStepKey = component.form.instructionGroups()[0].steps[0].key;
       typeInto(harness, `#step-text-${firstStepKey}`, 'Toast the spices.');
       clickButton(harness, 'Add step');
-      const secondStepKey = component.instructionGroups()[0].steps[1].key;
+      const secondStepKey = component.form.instructionGroups()[0].steps[1].key;
       typeInto(harness, `#step-text-${secondStepKey}`, 'Add the tomatoes.');
 
-      expect(component.showInstructionGroups()).toBeFalse();
+      expect(component.form.showInstructionGroups()).toBeFalse();
 
       clickButton(harness, 'Add instruction group');
 
-      const groups = component.instructionGroups();
+      const groups = component.form.instructionGroups();
       expect(groups.length).toBe(2);
       expect(groups[0].key).toBe(firstGroupKey);
       expect(groups[0].steps.map((step) => step.text)).toEqual(['Toast the spices.', 'Add the tomatoes.']);
       expect(groups[1].steps).toEqual([]);
-      expect(component.showInstructionGroups()).toBeTrue();
+      expect(component.form.showInstructionGroups()).toBeTrue();
 
       // The headings are now there to name, empty rather than invented — and the steps are still submitted.
       await harness.fixture.whenStable();
@@ -4031,12 +4031,12 @@ describe('RecipeEditorComponent', () => {
       selectEditTab(harness, 'Instructions');
 
       clickButton(harness, 'Add step');
-      const firstKey = component.instructionGroups()[0].key;
-      typeInto(harness, `#step-text-${component.instructionGroups()[0].steps[0].key}`, 'Toast the spices.');
+      const firstKey = component.form.instructionGroups()[0].key;
+      typeInto(harness, `#step-text-${component.form.instructionGroups()[0].steps[0].key}`, 'Toast the spices.');
       clickButton(harness, 'Add instruction group');
       typeInto(harness, `#group-title-${firstKey}`, 'The day before');
 
-      const secondKey = component.instructionGroups()[1].key;
+      const secondKey = component.form.instructionGroups()[1].key;
       const addSteps = Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter(
         (button) => button.textContent?.trim() === 'Add step',
       );
@@ -4108,8 +4108,8 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component, secondKey } = await twoPhases(recipeService);
 
-      component.title.set('Chili');
-      const stepKey = component.instructionGroups()[1].steps[0].key;
+      component.form.title.set('Chili');
+      const stepKey = component.form.instructionGroups()[1].steps[0].key;
       typeInto(harness, `#step-text-${stepKey}`, 'Simmer for an hour.');
       typeInto(harness, `#group-title-${secondKey}`, 'On the day');
 
@@ -4139,7 +4139,7 @@ describe('RecipeEditorComponent', () => {
       expect(navHost(harness)).withContext('nothing written yet').toBeNull();
 
       clickButton(harness, 'Add step');
-      expect(component.instructionGroups().length).toBe(1);
+      expect(component.form.instructionGroups().length).toBe(1);
       expect(navHost(harness)).withContext('one ungrouped method').toBeNull();
 
       clickButton(harness, 'Add instruction group');
@@ -4187,7 +4187,7 @@ describe('RecipeEditorComponent', () => {
       selectEditTab(harness, 'Instructions');
       clickButton(harness, 'Add step');
       const root = harness.routeNativeElement!;
-      const key = component.instructionGroups()[0].steps[0].key;
+      const key = component.form.instructionGroups()[0].steps[0].key;
       const top = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().top;
       const bottom = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().bottom;
       const textTop = top(`#step-text-${key}`);
@@ -4217,7 +4217,7 @@ describe('RecipeEditorComponent', () => {
 
       const stepBox = root.querySelector('.step')!.getBoundingClientRect();
       const head = root.querySelector('.step-head')!.getBoundingClientRect();
-      const text = root.querySelector(`#step-text-${component.instructionGroups()[0].steps[0].key}`)!.getBoundingClientRect();
+      const text = root.querySelector(`#step-text-${component.form.instructionGroups()[0].steps[0].key}`)!.getBoundingClientRect();
       const offer = root.querySelector('button[aria-label="Add a duration to step 1"]')!.getBoundingClientRect();
 
       expect(head.bottom).withContext('above the text').toBeLessThanOrEqual(text.top + 1);
@@ -4269,7 +4269,7 @@ describe('RecipeEditorComponent', () => {
         .map((node) => node.tagName.toLowerCase() + (node.id ? '#' + node.id : ''));
       expect(overflowing).withContext('overflowing the editor at 24rem').toEqual([]);
 
-      expect(component.instructionGroups().length).toBe(2);
+      expect(component.form.instructionGroups().length).toBe(2);
     });
   });
 
@@ -4279,7 +4279,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -4289,7 +4289,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -4298,7 +4298,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.addInstructionGroup();
+      component.form.addInstructionGroup();
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -4307,7 +4307,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -4317,7 +4317,7 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
       expect(harness.routeNativeElement?.querySelector('.dirty-indicator')).toBeFalsy();
 
-      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
       harness.detectChanges();
 
       const pill = harness.routeNativeElement?.querySelector('.dirty-indicator');
@@ -4367,7 +4367,7 @@ describe('RecipeEditorComponent', () => {
         addRow.click();
         harness.detectChanges();
 
-        const rowKey = component.editedIngredientGroups()[0].ingredients[0].key;
+        const rowKey = component.form.editedIngredientGroups()[0].ingredients[0].key;
         const ingredient = harness.routeNativeElement!.querySelector<HTMLInputElement>(`#row-ingredient-${rowKey}`)!;
         ingredient.value = 'flaky sea salt';
         ingredient.dispatchEvent(new Event('input'));
@@ -4385,13 +4385,13 @@ describe('RecipeEditorComponent', () => {
         selectEditTab(harness, 'Instructions');
         expect(pillText(harness)).withContext('Instructions, before the edit').toBeNull();
 
-        component.addInstructionGroup();
+        component.form.addInstructionGroup();
         harness.detectChanges();
-        const groupKey = component.instructionGroups()[0].key;
-        component.addInstructionStep(groupKey);
+        const groupKey = component.form.instructionGroups()[0].key;
+        component.form.addInstructionStep(groupKey);
         harness.detectChanges();
 
-        const stepKey = component.instructionGroups()[0].steps[0].key;
+        const stepKey = component.form.instructionGroups()[0].steps[0].key;
         const step = harness.routeNativeElement!.querySelector<HTMLTextAreaElement>(`#step-text-${stepKey}`);
         expect(step).withContext('the new step textarea').toBeTruthy();
         step!.value = 'Toast the spices.';
@@ -4406,7 +4406,7 @@ describe('RecipeEditorComponent', () => {
     it('blocks a real router navigation when only an ingredient edit is unsaved, until the user confirms discarding', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
 
       const navPromise = harness.navigateByUrl('/cozy-fall/elsewhere');
       await waitUntil(() => confirmService.isOpen);
@@ -4429,7 +4429,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.onIngredientGroupsChanged([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
       expect(component.isDirty()).toBeTrue();
       await component.save();
 
@@ -4441,9 +4441,9 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.newTagText.set('vegetarian');
+      component.form.newTagText.set('vegetarian');
       expect(component.isDirty()).toBeTrue();
-      component.newTagText.set('');
+      component.form.newTagText.set('');
       expect(component.isDirty()).toBeFalse();
     });
 
@@ -4462,7 +4462,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       expect(component.isDirty()).toBeTrue();
       await component.save();
 
@@ -4478,7 +4478,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       expect(component.isDirty()).toBeTrue();
       await component.save();
 
@@ -4491,7 +4491,7 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
       for (const status of ['validation_failed', 'unavailable', 'forbidden'] as const) {
-        component.title.set(`Chili (${status})`);
+        component.form.title.set(`Chili (${status})`);
         recipeService.updateRecipe.and.resolveTo(
           status === 'validation_failed' ? { status, fieldErrors: {} } : { status },
         );
@@ -4506,7 +4506,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'conflict' });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       await component.save();
       expect(component.isDirty()).toBeTrue();
 
@@ -4530,7 +4530,7 @@ describe('RecipeEditorComponent', () => {
       recipeService.updateRecipe.and.resolveTo({ status: 'conflict' });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.title.set('New Chili');
+      component.form.title.set('New Chili');
       await component.save();
 
       const reloadPromise = component.reloadAfterConflict();
@@ -4538,7 +4538,7 @@ describe('RecipeEditorComponent', () => {
       await reloadPromise;
 
       expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(1); // only the initial load — no reload fetch
-      expect(component.title()).toBe('New Chili');
+      expect(component.form.title()).toBe('New Chili');
     });
 
     describe('confirmDiscardIfDirty', () => {
@@ -4555,7 +4555,7 @@ describe('RecipeEditorComponent', () => {
       it('asks for a confirmation and resolves once it is answered when dirty', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
 
         const pending = component.confirmDiscardIfDirty();
         expect(confirmService.isOpen).toBeTrue();
@@ -4568,7 +4568,7 @@ describe('RecipeEditorComponent', () => {
       it('names the destructive action rather than asking the creator to agree to "OK"', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
 
         void component.confirmDiscardIfDirty();
 
@@ -4584,19 +4584,19 @@ describe('RecipeEditorComponent', () => {
       it('answering "keep editing" leaves the form untouched', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
 
         const pending = component.confirmDiscardIfDirty();
         confirmService.answer(false);
 
         await expectAsync(pending).toBeResolvedTo(false);
-        expect(component.title()).toBe('Weeknight Chili');
+        expect(component.form.title()).toBe('Weeknight Chili');
       });
 
       it('answers two concurrent attempts with one dialog rather than stacking a second', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
 
         const first = component.confirmDiscardIfDirty();
         const second = component.confirmDiscardIfDirty();
@@ -4614,7 +4614,7 @@ describe('RecipeEditorComponent', () => {
       it('asks again on the next attempt once a confirmation has been answered', async () => {
         const recipeService = recipeServiceSpy();
         const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        component.title.set('Weeknight Chili');
+        component.form.title.set('Weeknight Chili');
 
         const first = component.confirmDiscardIfDirty();
         confirmService.answer(false);
@@ -4648,7 +4648,7 @@ describe('RecipeEditorComponent', () => {
       handler(cleanEvent);
       expect(cleanEvent.preventDefault).not.toHaveBeenCalled();
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       const dirtyEvent = {
         preventDefault: jasmine.createSpy('preventDefault'),
         returnValue: '',
@@ -4660,7 +4660,7 @@ describe('RecipeEditorComponent', () => {
     it('blocks a real router navigation while dirty until the user confirms discarding, then proceeds', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
 
       const navPromise = harness.navigateByUrl('/cozy-fall/elsewhere');
       // The router resolves canDeactivate through several internal async hops (and at least one
@@ -4702,7 +4702,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
 
       expect(TestBed.inject(Router).url).toBe('/cozy-fall/recipes/new-id');
@@ -4791,7 +4791,7 @@ describe('RecipeEditorComponent', () => {
       await first;
 
       const dirty = await loaded(RECIPE_DETAIL);
-      dirty.component.title.set('Half-written edit');
+      dirty.component.form.title.set('Half-written edit');
       const second = dirty.component.setArchived(true);
       await waitUntil(() => dirty.confirm.isOpen);
       expect((dirty.confirm.confirm.calls.mostRecent().args[0] as { message: string }).message).toContain(
@@ -4955,13 +4955,13 @@ describe('RecipeEditorComponent', () => {
       await waitUntil(() => component.loadState().status === 'ready');
 
       component.selectedAreaId.set('history');
-      component.title.set('Half-written edit');
+      component.form.title.set('Half-written edit');
       expect(component.isDirty()).toBeTrue();
 
       component.onVersionRestored({ recipe: restoredRecipe, fromVersionNumber: 3, newVersionNumber: 9 });
       harness.detectChanges();
 
-      expect(component.title()).toBe('Chilli');
+      expect(component.form.title()).toBe('Chilli');
       expect(component.selectedAreaId()).toBe('edit');
       // The restore replaced the form wholesale, so there is nothing unsaved left to warn about.
       expect(component.isDirty()).toBeFalse();
@@ -4979,7 +4979,7 @@ describe('RecipeEditorComponent', () => {
       await waitUntil(() => component.loadState().status === 'ready');
 
       component.onVersionRestored({ recipe: restoredRecipe, fromVersionNumber: 3, newVersionNumber: 9 });
-      component.title.set('Chilli con carne');
+      component.form.title.set('Chilli con carne');
       await component.save();
 
       const request = recipeService.updateRecipe.calls.mostRecent().args[2] as { expectedConcurrencyToken: string };
@@ -5020,7 +5020,7 @@ describe('RecipeEditorComponent', () => {
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, confirm);
       await waitUntil(() => component.loadState().status === 'ready');
 
-      component.title.set('Half-written edit');
+      component.form.title.set('Half-written edit');
       const followed = component.onRecipeDuplicated({ recipe: COPY, fromVersionNumber: 3 });
       await waitUntil(() => confirm.isOpen);
       confirm.answer(false);
@@ -5047,7 +5047,7 @@ describe('RecipeEditorComponent', () => {
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService, confirm);
       await waitUntil(() => component.loadState().status === 'ready');
 
-      component.title.set('Half-written edit');
+      component.form.title.set('Half-written edit');
       const reload = component.onHistoryReloadRequested();
       await waitUntil(() => confirm.isOpen);
       confirm.answer(false);
@@ -5466,7 +5466,7 @@ describe('RecipeEditorComponent', () => {
     // then contradicts the recipe. The panels disable the control; this is the gate behind it.
     it('refuses to apply while the editor has unsaved changes, without even asking', async () => {
       const { component, recipeService, harness } = await loadedEditor();
-      component.title.set('Chili, reworked');
+      component.form.title.set('Chili, reworked');
       harness.detectChanges();
       expect(component.isDirty()).toBeTrue();
 
@@ -5671,7 +5671,7 @@ describe('RecipeEditorComponent', () => {
       // The editorIsDirty contract, enforced a second time here: the panel refuses, and so does this.
       it('refuses outright while the form holds unsaved edits, without even asking', async () => {
         const { component, recipeService } = await editorWithLines();
-        component.title.set('Something else');
+        component.form.title.set('Something else');
 
         await component.onUnitConversionApplyRequested(CONVERSION_APPLICATION);
 
@@ -5717,7 +5717,7 @@ describe('RecipeEditorComponent', () => {
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
       await waitUntil(() => component.loadState().status === 'ready');
 
-      component.title.set('Chili, reworked');
+      component.form.title.set('Chili, reworked');
       harness.detectChanges();
       await component.save();
 
@@ -5775,7 +5775,7 @@ describe('RecipeEditorComponent', () => {
       TestBed.inject(HttpTestingController)
         .expectOne((request) => request.url === UNITS_URL)
         .flush({ items: units, nextCursor: null });
-      await waitUntil(() => component.unitCatalogue().status !== 'loading');
+      await waitUntil(() => component.form.unitCatalogue().status !== 'loading');
       harness.detectChanges();
     }
 
@@ -5783,7 +5783,7 @@ describe('RecipeEditorComponent', () => {
       TestBed.inject(HttpTestingController)
         .expectOne((request) => request.url === UNITS_URL)
         .flush({}, { status: 500, statusText: 'Server Error' });
-      await waitUntil(() => component.unitCatalogue().status === 'unavailable');
+      await waitUntil(() => component.form.unitCatalogue().status === 'unavailable');
       harness.detectChanges();
     }
 
@@ -5830,17 +5830,17 @@ describe('RecipeEditorComponent', () => {
       );
       await settleUnits(harness, component);
 
-      component.title.set('Weeknight Chili');
-      component.yieldText.set('About 4 generous bowls');
-      component.yieldQuantity.set(4);
+      component.form.title.set('Weeknight Chili');
+      component.form.yieldText.set('About 4 generous bowls');
+      component.form.yieldQuantity.set(4);
       harness.detectChanges();
 
       pickUnit(harness, 'u-servings');
 
-      expect(component.yieldUnitId()).toBe('u-servings');
+      expect(component.form.yieldUnitId()).toBe('u-servings');
       expect(unitBox(harness).value).toBe('Servings');
       // The sentence the creator wrote is a different fact, and picking a unit is not an edit to it.
-      expect(component.yieldText()).toBe('About 4 generous bowls');
+      expect(component.form.yieldText()).toBe('About 4 generous bowls');
 
       await component.save();
 
@@ -5869,7 +5869,7 @@ describe('RecipeEditorComponent', () => {
 
       pickUnit(harness, 'u-grams');
 
-      expect(component.yieldUnitId()).toBe('u-grams');
+      expect(component.form.yieldUnitId()).toBe('u-grams');
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -5893,7 +5893,7 @@ describe('RecipeEditorComponent', () => {
       // way back to "no unit" — hence a control of its own rather than an empty box.
       clickLabelled(harness, 'Clear the yield unit');
 
-      expect(component.yieldUnitId()).toBeNull();
+      expect(component.form.yieldUnitId()).toBeNull();
       expect(unitBox(harness).value).toBe('');
       expect(component.isDirty()).toBeTrue();
 
@@ -5935,7 +5935,7 @@ describe('RecipeEditorComponent', () => {
       );
       await settleUnits(harness, component);
 
-      expect(component.yieldUnitOptions().map((option) => option.id)).toEqual(['u-grams', 'u-servings']);
+      expect(component.form.yieldUnitOptions().map((option) => option.id)).toEqual(['u-grams', 'u-servings']);
       expect(harness.routeNativeElement!.querySelector('[id="recipe-yield-unit-option-u-celsius"]')).toBeNull();
     });
 
@@ -5961,7 +5961,7 @@ describe('RecipeEditorComponent', () => {
 
       // Nothing to pick from, so the box is not offered as if there were.
       expect(unitBox(harness).disabled).toBeTrue();
-      expect(component.yieldUnitHint()).toContain('cannot be named');
+      expect(component.form.yieldUnitHint()).toContain('cannot be named');
       expect(component.isDirty()).withContext('a failed read is not an edit').toBeFalse();
 
       await component.save();
@@ -5990,8 +5990,8 @@ describe('RecipeEditorComponent', () => {
 
       clickLabelled(harness, 'Clear the yield unit');
 
-      expect(component.yieldUnitId()).toBeNull();
-      expect(component.yieldUnitHint()).toContain('nothing to pick from');
+      expect(component.form.yieldUnitId()).toBeNull();
+      expect(component.form.yieldUnitHint()).toContain('nothing to pick from');
     });
 
     // The saved value is the recipe's; the form field is the form's. The reconciliation panel reads the saved
@@ -6012,7 +6012,7 @@ describe('RecipeEditorComponent', () => {
 
       clickLabelled(harness, 'Clear the yield unit');
 
-      expect(component.yieldUnitId()).toBeNull();
+      expect(component.form.yieldUnitId()).toBeNull();
       expect(component.savedYieldUnitId()).withContext('the saved unit is the recipe, not the form').toBe('u-servings');
     });
 
@@ -6030,14 +6030,14 @@ describe('RecipeEditorComponent', () => {
       revealMeasuredBatch(harness);
 
       // Nothing to say while nothing is wrong: no hint under the box until there is a problem.
-      expect(component.yieldUnitHint()).toBe('');
+      expect(component.form.yieldUnitHint()).toBe('');
 
       pickUnit(harness, 'u-servings');
-      expect(component.yieldUnitHint()).toContain('Add a yield quantity as well');
+      expect(component.form.yieldUnitHint()).toContain('Add a yield quantity as well');
 
-      component.yieldQuantity.set(4);
+      component.form.yieldQuantity.set(4);
       harness.detectChanges();
-      expect(component.yieldUnitHint()).not.toContain('Add a yield quantity');
+      expect(component.form.yieldUnitHint()).not.toContain('Add a yield quantity');
     });
 
     /**
@@ -6055,22 +6055,22 @@ describe('RecipeEditorComponent', () => {
       );
       await settleUnits(harness, component);
 
-      expect(component.servingSizeHint()).toBe('');
+      expect(component.form.servingSizeHint()).toBe('');
 
       // Entered without one, which the server refuses (CK_Recipes_ServingSize_RequiresYieldUnit). Said here
       // rather than learned from a refused save.
-      component.servingSize.set(250);
+      component.form.servingSize.set(250);
       harness.detectChanges();
-      expect(component.servingSizeHint()).toContain('Pick a yield unit as well');
+      expect(component.form.servingSizeHint()).toContain('Pick a yield unit as well');
 
       // And once there is a unit, the hint names it — a bare 250 is otherwise ambiguous between the units one
       // field away.
-      component.yieldQuantity.set(2000);
+      component.form.yieldQuantity.set(2000);
       pickUnit(harness, 'u-grams');
       harness.detectChanges();
       // The unit is the placeholder's to say, not a line of hint beneath the box.
-      expect(component.servingSizeHint()).toBe('');
-      expect(component.servingSizePlaceholder()).toContain('grams');
+      expect(component.form.servingSizeHint()).toBe('');
+      expect(component.form.servingSizePlaceholder()).toContain('grams');
     });
 
     it('shows a server error on the yield unit beside the control', async () => {
@@ -6088,11 +6088,11 @@ describe('RecipeEditorComponent', () => {
       );
       await settleUnits(harness, component);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
       harness.detectChanges();
 
-      expect(component.fieldError('yieldUnitId')).toBe('A yield cannot be measured in degrees.');
+      expect(component.form.fieldError('yieldUnitId')).toBe('A yield cannot be measured in degrees.');
       const field = unitBox(harness).closest('cp-field');
       expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A yield cannot be measured in degrees.');
     });
@@ -6132,8 +6132,8 @@ describe('RecipeEditorComponent', () => {
       // The field exists at all, which is the whole of the complaint: a number of servings had nowhere to go.
       expect(numberInput(harness, 'recipe-serving-count')).toBeTruthy();
 
-      component.title.set('Weeknight Chili');
-      component.servingCount.set(12);
+      component.form.title.set('Weeknight Chili');
+      component.form.servingCount.set(12);
       harness.detectChanges();
 
       await component.save();
@@ -6151,13 +6151,13 @@ describe('RecipeEditorComponent', () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.yieldText.set('Makes 2 loaves, serves 12');
-      component.servingCount.set(12);
-      component.yieldQuantity.set(2);
+      component.form.yieldText.set('Makes 2 loaves, serves 12');
+      component.form.servingCount.set(12);
+      component.form.yieldQuantity.set(2);
       harness.detectChanges();
 
-      expect(component.yieldText()).toBe('Makes 2 loaves, serves 12');
-      expect(component.servingCount()).toBe(12);
+      expect(component.form.yieldText()).toBe('Makes 2 loaves, serves 12');
+      expect(component.form.servingCount()).toBe(12);
     });
 
     it('a loaded recipe’s servings reach the form, and loading is not an edit', async () => {
@@ -6168,8 +6168,8 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      expect(component.servingCount()).toBe(8);
-      expect(component.servingSize()).toBe(250);
+      expect(component.form.servingCount()).toBe(8);
+      expect(component.form.servingSize()).toBe(250);
       expect(component.isDirty()).toBeFalse();
     });
 
@@ -6183,7 +6183,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.servingCount.set(6);
+      component.form.servingCount.set(6);
       harness.detectChanges();
       expect(component.isDirty()).toBeTrue();
 
@@ -6204,7 +6204,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.servingSize.set(2);
+      component.form.servingSize.set(2);
       harness.detectChanges();
       expect(component.isDirty()).toBeTrue();
 
@@ -6224,9 +6224,9 @@ describe('RecipeEditorComponent', () => {
     it('says why a serving size cannot be measured when the unit list cannot be read', async () => {
       const recipeService = recipeServiceSpy();
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-      await waitUntil(() => component.unitCatalogue().status !== 'loading');
+      await waitUntil(() => component.form.unitCatalogue().status !== 'loading');
 
-      expect(component.servingSizeHint()).toContain('The unit list cannot be read');
+      expect(component.form.servingSizeHint()).toContain('The unit list cannot be read');
     });
 
     it('routes a server error on a serving field to that field', async () => {
@@ -6237,11 +6237,11 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
-      component.title.set('Weeknight Chili');
+      component.form.title.set('Weeknight Chili');
       await component.save();
       harness.detectChanges();
 
-      expect(component.fieldError('servingCount')).toBe('A serving count must be greater than zero.');
+      expect(component.form.fieldError('servingCount')).toBe('A serving count must be greater than zero.');
       const field = numberInput(harness, 'recipe-serving-count').closest('cp-field');
       expect(field?.querySelector('.error')?.textContent?.trim()).toBe('A serving count must be greater than zero.');
     });
@@ -6340,7 +6340,7 @@ describe('RecipeEditorComponent', () => {
         { id: 's2', number: 2, text: 'Fold in the flour.' },
       ]);
 
-      component.instructionGroups.update((groups) =>
+      component.form.instructionGroups.update((groups) =>
         groups.map((group) => ({
           ...group,
           steps: [group.steps[0], { ...group.steps[1], key: 'new', id: null, text: 'Not saved yet.' }, group.steps[1]],
