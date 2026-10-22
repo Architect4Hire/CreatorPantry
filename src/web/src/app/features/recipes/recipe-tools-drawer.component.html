@@ -1,0 +1,192 @@
+<!-- The tools, beside the recipe they read. One drawer for all ten: it opens on the list, and on the tool that was
+     last open after that.
+
+     Every tool that has been opened stays alive while the drawer is shut, exactly as a tab panel that has
+     been visited stays alive while another tab shows: a request that is running goes on being watched, and
+     a proposal nobody has answered is still unanswered when the drawer opens again. So closing accepts
+     nothing, discards nothing and abandons nothing, and has nothing to ask. Each tool is mounted the first
+     time it is chosen, so opening Tools starts no request of its own. -->
+<cp-drawer
+  [open]="toolsOpen()"
+  [heading]="toolsHeading()"
+  [description]="
+    openToolId() === null ? 'Each works from the recipe as last saved. Nothing changes until you accept or apply it.' : ''
+  "
+  size="wide"
+  closeLabel="Close tools"
+  (closeRequested)="closeTools()"
+>
+  @if (openToolId() === null) {
+    <ul class="tool-list" role="list">
+      @for (item of tools; track item.id) {
+        <li>
+          <button type="button" class="tool-choice" [id]="'recipe-tool-choice-' + item.id" (click)="chooseTool(item.id)">
+            <span class="tool-choice-name">{{ item.label }}</span>
+            <span class="tool-choice-note">{{ item.note }}</span>
+            @if (toolHasOpenRequest(item.id)) {
+              <cp-status-pill tone="progress">A request to come back to</cp-status-pill>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="tool-back">
+      <button cpButton id="recipe-tools-all" type="button" variant="text" size="sm" (click)="showToolList()">
+        <span aria-hidden="true">←</span> All tools
+      </button>
+    </p>
+  }
+
+  <!-- What applying a calculation just did. Said here as well as on the page, because the page behind
+       an open drawer is inert and its own notice cannot be read or heard until the drawer is shut.
+       Always present, so the sentence is announced when it arrives. -->
+  <cp-notice
+    class="tool-outcome"
+    role="status"
+    [tone]="toolOutcome()?.isProblem ? 'error' : 'success'"
+    [quiet]="toolOutcome() === null"
+    >{{ toolOutcome()?.text }}</cp-notice
+  >
+
+  @if (toolMounted('scaling')) {
+    <div class="tool" [hidden]="openToolId() !== 'scaling'">
+      <cp-recipe-scaling-preview
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [savedIngredientGroups]="savedIngredientGroups()"
+        [recipeYieldQuantity]="savedYieldQuantity()"
+        [recipeYieldText]="savedYieldText()"
+        [editorIsDirty]="editorIsDirty()"
+      />
+    </div>
+  }
+  @if (toolMounted('converting')) {
+    <div class="tool" [hidden]="openToolId() !== 'converting'">
+      <cp-recipe-unit-conversion
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [savedIngredientGroups]="savedIngredientGroups()"
+        [editorIsDirty]="editorIsDirty()"
+        (applyRequested)="unitConversionApplyRequested.emit($event)"
+      />
+
+      <hr class="conversion-divider" />
+
+      <cp-recipe-temperature-conversion
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [savedInstructionGroups]="savedInstructionGroups()"
+        [editorIsDirty]="editorIsDirty()"
+        (applyRequested)="temperatureApplyRequested.emit($event)"
+      />
+    </div>
+  }
+  @if (toolMounted('yield-display')) {
+    <div class="tool" [hidden]="openToolId() !== 'yield-display'">
+      <cp-recipe-yield-reconciliation
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [yieldUnitId]="savedYieldUnitId()"
+        [savedYieldQuantity]="savedYieldQuantity()"
+        [editorIsDirty]="editorIsDirty()"
+        (applyRequested)="yieldApplyRequested.emit($event)"
+      />
+
+      <hr class="conversion-divider" />
+
+      <cp-recipe-display-normalization
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [savedIngredientGroups]="savedIngredientGroups()"
+      />
+    </div>
+  }
+  @if (toolMounted('dietary-allergen')) {
+    <div class="tool" [hidden]="openToolId() !== 'dietary-allergen'">
+      <cp-recipe-dietary-allergen
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [editorIsDirty]="editorIsDirty()"
+      />
+    </div>
+  }
+  @if (toolMounted('nutrition')) {
+    <div class="tool" [hidden]="openToolId() !== 'nutrition'">
+      <cp-recipe-nutrition
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [savedIngredientGroups]="savedIngredientGroups()"
+        [editorIsDirty]="editorIsDirty()"
+      />
+    </div>
+  }
+  @if (toolMounted('food-safety')) {
+    <div class="tool" [hidden]="openToolId() !== 'food-safety'">
+      <cp-recipe-food-safety
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [sourceVersionNumber]="currentVersionNumber()"
+        [editorIsDirty]="editorIsDirty()"
+      />
+    </div>
+  }
+  @if (toolMounted('ai-revision')) {
+    <div class="tool" [hidden]="openToolId() !== 'ai-revision'">
+      @if (currentVersionId(); as versionId) {
+        <cp-recipe-revision-request
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [currentVersionId]="versionId"
+          [editorIsDirty]="editorIsDirty()"
+          (decided)="onToolDecided('ai-revision')"
+        />
+      }
+    </div>
+  }
+  @if (toolMounted('ai-adaptation')) {
+    <div class="tool" [hidden]="openToolId() !== 'ai-adaptation'">
+      @if (currentVersionId(); as versionId) {
+        <cp-recipe-adaptation-request
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [currentVersionId]="versionId"
+          [editorIsDirty]="editorIsDirty()"
+          (decided)="onToolDecided('ai-adaptation')"
+        />
+      }
+    </div>
+  }
+  @if (toolMounted('ai-substitution')) {
+    <div class="tool" [hidden]="openToolId() !== 'ai-substitution'">
+      @if (currentVersionId(); as versionId) {
+        <cp-recipe-substitution-request
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [currentVersionId]="versionId"
+          [editorIsDirty]="editorIsDirty()"
+          [ingredientGroups]="savedIngredientGroups()"
+        />
+      }
+    </div>
+  }
+  @if (toolMounted('ai-review')) {
+    <div class="tool" [hidden]="openToolId() !== 'ai-review'">
+      @if (currentVersionId(); as versionId) {
+        <cp-recipe-review-request
+          [workspaceSlug]="workspaceSlug()"
+          [recipeId]="recipeId()"
+          [currentVersionId]="versionId"
+          [editorIsDirty]="editorIsDirty()"
+        />
+      }
+    </div>
+  }
+</cp-drawer>

@@ -366,14 +366,6 @@ cp-tab-panel:not([hidden]) {
 /* The restore region stays in the DOM whether or not it has anything to say, because a live region created
    with its text already in it is not reliably announced. With nothing to say it takes no space and draws
    nothing — it is not hidden, which would take it out of the accessibility tree along with the announcement. */
-/* Separates the two stacked calculations on the Convert tab. Decorative only — each section carries its own
-   heading, which is what actually names it. */
-.conversion-divider {
-  margin: var(--cp-space-6) 0;
-  border: 0;
-  border-top: 1px solid var(--cp-border);
-}
-
 /* The yield-unit box and the actions that go with it on one line. The combobox takes the room because its
    popup is positioned against its own box, so a collapsed host would give a popup narrower than the list in
    it; the buttons take their content width. Wraps at narrow widths and at 200% zoom rather than squeezing the
@@ -462,56 +454,4 @@ cp-tab-panel:not([hidden]) {
   flex: none;
   font-weight: 700;
   color: var(--cp-orange);
-}
-
-/* The tools drawer: a list to choose from, then the chosen tool with the way back to the list above it. */
-.tool-list {
-  display: grid;
-  gap: var(--cp-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tool-choice {
-  display: grid;
-  gap: var(--cp-space-1);
-  justify-items: start;
-  width: 100%;
-  /* 40px and more, the minimum target. */
-  min-height: 2.5rem;
-  padding: var(--cp-space-3) var(--cp-space-4);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface);
-  color: var(--cp-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.tool-choice:hover {
-  border-color: var(--cp-primary);
-}
-
-.tool-choice:focus-visible {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 2px;
-}
-
-.tool-choice-name {
-  font-weight: 700;
-}
-
-.tool-choice-note {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
-}
-
-.tool-back {
-  margin: 0 0 var(--cp-space-3);
-}
-
-.tool[hidden] {
-  display: none;
 }

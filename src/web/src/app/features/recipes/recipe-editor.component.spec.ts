@@ -7,6 +7,7 @@ import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { RecipeEditorComponent } from './recipe-editor.component';
+import { RecipeToolsDrawerComponent } from './recipe-tools-drawer.component';
 import { recipeEditorCanDeactivateGuard } from './recipe-editor.guard';
 import { EditableIngredientGroup, EditableIngredientRow } from './recipe-ingredient-editor.component';
 import { ConfirmService } from '../../core/confirm.service';
@@ -252,6 +253,12 @@ function toolsDrawer(harness: RouterTestingHarness): HTMLElement | null {
   return (
     (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null
   );
+}
+
+/** The drawer's component, which owns what is open in it: the editor only opens it and hands it outcomes. */
+function toolsDrawerOf(harness: RouterTestingHarness): RecipeToolsDrawerComponent {
+  return harness.fixture.debugElement.query(By.directive(RecipeToolsDrawerComponent))
+    .componentInstance as RecipeToolsDrawerComponent;
 }
 
 /** Opens the drawer and chooses a tool from its list, as a creator does. */
@@ -1645,7 +1652,7 @@ describe('RecipeEditorComponent', () => {
       await harness.fixture.whenStable();
       harness.detectChanges();
 
-      expect(component.toolsOpen()).toBeFalse();
+      expect(toolsDrawerOf(harness).toolsOpen()).toBeFalse();
       expect(confirmService.confirm).not.toHaveBeenCalled();
       expect(root.closest('[inert]')).toBeNull();
       // Not destroyed by the close: a tool that is torn down would stop watching a request it had sent.
@@ -1739,14 +1746,14 @@ describe('RecipeEditorComponent', () => {
       expect(indicator()).toContain('Tools has an AI request to come back to');
 
       // Shut the drawer: the request is still open, and the head still says so.
-      component.closeTools();
+      toolsDrawerOf(harness).closeTools();
       harness.detectChanges();
       expect(indicator()).toContain('Tools has an AI request to come back to');
 
       // A second proposal tool with a request of its own: both are counted, and the first stays mounted.
       component.openTools();
       harness.detectChanges();
-      component.chooseTool('ai-adaptation');
+      toolsDrawerOf(harness).chooseTool('ai-adaptation');
       harness.detectChanges();
       const adaptation = harness.fixture.debugElement.query(By.css('cp-recipe-adaptation-request'))
         .componentInstance as {
@@ -1757,8 +1764,8 @@ describe('RecipeEditorComponent', () => {
       expect(indicator()).toContain('Tools has 2 AI requests to come back to');
 
       // Answered — accepted or declined — and it is no longer open.
-      component.onToolDecided('ai-revision');
-      component.onToolDecided('ai-adaptation');
+      toolsDrawerOf(harness).onToolDecided('ai-revision');
+      toolsDrawerOf(harness).onToolDecided('ai-adaptation');
       harness.detectChanges();
       expect(component.openToolRequests()).toBe(0);
       expect(indicator()).toBe('');
@@ -1812,7 +1819,7 @@ describe('RecipeEditorComponent', () => {
       const drawer = openTool(harness, 'Scale');
       const scaling = harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview')).componentInstance;
 
-      component.chooseTool('converting');
+      toolsDrawerOf(harness).chooseTool('converting');
       harness.detectChanges();
 
       // Both are in the drawer; only the chosen one is showing.
@@ -1823,7 +1830,7 @@ describe('RecipeEditorComponent', () => {
       expect(showing[0].querySelector('cp-recipe-unit-conversion')).toBeTruthy();
       expect(getComputedStyle(wrappers.find((wrapper) => wrapper.hidden)!).display).toBe('none');
 
-      component.chooseTool('scaling');
+      toolsDrawerOf(harness).chooseTool('scaling');
       harness.detectChanges();
 
       expect(harness.fixture.debugElement.query(By.css('cp-recipe-scaling-preview')).componentInstance).toBe(scaling);
@@ -5171,7 +5178,7 @@ describe('RecipeEditorComponent', () => {
       expect(component.isDirty()).toBeFalse();
 
       // The page behind is inert, so the drawer says what happened itself — and stays open on the tool.
-      expect(component.toolsOpen()).toBeTrue();
+      expect(toolsDrawerOf(harness).toolsOpen()).toBeTrue();
       expect(drawer.querySelector('.tool-outcome')?.textContent).toContain('The recipe is now at version 4.');
       expect(drawer.querySelector('.tool-outcome')?.getAttribute('role')).toBe('status');
     });
@@ -5188,23 +5195,23 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
       expect(drawer.querySelector('.tool-outcome')?.textContent).toContain('version 4');
 
-      component.chooseTool('scaling');
+      toolsDrawerOf(harness).chooseTool('scaling');
       harness.detectChanges();
-      expect(component.toolOutcome()).toBeNull();
+      expect(toolsDrawerOf(harness).toolOutcome()).toBeNull();
       expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).toBe('');
 
       // And not when the drawer is shut and opened again on the tool that raised it.
-      component.chooseTool('yield-display');
+      toolsDrawerOf(harness).chooseTool('yield-display');
       const again = component.onYieldApplyRequested(YIELD_APPLICATION);
       await waitUntil(() => confirmService.isOpen);
       confirmService.answer(true);
       await again;
-      component.closeTools();
+      toolsDrawerOf(harness).closeTools();
       harness.detectChanges();
       component.openTools();
       harness.detectChanges();
 
-      expect(component.toolOutcome()).toBeNull();
+      expect(toolsDrawerOf(harness).toolOutcome()).toBeNull();
     });
 
     it('says inside the drawer when an apply raised from it did not happen', async () => {
@@ -5218,7 +5225,7 @@ describe('RecipeEditorComponent', () => {
       await applying;
       harness.detectChanges();
 
-      expect(component.toolOutcome()?.isProblem).toBeTrue();
+      expect(toolsDrawerOf(harness).toolOutcome()?.isProblem).toBeTrue();
       expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).not.toBe('');
       expect(component.currentVersionNumber()).toBe(3);
     });
@@ -5239,7 +5246,7 @@ describe('RecipeEditorComponent', () => {
 
       expect(recipeService.updateRecipe).not.toHaveBeenCalled();
       expect(component.currentVersionNumber()).toBe(3);
-      expect(component.toolsOpen()).toBeTrue();
+      expect(toolsDrawerOf(harness).toolsOpen()).toBeTrue();
       expect(drawer.querySelector('.tool-outcome')?.textContent?.trim()).toBe('');
     });
 

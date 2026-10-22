@@ -22,7 +22,6 @@ import {
   CpCardComponent,
   CpComboboxComponent,
   CpComboboxOption,
-  CpDrawerComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFieldRowComponent,
@@ -62,10 +61,7 @@ import {
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
-import { RecipeDietaryAllergenComponent } from './recipe-dietary-allergen.component';
-import { RecipeFoodSafetyComponent } from './recipe-food-safety.component';
 import { RecipeDuplicated } from './recipe-duplicate.component';
-import { RecipeNutritionComponent } from './recipe-nutrition.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
 import { RecipeMediaChanged, RecipeMediaComponent } from './recipe-media.component';
 import { RecipeReadinessComponent } from './recipe-readiness.component';
@@ -81,15 +77,10 @@ import { errorListKey, messagesByGroupKey, messagesByRowKey } from './recipe-fie
 import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
 import { RecipeVersionRestored } from './recipe-restore.component';
 import { RecipeEditorFocus, RecipeEditorHost } from './recipe-editor-host';
-import { RecipeDisplayNormalizationComponent } from './recipe-display-normalization.component';
-import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.component';
-import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
-import { RecipeUnitConversionComponent, UnitConversionApplication } from './recipe-unit-conversion.component';
-import { RecipeYieldReconciliationComponent, YieldApplication } from './recipe-yield-reconciliation.component';
-import { RecipeRevisionRequestComponent } from '../ai/recipe-revision-request.component';
-import { RecipeAdaptationRequestComponent } from '../ai/recipe-adaptation-request.component';
-import { RecipeSubstitutionRequestComponent } from '../ai/recipe-substitution-request.component';
-import { RecipeReviewRequestComponent } from '../ai/recipe-review-request.component';
+import { RecipeToolsDrawerComponent } from './recipe-tools-drawer.component';
+import { TemperatureApplication } from './recipe-temperature-conversion.component';
+import { UnitConversionApplication } from './recipe-unit-conversion.component';
+import { YieldApplication } from './recipe-yield-reconciliation.component';
 
 /**
  * The editor's own working copy of one instruction step — a `key` stable across reorders for
@@ -362,32 +353,6 @@ type RecipeEditorSaveState =
   | { readonly status: 'success' }
   | { readonly status: SaveFailureStatus };
 
-/** The tools that read a saved recipe and open beside it in the drawer. */
-export type RecipeToolId =
-  | 'scaling'
-  | 'converting'
-  | 'yield-display'
-  | 'dietary-allergen'
-  | 'nutrition'
-  | 'food-safety'
-  | 'ai-revision'
-  | 'ai-adaptation'
-  | 'ai-substitution'
-  | 'ai-review';
-
-interface RecipeTool {
-  readonly id: RecipeToolId;
-  readonly label: string;
-  /** One line under the name, saying what the tool is for. */
-  readonly note: string;
-}
-
-/**
- * The tools whose request comes back as a proposal the creator has to answer. Substitution and review are
- * advisory — they return something to read and nothing to decide — so they never leave anything pending.
- */
-const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptation'];
-
 /**
  * The recipe-editor route shell: create at `:workspaceSlug/recipes/new`, edit at
  * `:workspaceSlug/recipes/:recipeId`. Instructions and ingredients are both fully editable
@@ -421,20 +386,8 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
     RecipeReadinessComponent,
     RecipeTestKitchenComponent,
     RecipeIngredientEditorComponent,
-    RecipeDisplayNormalizationComponent,
-    RecipeScalingPreviewComponent,
-    RecipeDietaryAllergenComponent,
-    RecipeNutritionComponent,
-    RecipeFoodSafetyComponent,
-    RecipeTemperatureConversionComponent,
-    RecipeUnitConversionComponent,
-    RecipeYieldReconciliationComponent,
-    RecipeRevisionRequestComponent,
-    RecipeAdaptationRequestComponent,
-    RecipeSubstitutionRequestComponent,
-    RecipeReviewRequestComponent,
+    RecipeToolsDrawerComponent,
     CpBackLinkComponent,
-    CpDrawerComponent,
   ],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
@@ -529,74 +482,15 @@ export class RecipeEditorComponent {
     ...this.areas,
   ]);
 
-  /**
-   * The ten tools, in the order they are listed. Each reads the saved recipe; none is a field of the form.
-   * A tool is mounted the first time it is chosen, so each fetches only when it is first opened.
-   *
-   * The deterministic ones come first and the AI requests after: reading records and working out amounts are
-   * not the same kind of act as asking for a draft, and the order says so.
-   */
-  readonly tools: readonly RecipeTool[] = [
-    { id: 'scaling', label: 'Scale', note: 'See every amount at a different yield.' },
-    { id: 'converting', label: 'Convert', note: 'Change the units of an amount, or the scale of a temperature.' },
-    { id: 'yield-display', label: 'Yield & display', note: "Check the recipe's yield against its amounts, and see how amounts will read." },
-    {
-      id: 'dietary-allergen',
-      label: 'Dietary & allergens',
-      // What it reads, and what kind of answer that is. Never "check whether this recipe is safe": the
-      // records cannot answer that, and a tool list is the first place a creator would read it as a promise.
-      note: 'See what reviewed ingredient records say about allergens and dietary patterns.',
-    },
-    {
-      id: 'nutrition',
-      label: 'Nutrition',
-      // An estimate, and the word is in the note: the figures rest on reference records for the ingredients,
-      // not on an analysis of the dish, and a tool list is where that is first read.
-      note: "See an estimate from your confirmed ingredient references, and what isn't counted yet.",
-    },
-    {
-      id: 'food-safety',
-      label: 'Safety checks',
-      // What it reads and what it cannot do. Never "check whether this is safe": the checks read the recipe's
-      // own words against a fixed list, and nothing here carries the guidance that would settle one.
-      note: 'See the flagged methods and claims in this recipe, and what each one still needs checked.',
-    },
-    { id: 'ai-revision', label: 'Revise with AI', note: 'Ask for changes to one part of the recipe, to review before anything is kept.' },
-    { id: 'ai-adaptation', label: 'Adapt with AI', note: 'Ask for a version adapted to a need, to review before anything is kept.' },
-    { id: 'ai-substitution', label: 'Substitute an ingredient', note: 'Ask what could stand in for one ingredient.' },
-    { id: 'ai-review', label: 'Review with AI', note: 'Ask for a read-through and what it would look at again.' },
-  ];
-
-  /** Whether the tools drawer is showing. */
-  readonly toolsOpen = signal(false);
-
-  /** The tool the drawer is showing, or null while it shows the list. Kept across a close, so it reopens there. */
-  readonly openToolId = signal<RecipeToolId | null>(null);
-
-  /** Every tool chosen at least once. A mounted tool stays mounted, shut drawer or not. */
-  private readonly mountedTools = signal<ReadonlySet<RecipeToolId>>(new Set());
-
-  /** What applying a calculation from the drawer just did, for the drawer itself to say. */
-  private readonly toolOutcomeSignal = signal<{ readonly text: string; readonly isProblem: boolean } | null>(null);
-  readonly toolOutcome = this.toolOutcomeSignal.asReadonly();
-
-  private readonly revisionTool = viewChild(RecipeRevisionRequestComponent);
-  private readonly adaptationTool = viewChild(RecipeAdaptationRequestComponent);
-
-  /** The request ids the creator has answered. A tool keeps showing its answered request until asked for another. */
-  private readonly decidedRequestIds = signal<ReadonlySet<string>>(new Set());
-
-  readonly toolsHeading = computed(() => this.tools.find((tool) => tool.id === this.openToolId())?.label ?? 'Tools');
+  /** The tools drawer, which owns what is open in it. Absent in create mode, where there is nothing to read. */
+  private readonly toolsDrawer = viewChild(RecipeToolsDrawerComponent);
 
   /**
    * How many proposal requests were sent from a tool and have not been answered by the creator. Whether one is
    * still being written, is ready to review, or failed is the tool's to say — from here it is only known that
    * there is something in Tools to come back to.
    */
-  readonly openToolRequests = computed(
-    () => PROPOSAL_TOOL_IDS.filter((id) => this.toolHasOpenRequest(id)).length,
-  );
-
+  readonly openToolRequests = computed(() => this.toolsDrawer()?.openRequestCount() ?? 0);
 
   /**
    * The three surfaces inside Edit. None is ever disabled: they hold the form a creator is filling in, and
@@ -2122,22 +2016,9 @@ export class RecipeEditorComponent {
 
   // ---- Tools ----
 
-  toolMounted(id: RecipeToolId): boolean {
-    return this.mountedTools().has(id);
-  }
-
-  /** Whether this tool holds a proposal request that was sent and has not been answered. */
-  toolHasOpenRequest(id: RecipeToolId): boolean {
-    if (!PROPOSAL_TOOL_IDS.includes(id)) return false;
-
-    const requestId = this.toolRequestId(id);
-
-    return requestId !== null && !this.decidedRequestIds().has(requestId);
-  }
-
   /**
-   * Open the drawer, on the list or on the tool that was last open. Refused before the first save: every tool
-   * reads a saved recipe, and the line the control is described by says so.
+   * Open the tools drawer, on the list or on the tool that was last open. Refused before the first save: every
+   * tool reads a saved recipe, and the line the control is described by says so.
    */
   openTools(): void {
     if (this.isCreateMode) return;
@@ -2145,53 +2026,7 @@ export class RecipeEditorComponent {
     // The drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
     // button in every browser, so the control is focused here rather than left to chance.
     document.getElementById('recipe-tools-control')?.focus();
-    this.toolOutcomeSignal.set(null);
-    this.toolsOpen.set(true);
-  }
-
-  /**
-   * Shut the drawer. Nothing is accepted, discarded or abandoned by this: every opened tool stays mounted, so
-   * a running request is still watched and an unanswered proposal is still there. So there is nothing to ask.
-   */
-  closeTools(): void {
-    this.toolsOpen.set(false);
-  }
-
-  chooseTool(id: RecipeToolId): void {
-    this.mountedTools.update((mounted) => new Set([...mounted, id]));
-    this.toolOutcomeSignal.set(null);
-    this.openToolId.set(id);
-    // The button that was pressed has just gone with the list, and the page behind is inert, so focus would
-    // otherwise be lost to the body.
-    this.focusInDrawer('recipe-tools-all');
-  }
-
-  showToolList(): void {
-    const leaving = this.openToolId();
-    this.openToolId.set(null);
-    if (leaving !== null) this.focusInDrawer(`recipe-tool-choice-${leaving}`);
-  }
-
-  /** An AI tool's request was answered — accepted or declined — so it is no longer open. */
-  onToolDecided(id: RecipeToolId): void {
-    const requestId = this.toolRequestId(id);
-    if (requestId !== null) this.decidedRequestIds.update((decided) => new Set([...decided, requestId]));
-  }
-
-  private toolRequestId(id: RecipeToolId): string | null {
-    switch (id) {
-      case 'ai-revision':
-        return this.revisionTool()?.requestId() ?? null;
-      case 'ai-adaptation':
-        return this.adaptationTool()?.requestId() ?? null;
-      default:
-        return null;
-    }
-  }
-
-  /** From the document, not this element: an open drawer moves its content to <body>. */
-  private focusInDrawer(elementId: string): void {
-    afterNextRender(() => document.getElementById(elementId)?.focus(), { injector: this.injector });
+    this.toolsDrawer()?.open();
   }
 
   /**
@@ -2394,7 +2229,7 @@ export class RecipeEditorComponent {
       // never as a second version, because there is not one.
       const text = `${successText} The recipe is now at version ${outcome.recipe.currentVersion?.versionNumber ?? '—'}.`;
       this.noticeSignal.set({ text, isProblem: false, recipeLink: null });
-      this.toolOutcomeSignal.set({ text, isProblem: false });
+      this.toolsDrawer()?.showOutcome({ text, isProblem: false });
       return;
     }
 
@@ -2402,7 +2237,7 @@ export class RecipeEditorComponent {
     // is the right next step, and dropped where it is not.
     const problem = this.applyProblemText(outcome.status);
     this.noticeSignal.set({ text: problem, isProblem: true, recipeLink: null });
-    this.toolOutcomeSignal.set({ text: problem, isProblem: true });
+    this.toolsDrawer()?.showOutcome({ text: problem, isProblem: true });
     if (outcome.status !== 'unavailable') this.clearPendingApplyKey();
   }
 

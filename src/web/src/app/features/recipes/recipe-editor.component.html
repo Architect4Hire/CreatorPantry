@@ -394,206 +394,25 @@
       </cp-tabs>
     </ng-template>
 
-    <!-- The tools, beside the recipe they read. One drawer for all seven: it opens on the list, and on the
-         tool that was last open after that.
-
-         Every tool that has been opened stays alive while the drawer is shut, exactly as a tab panel that has
-         been visited stays alive while another tab shows: a request that is running goes on being watched, and
-         a proposal nobody has answered is still unanswered when the drawer opens again. So closing accepts
-         nothing, discards nothing and abandons nothing, and has nothing to ask. Each tool is mounted the first
-         time it is chosen, so opening Tools starts no request of its own. -->
+    <!-- The tools that read the saved recipe, opened from the Tools control in the page head. The drawer owns what
+         is open and what has been mounted; the apply of a calculation is the editor's, because the recipe and
+         its concurrency token belong here. -->
     @if (!isCreateMode) {
-      <cp-drawer
-        [open]="toolsOpen()"
-        [heading]="toolsHeading()"
-        [description]="
-          openToolId() === null
-            ? 'Each works from the recipe as last saved. Nothing changes until you accept or apply it.'
-            : ''
-        "
-        size="wide"
-        closeLabel="Close tools"
-        (closeRequested)="closeTools()"
-      >
-        @if (openToolId() === null) {
-          <ul class="tool-list" role="list">
-            @for (item of tools; track item.id) {
-              <li>
-                <button
-                  type="button"
-                  class="tool-choice"
-                  [id]="'recipe-tool-choice-' + item.id"
-                  (click)="chooseTool(item.id)"
-                >
-                  <span class="tool-choice-name">{{ item.label }}</span>
-                  <span class="tool-choice-note">{{ item.note }}</span>
-                  @if (toolHasOpenRequest(item.id)) {
-                    <cp-status-pill tone="progress">A request to come back to</cp-status-pill>
-                  }
-                </button>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="tool-back">
-            <button cpButton id="recipe-tools-all" type="button" variant="text" size="sm" (click)="showToolList()">
-              <span aria-hidden="true">←</span> All tools
-            </button>
-          </p>
-        }
-
-        <!-- What applying a calculation just did. Said here as well as on the page, because the page behind
-             an open drawer is inert and its own notice cannot be read or heard until the drawer is shut.
-             Always present, so the sentence is announced when it arrives. -->
-        <cp-notice
-          class="tool-outcome"
-          role="status"
-          [tone]="toolOutcome()?.isProblem ? 'error' : 'success'"
-          [quiet]="toolOutcome() === null"
-          >{{ toolOutcome()?.text }}</cp-notice
-        >
-
-        @if (toolMounted('scaling')) {
-          <div class="tool" [hidden]="openToolId() !== 'scaling'">
-            <cp-recipe-scaling-preview
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [savedIngredientGroups]="ingredientGroups()"
-              [recipeYieldQuantity]="savedYieldQuantity()"
-              [recipeYieldText]="savedYieldText()"
-              [editorIsDirty]="isDirty()"
-            />
-          </div>
-        }
-        @if (toolMounted('converting')) {
-          <div class="tool" [hidden]="openToolId() !== 'converting'">
-            <cp-recipe-unit-conversion
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [savedIngredientGroups]="ingredientGroups()"
-              [editorIsDirty]="isDirty()"
-              (applyRequested)="onUnitConversionApplyRequested($event)"
-            />
-
-            <hr class="conversion-divider" />
-
-            <cp-recipe-temperature-conversion
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [savedInstructionGroups]="savedInstructionGroups()"
-              [editorIsDirty]="isDirty()"
-              (applyRequested)="onTemperatureApplyRequested($event)"
-            />
-          </div>
-        }
-        @if (toolMounted('yield-display')) {
-          <div class="tool" [hidden]="openToolId() !== 'yield-display'">
-            <cp-recipe-yield-reconciliation
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [yieldUnitId]="savedYieldUnitId()"
-              [savedYieldQuantity]="savedYieldQuantity()"
-              [editorIsDirty]="isDirty()"
-              (applyRequested)="onYieldApplyRequested($event)"
-            />
-
-            <hr class="conversion-divider" />
-
-            <cp-recipe-display-normalization
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [savedIngredientGroups]="ingredientGroups()"
-            />
-          </div>
-        }
-        @if (toolMounted('dietary-allergen')) {
-          <div class="tool" [hidden]="openToolId() !== 'dietary-allergen'">
-            <cp-recipe-dietary-allergen
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [editorIsDirty]="isDirty()"
-            />
-          </div>
-        }
-        @if (toolMounted('nutrition')) {
-          <div class="tool" [hidden]="openToolId() !== 'nutrition'">
-            <cp-recipe-nutrition
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [savedIngredientGroups]="ingredientGroups()"
-              [editorIsDirty]="isDirty()"
-            />
-          </div>
-        }
-        @if (toolMounted('food-safety')) {
-          <div class="tool" [hidden]="openToolId() !== 'food-safety'">
-            <cp-recipe-food-safety
-              [workspaceSlug]="workspaceSlug"
-              [recipeId]="recipeIdOrEmpty"
-              [sourceVersionNumber]="currentVersionNumber()"
-              [editorIsDirty]="isDirty()"
-            />
-          </div>
-        }
-        @if (toolMounted('ai-revision')) {
-          <div class="tool" [hidden]="openToolId() !== 'ai-revision'">
-            @if (currentVersionId(); as versionId) {
-              <cp-recipe-revision-request
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [currentVersionId]="versionId"
-                [editorIsDirty]="isDirty()"
-                (decided)="onToolDecided('ai-revision')"
-              />
-            }
-          </div>
-        }
-        @if (toolMounted('ai-adaptation')) {
-          <div class="tool" [hidden]="openToolId() !== 'ai-adaptation'">
-            @if (currentVersionId(); as versionId) {
-              <cp-recipe-adaptation-request
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [currentVersionId]="versionId"
-                [editorIsDirty]="isDirty()"
-                (decided)="onToolDecided('ai-adaptation')"
-              />
-            }
-          </div>
-        }
-        @if (toolMounted('ai-substitution')) {
-          <div class="tool" [hidden]="openToolId() !== 'ai-substitution'">
-            @if (currentVersionId(); as versionId) {
-              <cp-recipe-substitution-request
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [currentVersionId]="versionId"
-                [editorIsDirty]="isDirty()"
-                [ingredientGroups]="ingredientGroups()"
-              />
-            }
-          </div>
-        }
-        @if (toolMounted('ai-review')) {
-          <div class="tool" [hidden]="openToolId() !== 'ai-review'">
-            @if (currentVersionId(); as versionId) {
-              <cp-recipe-review-request
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [currentVersionId]="versionId"
-                [editorIsDirty]="isDirty()"
-              />
-            }
-          </div>
-        }
-      </cp-drawer>
+      <cp-recipe-tools-drawer
+        [workspaceSlug]="workspaceSlug"
+        [recipeId]="recipeIdOrEmpty"
+        [currentVersionNumber]="currentVersionNumber()"
+        [currentVersionId]="currentVersionId()"
+        [savedIngredientGroups]="ingredientGroups()"
+        [savedInstructionGroups]="savedInstructionGroups()"
+        [savedYieldQuantity]="savedYieldQuantity()"
+        [savedYieldText]="savedYieldText()"
+        [savedYieldUnitId]="savedYieldUnitId()"
+        [editorIsDirty]="isDirty()"
+        (unitConversionApplyRequested)="onUnitConversionApplyRequested($event)"
+        (temperatureApplyRequested)="onTemperatureApplyRequested($event)"
+        (yieldApplyRequested)="onYieldApplyRequested($event)"
+      />
     }
     }
   }
