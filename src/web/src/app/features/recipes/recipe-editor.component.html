@@ -494,6 +494,8 @@
         <cp-notice tone="error" role="alert">Couldn't save. Please try again.</cp-notice>
       }
     }
+    <!-- The banner above is the live region, so this one does not announce a second time. -->
+    <cp-validation-summary [issues]="summaryIssues()" [labelOf]="fieldLabelOf" [announce]="false" (issueSelected)="revealIssue($event)" />
 </ng-template>
 
 <!-- The form's sections, each a component of its own over the one RecipeFormState. The tabbed page places them in its

@@ -206,6 +206,73 @@ describe('RecipeFormState', () => {
     });
   });
 
+  describe('the form’s own rules', () => {
+    it('needs a name to be kept, and says so only once the creator has left the field or tried to save', () => {
+      const form = createForm();
+
+      expect(form.validator.canSubmit()).toBeFalse();
+      expect(form.fieldError('title')).toBe('');
+      expect(form.errorPaths()).toEqual([]);
+
+      form.validator.touch('title');
+      expect(form.fieldError('title')).toBe('Give the recipe a name, so it can be kept.');
+      expect(form.errorPaths()).toEqual(['title']);
+
+      form.title.set('Soup');
+      expect(form.validator.canSubmit()).toBeTrue();
+      expect(form.fieldError('title')).toBe('');
+    });
+
+    it('shows every rule once a save has been tried', () => {
+      const form = createForm();
+
+      form.validator.attempt();
+
+      expect(form.fieldError('title')).not.toBe('');
+    });
+
+    it('puts the server’s word and its own rule on the same field, the rule first', () => {
+      const form = createForm();
+      form.validator.attempt();
+      form.fieldErrors.set({ title: ['Title is taken.'] });
+
+      expect(form.validator.issuesFor('title', 'error').map((issue) => issue.source)).toEqual(['client', 'server']);
+      expect(form.errorPaths()).toEqual(['title']);
+    });
+
+    it('counts an indexed refusal by the key the server sent, once however many messages it carries', () => {
+      const form = createForm();
+      form.title.set('Soup');
+      form.fieldErrors.set({ 'ingredientGroups[0].ingredients[2].quantity': ['Too big.', 'Not a number.'], instructions: ['Too short.'] });
+
+      expect(form.errorPaths()).toEqual(['ingredientGroups[0].ingredients[2].quantity', 'instructions']);
+    });
+
+    it('warns that a unit needs a quantity while the quantity is missing, and never blocks a save for it', () => {
+      const form = createForm();
+      form.title.set('Soup');
+
+      form.yieldUnitId.set('u-loaf');
+      expect(form.fieldWarning('yieldUnitId')).toContain('Add a yield quantity as well');
+      expect(form.fieldError('yieldUnitId')).toBe('');
+      expect(form.validator.canSubmit()).toBeTrue();
+      expect(form.errorPaths()).toEqual([]);
+
+      form.yieldQuantity.set(2);
+      expect(form.fieldWarning('yieldUnitId')).toBe('');
+    });
+
+    it('warns that a serving size needs a unit, and stops once there is one', () => {
+      const form = createForm();
+
+      form.servingSize.set(250);
+      expect(form.fieldWarning('servingSize')).toContain('Pick a yield unit as well');
+
+      form.yieldUnitId.set('u-grams');
+      expect(form.fieldWarning('servingSize')).toBe('');
+    });
+  });
+
   describe('field errors', () => {
     it('reads the first message for a field, and nothing once cleared', () => {
       const form = createForm();

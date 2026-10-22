@@ -3,7 +3,6 @@
     <textarea
       id="recipe-notes"
       placeholder="Tweaks to try next time, variations, things you learned"
-      [attr.aria-invalid]="form.fieldError('notes') ? 'true' : null"
       [ngModel]="form.notes()"
       (ngModelChange)="form.notes.set($event)"
       name="notes"
@@ -14,7 +13,6 @@
     <textarea
       id="recipe-storage-notes"
       placeholder="e.g. Store airtight, reheat gently"
-      [attr.aria-invalid]="form.fieldError('storageNotes') ? 'true' : null"
       [ngModel]="form.storageNotes()"
       (ngModelChange)="form.storageNotes.set($event)"
       name="storageNotes"

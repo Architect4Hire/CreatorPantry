@@ -1868,6 +1868,8 @@ describe('RecipeEditorComponent', () => {
       component.form.title.set('x'.repeat(300));
       await component.save();
       harness.detectChanges();
+      // `cp-field` marks the control invalid after the render, not in the template.
+      await harness.fixture.whenStable();
 
       expect(component.form.fieldError('title')).toBe('Title is too long.');
       const titleInput = harness.routeNativeElement!.querySelector('#recipe-title') as HTMLInputElement;
@@ -2007,6 +2009,60 @@ describe('RecipeEditorComponent', () => {
       // Headnote is in Details, above Timing's yield field, so it is the one a creator reading down the
       // page reaches first — not whichever key the server happened to serialise first.
       expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#recipe-headnote'));
+    });
+
+    it('lists every error in a summary and takes the creator to the one they pick', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { headnote: ['Too long.'], 'instructions[0].steps[0].text': ['Too short.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      spyOn(Element.prototype, 'scrollIntoView');
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      const summary = harness.routeNativeElement!.querySelector('cp-validation-summary')!;
+      expect(summary.querySelector('h2')!.textContent).toContain('2 problems to fix');
+      const lines = Array.from(summary.querySelectorAll('button')).map((button) => [
+        button.querySelector('.where')!.textContent,
+        button.querySelector('.message')!.textContent,
+      ]);
+      expect(lines).toEqual([
+        ['Headnote', 'Too long.'],
+        ['Instructions', 'Too short.'],
+      ]);
+      // The save banner is the live region; the summary does not announce the same refusal a second time.
+      expect(summary.querySelector('[role="status"]')).toBeNull();
+      expect(component.selectedEditTabId()).toBe('general');
+
+      summary.querySelectorAll('button')[1].click();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+
+      expect(component.selectedEditTabId()).toBe('instructions');
+    });
+
+    it('names a blank title once the creator leaves the field, and not before', async () => {
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeServiceSpy());
+      const title = harness.routeNativeElement!.querySelector<HTMLInputElement>('#recipe-title')!;
+      const field = title.closest('cp-field')!;
+
+      expect(field.textContent).not.toContain('Give the recipe a name');
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary section')).toBeNull();
+
+      title.dispatchEvent(new Event('blur'));
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+
+      expect(field.textContent).toContain('Give the recipe a name, so it can be kept.');
+      expect(title.getAttribute('aria-invalid')).toBe('true');
+      expect(component.canSave()).toBeFalse();
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary')!.textContent).toContain('1 problem to fix');
     });
 
     it('leaves the banner to speak for an error on a field that has no control of its own', async () => {
@@ -6029,15 +6085,36 @@ describe('RecipeEditorComponent', () => {
       await settleUnits(harness, component);
       revealMeasuredBatch(harness);
 
-      // Nothing to say while nothing is wrong: no hint under the box until there is a problem.
+      // Nothing to say while nothing is wrong: no hint or warning under the box until there is a problem.
       expect(component.form.yieldUnitHint()).toBe('');
+      expect(component.form.fieldWarning('yieldUnitId')).toBe('');
 
+      // A warning, not an error: it shows while the creator is still filling in the other half, and blocks nothing.
       pickUnit(harness, 'u-servings');
-      expect(component.form.yieldUnitHint()).toContain('Add a yield quantity as well');
+      expect(component.form.fieldWarning('yieldUnitId')).toContain('Add a yield quantity as well');
+      expect(component.form.fieldError('yieldUnitId')).toBe('');
 
       component.form.yieldQuantity.set(4);
       harness.detectChanges();
-      expect(component.form.yieldUnitHint()).not.toContain('Add a yield quantity');
+      expect(component.form.fieldWarning('yieldUnitId')).toBe('');
+    });
+
+    it('shows the yield pairing as a warning beside the unit, and keeps Save available', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      await settleUnits(harness, component);
+      revealMeasuredBatch(harness);
+      component.form.title.set('Soup');
+
+      pickUnit(harness, 'u-servings');
+      await harness.fixture.whenStable();
+
+      const field = harness.routeNativeElement!.querySelector('#recipe-yield-unit')!.closest('cp-field')!;
+      expect(field.querySelector('.warning')!.textContent).toContain('Add a yield quantity as well');
+      expect(field.querySelector('[role="alert"]')).toBeNull();
+      expect(component.canSave()).toBeTrue();
+      // Advice stays beside its field; it is not a line in the summary.
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary section')).toBeNull();
     });
 
     /**
@@ -6056,12 +6133,13 @@ describe('RecipeEditorComponent', () => {
       await settleUnits(harness, component);
 
       expect(component.form.servingSizeHint()).toBe('');
+      expect(component.form.fieldWarning('servingSize')).toBe('');
 
       // Entered without one, which the server refuses (CK_Recipes_ServingSize_RequiresYieldUnit). Said here
       // rather than learned from a refused save.
       component.form.servingSize.set(250);
       harness.detectChanges();
-      expect(component.form.servingSizeHint()).toContain('Pick a yield unit as well');
+      expect(component.form.fieldWarning('servingSize')).toContain('Pick a yield unit as well');
 
       // And once there is a unit, the hint names it — a bare 250 is otherwise ambiguous between the units one
       // field away.
@@ -6070,6 +6148,7 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
       // The unit is the placeholder's to say, not a line of hint beneath the box.
       expect(component.form.servingSizeHint()).toBe('');
+      expect(component.form.fieldWarning('servingSize')).toBe('');
       expect(component.form.servingSizePlaceholder()).toContain('grams');
     });
 

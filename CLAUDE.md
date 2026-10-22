@@ -178,7 +178,7 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 - The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpDrawerComponent`, `CpLightboxComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, `CpComboboxComponent`, `CpFormSectionComponent`,
   `CpFieldRowComponent`, `CpChoiceGroupComponent`, `CpNoticeComponent`, `CpPageHeadComponent`, `CpBackLinkComponent`,
   `CpCardGridComponent`, `CpBoardComponent`, `CpBoardColumnComponent`, `CpMediaCardComponent`, `CpTopicCardComponent`, `CpFactsComponent`, `CpFactComponent`,
-  `CpSearchFieldComponent`, `CpSelectFieldComponent`, `CpChipGroupComponent`, `CpChipComponent`, and `CpStepperComponent`.
+  `CpSearchFieldComponent`, `CpSelectFieldComponent`, `CpChipGroupComponent`, `CpChipComponent`, `CpStepperComponent`, and `CpValidationSummaryComponent`.
 - Import `tokens.css`, `themes.css`, and `global.css` once, in that order, from `@creator-pantry/ui/styles/`.
 - `src/web/DESIGN-SYSTEM.md`, the library styles, and the showcase are the visual source of truth. Do not invent a separate visual reference.
 - The browser never stores access tokens in local or session storage.

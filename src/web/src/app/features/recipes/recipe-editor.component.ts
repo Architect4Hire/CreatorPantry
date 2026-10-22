@@ -27,6 +27,8 @@ import {
   CpTabDefinition,
   CpTabPanelComponent,
   CpTabsComponent,
+  CpValidationIssue,
+  CpValidationSummaryComponent,
 } from '@creator-pantry/ui';
 import { injectRouteTitle } from '../../core/route-title';
 
@@ -182,6 +184,32 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
 ];
 
 /**
+ * What a field is called in the validation summary: the label the creator sees on it. Keyed like
+ * {@link FIELD_LOCATIONS}, so an indexed line reads as the list it is in.
+ */
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  title: 'Title',
+  description: 'Description',
+  headnote: 'Headnote',
+  attributionText: 'Attribution',
+  sourceUrl: 'Source URL',
+  tags: 'Tags',
+  notes: 'Notes',
+  storageNotes: 'Storage notes',
+  prepTimeMinutes: 'Prep time',
+  cookTimeMinutes: 'Cook time',
+  restTimeMinutes: 'Rest time',
+  totalTimeMinutes: 'Total time',
+  yieldText: 'Yield, in your own words',
+  servingCount: 'Serves',
+  yieldQuantity: 'Batch yield',
+  yieldUnitId: 'Yield unit',
+  servingSize: 'One serving is',
+  ingredientGroups: 'Ingredients',
+  instructions: 'Instructions',
+};
+
+/**
  * One line about a command that landed beside the form — a restore, a copy the creator chose not to follow,
  * or a lifecycle move. `recipeLink` is a recipe the line points at, so a copy stays reachable without
  * repeating the command that made it.
@@ -252,6 +280,7 @@ type RecipeEditorSaveState =
     CpStatusPillComponent,
     CpTabPanelComponent,
     CpTabsComponent,
+    CpValidationSummaryComponent,
     RecipeHistoryComponent,
     RecipeMediaComponent,
     RecipePublishPanelComponent,
@@ -399,7 +428,7 @@ export class RecipeEditorComponent {
    */
   readonly editTabs = computed<CpTabDefinition[]>(() =>
     RecipeEditorComponent.EDIT_TABS.map((tab) => {
-      const keys = Object.keys(this.form.fieldErrors());
+      const keys = this.form.errorPaths();
       const onThisTab = FIELD_LOCATIONS.filter((location) => location.tabId === tab.id).map((location) => location.field);
       const problems = keys.filter((key) => onThisTab.includes(errorListKey(key))).length;
 
@@ -649,7 +678,7 @@ export class RecipeEditorComponent {
 
   /** An item with the number of problems the last save left across the sections it stands for, said in words. */
   private withProblemCount(item: CpAnchorNavItem, sectionIds: readonly string[]): CpAnchorNavItem {
-    const keys = Object.keys(this.form.fieldErrors());
+    const keys = this.form.errorPaths();
     const fields = FIELD_LOCATIONS.filter((location) => sectionIds.includes(location.sectionId)).map((location) => location.field);
     const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
 
@@ -695,7 +724,7 @@ export class RecipeEditorComponent {
    * back, so the control is disabled with the reason on it rather than left to fail.
    */
   readonly canSave = computed(
-    () => this.form.title().trim().length > 0 && this.saveStateSignal().status !== 'saving' && !this.isArchived(),
+    () => this.form.validator.canSubmit() && this.saveStateSignal().status !== 'saving' && !this.isArchived(),
   );
 
   /**
@@ -795,13 +824,36 @@ export class RecipeEditorComponent {
   private revealFirstFieldError(): void {
     // Read through errorListKey, so an indexed key lands on the tab its list is on: the server reports a
     // refused line as ingredientGroups[0].ingredients[2].quantity, which no exact match would find.
-    const lists = new Set(Object.keys(this.form.fieldErrors()).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     // A hosted editor reaches only a field it shows; the rest are named in hiddenProblemSections.
     const target = FIELD_LOCATIONS.find(
       (location) => lists.has(location.field) && (!this.host || this.hostedSections.includes(location.sectionId)),
     );
     if (!target) return;
 
+    this.revealLocation(target);
+  }
+
+  /**
+   * Takes the creator to the field an issue is about. What the validation summary does when one of its lines is
+   * chosen: the same reveal a refused save performs for the first, for whichever one was picked.
+   *
+   * A path this form cannot locate — or a field a hosted editor is not showing — is left alone, as it is there.
+   */
+  protected revealIssue(issue: CpValidationIssue): void {
+    const target = this.locationOf(issue.path);
+    if (target) this.revealLocation(target);
+  }
+
+  private locationOf(path: string): FieldLocation | undefined {
+    const field = errorListKey(path);
+
+    return FIELD_LOCATIONS.find(
+      (location) => location.field === field && (!this.host || this.hostedSections.includes(location.sectionId)),
+    );
+  }
+
+  private revealLocation(target: FieldLocation): void {
     this.selectedAreaId.set('edit');
     this.selectedEditTabId.set(target.tabId);
 
@@ -853,8 +905,7 @@ export class RecipeEditorComponent {
    * always reads the same first thing.
    */
   readonly validationBannerText = computed(() => {
-    const errors = this.form.fieldErrors();
-    const lists = new Set(Object.keys(errors).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     const located = FIELD_LOCATIONS.some((location) => lists.has(location.field));
 
     if (this.host) {
@@ -878,12 +929,24 @@ export class RecipeEditorComponent {
    */
   readonly hiddenProblemSections = computed<readonly string[]>(() => {
     if (!this.host) return [];
-    const lists = new Set(Object.keys(this.form.fieldErrors()).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     const sections = FIELD_LOCATIONS.filter(
       (location) => lists.has(location.field) && !this.hostedSections.includes(location.sectionId),
     ).map((location) => location.sectionId);
     return [...new Set(sections)].map((id) => SECTION_HEADINGS[id]);
   });
+
+  /**
+   * The errors the summary lists: every one showing that this editor can take the creator to. Warnings stay
+   * beside their own field — advice that appears and goes while the creator types is not worth a list — and an
+   * error on a part a hosted editor is not showing is named by {@link hiddenProblemSections} instead.
+   */
+  protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() =>
+    this.form.validator.visibleErrors().filter((issue) => this.locationOf(issue.path) !== undefined),
+  );
+
+  /** The field's own label for the summary, or nothing for a path this form does not name. */
+  protected readonly fieldLabelOf = (path: string): string => FIELD_LABELS[errorListKey(path)] ?? '';
 
   retryLoad(): void {
     void this.loadDetail();
@@ -1233,8 +1296,9 @@ export class RecipeEditorComponent {
   async flush(): Promise<boolean> {
     if (!this.isDirty()) return true;
     if (this.saveStateSignal().status === 'saving') return false;
-    if (this.form.title().trim().length === 0) {
-      this.form.fieldErrors.set({ title: ['Give the recipe a name, so it can be kept.'] });
+    if (!this.form.validator.canSubmit()) {
+      // The form's own rules say what is missing; this only makes them show.
+      this.form.validator.attempt();
       this.saveStateSignal.set({ status: 'validation_failed' });
       this.revealFirstFieldError();
       return false;

@@ -102,6 +102,24 @@ A library's toolbar holds `cp-search-field` and `cp-select-field`, each around t
 
 It is a read-out. A row is not a link and takes no click: a flow moves by its own Back and Continue, which know what has to be saved and what the step still needs, and a stepper that let the creator jump would have to know that too. Use it for a flow whose steps are taken in order. Do not use it as tabs, as page navigation, or as a progress bar — `cp-progress` is the bar, and the two sit together. The consumer owns the `<nav>` it sits in and whether it folds away when the page is narrow.
 
+### Telling the creator what is wrong
+
+A form says what is wrong in three places, and they are one stream of messages: the field's own line, a count on the tab or section holding it, and a summary that gathers them. `FormValidator` (`src/app/core/forms/`) is where they come from, and it is why a message is the same sentence in all three.
+
+**One issue shape.** A `FormIssue` is `{ path, severity, code, message, source }`. `path` is the server's own key (`title`, `ingredientGroups[0].ingredients[2].quantity`), so a refused save lands on the field it names with no translation table. A client rule and a server refusal produce the same shape, and a field never asks which it was.
+
+**Three severities, one of which blocks.** An `error` stops a save; a `warning` and an `info` never do. A warning says something the creator may want to know — a total that disagrees with its parts, an unusually large batch — and leaves the decision to them. Only a *client* error blocks: the server stays the authority, so a client rule that passes proves nothing and a refusal is shown whatever the client thought. Rules are conveniences that answer sooner or say something the server does not; do not mirror a server validator into them, since two copies of a rule drift.
+
+**When a message shows.** A warning shows as soon as it is true, because live help is its whole point. A client error shows after the creator tries to save or leaves that field, so a blank form is not shouted at before anyone has typed. A server error shows until the creator changes that field.
+
+**The three parts.**
+
+- `CpFieldComponent` takes `error` and `warning`. An error is a disc and `role="alert"`, marks the control `aria-invalid`, and is described to it; a warning is a triangle, is announced as "Heads up:", is described to the control, and never marks it invalid. The two differ in shape and not only in hue, and neither relies on colour alone.
+- `CpFormSectionComponent`'s `problem` is still the server's word about a whole part, and a tab or `cp-anchor-nav` item carries `validator.countUnder(prefix)`.
+- `CpValidationSummaryComponent` gathers the visible issues. Errors are headed with their count and are announced; advice sits below under its own heading, so a form with only advice still reads as one that can be saved. Each line is a button, and the form — which alone knows where its fields are — selects the tab, scrolls and focuses. A form that has just refused a save either calls `focus()` on the summary or, as the recipe editor does, reveals the first field itself; a form whose save banner is already a live region sets `announce` to false so one refusal is not read out twice. The recipe editor lists only errors in its summary: a warning appears and goes while the creator types, which is not worth a line in a list, so it stays beside its own field.
+
+The summary is presentation only. Which issues exist, what each is called and what selecting one does are the form's, which is also why it takes `labelOf` rather than reading labels from anywhere.
+
 ### A chip or a select
 
 A filter in a toolbar is one of two controls, and what decides is how many answers it has and where they come from.

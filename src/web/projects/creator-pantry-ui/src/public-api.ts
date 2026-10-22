@@ -33,3 +33,4 @@ export * from './lib/components/facts.component';
 export * from './lib/components/toolbar-field.component';
 export * from './lib/components/chip.component';
 export * from './lib/components/stepper.component';
+export * from './lib/components/validation-summary.component';

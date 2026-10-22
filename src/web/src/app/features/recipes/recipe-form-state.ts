@@ -12,6 +12,8 @@ import {
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
+import { FormRules, custom, required, warn } from '../../core/forms/form-rules';
+import { FormValidator } from '../../core/forms/form-validator';
 import { ReferenceService } from '../../services/reference.service';
 import { EditableIngredientGroup, toEditableGroups } from './recipe-ingredient-editor.component';
 import {
@@ -24,6 +26,43 @@ import {
 } from './recipe-editor.model';
 import { messagesByGroupKey, messagesByRowKey } from './recipe-field-errors';
 import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
+
+/** The part of the form the client's own rules read. */
+interface RecipeValidationModel {
+  readonly title: string;
+  readonly yieldQuantity: number | null;
+  readonly yieldUnitId: string | null;
+  readonly servingSize: number | null;
+}
+
+/**
+ * What this client says about the form before the server has been asked.
+ *
+ * Deliberately short. The server validates every field and stays the authority; a rule is here only to answer
+ * sooner (a recipe needs a name to be kept at all) or to say something a refusal would otherwise teach too late.
+ *
+ * The two pairings are warnings and not errors: the server does refuse a unit with no quantity
+ * (`CK_Recipes_YieldUnit_RequiresQuantity`) and a serving size with no unit
+ * (`CK_Recipes_ServingSize_RequiresYieldUnit`), but while the creator is still filling in the other half of the
+ * pair nothing is wrong yet, and a form that blocks on it would stop them in the middle of a thought.
+ */
+const RECIPE_RULES: FormRules<RecipeValidationModel> = {
+  title: [required('Give the recipe a name, so it can be kept.')],
+  yieldUnitId: [
+    warn(
+      custom<RecipeValidationModel>('yieldUnitNeedsQuantity', (unitId, { model }) =>
+        unitId !== null && model.yieldQuantity === null ? 'Add a yield quantity as well — a unit on its own cannot be saved.' : null,
+      ),
+    ),
+  ],
+  servingSize: [
+    warn(
+      custom<RecipeValidationModel>('servingSizeNeedsUnit', (size, { model }) =>
+        size !== null && model.yieldUnitId === null ? 'Pick a yield unit as well — a serving size needs something to be measured in.' : null,
+      ),
+    ),
+  ],
+};
 
 /**
  * The recipe form's working copy: what the creator has typed, what follows from it, and what it would submit.
@@ -184,6 +223,23 @@ export class RecipeFormState {
    */
   readonly servingSize = signal<number | null>(null);
 
+  private readonly validationModel = computed<RecipeValidationModel>(() => ({
+    title: this.title(),
+    yieldQuantity: this.yieldQuantity(),
+    yieldUnitId: this.yieldUnitId(),
+    servingSize: this.servingSize(),
+  }));
+
+  /**
+   * Everything the form has to say about itself: this client's rules and warnings and the server's last refusal
+   * ({@link fieldErrors}) as one list. Fields read their message from here through {@link fieldError} and
+   * {@link fieldWarning}, and the editor counts, locates and summarises from it.
+   *
+   * It reads {@link fieldErrors} rather than keeping its own copy, so every place that writes a refusal keeps
+   * doing so as before.
+   */
+  readonly validator = new FormValidator<RecipeValidationModel>(RECIPE_RULES, this.validationModel, this.fieldErrors);
+
   /**
    * What the yield-unit box reads, which is display only and never submitted.
    *
@@ -245,13 +301,8 @@ export class RecipeFormState {
       return 'This recipe records a yield unit the list could not name. It is kept as saved.';
     }
 
-    // Stated up front rather than discovered through a refused save: the server requires both halves of the
-    // pair, and a creator who picks a unit has no way to know that from the fields alone.
-    if (this.yieldUnitId() !== null && this.yieldQuantity() === null) {
-      return 'Add a yield quantity as well — a unit on its own cannot be saved.';
-    }
-
-    // Nothing to say while nothing is wrong: what the unit is for is plain from the fields either side of it.
+    // The pairing with the quantity is a warning on the field now, see RECIPE_RULES. Nothing else to say while
+    // nothing is wrong: what the unit is for is plain from the fields either side of it.
     return '';
   });
 
@@ -274,12 +325,8 @@ export class RecipeFormState {
         : 'The unit list cannot be read, so this recipe’s yield unit cannot be named. A serving size is still measured in it.';
     }
 
-    if (this.servingSize() !== null && this.yieldUnitId() === null) {
-      return 'Pick a yield unit as well — a serving size needs something to be measured in.';
-    }
-
     // Nothing to say while nothing is wrong. Which unit a serving is measured in is the placeholder's to say, see
-    // servingSizePlaceholder, and the missing-unit case is said above the moment a size is entered without one.
+    // servingSizePlaceholder, and the missing-unit case is a warning on the field, see RECIPE_RULES.
     return '';
   });
 
@@ -407,10 +454,24 @@ export class RecipeFormState {
     return this.fieldError(field);
   }
 
-  /** `fieldErrors()[field][0] ?? ''` — the first message for one field from the last `validation_failed` outcome, or `''` once cleared. */
+  /**
+   * The first error for one field, or `''`: the server's word from the last `validation_failed` outcome, or this
+   * client's own rule once the creator has left the field or tried to save. See {@link validator}.
+   */
   fieldError(field: string): string {
-    return this.fieldErrors()[field]?.[0] ?? '';
+    return this.validator.firstError(field);
   }
+
+  /** The first warning for one field, or `''`. Advice only: it never blocks a save. */
+  fieldWarning(field: string): string {
+    return this.validator.firstWarning(field);
+  }
+
+  /**
+   * Every field or list that has an error showing, once each — the server's keys verbatim, so an indexed line
+   * is still `ingredientGroups[0].ingredients[2].quantity`. What the editor counts, locates and reveals from.
+   */
+  readonly errorPaths = computed<readonly string[]>(() => [...new Set(this.validator.visibleErrors().map((issue) => issue.path))]);
 
   /**
    * Reads the shared unit catalogue for the yield-unit picker, and is the Retry the field offers.

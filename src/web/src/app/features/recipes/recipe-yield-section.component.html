@@ -4,7 +4,6 @@
       id="recipe-yield-text"
       type="text"
       placeholder="e.g. Makes 2 loaves, serves 12"
-      [attr.aria-invalid]="form.fieldError('yieldText') ? 'true' : null"
       [ngModel]="form.yieldText()"
       (ngModelChange)="form.yieldText.set($event)"
       name="yieldText"
@@ -20,7 +19,6 @@
         inputmode="decimal"
         step="any"
         min="0"
-        [attr.aria-invalid]="form.fieldError('servingCount') ? 'true' : null"
         [ngModel]="form.servingCount()"
         (ngModelChange)="form.servingCount.set($event)"
         name="servingCount"
@@ -41,7 +39,6 @@
             inputmode="decimal"
             step="any"
             min="0"
-            [attr.aria-invalid]="form.fieldError('yieldQuantity') ? 'true' : null"
             [ngModel]="form.yieldQuantity()"
             (ngModelChange)="form.yieldQuantity.set($event)"
             name="yieldQuantity"
@@ -61,6 +58,7 @@
           forId="recipe-yield-unit"
           [hint]="form.yieldUnitHint()"
           [error]="form.fieldError('yieldUnitId')"
+          [warning]="form.fieldWarning('yieldUnitId')"
         >
           <div class="yield-unit-control">
             <cp-combobox
@@ -106,6 +104,7 @@
           forId="recipe-serving-size"
           [hint]="form.servingSizeHint()"
           [error]="form.fieldError('servingSize')"
+          [warning]="form.fieldWarning('servingSize')"
         >
           <input
             id="recipe-serving-size"
@@ -114,7 +113,6 @@
             inputmode="decimal"
             step="any"
             min="0"
-            [attr.aria-invalid]="form.fieldError('servingSize') ? 'true' : null"
             [ngModel]="form.servingSize()"
             (ngModelChange)="form.servingSize.set($event)"
             name="servingSize"

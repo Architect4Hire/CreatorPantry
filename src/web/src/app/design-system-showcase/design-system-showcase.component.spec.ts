@@ -278,4 +278,61 @@ describe('DesignSystemShowcaseComponent', () => {
 
     expect(words()).toEqual(['Done', 'Skipped', 'Done', 'You are here']);
   });
+
+  describe('validation example', () => {
+    function demo(fixture: { nativeElement: HTMLElement }) {
+      const root = fixture.nativeElement.querySelector('.showcase-validation') as HTMLElement;
+
+      return {
+        root,
+        title: root.querySelector('#showcase-validation-title') as HTMLInputElement,
+        servings: root.querySelector('#showcase-validation-servings') as HTMLInputElement,
+        save: root.querySelector('button[cpButton]') as HTMLButtonElement,
+        type(input: HTMLInputElement, value: string) {
+          input.value = value;
+          input.dispatchEvent(new Event('input'));
+        },
+      };
+    }
+
+    it('shows nothing about an empty title until the creator leaves it or tries to save', async () => {
+      const fixture = await createFixture();
+      const view = demo(fixture);
+
+      expect(view.root.querySelector('[role="alert"]')).toBeNull();
+      expect(view.root.querySelector('cp-validation-summary section')).toBeNull();
+
+      view.save.click();
+      fixture.detectChanges();
+
+      expect(view.title.getAttribute('aria-invalid')).toBe('true');
+      expect(view.root.querySelector('cp-validation-summary h2')!.textContent).toContain('1 problem to fix');
+    });
+
+    it('shows a warning while typing, without calling the field invalid', async () => {
+      const fixture = await createFixture();
+      const view = demo(fixture);
+
+      view.type(view.servings, '500');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(view.root.querySelector('cp-field .warning')!.textContent).toContain('a batch');
+      expect(view.servings.hasAttribute('aria-invalid')).toBeFalse();
+      expect(view.root.querySelector('cp-validation-summary h2')!.textContent).toContain('1 thing worth a look');
+    });
+
+    it('takes the creator to the field an issue is about', async () => {
+      const fixture = await createFixture();
+      const view = demo(fixture);
+      document.body.appendChild(fixture.nativeElement);
+
+      view.save.click();
+      fixture.detectChanges();
+      (view.root.querySelector('cp-validation-summary button') as HTMLButtonElement).click();
+
+      expect(document.activeElement).toBe(view.title);
+      fixture.nativeElement.remove();
+    });
+  });
 });

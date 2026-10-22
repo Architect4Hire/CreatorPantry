@@ -8,7 +8,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
  */
 @Component({
  selector:'cp-field', standalone:true,
- template:`<label [for]="forId()">{{label()}} @if(required()){<span aria-hidden="true">*</span>}</label><ng-content />@if(hint()){<small [id]="hintId()">{{hint()}}</small>}@if(error()){<small class="error" [id]="errorId()" role="alert">{{error()}}</small>}`,
+ template:`<label [for]="forId()">{{label()}} @if(required()){<span aria-hidden="true">*</span>}</label><ng-content />@if(hint()){<small [id]="hintId()">{{hint()}}</small>}@if(error()){<small class="error" [id]="errorId()" role="alert">{{error()}}</small>}@if(warning()){<small class="warning" [id]="warningId()"><span class="sr-only">Heads up: </span>{{warning()}}</small>}`,
  styles:[`
   /* Rows sized to their content: a field in a grid row beside a taller one keeps its control at its own height. */
   :host{display:grid;align-content:start;gap:var(--cp-space-2)}
@@ -37,6 +37,11 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
   :host ::ng-deep input:focus,:host ::ng-deep textarea:focus,:host ::ng-deep select:focus{
     border-color:var(--cp-primary);outline:2px solid transparent;outline-offset:0;
     box-shadow:0 0 0 var(--cp-ring-width) var(--cp-focus)}
+  /* A warning is advice, not a refusal: a different glyph (a triangle against the error's disc) and the warning
+     ink, so the two differ in shape and not only in hue. It never changes the control's own edge. */
+  .warning{display:flex;align-items:baseline;gap:var(--cp-space-2);font-size:var(--cp-font-size-sm);font-weight:600;color:var(--cp-orange)}
+  .warning::before{content:'\\25B2';flex:none;font-size:.7rem;line-height:1;transform:translateY(-.05rem)}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   :host ::ng-deep [aria-invalid='true']{border-color:var(--cp-danger)}
   :host ::ng-deep [aria-invalid='true']:focus{box-shadow:0 0 0 var(--cp-ring-width) color-mix(in srgb,var(--cp-danger) 28%,transparent)}
   :host ::ng-deep input:disabled,:host ::ng-deep textarea:disabled,:host ::ng-deep select:disabled,
@@ -57,12 +62,18 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
   readonly forId=input.required<string>();
   readonly hint=input('');
   readonly error=input('');
+  /** Advice about the value that does not stop anything: it shows beside the control and never marks it invalid. */
+  readonly warning=input('');
   readonly required=input(false);
 
   protected readonly hintId=computed(()=>`${this.forId()}-hint`);
   protected readonly errorId=computed(()=>`${this.forId()}-error`);
+  protected readonly warningId=computed(()=>`${this.forId()}-warning`);
 
   private readonly elementRef:ElementRef<HTMLElement>=inject(ElementRef);
+
+  /** Whether `aria-invalid` on the control is this field's to take away again — see {@link constructor}. */
+  private markedInvalid=false;
 
   constructor() {
     afterRenderEffect(() => {
@@ -76,7 +87,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
       // nothing about — a banner explaining why the control is disabled, say — and overwriting that would
       // trade one missing announcement for another. Only the two ids this field owns are replaced, which is
       // also what makes running again after every render idempotent.
-      const owned = new Set([this.hintId(), this.errorId()]);
+      const owned = new Set([this.hintId(), this.errorId(), this.warningId()]);
       const theirs = (control.getAttribute('aria-describedby') ?? '')
         .split(/\s+/)
         .filter((id) => id.length > 0 && !owned.has(id));
@@ -84,10 +95,22 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
         ...theirs,
         ...(this.hint() ? [this.hintId()] : []),
         ...(this.error() ? [this.errorId()] : []),
+        ...(this.warning() ? [this.warningId()] : []),
       ];
 
       if (describedBy.length === 0) control.removeAttribute('aria-describedby');
       else control.setAttribute('aria-describedby', describedBy.join(' '));
+
+      // `aria-invalid` follows the error, so a template no longer binds it by hand on every control. Set when an
+      // error shows and removed when it clears — but only if this field set it: a consumer that marks its own
+      // control invalid for a reason this field does not know about keeps that mark.
+      if (this.error()) {
+        control.setAttribute('aria-invalid', 'true');
+        this.markedInvalid = true;
+      } else if (this.markedInvalid) {
+        control.removeAttribute('aria-invalid');
+        this.markedInvalid = false;
+      }
 
       // `aria-required`, never the native `required`: this states a fact for assistive technology and leaves
       // browser validation UI — and the moment it fires — to the consumer, whose form owns that decision.

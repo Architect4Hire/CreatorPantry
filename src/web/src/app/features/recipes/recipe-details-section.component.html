@@ -5,9 +5,9 @@
       placeholder="e.g. Brown butter banana bread"
       type="text"
       required
-      [attr.aria-invalid]="form.fieldError('title') ? 'true' : null"
       [ngModel]="form.title()"
       (ngModelChange)="form.title.set($event)"
+      (blur)="form.validator.touch('title')"
       name="title"
     />
   </cp-field>
@@ -16,7 +16,6 @@
     <textarea
       id="recipe-description"
       placeholder="A sentence or two for your recipe cards and library"
-      [attr.aria-invalid]="form.fieldError('description') ? 'true' : null"
       [ngModel]="form.description()"
       (ngModelChange)="form.description.set($event)"
       name="description"
@@ -27,7 +26,6 @@
     <textarea
       id="recipe-headnote"
       placeholder="The story behind it: why you make it, when it shines"
-      [attr.aria-invalid]="form.fieldError('headnote') ? 'true' : null"
       [ngModel]="form.headnote()"
       (ngModelChange)="form.headnote.set($event)"
       name="headnote"
@@ -39,7 +37,6 @@
       id="recipe-attribution"
       placeholder="e.g. Adapted from my grandmother's notebook"
       type="text"
-      [attr.aria-invalid]="form.fieldError('attributionText') ? 'true' : null"
       [ngModel]="form.attributionText()"
       (ngModelChange)="form.attributionText.set($event)"
       name="attributionText"
@@ -51,7 +48,6 @@
       id="recipe-source-url"
       placeholder="https://…"
       type="url"
-      [attr.aria-invalid]="form.fieldError('sourceUrl') ? 'true' : null"
       [ngModel]="form.sourceUrl()"
       (ngModelChange)="form.sourceUrl.set($event)"
       name="sourceUrl"
