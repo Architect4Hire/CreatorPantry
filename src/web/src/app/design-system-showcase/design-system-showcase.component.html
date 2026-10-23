@@ -27,12 +27,13 @@
 
   <section aria-labelledby="field-heading">
     <h2 id="field-heading">Field</h2>
-    <p class="section-note">Label, hint, required, error, disabled, and every projected control type.</p>
+    <p class="section-note">Label, hint, required, error, warning, disabled, and every projected control type.</p>
     <p class="section-note">
       The control is projected, so no template binding can reach it — the field wires <code>aria-describedby</code>
-      to its hint and error, and <code>aria-required</code> when required, after each render. Without that the
-      <code>*</code> and the hint are visible and invisible at once. Optionality is the inverse and is stated
-      once per form: marking one optional field among a dozen unmarked ones makes the rest read as required.
+      to its hint, error and warning, <code>aria-invalid</code> while an error shows, and <code>aria-required</code>
+      when required, after each render. Without that the <code>*</code> and the hint are visible and invisible at
+      once. Optionality is the inverse and is stated once per form: marking one optional field among a dozen
+      unmarked ones makes the rest read as required. A warning is advice and never marks the control invalid.
     </p>
     <div class="field-grid">
       <cp-field label="Recipe title" forId="showcase-default">
@@ -45,7 +46,10 @@
         <textarea id="showcase-hint" placeholder="Optional preparation notes"></textarea>
       </cp-field>
       <cp-field label="Publish date" forId="showcase-error" error="Choose a date at least one hour from now.">
-        <input id="showcase-error" type="datetime-local" aria-invalid="true" />
+        <input id="showcase-error" type="datetime-local" />
+      </cp-field>
+      <cp-field label="Servings" forId="showcase-warning" warning="That is a lot of servings — is it a batch?">
+        <input id="showcase-warning" type="number" value="120" />
       </cp-field>
       <cp-field label="Workspace slug" forId="showcase-disabled" hint="Set automatically, cannot be edited.">
         <input id="showcase-disabled" value="cozy-fall-soups" disabled />
@@ -632,6 +636,54 @@
       <div class="cp-actions">
         <button cpButton variant="secondary" type="button" [disabled]="stepperAt() === 0" (click)="moveStepper(-1)">Back</button>
         <button cpButton type="button" [disabled]="stepperAt() === stepperNames.length - 1" (click)="moveStepper(1)">Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="validation-heading">
+    <h2 id="validation-heading">Validation summary</h2>
+    <p class="section-note">
+      Everything wrong with a form in one place, each line a button that takes the creator to its field. Errors
+      are headed with their count and stop a save; warnings and information sit below under their own heading and
+      never do. Severity is a glyph as well as a colour — a disc, a triangle, an <code>i</code>. It decides
+      nothing: the form says which issues exist and what selecting one does. Try it: save with the title empty,
+      then set the servings above 40 to see a warning appear while typing.
+    </p>
+    <div class="showcase-validation">
+      <cp-validation-summary
+        [issues]="validation.visibleIssues()"
+        [labelOf]="validationLabelOf"
+        (issueSelected)="focusValidationField($event.path)"
+      />
+      <cp-field
+        label="Title"
+        forId="showcase-validation-title"
+        [required]="true"
+        [error]="validation.firstError('title')"
+      >
+        <input
+          id="showcase-validation-title"
+          [value]="validationDraft().title"
+          (input)="setValidationTitle(valueOf($event))"
+          (blur)="validation.touch('title')"
+        />
+      </cp-field>
+      <cp-field
+        label="Servings"
+        forId="showcase-validation-servings"
+        [error]="validation.firstError('servings')"
+        [warning]="validation.firstWarning('servings')"
+      >
+        <input
+          id="showcase-validation-servings"
+          type="number"
+          [value]="validationDraft().servings"
+          (input)="setValidationServings(valueOf($event))"
+          (blur)="validation.touch('servings')"
+        />
+      </cp-field>
+      <div class="cp-actions">
+        <button cpButton type="button" (click)="trySaveValidationDemo()">Try to save</button>
       </div>
     </div>
   </section>

@@ -1,0 +1,64 @@
+/* The gap a notice used to carry itself, now that spacing is the page's business rather than the notice's. */
+cp-notice {
+  margin-bottom: var(--cp-space-4);
+}
+
+/* The tools drawer: a list to choose from, then the chosen tool with the way back to the list above it. */
+.tool-list {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-choice {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: start;
+  width: 100%;
+  /* 40px and more, the minimum target. */
+  min-height: 2.5rem;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface);
+  color: var(--cp-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-choice:hover {
+  border-color: var(--cp-primary);
+}
+
+.tool-choice:focus-visible {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+.tool-choice-name {
+  font-weight: 700;
+}
+
+.tool-choice-note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.tool-back {
+  margin: 0 0 var(--cp-space-3);
+}
+
+.tool[hidden] {
+  display: none;
+}
+
+/* Separates the two stacked calculations on the Convert and Yield tools. Decorative only — each section carries
+   its own heading, which is what actually names it. */
+.conversion-divider {
+  margin: var(--cp-space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--cp-border);
+}

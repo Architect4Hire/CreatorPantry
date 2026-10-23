@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 
 import {
   CpAnchorNavComponent,
@@ -53,9 +53,12 @@ import {
   CpTopicCardComponent,
   CpUploadItem,
   CpUploaderComponent,
+  CpValidationSummaryComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../core/confirm.service';
+import { FormValidator } from '../core/forms/form-validator';
+import { range, required, warn } from '../core/forms/form-rules';
 import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '../models/brand-guide-control.models';
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
 import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
@@ -108,12 +111,53 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     BrandGuideControlComponent,
     BrandVisualStyleControlComponent,
     CpStepperComponent,
+    CpValidationSummaryComponent,
   ],
   templateUrl: './design-system-showcase.component.html',
   styleUrl: './design-system-showcase.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DesignSystemShowcaseComponent {
+  /**
+   * The validation example: the same engine a real form uses. A blank title is an error that shows once the
+   * creator leaves the field or tries to save; a very large batch is a warning that shows as they type.
+   */
+  protected readonly validationDraft = signal({ title: '', servings: 4 });
+  protected readonly validation = new FormValidator(
+    {
+      title: [required('Give the recipe a name.')],
+      servings: [
+        range({ min: 1 }, 'Servings must be at least 1.'),
+        warn(range({ max: 40 }, 'That is a lot of servings — is it a batch?')),
+      ],
+    },
+    this.validationDraft,
+  );
+  protected readonly validationLabelOf = (path: string): string => (path === 'title' ? 'Title' : path === 'servings' ? 'Servings' : '');
+  private readonly validationSummary = viewChild(CpValidationSummaryComponent);
+
+  protected setValidationTitle(title: string): void {
+    this.validationDraft.update((draft) => ({ ...draft, title }));
+  }
+
+  protected setValidationServings(value: string): void {
+    this.validationDraft.update((draft) => ({ ...draft, servings: value === '' ? 0 : Number(value) }));
+  }
+
+  protected valueOf(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  protected trySaveValidationDemo(): void {
+    this.validation.attempt();
+    this.validationSummary()?.focus();
+  }
+
+  /** Takes the creator to the field an issue is about — the part a summary leaves to its form. */
+  protected focusValidationField(path: string): void {
+    document.getElementById(`showcase-validation-${path}`)?.focus();
+  }
+
   /** The stepper example: Back and Continue move through it, and the second step was skipped. */
   protected readonly stepperNames = ['What you make', 'Your examples', 'Your style', 'Finish'];
   protected readonly stepperAt = signal(2);

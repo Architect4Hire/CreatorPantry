@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { CpFieldComponent } from './field.component';
@@ -48,6 +48,88 @@ describe('CpFieldComponent', () => {
         .withContext(id)
         .toBeLessThanOrEqual(limit);
     }
+  });
+
+  describe('error and warning', () => {
+    @Component({
+      standalone: true,
+      imports: [CpFieldComponent],
+      template: `<cp-field label="Title" forId="t" hint="Short." [error]="error()" [warning]="warning()">
+        <input id="t" type="text" aria-describedby="theirs" />
+      </cp-field>`,
+    })
+    class StateHostComponent {
+      readonly error = signal('');
+      readonly warning = signal('');
+    }
+
+    async function create() {
+      await TestBed.configureTestingModule({ imports: [StateHostComponent] }).compileComponents();
+      const fixture = TestBed.createComponent(StateHostComponent);
+      fixture.detectChanges();
+      const input = (fixture.nativeElement as HTMLElement).querySelector('input')!;
+
+      return {
+        fixture,
+        input,
+        host: fixture.componentInstance,
+        async settle() {
+          fixture.detectChanges();
+          await fixture.whenStable();
+        },
+      };
+    }
+
+    it('marks the control invalid while an error shows and clears it when the error goes', async () => {
+      const view = await create();
+      await view.settle();
+      expect(view.input.hasAttribute('aria-invalid')).toBeFalse();
+
+      view.host.error.set('Name it.');
+      await view.settle();
+      expect(view.input.getAttribute('aria-invalid')).toBe('true');
+      expect(view.input.getAttribute('aria-describedby')).toBe('theirs t-hint t-error');
+
+      view.host.error.set('');
+      await view.settle();
+      expect(view.input.hasAttribute('aria-invalid')).toBeFalse();
+    });
+
+    it('leaves an aria-invalid it did not set alone', async () => {
+      const view = await create();
+      view.input.setAttribute('aria-invalid', 'true');
+
+      view.host.error.set('');
+      await view.settle();
+
+      expect(view.input.getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('shows a warning beside the control, described to it, without marking it invalid', async () => {
+      const view = await create();
+
+      view.host.warning.set('A long title.');
+      await view.settle();
+
+      const warning = (view.fixture.nativeElement as HTMLElement).querySelector('.warning')!;
+      expect(warning.textContent).toContain('A long title.');
+      expect(warning.textContent).toContain('Heads up:');
+      expect(warning.getAttribute('role')).toBeNull();
+      expect(view.input.getAttribute('aria-describedby')).toBe('theirs t-hint t-warning');
+      expect(view.input.hasAttribute('aria-invalid')).toBeFalse();
+    });
+
+    it('shows an error and a warning together, the error first', async () => {
+      const view = await create();
+
+      view.host.error.set('Name it.');
+      view.host.warning.set('A long title.');
+      await view.settle();
+
+      expect(view.input.getAttribute('aria-describedby')).toBe('theirs t-hint t-error t-warning');
+      const classes = Array.from((view.fixture.nativeElement as HTMLElement).querySelectorAll('small')).map((el) => el.className);
+      expect(classes).toEqual(['', 'error', 'warning']);
+    });
   });
 
   it('gives every projected control a touch target of at least 40px', async () => {

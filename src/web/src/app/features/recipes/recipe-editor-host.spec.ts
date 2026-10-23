@@ -152,7 +152,7 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     });
     const { editor, created, navigate } = await open('details', null, recipes);
 
-    editor.title.set('Soup');
+    editor.form.title.set('Soup');
     await expectAsync(editor.flush()).toBeResolvedTo(true);
 
     expect(recipes.createRecipe).toHaveBeenCalledTimes(1);
@@ -165,7 +165,7 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
   it('refuses to flush a recipe with no name, and says so on the field', async () => {
     const { editor, recipes, fixture, root } = await open('details', null);
 
-    editor.description.set('A weeknight soup.');
+    editor.form.description.set('A weeknight soup.');
     await expectAsync(editor.flush()).toBeResolvedTo(false);
     fixture.detectChanges();
 
@@ -178,7 +178,7 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...DETAIL, notes: 'Better the next day.' }, replayed: false });
     const { editor } = await open('ingredients', 'r1', recipes);
 
-    editor.notes.set('Better the next day.');
+    editor.form.notes.set('Better the next day.');
     await expectAsync(editor.flush()).toBeResolvedTo(true);
 
     const [, , request] = recipes.updateRecipe.calls.mostRecent().args;
@@ -193,7 +193,7 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     recipes.updateRecipe.and.resolveTo({ status: 'validation_failed', fieldErrors: { title: ['Too long.'] } });
     const { editor, fixture, root } = await open('ingredients', 'r1', recipes);
 
-    editor.notes.set('x');
+    editor.form.notes.set('x');
     await expectAsync(editor.flush()).toBeResolvedTo(false);
     fixture.detectChanges();
 

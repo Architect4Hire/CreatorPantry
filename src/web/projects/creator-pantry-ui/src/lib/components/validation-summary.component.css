@@ -1,0 +1,103 @@
+:host {
+  display: block;
+}
+
+section {
+  display: grid;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-subtle);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  /* A form that scrolls or focuses this on a refusal can clear a bar fixed across its top. */
+  scroll-margin-top: var(--cp-form-section-scroll-margin, var(--cp-space-6));
+}
+
+section.has-errors {
+  border-color: var(--cp-danger);
+  background: var(--cp-danger-soft);
+}
+
+/* The panel is a focus target of last resort for a refusal; the ring belongs to the field it leads to. */
+section:focus {
+  outline: none;
+}
+
+.heading {
+  margin: 0;
+  font: 600 var(--cp-font-size-md) / var(--cp-leading-tight) var(--cp-font-sans);
+  color: var(--cp-text);
+}
+
+.heading--advice {
+  margin-top: var(--cp-space-2);
+  color: var(--cp-text-muted);
+}
+
+ul {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A control that reads as a line of text: 40px tall for a thumb, wrapping rather than overflowing. */
+button {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  button:hover {
+    background: color-mix(in srgb, var(--cp-text) 6%, transparent);
+  }
+}
+
+.glyph {
+  flex: none;
+  font-weight: 700;
+  color: var(--cp-orange);
+}
+
+.glyph--error {
+  color: var(--cp-danger);
+}
+
+.where {
+  flex: none;
+  font-weight: 600;
+}
+
+.where::after {
+  content: ':';
+}
+
+.message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -12,7 +12,6 @@ import {
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   CpAnchorNavComponent,
@@ -20,12 +19,7 @@ import {
   CpBackLinkComponent,
   CpButtonComponent,
   CpCardComponent,
-  CpComboboxComponent,
-  CpComboboxOption,
-  CpDrawerComponent,
   CpEmptyStateComponent,
-  CpFieldComponent,
-  CpFieldRowComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
@@ -33,6 +27,8 @@ import {
   CpTabDefinition,
   CpTabPanelComponent,
   CpTabsComponent,
+  CpValidationIssue,
+  CpValidationSummaryComponent,
 } from '@creator-pantry/ui';
 import { injectRouteTitle } from '../../core/route-title';
 
@@ -42,111 +38,42 @@ import {
   RecipeService,
   UpdateRecipeOutcome,
 } from '../../services/recipe.service';
-import { ReferenceService } from '../../services/reference.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeMediaStep } from '../../models/recipe-asset-link.models';
 
 import {
   CreateRecipeRequest,
-  IngredientGroupInput,
   IngredientInput,
-  InstructionGroupInput,
   InstructionStepInput,
   RecipeAssetLink,
   RecipeDetail,
   RecipeIngredient,
-  RecipeIngredientGroup,
   RecipeInstructionGroup,
   RecipeStatus,
   SettableRecipeStatus,
   UpdateRecipeRequest,
   submitted,
 } from '../../models/recipe.models';
-import { RecipeDietaryAllergenComponent } from './recipe-dietary-allergen.component';
-import { RecipeFoodSafetyComponent } from './recipe-food-safety.component';
 import { RecipeDuplicated } from './recipe-duplicate.component';
-import { RecipeNutritionComponent } from './recipe-nutrition.component';
 import { RecipeHistoryComponent } from './recipe-history.component';
 import { RecipeMediaChanged, RecipeMediaComponent } from './recipe-media.component';
 import { RecipeReadinessComponent } from './recipe-readiness.component';
 import { RecipePublishPanelComponent } from './recipe-publish-panel.component';
 import { RecipeTestKitchenComponent } from './recipe-test-kitchen.component';
-import {
-  EditableIngredientGroup,
-  RecipeIngredientEditorComponent,
-  composeDisplayText,
-  toEditableGroups,
-} from './recipe-ingredient-editor.component';
-import { errorListKey, messagesByGroupKey, messagesByRowKey } from './recipe-field-errors';
-import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
+import { RecipeIngredientEditorComponent, composeDisplayText } from './recipe-ingredient-editor.component';
+import { errorListKey } from './recipe-field-errors';
 import { RecipeVersionRestored } from './recipe-restore.component';
 import { RecipeEditorFocus, RecipeEditorHost } from './recipe-editor-host';
-import { RecipeDisplayNormalizationComponent } from './recipe-display-normalization.component';
-import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.component';
-import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
-import { RecipeUnitConversionComponent, UnitConversionApplication } from './recipe-unit-conversion.component';
-import { RecipeYieldReconciliationComponent, YieldApplication } from './recipe-yield-reconciliation.component';
-import { RecipeRevisionRequestComponent } from '../ai/recipe-revision-request.component';
-import { RecipeAdaptationRequestComponent } from '../ai/recipe-adaptation-request.component';
-import { RecipeSubstitutionRequestComponent } from '../ai/recipe-substitution-request.component';
-import { RecipeReviewRequestComponent } from '../ai/recipe-review-request.component';
-
-/**
- * The editor's own working copy of one instruction step — a `key` stable across reorders for
- * `@for` tracking (the server `id`, when there is one, doubles as it; a brand-new step has none yet).
- * Technique and temperature are read-only fields elsewhere in the app today (this editor has a vocabulary
- * picker for the yield unit, but none for a step's technique, nor for cuisine or course),
- * so this form edits only what a plain text/number field can: the step's prose, its note, and how
- * long it takes.
- */
-interface EditableInstructionStep {
-  readonly key: string;
-  id: string | null;
-  text: string;
-  note: string;
-  durationMinutes: number | null;
-
-  /**
-   * Whether this step's duration field is on show. UI only — it is never submitted and never part of the
-   * dirty-state snapshot, both of which are built from `buildInstructions()`, so revealing a field a creator
-   * then leaves empty is not an edit to the recipe.
-   *
-   * Most steps have no duration, and a number box on every one of a dozen reads as something the creator is
-   * expected to fill in. So a step starts without it and asks for it, except where the recipe already records
-   * one: a stored duration is shown without the creator having to go looking for it.
-   *
-   * Once on, it stays on for the life of the form even if the creator empties the box — a field vanishing out
-   * from under the cursor mid-edit is worse than an empty one. It is recomputed from the recipe on the next
-   * load, save or restore, all of which go through `applyDetail`.
-   */
-  showDuration: boolean;
-
-  // Carried, never edited. `Instructions` is a full replace and the server applies a submitted step
-  // wholesale, so a field this form omits is a field the next save sets to null — which silently destroyed
-  // every step's technique and recorded temperature. These are round-tripped so that editing a step's prose
-  // leaves the rest of what the recipe knows about it alone.
-  techniqueId: string | null;
-  temperatureValue: number | null;
-  temperatureUnitId: string | null;
-}
-
-interface EditableInstructionGroup {
-  readonly key: string;
-  id: string | null;
-  title: string;
-  steps: EditableInstructionStep[];
-}
-
-/** Swaps the item named by `key` with its neighbour in `direction`; a no-op at either end of the list. */
-function moveByKey<T extends { readonly key: string }>(items: readonly T[], key: string, direction: -1 | 1): T[] {
-  const index = items.findIndex((item) => item.key === key);
-  const target = index + direction;
-  if (index === -1 || target < 0 || target >= items.length) return [...items];
-
-  const next = [...items];
-  [next[index], next[target]] = [next[target], next[index]];
-  return next;
-}
+import { RecipeDetailsSectionComponent } from './recipe-details-section.component';
+import { RecipeFormState } from './recipe-form-state';
+import { RecipeInstructionsSectionComponent } from './recipe-instructions-section.component';
+import { RecipeNotesSectionComponent } from './recipe-notes-section.component';
+import { RecipeTimingSectionComponent } from './recipe-timing-section.component';
+import { RecipeYieldSectionComponent } from './recipe-yield-section.component';
+import { RecipeToolsDrawerComponent } from './recipe-tools-drawer.component';
+import { TemperatureApplication } from './recipe-temperature-conversion.component';
+import { UnitConversionApplication } from './recipe-unit-conversion.component';
+import { YieldApplication } from './recipe-yield-reconciliation.component';
 
 /**
  * Names the areas that are disabled and says what opens them, or `''` when none are.
@@ -171,36 +98,6 @@ const GENERAL_SCROLL_FALLBACK_MS = 1500;
 
 /** How long after a jump's scroll ends before the highlight goes back to following the page. */
 const GENERAL_SCROLL_SETTLE_MS = 150;
-
-/**
- * The id prefix of an instruction group's own anchor. Its ingredient counterpart lives in the ingredient
- * editor: each owns the ids it renders, and `CpAnchorNavComponent` only carries them back.
- */
-const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
-
-/**
- * `RecipePolicy.MaxTimeMinutes` — one year, the most the server accepts for any one time field.
- *
- * Mirrored because three times each inside the limit can add to a sum outside it, and the total is derived:
- * a sum past the limit has to be reported rather than recorded, because it would come straight back as a
- * validation error on a field the creator has no way to correct.
- */
-const MAX_TIME_MINUTES = 525_600;
-
-/**
- * What prep, cook and rest add up to, and which of them were counted.
- *
- * `parts` exists because the number alone explains nothing: a recipe with only a cook time would otherwise
- * show a total of 45 that appears to come from nowhere. Naming what went into it is what the sum is offered
- * *with*, never instead of.
- *
- * A time of 0 counts — the creator recorded it. Only an absent one is left out, which is why all three blank
- * produces no sum at all rather than a total of 0.
- */
-interface TimingSum {
-  readonly minutes: number;
-  readonly parts: readonly string[];
-}
 
 /** The surfaces the Edit area is split into, in tablist order. */
 type EditTabId = 'general' | 'ingredients' | 'instructions';
@@ -287,32 +184,41 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
 ];
 
 /**
- * The saved/loaded baseline the form is diffed against for dirty-state. Covers every field that
- * actually gets submitted, `ingredientGroups` included — `newTagText` (the not-yet-committed tag
- * input) stays out deliberately: diffing it against a baseline would let a post-save baseline reset
- * silently swallow real unsaved text that was never part of the request in the first place. It's
- * checked live in `isDirty` instead.
+ * Whether the editor lists its problems in a `cp-validation-summary` above the form. Off.
+ *
+ * The form already says what is wrong where it is: the message under the field, the count on its tab and its nav
+ * item, and Save held back until the recipe has a name. A summary on top of that only moves the page under the
+ * creator the moment they leave a field, so it stays out until a form needs it. Everything it needs —
+ * {@link RecipeEditorComponent.summaryIssues}, the labels and the reveal — is kept, so turning it on is this one
+ * line and nothing else.
  */
-interface RecipeFormSnapshot {
-  readonly title: string;
-  readonly description: string;
-  readonly headnote: string;
-  readonly attributionText: string;
-  readonly sourceUrl: string;
-  readonly notes: string;
-  readonly storageNotes: string;
-  readonly prepTimeMinutes: number | null;
-  readonly cookTimeMinutes: number | null;
-  readonly restTimeMinutes: number | null;
-  readonly yieldText: string;
-  readonly yieldQuantity: number | null;
-  readonly yieldUnitId: string | null;
-  readonly servingCount: number | null;
-  readonly servingSize: number | null;
-  readonly tags: readonly string[];
-  readonly instructionsJson: string;
-  readonly ingredientGroupsJson: string;
-}
+const SHOW_VALIDATION_SUMMARY = false;
+
+/**
+ * What a field is called in the validation summary: the label the creator sees on it. Keyed like
+ * {@link FIELD_LOCATIONS}, so an indexed line reads as the list it is in.
+ */
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  title: 'Title',
+  description: 'Description',
+  headnote: 'Headnote',
+  attributionText: 'Attribution',
+  sourceUrl: 'Source URL',
+  tags: 'Tags',
+  notes: 'Notes',
+  storageNotes: 'Storage notes',
+  prepTimeMinutes: 'Prep time',
+  cookTimeMinutes: 'Cook time',
+  restTimeMinutes: 'Rest time',
+  totalTimeMinutes: 'Total time',
+  yieldText: 'Yield, in your own words',
+  servingCount: 'Serves',
+  yieldQuantity: 'Batch yield',
+  yieldUnitId: 'Yield unit',
+  servingSize: 'One serving is',
+  ingredientGroups: 'Ingredients',
+  instructions: 'Instructions',
+};
 
 /**
  * One line about a command that landed beside the form — a restore, a copy the creator chose not to follow,
@@ -362,32 +268,6 @@ type RecipeEditorSaveState =
   | { readonly status: 'success' }
   | { readonly status: SaveFailureStatus };
 
-/** The tools that read a saved recipe and open beside it in the drawer. */
-export type RecipeToolId =
-  | 'scaling'
-  | 'converting'
-  | 'yield-display'
-  | 'dietary-allergen'
-  | 'nutrition'
-  | 'food-safety'
-  | 'ai-revision'
-  | 'ai-adaptation'
-  | 'ai-substitution'
-  | 'ai-review';
-
-interface RecipeTool {
-  readonly id: RecipeToolId;
-  readonly label: string;
-  /** One line under the name, saying what the tool is for. */
-  readonly note: string;
-}
-
-/**
- * The tools whose request comes back as a proposal the creator has to answer. Substitution and review are
- * advisory — they return something to read and nothing to decide — so they never leave anything pending.
- */
-const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptation'];
-
 /**
  * The recipe-editor route shell: create at `:workspaceSlug/recipes/new`, edit at
  * `:workspaceSlug/recipes/:recipeId`. Instructions and ingredients are both fully editable
@@ -400,42 +280,33 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
   standalone: true,
   imports: [
     CpPageHeadComponent,
-    FormsModule,
     NgTemplateOutlet,
     RouterLink,
     CpAnchorNavComponent,
     CpButtonComponent,
     CpCardComponent,
-    CpComboboxComponent,
     CpEmptyStateComponent,
-    CpFieldComponent,
-    CpFieldRowComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
     CpTabPanelComponent,
     CpTabsComponent,
+    CpValidationSummaryComponent,
     RecipeHistoryComponent,
     RecipeMediaComponent,
     RecipePublishPanelComponent,
     RecipeReadinessComponent,
     RecipeTestKitchenComponent,
+    RecipeDetailsSectionComponent,
     RecipeIngredientEditorComponent,
-    RecipeDisplayNormalizationComponent,
-    RecipeScalingPreviewComponent,
-    RecipeDietaryAllergenComponent,
-    RecipeNutritionComponent,
-    RecipeFoodSafetyComponent,
-    RecipeTemperatureConversionComponent,
-    RecipeUnitConversionComponent,
-    RecipeYieldReconciliationComponent,
-    RecipeRevisionRequestComponent,
-    RecipeAdaptationRequestComponent,
-    RecipeSubstitutionRequestComponent,
-    RecipeReviewRequestComponent,
+    RecipeInstructionsSectionComponent,
+    RecipeNotesSectionComponent,
+    RecipeTimingSectionComponent,
+    RecipeToolsDrawerComponent,
+    RecipeYieldSectionComponent,
     CpBackLinkComponent,
-    CpDrawerComponent,
   ],
+  providers: [RecipeFormState],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -449,9 +320,14 @@ export class RecipeEditorComponent {
   private readonly destroyRef = inject(DestroyRef);
   private readonly confirmService = inject(ConfirmService);
   private readonly membershipService = inject(WorkspaceMembershipService);
-  private readonly referenceService = inject(ReferenceService);
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);
+
+  /** What the creator has typed, and what follows from it. The section components inject the same instance. */
+  readonly form = inject(RecipeFormState);
+
+  /** Whether the form differs from the recipe it was loaded from or last saved as. Read by hosts. */
+  readonly isDirty = this.form.isDirty;
 
   /**
    * The page this editor sits on when it is not its own: a guided step about one part of the recipe. Null on the
@@ -529,108 +405,25 @@ export class RecipeEditorComponent {
     ...this.areas,
   ]);
 
-  /**
-   * The ten tools, in the order they are listed. Each reads the saved recipe; none is a field of the form.
-   * A tool is mounted the first time it is chosen, so each fetches only when it is first opened.
-   *
-   * The deterministic ones come first and the AI requests after: reading records and working out amounts are
-   * not the same kind of act as asking for a draft, and the order says so.
-   */
-  readonly tools: readonly RecipeTool[] = [
-    { id: 'scaling', label: 'Scale', note: 'See every amount at a different yield.' },
-    { id: 'converting', label: 'Convert', note: 'Change the units of an amount, or the scale of a temperature.' },
-    { id: 'yield-display', label: 'Yield & display', note: "Check the recipe's yield against its amounts, and see how amounts will read." },
-    {
-      id: 'dietary-allergen',
-      label: 'Dietary & allergens',
-      // What it reads, and what kind of answer that is. Never "check whether this recipe is safe": the
-      // records cannot answer that, and a tool list is the first place a creator would read it as a promise.
-      note: 'See what reviewed ingredient records say about allergens and dietary patterns.',
-    },
-    {
-      id: 'nutrition',
-      label: 'Nutrition',
-      // An estimate, and the word is in the note: the figures rest on reference records for the ingredients,
-      // not on an analysis of the dish, and a tool list is where that is first read.
-      note: "See an estimate from your confirmed ingredient references, and what isn't counted yet.",
-    },
-    {
-      id: 'food-safety',
-      label: 'Safety checks',
-      // What it reads and what it cannot do. Never "check whether this is safe": the checks read the recipe's
-      // own words against a fixed list, and nothing here carries the guidance that would settle one.
-      note: 'See the flagged methods and claims in this recipe, and what each one still needs checked.',
-    },
-    { id: 'ai-revision', label: 'Revise with AI', note: 'Ask for changes to one part of the recipe, to review before anything is kept.' },
-    { id: 'ai-adaptation', label: 'Adapt with AI', note: 'Ask for a version adapted to a need, to review before anything is kept.' },
-    { id: 'ai-substitution', label: 'Substitute an ingredient', note: 'Ask what could stand in for one ingredient.' },
-    { id: 'ai-review', label: 'Review with AI', note: 'Ask for a read-through and what it would look at again.' },
-  ];
-
-  /** Whether the tools drawer is showing. */
-  readonly toolsOpen = signal(false);
-
-  /** The tool the drawer is showing, or null while it shows the list. Kept across a close, so it reopens there. */
-  readonly openToolId = signal<RecipeToolId | null>(null);
-
-  /** Every tool chosen at least once. A mounted tool stays mounted, shut drawer or not. */
-  private readonly mountedTools = signal<ReadonlySet<RecipeToolId>>(new Set());
-
-  /** What applying a calculation from the drawer just did, for the drawer itself to say. */
-  private readonly toolOutcomeSignal = signal<{ readonly text: string; readonly isProblem: boolean } | null>(null);
-  readonly toolOutcome = this.toolOutcomeSignal.asReadonly();
-
-  private readonly revisionTool = viewChild(RecipeRevisionRequestComponent);
-  private readonly adaptationTool = viewChild(RecipeAdaptationRequestComponent);
-
-  /** The request ids the creator has answered. A tool keeps showing its answered request until asked for another. */
-  private readonly decidedRequestIds = signal<ReadonlySet<string>>(new Set());
-
-  readonly toolsHeading = computed(() => this.tools.find((tool) => tool.id === this.openToolId())?.label ?? 'Tools');
+  /** The tools drawer, which owns what is open in it. Absent in create mode, where there is nothing to read. */
+  private readonly toolsDrawer = viewChild(RecipeToolsDrawerComponent);
 
   /**
    * How many proposal requests were sent from a tool and have not been answered by the creator. Whether one is
    * still being written, is ready to review, or failed is the tool's to say — from here it is only known that
    * there is something in Tools to come back to.
    */
-  readonly openToolRequests = computed(
-    () => PROPOSAL_TOOL_IDS.filter((id) => this.toolHasOpenRequest(id)).length,
-  );
-
+  readonly openToolRequests = computed(() => this.toolsDrawer()?.openRequestCount() ?? 0);
 
   /**
    * The three surfaces inside Edit. None is ever disabled: they hold the form a creator is filling in, and
    * unlike Tools/Media/History none of them needs a saved recipe to render.
    */
-  /** The three form tabs as they are defined, before any problem markers are added. See {@link editTabs}. */
-  private static readonly EDIT_TABS: readonly CpTabDefinition[] = [
+  readonly editTabs: CpTabDefinition[] = [
     { id: 'general', label: 'General' },
     { id: 'ingredients', label: 'Ingredients' },
     { id: 'instructions', label: 'Instructions' },
   ];
-
-  /**
-   * The form tabs, each labelled with how many problems the last save left on it.
-   *
-   * A save can be refused over fields on more than one tab, and `revealFirstFieldError` can only take the
-   * creator to one of them — so without this the others are refused silently, on surfaces that are not showing.
-   * In the label rather than as a dot or a colour: the label is the tab's accessible name, so this is the one
-   * place where saying it also says it to a screen reader, and it cannot be a status told by colour alone.
-   *
-   * Counted from `FIELD_LOCATIONS`, so a field gains its marker by being locatable at all rather than by being
-   * listed again here.
-   */
-  readonly editTabs = computed<CpTabDefinition[]>(() =>
-    RecipeEditorComponent.EDIT_TABS.map((tab) => {
-      const keys = Object.keys(this.fieldErrorsSignal());
-      const onThisTab = FIELD_LOCATIONS.filter((location) => location.tabId === tab.id).map((location) => location.field);
-      const problems = keys.filter((key) => onThisTab.includes(errorListKey(key))).length;
-
-      if (problems === 0) return { ...tab };
-
-      return { ...tab, label: `${tab.label} (${problems} ${problems === 1 ? 'problem' : 'problems'})` };
-    }),
-  );
   readonly selectedEditTabId = signal<string>('general');
 
   private readonly loadStateSignal = signal<RecipeEditorLoadState>(this.isCreateMode ? { status: 'ready' } : { status: 'loading' });
@@ -645,8 +438,6 @@ export class RecipeEditorComponent {
   /** When the form was last kept, as an ISO 8601 time, for a host to say so. Null until a save lands. */
   private readonly savedAtSignal = signal<string | null>(null);
   readonly savedAt = this.savedAtSignal.asReadonly();
-
-  private readonly fieldErrorsSignal = signal<Readonly<Record<string, readonly string[]>>>({});
 
   /**
    * What to say after a command raised from the history panel, until a save or a reload makes it describe
@@ -725,7 +516,7 @@ export class RecipeEditorComponent {
     const steps: RecipeMediaStep[] = [];
     let number = 0;
 
-    for (const group of this.instructionGroups()) {
+    for (const group of this.form.instructionGroups()) {
       for (const step of group.steps) {
         number += 1;
         if (step.id !== null) steps.push({ id: step.id, number, text: step.text });
@@ -797,14 +588,6 @@ export class RecipeEditorComponent {
   private readonly savedInstructionGroupsSignal = signal<readonly RecipeInstructionGroup[]>([]);
   readonly savedInstructionGroups = this.savedInstructionGroupsSignal.asReadonly();
 
-  /**
-   * The total time the loaded recipe is **saved with**, which the form no longer holds because it no longer
-   * edits it — read only by {@link totalTimeReplacementNote}, to say when a save would change it.
-   *
-   * Null on a new recipe, and null for a saved recipe that records no total.
-   */
-  private readonly savedTotalTimeMinutes = signal<number | null>(null);
-
   // The idempotency key is stable across a retry of the exact same request body (a transient
   // failure — network drop, unavailable) and only regenerated when the payload actually changes
   // (a new logical operation). Reusing a stale key against a since-changed body would either be
@@ -830,321 +613,6 @@ export class RecipeEditorComponent {
   private readonly applyingSignal = signal(false);
   readonly isApplying = this.applyingSignal.asReadonly();
 
-  readonly title = signal('');
-  readonly description = signal('');
-  readonly headnote = signal('');
-  readonly attributionText = signal('');
-  readonly sourceUrl = signal('');
-  readonly notes = signal('');
-  readonly storageNotes = signal('');
-  readonly prepTimeMinutes = signal<number | null>(null);
-  readonly cookTimeMinutes = signal<number | null>(null);
-  readonly restTimeMinutes = signal<number | null>(null);
-
-  /**
-   * What prep + cook + rest come to, or null when none of the three is recorded.
-   *
-   * Null rather than 0 for the all-blank case, deliberately: a recipe that says nothing about its timing has
-   * no total to suggest, and 0 would be an answer rather than the absence of one. A single recorded time is a
-   * sum of one, which is right — a recipe with only a cook time of 45 does take 45 minutes of stove time, and
-   * `parts` is what stops that number reading as though it were invented.
-   *
-   * A deterministic sum in code, which is the only way time arithmetic is ever done here (ai.md).
-   */
-  readonly timingSum = computed<TimingSum | null>(() => {
-    const recorded: { readonly label: string; readonly minutes: number }[] = [];
-
-    // `Number.isFinite` as well as a null check: these come off number inputs, and a note reading "NaN
-    // minutes" would be worse than no note.
-    const add = (label: string, minutes: number | null): void => {
-      if (minutes !== null && Number.isFinite(minutes)) recorded.push({ label, minutes });
-    };
-
-    add('prep', this.prepTimeMinutes());
-    add('cook', this.cookTimeMinutes());
-    add('rest', this.restTimeMinutes());
-
-    if (recorded.length === 0) return null;
-
-    return {
-      minutes: recorded.reduce((running, part) => running + part.minutes, 0),
-      parts: recorded.map((part) => `${part.label} ${part.minutes}`),
-    };
-  });
-
-  /**
-   * The recipe's total time: prep + cook + rest, and nothing else.
-   *
-   * Derived rather than entered, and the form has no control that writes it. That is a deliberate reversal of
-   * what the server's own model argues for `Recipe.TotalTimeMinutes` — a stored total lets a creator say
-   * "about two hours, mostly waiting" when prep overlaps cooking — and the trade is that the number now moves
-   * the moment one of the three parts does, with no second step. The editor is therefore the authority on the
-   * total it saves: an existing recipe whose stored total disagrees with its parts is corrected by the next
-   * save, and the note below says so rather than letting the change arrive unannounced.
-   *
-   * Null in two cases, which the note tells apart: none of the three recorded, so there is nothing to total;
-   * and a sum past {@link MAX_TIME_MINUTES}, which the server would refuse and no control here could fix.
-   */
-  readonly totalTimeMinutes = computed<number | null>(() => {
-    const sum = this.timingSum();
-    if (sum === null || sum.minutes > MAX_TIME_MINUTES) return null;
-
-    return sum.minutes;
-  });
-
-  /**
-   * Why there is no total, when the parts add up to more than can be recorded — and only then.
-   *
-   * Three times each inside the server's limit can add to a sum outside it, and there is no control on the total
-   * to correct, so without a sentence the total would just read "—" and the creator would not know why. Said as a
-   * note across the Timing section rather than under the field: a total column is a quarter of the form's line,
-   * and a sentence that long under it would push the row out of shape for a case almost nobody reaches. In the
-   * ordinary case there is nothing to say, because the total is self-evidently the three parts added up.
-   */
-  readonly totalTimeOverflowNote = computed(() => {
-    const sum = this.timingSum();
-    if (sum === null || sum.minutes <= MAX_TIME_MINUTES) return '';
-
-    return `${sum.parts.join(' + ')} is more than the longest time that can be recorded, so no total can be saved.`;
-  });
-
-  /**
-   * Whether the saved recipe's total differs from the sum this form would write.
-   *
-   * Announced rather than left to be discovered, because the total is no longer the creator's to hold: a
-   * recipe saved with a total of its own — by an earlier version of this editor, an import, or an accepted
-   * proposal — has that total replaced the next time anything here is saved, and being told beforehand is the
-   * difference between a correction and a silent overwrite. Null until a recipe is loaded, and on a recipe
-   * that already agrees.
-   */
-  readonly totalTimeReplacementNote = computed(() => {
-    const saved = this.savedTotalTimeMinutes();
-    if (saved === null) return '';
-
-    const derived = this.totalTimeMinutes();
-    if (derived === saved) return '';
-
-    return derived === null
-      ? `This recipe is saved with a total of ${saved} minutes. Saving will clear it, because its parts no longer add up to a total that can be recorded.`
-      : `This recipe is saved with a total of ${saved} minutes. Saving will replace it with ${derived}.`;
-  });
-  readonly yieldText = signal('');
-  readonly yieldQuantity = signal<number | null>(null);
-  /**
-   * The yield unit the form holds, beside {@link yieldText} rather than derived from it.
-   *
-   * Two different facts, and both exist deliberately (recipes.md): "About 4 generous bowls" is the creator's
-   * own sentence, and this is the vocabulary entry a scaling or pan calculation reads. Neither is computed
-   * from the other, and nothing here ever rewrites `yieldText`.
-   *
-   * Optional, like every other field in this section. The server does require a quantity alongside a unit
-   * (`CK_Recipes_YieldUnit_RequiresQuantity`) — see {@link yieldUnitHint}.
-   */
-  readonly yieldUnitId = signal<string | null>(null);
-
-  /**
-   * How many servings the recipe makes, which is the one thing the yield fields could not say before.
-   *
-   * Unitless and independent of {@link yieldQuantity}: "makes 2 loaves, serves 12" is a batch of two loaves
-   * and twelve servings, and a creator who only knows the second should not have to invent the first. A
-   * recipe that says nothing about servings leaves this null — 0 would be a claim.
-   */
-  readonly servingCount = signal<number | null>(null);
-
-  /**
-   * How much one serving is, measured in {@link yieldUnitId} rather than in a unit of its own.
-   *
-   * The same unit as the batch deliberately, because that is the only arrangement in which
-   * `batchYield = servingCount x servingSize` — the relationship the reconciliation panel computes — holds at
-   * all. The server refuses a size with no unit to read it in (`CK_Recipes_ServingSize_RequiresYieldUnit`),
-   * which {@link servingSizeHint} states up front rather than leaving to a refused save.
-   */
-  readonly servingSize = signal<number | null>(null);
-
-  /**
-   * What the yield-unit box reads, which is display only and never submitted.
-   *
-   * Held rather than derived because the combobox writes to it as the creator types. It is kept in step with
-   * {@link yieldUnitId} by the effect in the constructor, which is what a recipe loaded before its catalogue
-   * arrived needs: the id is known first and the name only once the units are readable.
-   */
-  readonly yieldUnitText = signal('');
-
-  /**
-   * The unit catalogue behind the yield-unit picker.
-   *
-   * Its own state rather than the shared one from `ReferenceService`, because the picker has three
-   * presentations and "not read yet" is one of them — the same shape `RecipeUnitConversionComponent` and the
-   * reconciliation panel each keep for their own pickers.
-   */
-  private readonly unitCatalogueSignal = signal<UnitCatalogueState>({ status: 'loading' });
-  readonly unitCatalogue = this.unitCatalogueSignal.asReadonly();
-
-  /**
-   * The units a yield may be measured in.
-   *
-   * Filtered and named by `recipeUnitOptions`, the same rules the ingredient rows read, so one recipe never has
-   * two pickers calling one unit different things. Degrees are excluded there for both of them; on this field
-   * Business refuses them outright ("A yield cannot be measured in degrees", mirroring
-   * `CK_Recipes_YieldUnit_NotTemperature`), so listing them would be offering a choice that can only ever fail.
-   */
-  readonly yieldUnitOptions = computed<readonly CpComboboxOption[]>(() => {
-    const catalogue = this.unitCatalogueSignal();
-
-    return catalogue.status === 'ready' ? recipeUnitOptions(catalogue.units) : [];
-  });
-
-  /** The option the box shows as chosen, or null when nothing is set or the catalogue cannot name it. */
-  readonly yieldUnitSelection = computed<CpComboboxOption | null>(() => {
-    const unitId = this.yieldUnitId();
-    if (unitId === null) return null;
-
-    return this.yieldUnitOptions().find((option) => option.id === unitId) ?? null;
-  });
-
-  /**
-   * What the yield-unit field says beneath itself.
-   *
-   * Four different things, because they are four different situations and only one of them is "nothing to
-   * report". The unnameable-unit case borrows the reconciliation panel's wording for the same state, so the
-   * two surfaces do not describe one recipe differently.
-   */
-  readonly yieldUnitHint = computed(() => {
-    const catalogue = this.unitCatalogueSignal().status;
-    if (catalogue === 'loading') return 'Loading the unit list…';
-    if (catalogue === 'unavailable') {
-      return this.yieldUnitId() === null
-        ? 'The unit list cannot be read, so there is nothing to pick from yet.'
-        : 'The unit list cannot be read, so this recipe’s yield unit cannot be named. It is kept as saved.';
-    }
-
-    if (this.yieldUnitId() !== null && this.yieldUnitSelection() === null) {
-      return 'This recipe records a yield unit the list could not name. It is kept as saved.';
-    }
-
-    // Stated up front rather than discovered through a refused save: the server requires both halves of the
-    // pair, and a creator who picks a unit has no way to know that from the fields alone.
-    if (this.yieldUnitId() !== null && this.yieldQuantity() === null) {
-      return 'Add a yield quantity as well — a unit on its own cannot be saved.';
-    }
-
-    // Nothing to say while nothing is wrong: what the unit is for is plain from the fields either side of it.
-    return '';
-  });
-
-  /**
-   * What the serving-size field says beneath itself.
-   *
-   * The missing-unit case is stated rather than discovered through a refused save, exactly as the yield
-   * unit's own hint states the quantity it needs. Naming the chosen unit in the ordinary case is what stops
-   * a bare "250" being ambiguous between millilitres and grams on a recipe whose unit is one field away.
-   */
-  readonly servingSizeHint = computed(() => {
-    // The same two branches yieldUnitHint leads with, and for the same reason: with the catalogue unreadable
-    // the unit box is disabled, so "pick one first" would be telling a creator to do what the page has just
-    // made impossible.
-    const catalogue = this.unitCatalogue().status;
-    if (catalogue === 'loading') return 'Loading the unit list…';
-    if (catalogue === 'unavailable') {
-      return this.yieldUnitId() === null
-        ? 'The unit list cannot be read, so there is no unit to measure a serving in yet.'
-        : 'The unit list cannot be read, so this recipe’s yield unit cannot be named. A serving size is still measured in it.';
-    }
-
-    if (this.servingSize() !== null && this.yieldUnitId() === null) {
-      return 'Pick a yield unit as well — a serving size needs something to be measured in.';
-    }
-
-    // Nothing to say while nothing is wrong. Which unit a serving is measured in is the placeholder's to say, see
-    // servingSizePlaceholder, and the missing-unit case is said above the moment a size is entered without one.
-    return '';
-  });
-
-  /**
-   * What the serving-size box shows while it is empty: the unit it will be measured in, once there is one.
-   *
-   * A placeholder rather than a hint, so the box is read at a glance and no line of text sits under it. It goes
-   * when the creator types, which is acceptable here because the Yield unit field is the box beside it.
-   */
-  readonly servingSizePlaceholder = computed(() => {
-    const unit = this.yieldUnitSelection();
-
-    return unit === null ? 'e.g. 250' : `in ${unit.label.toLowerCase()}`;
-  });
-
-  /**
-   * Whether the creator has asked for the measured-batch fields — batch yield, yield unit and serving size.
-   *
-   * Most recipes are described by the creator's own wording and, at most, a serving count; the three measured
-   * fields exist for scaling and read as three boxes to fill in when they are all shown at once. So they are
-   * offered ({@link revealMeasuredBatch}) rather than presented, as a step's duration is. A latch, not a
-   * mirror of the values: once they are on screen they stay there, because a box that vanishes the moment a
-   * creator backspaces its last digit is worse than an empty one. See {@link measuredBatchOpen}.
-   */
-  private readonly measuredBatchRevealed = signal(false);
-
-  /**
-   * Whether the form holds, or has just been refused over, anything the measured-batch fields write. Those
-   * fields must be showing then, whichever way the value arrived: a saved recipe, a restored version or a
-   * reload after a conflict, or a server message that has to be reached by `revealFirstFieldError`.
-   */
-  private readonly recordsMeasuredBatch = computed(
-    () =>
-      this.yieldQuantity() !== null ||
-      this.yieldUnitId() !== null ||
-      this.servingSize() !== null ||
-      ['yieldQuantity', 'yieldUnitId', 'servingSize'].some((field) => this.fieldError(field) !== ''),
-  );
-
-  /** Whether the measured-batch fields are showing: asked for, or already carrying something. */
-  readonly measuredBatchOpen = computed(() => this.measuredBatchRevealed() || this.recordsMeasuredBatch());
-
-  readonly tags = signal<readonly string[]>([]);
-  readonly newTagText = signal('');
-
-  readonly ingredientGroups = signal<readonly RecipeIngredientGroup[]>([]);
-
-  /**
-   * The structured ingredient editor's own working copy, mirrored here — this is what
-   * {@link buildIngredientGroups}, {@link RecipeFormSnapshot} and `isDirty` all read. Kept in sync two
-   * ways: live edits arrive through `onIngredientGroupsChanged` (the child's `groupsChanged` output), and
-   * `applyDetail` also sets it directly from the server response via `toEditableGroups`, rather than
-   * waiting for `RecipeIngredientEditorComponent`'s own `effect()` to resync from `[initialGroups]` — that
-   * effect doesn't re-emit `groupsChanged`, and a save/load's baseline capture happens synchronously in
-   * the same call, before any queued effect would have run.
-   */
-  readonly editedIngredientGroups = signal<readonly EditableIngredientGroup[]>([]);
-
-  readonly instructionGroups = signal<EditableInstructionGroup[]>([]);
-
-  /**
-   * Whether instruction group headings are shown — the method's counterpart to the ingredient editor's
-   * `showGroups`, and the same rule: a method has no phases until a creator says it does, so a new recipe
-   * takes steps straight away and the group they go into stays untitled. Turned on by a recipe that arrives
-   * with phases and by asking for one, never off.
-   */
-  readonly showInstructionGroups = signal(false);
-
-  /**
-   * The instruction groups, named and counted for the nav down the side of the Instructions tab.
-   *
-   * Every group stays rendered — the nav scrolls, it does not mount — so a step edited in a group scrolled out
-   * of view is in `instructionGroups()` like any other, and dirty-state and the save see it.
-   */
-  readonly instructionGroupNav = computed<readonly CpAnchorNavItem[]>(() =>
-    this.instructionGroups().map((group, index) => ({
-      targetId: INSTRUCTION_GROUP_ANCHOR_PREFIX + group.key,
-      label: group.title.trim() || `Group ${index + 1} (untitled)`,
-      detail: `${group.steps.length} ${group.steps.length === 1 ? 'step' : 'steps'}`,
-    })),
-  );
-
-  /**
-   * Shown only for a method with phases to move between — the same rule the ingredient list follows. One group
-   * is not navigation, and a method with no phases has nothing to navigate.
-   */
-  readonly showInstructionGroupNav = computed(() => this.showInstructionGroups() && this.instructionGroups().length > 1);
-
   /**
    * The General tab's four sections, in the order they are written, for the nav beside them.
    *
@@ -1158,34 +626,20 @@ export class RecipeEditorComponent {
     { targetId: 'section-yield', label: 'Yield' },
   ];
 
-  /**
-   * The nav's items, each saying how many problems the last save left in its section.
-   *
-   * The tab is long, so a refused save can name a field several screens away from where the creator is, and a
-   * nav that only jumps would leave them to find it. In the item's detail line, in words, like the form tabs'
-   * labels: a count is read by a screen reader and is not told by colour. Counted from `FIELD_LOCATIONS`, so a
-   * field gains its marker by being locatable at all rather than by being listed again.
-   */
-  readonly generalSectionNav = computed<readonly CpAnchorNavItem[]>(() =>
-    RecipeEditorComponent.GENERAL_SECTIONS.map((section) => this.withProblemCount(section, [section.targetId])),
-  );
+  /** The nav's items: one per section, for a single-column editor. */
+  readonly generalSectionNav: readonly CpAnchorNavItem[] = RecipeEditorComponent.GENERAL_SECTIONS;
 
   /**
    * The same four sections as two, for a wide editor: Details, and the three short ones after it together.
    *
    * On a phone the tab is several screens and four links earn their place. On a desktop the three short sections
    * are a screen apart at most, so telling them apart in a nav is noise; the one real boundary is between the long
-   * section and the rest. The second item jumps to the first of its three, counts the problems in all of them, and
-   * is current while any of them is.
+   * section and the rest. The second item jumps to the first of its three and is current while any of them is.
    */
-  readonly generalWideNav = computed<readonly CpAnchorNavItem[]>(() => [
-    this.withProblemCount({ targetId: 'section-details', label: 'Details' }, ['section-details']),
-    this.withProblemCount({ targetId: 'section-notes', label: 'Notes, timing & yield' }, [
-      'section-notes',
-      'section-timing',
-      'section-yield',
-    ]),
-  ]);
+  readonly generalWideNav: readonly CpAnchorNavItem[] = [
+    { targetId: 'section-details', label: 'Details' },
+    { targetId: 'section-notes', label: 'Notes, timing & yield' },
+  ];
 
   /** Which of the two wide items is current: the first for Details, the second for any of the others. */
   readonly activeGeneralWideTargetId = computed(() => {
@@ -1194,15 +648,6 @@ export class RecipeEditorComponent {
     if (active === null) return null;
     return active === 'section-details' ? 'section-details' : 'section-notes';
   });
-
-  /** An item with the number of problems the last save left across the sections it stands for, said in words. */
-  private withProblemCount(item: CpAnchorNavItem, sectionIds: readonly string[]): CpAnchorNavItem {
-    const keys = Object.keys(this.fieldErrorsSignal());
-    const fields = FIELD_LOCATIONS.filter((location) => sectionIds.includes(location.sectionId)).map((location) => location.field);
-    const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
-
-    return problems === 0 ? { ...item } : { ...item, detail: `${problems} ${problems === 1 ? 'problem' : 'problems'}` };
-  }
 
   /**
    * The section the creator is reading, which `aria-current` names: the last one jumped to, then whichever one
@@ -1218,15 +663,6 @@ export class RecipeEditorComponent {
 
   /** The element holding the General sections, once it is on screen. Absent on the other tabs and while loading. */
   private readonly generalSections = viewChild<ElementRef<HTMLElement>>('generalSections');
-
-  /** The group last jumped to, which `aria-current` names. See the ingredient editor's `activeGroupKey`. */
-  readonly activeInstructionGroupKey = signal<string | null>(null);
-
-  readonly activeInstructionGroupTargetId = computed(() => {
-    const key = this.activeInstructionGroupKey();
-
-    return key === null ? null : INSTRUCTION_GROUP_ANCHOR_PREFIX + key;
-  });
 
   /*
    * There is no status control here any more, and its absence is the point.
@@ -1252,15 +688,8 @@ export class RecipeEditorComponent {
    * back, so the control is disabled with the reason on it rather than left to fail.
    */
   readonly canSave = computed(
-    () => this.title().trim().length > 0 && this.saveStateSignal().status !== 'saving' && !this.isArchived(),
+    () => this.form.validator.canSubmit() && this.saveStateSignal().status !== 'saving' && !this.isArchived(),
   );
-
-  private readonly baselineSignal = signal<RecipeFormSnapshot | null>(null);
-  readonly isDirty = computed(() => {
-    if (this.newTagText().trim().length > 0) return true;
-    const baseline = this.baselineSignal();
-    return baseline !== null && !this.snapshotsEqual(this.captureSnapshot(), baseline);
-  });
 
   /**
    * The confirmation in flight, if any. A second navigation attempt while one is still open must not open a
@@ -1269,16 +698,6 @@ export class RecipeEditorComponent {
   private pendingLeaveConfirm: Promise<boolean> | null = null;
 
   constructor() {
-    void this.loadUnitCatalogue();
-
-    // Keeps the yield-unit box reading as the unit it stands for. Needed because the two arrive in either
-    // order: a recipe's `yieldUnitId` is known as soon as it loads, and the catalogue that can name it may
-    // land afterwards. Keyed on the selection, so typing — which changes the text and not the selection —
-    // does not trigger it and is not fought.
-    effect(() => {
-      this.yieldUnitText.set(this.yieldUnitSelection()?.label ?? '');
-    });
-
     // Keeps the General nav marking the section the creator is reading. Watches a band across the top of the
     // screen, and the deepest section touching it is the current one: a section becomes current as its top
     // comes up into the band, and stays current until the next one does. Not a measurement of scroll offset,
@@ -1317,14 +736,8 @@ export class RecipeEditorComponent {
       onCleanup(() => observer.disconnect());
     });
 
-    // Latches the measured-batch fields open once anything has put them on screen, so clearing a value
-    // never takes the box away mid-edit. See measuredBatchRevealed.
-    effect(() => {
-      if (this.recordsMeasuredBatch()) this.measuredBatchRevealed.set(true);
-    });
-
     if (this.isCreateMode) {
-      this.baselineSignal.set(this.captureSnapshot());
+      this.form.markClean();
     } else {
       void this.loadDetail();
 
@@ -1375,13 +788,36 @@ export class RecipeEditorComponent {
   private revealFirstFieldError(): void {
     // Read through errorListKey, so an indexed key lands on the tab its list is on: the server reports a
     // refused line as ingredientGroups[0].ingredients[2].quantity, which no exact match would find.
-    const lists = new Set(Object.keys(this.fieldErrorsSignal()).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     // A hosted editor reaches only a field it shows; the rest are named in hiddenProblemSections.
     const target = FIELD_LOCATIONS.find(
       (location) => lists.has(location.field) && (!this.host || this.hostedSections.includes(location.sectionId)),
     );
     if (!target) return;
 
+    this.revealLocation(target);
+  }
+
+  /**
+   * Takes the creator to the field an issue is about. What the validation summary does when one of its lines is
+   * chosen: the same reveal a refused save performs for the first, for whichever one was picked.
+   *
+   * A path this form cannot locate — or a field a hosted editor is not showing — is left alone, as it is there.
+   */
+  protected revealIssue(issue: CpValidationIssue): void {
+    const target = this.locationOf(issue.path);
+    if (target) this.revealLocation(target);
+  }
+
+  private locationOf(path: string): FieldLocation | undefined {
+    const field = errorListKey(path);
+
+    return FIELD_LOCATIONS.find(
+      (location) => location.field === field && (!this.host || this.hostedSections.includes(location.sectionId)),
+    );
+  }
+
+  private revealLocation(target: FieldLocation): void {
     this.selectedAreaId.set('edit');
     this.selectedEditTabId.set(target.tabId);
 
@@ -1425,70 +861,15 @@ export class RecipeEditorComponent {
   }
 
   /**
-   * The keys the request actually submitted, per group, in submission order.
-   *
-   * Not the working copy: a row with no text is filtered out of the request, so submitted position 2 is the
-   * third row group 0 *sent*, not the third row it holds. Recomputed from the same filter rather than recorded
-   * during the build, so `buildIngredientGroups` stays free of side effects — `captureSnapshot` calls it on
-   * every dirty check.
-   */
-  private readonly submittedIngredientRowKeys = computed<readonly (readonly string[])[]>(() =>
-    this.editedIngredientGroups().map((group) =>
-      group.ingredients.filter((row) => row.displayText.trim().length > 0).map((row) => row.key),
-    ),
-  );
-
-  private readonly submittedIngredientGroupKeys = computed<readonly string[]>(() =>
-    this.editedIngredientGroups().map((group) => group.key),
-  );
-
-  private readonly submittedInstructionStepKeys = computed<readonly (readonly string[])[]>(() =>
-    this.instructionGroups().map((group) =>
-      group.steps.filter((step) => step.text.trim().length > 0).map((step) => step.key),
-    ),
-  );
-
-  private readonly submittedInstructionGroupKeys = computed<readonly string[]>(() =>
-    this.instructionGroups().map((group) => group.key),
-  );
-
-  /** The server's sentences for one ingredient line, keyed by the row they belong to. */
-  readonly ingredientRowErrors = computed(() =>
-    messagesByRowKey(this.fieldErrorsSignal(), 'ingredientGroups', this.submittedIngredientRowKeys()),
-  );
-
-  readonly ingredientGroupErrors = computed(() =>
-    messagesByGroupKey(this.fieldErrorsSignal(), 'ingredientGroups', this.submittedIngredientGroupKeys()),
-  );
-
-  readonly instructionStepErrors = computed(() =>
-    messagesByRowKey(this.fieldErrorsSignal(), 'instructions', this.submittedInstructionStepKeys()),
-  );
-
-  readonly instructionGroupErrors = computed(() =>
-    messagesByGroupKey(this.fieldErrorsSignal(), 'instructions', this.submittedInstructionGroupKeys()),
-  );
-
-  /** The sentences for one instruction step, joined — a step can be wrong in more than one way at once. */
-  stepProblem(stepKey: string): string {
-    return this.instructionStepErrors().get(stepKey)?.join(' ') ?? '';
-  }
-
-  instructionGroupProblem(groupKey: string): string {
-    return this.instructionGroupErrors().get(groupKey)?.join(' ') ?? '';
-  }
-
-  /**
    * What the save banner says about a refusal.
    *
    * Two wordings, because "check your recipe details" is wrong when the problem is an ingredient line, and
-   * "they are marked on the tabs" would be wrong when the server named a field this form cannot locate — the
-   * honest-silence case `revealFirstFieldError` documents. Both open with the same sentence, so the creator
-   * always reads the same first thing.
+   * "the first one is showing" would be wrong when the server named a field this form cannot locate — the
+   * honest-silence case `revealFirstFieldError` documents, where nothing is shown. Both open with the same
+   * sentence, so the creator always reads the same first thing.
    */
   readonly validationBannerText = computed(() => {
-    const errors = this.fieldErrorsSignal();
-    const lists = new Set(Object.keys(errors).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     const located = FIELD_LOCATIONS.some((location) => lists.has(location.field));
 
     if (this.host) {
@@ -1501,7 +882,7 @@ export class RecipeEditorComponent {
     }
 
     return located
-      ? 'Some fields need attention. The tabs below say which, and the first one is showing.'
+      ? 'Some fields need attention. The first one is showing.'
       : 'Some fields need attention. Check your recipe details and try again.';
   });
 
@@ -1512,61 +893,27 @@ export class RecipeEditorComponent {
    */
   readonly hiddenProblemSections = computed<readonly string[]>(() => {
     if (!this.host) return [];
-    const lists = new Set(Object.keys(this.fieldErrorsSignal()).map(errorListKey));
+    const lists = new Set(this.form.errorPaths().map(errorListKey));
     const sections = FIELD_LOCATIONS.filter(
       (location) => lists.has(location.field) && !this.hostedSections.includes(location.sectionId),
     ).map((location) => location.sectionId);
     return [...new Set(sections)].map((id) => SECTION_HEADINGS[id]);
   });
 
-  /** The server's one sentence about a whole list, for the section that holds it. */
-  sectionProblem(field: 'ingredientGroups' | 'instructions'): string {
-    return this.fieldError(field);
-  }
-
-  /** `fieldErrors()[field][0] ?? ''` — the first message for one field from the last `validation_failed` outcome, or `''` once cleared. */
-  fieldError(field: string): string {
-    return this.fieldErrorsSignal()[field]?.[0] ?? '';
-  }
-
   /**
-   * Reads the shared unit catalogue for the yield-unit picker, and is the Retry the field offers.
-   *
-   * A catalogue that cannot be read costs the picker, never the value: `yieldUnitId` is an id the form already
-   * holds, so an unnameable unit still submits exactly as it was saved. See {@link yieldUnitHint}.
+   * The errors the summary lists: every one showing that this editor can take the creator to. Warnings stay
+   * beside their own field — advice that appears and goes while the creator types is not worth a list — and an
+   * error on a part a hosted editor is not showing is named by {@link hiddenProblemSections} instead.
    */
-  async loadUnitCatalogue(): Promise<void> {
-    this.unitCatalogueSignal.set({ status: 'loading' });
-    const outcome = await this.referenceService.listUnits();
-    this.unitCatalogueSignal.set(
-      outcome.status === 'found' ? { status: 'ready', units: outcome.units } : { status: 'unavailable' },
-    );
-  }
+  protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() =>
+    this.form.validator.visibleErrors().filter((issue) => this.locationOf(issue.path) !== undefined),
+  );
 
-  /**
-   * The creator picked a yield unit, or the combobox resolved what they typed to one.
-   *
-   * A null selection is ignored. `restricted` mode recomputes the selection whenever the field is left, so
-   * honouring null here would drop a recorded unit the moment someone tabbed through the box without touching
-   * it. Removing one is {@link clearYieldUnit}'s job, because only asking is asking.
-   */
-  onYieldUnitPicked(option: CpComboboxOption | null): void {
-    if (option === null || option.id === this.yieldUnitId()) return;
-    this.yieldUnitId.set(option.id);
-  }
+  /** Whether the summary is drawn at all. A signal so a spec can turn it on; the page never changes it. */
+  readonly showValidationSummary = signal(SHOW_VALIDATION_SUMMARY);
 
-  /**
-   * Removes the yield unit.
-   *
-   * A control of its own because `restricted` mode has no way out on its own: emptying the box reverts to the
-   * chosen unit's name when the field is left, so without this a unit once set could never be taken off. The
-   * text is cleared here as well as by the constructor's effect, so the box empties on the click rather than
-   * on the next effect flush.
-   */
-  clearYieldUnit(): void {
-    this.yieldUnitId.set(null);
-    this.yieldUnitText.set('');
-  }
+  /** The field's own label for the summary, or nothing for a path this form does not name. */
+  protected readonly fieldLabelOf = (path: string): string => FIELD_LABELS[errorListKey(path)] ?? '';
 
   retryLoad(): void {
     void this.loadDetail();
@@ -1582,23 +929,6 @@ export class RecipeEditorComponent {
     this.saveStateSignal.set({ status: 'idle' });
     await this.loadDetail();
     return true;
-  }
-
-  addTag(): void {
-    const trimmed = this.newTagText().trim();
-    if (trimmed.length === 0) return;
-    if (!this.tags().some((tag) => tag.toLowerCase() === trimmed.toLowerCase())) {
-      this.tags.update((tags) => [...tags, trimmed]);
-    }
-    this.newTagText.set('');
-  }
-
-  removeTag(tag: string): void {
-    this.tags.update((tags) => tags.filter((existing) => existing !== tag));
-  }
-
-  onIngredientGroupsChanged(groups: readonly EditableIngredientGroup[]): void {
-    this.editedIngredientGroups.set(groups);
   }
 
   /**
@@ -1676,181 +1006,6 @@ export class RecipeEditorComponent {
   }
 
   /**
-   * Jumps to the instruction group the nav named: marks it current, scrolls it into view, and moves focus to
-   * its heading field — the same three things the ingredient editor does, for the same reason. The shared nav
-   * does none of them, because only this editor can name the control worth focusing.
-   */
-  onInstructionGroupNavActivated(item: CpAnchorNavItem): void {
-    const groupKey = item.targetId.slice(INSTRUCTION_GROUP_ANCHOR_PREFIX.length);
-    this.activeInstructionGroupKey.set(groupKey);
-
-    const host = this.elementRef.nativeElement;
-    host.querySelector(`#${item.targetId}`)?.scrollIntoView({ block: 'start' });
-    host.querySelector<HTMLElement>(`#group-title-${groupKey}`)?.focus();
-  }
-
-  /**
-   * Puts this step's duration field on show, and moves focus into it.
-   *
-   * Focus moves because the click was a request to type a number — leaving it on a button that has just
-   * replaced itself strands a keyboard user in front of the field they asked for. It waits for the render that
-   * creates the input, since there is nothing to focus before that.
-   *
-   * Reveals only; it writes no duration, so the recipe is untouched and the form does not become dirty. See
-   * `EditableInstructionStep.showDuration`.
-   */
-  revealStepDuration(groupKey: string, stepKey: string): void {
-    this.updateInstructionStep(groupKey, stepKey, { showDuration: true });
-
-    afterNextRender(
-      () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-duration-${stepKey}"]`)?.focus(),
-      { injector: this.injector },
-    );
-  }
-
-  /**
-   * The creator asked for the measured-batch fields: show them and put the cursor in the first.
-   *
-   * Focus moves for the reason {@link revealStepDuration} gives: the button has just replaced itself with the
-   * fields it asked for, and leaving focus on it would strand a keyboard user. Writes no value, so the recipe
-   * is untouched and the form does not become dirty.
-   */
-  revealMeasuredBatch(): void {
-    this.measuredBatchRevealed.set(true);
-
-    afterNextRender(
-      () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-yield-quantity')?.focus(),
-      { injector: this.injector },
-    );
-  }
-
-  /**
-   * Takes the measured-batch fields away again, clearing what they held.
-   *
-   * They were offered rather than presented, and once on screen they stay (see {@link measuredBatchRevealed}) so
-   * that a box does not vanish while it is being edited. That left no way back for a creator who opened them by
-   * mistake or no longer wants a measured batch, so this is the deliberate way out: batch yield, yield unit and
-   * serving size go, and so do any refusals the server named on them. The creator's own wording and the serving
-   * count are not part of it.
-   *
-   * Asked first only when there is something to lose. Nothing is saved until Save, so this is recoverable until
-   * then by leaving without saving, but typing a batch in and losing it to a click is what a confirmation is for.
-   */
-  async removeMeasuredBatch(): Promise<void> {
-    const holdsValues = this.yieldQuantity() !== null || this.yieldUnitId() !== null || this.servingSize() !== null;
-
-    if (holdsValues) {
-      const confirmed = await this.confirmService.confirm({
-        title: 'Remove the measured batch?',
-        message:
-          'This clears the batch yield, the yield unit and the serving size. Your own yield wording and the serving count stay as they are. Nothing is saved until you select Save.',
-        confirmLabel: 'Remove measured batch',
-        cancelLabel: 'Keep it',
-      });
-      if (!confirmed) return;
-    }
-
-    this.yieldQuantity.set(null);
-    this.clearYieldUnit();
-    this.servingSize.set(null);
-
-    // A refusal about a field that is no longer there would hold the fields open: see recordsMeasuredBatch.
-    this.fieldErrorsSignal.update((errors) =>
-      Object.fromEntries(Object.entries(errors).filter(([field]) => !['yieldQuantity', 'yieldUnitId', 'servingSize'].includes(field))),
-    );
-    this.measuredBatchRevealed.set(false);
-
-    // The button that removed them is gone with them, so focus goes to the one that offers them back.
-    afterNextRender(
-      () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-add-measured-batch')?.focus(),
-      { injector: this.injector },
-    );
-  }
-
-  updateInstructionGroupTitle(groupKey: string, title: string): void {
-    this.instructionGroups.update((groups) => groups.map((group) => (group.key === groupKey ? { ...group, title } : group)));
-  }
-
-  updateInstructionStep(groupKey: string, stepKey: string, patch: Partial<Omit<EditableInstructionStep, 'key' | 'id'>>): void {
-    this.instructionGroups.update((groups) =>
-      groups.map((group) =>
-        group.key === groupKey
-          ? { ...group, steps: group.steps.map((step) => (step.key === stepKey ? { ...step, ...patch } : step)) }
-          : group,
-      ),
-    );
-  }
-
-  /**
-   * Opts the method into phases, and appends an empty one to fill. Steps already written stay where they are,
-   * in the first group, which now shows the empty heading field it always had.
-   */
-  addInstructionGroup(): void {
-    this.showInstructionGroups.set(true);
-    this.addInstructionGroupInternal();
-  }
-
-  private addInstructionGroupInternal(): string {
-    const key = crypto.randomUUID();
-    this.instructionGroups.update((groups) => [...groups, { key, id: null, title: '', steps: [] }]);
-
-    return key;
-  }
-
-  removeInstructionGroup(groupKey: string): void {
-    this.instructionGroups.update((groups) => groups.filter((group) => group.key !== groupKey));
-  }
-
-  moveInstructionGroup(groupKey: string, direction: -1 | 1): void {
-    this.instructionGroups.update((groups) => moveByKey(groups, groupKey, direction));
-  }
-
-  /**
-   * Adds a blank step. With no `groupKey` — the ungrouped case — it goes into the one list, created here if
-   * this is the first step of a new recipe. That group exists because the wire contract needs one (R.1: steps
-   * travel inside an InstructionGroupInput) and stays untitled.
-   */
-  addInstructionStep(groupKey?: string): void {
-    const targetKey = groupKey ?? this.instructionGroups()[0]?.key ?? this.addInstructionGroupInternal();
-
-    this.instructionGroups.update((groups) =>
-      groups.map((group) =>
-        group.key === targetKey
-          ? {
-              ...group,
-              steps: [
-                ...group.steps,
-                {
-                  key: crypto.randomUUID(),
-                  id: null,
-                  text: '',
-                  note: '',
-                  durationMinutes: null,
-                  showDuration: false,
-                  techniqueId: null,
-                  temperatureValue: null,
-                  temperatureUnitId: null,
-                },
-              ],
-            }
-          : group,
-      ),
-    );
-  }
-
-  removeInstructionStep(groupKey: string, stepKey: string): void {
-    this.instructionGroups.update((groups) =>
-      groups.map((group) => (group.key === groupKey ? { ...group, steps: group.steps.filter((step) => step.key !== stepKey) } : group)),
-    );
-  }
-
-  moveInstructionStep(groupKey: string, stepKey: string, direction: -1 | 1): void {
-    this.instructionGroups.update((groups) =>
-      groups.map((group) => (group.key === groupKey ? { ...group, steps: moveByKey(group.steps, stepKey, direction) } : group)),
-    );
-  }
-
-  /**
    * A version was restored, and the response carried the whole recipe — so the form is re-seeded from it
    * rather than re-read, the refreshed token replaces the one the restore consumed, and the creator is put
    * back on the content they were promised instead of on the history tab they asked from.
@@ -1861,7 +1016,7 @@ export class RecipeEditorComponent {
   onVersionRestored(event: RecipeVersionRestored): void {
     this.applyDetail(event.recipe);
     this.saveStateSignal.set({ status: 'idle' });
-    this.fieldErrorsSignal.set({});
+    this.form.fieldErrors.set({});
 
     // The in-flight save key described a body that no longer exists; replaying it would answer with a
     // response to an edit the creator has just replaced.
@@ -1889,7 +1044,7 @@ export class RecipeEditorComponent {
   onMediaChanged(event: RecipeMediaChanged): void {
     this.applyDetail(event.recipe);
     this.saveStateSignal.set({ status: 'idle' });
-    this.fieldErrorsSignal.set({});
+    this.form.fieldErrors.set({});
     this.clearPendingIdempotencyKey();
 
     this.noticeSignal.set({
@@ -1919,7 +1074,7 @@ export class RecipeEditorComponent {
   onRecipeTransitioned(detail: RecipeDetail): void {
     this.applyDetail(detail);
     this.saveStateSignal.set({ status: 'idle' });
-    this.fieldErrorsSignal.set({});
+    this.form.fieldErrors.set({});
     this.clearPendingIdempotencyKey();
   }
 
@@ -2048,11 +1203,11 @@ export class RecipeEditorComponent {
   async save(): Promise<void> {
     if (!this.canSave()) return;
     this.saveStateSignal.set({ status: 'saving' });
-    this.fieldErrorsSignal.set({});
+    this.form.fieldErrors.set({});
     this.noticeSignal.set(null);
 
     if (this.isCreateMode) {
-      const request = this.buildCreateRequest();
+      const request = this.form.buildCreateRequest();
       const outcome = await this.recipeService.createRecipe(this.workspaceSlug, request, this.idempotencyKeyFor(request));
       if (outcome.status === 'created') {
         this.clearPendingIdempotencyKey();
@@ -2060,7 +1215,7 @@ export class RecipeEditorComponent {
         // same canDeactivate guard as any other route change, and the just-created recipe's data
         // has, in fact, been applied server-side — the restriction is "no dirty-clear before the
         // server response is applied," not "never clear it in the create-success branch."
-        this.baselineSignal.set(this.captureSnapshot());
+        this.form.markClean();
         this.savedAtSignal.set(outcome.recipe.createdAt);
         if (this.host) {
           // The host decides what comes next; see RecipeEditorHost.
@@ -2072,7 +1227,7 @@ export class RecipeEditorComponent {
         return;
       }
       if (outcome.status === 'validation_failed') {
-        this.fieldErrorsSignal.set(outcome.fieldErrors);
+        this.form.fieldErrors.set(outcome.fieldErrors);
         this.revealFirstFieldError();
       }
       this.saveStateSignal.set({ status: outcome.status });
@@ -2084,7 +1239,7 @@ export class RecipeEditorComponent {
       this.saveStateSignal.set({ status: 'unavailable' });
       return;
     }
-    const request = this.buildUpdateRequest(token);
+    const request = this.form.buildUpdateRequest(token);
     const outcome = await this.recipeService.updateRecipe(this.workspaceSlug, this.recipeId!, request, this.idempotencyKeyFor(request));
     if (outcome.status === 'updated') {
       this.clearPendingIdempotencyKey();
@@ -2094,7 +1249,7 @@ export class RecipeEditorComponent {
       return;
     }
     if (outcome.status === 'validation_failed') {
-      this.fieldErrorsSignal.set(outcome.fieldErrors);
+      this.form.fieldErrors.set(outcome.fieldErrors);
       this.revealFirstFieldError();
     }
     this.saveStateSignal.set({ status: outcome.status });
@@ -2108,8 +1263,9 @@ export class RecipeEditorComponent {
   async flush(): Promise<boolean> {
     if (!this.isDirty()) return true;
     if (this.saveStateSignal().status === 'saving') return false;
-    if (this.title().trim().length === 0) {
-      this.fieldErrorsSignal.set({ title: ['Give the recipe a name, so it can be kept.'] });
+    if (!this.form.validator.canSubmit()) {
+      // The form's own rules say what is missing; this only makes them show.
+      this.form.validator.attempt();
       this.saveStateSignal.set({ status: 'validation_failed' });
       this.revealFirstFieldError();
       return false;
@@ -2122,22 +1278,9 @@ export class RecipeEditorComponent {
 
   // ---- Tools ----
 
-  toolMounted(id: RecipeToolId): boolean {
-    return this.mountedTools().has(id);
-  }
-
-  /** Whether this tool holds a proposal request that was sent and has not been answered. */
-  toolHasOpenRequest(id: RecipeToolId): boolean {
-    if (!PROPOSAL_TOOL_IDS.includes(id)) return false;
-
-    const requestId = this.toolRequestId(id);
-
-    return requestId !== null && !this.decidedRequestIds().has(requestId);
-  }
-
   /**
-   * Open the drawer, on the list or on the tool that was last open. Refused before the first save: every tool
-   * reads a saved recipe, and the line the control is described by says so.
+   * Open the tools drawer, on the list or on the tool that was last open. Refused before the first save: every
+   * tool reads a saved recipe, and the line the control is described by says so.
    */
   openTools(): void {
     if (this.isCreateMode) return;
@@ -2145,53 +1288,7 @@ export class RecipeEditorComponent {
     // The drawer gives focus back, on close, to whatever held it when it opened. A click does not focus a
     // button in every browser, so the control is focused here rather than left to chance.
     document.getElementById('recipe-tools-control')?.focus();
-    this.toolOutcomeSignal.set(null);
-    this.toolsOpen.set(true);
-  }
-
-  /**
-   * Shut the drawer. Nothing is accepted, discarded or abandoned by this: every opened tool stays mounted, so
-   * a running request is still watched and an unanswered proposal is still there. So there is nothing to ask.
-   */
-  closeTools(): void {
-    this.toolsOpen.set(false);
-  }
-
-  chooseTool(id: RecipeToolId): void {
-    this.mountedTools.update((mounted) => new Set([...mounted, id]));
-    this.toolOutcomeSignal.set(null);
-    this.openToolId.set(id);
-    // The button that was pressed has just gone with the list, and the page behind is inert, so focus would
-    // otherwise be lost to the body.
-    this.focusInDrawer('recipe-tools-all');
-  }
-
-  showToolList(): void {
-    const leaving = this.openToolId();
-    this.openToolId.set(null);
-    if (leaving !== null) this.focusInDrawer(`recipe-tool-choice-${leaving}`);
-  }
-
-  /** An AI tool's request was answered — accepted or declined — so it is no longer open. */
-  onToolDecided(id: RecipeToolId): void {
-    const requestId = this.toolRequestId(id);
-    if (requestId !== null) this.decidedRequestIds.update((decided) => new Set([...decided, requestId]));
-  }
-
-  private toolRequestId(id: RecipeToolId): string | null {
-    switch (id) {
-      case 'ai-revision':
-        return this.revisionTool()?.requestId() ?? null;
-      case 'ai-adaptation':
-        return this.adaptationTool()?.requestId() ?? null;
-      default:
-        return null;
-    }
-  }
-
-  /** From the document, not this element: an open drawer moves its content to <body>. */
-  private focusInDrawer(elementId: string): void {
-    afterNextRender(() => document.getElementById(elementId)?.focus(), { injector: this.injector });
+    this.toolsDrawer()?.open();
   }
 
   /**
@@ -2296,7 +1393,7 @@ export class RecipeEditorComponent {
         expectedConcurrencyToken: token,
         reason,
         ingredientGroups: submitted(
-          this.ingredientGroups().map((group) => ({
+          this.form.ingredientGroups().map((group) => ({
             id: group.id,
             title: group.title,
             ingredients: group.ingredients.map((line): IngredientInput => {
@@ -2394,7 +1491,7 @@ export class RecipeEditorComponent {
       // never as a second version, because there is not one.
       const text = `${successText} The recipe is now at version ${outcome.recipe.currentVersion?.versionNumber ?? '—'}.`;
       this.noticeSignal.set({ text, isProblem: false, recipeLink: null });
-      this.toolOutcomeSignal.set({ text, isProblem: false });
+      this.toolsDrawer()?.showOutcome({ text, isProblem: false });
       return;
     }
 
@@ -2402,7 +1499,7 @@ export class RecipeEditorComponent {
     // is the right next step, and dropped where it is not.
     const problem = this.applyProblemText(outcome.status);
     this.noticeSignal.set({ text: problem, isProblem: true, recipeLink: null });
-    this.toolOutcomeSignal.set({ text: problem, isProblem: true });
+    this.toolsDrawer()?.showOutcome({ text: problem, isProblem: true });
     if (outcome.status !== 'unavailable') this.clearPendingApplyKey();
   }
 
@@ -2476,24 +1573,7 @@ export class RecipeEditorComponent {
   }
 
   private applyDetail(detail: RecipeDetail): void {
-    this.title.set(detail.title);
-    this.description.set(detail.description ?? '');
-    this.headnote.set(detail.headnote ?? '');
-    this.attributionText.set(detail.attributionText ?? '');
-    this.sourceUrl.set(detail.sourceUrl ?? '');
-    this.notes.set(detail.notes ?? '');
-    this.storageNotes.set(detail.storageNotes ?? '');
-    this.prepTimeMinutes.set(detail.prepTimeMinutes);
-    this.cookTimeMinutes.set(detail.cookTimeMinutes);
-    this.restTimeMinutes.set(detail.restTimeMinutes);
-    // Not set into the form: the total is derived from the three above, so there is nothing here to load it
-    // into. It is kept only so the form can say that saving would change it — see totalTimeReplacementNote.
-    this.savedTotalTimeMinutes.set(detail.totalTimeMinutes);
-    this.yieldText.set(detail.yieldText ?? '');
-    this.yieldQuantity.set(detail.yieldQuantity);
-    this.yieldUnitId.set(detail.yieldUnitId);
-    this.servingCount.set(detail.servingCount);
-    this.servingSize.set(detail.servingSize);
+    this.form.load(detail);
 
     // The recipe's editorial state is held beside the form and never in it: the form no longer carries a
     // status at all, and an edit no longer sends one. What is still needed from it is whether the recipe is
@@ -2501,33 +1581,6 @@ export class RecipeEditorComponent {
     this.archivedSignal.set(detail.status === 'Archived');
     this.savedAssetLinksSignal.set(detail.assetLinks);
     this.recipeStatusSignal.set(detail.status);
-    this.tags.set(detail.tags.map((tag) => tag.name));
-    this.ingredientGroups.set(detail.ingredientGroups);
-    this.editedIngredientGroups.set(toEditableGroups(detail.ingredientGroups));
-    this.instructionGroups.set(
-      detail.instructionGroups.map((group) => ({
-        key: group.id,
-        id: group.id,
-        title: group.title ?? '',
-        steps: group.steps.map((step) => ({
-          key: step.id,
-          id: step.id,
-          text: step.text,
-          note: step.note ?? '',
-          durationMinutes: step.durationMinutes,
-          // A duration the recipe already records is shown; one it does not is offered.
-          showDuration: step.durationMinutes !== null,
-          techniqueId: step.techniqueId,
-          temperatureValue: step.temperatureValue,
-          temperatureUnitId: step.temperatureUnitId,
-        })),
-      })),
-    );
-    // More than one group counts even when both are untitled, for the reason hasNamedGroups() gives on the
-    // ingredient side: a creator with two lists has phases, whatever they have called them so far.
-    if (detail.instructionGroups.length > 1 || detail.instructionGroups.some((group) => (group.title ?? '').trim().length > 0)) {
-      this.showInstructionGroups.set(true);
-    }
     this.concurrencyTokenSignal.set(detail.concurrencyToken);
     this.currentVersionNumberSignal.set(detail.currentVersion?.versionNumber ?? null);
     this.currentVersionIdSignal.set(detail.currentVersion?.id ?? null);
@@ -2535,181 +1588,6 @@ export class RecipeEditorComponent {
     this.savedYieldTextSignal.set(detail.yieldText);
     this.savedYieldUnitIdSignal.set(detail.yieldUnitId);
     this.savedInstructionGroupsSignal.set(detail.instructionGroups);
-    this.baselineSignal.set(this.captureSnapshot());
-  }
-
-  private buildCreateRequest(): CreateRecipeRequest {
-    return {
-      title: this.title().trim(),
-      description: this.orNull(this.description()),
-      headnote: this.orNull(this.headnote()),
-      notes: this.orNull(this.notes()),
-      storageNotes: this.orNull(this.storageNotes()),
-      attributionText: this.orNull(this.attributionText()),
-      sourceUrl: this.orNull(this.sourceUrl()),
-      prepTimeMinutes: this.prepTimeMinutes(),
-      cookTimeMinutes: this.cookTimeMinutes(),
-      restTimeMinutes: this.restTimeMinutes(),
-      totalTimeMinutes: this.totalTimeMinutes(),
-      yieldText: this.orNull(this.yieldText()),
-      yieldQuantity: this.yieldQuantity(),
-      yieldUnitId: this.yieldUnitId(),
-      servingCount: this.servingCount(),
-      servingSize: this.servingSize(),
-      tags: this.tags(),
-      instructions: this.buildInstructions(),
-      ingredientGroups: this.buildIngredientGroups(),
-    };
-  }
-
-  private buildUpdateRequest(expectedConcurrencyToken: string): UpdateRecipeRequest {
-    return {
-      expectedConcurrencyToken,
-      title: submitted(this.title().trim()),
-      description: submitted(this.orNull(this.description())),
-      headnote: submitted(this.orNull(this.headnote())),
-      notes: submitted(this.orNull(this.notes())),
-      storageNotes: submitted(this.orNull(this.storageNotes())),
-      attributionText: submitted(this.orNull(this.attributionText())),
-      sourceUrl: submitted(this.orNull(this.sourceUrl())),
-      prepTimeMinutes: submitted(this.prepTimeMinutes()),
-      cookTimeMinutes: submitted(this.cookTimeMinutes()),
-      restTimeMinutes: submitted(this.restTimeMinutes()),
-      totalTimeMinutes: submitted(this.totalTimeMinutes()),
-      yieldText: submitted(this.orNull(this.yieldText())),
-      yieldQuantity: submitted(this.yieldQuantity()),
-      yieldUnitId: submitted(this.yieldUnitId()),
-      servingCount: submitted(this.servingCount()),
-      servingSize: submitted(this.servingSize()),
-      tags: submitted(this.tags()),
-      instructions: submitted(this.buildInstructions()),
-      ingredientGroups: submitted(this.buildIngredientGroups()),
-    };
-  }
-
-  /** A step left blank (never given any text) is dropped rather than submitted and rejected. */
-  private buildInstructions(): InstructionGroupInput[] {
-    return this.instructionGroups().map((group) => ({
-      id: group.id,
-      title: this.orNull(group.title),
-      steps: group.steps
-        .filter((step) => step.text.trim().length > 0)
-        .map(
-          (step): InstructionStepInput => ({
-            id: step.id,
-            text: step.text.trim(),
-            durationMinutes: step.durationMinutes,
-            note: this.orNull(step.note),
-            // Submitted although no control here sets them: an omitted field is applied as null, so leaving
-            // these out is how a save wipes a step's technique and temperature.
-            techniqueId: step.techniqueId,
-            temperatureValue: step.temperatureValue,
-            temperatureUnitId: step.temperatureUnitId,
-          }),
-        ),
-    }));
-  }
-
-  /** A line left blank (never given any display text) is dropped rather than submitted and rejected. */
-  private buildIngredientGroups(): IngredientGroupInput[] {
-    return this.editedIngredientGroups().map((group) => ({
-      id: group.id,
-      title: this.orNull(group.title),
-      ingredients: group.ingredients
-        .filter((row) => row.displayText.trim().length > 0)
-        .map(
-          (row): IngredientInput => ({
-            id: row.id,
-            displayText: row.displayText.trim(),
-            // Submitted so a line this editor assembled is still assembling one after a reload, and a line the
-            // creator wrote is still theirs. See EditableIngredientRow.displayTextIsComposed.
-            displayTextSource: row.displayTextIsComposed ? 'Composed' : 'Creator',
-            // The creator's own words for the name and the unit. Neither has anywhere else to go: a name that
-            // matched nothing has no ingredientId, and a unit that matched nothing has no measurementUnitId.
-            ingredientNameText: this.orNull(row.ingredientNameText),
-            unitText: this.orNull(row.unitLabel),
-            quantity: this.parseQuantity(row.quantityText),
-            quantityUpper: row.quantityUpper,
-            measurementUnitId: row.unitId,
-            ingredientId: row.ingredientId,
-            preparationNote: this.orNull(row.preparationNote),
-            isOptional: row.isOptional,
-            scalingBehavior: row.scalingBehavior,
-          }),
-        ),
-    }));
-  }
-
-  /**
-   * The row's quantity is edited as free text (recipes.md preserves creator wording, and the editor
-   * doesn't reproduce fraction arithmetic — see `EditableIngredientRow`'s own doc comment), so this
-   * is a best-effort read of it as a plain decimal. Anything it can't parse (blank, or a fraction/range
-   * span like "1 1/2" straight from a parsed line the creator hasn't retyped) is submitted as `null`
-   * rather than guessed at.
-   */
-  private parseQuantity(text: string): number | null {
-    const trimmed = text.trim();
-    if (trimmed.length === 0) return null;
-    const value = Number(trimmed);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  /**
-   * Instructions and ingredients are captured through `buildInstructions()`/`buildIngredientGroups()`
-   * rather than the raw editable signals so dirty-state matches what would actually be submitted: a step
-   * or ingredient line added but never filled in doesn't register as a change (it's dropped from the
-   * request the same way), while an added group does (groups themselves are never filtered).
-   */
-  private captureSnapshot(): RecipeFormSnapshot {
-    return {
-      title: this.title(),
-      description: this.description(),
-      headnote: this.headnote(),
-      attributionText: this.attributionText(),
-      sourceUrl: this.sourceUrl(),
-      notes: this.notes(),
-      storageNotes: this.storageNotes(),
-      prepTimeMinutes: this.prepTimeMinutes(),
-      cookTimeMinutes: this.cookTimeMinutes(),
-      restTimeMinutes: this.restTimeMinutes(),
-      yieldText: this.yieldText(),
-      yieldQuantity: this.yieldQuantity(),
-      yieldUnitId: this.yieldUnitId(),
-      servingCount: this.servingCount(),
-      servingSize: this.servingSize(),
-      tags: this.tags(),
-      instructionsJson: JSON.stringify(this.buildInstructions()),
-      ingredientGroupsJson: JSON.stringify(this.buildIngredientGroups()),
-    };
-  }
-
-  private snapshotsEqual(a: RecipeFormSnapshot, b: RecipeFormSnapshot): boolean {
-    return (
-      a.title === b.title &&
-      a.description === b.description &&
-      a.headnote === b.headnote &&
-      a.attributionText === b.attributionText &&
-      a.sourceUrl === b.sourceUrl &&
-      a.notes === b.notes &&
-      a.storageNotes === b.storageNotes &&
-      a.prepTimeMinutes === b.prepTimeMinutes &&
-      a.cookTimeMinutes === b.cookTimeMinutes &&
-      a.restTimeMinutes === b.restTimeMinutes &&
-      a.yieldText === b.yieldText &&
-      a.yieldQuantity === b.yieldQuantity &&
-      a.yieldUnitId === b.yieldUnitId &&
-      a.servingCount === b.servingCount &&
-      a.servingSize === b.servingSize &&
-      a.instructionsJson === b.instructionsJson &&
-      a.ingredientGroupsJson === b.ingredientGroupsJson &&
-      a.tags.length === b.tags.length &&
-      a.tags.every((tag, index) => tag === b.tags[index])
-    );
-  }
-
-  private orNull(value: string): string | null {
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? null : trimmed;
   }
 
   private resolveWorkspaceSlug(): string {

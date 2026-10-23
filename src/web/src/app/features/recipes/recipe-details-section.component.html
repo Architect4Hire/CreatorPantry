@@ -1,0 +1,84 @@
+<cp-form-section sectionId="section-details" heading="Details" intro="The essentials creators see first.">
+  <cp-field label="Title" forId="recipe-title" [required]="true" [error]="form.fieldError('title')">
+    <input
+      id="recipe-title"
+      placeholder="e.g. Brown butter banana bread"
+      type="text"
+      required
+      [ngModel]="form.title()"
+      (ngModelChange)="form.title.set($event)"
+      (blur)="form.validator.touch('title')"
+      name="title"
+    />
+  </cp-field>
+
+  <cp-field label="Description" forId="recipe-description" [error]="form.fieldError('description')">
+    <textarea
+      id="recipe-description"
+      placeholder="A sentence or two for your recipe cards and library"
+      [ngModel]="form.description()"
+      (ngModelChange)="form.description.set($event)"
+      name="description"
+    ></textarea>
+  </cp-field>
+
+  <cp-field label="Headnote" forId="recipe-headnote" [error]="form.fieldError('headnote')">
+    <textarea
+      id="recipe-headnote"
+      placeholder="The story behind it: why you make it, when it shines"
+      [ngModel]="form.headnote()"
+      (ngModelChange)="form.headnote.set($event)"
+      name="headnote"
+    ></textarea>
+  </cp-field>
+
+  <cp-field label="Attribution" forId="recipe-attribution" [error]="form.fieldError('attributionText')">
+    <input
+      id="recipe-attribution"
+      placeholder="e.g. Adapted from my grandmother's notebook"
+      type="text"
+      [ngModel]="form.attributionText()"
+      (ngModelChange)="form.attributionText.set($event)"
+      name="attributionText"
+    />
+  </cp-field>
+
+  <cp-field label="Source URL" forId="recipe-source-url" [error]="form.fieldError('sourceUrl')">
+    <input
+      id="recipe-source-url"
+      placeholder="https://…"
+      type="url"
+      [ngModel]="form.sourceUrl()"
+      (ngModelChange)="form.sourceUrl.set($event)"
+      name="sourceUrl"
+    />
+  </cp-field>
+
+  <!-- No status field. Editorial state is a machine (TESTRUN-005) and an edit is not one of its moves;
+       the component's own remarks say what went and why. -->
+
+  <cp-field label="Tags" forId="recipe-new-tag" [error]="form.fieldError('tags')">
+    <div class="tags">
+      @for (tag of form.tags(); track tag) {
+        <span class="tag-chip">
+          {{ tag }}
+          <button type="button" [attr.aria-label]="'Remove tag ' + tag" (click)="form.removeTag(tag)">
+            ×
+          </button>
+        </span>
+      }
+    </div>
+    <div class="tag-input-row">
+      <input
+        id="recipe-new-tag"
+        type="text"
+        placeholder="Type a tag and press Enter"
+        [ngModel]="form.newTagText()"
+        (ngModelChange)="form.newTagText.set($event)"
+        (keydown.enter)="$event.preventDefault(); form.addTag()"
+        name="newTag"
+      />
+      <button cpButton variant="secondary" type="button" (click)="form.addTag()">Add tag</button>
+    </div>
+  </cp-field>
+</cp-form-section>

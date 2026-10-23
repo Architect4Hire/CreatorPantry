@@ -1,5 +1,4 @@
-import { HttpErrorResponse } from '@angular/common/http';
-
+import { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf } from '../core/forms/problem-details';
 import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import { AiProposalStatus } from '../models/ai-proposal.models';
 
@@ -38,41 +37,9 @@ export type AiWatchOperationOutcome =
   | { readonly status: 'forbidden' }
   | { readonly status: 'unavailable' };
 
-export function statusCodeOf(error: unknown): number | null {
-  return error instanceof HttpErrorResponse ? error.status : null;
-}
-
-/** The stable `code` extension on a ProblemDetails body — see `ProblemResults.StatusFor` server-side. */
-export function problemCodeOf(error: unknown): string | null {
-  const body = error instanceof HttpErrorResponse ? (error.error as Record<string, unknown> | null) : null;
-  const code = body?.['code'];
-
-  return typeof code === 'string' ? code : null;
-}
-
-/** `ProblemDetails.title`, which carries the server's own sentence about a refusal. */
-export function problemMessageOf(error: unknown): string | null {
-  const body = error instanceof HttpErrorResponse ? (error.error as Record<string, unknown> | null) : null;
-  const title = body?.['title'];
-
-  return typeof title === 'string' && title.trim() !== '' ? title : null;
-}
-
-/** `ValidationProblemDetails.errors`, keyed by camelCase request field name. */
-export function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
-  const body = error instanceof HttpErrorResponse ? (error.error as Record<string, unknown> | null) : null;
-  const errors = body?.['errors'];
-  if (typeof errors !== 'object' || errors === null) return {};
-
-  const result: Record<string, readonly string[]> = {};
-  for (const [field, messages] of Object.entries(errors as Record<string, unknown>)) {
-    if (Array.isArray(messages) && messages.every((message) => typeof message === 'string')) {
-      result[field] = messages;
-    }
-  }
-
-  return result;
-}
+// The ProblemDetails readers live in `core/forms/problem-details.ts`; they are re-exported here because every
+// service already imports them from this file.
+export { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf };
 
 /**
  * The accepted reply, or the one outcome this error means.
