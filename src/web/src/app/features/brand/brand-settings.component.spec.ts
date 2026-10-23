@@ -349,16 +349,152 @@ describe('BrandSettingsComponent', () => {
     expect(spies.update.calls.mostRecent().args[1]['expectedConcurrencyToken']).toBe('tok-2');
   });
 
-  it('refuses a blank name locally, with the error beside the field and focus on it', async () => {
+  it('holds Save back while the brand has no name, and lets it go once it has one', async () => {
     await create({ read: { status: 'first_use' } });
 
+    expect(button('Create brand settings').disabled).toBeTrue();
     button('Create brand settings').click();
     await settle();
-
     expect(spies.create).not.toHaveBeenCalled();
+
+    await type('brand-name', "Sam's Kitchen");
+    expect(button('Create brand settings').disabled).toBeFalse();
+  });
+
+  it('says a blank name is missing once the creator leaves the field, and not before', async () => {
+    await create({ read: { status: 'first_use' } });
+
+    expect(text()).not.toContain('A brand needs a name.');
+
+    input('brand-name').dispatchEvent(new Event('blur'));
+    await settle();
+
     expect(text()).toContain('A brand needs a name.');
-    expect(document.activeElement?.id).toBe('brand-name');
     expect(input('brand-name').getAttribute('aria-invalid')).toBe('true');
+
+    await type('brand-name', "Sam's Kitchen");
+    expect(text()).not.toContain('A brand needs a name.');
+    expect(input('brand-name').hasAttribute('aria-invalid')).toBeFalse();
+  });
+
+  it('refuses a link address the server would refuse: says so on leaving it, and holds Save back', async () => {
+    await create();
+    button('Add a link').click();
+    await settle();
+    const url = root().querySelectorAll<HTMLInputElement>('li.row input[type="url"]')[1];
+
+    url.value = 'example.com';
+    url.dispatchEvent(new Event('input', { bubbles: true }));
+    url.dispatchEvent(new Event('blur'));
+    await settle();
+
+    expect(button('Save changes').disabled).toBeTrue();
+    await save();
+    expect(spies.update).not.toHaveBeenCalled();
+    expect(root().querySelectorAll('li.row')[1].textContent).toContain('Use an http or https address');
+    expect(url.getAttribute('aria-invalid')).toBe('true');
+    // A link is optional, but a row once added needs its address, and says so the way the legend promises.
+    expect(url.getAttribute('aria-required')).toBe('true');
+    expect(url.closest('cp-field')!.querySelector('label span[aria-hidden="true"]')?.textContent).toBe('*');
+    // The first row's address is fine, so it says nothing.
+    expect(root().querySelectorAll('li.row')[0].textContent).not.toContain('Use an http or https address');
+  });
+
+  it('takes an http or https address and leaves the rest of link checking to the server', async () => {
+    await create();
+    button('Add a link').click();
+    await settle();
+    const url = root().querySelectorAll<HTMLInputElement>('li.row input[type="url"]')[1];
+
+    for (const refused of ['ftp://example.com', 'https://sam:secret@example.com', '   ']) {
+      url.value = refused;
+      url.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+      expect(component().validator.canSubmit()).withContext(refused).toBeFalse();
+    }
+
+    url.value = '  https://example.com/about  ';
+    url.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    expect(component().validator.canSubmit()).toBeTrue();
+  });
+
+  it('starts clean again after a save the server takes', async () => {
+    await create();
+    input('brand-name').dispatchEvent(new Event('blur'));
+    await type('brand-default-audience', 'Home cooks');
+    await save();
+
+    expect(spies.update).toHaveBeenCalled();
+    await type('brand-name', '');
+
+    // The field was left before the save; after it, the form is a fresh start and waits for the next blur.
+    expect(text()).not.toContain('A brand needs a name.');
+  });
+
+  it('says once that the asterisk marks a required field, for a screen reader as well', async () => {
+    await create();
+    const legend = root().querySelector('.required-legend')!;
+
+    expect(legend.textContent).toContain('Fields marked with');
+    expect(legend.textContent).not.toContain('Everything else is optional');
+    expect(legend.querySelector('[aria-hidden="true"]')?.textContent).toBe('*');
+    expect(legend.querySelector('.cp-sr-only')?.textContent).toBe('an asterisk');
+  });
+
+  it('draws no summary while nothing is wrong', async () => {
+    await create();
+
+    expect(root().querySelector('cp-validation-summary section')).toBeNull();
+  });
+
+  it('lists every problem below Save, by the label on the field, and takes the creator to the one they pick', async () => {
+    await create();
+    spies.update.and.resolveTo({
+      status: 'validation_failed',
+      fieldErrors: {
+        locale: ['Use a language tag such as en-US.'],
+        'links[0].url': ['Use an http or https address without a username or password.'],
+      },
+    });
+
+    await type('brand-default-audience', 'X');
+    await save();
+
+    const summary = root().querySelector('cp-validation-summary')!;
+    // A plain list, with no heading over it.
+    expect(summary.querySelector('h2')).toBeNull();
+    const lines = Array.from(summary.querySelectorAll('button')).map((line) => [
+      line.querySelector('.where')?.textContent,
+      line.querySelector('.message')?.textContent,
+    ]);
+    expect(lines).toEqual([
+      ['Language', 'Use a language tag such as en-US.'],
+      ['Link 1 address', 'Use an http or https address without a username or password.'],
+    ]);
+
+    // Below Save, so it never pushes the form down; and silent, because the banner at the top announces the refusal.
+    expect(button('Save changes').compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(summary.querySelector('[role="status"]')).toBeNull();
+
+    summary.querySelectorAll('button')[1].click();
+    await settle();
+
+    expect(document.activeElement).toBe(root().querySelector('li.row input[type="url"]'));
+  });
+
+  it('lists a problem the form found itself as soon as the field is left', async () => {
+    await create({ read: { status: 'first_use' } });
+
+    input('brand-name').dispatchEvent(new Event('blur'));
+    await settle();
+
+    const summary = root().querySelector('cp-validation-summary')!;
+    expect(summary.querySelectorAll('li').length).toBe(1);
+    expect(summary.querySelector('.where')?.textContent).toBe('Brand name');
+
+    await type('brand-name', "Sam's Kitchen");
+    expect(summary.querySelector('section')).toBeNull();
   });
 
   it('shows server field errors beside the fields and focuses the first', async () => {

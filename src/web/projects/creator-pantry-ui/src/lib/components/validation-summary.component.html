@@ -1,40 +1,22 @@
 @if (announce()) {
   <p class="sr-only" role="status">{{ announcement() }}</p>
 }
-@if (errors().length > 0 || advice().length > 0) {
-  <section [attr.aria-labelledby]="headingId" tabindex="-1" #panel [class.has-errors]="errors().length > 0">
-    @if (errors().length > 0) {
-      <h2 [id]="headingId" class="heading">{{ errorHeading() }}</h2>
-      <ul>
-        @for (issue of errors(); track $index) {
-          <li>
-            <button type="button" (click)="issueSelected.emit(issue)">
-              <span class="glyph glyph--error" aria-hidden="true">{{ glyph(issue) }}</span>
-              @if (labelOf()(issue.path); as label) {
-                <span class="where">{{ label }}</span>
-              }
-              <span class="message">{{ issue.message }}</span>
-            </button>
-          </li>
-        }
-      </ul>
-    }
-    @if (advice().length > 0) {
-      <h2 [id]="errors().length > 0 ? adviceHeadingId : headingId" class="heading heading--advice">{{ adviceHeading() }}</h2>
-      <ul>
-        @for (issue of advice(); track $index) {
-          <li>
-            <button type="button" (click)="issueSelected.emit(issue)">
-              <span class="glyph" aria-hidden="true">{{ glyph(issue) }}</span>
-              <span class="sr-only">{{ issue.severity === 'info' ? 'Note: ' : 'Heads up: ' }}</span>
-              @if (labelOf()(issue.path); as label) {
-                <span class="where">{{ label }}</span>
-              }
-              <span class="message">{{ issue.message }}</span>
-            </button>
-          </li>
-        }
-      </ul>
-    }
+@if (ordered().length > 0) {
+  <section tabindex="-1" #panel [attr.aria-label]="label()" [class.advice-only]="!hasErrors()">
+    <ul>
+      @for (issue of ordered(); track $index) {
+        <li [class.advice]="issue.severity !== 'error'">
+          <button type="button" (click)="issueSelected.emit(issue)">
+            @if (issue.severity !== 'error') {
+              <span class="kind">{{ issue.severity === 'info' ? 'Note:' : 'Heads up:' }}</span>
+            }
+            @if (labelOf()(issue.path); as where) {
+              <span class="where">{{ where }}</span>
+            }
+            <span class="message">{{ issue.message }}</span>
+          </button>
+        </li>
+      }
+    </ul>
   </section>
 }

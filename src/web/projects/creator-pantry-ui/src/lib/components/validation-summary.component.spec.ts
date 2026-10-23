@@ -40,7 +40,6 @@ describe('CpValidationSummaryComponent', () => {
       },
       status: () => root.querySelector('[role="status"]')!.textContent!.trim(),
       buttons: () => Array.from(root.querySelectorAll('button')),
-      headings: () => Array.from(root.querySelectorAll('h2')).map((h) => h.textContent!.trim()),
     };
   }
 
@@ -53,22 +52,25 @@ describe('CpValidationSummaryComponent', () => {
     expect(view.status()).toBe('');
   });
 
-  it('heads the errors with their count and lists each as a button', () => {
+  it('lists every issue as a bulleted list of buttons, with no heading over it', () => {
     const view = create();
 
     view.set([TITLE, { ...TITLE, path: 'x', message: 'Other.' }]);
 
-    expect(view.headings()).toEqual(['2 problems to fix']);
+    expect(view.root.querySelector('h2')).toBeNull();
+    expect(view.root.querySelectorAll('ul > li').length).toBe(2);
     expect(view.buttons().length).toBe(2);
-    expect(view.status()).toBe('2 problems to fix');
+    expect(view.root.querySelector('section')!.getAttribute('aria-label')).toBe('Problems with this form');
   });
 
-  it('says "1 problem" in the singular', () => {
+  it('announces the number of errors, in the singular for one', () => {
     const view = create();
 
     view.set([TITLE]);
+    expect(view.status()).toBe('1 problem to fix');
 
-    expect(view.headings()).toEqual(['1 problem to fix']);
+    view.set([TITLE, { ...TITLE, path: 'x', message: 'Other.' }]);
+    expect(view.status()).toBe('2 problems to fix');
   });
 
   it('names the place an issue is about when the consumer can, and only then', () => {
@@ -81,36 +83,48 @@ describe('CpValidationSummaryComponent', () => {
     expect(second.querySelector('.where')).toBeNull();
   });
 
-  it('puts warnings and information under their own heading, announced as advice and not as a refusal', () => {
+  it('puts errors first and says advice is advice in a word, so it never differs by colour alone', () => {
     const view = create();
 
-    view.set([TITLE, YIELD, NOTE]);
+    view.set([YIELD, TITLE, NOTE]);
 
-    expect(view.headings()).toEqual(['1 problem to fix', '2 things worth a look']);
-    expect(view.status()).toBe('1 problem to fix');
-    expect(view.buttons()[1].textContent).toContain('Heads up:');
-    expect(view.buttons()[2].textContent).toContain('Note:');
+    const items = Array.from(view.root.querySelectorAll('li'));
+    expect(items.map((item) => item.querySelector('.message')!.textContent)).toEqual([TITLE.message, YIELD.message, NOTE.message]);
+    expect(items.map((item) => item.classList.contains('advice'))).toEqual([false, true, true]);
+    expect(items[0].querySelector('.kind')).toBeNull();
+    expect(items[1].querySelector('.kind')!.textContent).toBe('Heads up:');
+    expect(items[2].querySelector('.kind')!.textContent).toBe('Note:');
   });
 
-  it('is not a refusal when there is only advice: no error styling and nothing announced', () => {
+  it('does not announce advice: only errors are a refusal', () => {
     const view = create();
 
     view.set([YIELD]);
 
-    expect(view.headings()).toEqual(['1 thing worth a look']);
-    expect(view.root.querySelector('section')!.classList.contains('has-errors')).toBeFalse();
+    expect(view.root.querySelectorAll('li').length).toBe(1);
     expect(view.status()).toBe('');
-    expect(view.root.querySelector('section')!.getAttribute('aria-labelledby')).toBe(view.root.querySelector('h2')!.id);
   });
 
-  it('gives every severity a glyph that is hidden from assistive technology', () => {
+  it('draws the box in the advice colour when nothing listed is an error, and in the error colour otherwise', () => {
     const view = create();
 
-    view.set([TITLE, YIELD, NOTE]);
+    view.set([YIELD]);
+    expect(view.root.querySelector('section')!.classList.contains('advice-only')).toBeTrue();
 
-    const glyphs = Array.from(view.root.querySelectorAll('.glyph'));
-    expect(glyphs.map((glyph) => glyph.textContent)).toEqual(['!', '▲', 'ℹ']);
-    expect(glyphs.every((glyph) => glyph.getAttribute('aria-hidden') === 'true')).toBeTrue();
+    view.set([YIELD, TITLE]);
+    expect(view.root.querySelector('section')!.classList.contains('advice-only')).toBeFalse();
+  });
+
+  it('draws each line as plain text: no underline and no fill on hover', () => {
+    const view = create();
+    document.body.appendChild(view.root);
+
+    view.set([TITLE]);
+
+    const line = getComputedStyle(view.buttons()[0]);
+    expect(line.textDecorationLine).toBe('none');
+    expect(line.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    view.root.remove();
   });
 
   it('emits the issue chosen and does nothing else', () => {
@@ -163,7 +177,7 @@ describe('CpValidationSummaryComponent', () => {
     view.set([TITLE]);
 
     expect(view.root.querySelector('[role="status"]')).toBeNull();
-    expect(view.headings()).toEqual(['1 problem to fix']);
+    expect(view.root.querySelectorAll('li').length).toBe(1);
   });
 
   it('keeps every button at least 40px tall', () => {
