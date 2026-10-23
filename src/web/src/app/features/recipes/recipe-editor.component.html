@@ -321,8 +321,7 @@
              the other sixteen are not, so marking the optional ones would be marking almost everything — and
              marking one of them makes the rest read as required by contrast. -->
       <p class="required-legend">
-        Fields marked <span aria-hidden="true">*</span><span class="cp-sr-only">with an asterisk</span> are required.
-        Everything else is optional.
+        Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.
       </p>
 
       <!-- Said in the form, under the sentence that says what the asterisk means, because in create mode the
@@ -336,7 +335,7 @@
         </p>
       }
 
-      <cp-tabs [tabs]="editTabs()" ariaLabel="Recipe form" [(selectedId)]="selectedEditTabId">
+      <cp-tabs [tabs]="editTabs" ariaLabel="Recipe form" [(selectedId)]="selectedEditTabId">
         <cp-tab-panel id="general">
           <!-- Three sections rather than three more tabs: each is short, and they are read together when
                  a creator is setting a recipe up. -->
@@ -350,14 +349,14 @@
             <cp-anchor-nav
               class="general-nav"
               ariaLabel="Sections of this tab"
-              [items]="generalSectionNav()"
+              [items]="generalSectionNav"
               [activeTargetId]="activeGeneralSectionId()"
               (activated)="onGeneralNavActivated($event)"
             />
             <cp-anchor-nav
               class="general-nav-wide"
               ariaLabel="Sections of this tab"
-              [items]="generalWideNav()"
+              [items]="generalWideNav"
               [activeTargetId]="activeGeneralWideTargetId()"
               (activated)="onGeneralNavActivated($event)"
             />
@@ -442,7 +441,7 @@
     }
 
     @if (hostedShowsRequiredLegend) {
-      <p class="required-legend">Fields marked <span aria-hidden="true">*</span><span class="cp-sr-only">with an asterisk</span> are required.</p>
+      <p class="required-legend">Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.</p>
     }
 
     @for (section of hostedSections; track section) {
@@ -494,8 +493,10 @@
         <cp-notice tone="error" role="alert">Couldn't save. Please try again.</cp-notice>
       }
     }
-    <!-- The banner above is the live region, so this one does not announce a second time. -->
-    <cp-validation-summary [issues]="summaryIssues()" [labelOf]="fieldLabelOf" [announce]="false" (issueSelected)="revealIssue($event)" />
+    @if (showValidationSummary()) {
+      <!-- The banner above is the live region, so this one does not announce a second time. -->
+      <cp-validation-summary [issues]="summaryIssues()" [labelOf]="fieldLabelOf" [announce]="false" (issueSelected)="revealIssue($event)" />
+    }
 </ng-template>
 
 <!-- The form's sections, each a component of its own over the one RecipeFormState. The tabbed page places them in its

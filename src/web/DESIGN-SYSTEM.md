@@ -104,7 +104,7 @@ It is a read-out. A row is not a link and takes no click: a flow moves by its ow
 
 ### Telling the creator what is wrong
 
-A form says what is wrong in three places, and they are one stream of messages: the field's own line, a count on the tab or section holding it, and a summary that gathers them. `FormValidator` (`src/app/core/forms/`) is where they come from, and it is why a message is the same sentence in all three.
+A form says what is wrong in two places, and they are one stream of messages: the field's own line, and an optional summary that gathers them. `FormValidator` (`src/app/core/forms/`) is where they come from, and it is why a message is the same sentence in all three.
 
 **One issue shape.** A `FormIssue` is `{ path, severity, code, message, source }`. `path` is the server's own key (`title`, `ingredientGroups[0].ingredients[2].quantity`), so a refused save lands on the field it names with no translation table. A client rule and a server refusal produce the same shape, and a field never asks which it was.
 
@@ -112,11 +112,11 @@ A form says what is wrong in three places, and they are one stream of messages: 
 
 **When a message shows.** A warning shows as soon as it is true, because live help is its whole point. A client error shows after the creator tries to save or leaves that field, so a blank form is not shouted at before anyone has typed. A server error shows until the creator changes that field.
 
-**The three parts.**
+**The parts.**
 
 - `CpFieldComponent` takes `error` and `warning`. An error is a disc and `role="alert"`, marks the control `aria-invalid`, and is described to it; a warning is a triangle, is announced as "Heads up:", is described to the control, and never marks it invalid. The two differ in shape and not only in hue, and neither relies on colour alone.
-- `CpFormSectionComponent`'s `problem` is still the server's word about a whole part, and a tab or `cp-anchor-nav` item carries `validator.countUnder(prefix)`.
-- `CpValidationSummaryComponent` gathers the visible issues. Errors are headed with their count and are announced; advice sits below under its own heading, so a form with only advice still reads as one that can be saved. Each line is a button, and the form — which alone knows where its fields are — selects the tab, scrolls and focuses. A form that has just refused a save either calls `focus()` on the summary or, as the recipe editor does, reveals the first field itself; a form whose save banner is already a live region sets `announce` to false so one refusal is not read out twice. The recipe editor lists only errors in its summary: a warning appears and goes while the creator types, which is not worth a line in a list, so it stays beside its own field.
+- `CpFormSectionComponent`'s `problem` is still the server's word about a whole part.
+- `CpValidationSummaryComponent` gathers the visible issues. Errors are headed with their count and are announced; advice sits below under its own heading, so a form with only advice still reads as one that can be saved. Each line is a button, and the form — which alone knows where its fields are — selects the tab, scrolls and focuses. A form that has just refused a save either calls `focus()` on the summary or, as the recipe editor does, reveals the first field itself; a form whose save banner is already a live region sets `announce` to false so one refusal is not read out twice. A summary is optional: a form that already shows each message at its field, counts them on its tabs and holds Save back does not need one, and drawing it on a blur moves the page under the creator. The recipe editor keeps its summary switched off (`SHOW_VALIDATION_SUMMARY` in `recipe-editor.component.ts`); switched on, it lists only errors, since a warning appears and goes while the creator types and stays beside its own field.
 
 The summary is presentation only. Which issues exist, what each is called and what selecting one does are the form's, which is also why it takes `labelOf` rather than reading labels from anywhere.
 
@@ -343,8 +343,7 @@ card's full width is harder to scan and no easier to fill in.
 and it stands: they stack one per line at the measure. What makes a form a dozen fields long hard to use is its
 length, so in a single column it carries a `cp-anchor-nav` over its sections, a wrapping row of links above them.
 `RecipeEditorComponent`'s General tab is the reference. The nav scrolls to a section and focuses it, follows the
-reader down the page, and says in words how many problems a refused save left in each section, which matters
-because that section may be several screens away. Every section stays rendered, so jumping mounts nothing and
+reader down the page. Every section stays rendered, so jumping mounts nothing and
 loses no edit.
 
 On a card wide enough that one column would leave a column's width empty down the whole page, the *sections* sit

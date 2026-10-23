@@ -130,16 +130,6 @@ describe('FormValidator', () => {
     expect(owned()).toEqual({});
   });
 
-  it('counts visible issues under a prefix for a tab or section', () => {
-    const { validator: v } = validator({ title: '', lines: [{ quantity: '' }, { quantity: '2' }, { quantity: '' }] });
-    v.attempt();
-    v.applyServerErrors({ 'lines[0].quantity': ['Bad.'] });
-
-    expect(v.countUnder('lines')).toBe(3);
-    expect(v.countUnder('title')).toBe(1);
-    expect(v.countUnder('title', 'warning')).toBe(0);
-  });
-
   it('returns to a form nobody has touched on reset', () => {
     const { validator: v } = validator({ title: '', lines: [] });
     v.attempt();

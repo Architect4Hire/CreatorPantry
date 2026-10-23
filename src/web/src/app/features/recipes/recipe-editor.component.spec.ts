@@ -294,8 +294,7 @@ function tabButton(root: HTMLElement, label: string): HTMLButtonElement | undefi
  * before it goes looking for a field.
  */
 function selectEditTab(harness: RouterTestingHarness, label: 'General' | 'Ingredients' | 'Instructions'): void {
-  // By data-tab-id, not by label text: a tab's label carries "(1 problem)" after a refusal that named a field
-  // on it, so matching the text would break exactly in the tests that are about a refusal.
+  // By data-tab-id rather than by label text, so a rename of a tab's wording does not break every spec that opens one.
   const id = label.toLowerCase();
   const button = harness.routeNativeElement!.querySelector<HTMLButtonElement>(
     `button[role="tab"][data-tab-id="${id}"]`,
@@ -1207,33 +1206,6 @@ describe('RecipeEditorComponent', () => {
         await until('Details');
       });
 
-      it('says in the nav how many problems a refused save left in each section', async () => {
-        const recipeService = recipeServiceSpy();
-        recipeService.createRecipe.and.resolveTo({
-          status: 'validation_failed',
-          fieldErrors: { title: ['Title is too long.'], servingSize: ['A serving cannot be larger than the batch.'] },
-        });
-        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        const root = harness.routeNativeElement!;
-        expect(navLinksOf(root).map((link) => link.textContent?.trim())).toEqual(['Details', 'Notes', 'Timing', 'Yield']);
-
-        component.form.title.set('Weeknight Chili');
-        await component.save();
-        harness.detectChanges();
-
-        // Said in the item as a second line, in words, so nothing depends on a colour.
-        const lines = navLinksOf(root).map((link) => [
-          link.querySelector('.label')?.textContent?.trim(),
-          link.querySelector('.detail')?.textContent?.trim() ?? null,
-        ]);
-        expect(lines).toEqual([
-          ['Details', '1 problem'],
-          ['Notes', null],
-          ['Timing', null],
-          ['Yield', '1 problem'],
-        ]);
-      });
-
       it('keeps the highlight on the section asked for while the page scrolls past the ones between', async () => {
         const recipeService = recipeServiceSpy();
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
@@ -1325,34 +1297,6 @@ describe('RecipeEditorComponent', () => {
           harness.detectChanges();
           expect(current()).withContext(section).toEqual([...expected]);
         }
-      });
-
-      it('counts the problems in all three short sections against the second gutter item', async () => {
-        const recipeService = recipeServiceSpy();
-        recipeService.createRecipe.and.resolveTo({
-          status: 'validation_failed',
-          fieldErrors: {
-            title: ['Title is too long.'],
-            notes: ['Notes are too long.'],
-            prepTimeMinutes: ['Prep time is too long.'],
-            servingSize: ['A serving cannot be larger than the batch.'],
-          },
-        });
-        const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-        const root = harness.routeNativeElement!;
-
-        component.form.title.set('Weeknight Chili');
-        await component.save();
-        harness.detectChanges();
-
-        const lines = wideLinksOf(root).map((link) => [
-          link.querySelector('.label')?.textContent?.trim(),
-          link.querySelector('.detail')?.textContent?.trim() ?? null,
-        ]);
-        expect(lines).toEqual([
-          ['Details', '1 problem'],
-          ['Notes, timing & yield', '3 problems'],
-        ]);
       });
     });
 
@@ -2011,7 +1955,26 @@ describe('RecipeEditorComponent', () => {
       expect(document.activeElement).toBe(harness.routeNativeElement!.querySelector('#recipe-headnote'));
     });
 
-    it('lists every error in a summary and takes the creator to the one they pick', async () => {
+    it('draws no summary by default: the field, its tab and Save already say what is wrong', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'validation_failed',
+        fieldErrors: { headnote: ['Too long.'] },
+      });
+      const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      spyOn(Element.prototype, 'scrollIntoView');
+
+      await component.save();
+      harness.detectChanges();
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary')).toBeNull();
+      expect(component.form.fieldError('headnote')).toBe('Too long.');
+    });
+
+    it('lists every error in a summary and takes the creator to the one they pick, when it is turned on', async () => {
       const recipeService = recipeServiceSpy();
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
       recipeService.updateRecipe.and.resolveTo({
@@ -2020,6 +1983,7 @@ describe('RecipeEditorComponent', () => {
       });
       const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
       spyOn(Element.prototype, 'scrollIntoView');
+      component.showValidationSummary.set(true);
 
       await component.save();
       harness.detectChanges();
@@ -2053,7 +2017,7 @@ describe('RecipeEditorComponent', () => {
       const field = title.closest('cp-field')!;
 
       expect(field.textContent).not.toContain('Give the recipe a name');
-      expect(harness.routeNativeElement!.querySelector('cp-validation-summary section')).toBeNull();
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary')).toBeNull();
 
       title.dispatchEvent(new Event('blur'));
       harness.detectChanges();
@@ -2062,7 +2026,8 @@ describe('RecipeEditorComponent', () => {
       expect(field.textContent).toContain('Give the recipe a name, so it can be kept.');
       expect(title.getAttribute('aria-invalid')).toBe('true');
       expect(component.canSave()).toBeFalse();
-      expect(harness.routeNativeElement!.querySelector('cp-validation-summary')!.textContent).toContain('1 problem to fix');
+      // The field, its tab and Save say it; the page does not move for a summary.
+      expect(harness.routeNativeElement!.querySelector('cp-validation-summary')).toBeNull();
     });
 
     it('leaves the banner to speak for an error on a field that has no control of its own', async () => {
@@ -2173,44 +2138,13 @@ describe('RecipeEditorComponent', () => {
         expect(document.activeElement).toBe(section);
       });
 
-      /**
-       * The case the reveal cannot cover on its own: two tabs refused at once. It can only take the creator to
-       * one, so the other has to say so from its tab, where the label is also its accessible name.
-       */
-      it('marks every refused tab, not only the one it opened', async () => {
-        const { harness, component } = await refusedWith({
-          title: ['A recipe needs a title.'],
-          ingredientGroups: [QUANTITY_PROBLEM],
-          instructions: [STEP_PROBLEM],
-        });
-
-        // First in page order wins the reveal, which is General.
-        expect(component.selectedEditTabId()).toBe('general');
-
-        expect(tabLabels(harness)).toEqual([
-          'General (1 problem)',
-          'Ingredients (1 problem)',
-          'Instructions (1 problem)',
-        ]);
-      });
-
-      it('counts more than one problem on a tab, and leaves a clean tab unmarked', async () => {
-        const { harness } = await refusedWith({
-          yieldText: ['Too long.'],
-          yieldQuantity: ['A yield must be greater than zero.'],
-          ingredientGroups: [QUANTITY_PROBLEM],
-        });
-
-        expect(tabLabels(harness)).toEqual(['General (2 problems)', 'Ingredients (1 problem)', 'Instructions']);
-      });
-
       // The banner stops saying "check your recipe details" when the problem is an ingredient line.
       it('points the banner at the tabs once it has somewhere to point', async () => {
         const { harness } = await refusedWith({ ingredientGroups: [QUANTITY_PROBLEM] });
 
         const banner = harness.routeNativeElement!.querySelector('cp-notice.cp-notice--error');
         expect(banner?.textContent).toContain('Some fields need attention.');
-        expect(banner?.textContent).toContain('The tabs below say which');
+        expect(banner?.textContent).toContain('The first one is showing.');
       });
 
       /**
@@ -2218,7 +2152,7 @@ describe('RecipeEditorComponent', () => {
        * as the whole message, which is the honest-silence behaviour `revealFirstFieldError` documents — telling
        * the creator to look at the tabs would be sending them to look at nothing.
        */
-      it('keeps the generic wording for a key it cannot locate, and marks no tab', async () => {
+      it('keeps the generic wording for a key it cannot locate, and opens nowhere', async () => {
         const { harness, component } = await refusedWith({ cuisineId: ['That is not a valid cuisine reference.'] });
 
         const banner = harness.routeNativeElement!.querySelector('cp-notice.cp-notice--error');
@@ -2228,7 +2162,7 @@ describe('RecipeEditorComponent', () => {
         expect(harness.routeNativeElement!.querySelector('#section-ingredients .problem')).toBeNull();
       });
 
-      it('clears the marks and the sentence once the next save succeeds', async () => {
+      it('clears the sentence once the next save succeeds', async () => {
         const recipeService = recipeServiceSpy();
         recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
         recipeService.updateRecipe.and.resolveTo({
@@ -2401,18 +2335,13 @@ describe('RecipeEditorComponent', () => {
         expect(heading?.textContent).toContain('at most 120 characters');
       });
 
-      // An indexed key still belongs to its list's tab, so the reveal and the markers have to read it as one.
-      it('still selects the tab and marks it for an indexed key', async () => {
-        const { harness, component } = await refused({
+      // An indexed key still belongs to its list's tab, so the reveal has to read it as one.
+      it('still selects the tab for an indexed key', async () => {
+        const { component } = await refused({
           'ingredientGroups[0].ingredients[1].quantity': ['A quantity must be greater than zero.'],
         });
 
         expect(component.selectedEditTabId()).toBe('ingredients');
-        expect(
-          Array.from(formTablist(harness.routeNativeElement!).querySelectorAll('button[role="tab"]')).map((tab) =>
-            tab.textContent?.trim(),
-          ),
-        ).toEqual(['General', 'Ingredients (1 problem)', 'Instructions']);
       });
 
       /**
@@ -2426,12 +2355,6 @@ describe('RecipeEditorComponent', () => {
         selectEditTab(harness, 'Ingredients');
 
         expect(rowProblems(harness)).toEqual([]);
-        // The tab still says something is wrong, because it is — just not which line.
-        expect(
-          Array.from(formTablist(harness.routeNativeElement!).querySelectorAll('button[role="tab"]')).map((tab) =>
-            tab.textContent?.trim(),
-          ),
-        ).toContain('Ingredients (1 problem)');
       });
 
       it('clears the row marks once the next save succeeds', async () => {

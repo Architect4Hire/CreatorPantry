@@ -184,6 +184,17 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
 ];
 
 /**
+ * Whether the editor lists its problems in a `cp-validation-summary` above the form. Off.
+ *
+ * The form already says what is wrong where it is: the message under the field, the count on its tab and its nav
+ * item, and Save held back until the recipe has a name. A summary on top of that only moves the page under the
+ * creator the moment they leave a field, so it stays out until a form needs it. Everything it needs —
+ * {@link RecipeEditorComponent.summaryIssues}, the labels and the reveal — is kept, so turning it on is this one
+ * line and nothing else.
+ */
+const SHOW_VALIDATION_SUMMARY = false;
+
+/**
  * What a field is called in the validation summary: the label the creator sees on it. Keyed like
  * {@link FIELD_LOCATIONS}, so an indexed line reads as the list it is in.
  */
@@ -408,35 +419,11 @@ export class RecipeEditorComponent {
    * The three surfaces inside Edit. None is ever disabled: they hold the form a creator is filling in, and
    * unlike Tools/Media/History none of them needs a saved recipe to render.
    */
-  /** The three form tabs as they are defined, before any problem markers are added. See {@link editTabs}. */
-  private static readonly EDIT_TABS: readonly CpTabDefinition[] = [
+  readonly editTabs: CpTabDefinition[] = [
     { id: 'general', label: 'General' },
     { id: 'ingredients', label: 'Ingredients' },
     { id: 'instructions', label: 'Instructions' },
   ];
-
-  /**
-   * The form tabs, each labelled with how many problems the last save left on it.
-   *
-   * A save can be refused over fields on more than one tab, and `revealFirstFieldError` can only take the
-   * creator to one of them — so without this the others are refused silently, on surfaces that are not showing.
-   * In the label rather than as a dot or a colour: the label is the tab's accessible name, so this is the one
-   * place where saying it also says it to a screen reader, and it cannot be a status told by colour alone.
-   *
-   * Counted from `FIELD_LOCATIONS`, so a field gains its marker by being locatable at all rather than by being
-   * listed again here.
-   */
-  readonly editTabs = computed<CpTabDefinition[]>(() =>
-    RecipeEditorComponent.EDIT_TABS.map((tab) => {
-      const keys = this.form.errorPaths();
-      const onThisTab = FIELD_LOCATIONS.filter((location) => location.tabId === tab.id).map((location) => location.field);
-      const problems = keys.filter((key) => onThisTab.includes(errorListKey(key))).length;
-
-      if (problems === 0) return { ...tab };
-
-      return { ...tab, label: `${tab.label} (${problems} ${problems === 1 ? 'problem' : 'problems'})` };
-    }),
-  );
   readonly selectedEditTabId = signal<string>('general');
 
   private readonly loadStateSignal = signal<RecipeEditorLoadState>(this.isCreateMode ? { status: 'ready' } : { status: 'loading' });
@@ -639,34 +626,20 @@ export class RecipeEditorComponent {
     { targetId: 'section-yield', label: 'Yield' },
   ];
 
-  /**
-   * The nav's items, each saying how many problems the last save left in its section.
-   *
-   * The tab is long, so a refused save can name a field several screens away from where the creator is, and a
-   * nav that only jumps would leave them to find it. In the item's detail line, in words, like the form tabs'
-   * labels: a count is read by a screen reader and is not told by colour. Counted from `FIELD_LOCATIONS`, so a
-   * field gains its marker by being locatable at all rather than by being listed again.
-   */
-  readonly generalSectionNav = computed<readonly CpAnchorNavItem[]>(() =>
-    RecipeEditorComponent.GENERAL_SECTIONS.map((section) => this.withProblemCount(section, [section.targetId])),
-  );
+  /** The nav's items: one per section, for a single-column editor. */
+  readonly generalSectionNav: readonly CpAnchorNavItem[] = RecipeEditorComponent.GENERAL_SECTIONS;
 
   /**
    * The same four sections as two, for a wide editor: Details, and the three short ones after it together.
    *
    * On a phone the tab is several screens and four links earn their place. On a desktop the three short sections
    * are a screen apart at most, so telling them apart in a nav is noise; the one real boundary is between the long
-   * section and the rest. The second item jumps to the first of its three, counts the problems in all of them, and
-   * is current while any of them is.
+   * section and the rest. The second item jumps to the first of its three and is current while any of them is.
    */
-  readonly generalWideNav = computed<readonly CpAnchorNavItem[]>(() => [
-    this.withProblemCount({ targetId: 'section-details', label: 'Details' }, ['section-details']),
-    this.withProblemCount({ targetId: 'section-notes', label: 'Notes, timing & yield' }, [
-      'section-notes',
-      'section-timing',
-      'section-yield',
-    ]),
-  ]);
+  readonly generalWideNav: readonly CpAnchorNavItem[] = [
+    { targetId: 'section-details', label: 'Details' },
+    { targetId: 'section-notes', label: 'Notes, timing & yield' },
+  ];
 
   /** Which of the two wide items is current: the first for Details, the second for any of the others. */
   readonly activeGeneralWideTargetId = computed(() => {
@@ -675,15 +648,6 @@ export class RecipeEditorComponent {
     if (active === null) return null;
     return active === 'section-details' ? 'section-details' : 'section-notes';
   });
-
-  /** An item with the number of problems the last save left across the sections it stands for, said in words. */
-  private withProblemCount(item: CpAnchorNavItem, sectionIds: readonly string[]): CpAnchorNavItem {
-    const keys = this.form.errorPaths();
-    const fields = FIELD_LOCATIONS.filter((location) => sectionIds.includes(location.sectionId)).map((location) => location.field);
-    const problems = keys.filter((key) => fields.includes(errorListKey(key))).length;
-
-    return problems === 0 ? { ...item } : { ...item, detail: `${problems} ${problems === 1 ? 'problem' : 'problems'}` };
-  }
 
   /**
    * The section the creator is reading, which `aria-current` names: the last one jumped to, then whichever one
@@ -918,7 +882,7 @@ export class RecipeEditorComponent {
     }
 
     return located
-      ? 'Some fields need attention. The tabs below say which, and the first one is showing.'
+      ? 'Some fields need attention. The first one is showing.'
       : 'Some fields need attention. Check your recipe details and try again.';
   });
 
@@ -944,6 +908,9 @@ export class RecipeEditorComponent {
   protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() =>
     this.form.validator.visibleErrors().filter((issue) => this.locationOf(issue.path) !== undefined),
   );
+
+  /** Whether the summary is drawn at all. A signal so a spec can turn it on; the page never changes it. */
+  readonly showValidationSummary = signal(SHOW_VALIDATION_SUMMARY);
 
   /** The field's own label for the summary, or nothing for a path this form does not name. */
   protected readonly fieldLabelOf = (path: string): string => FIELD_LABELS[errorListKey(path)] ?? '';

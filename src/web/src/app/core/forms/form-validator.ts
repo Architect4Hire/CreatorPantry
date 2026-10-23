@@ -83,11 +83,6 @@ export class FormValidator<TModel> {
     return this.issuesFor(path, 'warning')[0]?.message ?? '';
   }
 
-  /** How many visible issues lie at or inside `prefix` — for a tab label or a section heading. */
-  countUnder(prefix: string, severity: IssueSeverity = 'error'): number {
-    return this.visibleIssues().filter((issue) => issue.severity === severity && isPathUnder(issue.path, prefix)).length;
-  }
-
   /**
    * Takes the server's `errors` from a refused save. Replaces the previous refusal: the new answer is the whole
    * answer. A refusal also counts as an attempt, so the client errors it did not mention are shown as well.
