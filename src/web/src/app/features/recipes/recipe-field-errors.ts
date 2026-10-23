@@ -28,8 +28,8 @@ const POSITION_PATTERN = /^(ingredientGroups|instructions)\[(\d+)\](?:\.(?:ingre
 /**
  * The list a key belongs to, whether it is flat or indexed.
  *
- * `ingredientGroups[0].ingredients[2].quantity` and `ingredientGroups` are the same tab's business, so the tab
- * markers and the reveal both read a key through this rather than matching it exactly.
+ * `ingredientGroups[0].ingredients[2].quantity` and `ingredientGroups` are the same tab's business, so the
+ * reveal reads a key through this rather than matching it exactly.
  */
 export function errorListKey(key: string): string {
   const bracket = key.indexOf('[');

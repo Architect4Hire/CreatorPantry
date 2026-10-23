@@ -864,9 +864,9 @@ export class RecipeEditorComponent {
    * What the save banner says about a refusal.
    *
    * Two wordings, because "check your recipe details" is wrong when the problem is an ingredient line, and
-   * "they are marked on the tabs" would be wrong when the server named a field this form cannot locate — the
-   * honest-silence case `revealFirstFieldError` documents. Both open with the same sentence, so the creator
-   * always reads the same first thing.
+   * "the first one is showing" would be wrong when the server named a field this form cannot locate — the
+   * honest-silence case `revealFirstFieldError` documents, where nothing is shown. Both open with the same
+   * sentence, so the creator always reads the same first thing.
    */
   readonly validationBannerText = computed(() => {
     const lists = new Set(this.form.errorPaths().map(errorListKey));
