@@ -74,7 +74,7 @@
 
       <form (ngSubmit)="save()" novalidate aria-label="Brand settings">
         <cp-card>
-          <p class="legend">Fields marked * are required. Everything else is optional.</p>
+          <p class="required-legend">Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.</p>
 
           <fieldset class="form-fields" [disabled]="!canEdit()" [attr.aria-describedby]="canEdit() ? null : 'brand-readonly-note'">
             <cp-form-section sectionId="section-identity" heading="Identity" intro="What your brand is called and what it is about.">
@@ -86,9 +86,9 @@
                   autocomplete="off"
                   required
                   [maxlength]="limits.brandNameMaxLength"
-                  [attr.aria-invalid]="fieldError('brandName') ? 'true' : null"
                   [ngModel]="draft().brandName"
                   (ngModelChange)="setField('brandName', $event)"
+                  (blur)="validator.touch('brandName')"
                 />
               </cp-field>
 
@@ -98,7 +98,6 @@
                   name="shortDescription"
                   rows="3"
                   [maxlength]="limits.shortDescriptionMaxLength"
-                  [attr.aria-invalid]="fieldError('shortDescription') ? 'true' : null"
                   [ngModel]="draft().shortDescription"
                   (ngModelChange)="setField('shortDescription', $event)"
                 ></textarea>
@@ -116,7 +115,6 @@
                   name="defaultAudience"
                   rows="3"
                   [maxlength]="limits.defaultAudienceMaxLength"
-                  [attr.aria-invalid]="fieldError('defaultAudience') ? 'true' : null"
                   [ngModel]="draft().defaultAudience"
                   (ngModelChange)="setField('defaultAudience', $event)"
                 ></textarea>
@@ -184,7 +182,7 @@
                         </select>
                       </cp-field>
 
-                      <cp-field label="Address" [forId]="'brand-link-' + link.id + '-url'" [error]="linkError(index, 'url')">
+                      <cp-field label="Address" [forId]="'brand-link-' + link.id + '-url'" [required]="true" [error]="linkError(index, 'url')">
                         <input
                           [id]="'brand-link-' + link.id + '-url'"
                           [name]="'linkUrl' + link.id"
@@ -193,9 +191,9 @@
                           autocomplete="off"
                           placeholder="https://"
                           [maxlength]="limits.urlMaxLength"
-                          [attr.aria-invalid]="linkError(index, 'url') ? 'true' : null"
                           [ngModel]="link.url"
                           (ngModelChange)="setLink(link.id, 'url', $event)"
+                          (blur)="validator.touch('links[' + index + '].url')"
                         />
                       </cp-field>
 
@@ -340,7 +338,8 @@
               }
 
               <div class="cp-actions">
-                <button cpButton type="submit" variant="primary" [disabled]="saveState().status === 'saving'">
+                <!-- Held back while the form's own rules fail: the field and the list below say why. -->
+                <button cpButton type="submit" variant="primary" [disabled]="saveState().status === 'saving' || !validator.canSubmit()">
                   {{ saveState().status === 'saving' ? 'Saving…' : isFirstUse() ? 'Create brand settings' : 'Save changes' }}
                 </button>
                 @if (isDirty()) {
@@ -350,6 +349,15 @@
                   <button cpButton type="button" variant="text" (click)="reload()">Discard my edits and reload</button>
                 }
               </div>
+
+              <!-- Below Save, so it never moves the form under the creator. The banner at the top is the live region
+                   for a refusal, so this one does not announce it a second time. -->
+              <cp-validation-summary
+                [issues]="summaryIssues()"
+                [labelOf]="summaryLabelOf"
+                [announce]="false"
+                (issueSelected)="revealIssue($event)"
+              />
             </div>
           }
         </cp-card>
