@@ -1,4 +1,4 @@
-import { custom, FormRules, inform, maxLength, minLength, pattern, range, required, warn } from './form-rules';
+import { custom, FormRules, inform, isWebAddress, maxLength, minLength, pattern, range, required, warn, webAddress } from './form-rules';
 import { validateModel } from './validate-model';
 
 interface Line {
@@ -106,6 +106,24 @@ describe('rule helpers', () => {
     expect(rule('11', context)).not.toBeNull();
     expect(rule(5, context)).toBeNull();
     expect(rule('abc', context)).toBeNull();
+  });
+
+  it('takes an http or https address and refuses any other scheme, a relative one, and one with credentials', () => {
+    for (const address of ['https://example.com', 'http://example.com/a?b=c', '  https://example.com/about  ']) {
+      expect(isWebAddress(address)).withContext(address).toBeTrue();
+    }
+    for (const address of ['example.com', '/about', 'ftp://example.com', 'mailto:sam@example.com', 'https://sam:secret@example.com', 'https://sam@example.com']) {
+      expect(isWebAddress(address)).withContext(address).toBeFalse();
+    }
+  });
+
+  it('leaves a blank address to required, like every other rule', () => {
+    const rule = webAddress('x');
+    const context = { model: {}, path: 'p' };
+
+    expect(rule('', context)).toBeNull();
+    expect(rule('example.com', context)?.code).toBe('webAddress');
+    expect(rule('https://example.com', context)).toBeNull();
   });
 
   it('is not made stateful by a global regular expression', () => {
