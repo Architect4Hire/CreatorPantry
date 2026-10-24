@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
 /**
  * The site's real footer landmark, kept as its own component (split out of the L.7 draft, which had
  * bundled it with the repeat-CTA section) so it can sit outside <main> in LandingComponent — nesting a
- * <footer> inside <main> strips its `contentinfo` ARIA role. The "Sign in" link is real; legal links are
- * visible, native-`disabled` placeholders, never fabricated policy text or dead links that look real.
+ * <footer> inside <main> strips its `contentinfo` ARIA role. The legal links are visible,
+ * native-`disabled` placeholders, never fabricated policy text or dead links that look real.
+ *
+ * It holds no navigation of its own: the ways into the product are the nav's and the page's, and the empty
+ * `<nav aria-label="Footer">` this used to render was a landmark a screen reader announced and then found
+ * nothing in (LP.1 finding 8). A landmark comes back here when there are links to put in it.
  */
 @Component({
   selector: 'cp-landing-footer',
   standalone: true,
-  imports: [RouterLink],
   templateUrl: './landing-footer.component.html',
   styleUrl: './landing-footer.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

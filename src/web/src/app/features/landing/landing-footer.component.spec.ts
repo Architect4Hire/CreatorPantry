@@ -23,10 +23,9 @@ describe('LandingFooterComponent', () => {
     expect(brand?.textContent).toContain(String(new Date().getFullYear()));
   });
 
-  it('renders the placeholder legal links as visibly disabled, not fabricated real links, outside the Footer nav', async () => {
+  it('renders the placeholder legal links as visibly disabled, not fabricated real links', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
-    const nav = el.querySelector('nav')!;
     const legalLinks = el.querySelectorAll<HTMLButtonElement>('.legal-link');
 
     expect(legalLinks.length).toBe(2);
@@ -37,7 +36,6 @@ describe('LandingFooterComponent', () => {
     });
     expect(legalLinks[0].textContent).toContain('Privacy Policy');
     expect(legalLinks[1].textContent).toContain('Terms of Service');
-    expect(nav.querySelector('.legal-link')).toBeFalsy();
   });
 
   it('renders custom product name and legal links supplied via inputs', async () => {
@@ -52,12 +50,16 @@ describe('LandingFooterComponent', () => {
     expect(el.querySelector('.legal-link')?.textContent).toContain('Cookie Policy');
   });
 
-  it('labels the footer navigation region, which holds no link since sign-in left the footer', async () => {
+  /**
+   * The sign-in link was taken out of the footer in 305994b and the empty region was left behind, which a
+   * screen reader then announced as a navigation landmark holding nothing (LP.1 finding 8). A landmark comes
+   * back when there are links to put in it, not before.
+   */
+  it('leaves no empty navigation landmark behind', async () => {
     const fixture = await createFixture();
-    const nav = fixture.nativeElement.querySelector('nav');
+    const el: HTMLElement = fixture.nativeElement;
 
-    // The sign-in link was taken out of the footer in 305994b, and the region was left in place.
-    expect(nav?.getAttribute('aria-label')).toBe('Footer');
-    expect(nav?.querySelectorAll('a').length).toBe(0);
+    expect(el.querySelector('nav')).toBeNull();
+    expect(el.querySelector('footer')).not.toBeNull();
   });
 });

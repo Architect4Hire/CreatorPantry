@@ -9,7 +9,8 @@
     "check:page-contract": "node --test scripts/check-page-contract.test.mjs && node scripts/check-page-contract.mjs",
     "test": "npm run check:page-contract && npm run check:safety-copy && ng test creator-pantry-ui --watch=false && ng test showcase --watch=false",
     "check:safety-copy": "node --test scripts/check-safety-copy.test.mjs && node scripts/check-safety-copy.mjs",
-    "capture:tour": "node scripts/capture-tour.mjs"
+    "capture:tour": "node scripts/capture-tour.mjs",
+    "make:og-card": "node scripts/make-og-card.mjs"
   },
   "dependencies": {
     "@angular/animations": "^22.0.0",

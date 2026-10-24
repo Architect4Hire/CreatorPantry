@@ -1,7 +1,9 @@
-<section class="faq" aria-labelledby="landing-faq-heading">
+<!-- `id` is the anchor a nav or a footer links to; the section is here whether or not anything does yet. -->
+<section id="faq" class="faq" aria-labelledby="landing-faq-heading">
   <h2 id="landing-faq-heading">{{ heading }}</h2>
 
-  <ul>
+  <!-- `list-style: none` takes the list semantics away in Safari; this puts them back. -->
+  <ul role="list">
     @for (entry of entries(); track entry.question) {
       <li>
         <!-- Native disclosure: the keyboard, the marker and the state are the browser's, not this page's. -->

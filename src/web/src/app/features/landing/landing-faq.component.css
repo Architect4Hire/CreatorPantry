@@ -34,6 +34,8 @@ details {
 }
 
 summary {
+  /* The same radius as the box it opens, so the focus ring follows the corners rather than cutting them. */
+  border-radius: var(--cp-radius-lg);
   display: flex;
   align-items: center;
   gap: var(--cp-space-3);

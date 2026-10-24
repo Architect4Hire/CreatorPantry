@@ -111,6 +111,19 @@ export const routes: Routes = [
     canActivate: [anonymousOnlyGuard],
     loadComponent: () => import('./features/landing/landing.component').then((m) => m.LandingComponent),
   },
+  // The same page at its own address, opened at the pricing section (LP.10). Not a second page: one document
+  // answers both, which is also why its canonical URL in index.html names '' rather than this. Guarded exactly
+  // as '' is and no more — a signed-in visitor goes to the app from here for the same reason.
+  //
+  // `scrollTo` is a section id the page brings into view once it exists. It can be absent: the pricing section
+  // renders only where a deployment publishes a plan catalogue, and this address stays a working page either way.
+  {
+    path: 'pricing',
+    pathMatch: 'full',
+    canActivate: [anonymousOnlyGuard],
+    loadComponent: () => import('./features/landing/landing.component').then((m) => m.LandingComponent),
+    data: { title: 'Pricing', scrollTo: 'pricing' },
+  },
   // 'app' hosts the signed-in shell's own index page (workspace resolution/creation) before a workspace
   // is chosen. It is therefore, like 'sign-in'/'sign-up'/etc., a literal top-level slug no real workspace
   // may use.
@@ -126,10 +139,14 @@ export const routes: Routes = [
       { path: 'ai-usage', loadComponent: () => import('./features/ai-usage/ai-usage.component').then((m) => m.AiUsageComponent), data: { title: 'AI allowance' } },
     ],
   },
-  // Must come after every literal top-level path (sign-in, app, design-system, ...): ':workspaceSlug'
-  // below matches any single segment, so if this route were tried first it would swallow those literal
-  // paths as a workspace slug, send them through authGuard, and redirect back into the same trap — an
-  // infinite navigation loop with no console error, since nothing ever actually throws.
+  // Must come after every literal top-level path (sign-in, app, pricing, design-system, ...):
+  // ':workspaceSlug' below matches any single segment, so if this route were tried first it would swallow
+  // those literal paths as a workspace slug, send them through authGuard, and redirect back into the same
+  // trap — an infinite navigation loop with no console error, since nothing ever actually throws.
+  //
+  // The other half of that is on the server: every literal above is in WorkspacePolicy.ReservedSlugs, so no
+  // workspace is ever given an address this route cannot reach. ReservedSlugMirrorTests reads this file and
+  // fails until a new literal is reserved there.
   {
     path: ':workspaceSlug',
     canActivate: [authGuard],

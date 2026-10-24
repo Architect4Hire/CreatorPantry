@@ -131,12 +131,23 @@ internal sealed partial class WorkspaceBusiness(IWorkspaceDataLayer dataLayer, I
             workspaceContext.MembershipId, workspaceContext.Role, workspace.DefaultMeasurementSystem);
 
     /// <summary>Tries the base slug, then <c>base-2</c>, <c>base-3</c>, ... until one is free or attempts run out.</summary>
+    /// <remarks>
+    /// A reserved address counts as taken (<see cref="WorkspacePolicy.ReservedSlugs"/>), so a workspace named
+    /// "Pricing" is created as <c>pricing-2</c> rather than refused: the creator keeps the name they chose and
+    /// gets an address that resolves, which is what the same fallthrough already does for a name someone else
+    /// reached first.
+    /// </remarks>
     private async Task<string?> AllocateSlugAsync(string name, CancellationToken cancellationToken)
     {
         var baseSlug = Slugify(name);
         for (var attempt = 0; attempt < MaxSlugAttempts; attempt++)
         {
             var candidate = SlugCandidate(baseSlug, attempt);
+            if (WorkspacePolicy.IsReservedSlug(candidate))
+            {
+                continue;
+            }
+
             if (!await dataLayer.SlugExistsAsync(candidate, cancellationToken))
             {
                 return candidate;

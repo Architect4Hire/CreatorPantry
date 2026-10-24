@@ -1,5 +1,7 @@
-@if (plans().length) {
-  <section class="pricing" aria-labelledby="landing-pricing-heading">
+@if (available()) {
+  <!-- `id` is the nav's anchor and where /pricing lands. It exists only where the catalogue does, which is
+       why both of those ask `available` first rather than assuming the section is on the page. -->
+  <section id="pricing" class="pricing" aria-labelledby="landing-pricing-heading">
     <h2 id="landing-pricing-heading">{{ heading }}</h2>
     <p class="intro">{{ intro }}</p>
 

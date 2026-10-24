@@ -189,6 +189,31 @@ public class WorkspaceBusinessTests
         Assert.Equal("sams-kitchen-3", _dataLayer.CreateCalls.Single().Slug);
     }
 
+    [Theory]
+    [InlineData("Pricing", "pricing-2")]
+    [InlineData("Sign In", "sign-in-2")]
+    [InlineData("App", "app-2")]
+    public async Task Create_never_takes_an_address_the_browser_serves_itself(string name, string expected)
+    {
+        var result = await CreateBusiness().CreateAsync(UserId, new CreateWorkspaceViewModel(name), TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(expected, _dataLayer.CreateCalls.Single().Slug);
+        Assert.Equal(name, _dataLayer.CreateCalls.Single().Name);
+    }
+
+    /// <summary>
+    /// The reservation is not a lookup, so it costs no round trip and cannot be defeated by a race: a reserved
+    /// candidate is skipped before the database is asked whether anything holds it.
+    /// </summary>
+    [Fact]
+    public async Task Create_does_not_ask_the_database_about_a_reserved_address()
+    {
+        await CreateBusiness().CreateAsync(UserId, new CreateWorkspaceViewModel("Pricing"), TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("pricing", _dataLayer.SlugExistsCalls);
+    }
+
     [Fact]
     public async Task Create_fails_when_every_candidate_slug_is_taken()
     {

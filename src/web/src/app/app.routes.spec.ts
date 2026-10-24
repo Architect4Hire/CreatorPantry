@@ -54,6 +54,36 @@ describe('app routes', () => {
     expect(landing?.pathMatch).toBe('full');
   });
 
+  /**
+   * The same page at a second address (LP.10), guarded exactly as '' is and no more: a signed-in visitor goes
+   * to the app from here too, rather than being shown marketing.
+   */
+  it('serves /pricing as the landing page, anonymous-only and opened at its pricing section', async () => {
+    const pricing = routes.find((route) => route.path === 'pricing');
+
+    expect(pricing?.canActivate).toEqual([anonymousOnlyGuard]);
+    expect(pricing?.pathMatch).toBe('full');
+    expect(pricing?.data).toEqual({ title: 'Pricing', scrollTo: 'pricing' });
+    expect(await pricing!.loadComponent!()).toBe(LandingComponent);
+  });
+
+  /**
+   * ':workspaceSlug' matches any single segment, so a literal route after it would never be reached — the
+   * router would send /pricing through authGuard as if it were a workspace. The server holds the other half:
+   * every literal here is in WorkspacePolicy.ReservedSlugs, which ReservedSlugMirrorTests checks.
+   */
+  it('declares every literal top-level route before the workspace slug catches everything', () => {
+    const literals = routes
+      .map((route) => route.path)
+      .filter((path): path is string => typeof path === 'string' && path.length > 0 && !path.startsWith(':'));
+    const slug = routes.findIndex((route) => route.path === ':workspaceSlug');
+
+    expect(literals).toContain('pricing');
+    for (const literal of literals) {
+      expect(routes.findIndex((route) => route.path === literal)).toBeLessThan(slug);
+    }
+  });
+
   it("guards 'app' and ':workspaceSlug' with authGuard", () => {
     const appRoute = routes.find((route) => route.path === 'app');
     const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');

@@ -516,6 +516,18 @@ guarantee" is listed as a denial, by hand, the way the script's other six are. T
 that it watched three templates and three components by counting to three; it now names the stems and requires
 both halves of each, which is the rule it was trying to express and survives a fourth screen.*
 
+*design-review raised no blocker. Fixed from it: the guard's own comments still said "three panels" after it
+grew a fourth; the section had no `id` for a nav to link to (`#faq`, ready for LP.10); the question list lost
+its semantics in Safari without `role="list"`; and the summary had no radius, so its focus ring cut the corners
+of the box it opens. Accepted rather than changed: the three catalogue questions appear after the catalogue
+loads, which is the same trade the pricing section makes; and `h3` inside `summary` is valid and keeps the
+native disclosure, but how reliably heading navigation reaches it varies by screen reader and wants checking in
+VoiceOver and NVDA before this page is public. **The focus ring's contrast — 1.74:1 light, 2.68:1 dark against
+WCAG 1.4.11's 3:1 — is real, library-wide and already LP.1 finding 6, assigned to LP.11A.** It is a token, not
+a thing for this component to patch. The reviewer could not verify three claims; "we don't write their
+contents to our logs" is backed by `PromptEnvelope.Describe`, which reports a media type and a length and
+nothing else, citing `ai.md`.*
+
 *Two flaky specs were fixed along the way, both the same fault and neither mine: `LandingHeroCollageComponent`
 aimed its pointer at the window's bottom-right corner and asserted a positive drift, which held only while the
 fixture happened to sit left of that corner — something the specs running before it decide. They now aim past
@@ -523,7 +535,7 @@ the collage's own centre. The `RecipeEditorComponent` anchor-nav spec remains in
 suite; it predates this work, passes in isolation, and was reproduced failing on a clean tree before any of
 these prompts were implemented.*
 
-## LP.10 Sticky nav, section anchors and /pricing
+## LP.10 Sticky nav, section anchors and /pricing - done, without the nav
 
 ```text
 SCOPE: Add a slim sticky landing nav: logo, anchors (Tour, Pricing, FAQ), Sign in, and a Start free
@@ -544,6 +556,52 @@ UTILIZATION: design-review after implementation.
 BEHAVIOR: Show the nav states and route change; wait for approval; implement with routing and component
 specs.
 ```
+
+*Delivery note (2026-10-24): **the nav is not in the page, and that is the owner's decision rather than a
+shortfall.** It was built as asked — a `cp-landing-nav` of `CpAnchorNavComponent` anchors, sticky, translucent
+with a hairline once scrolled, current section marked, "Start free" appearing as the hero's CTA left the
+screen — and the owner's answer on seeing it was that a bar over the hero "destroys the value of the hero".
+Moving it inline under the hero (which costs the page its `banner` landmark, since a banner may not sit inside
+`<main>`) did not fix it either: "very jarring for the page layout". So the bar, its spec, its anchors on the
+tour section and the id on the hero's CTA row are all out, and the page is read by scrolling, as it was.
+Anything LP.11 or a later prompt wants to reconsider here starts from nothing, not from a disabled component.*
+
+*What did ship, all of it still wanted:*
+
+- `/pricing`: the landing page at a second address, guarded exactly as `''` is (`anonymousOnlyGuard`, so a
+  signed-in visitor goes to the app), titled "Pricing", and opened at the pricing section through
+  `data: { scrollTo }`. It waits for the section rather than scrolling at once, because the catalogue answers
+  after the first render — and on a deployment that publishes none it does nothing at all and the address stays
+  an ordinary landing page. Arriving also moves the keyboard's place to the section. Two things that cost a
+  while: `afterRenderEffect` never runs under `RouterTestingHarness`, so this is `effect` + `afterNextRender`
+  as everything else in this repo is; and removing a borrowed `tabindex="-1"` straight after focusing blurs the
+  element in Chrome, so it stays (`-1` adds no tab stop).
+- `LandingPricingComponent.available` is public, so the page can tell whether that section rendered without
+  asking the catalogue a sixth time. `#pricing` is its anchor, with `scroll-margin-top` so a jump leaves air
+  above the heading.
+- The document head, static in `index.html` rather than prerendered: prerendering would need `@angular/ssr`
+  and would bake a plan catalogue into the HTML, which landing decision 3 forbids outright. Title (no longer
+  "CreatorPantry Design System"), canonical, Open Graph and Twitter card, all at `https://creatorpantry.com/`
+  — the owner's domain, given on request. One document answers both addresses, so it names one canonical.
+  `landing-document-head.spec.ts` guards it by reading `index.html` as text, because a tag moved into Angular's
+  `Meta` service looks right in every manual check and is invisible to every scraper.
+- `public/images/og-card.png`, 1200×630, built by `npm run make:og-card`: Playwright over the real tokens and
+  typefaces, the logo the page loads, and the hero's own headline read out of the component so the card cannot
+  drift from the page. It photographs no product screen and no creator's work.
+- `public/robots.txt`: `Disallow: /`, matching the `X-Robots-Tag: noindex, nofollow` that
+  `staticwebapp.config.json` already sends. The owner chose to stay unindexed until launch; the file names
+  both lines to change then. The SEO tags are therefore inert in that deployment on purpose.
+- The footer's empty `<nav aria-label="Footer">` is gone (LP.1 finding 8), with its dead styles and an unused
+  `RouterLink` import.
+- **Beyond the prompt, at the owner's request:** no workspace may be given an address the browser serves
+  itself. `WorkspacePolicy.ReservedSlugs` holds `app`, `confirm-email`, `design-system`, `pricing`, `sign-in`
+  and `sign-up`, and `WorkspaceBusiness` treats a reserved candidate as taken — so a workspace named "Pricing"
+  is created as `pricing-2` and keeps its name, exactly as one whose name someone reached first already does.
+  No round trip, and no race. `ReservedSlugMirrorTests` reads `app.routes.ts` and fails until a new literal
+  top-level route is reserved, since that drift is invisible from the server's side.*
+
+*Not done: the skip link, which went out with the nav — with no navigation before `<main>` it would skip
+nothing. design-review was not run, there being no new visual surface left for it to review.*
 
 ## LP.11 Motion, depth and image performance pass
 

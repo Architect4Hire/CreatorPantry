@@ -75,6 +75,16 @@ export class LandingPricingComponent {
   protected readonly plans = computed(() => this.catalogue().plans);
 
   /**
+   * Whether this section is on the page at all.
+   *
+   * Public because the page above it has two decisions that depend on the answer and no second way to reach it:
+   * whether its nav offers a Pricing anchor, and whether `/pricing` has anything to scroll to. Reading it here
+   * rather than asking the catalogue again keeps one request, and keeps the section's own rule — no plans, no
+   * section — the only place that decides.
+   */
+  readonly available = computed(() => this.plans().length > 0);
+
+  /**
    * The table's columns — a plan to a row, so the table grows down the page as plans are added rather than
    * across it, and a phone reads it without a sideways scroll.
    *

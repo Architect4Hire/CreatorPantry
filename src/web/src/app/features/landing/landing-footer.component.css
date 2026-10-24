@@ -18,28 +18,11 @@
   font-size: var(--cp-font-size-lg);
 }
 
-.footer-links,
 .legal-placeholders {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cp-space-5);
-}
-
-/* min-height keeps the tap/click target at the 40px baseline whatever the line box comes to. The page's
-   body size is one size throughout — the hero's — so a footer link is read at the same size as the rest. */
-.footer-links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-lg);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.footer-links a:hover {
-  text-decoration: underline;
 }
 
 .legal-link {

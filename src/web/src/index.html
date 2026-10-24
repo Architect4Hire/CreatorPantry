@@ -2,13 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>CreatorPantry Design System</title>
+    <!-- Everything from here to the social card is static on purpose (LP.10). A scraper is handed this
+         document and never runs the application, so a tag set at runtime through Angular's Meta service is a
+         tag no social preview, and no first pass of a crawler, ever sees. Prerendering would answer that too,
+         but it would also bake a plan catalogue into the HTML, which this product does not do: prices are the
+         server's at request time, never the build's.
+
+         This document is served at every address, '' and /pricing among them, so the canonical names the
+         landing page once. /pricing is that same page opened at its pricing section, not a second one, and
+         saying so here is what keeps the two from competing as duplicates. Nothing a crawler would index sits
+         behind the sign-in: robots.txt disallows the application's own routes outright. -->
+    <title>CreatorPantry — the AI workspace for food creators</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta
       name="description"
       content="The AI-assisted workspace for food creators: develop and version recipes, turn them into blog posts, social captions and newsletters, and publish on your terms."
     />
+    <link rel="canonical" href="https://creatorpantry.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CreatorPantry" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://creatorpantry.com/" />
+    <meta property="og:title" content="CreatorPantry — the AI workspace for food creators" />
+    <meta
+      property="og:description"
+      content="The AI-assisted workspace for food creators: develop and version recipes, turn them into blog posts, social captions and newsletters, and publish on your terms."
+    />
+    <!-- Built by `npm run make:og-card` from the real logo and typefaces, never hand-drawn and never a
+         screenshot of work belonging to a creator. The alt text describes what is on it and nothing else. -->
+    <meta property="og:image" content="https://creatorpantry.com/images/og-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The CreatorPantry logo on warm paper, beside the words “The workspace where your recipes become everything else.”"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CreatorPantry — the AI workspace for food creators" />
+    <meta
+      name="twitter:description"
+      content="The AI-assisted workspace for food creators: develop and version recipes, turn them into blog posts, social captions and newsletters, and publish on your terms."
+    />
+    <meta name="twitter:image" content="https://creatorpantry.com/images/og-card.png" />
     <link rel="icon" href="favicon.ico" sizes="48x48" />
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />

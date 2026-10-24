@@ -6,6 +6,8 @@
   max-width: 72rem;
   margin: 0 auto;
   padding: var(--cp-space-10) var(--cp-space-6);
+  /* /pricing opens the page here, with a little air above the heading rather than none. */
+  scroll-margin-top: var(--cp-space-6);
 }
 
 h2 {

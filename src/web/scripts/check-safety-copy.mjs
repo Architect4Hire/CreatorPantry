@@ -1,9 +1,10 @@
-// Fails when a safety-facing screen's own words claim more than its records support.
+// Fails when safety-facing copy claims more than the records behind it support.
 //
 // Three panels tell a creator what reviewed records say about allergens, what a nutrition estimate adds up
-// to, and which high-risk methods a recipe's text names. None of them may assert that a dish is safe, free of
-// an allergen, certified, suitable for a person, or that a figure is a label value — the same rule the domain
-// holds for the sentences it composes (baselines B-36 and B-37), on this side of the wire.
+// to, and which high-risk methods a recipe's text names. The public FAQ is the fourth, because it answers the
+// one question on a marketing page a reader's health could turn on. None of them may assert that a dish is
+// safe, free of an allergen, certified, suitable for a person, or that a figure is a label value — the same
+// rule the domain holds for the sentences it composes (baselines B-36 and B-37), on this side of the wire.
 //
 // Why a script and not a spec. Each panel's spec already guards its TypeScript copy constants, which is where
 // its sentences belong and where a reviewer looks. But a template can hold a literal too, and 14.7's audit
@@ -23,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * The three safety panels: each one's template, and each one's copy constants.
+ * Every watched screen: each one's template, and each one's copy constants.
  *
  * Both halves, because the sentences live in both. A panel's own words are declared in `PANEL_COPY` and the
  * labels beside it, and its template holds the short literals between them — a column name, a term in a facts

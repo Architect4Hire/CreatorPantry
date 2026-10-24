@@ -1,0 +1,15 @@
+# CreatorPantry is not published yet, and this file says so in the one place a crawler looks first.
+#
+# It is deliberately the same answer the deployment already gives in a header: public/staticwebapp.config.json
+# sends `X-Robots-Tag: noindex, nofollow` on every response, and that header, not this file, is what actually
+# keeps the site out of an index — a page a crawler is allowed to fetch can still be indexed, and a page it is
+# forbidden to fetch can still be listed from a link elsewhere. Saying one thing here and the opposite there
+# would only mean a crawler obeyed whichever it read first.
+#
+# At launch both change together: delete the X-Robots-Tag line from staticwebapp.config.json, and replace the
+# two lines below with an Allow for the public pages ('/' and '/pricing') and a Disallow for the application's
+# own addresses — /app, /sign-in, /sign-up, /confirm-email and every workspace route — none of which answers
+# anything to a signed-out reader anyway.
+
+User-agent: *
+Disallow: /
