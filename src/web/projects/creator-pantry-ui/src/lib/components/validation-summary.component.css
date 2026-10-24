@@ -2,86 +2,84 @@
   display: block;
 }
 
+/*
+ * A soft box tinted with the severity's colour. The tint is mixed here, against whatever surface the summary
+ * sits on — a parchment card in the dark theme sets its own --cp-surface — and not taken from --cp-danger-soft,
+ * which is mixed once against the page's surface and comes out as a dark block on a light card.
+ */
 section {
-  display: grid;
-  gap: var(--cp-space-2);
-  padding: var(--cp-space-3) var(--cp-space-4);
-  border: 1px solid var(--cp-border);
+  --cp-summary-tone: var(--cp-danger);
+
+  padding: var(--cp-space-1) var(--cp-space-4);
+  border: 1px solid color-mix(in srgb, var(--cp-summary-tone) 40%, var(--cp-border));
+  border-inline-start: 4px solid var(--cp-summary-tone);
   border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
+  background: color-mix(in srgb, var(--cp-summary-tone) 7%, var(--cp-surface));
   color: var(--cp-text);
   font-size: var(--cp-font-size-sm);
   /* A form that scrolls or focuses this on a refusal can clear a bar fixed across its top. */
   scroll-margin-top: var(--cp-form-section-scroll-margin, var(--cp-space-6));
 }
 
-section.has-errors {
-  border-color: var(--cp-danger);
-  background: var(--cp-danger-soft);
+/* Advice and nothing worse: the same box in the advice colour, so it never reads as a refusal. */
+section.advice-only {
+  --cp-summary-tone: var(--cp-orange);
 }
 
-/* The panel is a focus target of last resort for a refusal; the ring belongs to the field it leads to. */
+/* The box is a focus target of last resort for a refusal; the ring belongs to the field it leads to. */
 section:focus {
   outline: none;
 }
 
-.heading {
-  margin: 0;
-  font: 600 var(--cp-font-size-md) / var(--cp-leading-tight) var(--cp-font-sans);
-  color: var(--cp-text);
-}
-
-.heading--advice {
-  margin-top: var(--cp-space-2);
-  color: var(--cp-text-muted);
-}
-
+/* A plain bulleted list, stacked with a gap rather than spaced by padding. The bullet is red for an error and
+   orange for advice; advice also says so in a word, so the two never differ by colour alone. */
 ul {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--cp-space-1);
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-inline-start: var(--cp-space-5);
+  list-style: disc;
 }
 
-/* A control that reads as a line of text: 40px tall for a thumb, wrapping rather than overflowing. */
+li::marker {
+  color: var(--cp-danger);
+}
+
+li.advice::marker {
+  color: var(--cp-orange);
+}
+
+/*
+ * Each line is a button that reads as text: no underline, no hover fill. 40px tall for a thumb, with its text
+ * centred in that height so a one-line list is not top-heavy; wrapping rather than overflowing, and the global
+ * focus ring for the keyboard.
+ */
 button {
-  display: flex;
-  align-items: baseline;
-  gap: var(--cp-space-2);
-  width: 100%;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 0 var(--cp-space-2);
   min-height: 2.5rem;
-  padding: var(--cp-space-1) var(--cp-space-2);
+  padding: var(--cp-space-1) 0;
   border: 0;
   border-radius: var(--cp-radius-sm);
   background: none;
   color: inherit;
   font: inherit;
+  line-height: var(--cp-leading-normal);
   text-align: start;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
   cursor: pointer;
 }
 
-@media (hover: hover) {
-  button:hover {
-    background: color-mix(in srgb, var(--cp-text) 6%, transparent);
-  }
-}
-
-.glyph {
-  flex: none;
-  font-weight: 700;
-  color: var(--cp-orange);
-}
-
-.glyph--error {
-  color: var(--cp-danger);
-}
-
+.kind,
 .where {
-  flex: none;
   font-weight: 600;
+}
+
+.kind {
+  color: var(--cp-orange);
 }
 
 .where::after {

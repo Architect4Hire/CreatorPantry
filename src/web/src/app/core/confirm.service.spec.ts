@@ -31,6 +31,14 @@ describe('ConfirmService', () => {
   afterEach(() => {
     // A popup left open would outlive its test — it renders into <body>, outside any fixture to tear down.
     if (Swal.isVisible()) Swal.close();
+
+    // Closing, confirming and cancelling all only *start* the hide animation, and SweetAlert2 takes the popup out of
+    // <body> when that animation ends — which, in a test browser that is not the focused window, it never does. Left
+    // there, the next spec in any file (the order is random) starts with this dialog on the page and finds its text
+    // and its buttons instead of its own. The answer has already been given by now, so only the markup is left.
+    document.querySelectorAll('.swal2-container').forEach((container) => container.remove());
+    document.body.classList.remove('swal2-shown', 'swal2-height-auto', 'swal2-no-backdrop', 'swal2-toast-shown');
+    document.documentElement.classList.remove('swal2-shown', 'swal2-height-auto');
   });
 
   /**

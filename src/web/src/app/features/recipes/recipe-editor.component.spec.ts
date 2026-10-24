@@ -1217,6 +1217,12 @@ describe('RecipeEditorComponent', () => {
         for (const id of ['section-notes', 'section-timing', 'section-yield']) {
           root.querySelector<HTMLElement>('#' + id)!.style.marginTop = `${window.innerHeight}px`;
         }
+        // Let the reset above finish before the jump. A page an earlier spec left scrolled sends its scroll and
+        // scrollend a frame or two later; arriving after the click, they read as the end of the jump's own scroll,
+        // and the highlight would start following the page while the jump is still on its way.
+        harness.detectChanges();
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         const current = () =>
           navLinksOf(root).filter((link) => link.getAttribute('aria-current') === 'true').map((link) => link.textContent?.trim());
         const seen = new Set<string>();
@@ -1991,7 +1997,7 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
 
       const summary = harness.routeNativeElement!.querySelector('cp-validation-summary')!;
-      expect(summary.querySelector('h2')!.textContent).toContain('2 problems to fix');
+      expect(summary.querySelectorAll('li').length).toBe(2);
       const lines = Array.from(summary.querySelectorAll('button')).map((button) => [
         button.querySelector('.where')!.textContent,
         button.querySelector('.message')!.textContent,

@@ -17,11 +17,15 @@ import {
   CpToast,
   CpToastRegionComponent,
   CpTopicCardComponent,
+  CpValidationIssue,
+  CpValidationSummaryComponent,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { FormRules, required, webAddress } from '../../core/forms/form-rules';
+import { FormValidator } from '../../core/forms/form-validator';
 import {
   BRAND_LIMITS,
   BRAND_LINK_KINDS,
@@ -112,8 +116,40 @@ const FIELD_IDS: Readonly<Record<string, string>> = {
   reason: 'brand-reason',
 };
 
+/** What each field is called in the summary below Save: the label the creator sees on it. */
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  brandName: 'Brand name',
+  shortDescription: 'Short description',
+  defaultAudience: 'Default audience',
+  locale: 'Language',
+  timeZoneId: 'Time zone',
+  links: 'Links',
+  defaultPictureCount: 'Content defaults',
+  reason: 'Note for history',
+};
+
+const LINK_FIELD_LABELS: Readonly<Record<string, string>> = { url: 'address', kind: 'type', label: 'label' };
+
 const LINK_PATTERN = /^links\[(\d+)]\.(url|kind|label)$/;
 const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
+
+/**
+ * The server's own sentence for a link address it refuses (`BrandProfileInputChecks.Links`), blank or malformed
+ * alike — so both rules on an address say it.
+ */
+const LINK_ADDRESS_MESSAGE = 'Use an http or https address without a username or password.';
+
+/**
+ * What this client says about the brand before the server is asked: a name, and an address on every link row.
+ *
+ * Both are the server's rules in the server's words, checked here so the creator hears about them on leaving the
+ * field rather than after a round trip. The server still checks everything, including the ones not repeated here —
+ * lengths (the controls already cap them), a link listed twice, a time zone it does not recognise.
+ */
+const BRAND_RULES: FormRules<BrandDraft> = {
+  brandName: [required('A brand needs a name.')],
+  'links[].url': [required(LINK_ADDRESS_MESSAGE), webAddress(LINK_ADDRESS_MESSAGE)],
+};
 
 /**
  * Brand settings (11.1c): the workspace's brand *facts* — name, description, audience, locale, scheduling time
@@ -148,6 +184,7 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
     CpNoticeComponent,
     CpPageHeadComponent,
     CpTopicCardComponent,
+    CpValidationSummaryComponent,
   ],
   templateUrl: './brand-settings.component.html',
   styleUrl: './brand-settings.component.css',
@@ -176,7 +213,14 @@ export class BrandSettingsComponent {
   readonly base = signal<BrandProfile | null>(null);
   readonly draft = signal<BrandDraft>(EMPTY_BRAND_DRAFT);
   readonly reason = signal('');
+  /** What the server refused in the last save, by its own keys. Read through {@link validator}. */
   readonly fieldErrors = signal<Readonly<Record<string, readonly string[]>>>({});
+
+  /**
+   * The form's rules and the server's last refusal as one list. Links are submitted in the draft's own order with
+   * none filtered out, so `links[2].url` always names the third row on screen.
+   */
+  readonly validator = new FormValidator<BrandDraft>(BRAND_RULES, this.draft, this.fieldErrors);
 
   /** Null while loading or when the channel list could not be loaded (the degraded state). */
   readonly channels = signal<readonly ContentChannel[] | null>(null);
@@ -232,7 +276,7 @@ export class BrandSettingsComponent {
 
   readonly channelProblem = computed(() => this.collect((key) => CHANNEL_PATTERN.test(key)));
 
-  readonly linksProblem = computed(() => this.fieldErrors()['links']?.[0] ?? '');
+  readonly linksProblem = computed(() => this.validator.firstError('links'));
 
   readonly hasFieldErrors = computed(() => Object.keys(this.fieldErrors()).length > 0);
 
@@ -287,9 +331,19 @@ export class BrandSettingsComponent {
   }
 
   // ---- Editing ----
+  //
+  // Every edit drops what the server last said about the field it changes. The creator is acting on that refusal,
+  // and a message about a value that is no longer there would still be shown at the field and listed below Save
+  // until the next save. What the form's own rules say about the new value shows instead.
 
   setField<K extends 'brandName' | 'shortDescription' | 'defaultAudience' | 'locale'>(field: K, value: string): void {
     this.draft.update((draft) => ({ ...draft, [field]: value }));
+    this.validator.clearServer(field);
+  }
+
+  setReason(value: string): void {
+    this.reason.set(value);
+    this.validator.clearServer('reason');
   }
 
   /** "" is the tile for leaving the count to the product; anything else is a number the policy allows. */
@@ -316,11 +370,13 @@ export class BrandSettingsComponent {
       ...draft,
       defaultPictureCount: value === '' || !Number.isInteger(count) ? null : count,
     }));
+    this.validator.clearServer('defaultPictureCount');
   }
 
   onZoneSelected(option: CpComboboxOption | null): void {
     this.zoneSelected.set(option);
     this.draft.update((draft) => ({ ...draft, timeZoneId: option?.id ?? '' }));
+    this.validator.clearServer('timeZoneId');
   }
 
   toggleChannel(key: string, checked: boolean): void {
@@ -332,6 +388,7 @@ export class BrandSettingsComponent {
     // their stored order because this is only reached when they change one.
     const ordered = this.channelRows().map((row) => row.key).filter((candidate) => chosen.has(candidate));
     this.draft.update((draft) => ({ ...draft, channelKeys: ordered }));
+    this.validator.clearServer('channelDefaults');
   }
 
   isChannelChecked(key: string): boolean {
@@ -349,6 +406,8 @@ export class BrandSettingsComponent {
     const links = this.draft().links;
     const index = links.findIndex((link) => link.id === id);
     this.draft.update((draft) => ({ ...draft, links: draft.links.filter((link) => link.id !== id) }));
+    // Every row after this one moves up a place, so the server's positions no longer name the rows they were about.
+    this.validator.clearServer('links');
 
     // Focus must land somewhere sensible, not vanish with the row that held it.
     const next = this.draft().links[Math.min(index, this.draft().links.length - 1)];
@@ -356,6 +415,9 @@ export class BrandSettingsComponent {
   }
 
   setLink(id: string, field: 'kind' | 'url' | 'label', value: string): void {
+    const index = this.draft().links.findIndex((link) => link.id === id);
+    if (index !== -1) this.validator.clearServer(`links[${index}].${field}`);
+
     this.draft.update((draft) => ({
       ...draft,
       links: draft.links.map((link) => (link.id === id ? { ...link, [field]: field === 'kind' ? (value as BrandLinkKind) : value } : link)),
@@ -371,11 +433,50 @@ export class BrandSettingsComponent {
   // ---- Errors ----
 
   fieldError(key: string): string {
-    return this.fieldErrors()[key]?.[0] ?? '';
+    return this.validator.firstError(key);
   }
 
   linkError(index: number, field: 'url' | 'kind' | 'label'): string {
-    return this.fieldErrors()[`links[${index}].${field}`]?.[0] ?? '';
+    return this.validator.firstError(`links[${index}].${field}`);
+  }
+
+  /**
+   * The errors the summary below Save lists: every rule that holds Save back, whether or not its field shows it
+   * yet, then whatever the server last refused. Save is disabled while any rule fails, and the list right under it
+   * is what says why — a field only shows its own message once the creator has left it, and a stored value the
+   * rules refuse (or a link row just added) would otherwise disable Save with nothing on screen to explain it.
+   * Drawn after the button rather than above the form, so it never pushes the page down.
+   */
+  protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() =>
+    this.validator.issues().filter((issue) => issue.severity === 'error'),
+  );
+
+  /**
+   * Whether the "marked below" banner still has anything to point at. A refusal the creator has since corrected
+   * field by field leaves nothing marked, and the banner would otherwise go on saying there is.
+   */
+  readonly showInvalidBanner = computed(
+    () => this.saveState().status === 'invalid' && (this.validator.visibleErrors().length > 0 || this.refusedLogoIds().length > 0),
+  );
+
+  /** A field's own label for the summary — "Link 2 address" for a row — or nothing for a key this form does not name. */
+  protected readonly summaryLabelOf = (path: string): string => {
+    const link = LINK_PATTERN.exec(path);
+    if (link) return `Link ${Number(link[1]) + 1} ${LINK_FIELD_LABELS[link[2]]}`;
+    if (CHANNEL_PATTERN.test(path)) return 'Default channels';
+
+    return FIELD_LABELS[path] ?? '';
+  };
+
+  /** Takes the creator to the field a summary line is about. A key with nothing on screen to reach is left alone. */
+  protected revealIssue(issue: CpValidationIssue): void {
+    const id = this.controlIdFor(issue.path);
+    if (id !== null) this.focusSoon(id);
+  }
+
+  /** Every key with an error showing, once each, in the server's own spelling. */
+  private errorPaths(): readonly string[] {
+    return [...new Set(this.validator.visibleErrors().map((issue) => issue.path))];
   }
 
   private collect(match: (key: string) => boolean): string {
@@ -391,10 +492,13 @@ export class BrandSettingsComponent {
     if (!this.canEdit() || this.saveState().status === 'saving') return;
 
     this.refusedLogoIds.set([]);
-    this.fieldErrors.set({});
+    this.validator.clearServer();
 
-    if (this.draft().brandName.trim().length === 0) {
-      this.showInvalid({ brandName: ['A brand needs a name.'] });
+    if (!this.validator.canSubmit()) {
+      // The form's own rules say what is missing; this only makes them show.
+      this.validator.attempt();
+      this.saveState.set({ status: 'invalid' });
+      this.focusFirstError(this.errorPaths());
       return;
     }
 
@@ -456,9 +560,9 @@ export class BrandSettingsComponent {
   }
 
   private showInvalid(errors: Readonly<Record<string, readonly string[]>>): void {
-    this.fieldErrors.set(errors);
+    this.validator.applyServerErrors(errors);
     this.saveState.set({ status: 'invalid' });
-    this.focusFirstError(errors);
+    this.focusFirstError(this.errorPaths());
   }
 
   /**
@@ -503,7 +607,7 @@ export class BrandSettingsComponent {
   async reload(): Promise<void> {
     if (!(await this.confirmDiscardIfDirty())) return;
     this.saveState.set({ status: 'idle' });
-    this.fieldErrors.set({});
+    this.validator.reset();
     await this.init();
   }
 
@@ -545,7 +649,8 @@ export class BrandSettingsComponent {
     this.base.set(profile);
     this.setDraft(draftFromProfile(profile));
     this.reason.set('');
-    this.fieldErrors.set({});
+    // A profile the server holds is a fresh start: nothing refused, nothing left yet.
+    this.validator.reset();
   }
 
   private setDraft(draft: BrandDraft): void {
@@ -563,23 +668,32 @@ export class BrandSettingsComponent {
     return this.lastAttempt.key;
   }
 
-  private focusFirstError(errors: Readonly<Record<string, readonly string[]>>): void {
-    const ordered = [...Object.keys(FIELD_IDS), ...Object.keys(errors).filter((key) => !(key in FIELD_IDS))];
+  private focusFirstError(keys: readonly string[]): void {
+    const present = new Set(keys);
+    const ordered = [...Object.keys(FIELD_IDS), ...keys.filter((key) => !(key in FIELD_IDS))];
     for (const key of ordered) {
-      if (!(key in errors)) continue;
+      if (!present.has(key)) continue;
 
-      const link = LINK_PATTERN.exec(key);
-      if (link) {
-        const row = this.draft().links[Number(link[1])];
-        if (row) this.focusSoon(`brand-link-${row.id}-${link[2]}`);
-        return;
-      }
-      if (key === 'links') return this.focusSoon('brand-add-link');
-      if (CHANNEL_PATTERN.test(key)) return this.focusSoon('section-channels');
-
-      this.focusSoon(FIELD_IDS[key] ?? 'brand-name');
+      const id = this.controlIdFor(key);
+      // A key this form does not know still lands somewhere a creator can start from; a link row that has gone
+      // since the refusal lands nowhere, rather than on whichever row moved into its place.
+      if (id !== null) this.focusSoon(id);
+      else if (!LINK_PATTERN.test(key)) this.focusSoon('brand-name');
       return;
     }
+  }
+
+  /** The id of the control a server key is about, or null when nothing on screen answers to it. */
+  private controlIdFor(key: string): string | null {
+    const link = LINK_PATTERN.exec(key);
+    if (link) {
+      const row = this.draft().links[Number(link[1])];
+      return row ? `brand-link-${row.id}-${link[2]}` : null;
+    }
+    if (key === 'links') return 'brand-add-link';
+    if (CHANNEL_PATTERN.test(key)) return 'section-channels';
+
+    return FIELD_IDS[key] ?? null;
   }
 
   private focusSoon(id: string): void {

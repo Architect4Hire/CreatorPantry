@@ -11,8 +11,6 @@ import {
   viewChild,
 } from '@angular/core';
 
-let cpValidationSummaryUid = 0;
-
 /** How much a problem matters. Only `error` is something to fix; the other two are worth knowing. */
 export type CpValidationSeverity = 'error' | 'warning' | 'info';
 
@@ -26,28 +24,25 @@ export interface CpValidationIssue {
   readonly severity: CpValidationSeverity;
 }
 
-const GLYPHS: Readonly<Record<CpValidationSeverity, string>> = { error: '!', warning: '▲', info: 'ℹ' };
-
 /**
  * Everything wrong with a form, in one place, each item a way to get to the field it is about.
  *
  * **Why a summary at all.** A field's own message is beside the field, which is the right place to fix it and
- * the wrong place to find out *that* something is wrong: a long form has fields below the fold, and a recipe
- * editor has whole tabs the creator is not looking at. A save that is refused says so here, once, and every
- * line is a control that takes the creator to the field.
+ * the wrong place to find out *that* something is wrong: a long form has fields several screens apart. Every line
+ * is a control that takes the creator to the field.
  *
- * **Two lists, and only one of them is a refusal.** Errors stop a save and are headed with their count.
- * Warnings and information never do, so they sit below under their own heading and a form with only advice
- * still reads as one that can be saved. Severity is a glyph as well as a colour — a disc for an error, a
- * triangle for a warning, an `i` for information — so no one has to tell two hues apart.
+ * **One plain list.** No heading: a bulleted list of what is wrong, errors first and then any advice. A bullet is
+ * red for an error and orange for advice, and advice also says so in a word ("Heads up:", "Note:"), so the two
+ * never differ by colour alone. The list is named for a screen reader by {@link label}, which is not shown.
  *
  * **Presentation only.** It decides nothing: which issues exist, what each is called and what selecting one
- * does are the consumer's. It emits {@link issueSelected} and leaves the tab, the scroll and the focus to the
- * form, which knows where its fields are. With no issues it draws nothing.
+ * does are the consumer's. It emits {@link issueSelected} and leaves the scroll and the focus to the form, which
+ * knows where its fields are. With no issues it draws nothing.
  *
- * **Announcing.** A status region is always in the DOM and gets its text when the count changes, because a
- * live region that appears together with its text is announced unreliably. A form that has just refused a
- * save calls {@link focus} to bring a keyboard or screen-reader user straight to the list.
+ * **Announcing.** A status region is always in the DOM and gets its text when the error count changes, because a
+ * live region that appears together with its text is announced unreliably. A form whose own banner already
+ * announces a refusal turns it off with {@link announce}. A form that has just refused a save may call
+ * {@link focus} to bring a keyboard or screen-reader user straight to the list.
  */
 @Component({
   selector: 'cp-validation-summary',
@@ -59,6 +54,9 @@ const GLYPHS: Readonly<Record<CpValidationSeverity, string>> = { error: '!', war
 export class CpValidationSummaryComponent {
   /** Everything to say, in the order to say it. Only the visible ones belong here — what is shown is the consumer's call. */
   readonly issues = input.required<readonly CpValidationIssue[]>();
+
+  /** The list's accessible name. Announced, not shown. */
+  readonly label = input('Problems with this form');
 
   /** What to call the place an issue is about — a field's label — or nothing, for a message that stands alone. */
   readonly labelOf = input<(path: string) => string>(() => '');
@@ -73,34 +71,27 @@ export class CpValidationSummaryComponent {
   /** The issue the creator chose. The consumer reveals its field; this does not scroll or focus anything. */
   readonly issueSelected = output<CpValidationIssue>();
 
-  protected readonly errors = computed(() => this.issues().filter((issue) => issue.severity === 'error'));
-  protected readonly advice = computed(() => this.issues().filter((issue) => issue.severity !== 'error'));
+  private readonly errors = computed(() => this.issues().filter((issue) => issue.severity === 'error'));
 
-  protected readonly errorHeading = computed(() => {
+  /** Whether anything listed is an error. A list of advice alone is drawn in the advice colour. */
+  protected readonly hasErrors = computed(() => this.errors().length > 0);
+
+  /** Errors first, then advice, each in the order given. */
+  protected readonly ordered = computed(() => [
+    ...this.errors(),
+    ...this.issues().filter((issue) => issue.severity !== 'error'),
+  ]);
+
+  /** What the status region says. Errors only: advice is there to read, and is not worth interrupting for. */
+  protected readonly announcement = computed(() => {
     const count = this.errors().length;
+    if (count === 0) return '';
 
     return count === 1 ? '1 problem to fix' : `${count} problems to fix`;
   });
 
-  protected readonly adviceHeading = computed(() => {
-    const count = this.advice().length;
-
-    return count === 1 ? '1 thing worth a look' : `${count} things worth a look`;
-  });
-
-  /** What the status region says. Errors only: advice is there to read, and is not worth interrupting for. */
-  protected readonly announcement = computed(() => (this.errors().length > 0 ? this.errorHeading() : ''));
-
-  private readonly uid = cpValidationSummaryUid++;
-  protected readonly headingId = `cp-validation-summary-heading-${this.uid}`;
-  protected readonly adviceHeadingId = `cp-validation-summary-advice-${this.uid}`;
-
   private readonly panel = viewChild<ElementRef<HTMLElement>>('panel');
   private readonly injector = inject(Injector);
-
-  protected glyph(issue: CpValidationIssue): string {
-    return GLYPHS[issue.severity];
-  }
 
   /**
    * Moves focus to the list. For a form that has just refused a save.

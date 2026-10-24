@@ -79,6 +79,25 @@ export function pattern(expression: RegExp, message: string): FormRule {
       : null;
 }
 
+/**
+ * Whether `value` is an address a browser can open: absolute, `http` or `https`, and with no username or password
+ * in it. Surrounding whitespace is ignored, as the server trims before it checks.
+ */
+export function isWebAddress(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.username === '' && url.password === '';
+  } catch {
+    return false;
+  }
+}
+
+/** The entered text must be a web address — see {@link isWebAddress}. A blank value passes. */
+export function webAddress(message: string): FormRule {
+  return (value) => (typeof value === 'string' && !isBlank(value) && !isWebAddress(value) ? { code: 'webAddress', message } : null);
+}
+
 /** A rule of the form's own — typically one that compares fields. Return a message to fail, null to pass. */
 export function custom<TModel = unknown>(
   code: string,
