@@ -30,7 +30,7 @@ import { RecipeFormState } from './recipe-form-state';
     FormsModule,
   ],
   templateUrl: './recipe-yield-section.component.html',
-  styleUrl: './recipe-yield-section.component.css',
+  styleUrl: './recipe-yield-section.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeYieldSectionComponent {

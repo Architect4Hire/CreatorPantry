@@ -102,7 +102,7 @@ const SKELETON_CARDS: readonly number[] = [3, 2, 1, 2];
     ContentCardMoveDialogComponent,
   ],
   templateUrl: './content-board.component.html',
-  styleUrl: './content-board.component.css',
+  styleUrl: './content-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentBoardComponent {

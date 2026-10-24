@@ -70,7 +70,7 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-substitution-request.component.html',
-  styleUrl: './recipe-substitution-request.component.css',
+  styleUrl: './recipe-substitution-request.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeSubstitutionRequestComponent {

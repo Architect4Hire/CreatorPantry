@@ -55,7 +55,7 @@ AI generates drafts, proposals, structured commands, and derivatives. It does no
 - **Backend:** ASP.NET Core Web API and EF Core 10.
 - **Database:** SQL Server 2025; use native vector support where semantic search provides real value.
 - **Cache:** Redis, wired through Aspire.
-- **Frontend:** Angular 22, standalone components, signals where appropriate, strict TypeScript, `cp-` selector prefix.
+- **Frontend:** Angular 22, standalone components, signals where appropriate, strict TypeScript, SCSS stylesheets, `cp-` selector prefix.
 - **Edge:** YARP backend-for-frontend. The browser talks to the gateway, not directly to the API.
 - **Identity:** ASP.NET Core Identity. Identity answers who the user is; workspace membership answers what the user may do.
 - **AI:** `Microsoft.Extensions.AI` abstractions (`IChatClient`, `IEmbeddingGenerator`) with Semantic Kernel for orchestration and plugins. Microsoft Foundry is the provider (B-15) — Foundry Local in development, Azure Foundry deployments when deployed — with separate `chat` and `embeddings` deployments wired in `CreatorPantry.AiProvider`. `images` (`IImageGenerator`) is not Foundry: it is Venice.ai's image API over plain HTTP (`VeniceImageGenerator`), wired in the same assembly.
@@ -180,7 +180,7 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
   `CpFieldRowComponent`, `CpChoiceGroupComponent`, `CpNoticeComponent`, `CpGeneratedLabelComponent`, `CpGeneratedComponent`, `CpPageHeadComponent`, `CpBackLinkComponent`,
   `CpCardGridComponent`, `CpBoardComponent`, `CpBoardColumnComponent`, `CpMediaCardComponent`, `CpOptionCardComponent`, `CpStatTileComponent`, `CpTopicCardComponent`, `CpFactsComponent`, `CpFactComponent`,
   `CpSearchFieldComponent`, `CpSelectFieldComponent`, `CpChipGroupComponent`, `CpChipComponent`, `CpStepperComponent`, and `CpValidationSummaryComponent`.
-- Import `tokens.css`, `themes.css`, and `global.css` once, in that order, from `@creator-pantry/ui/styles/`.
+- Import `tokens.scss`, `themes.scss`, and `global.scss` once, in that order, from `@creator-pantry/ui/styles/`.
 - `src/web/DESIGN-SYSTEM.md`, the library styles, and the showcase are the visual source of truth. Do not invent a separate visual reference.
 - The browser never stores access tokens in local or session storage.
 - The SPA uses the BFF with secure `HttpOnly` cookies.

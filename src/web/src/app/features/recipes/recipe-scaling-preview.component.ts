@@ -123,7 +123,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpListShellComponent, CpStatusPillComponent],
   templateUrl: './recipe-scaling-preview.component.html',
-  styleUrl: './recipe-scaling-preview.component.css',
+  styleUrl: './recipe-scaling-preview.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeScalingPreviewComponent {

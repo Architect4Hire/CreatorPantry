@@ -45,7 +45,7 @@ const UNRESOLVED_UNIT_LABEL = '— choose or leave unmatched —';
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
   templateUrl: './ingredient-paste-review.component.html',
-  styleUrl: './ingredient-paste-review.component.css',
+  styleUrl: './ingredient-paste-review.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IngredientPasteReviewComponent {

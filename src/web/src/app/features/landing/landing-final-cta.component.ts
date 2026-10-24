@@ -8,7 +8,7 @@ import { CpButtonComponent } from '@creator-pantry/ui';
   standalone: true,
   imports: [RouterLink, CpButtonComponent],
   templateUrl: './landing-final-cta.component.html',
-  styleUrl: './landing-final-cta.component.css',
+  styleUrl: './landing-final-cta.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingFinalCtaComponent {

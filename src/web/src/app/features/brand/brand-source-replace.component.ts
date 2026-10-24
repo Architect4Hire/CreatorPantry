@@ -61,7 +61,7 @@ const FAILURE_MESSAGE: Record<BrandSourceAddFailure, string> = {
   standalone: true,
   imports: [CpButtonComponent, CpDrawerComponent, CpFormSectionComponent, CpUploaderComponent],
   templateUrl: './brand-source-replace.component.html',
-  styleUrl: './brand-source-replace.component.css',
+  styleUrl: './brand-source-replace.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSourceReplaceComponent {

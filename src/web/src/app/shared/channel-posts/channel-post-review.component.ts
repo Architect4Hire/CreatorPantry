@@ -151,7 +151,7 @@ function lengthOf(
     CpStatusPillComponent,
   ],
   templateUrl: './channel-post-review.component.html',
-  styleUrl: './channel-post-review.component.css',
+  styleUrl: './channel-post-review.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChannelPostReviewComponent {

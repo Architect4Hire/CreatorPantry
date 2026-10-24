@@ -138,7 +138,7 @@ function memoryFiling(): CreativeContextFilingStore {
   ],
   providers: [CreativeContextSession],
   templateUrl: './long-form-pipeline-shell.component.html',
-  styleUrl: './long-form-pipeline-shell.component.css',
+  styleUrl: './long-form-pipeline-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LongFormPipelineShellComponent {

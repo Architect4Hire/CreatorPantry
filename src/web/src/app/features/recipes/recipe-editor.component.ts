@@ -317,7 +317,7 @@ type RecipeEditorSaveState =
   ],
   providers: [RecipeFormState, RecipeHeroPicture],
   templateUrl: './recipe-editor.component.html',
-  styleUrl: './recipe-editor.component.css',
+  styleUrl: './recipe-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeEditorComponent {

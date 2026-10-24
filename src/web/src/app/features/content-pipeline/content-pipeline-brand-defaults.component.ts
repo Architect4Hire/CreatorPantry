@@ -57,7 +57,7 @@ type GuideState =
     ContentPipelineSetupStepComponent,
   ],
   templateUrl: './content-pipeline-brand-defaults.component.html',
-  styleUrl: './content-pipeline-brand-defaults.component.css',
+  styleUrl: './content-pipeline-brand-defaults.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineBrandDefaultsComponent {

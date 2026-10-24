@@ -189,7 +189,7 @@ const BRAND_RULES: FormRules<BrandDraft> = {
     CpValidationSummaryComponent,
   ],
   templateUrl: './brand-settings.component.html',
-  styleUrl: './brand-settings.component.css',
+  styleUrl: './brand-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSettingsComponent {

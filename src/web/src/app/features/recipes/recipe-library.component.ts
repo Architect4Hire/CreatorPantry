@@ -141,7 +141,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     DamAssetThumbnailComponent,
   ],
   templateUrl: './recipe-library.component.html',
-  styleUrl: './recipe-library.component.css',
+  styleUrl: './recipe-library.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeLibraryComponent {

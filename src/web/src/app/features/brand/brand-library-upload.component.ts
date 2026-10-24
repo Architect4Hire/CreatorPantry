@@ -66,7 +66,7 @@ const FAILURE_MESSAGE: Record<BrandSourceAddFailure, string> = {
   standalone: true,
   imports: [CpButtonComponent, CpDialogComponent, CpFieldComponent, CpFormSectionComponent, CpUploaderComponent],
   templateUrl: './brand-library-upload.component.html',
-  styleUrl: './brand-library-upload.component.css',
+  styleUrl: './brand-library-upload.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandLibraryUploadComponent {

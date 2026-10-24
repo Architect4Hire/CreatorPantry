@@ -35,7 +35,7 @@ interface Notice {
   standalone: true,
   imports: [CpStatusPillComponent],
   templateUrl: './ai-allowance-notice.component.html',
-  styleUrl: './ai-allowance-notice.component.css',
+  styleUrl: './ai-allowance-notice.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiAllowanceNoticeComponent {

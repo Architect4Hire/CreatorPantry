@@ -129,7 +129,7 @@ interface Fact {
     DamAssetVersionUploadComponent,
   ],
   templateUrl: './dam-asset-detail.component.html',
-  styleUrl: './dam-asset-detail.component.css',
+  styleUrl: './dam-asset-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DamAssetDetailComponent {

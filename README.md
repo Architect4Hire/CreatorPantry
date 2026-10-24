@@ -242,9 +242,9 @@ The drop-in includes the actual CreatorPantry Angular 22 design system rather th
 - Package: `@creator-pantry/ui`
 - Source: `src/web/projects/creator-pantry-ui/src/lib/`
 - Public exports: `src/web/projects/creator-pantry-ui/src/public-api.ts`
-- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.css`
-- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.css`
-- Global foundation: `src/web/projects/creator-pantry-ui/src/lib/styles/global.css`
+- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.scss`
+- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.scss`
+- Global foundation: `src/web/projects/creator-pantry-ui/src/lib/styles/global.scss`
 - Showcase: `src/web/src/app/`
 - Theme contract: `data-cp-theme="light|dark"` on `<html>`, managed by `CpThemeService`
 

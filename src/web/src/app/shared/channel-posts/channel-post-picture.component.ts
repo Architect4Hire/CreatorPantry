@@ -46,7 +46,7 @@ interface ShownObservation {
   standalone: true,
   imports: [CpBadgeComponent, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './channel-post-picture.component.html',
-  styleUrl: './channel-post-picture.component.css',
+  styleUrl: './channel-post-picture.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChannelPostPictureComponent {

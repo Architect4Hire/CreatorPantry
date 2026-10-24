@@ -71,7 +71,7 @@ const ADD_BUTTON = '[data-add-picture]';
     RouterLink,
   ],
   templateUrl: './recipe-media.component.html',
-  styleUrl: './recipe-media.component.css',
+  styleUrl: './recipe-media.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeMediaComponent {

@@ -257,7 +257,7 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
     SaveToLibraryDialogComponent,
   ],
   templateUrl: './generated-image-run.component.html',
-  styleUrl: './generated-image-run.component.css',
+  styleUrl: './generated-image-run.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GeneratedImageRunComponent {

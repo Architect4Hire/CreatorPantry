@@ -327,7 +327,7 @@ let nextInstance = 0;
     CpStatusPillComponent,
   ],
   templateUrl: './ai-proposal-panel.component.html',
-  styleUrl: './ai-proposal-panel.component.css',
+  styleUrl: './ai-proposal-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiProposalPanelComponent {

@@ -92,7 +92,7 @@ let nextInstance = 0;
     RecipeTestRunFormComponent,
   ],
   templateUrl: './recipe-test-kitchen.component.html',
-  styleUrl: './recipe-test-kitchen.component.css',
+  styleUrl: './recipe-test-kitchen.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTestKitchenComponent {

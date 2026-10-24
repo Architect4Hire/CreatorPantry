@@ -73,7 +73,7 @@ interface Editor {
   standalone: true,
   imports: [BrandSetupExampleComponent, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './brand-setup-review-text-step.component.html',
-  styleUrl: './brand-setup-review-text-step.component.css',
+  styleUrl: './brand-setup-review-text-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupReviewTextStepComponent implements OnInit {

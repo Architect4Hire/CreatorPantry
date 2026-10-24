@@ -44,12 +44,12 @@ true, so it is absent from production builds.
 
 ## Use the library
 
-Import the three CSS foundations once in the consuming application's global styles, in this order:
+`@use` the three SCSS foundations once in the consuming application's global stylesheet, in this order:
 
-```css
-@import '@creator-pantry/ui/styles/tokens.css';
-@import '@creator-pantry/ui/styles/themes.css';
-@import '@creator-pantry/ui/styles/global.css';
+```scss
+@use '@creator-pantry/ui/styles/tokens';
+@use '@creator-pantry/ui/styles/themes';
+@use '@creator-pantry/ui/styles/global';
 ```
 
 Then import only the standalone components a feature needs:

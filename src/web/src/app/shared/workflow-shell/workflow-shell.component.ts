@@ -129,7 +129,7 @@ const RETRY_WHEN_ONLINE: ReadonlySet<Command> = new Set<Command>(['continue', 'b
   providers: [WorkflowStepPort],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './workflow-shell.component.html',
-  styleUrl: './workflow-shell.component.css',
+  styleUrl: './workflow-shell.component.scss',
 })
 export class WorkflowShellComponent {
   readonly workspaceSlug = input.required<string>();

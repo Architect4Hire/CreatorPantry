@@ -2,5 +2,5 @@
 *.md text eol=lf
 *.json text eol=lf
 *.ts text eol=lf
-*.css text eol=lf
+*.scss text eol=lf
 *.html text eol=lf

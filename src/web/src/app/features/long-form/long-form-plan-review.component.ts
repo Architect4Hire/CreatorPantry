@@ -103,7 +103,7 @@ interface WriteProblem {
     CpStatusPillComponent,
   ],
   templateUrl: './long-form-plan-review.component.html',
-  styleUrl: './long-form-plan-review.component.css',
+  styleUrl: './long-form-plan-review.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LongFormPlanReviewComponent {

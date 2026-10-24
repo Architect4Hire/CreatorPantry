@@ -110,7 +110,7 @@ const FIELD_IDS: Readonly<Record<DamMetadataField, string>> = {
     CpSkeletonComponent,
   ],
   templateUrl: './dam-asset-edit.component.html',
-  styleUrl: './dam-asset-edit.component.css',
+  styleUrl: './dam-asset-edit.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DamAssetEditComponent {

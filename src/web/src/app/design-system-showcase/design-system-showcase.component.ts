@@ -132,7 +132,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpValidationSummaryComponent,
   ],
   templateUrl: './design-system-showcase.component.html',
-  styleUrl: './design-system-showcase.component.css',
+  styleUrl: './design-system-showcase.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DesignSystemShowcaseComponent {

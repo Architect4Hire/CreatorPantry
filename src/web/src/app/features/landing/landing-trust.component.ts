@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'cp-landing-trust',
   standalone: true,
   templateUrl: './landing-trust.component.html',
-  styleUrl: './landing-trust.component.css',
+  styleUrl: './landing-trust.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingTrustComponent {

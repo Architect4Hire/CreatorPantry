@@ -71,7 +71,7 @@ const UNKNOWN_LABEL = 'Changed — this screen cannot say how';
   standalone: true,
   imports: [CpDiffLegendComponent],
   templateUrl: './brand-guide-version-comparison.component.html',
-  styleUrl: './brand-guide-version-comparison.component.css',
+  styleUrl: './brand-guide-version-comparison.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideVersionComparisonComponent {

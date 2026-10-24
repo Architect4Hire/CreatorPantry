@@ -78,7 +78,7 @@ const FAILURE_MESSAGE: Record<BrandSourceExtractionFailure, string> = {
     CpStatusPillComponent,
   ],
   templateUrl: './brand-source-text.component.html',
-  styleUrl: './brand-source-text.component.css',
+  styleUrl: './brand-source-text.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSourceTextComponent {

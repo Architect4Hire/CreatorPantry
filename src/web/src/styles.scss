@@ -8,8 +8,8 @@
    Angular's style encapsulation. It belongs here, applied through the customClass names ConfirmService
    passes, with `buttonsStyling: false` so none of the library's own button colours are in play.
 
-   Every value below is a --cp-* token. Those are defined on :root by tokens.css and redefined per theme by
-   themes.css, and a popup appended to <body> inherits from the same :root — so a confirmation follows
+   Every value below is a --cp-* token. Those are defined on :root by tokens.scss and redefined per theme by
+   themes.scss, and a popup appended to <body> inherits from the same :root — so a confirmation follows
    data-cp-theme into dark mode with no separate markup and no second palette.
    --------------------------------------------------------------------------- */
 
@@ -80,7 +80,7 @@
   box-shadow: none;
 }
 
-/* Reduced motion needs no rule here, and must not get one. global.css already cuts every animation to
+/* Reduced motion needs no rule here, and must not get one. global.scss already cuts every animation to
    .001ms, which SweetAlert2 can still see end. `animation: none` on the popup is what it cannot: it reads the
    .001ms transition-duration the same global rule sets, decides the popup animates, and waits for an
    animationend that never comes — the promise resolves, but the container stays over the page for good. */

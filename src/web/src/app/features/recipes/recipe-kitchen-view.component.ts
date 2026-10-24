@@ -108,7 +108,7 @@ function bySortOrder<T extends { readonly sortOrder: number }>(items: readonly T
   ],
   providers: [RecipeHeroPicture],
   templateUrl: './recipe-kitchen-view.component.html',
-  styleUrl: './recipe-kitchen-view.component.css',
+  styleUrl: './recipe-kitchen-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeKitchenViewComponent {

@@ -218,7 +218,7 @@ describe('AppShellComponent', () => {
 
   describe('page frame', () => {
     // The spec build loads no global stylesheet, so the tokens are given values here. Deliberately not the
-    // real ones: what is asserted is that the frame reads the tokens, not what tokens.css sets them to.
+    // real ones: what is asserted is that the frame reads the tokens, not what tokens.scss sets them to.
     const TOKENS: Record<string, string> = {
       '--cp-page-gutter': '28px',
       // The frame's top padding. Left unset, the whole padding shorthand would be invalid and compute to 0.

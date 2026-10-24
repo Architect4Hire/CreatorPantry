@@ -8,6 +8,7 @@
       "root": "projects/creator-pantry-ui",
       "sourceRoot": "projects/creator-pantry-ui/src",
       "prefix": "cp",
+      "schematics": { "@schematics/angular:component": { "style": "scss" } },
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
@@ -19,10 +20,11 @@
             "tsConfig": "projects/creator-pantry-ui/tsconfig.spec.json",
             "karmaConfig": "karma.conf.js",
             "polyfills": ["zone.js", "zone.js/testing"],
+            "inlineStyleLanguage": "scss",
             "styles": [
-              "projects/creator-pantry-ui/src/lib/styles/tokens.css",
-              "projects/creator-pantry-ui/src/lib/styles/themes.css",
-              "projects/creator-pantry-ui/src/lib/styles/global.css"
+              "projects/creator-pantry-ui/src/lib/styles/global.scss",
+              "projects/creator-pantry-ui/src/lib/styles/tokens.scss",
+              "projects/creator-pantry-ui/src/lib/styles/themes.scss"
             ]
           }
         }
@@ -33,18 +35,20 @@
       "root": "",
       "sourceRoot": "src",
       "prefix": "cp",
+      "schematics": { "@schematics/angular:component": { "style": "scss" } },
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
             "assets": [{ "glob": "**/*", "input": "public" }],
             "styles": [
-              "projects/creator-pantry-ui/src/lib/styles/tokens.css",
-              "projects/creator-pantry-ui/src/lib/styles/themes.css",
-              "projects/creator-pantry-ui/src/lib/styles/global.css",
-              "src/styles.css"
+              "projects/creator-pantry-ui/src/lib/styles/tokens.scss",
+              "projects/creator-pantry-ui/src/lib/styles/themes.scss",
+              "projects/creator-pantry-ui/src/lib/styles/global.scss",
+              "src/styles.scss"
             ]
           },
           "configurations": {
@@ -70,7 +74,8 @@
           "options": {
             "tsConfig": "tsconfig.spec.json",
             "karmaConfig": "karma.conf.js",
-            "polyfills": ["zone.js", "zone.js/testing"]
+            "polyfills": ["zone.js", "zone.js/testing"],
+            "inlineStyleLanguage": "scss"
           }
         }
       }

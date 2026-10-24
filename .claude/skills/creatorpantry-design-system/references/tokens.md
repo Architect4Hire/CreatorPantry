@@ -2,8 +2,8 @@
 
 The authoritative values live in:
 
-- `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.css`
-- `src/web/projects/creator-pantry-ui/src/lib/styles/themes.css`
+- `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.scss`
+- `src/web/projects/creator-pantry-ui/src/lib/styles/themes.scss`
 
 Primitive scales include `--cp-font-*`, `--cp-space-*`, `--cp-radius-*`, `--cp-duration-*`, `--cp-ease`, `--cp-sidebar-width`, and `--cp-topbar-height`.
 

@@ -15,7 +15,7 @@ import { RecipeFormState } from './recipe-form-state';
   standalone: true,
   imports: [CpFieldComponent, CpFieldRowComponent, CpFormSectionComponent, CpNoticeComponent, FormsModule],
   templateUrl: './recipe-timing-section.component.html',
-  styleUrl: './recipe-timing-section.component.css',
+  styleUrl: './recipe-timing-section.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTimingSectionComponent {

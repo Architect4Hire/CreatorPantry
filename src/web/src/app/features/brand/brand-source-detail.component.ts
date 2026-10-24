@@ -84,7 +84,7 @@ const COULD_NOT_LOAD = 'This example couldn’t be loaded. Check your connection
     CpTopicCardComponent,
   ],
   templateUrl: './brand-source-detail.component.html',
-  styleUrl: './brand-source-detail.component.css',
+  styleUrl: './brand-source-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSourceDetailComponent {

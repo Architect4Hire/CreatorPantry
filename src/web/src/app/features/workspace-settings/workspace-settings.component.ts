@@ -61,7 +61,7 @@ const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
     WorkspaceAiFeaturesComponent,
   ],
   templateUrl: './workspace-settings.component.html',
-  styleUrl: './workspace-settings.component.css',
+  styleUrl: './workspace-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceSettingsComponent {

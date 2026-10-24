@@ -19,7 +19,7 @@ import { MY_DAY_GROUPS, MyDayEntry, MyDayMove, estimateWords, linkFor, movesFor,
   standalone: true,
   imports: [RouterLink, CpButtonComponent, CpFactComponent, CpFactsComponent],
   templateUrl: './my-day-task.component.html',
-  styleUrl: './my-day-task.component.css',
+  styleUrl: './my-day-task.component.scss',
   host: { '[attr.data-task-id]': 'entry().task.id' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

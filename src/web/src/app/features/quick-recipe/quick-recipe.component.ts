@@ -145,7 +145,7 @@ type PictureView =
     CpTopicCardComponent,
   ],
   templateUrl: './quick-recipe.component.html',
-  styleUrl: './quick-recipe.component.css',
+  styleUrl: './quick-recipe.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuickRecipeComponent {

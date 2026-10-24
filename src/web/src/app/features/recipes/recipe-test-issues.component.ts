@@ -83,7 +83,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [DatePipe, FormsModule, CpButtonComponent, CpCardComponent, CpFieldComponent, CpStatusPillComponent],
   templateUrl: './recipe-test-issues.component.html',
-  styleUrl: './recipe-test-issues.component.css',
+  styleUrl: './recipe-test-issues.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTestIssuesComponent {
