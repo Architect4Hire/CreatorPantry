@@ -36,7 +36,7 @@ AI credits, prepaid packs and the draft/final image modes from the AI pricing wo
 | LND-004 | Visitors understand credits, packs and the no-surprise-bill promise without reading fine print. | LP.7, LP.8 |
 | LND-005 | Visitors can estimate which plan fits their output. | LP.7 |
 | LND-006 | An honest FAQ answers cost, cancellation, AI ownership and safety questions. | LP.9 |
-| LND-007 | The page feels premium and alive (bold type, colour, depth, motion) and stays fast and accessible. | LP.4, LP.10, LP.11 |
+| LND-007 | The page feels premium and alive (bold type, colour, depth, motion) and stays fast and accessible. | LP.4, LP.10, LP.11, LP.11A |
 
 ## Decisions already made
 
@@ -65,7 +65,7 @@ A read of `main` at `a9c3d34` on 2026-10-24. Re-find files before trusting a lin
 | How it works | A `note` input says "AI drafting and publishing integrations are in active development." | **Stale**, same reason. |
 | Photography | 12 JPEGs in `public/images/food`, **0.5–3.7 MB each, about 16 MB in total**, picked at random by `FoodImageService`. | Biggest performance risk on the page. No responsive sizes, no modern formats, and random order makes LCP and screenshots non-deterministic. |
 | Hero | Headline, subheadline, two CTAs, logo, an empty media slot. | Room for a far stronger first screen. |
-| SEO/meta | Nothing landing-specific found. | No description, Open Graph or social card. |
+| SEO/meta | One site-wide description in `index.html`; its static `<title>` is "CreatorPantry Design System". The `''` route has no title, so the tab reads "CreatorPantry" once the app runs. | No canonical, Open Graph, social card or `robots.txt`, and no prerender, so a scraper sees an empty `<cp-root>`. |
 
 ## Prerequisites already satisfied
 
@@ -94,7 +94,7 @@ A read of `main` at `a9c3d34` on 2026-10-24. Re-find files before trusting a lin
 
 ---
 
-## LP.1 Landing page review (report only)
+## LP.1 Landing page review (report only) - done
 
 ```text
 SCOPE: Review the current landing page end to end and return a findings report: copy claims against
@@ -110,6 +110,47 @@ BEHAVIOR: Run the checks, present findings ranked by severity with a fix mapped 
 wait for approval before LP.2.
 ```
 
+*Delivery note (2026-10-24): reported, nothing changed. The Web host served no bundle in that session, so
+Lighthouse 12.8.2 (mobile, simulated) ran twice against a production build served gzipped from a scratch
+folder. The session check failed CORS from that origin, so the anonymous guard let the page through at once;
+on a real host it waits a round trip, and real LCP is somewhat worse. Baseline for LP.11: Performance 71 and
+53, LCP 12.5 s and 12.0 s, CLS 0 and 0.379, TBT 0 ms, initial JS about 97 KB gzipped; Accessibility 100.
+Lighthouse's byte total includes photos its full-page screenshot scrolls into view, so first-load image bytes
+were measured separately at 412 px with no scroll: 4.4 MB light, 6.3 MB dark. Findings, most severe first, with
+the prompt that now carries each:*
+
+1. *Photos at up to 4672×7008 shown about 370 px wide (110 px at 375), random each load → LP.11.*
+2. *LCP is the hero logo PNG (340–400 KB, 1312×1199, shown at ≤544 px), discovered only once the lazy landing
+   chunk runs and then held behind the photos → LP.4, LP.11.*
+3. *CLS 0.379 in one run: the logo `<img>` has no width or height, plus the font swap → LP.4.*
+4. *Every "In the works" label and the how-it-works note are stale: each Content Pipeline and Brand setup step
+   has a real component, and the placeholder components are unreachable fallbacks → LP.2, LP.3.*
+5. *Overclaims: "import a recipe" (only ingredient lines can be pasted), "connect the channels you use"
+   (publishing is Buffer only, configured per deployment for one workspace, off by default), and scaling
+   listed as something AI proposes (it is deterministic code, `ai.md`). "Building it in the open" is
+   unverified → LP.2, LP.3.*
+6. *Focus ring contrast 1.72:1 light and 2.71:1 dark against the 3:1 of WCAG 1.4.11: `--cp-focus` mixes the
+   primary at 38–42% (`themes.css`). Library-wide; Lighthouse does not catch it → LP.11A.*
+7. *No prerender, static `<title>` is "CreatorPantry Design System", no canonical, Open Graph, Twitter card or
+   `robots.txt` → LP.10.*
+8. *No banner, nav or skip link; the footer renders an empty `<nav aria-label="Footer">` → LP.10.*
+9. *Hierarchy: h1 34 px at 375 and 768 and 56 px at 1440; card body 13–15 px, proof note 11 px; one accent
+   (evergreen) and shadow on the photos only; empty hero media slot; at 768 the first screen is mostly logo;
+   in dark the paper cards are the brightest thing on screen. Headings ask for weight 400, but Fredoka loads
+   500–700 → LP.4, LP.11.*
+10. *The value-prop grid is a private `ul.grid`; literal rem widths and `::ng-deep` in the hero. The page sits in
+   `OUTSIDE_SHELL` in `check-page-contract.mjs`, and DESIGN-SYSTEM.md has no shape for a public page, so
+   nothing enforces either → LP.3, LP.12.*
+11. *The legal links are "(coming soon)" placeholders. A paid plan's sign-up needs real Privacy and Terms
+   pages → LP.6.*
+12. *`CpLogoComponent` is not OnPush, breaks the `.component.ts` naming, and takes a raw inline-style string
+   → LP.4.*
+
+*Passing: AA text contrast in both themes (lowest 4.56:1), no horizontal scroll at 375, 768, 1440, 200% zoom
+or 320 px, h1 → h2 → h3, targets at least 40 px, nothing animates, decorative photos have empty alt and
+reserved sizes. Not adopted from design-review: holding the h1 to `--cp-font-size-title`, which caps it below
+what LP.4 asks for.*
+
 ## LP.2 Narrative and section plan
 
 ```text
@@ -121,23 +162,38 @@ motion intent.
 CONSTRAINT: LND-001..006; CLAUDE.md Scope; .claude/rules/ai.md (proposals, never auto-applied) and
 publishing.md (explicit confirmation); the AP.1.1 decision record for plan facts.
 RESTRICTION: No claim without a source in the codebase or the decision record. Prices are referenced as
-catalogue fields, never typed into the copy. Keep the warm, direct voice of the current page.
+catalogue fields, never typed into the copy. Keep the warm, direct voice of the current page. LP.1 found
+three claims the product does not back, and none of them comes back in new words: recipe import (only
+ingredient lines can be pasted), creators connecting their own channels (publishing is Buffer, configured
+for the deployment), and AI proposing a scaled recipe (scaling is deterministic code). "Building it in the
+open" stays only if the owner confirms it.
 BEHAVIOR: Present the outline, mark every claim with its source, wait for approval. No components.
 ```
 
-## LP.3 Bring value props and how-it-works up to date
+## LP.3 Bring value props and how-it-works up to date - done
 
 ```text
 SCOPE: Update DEFAULT_VALUE_PROPS and DEFAULT_HOW_IT_WORKS_STEPS to the approved copy: shipped capabilities
 get their category badge and tone, the how-it-works note goes, and each card can link to its tour panel
-(LP.5). Add a spec that maps every non-"in the works" card to a real, non-placeholder route, so the page
-fails a test before it can overclaim.
-CONSTRAINT: LND-001; LP.2 copy; the existing L.4/L.5 components and specs.
+(LP.5). Rewrite how-it-works steps 1, 2 and 4 so they make none of the claims LP.1 found unbacked. Add a
+spec that maps every non-"in the works" card to a real, non-placeholder route, so the page fails a test
+before it can overclaim. Render the cards in `ul[cpCardGrid]` and delete the private `.grid` rule.
+CONSTRAINT: LND-001; LP.2 copy; LP.1 findings 4, 5 and 10; the existing L.4/L.5 components and specs.
 RESTRICTION: Status is still carried by badge text, not colour alone. Do not remove the AI-as-proposal and
-explicit-publish wording.
+explicit-publish wording. A placeholder route means one whose step falls through to a
+`*-step-placeholder` component, not one that merely imports it.
 UTILIZATION: design-review after implementation.
 BEHAVIOR: Show the copy-to-route table; wait for approval; implement and update specs.
 ```
+
+*Delivery note (2026-10-24): the nine LP.2 section 3 cards ship as written, except the section heading: "Everything
+here works today" was false beside the "Coming to every account" card, so it reads "What's in CreatorPantry
+today" and the intro says scheduling is on its way. LP.2 had no how-it-works copy; steps 1, 2 and 4 were drafted
+and approved here, and step 3's "named version" became "numbered". Tour links exist behind `tourLinks` (off)
+until LP.5 gives the panels `#tour-*` ids. `landing-capability-routes.spec.ts` navigates every card's pages
+through `app.routes.ts` and, for a step shell, reads its template (`with { loader: 'text' }`, typed by
+`src/template-text.d.ts`, which `tsconfig.app.json` excludes) to require a `@case` for the step. The publishing
+card is checked too, not exempted.*
 
 ## LP.4 Hero, rebuilt to stop the scroll
 
@@ -147,11 +203,15 @@ the type scale), one phrase highlighted with a hand-drawn underline or a colour 
 and a layered food-photo collage in the media slot: three or four photos at slight rotations, overlapping,
 with soft shadows and gentle parallax drift on pointer move. Add a floating "proposal card" overlay
 showing what an AI draft looks like (a real, static capture). Keep the logo and both CTAs above the fold
-at 375 px.
-CONSTRAINT: LND-002, LND-007; DESIGN-SYSTEM.md tokens and motion; new-component and
-creatorpantry-design-system skills.
-RESTRICTION: Tokens only, no literal colours. The LCP image is fixed and preloaded, not random. No layout
-shift from the collage (reserved aspect ratios). Parallax and drift stop under prefers-reduced-motion and
+at 375 px; today the primary CTA ends at 791 px of an 812 px screen, so the logo shrinks rather than the CTAs
+moving down. Give the logo intrinsic width and height and a resized, theme-specific rendition near its shown
+size, and make CpLogoComponent OnPush with no raw style-string input. Headings use a Fredoka weight that
+index.html loads.
+CONSTRAINT: LND-002, LND-007; LP.1 findings 2, 3, 9 and 12; DESIGN-SYSTEM.md tokens and motion;
+new-component and creatorpantry-design-system skills.
+RESTRICTION: Tokens only, no literal colours. The LCP image is fixed and preloaded, not random, and is not
+discovered only after the lazy landing chunk runs. No layout shift from the collage or the logo (reserved
+aspect ratios, explicit image sizes). Parallax and drift stop under prefers-reduced-motion and
 on coarse pointers. Decorative images get empty alt; the overlay is aria-hidden if it repeats nothing new.
 UTILIZATION: design-review after implementation; playwright-cli screenshots at three widths, both themes.
 BEHAVIOR: Show a static mock (screenshots) and the motion spec; wait for approval; implement with
@@ -189,6 +249,9 @@ add-endpoint, new-component and creatorpantry-design-system skills.
 RESTRICTION: No price or credit number in the web bundle. The route exposes catalogue data only, no account
 data, and gets an edge rate limit. The toggle is a real radio group with a visible label. The recommended
 card is distinguished by more than colour (badge text, elevation). The comparison table is a real table.
+Landing:Pricing is not turned on outside development until reviewed Terms of Service, Acceptable Use
+Policy and Privacy Policy pages replace the footer's "(coming soon)" placeholders. Mock-ups of all three
+are in docs/legal/ (2026-10-24). Legal review is outside this document; the gate is not.
 UTILIZATION: api-contract-checker and design-review after implementation.
 BEHAVIOR: Show the route, the ViewModel and the card/table layout; wait for approval; implement with
 endpoint and component tests and an OpenAPI snapshot diff.
@@ -244,11 +307,16 @@ BEHAVIOR: Present the questions and answers with sources; wait for approval; imp
 SCOPE: Add a slim sticky landing nav: logo, anchors (Tour, Pricing, FAQ), Sign in, and a Start free
 button that appears once the hero CTA scrolls away. It goes translucent with a backdrop blur and hairline
 on scroll, and the current section is highlighted. Add a public /pricing route that renders the landing
-page scrolled to pricing, and give the landing page a title, meta description and Open Graph/Twitter card
-image.
-CONSTRAINT: LND-007; frontend.md, gateway.md; L.1 routing rules.
+page scrolled to pricing, and give the landing page a title, meta description, canonical URL and Open
+Graph/Twitter card image, in HTML a scraper receives without running JavaScript: prerender '' and /pricing,
+or put static tags in index.html, whichever the plan justifies. Replace index.html's "CreatorPantry Design
+System" title. Add a robots.txt. The nav is the page's banner; the footer either puts its links in its
+`<nav aria-label="Footer">` or drops the empty landmark.
+CONSTRAINT: LND-007; LP.1 findings 7 and 8; frontend.md, gateway.md; L.1 routing rules.
 RESTRICTION: Anchors are real links with smooth scroll only when motion is allowed. Skip link to main
-content. The nav never hides content at 200% zoom. /pricing stays anonymous and redirects nothing for
+content. The nav never hides content at 200% zoom. Tags set only through Angular's Meta service at runtime
+do not meet this prompt, because social scrapers never run the app. A prerendered page renders no
+workspace or session data. /pricing stays anonymous and redirects nothing for
 signed-in users beyond what L.1 does for ''.
 UTILIZATION: design-review after implementation.
 BEHAVIOR: Show the nav states and route change; wait for approval; implement with routing and component
@@ -262,14 +330,37 @@ SCOPE: Page-wide polish. Scroll-reveal for sections (IntersectionObserver, fade 
 staggered children), hover lift on cards using --cp-shadow-md, colour-blocked section backgrounds
 alternating paper and soft fruit tints, and a marquee of food photos replacing the random image trios.
 Replace the 16 MB photo set with responsive AVIF/WebP/JPEG renditions (sizes for 480, 960, 1600 px), with
-width/height and lazy loading below the fold, and make photo choice deterministic.
-CONSTRAINT: LND-007; DESIGN-SYSTEM.md motion and shadow tokens; frontend.md.
+width/height and lazy loading below the fold, and make photo choice deterministic. Decide whether the
+landing page still waits on the session check before it renders: anonymousOnlyGuard awaits a round trip to
+the gateway, and that time is spent before the LCP image can even be requested.
+CONSTRAINT: LND-007; LP.1 findings 1, 2 and 9 and its baseline; DESIGN-SYSTEM.md motion and shadow tokens;
+frontend.md.
 RESTRICTION: Budget on mobile Lighthouse: LCP under 2.5 s, CLS under 0.1, total image bytes on first load
-under 600 KB. All motion off under prefers-reduced-motion; the marquee also pauses on hover and focus and
+under 600 KB. Measure as LP.1 did: a production build, not the dev server, and first-load image bytes taken
+without scrolling, since Lighthouse's byte total counts photos its full-page screenshot scrolls into view.
+A signed-in visitor is still forwarded into the app, and never after marketing content has painted. All motion off under prefers-reduced-motion; the marquee also pauses on hover and focus and
 has a pause control. No animation library unless the plan justifies it.
 UTILIZATION: design-review after implementation; playwright-cli for Lighthouse before and after.
 BEHAVIOR: Show the motion inventory and the image pipeline; wait for approval; implement; report the
 before/after Lighthouse numbers.
+```
+
+## LP.11A Focus indicator contrast
+
+```text
+SCOPE: Raise the visible focus indicator to at least 3:1 against every surface it can sit on, in both
+themes. Today --cp-focus mixes --cp-primary at 38% (light) and 42% (dark), which measures 1.72:1 on the
+light page and 2.71:1 on the dark one. Change the token, or the :focus-visible rule in global.css, and add a
+spec that computes the ring's contrast against --cp-bg and --cp-surface in both themes.
+CONSTRAINT: LND-007; LP.1 finding 6; WCAG 2.2 1.4.11; .claude/rules/design-system.md;
+creatorpantry-design-system skill.
+RESTRICTION: Library-wide: one token or global rule changes, never a landing-only override. Focus stays
+visible on primary buttons, on paper cards in dark mode, and on fruit-tinted section backgrounds from LP.11.
+Do not trade the ring for a colour change alone.
+UTILIZATION: design-review after implementation; playwright-cli for focus screenshots on the landing page and
+two signed-in pages.
+BEHAVIOR: Show the measured ratios before and after for each surface; wait for approval; implement, update
+DESIGN-SYSTEM.md and the showcase, and run npm test.
 ```
 
 ## LP.12 Composition and verification
@@ -278,8 +369,11 @@ before/after Lighthouse numbers.
 SCOPE: Compose the final landing page in the LP.2 order, wire the Landing:Pricing flag, and verify:
 anonymous and authenticated behaviour at '' and /pricing, every CTA target, the catalogue-down state
 (pricing hides cleanly, the rest renders), both themes, 375/768/1440 px, 200% zoom, keyboard-only,
-reduced motion, and the LP.11 budget.
-CONSTRAINT: L.9's checklist; frontend.md Verification; design-system.md.
+reduced motion, the LP.11 budget and the LP.11A focus ratios. Add a "public page" shape to DESIGN-SYSTEM.md
+that names what the landing page may draw itself (hero, sections, gutter) and what it must take from the
+library. Give check-page-contract.mjs rules for that shape, so the landing page is no longer passed only
+because OUTSIDE_SHELL skips it.
+CONSTRAINT: L.9's checklist; LP.1 finding 10; frontend.md Verification; design-system.md.
 RESTRICTION: Test through real routing and guards. Fix only findings within this document's scope.
 UTILIZATION: design-review, api-contract-checker and test-gap-analyzer; playwright-cli for a full journey
 and screenshots.

@@ -24,6 +24,7 @@ Print is always light. Browsers leave backgrounds off a printed page, so `themes
 - Muted sans: metadata and supporting copy.
 - Uppercase micro-label, tracked at `--cp-tracking-kicker`: a category line, as a blog sets one over a headline. The breadcrumb (`cpBackLink`) and the sidebar's group labels are the two places it appears; it is not for emphasis.
 - The page title is one size on every page: `--cp-font-size-title` (fluid, about 2.1rem on a phone to 2.9rem on a wide screen), Fredoka at weight 500. It is the `h1` `CpPageHeadComponent` prints, over a hairline that closes the head off from the page, and a card heading on the same page sits a step below it at `--cp-font-size-xl`.
+- A public page's one headline — the landing hero's `h1` — is the exception, and the only one: `--cp-font-size-display` (40px on a phone to 76px on a wide screen) at `--cp-leading-display`, Fredoka at weight 600, still untracked. It never appears inside the app shell. One phrase in it may carry a hand-drawn underline in a fruit accent; the underline is decoration and the sentence reads the same without it.
 
 ## Composing a page
 

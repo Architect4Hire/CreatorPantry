@@ -7,72 +7,48 @@
   grid-template-columns: 1fr;
   align-items: center;
   gap: var(--cp-space-10);
-  padding: var(--cp-space-10) var(--cp-space-6);
-  max-width: 72rem;
+  max-width: 76rem;
   margin: 0 auto;
+  padding: var(--cp-space-6) var(--cp-space-6) var(--cp-space-10);
 }
 
-/* Stacked on narrow screens (logo, then text); side by side once there is room for both. */
+/* Logo, headline, subheadline, CTAs, note: one column in reading order at every width. The logo shrinks with
+   the screen so both CTAs stay on a phone's first screen. */
 .copy {
   display: flex;
   flex-direction: column;
-  gap: var(--cp-space-8);
-}
-
-.intro {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-6);
-  min-width: 0;
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
   gap: var(--cp-space-5);
-}
-
-/* The logo is sized by width so it can shrink with the screen; the cap keeps it from growing past its
-   natural size when stacked on a wide tablet. It comes first when stacked purely visually: it is a
-   non-interactive image, so reading and tab order still start with the heading. */
-.mark {
-  order: -1;
   min-width: 0;
-  width: 100%;
-  max-width: 28rem;
-  margin-inline: auto;
 }
 
-@media (min-width: 56rem) {
-  .copy {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--cp-space-10);
-  }
-
-  .intro {
-    flex: 1 1 0;
-    max-width: 40rem;
-  }
-
-  .mark {
-    order: 0;
-    flex: 0 1 34rem;
-    max-width: none;
-    margin-inline: 0;
-  }
+.mark {
+  width: clamp(8.5rem, 6rem + 10vw, 12.5rem);
 }
 
 h1 {
   margin: 0;
   color: var(--cp-text);
   font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-2xl);
-  font-weight: 400;
-  line-height: var(--cp-leading-tight);
+  font-size: var(--cp-font-size-display);
+  font-weight: 600;
+  letter-spacing: var(--cp-tracking-display);
+  line-height: var(--cp-leading-display);
+}
+
+/* The hand-drawn underline: a brush stroke that rises left to right and tapers at its start — a slice of a wide
+   ellipse's ring, painted as the span's background in a fruit-accent token, under the text in its bottom padding
+   (inline padding paints but moves no line).
+   Background only, on purpose: a positioned pseudo-element or a mask would give the phrase its own paint layer,
+   and the browser would then measure the headline's largest paint without it, letting a collage photo win. */
+.highlight {
+  padding-bottom: 0.18em;
+  background: radial-gradient(82% 1.1em at 55% calc(100% + 0.8em), transparent 0 90%, var(--cp-orange) 91% 97.5%, transparent 98.5%)
+    bottom / 100% 0.34em no-repeat;
+  white-space: nowrap;
 }
 
 .subheadline {
+  max-width: 36rem;
   margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-lg);
@@ -83,8 +59,15 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-4);
-  margin-top: var(--cp-space-2);
+  gap: var(--cp-space-3);
+  margin-top: var(--cp-space-1);
+}
+
+.note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+  line-height: var(--cp-leading-normal);
 }
 
 .media {
@@ -95,17 +78,12 @@ h1 {
   display: none;
 }
 
-.media ::ng-deep img,
-.media ::ng-deep picture,
-.media ::ng-deep svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: var(--cp-radius-xl);
-}
-
 @media (min-width: 64rem) {
+  .hero {
+    padding-top: var(--cp-space-10);
+  }
+
   :host:has(.media:not(:empty)) .hero {
-    grid-template-columns: 1.1fr 1fr;
+    grid-template-columns: 1.05fr 1fr;
   }
 }

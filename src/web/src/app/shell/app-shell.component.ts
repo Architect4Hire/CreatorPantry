@@ -15,7 +15,7 @@ import { QuickCaptureComponent } from '../shared/quick-capture/quick-capture.com
 import { QuickCaptureLink, quickCaptureLinkFrom } from '../shared/quick-capture/quick-capture-link';
 import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
-import { CpLogoComponent } from '../features/landing/logo/logo/logo';
+import { CpLogoComponent } from '../shared/logo/logo.component';
 import { ShellNavIcon, ShellNavIconComponent } from './shell-nav-icon.component';
 
 /**
@@ -102,8 +102,6 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShellComponent {
-  logoClass = 'display: block; width: 100%; max-width: 8.5rem; height: auto;';
-
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);

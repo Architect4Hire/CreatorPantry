@@ -52,6 +52,8 @@ image and/or content creation", and for a faster image model.
 3. **Prepaid only.** No metered overage invoiced after the fact.
 4. **Allowance stays per Identity account** (USAGE-001), across every workspace the account works in. A plan
    attaches to the account, not to a workspace.
+5. **The trial is 14 days.** Owner, 2026-10-24, answering LP.2. The trial gate (card on file or a picture cap)
+   is still open below.
 
 ## Proposed, awaiting the owner
 

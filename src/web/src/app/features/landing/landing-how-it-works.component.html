@@ -1,8 +1,5 @@
 <section class="how-it-works" aria-labelledby="landing-how-it-works-heading">
   <h2 id="landing-how-it-works-heading">{{ heading() }}</h2>
-  @if (note()) {
-    <p class="note">{{ note() }}</p>
-  }
   <ol class="steps" role="list">
     @for (step of steps(); track step.heading; let i = $index) {
       <li>

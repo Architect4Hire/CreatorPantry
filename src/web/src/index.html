@@ -14,17 +14,32 @@
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- A plain stylesheet link: the Web host's CSP (script-src 'self') refuses an inline onload handler, so the
+         print-media swap left the fonts unapplied in production. LP.11 can self-host them. -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=Fredoka:wght@500;600;700&display=swap"
-      media="print"
-      onload="this.media = 'all'"
     />
-    <noscript
-      ><link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&family=Fredoka:wght@500;600;700&display=swap"
-    /></noscript>
+    <!-- The logo is on every page's first screen (landing hero, sign-in, the shell), in the resolved theme's
+         rendition. Preloaded for the system theme; a saved override fetches the other when the app starts. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/webp"
+      href="/images/logo-400.webp"
+      imagesrcset="/images/logo-200.webp 200w, /images/logo-400.webp 400w"
+      imagesizes="12.5rem"
+      media="(prefers-color-scheme: light)"
+    />
+    <link
+      rel="preload"
+      as="image"
+      type="image/webp"
+      href="/images/logodark-400.webp"
+      imagesrcset="/images/logodark-200.webp 200w, /images/logodark-400.webp 400w"
+      imagesizes="12.5rem"
+      media="(prefers-color-scheme: dark)"
+    />
   </head>
   <body>
     <cp-root></cp-root>

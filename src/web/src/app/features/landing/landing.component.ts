@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FoodImageService } from './food-image.service';
 import { LandingFinalCtaComponent } from './landing-final-cta.component';
 import { LandingFooterComponent } from './landing-footer.component';
+import { LandingHeroCollageComponent } from './landing-hero-collage.component';
 import { LandingHeroComponent } from './landing-hero.component';
 import { LandingHowItWorksComponent } from './landing-how-it-works.component';
 import { LandingImageTrioComponent } from './landing-image-trio.component';
@@ -19,6 +20,7 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
   standalone: true,
   imports: [
     LandingHeroComponent,
+    LandingHeroCollageComponent,
     LandingValuePropsComponent,
     LandingImageTrioComponent,
     LandingHowItWorksComponent,

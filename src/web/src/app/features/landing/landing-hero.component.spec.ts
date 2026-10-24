@@ -27,8 +27,59 @@ describe('LandingHeroComponent', () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
 
-    expect(el.querySelector('h1')?.textContent).toContain('The workspace where your recipes become everything else.');
-    expect(el.querySelector('.subheadline')?.textContent).toContain('Develop and version recipes');
+    expect(el.querySelector('h1')?.textContent?.trim()).toBe('The workspace where your recipes become everything else.');
+    expect(el.querySelector('.subheadline')?.textContent).toContain('Write and version your recipes');
+    expect(el.querySelector('.note')?.textContent).toContain('Your workspace’s Owner switches on the features you use.');
+  });
+
+  it('keeps the AI-as-proposal wording and claims no self-serve publishing', async () => {
+    const fixture = await createFixture();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('nothing changes until you accept it');
+    expect(text).not.toMatch(/publish/i);
+  });
+
+  it('underlines only the highlighted phrase, and the heading still reads as one sentence', async () => {
+    const fixture = await createFixture();
+    const heading = (fixture.nativeElement as HTMLElement).querySelector('h1')!;
+    const marks = heading.querySelectorAll('.highlight');
+
+    expect(marks.length).toBe(1);
+    expect(marks[0].textContent).toBe('everything else.');
+    expect(marks[0].getAttribute('aria-hidden')).toBeNull();
+    expect(heading.textContent?.replace(/\s+/g, ' ').trim()).toBe('The workspace where your recipes become everything else.');
+  });
+
+  it('marks nothing when the headline does not contain the highlighted phrase', async () => {
+    const fixture = await createFixture();
+    fixture.componentRef.setInput('headline', 'A different headline');
+    fixture.detectChanges();
+
+    const heading = (fixture.nativeElement as HTMLElement).querySelector('h1')!;
+    expect(heading.querySelector('.highlight')).toBeNull();
+    expect(heading.textContent?.trim()).toBe('A different headline');
+  });
+
+  it('omits the note when it is cleared', async () => {
+    const fixture = await createFixture();
+    fixture.componentRef.setInput('note', '');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.note')).toBeNull();
+  });
+
+  it('puts the logo first and asks for it first, named once for assistive technology', async () => {
+    const fixture = await createFixture();
+    const copy = (fixture.nativeElement as HTMLElement).querySelector('.copy')!;
+    const logo = copy.firstElementChild!;
+    const img = logo.querySelector('img')!;
+
+    expect(logo.tagName.toLowerCase()).toBe('cp-logo');
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+    expect(img.getAttribute('alt')).toBe('CreatorPantry');
+    expect(img.getAttribute('width')).toBeTruthy();
+    expect(img.getAttribute('height')).toBeTruthy();
   });
 
   it('renders custom copy supplied via inputs', async () => {

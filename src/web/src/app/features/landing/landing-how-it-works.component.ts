@@ -8,24 +8,26 @@ export interface LandingHowItWorksStep {
 /**
  * Mirrors the real proposal/version/publication lifecycle (ai.md, recipes.md, publishing.md) — every
  * step touching AI or publishing describes a reviewable proposal or an explicit confirmation, never an
- * auto-applied change or an automatic publish.
+ * auto-applied change or an automatic publish. None of LP.1's unbacked claims come back: a recipe cannot be
+ * imported (only ingredient lines can be pasted), scaling is deterministic code rather than an AI proposal,
+ * and publishing is not yet something a creator connects for themselves.
  */
 export const DEFAULT_HOW_IT_WORKS_STEPS: readonly LandingHowItWorksStep[] = [
   {
-    heading: 'Create or import a recipe',
-    body: 'Start with a recipe — write it from scratch or bring in one you already have. Ingredients, steps, yields, and equipment are stored exactly as you enter them.',
+    heading: 'Write your recipe',
+    body: 'Type it in, or paste a list of ingredient lines. Ingredients, steps, times and yields stay exactly as you write them.',
   },
   {
-    heading: 'Request an AI-assisted draft',
-    body: 'Ask for help drafting a caption, repurposing a blog post, or scaling a recipe. AI responds with a proposal — a draft or diff — never a change applied to your recipe or content on its own.',
+    heading: 'Ask AI for a draft',
+    body: 'Once your workspace’s Owner switches on the AI features you want, ask for recipe concepts, a picture, a post for each channel or a blog article. AI answers with a draft or a proposal, never a change applied to your recipe or content on its own.',
   },
   {
     heading: 'Approve and version it',
-    body: 'Review the proposal, edit anything you want, and accept it. Accepting a recipe change saves a new named version — your existing versions stay exactly as they were.',
+    body: 'Review the proposal, edit anything you want, and accept it. Accepting a recipe change saves a new numbered version — your existing versions stay exactly as they were.',
   },
   {
-    heading: 'Publish through a connected provider or export',
-    body: 'When you’re ready, publish to a connected channel with one explicit confirmation, or export/download your content directly — nothing goes out without your say-so.',
+    heading: 'Download it, or schedule it',
+    body: 'Download recipes as PDF, Markdown or JSON-LD, and long-form as Markdown or HTML. Scheduling to your social channels through Buffer is coming to every account, and nothing goes out without your explicit confirmation.',
   },
 ];
 
@@ -39,11 +41,5 @@ export const DEFAULT_HOW_IT_WORKS_STEPS: readonly LandingHowItWorksStep[] = [
 })
 export class LandingHowItWorksComponent {
   readonly heading = input('How it works');
-  // Steps 2 and 4 describe the designed AI-drafting and publishing lifecycle; neither module is built
-  // yet (see LandingValuePropsComponent's "in the works" badges), so this note keeps the walkthrough
-  // from implying the whole journey is available today.
-  readonly note = input(
-    'Recipe creation and versioning are available today; AI drafting and publishing integrations are in active development.',
-  );
   readonly steps = input<readonly LandingHowItWorksStep[]>(DEFAULT_HOW_IT_WORKS_STEPS);
 }

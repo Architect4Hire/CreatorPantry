@@ -1,18 +1,17 @@
 <section class="hero" aria-labelledby="landing-hero-heading">
   <div class="copy">
-    <div class="intro">
-      <div class="text">
-        <h1 id="landing-hero-heading">{{ headline() }}</h1>
-        <p class="subheadline">{{ subheadline() }}</p>
-      </div>
-      <div class="ctas">
-        <a cpButton variant="primary" size="lg" routerLink="/sign-up">{{ primaryCtaLabel() }}</a>
-        <a cpButton variant="secondary" size="lg" routerLink="/sign-in">{{ secondaryCtaLabel() }}</a>
-      </div>
+    <cp-logo class="mark" [priority]="true" />
+    <h1 id="landing-hero-heading">
+      {{ parts().before }}@if (parts().marked) {<span class="highlight">{{ parts().marked }}</span>}{{ parts().after }}
+    </h1>
+    <p class="subheadline">{{ subheadline() }}</p>
+    <div class="ctas">
+      <a cpButton variant="primary" size="lg" routerLink="/sign-up">{{ primaryCtaLabel() }}</a>
+      <a cpButton variant="secondary" size="lg" routerLink="/sign-in">{{ secondaryCtaLabel() }}</a>
     </div>
-    <div class="mark">
-      <cp-logo styles="display: block; width: 100%; height: auto; margin-inline: auto"></cp-logo>
-    </div>
+    @if (note()) {
+      <p class="note">{{ note() }}</p>
+    }
   </div>
   <div class="media"><ng-content select="[cpLandingHeroMedia]" /></div>
 </section>

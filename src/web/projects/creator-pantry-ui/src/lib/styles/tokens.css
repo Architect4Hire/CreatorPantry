@@ -18,6 +18,10 @@
      screen, and always above -xl, which a card heading on the same page uses. */
   --cp-font-size-title: clamp(2.125rem, 1.6rem + 1.4vw, 2.875rem);
   --cp-font-size-2xl: clamp(2.125rem, 4vw, 3.5rem);
+  /* A public page's one headline, set like a magazine cover: 40px on a phone to 76px on a wide screen. Never
+     inside the app, where the page title is -title. */
+  --cp-font-size-display: clamp(2.5rem, 1.5rem + 4.4vw, 4.75rem);
+  --cp-leading-display: 1.04;
   --cp-leading-tight: 1.15;
   /* Display headings are set untracked: Fredoka's rounded letters crowd one another when pulled together. */
   --cp-tracking-display: 0;

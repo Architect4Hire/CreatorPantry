@@ -28,23 +28,28 @@ describe('LandingHowItWorksComponent', () => {
     const text = el.textContent ?? '';
 
     expect(text).toContain('never a change applied to your recipe or content on its own');
-    expect(text).toContain('one explicit confirmation');
+    expect(text).toContain('nothing goes out without your explicit confirmation');
     expect(text).not.toMatch(/automatically publish|auto-publish|applies (the )?changes? automatically/i);
   });
 
-  it('renders the in-development caveat note by default', async () => {
+  // LP.1 finding 5: none of the three claims the product does not back comes back, in these words or others.
+  it('claims no recipe import, self-connected channels, AI scaling or named versions', async () => {
     const fixture = await createFixture();
-    const note = fixture.nativeElement.querySelector('.note');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
 
-    expect(note?.textContent).toContain('in active development');
+    expect(text).not.toMatch(/import/i);
+    expect(text).not.toMatch(/connect(ed)? (the )?(channels?|providers?)|connected provider/i);
+    expect(text).not.toMatch(/scal(e|ing)/i);
+    expect(text).not.toMatch(/named version/i);
   });
 
-  it('omits the note element when note is cleared', async () => {
+  // LP.1 finding 4: the "in active development" note is stale and gone, not just hidden.
+  it('renders no in-development caveat', async () => {
     const fixture = await createFixture();
-    fixture.componentRef.setInput('note', '');
-    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
 
-    expect(fixture.nativeElement.querySelector('.note')).toBeFalsy();
+    expect(el.querySelector('.note')).toBeNull();
+    expect(el.textContent).not.toMatch(/in active development|in the works/i);
   });
 
   it('renders custom steps supplied via input', async () => {

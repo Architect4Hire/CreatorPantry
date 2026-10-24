@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { CpLogoComponent } from '../../features/landing/logo/logo/logo';
+import { CpLogoComponent } from '../logo/logo.component';
 import { FoodImageService } from '../../features/landing/food-image.service';
 
 /**
@@ -32,7 +32,7 @@ import { FoodImageService } from '../../features/landing/food-image.service';
     </div>
     <main class="panel">
       <div class="panel-inner">
-        <a class="brand" routerLink="/"><cp-logo [styles]="logoStyle" /></a>
+        <a class="brand" routerLink="/"><cp-logo sizes="6.5rem" /></a>
         <ng-content />
       </div>
     </main>
@@ -114,6 +114,9 @@ import { FoodImageService } from '../../features/landing/food-image.service';
         display: block;
         border-radius: var(--cp-radius-md);
       }
+      .brand cp-logo {
+        width: 6.5rem;
+      }
       @media (max-width: 56rem) {
         .auth {
           grid-template-columns: minmax(0, 1fr);
@@ -142,6 +145,5 @@ export class AuthLayoutComponent {
   /** A sentence under it. Dropped at a narrow width, where the photograph is a band. */
   readonly dek = input('');
 
-  protected readonly logoStyle = 'display: block; width: 6.5rem; height: auto;';
   protected readonly photo = inject(FoodImageService).deal(1)[0];
 }

@@ -29,6 +29,11 @@
   color: var(--cp-text);
 }
 
+.brand cp-logo {
+  width: 100%;
+  max-width: 8.5rem;
+}
+
 nav {
   display: grid;
   gap: var(--cp-space-5);

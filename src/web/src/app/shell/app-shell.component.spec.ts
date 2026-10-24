@@ -343,11 +343,11 @@ describe('AppShellComponent', () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
     const brandMark = fixture.nativeElement.querySelector('.brand-mark img') as HTMLImageElement;
 
-    expect(brandMark.getAttribute('src')).toBe('/images/logo.png');
+    expect(brandMark.getAttribute('src')).toBe('/images/logo-400.webp');
 
     resolvedTheme.set('dark');
     fixture.detectChanges();
 
-    expect(brandMark.getAttribute('src')).toBe('/images/logodark.png');
+    expect(brandMark.getAttribute('src')).toBe('/images/logodark-400.webp');
   });
 });

@@ -1,0 +1,14 @@
+<div class="block one"></div>
+<div class="block two"></div>
+<figure class="photo back-left">
+  <img [src]="photos.backLeft" width="400" height="600" alt="" decoding="async" />
+</figure>
+<figure class="photo back-right">
+  <img [src]="photos.backRight" width="400" height="600" alt="" decoding="async" />
+</figure>
+<figure class="photo front">
+  <img [src]="photos.front" width="400" height="600" alt="" fetchpriority="high" />
+</figure>
+<figure class="proposal">
+  <img [src]="captureSrc()" [width]="capture.width" [height]="capture.height" alt="" decoding="async" />
+</figure>
