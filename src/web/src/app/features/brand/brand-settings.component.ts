@@ -335,9 +335,19 @@ export class BrandSettingsComponent {
   }
 
   // ---- Editing ----
+  //
+  // Every edit drops what the server last said about the field it changes. The creator is acting on that refusal,
+  // and a message about a value that is no longer there would still be shown at the field and listed below Save
+  // until the next save. What the form's own rules say about the new value shows instead.
 
   setField<K extends 'brandName' | 'shortDescription' | 'defaultAudience' | 'locale'>(field: K, value: string): void {
     this.draft.update((draft) => ({ ...draft, [field]: value }));
+    this.validator.clearServer(field);
+  }
+
+  setReason(value: string): void {
+    this.reason.set(value);
+    this.validator.clearServer('reason');
   }
 
   /** "" is the tile for leaving the count to the product; anything else is a number the policy allows. */
@@ -364,11 +374,13 @@ export class BrandSettingsComponent {
       ...draft,
       defaultPictureCount: value === '' || !Number.isInteger(count) ? null : count,
     }));
+    this.validator.clearServer('defaultPictureCount');
   }
 
   onZoneSelected(option: CpComboboxOption | null): void {
     this.zoneSelected.set(option);
     this.draft.update((draft) => ({ ...draft, timeZoneId: option?.id ?? '' }));
+    this.validator.clearServer('timeZoneId');
   }
 
   toggleChannel(key: string, checked: boolean): void {
@@ -380,6 +392,7 @@ export class BrandSettingsComponent {
     // their stored order because this is only reached when they change one.
     const ordered = this.channelRows().map((row) => row.key).filter((candidate) => chosen.has(candidate));
     this.draft.update((draft) => ({ ...draft, channelKeys: ordered }));
+    this.validator.clearServer('channelDefaults');
   }
 
   isChannelChecked(key: string): boolean {
@@ -397,6 +410,8 @@ export class BrandSettingsComponent {
     const links = this.draft().links;
     const index = links.findIndex((link) => link.id === id);
     this.draft.update((draft) => ({ ...draft, links: draft.links.filter((link) => link.id !== id) }));
+    // Every row after this one moves up a place, so the server's positions no longer name the rows they were about.
+    this.validator.clearServer('links');
 
     // Focus must land somewhere sensible, not vanish with the row that held it.
     const next = this.draft().links[Math.min(index, this.draft().links.length - 1)];
@@ -404,6 +419,9 @@ export class BrandSettingsComponent {
   }
 
   setLink(id: string, field: 'kind' | 'url' | 'label', value: string): void {
+    const index = this.draft().links.findIndex((link) => link.id === id);
+    if (index !== -1) this.validator.clearServer(`links[${index}].${field}`);
+
     this.draft.update((draft) => ({
       ...draft,
       links: draft.links.map((link) => (link.id === id ? { ...link, [field]: field === 'kind' ? (value as BrandLinkKind) : value } : link)),
@@ -427,10 +445,23 @@ export class BrandSettingsComponent {
   }
 
   /**
-   * The errors the summary below Save lists: every one showing, client rule or server refusal. Drawn after the
-   * button rather than above the form, so it never pushes the page down while the creator is filling it in.
+   * The errors the summary below Save lists: every rule that holds Save back, whether or not its field shows it
+   * yet, then whatever the server last refused. Save is disabled while any rule fails, and the list right under it
+   * is what says why — a field only shows its own message once the creator has left it, and a stored value the
+   * rules refuse (or a link row just added) would otherwise disable Save with nothing on screen to explain it.
+   * Drawn after the button rather than above the form, so it never pushes the page down.
    */
-  protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() => this.validator.visibleErrors());
+  protected readonly summaryIssues = computed<readonly CpValidationIssue[]>(() =>
+    this.validator.issues().filter((issue) => issue.severity === 'error'),
+  );
+
+  /**
+   * Whether the "marked below" banner still has anything to point at. A refusal the creator has since corrected
+   * field by field leaves nothing marked, and the banner would otherwise go on saying there is.
+   */
+  readonly showInvalidBanner = computed(
+    () => this.saveState().status === 'invalid' && (this.validator.visibleErrors().length > 0 || this.refusedLogoIds().length > 0),
+  );
 
   /** A field's own label for the summary — "Link 2 address" for a row — or nothing for a key this form does not name. */
   protected readonly summaryLabelOf = (path: string): string => {
