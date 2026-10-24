@@ -10,7 +10,7 @@
 section {
   --cp-summary-tone: var(--cp-danger);
 
-  padding: var(--cp-space-3) var(--cp-space-4);
+  padding: var(--cp-space-1) var(--cp-space-4);
   border: 1px solid color-mix(in srgb, var(--cp-summary-tone) 40%, var(--cp-border));
   border-inline-start: 4px solid var(--cp-summary-tone);
   border-radius: var(--cp-radius-md);
@@ -31,10 +31,12 @@ section:focus {
   outline: none;
 }
 
-/* A plain bulleted list. The bullet is red for an error and orange for advice; advice also says so in a word, so
-   the two never differ by colour alone. */
+/* A plain bulleted list, stacked with a gap rather than spaced by padding. The bullet is red for an error and
+   orange for advice; advice also says so in a word, so the two never differ by colour alone. */
 ul {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
   margin: 0;
   padding-inline-start: var(--cp-space-5);
   list-style: disc;
@@ -49,13 +51,15 @@ li.advice::marker {
 }
 
 /*
- * Each line is a button that reads as text: no underline, no hover fill. 40px tall for a thumb, wrapping rather
- * than overflowing, and the global focus ring for the keyboard.
+ * Each line is a button that reads as text: no underline, no hover fill. 40px tall for a thumb, with its text
+ * centred in that height so a one-line list is not top-heavy; wrapping rather than overflowing, and the global
+ * focus ring for the keyboard.
  */
 button {
   display: inline-flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
+  align-content: center;
   gap: 0 var(--cp-space-2);
   min-height: 2.5rem;
   padding: var(--cp-space-1) 0;
