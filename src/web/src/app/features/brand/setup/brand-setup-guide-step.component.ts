@@ -63,7 +63,7 @@ const ANCHOR = 'cp-guide-';
     CpStatusPillComponent,
   ],
   templateUrl: './brand-setup-guide-step.component.html',
-  styleUrl: './brand-setup-guide-step.component.css',
+  styleUrl: './brand-setup-guide-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupGuideStepComponent implements OnInit {

@@ -276,7 +276,7 @@ function trimmedOrNull(text: string): string | null {
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-test-run-form.component.html',
-  styleUrl: './recipe-test-run-form.component.css',
+  styleUrl: './recipe-test-run-form.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTestRunFormComponent {

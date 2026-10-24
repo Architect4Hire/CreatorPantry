@@ -70,7 +70,7 @@ let nextInstance = 0;
   // the library grows one of its own.
   host: { '(document:keydown.escape)': 'close()' },
   templateUrl: './recipe-restore.component.html',
-  styleUrl: './recipe-restore.component.css',
+  styleUrl: './recipe-restore.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeRestoreComponent {

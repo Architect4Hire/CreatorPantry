@@ -9,7 +9,7 @@ let nextId = 0;
  *
  * **It never takes a URL.** The picture is projected — the consumer's own `<img>`, or its own component that
  * authorises and loads the bytes — for the reason `cp-media-card` takes none: the library does not know where
- * a picture lives or who may see it. What it does is give that picture the room: `global.css` holds any
+ * a picture lives or who may see it. What it does is give that picture the room: `global.scss` holds any
  * `<img>` in the stage to the window's height and to its own pixels, so a picture is never scaled past the
  * size it was made at and never needs scrolling to see whole.
  *

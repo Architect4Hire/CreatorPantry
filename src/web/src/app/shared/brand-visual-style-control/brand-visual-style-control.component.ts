@@ -58,7 +58,7 @@ let nextId = 0;
   standalone: true,
   imports: [CpButtonComponent, CpCheckboxComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent],
   templateUrl: './brand-visual-style-control.component.html',
-  styleUrl: './brand-visual-style-control.component.css',
+  styleUrl: './brand-visual-style-control.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandVisualStyleControlComponent {

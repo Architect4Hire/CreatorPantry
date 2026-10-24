@@ -53,7 +53,7 @@ const SHARED_STYLES = `
   selector: 'cp-search-field',
   standalone: true,
   template: TEMPLATE,
-  styleUrl: './native-control.css',
+  styleUrl: './native-control.scss',
   styles: [
     SHARED_STYLES,
     `
@@ -82,7 +82,7 @@ export class CpSearchFieldComponent {
   selector: 'cp-select-field',
   standalone: true,
   template: TEMPLATE,
-  styleUrl: './native-control.css',
+  styleUrl: './native-control.scss',
   styles: [
     SHARED_STYLES,
     `

@@ -95,7 +95,7 @@ interface Message {
     MyDayTopThreeComponent,
   ],
   templateUrl: './my-day.component.html',
-  styleUrl: './my-day.component.css',
+  styleUrl: './my-day.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MyDayComponent {

@@ -142,7 +142,7 @@ function describeMovement(item: RecipeItemChange, kind: CpDiffKind): string {
   standalone: true,
   imports: [CpDiffLegendComponent],
   templateUrl: './recipe-version-comparison.component.html',
-  styleUrl: './recipe-version-comparison.component.css',
+  styleUrl: './recipe-version-comparison.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeVersionComparisonComponent {

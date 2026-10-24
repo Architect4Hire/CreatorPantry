@@ -54,7 +54,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-revision-request.component.html',
-  styleUrl: './recipe-revision-request.component.css',
+  styleUrl: './recipe-revision-request.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeRevisionRequestComponent {

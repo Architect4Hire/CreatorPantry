@@ -78,7 +78,7 @@ type Library = 'loading' | 'ready' | 'degraded';
     CpUploaderComponent,
   ],
   templateUrl: './brand-setup-examples-step.component.html',
-  styleUrl: './brand-setup-examples-step.component.css',
+  styleUrl: './brand-setup-examples-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupExamplesStepComponent implements OnInit {

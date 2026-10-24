@@ -126,7 +126,7 @@ export function isRetryableAiOutcome(status: AiOperationStatus, failure: AiFailu
   standalone: true,
   imports: [CpStatusPillComponent],
   templateUrl: './ai-operation-status.component.html',
-  styleUrl: './ai-operation-status.component.css',
+  styleUrl: './ai-operation-status.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiOperationStatusComponent {

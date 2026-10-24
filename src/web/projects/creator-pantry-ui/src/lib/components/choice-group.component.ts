@@ -27,7 +27,7 @@ let cpChoiceGroupUid = 0;
  * it.
  *
  * **Why it is a component rather than four stylesheets.** The control is *drawn* — `appearance: none`, every
- * state authored — because `themes.css` sets `color-scheme` and a native radio left alone arrives at 13px with
+ * state authored — because `themes.scss` sets `color-scheme` and a native radio left alone arrives at 13px with
  * no author focus ring, and in dark mode an unchecked box reads as checked. DESIGN-SYSTEM.md states the
  * consequence: a drawn control belongs in one library component. Three feature stylesheets had already drawn
  * this same row before this existed.
@@ -110,7 +110,7 @@ let cpChoiceGroupUid = 0;
         color: var(--cp-text);
         cursor: pointer;
         /* The interactive card's own lift, a little shorter for a smaller surface: a tile is the same gesture
-           at a smaller size, so it should answer the pointer the same way. global.css shortens this to nothing
+           at a smaller size, so it should answer the pointer the same way. global.scss shortens this to nothing
            under prefers-reduced-motion. */
         transition: transform var(--cp-duration-fast) var(--cp-ease), border-color var(--cp-duration-fast),
           background var(--cp-duration-fast), box-shadow var(--cp-duration-fast);
@@ -181,7 +181,7 @@ let cpChoiceGroupUid = 0;
       .tile.picked .example {
         color: var(--cp-text);
       }
-      /* The same ring global.css gives every other focused control, moved onto the tile the input stands for. */
+      /* The same ring global.scss gives every other focused control, moved onto the tile the input stands for. */
       .tile:has(input:focus-visible) {
         outline: 3px solid var(--cp-focus);
         outline-offset: 2px;

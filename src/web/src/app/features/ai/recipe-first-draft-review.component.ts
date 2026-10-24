@@ -165,7 +165,7 @@ interface EditTarget {
     ShellNavIconComponent,
   ],
   templateUrl: './recipe-first-draft-review.component.html',
-  styleUrl: './recipe-first-draft-review.component.css',
+  styleUrl: './recipe-first-draft-review.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeFirstDraftReviewComponent {
@@ -896,7 +896,7 @@ export class RecipeFirstDraftReviewComponent {
     //
     // Scoped to this host rather than `document`: these ids are not instance-namespaced, so a second mounted
     // instance would otherwise steal the target. And no `behavior` is passed — a behavior given to
-    // `scrollIntoView` overrides CSS `scroll-behavior`, which is how global.css honours
+    // `scrollIntoView` overrides CSS `scroll-behavior`, which is how global.scss honours
     // `prefers-reduced-motion`. Letting the stylesheet decide is what keeps that promise.
     const heading = this.elementRef.nativeElement.querySelector<HTMLElement>(`#${CSS.escape(item.targetId)}`);
     heading?.scrollIntoView({ block: 'start' });

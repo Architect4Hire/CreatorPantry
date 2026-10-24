@@ -166,7 +166,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpTopicCardComponent,
   ],
   templateUrl: './recipe-concept-studio.component.html',
-  styleUrl: './recipe-concept-studio.component.css',
+  styleUrl: './recipe-concept-studio.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeConceptStudioComponent {

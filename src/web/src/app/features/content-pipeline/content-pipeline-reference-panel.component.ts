@@ -102,7 +102,7 @@ const CHOOSE_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 
     DamLinkedAssetComponent,
   ],
   templateUrl: './content-pipeline-reference-panel.component.html',
-  styleUrl: './content-pipeline-reference-panel.component.css',
+  styleUrl: './content-pipeline-reference-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineReferencePanelComponent implements OnInit {

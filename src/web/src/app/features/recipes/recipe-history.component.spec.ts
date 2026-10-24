@@ -1168,10 +1168,10 @@ describe('RecipeHistoryComponent', () => {
    */
   describe('density and targets', () => {
     /**
-     * A component spec loads no `tokens.css`, so every `var(--cp-*)` here would be invalid at computed-value
+     * A component spec loads no `tokens.scss`, so every `var(--cp-*)` here would be invalid at computed-value
      * time — which silently drops the declaration and would make these assertions measure the browser's
      * defaults instead of the design system's. The two the assertions depend on are supplied with the values
-     * `tokens.css` gives them.
+     * `tokens.scss` gives them.
      */
     function withTokens(element: HTMLElement): void {
       element.style.setProperty('--cp-space-10', '2.5rem');

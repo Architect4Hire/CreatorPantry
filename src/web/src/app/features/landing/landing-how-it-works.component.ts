@@ -36,7 +36,7 @@ export const DEFAULT_HOW_IT_WORKS_STEPS: readonly LandingHowItWorksStep[] = [
   selector: 'cp-landing-how-it-works',
   standalone: true,
   templateUrl: './landing-how-it-works.component.html',
-  styleUrl: './landing-how-it-works.component.css',
+  styleUrl: './landing-how-it-works.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingHowItWorksComponent {

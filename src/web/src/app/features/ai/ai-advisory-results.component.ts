@@ -73,7 +73,7 @@ export interface AiAdvisoryItem {
     CpListShellComponent,
   ],
   templateUrl: './ai-advisory-results.component.html',
-  styleUrl: './ai-advisory-results.component.css',
+  styleUrl: './ai-advisory-results.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiAdvisoryResultsComponent {

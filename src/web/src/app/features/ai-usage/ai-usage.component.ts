@@ -84,7 +84,7 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
     CpTopicCardComponent,
   ],
   templateUrl: './ai-usage.component.html',
-  styleUrl: './ai-usage.component.css',
+  styleUrl: './ai-usage.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AiUsageComponent {

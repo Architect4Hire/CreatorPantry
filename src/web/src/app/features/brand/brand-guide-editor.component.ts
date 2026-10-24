@@ -163,7 +163,7 @@ export const BRAND_GUIDE_AUTOSAVE_DELAY_MS = new InjectionToken<number>('brand g
     CpBackLinkComponent,
   ],
   templateUrl: './brand-guide-editor.component.html',
-  styleUrl: './brand-guide-editor.component.css',
+  styleUrl: './brand-guide-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideEditorComponent {

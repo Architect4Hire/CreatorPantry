@@ -144,7 +144,7 @@ interface FramingDraft {
     LongFormSeoSuggestionsComponent,
   ],
   templateUrl: './long-form-document-review.component.html',
-  styleUrl: './long-form-document-review.component.css',
+  styleUrl: './long-form-document-review.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LongFormDocumentReviewComponent {

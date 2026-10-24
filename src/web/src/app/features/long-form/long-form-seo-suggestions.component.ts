@@ -40,7 +40,7 @@ type SeoState =
   standalone: true,
   imports: [CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpGeneratedLabelComponent, CpNoticeComponent],
   templateUrl: './long-form-seo-suggestions.component.html',
-  styleUrl: './long-form-seo-suggestions.component.css',
+  styleUrl: './long-form-seo-suggestions.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LongFormSeoSuggestionsComponent {

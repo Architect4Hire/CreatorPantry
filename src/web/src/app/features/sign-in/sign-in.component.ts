@@ -18,7 +18,7 @@ const OUTCOME_MESSAGES: Record<Exclude<LoginOutcome['status'], 'success'>, strin
   standalone: true,
   imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent, AuthLayoutComponent],
   templateUrl: './sign-in.component.html',
-  styleUrl: './sign-in.component.css',
+  styleUrl: './sign-in.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SignInComponent {

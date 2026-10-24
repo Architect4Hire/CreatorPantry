@@ -140,7 +140,7 @@ const COULD_NOT_REFRESH =
     CpToolbarComponent,
   ],
   templateUrl: './brand-library.component.html',
-  styleUrl: './brand-library.component.css',
+  styleUrl: './brand-library.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandLibraryComponent {

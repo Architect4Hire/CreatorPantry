@@ -146,7 +146,7 @@ function orNull(value: string): string | null {
     CpBackLinkComponent,
   ],
   templateUrl: './themed-days.component.html',
-  styleUrl: './themed-days.component.css',
+  styleUrl: './themed-days.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ThemedDaysComponent {

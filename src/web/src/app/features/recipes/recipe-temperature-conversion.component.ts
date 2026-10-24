@@ -122,7 +122,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
   templateUrl: './recipe-temperature-conversion.component.html',
-  styleUrl: './recipe-temperature-conversion.component.css',
+  styleUrl: './recipe-temperature-conversion.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTemperatureConversionComponent {

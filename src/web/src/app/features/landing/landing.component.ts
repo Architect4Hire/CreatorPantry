@@ -48,7 +48,7 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
     LandingRevealDirective,
   ],
   templateUrl: './landing.component.html',
-  styleUrl: './landing.component.css',
+  styleUrl: './landing.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingComponent {

@@ -85,7 +85,7 @@ type ChannelsState =
     RouterLink,
   ],
   templateUrl: './content-pipeline-setup-step.component.html',
-  styleUrl: './content-pipeline-setup-step.component.css',
+  styleUrl: './content-pipeline-setup-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineSetupStepComponent implements OnInit {

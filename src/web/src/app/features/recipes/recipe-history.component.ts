@@ -108,7 +108,7 @@ const DUPLICATE_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Own
     RecipeVersionComparisonComponent,
   ],
   templateUrl: './recipe-history.component.html',
-  styleUrl: './recipe-history.component.css',
+  styleUrl: './recipe-history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeHistoryComponent implements OnInit {

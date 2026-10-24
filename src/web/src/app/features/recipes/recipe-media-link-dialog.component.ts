@@ -100,7 +100,7 @@ const IDS = {
     DamAssetThumbnailComponent,
   ],
   templateUrl: './recipe-media-link-dialog.component.html',
-  styleUrl: './recipe-media-link-dialog.component.css',
+  styleUrl: './recipe-media-link-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeMediaLinkDialogComponent {

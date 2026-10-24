@@ -50,7 +50,7 @@ const ADD_ALTERNATE = 'brand-add-logo';
   standalone: true,
   imports: [CpButtonComponent, CpDialogComponent, CpNoticeComponent, DamAssetPickerComponent, DamLinkedAssetComponent],
   templateUrl: './brand-logos.component.html',
-  styleUrl: './brand-logos.component.css',
+  styleUrl: './brand-logos.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandLogosComponent {

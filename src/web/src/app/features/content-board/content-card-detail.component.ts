@@ -102,7 +102,7 @@ const DELETE_PROBLEMS = {
     ContentCardPublishingComponent,
   ],
   templateUrl: './content-card-detail.component.html',
-  styleUrl: './content-card-detail.component.css',
+  styleUrl: './content-card-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentCardDetailComponent {

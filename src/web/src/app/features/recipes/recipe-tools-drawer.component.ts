@@ -87,7 +87,7 @@ const PROPOSAL_TOOL_IDS: readonly RecipeToolId[] = ['ai-revision', 'ai-adaptatio
     RecipeYieldReconciliationComponent,
   ],
   templateUrl: './recipe-tools-drawer.component.html',
-  styleUrl: './recipe-tools-drawer.component.css',
+  styleUrl: './recipe-tools-drawer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeToolsDrawerComponent {

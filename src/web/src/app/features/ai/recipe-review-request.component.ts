@@ -46,7 +46,7 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
   standalone: true,
   imports: [AiAdvisoryResultsComponent, AiAllowanceNoticeComponent, CpButtonComponent, CpStatusPillComponent],
   templateUrl: './recipe-review-request.component.html',
-  styleUrl: './recipe-review-request.component.css',
+  styleUrl: './recipe-review-request.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeReviewRequestComponent {

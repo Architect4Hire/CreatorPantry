@@ -119,7 +119,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     DamAssetUploadComponent,
   ],
   templateUrl: './dam-library.component.html',
-  styleUrl: './dam-library.component.css',
+  styleUrl: './dam-library.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DamLibraryComponent {

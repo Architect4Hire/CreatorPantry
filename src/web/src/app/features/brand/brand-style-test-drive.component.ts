@@ -104,7 +104,7 @@ const SAMPLE_LABELS: Readonly<Record<string, string>> = {
     CpTopicCardComponent,
   ],
   templateUrl: './brand-style-test-drive.component.html',
-  styleUrl: './brand-style-test-drive.component.css',
+  styleUrl: './brand-style-test-drive.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandStyleTestDriveComponent {

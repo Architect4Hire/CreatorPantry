@@ -65,7 +65,7 @@ import { formatSize, kindOption } from './brand-setup-examples';
     CpSkeletonComponent,
   ],
   templateUrl: './brand-setup-create-step.component.html',
-  styleUrl: './brand-setup-create-step.component.css',
+  styleUrl: './brand-setup-create-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupCreateStepComponent implements OnInit {

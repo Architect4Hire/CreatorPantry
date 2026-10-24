@@ -49,7 +49,7 @@ const CHOICES: ReadonlyMap<StyleQuestionKey, readonly CpChoiceOption[]> = new Ma
   standalone: true,
   imports: [CpChoiceGroupComponent, CpFieldComponent, CpFormSectionComponent],
   templateUrl: './brand-setup-style-step.component.html',
-  styleUrl: './brand-setup-style-step.component.css',
+  styleUrl: './brand-setup-style-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupStyleStepComponent implements OnInit {

@@ -20,7 +20,7 @@ import { CpLogoComponent } from '../../shared/logo/logo.component';
   standalone: true,
   imports: [RouterLink, CpButtonComponent, CpLogoComponent],
   templateUrl: './landing-hero.component.html',
-  styleUrl: './landing-hero.component.css',
+  styleUrl: './landing-hero.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingHeroComponent {

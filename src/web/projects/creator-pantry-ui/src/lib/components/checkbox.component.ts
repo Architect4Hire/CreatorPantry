@@ -6,7 +6,7 @@ let nextId = 0;
  * A labelled checkbox with a drawn control.
  *
  * It exists because an unstyled `<input type="checkbox">` cannot meet this design system's own rules. The
- * browser paints it from the inherited `color-scheme`, which `themes.css` sets per theme — so in dark mode the
+ * browser paints it from the inherited `color-scheme`, which `themes.scss` sets per theme — so in dark mode the
  * *unchecked* box is a dark filled square, indistinguishable at a glance from a checked one — and it renders at
  * 13×13 with no author focus treatment, well under the 40px target. Fixing any of that requires
  * `appearance: none`, after which every state has to be drawn anyway. Drawn once here, rather than in each
@@ -43,7 +43,7 @@ let nextId = 0;
     .box { display:grid; place-items:center; flex:0 0 auto; width:1.25rem; height:1.25rem; border:1px solid var(--cp-border-control); border-radius:var(--cp-radius-sm); background:var(--cp-surface); color:var(--cp-primary-ink); font-size:.75rem; line-height:1; }
     input:checked + .box { border-color:var(--cp-primary); background:var(--cp-primary); }
     label:hover input:not(:disabled) + .box { border-color:var(--cp-primary); }
-    /* The same ring global.css gives every other focused control, moved onto the box the input now stands for. */
+    /* The same ring global.scss gives every other focused control, moved onto the box the input now stands for. */
     input:focus-visible + .box { outline:3px solid var(--cp-focus); outline-offset:2px; }
     input:disabled + .box { border-color:var(--cp-border); background:var(--cp-surface-subtle); color:var(--cp-text-faint); }
     input:disabled ~ .text { color:var(--cp-text-muted); }

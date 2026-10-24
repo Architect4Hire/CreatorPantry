@@ -100,7 +100,7 @@ const ACTIVATE_ROLES: readonly WorkspaceRole[] = ['Owner'];
     CpBackLinkComponent,
   ],
   templateUrl: './brand-guide-history.component.html',
-  styleUrl: './brand-guide-history.component.css',
+  styleUrl: './brand-guide-history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideHistoryComponent {

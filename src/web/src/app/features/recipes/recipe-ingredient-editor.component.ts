@@ -410,7 +410,7 @@ const MATCH_STATE_LABEL: Record<IngredientRowMatchState, string> = {
     IngredientUnitPickerComponent,
   ],
   templateUrl: './recipe-ingredient-editor.component.html',
-  styleUrl: './recipe-ingredient-editor.component.css',
+  styleUrl: './recipe-ingredient-editor.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeIngredientEditorComponent {

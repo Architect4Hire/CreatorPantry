@@ -37,13 +37,19 @@ const HERO = /[\\/]landing-hero(?:-collage)?\.component\.(?:css|html|ts)$/;
 
 /** What each rule protects, printed once under its failures. */
 export const RULES = {
-  frame: "The shell's page frame owns the gutter and the width. Remove the declaration; a page that needs another width asks with `data: { pageWidth: 'reading' | 'wide' }` on its route.",
-  'one-h1': '`cp-page-head` prints the one `h1` on a page. Give the page a `cp-page-head` and start everything else at `h2`.',
-  'page-head': 'A routed page opens with `cp-page-head` (and `a[cpBackLink]` for its breadcrumb); it draws no header of its own.',
-  'card-grid': 'A list of cards is `ul[cpCardGrid]`; short fields in a line are `cp-field-row`; term-and-value pairs are `dl[cpFacts]`.',
+  frame:
+    "The shell's page frame owns the gutter and the width. Remove the declaration; a page that needs another width asks with `data: { pageWidth: 'reading' | 'wide' }` on its route.",
+  'one-h1':
+    '`cp-page-head` prints the one `h1` on a page. Give the page a `cp-page-head` and start everything else at `h2`.',
+  'page-head':
+    'A routed page opens with `cp-page-head` (and `a[cpBackLink]` for its breadcrumb); it draws no header of its own.',
+  'card-grid':
+    'A list of cards is `ul[cpCardGrid]`; short fields in a line are `cp-field-row`; term-and-value pairs are `dl[cpFacts]`.',
   facts: 'Term-and-value pairs are `dl[cpFacts]` of `div[cpFact]`, `stacked` or `inline`.',
-  'toolbar-field': "A toolbar's search box is the feature's own `<input type=\"search\">` inside `cp-search-field` (inside `cp-field` where it has a visible label); a toolbar filter or sort is a `<select>` inside `cp-select-field`.",
-  board: 'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
+  'toolbar-field':
+    'A toolbar\'s search box is the feature\'s own `<input type="search">` inside `cp-search-field` (inside `cp-field` where it has a visible label); a toolbar filter or sort is a `<select>` inside `cp-select-field`.',
+  board:
+    'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   'stat-tile': 'A figure read at a glance is `cp-stat-tile`: the count and what it counts as one sentence, a line of context and a link (DESIGN-SYSTEM.md, "Meters and figures").',
@@ -69,50 +75,56 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/shell/app-shell.component.html',
     rule: 'tone',
-    reason: "The page frame is where a route's tone is set, from its `data: { tone }`, and the one place it may be (AU.2.1).",
+    reason:
+      "The page frame is where a route's tone is set, from its `data: { tone }`, and the one place it may be (AU.2.1).",
   },
   {
     file: 'src/app/shell/app-shell.component.css',
     rule: 'drawer',
-    reason: "The sidebar and the top bar are the shell's own chrome: fixed to the viewport, and the sidebar slides in at a narrow width. Nothing else may be.",
+    reason:
+      "The sidebar and the top bar are the shell's own chrome: fixed to the viewport, and the sidebar slides in at a narrow width. Nothing else may be.",
   },
   {
-    file: 'src/app/features/recipes/recipe-kitchen-view.component.css',
+    file: 'src/app/features/recipes/recipe-kitchen-view.component.scss',
     rule: 'facts',
-    reason: 'The one page that prints. Its times and yield are set large to be read from across a kitchen and reset in points for paper, and UI.6 held it to printing exactly as it did.',
+    reason:
+      'The one page that prints. Its times and yield are set large to be read from across a kitchen and reset in points for paper, and UI.6 held it to printing exactly as it did.',
   },
   {
-    file: 'src/app/features/recipes/recipe-kitchen-view.component.css',
+    file: 'src/app/features/recipes/recipe-kitchen-view.component.scss',
     rule: 'stepper',
     reason: "`.step-list` is the recipe's method — the steps a cook follows — not progress through a flow.",
   },
   {
-    file: 'src/app/features/recipes/recipe-kitchen-view.component.css',
+    file: 'src/app/features/recipes/recipe-kitchen-view.component.scss',
     rule: 'page-head',
-    reason: "Under @media print only: takes the page head's breadcrumb slot off the paper. cp-page-head has no print behaviour of its own.",
+    reason:
+      "Under @media print only: takes the page head's breadcrumb slot off the paper. cp-page-head has no print behaviour of its own.",
   },
   {
-    file: 'src/app/features/recipes/recipe-kitchen-view.component.css',
+    file: 'src/app/features/recipes/recipe-kitchen-view.component.scss',
     rule: 'utilities',
-    reason: "Under @media print only: takes the page head's actions slot off the paper, in the same rule as the breadcrumb.",
+    reason:
+      "Under @media print only: takes the page head's actions slot off the paper, in the same rule as the breadcrumb.",
   },
   {
-    file: 'src/app/features/recipes/recipe-instructions-section.component.css',
+    file: 'src/app/features/recipes/recipe-instructions-section.component.scss',
     rule: 'stepper',
     reason: "`.steps` is the list of the recipe's instruction steps being edited, not progress through a flow.",
   },
   {
-    file: 'src/app/features/ai-usage/ai-usage.component.css',
+    file: 'src/app/features/ai-usage/ai-usage.component.scss',
     rule: 'card-grid',
     reason: '`.breakdowns` sets two `cp-list-shell` panels side by side, not a list of cards.',
   },
   {
-    file: 'src/app/features/recipes/recipe-duplicate.component.css',
+    file: 'src/app/features/recipes/recipe-duplicate.component.scss',
     rule: 'card-grid',
-    reason: '`.summary` sets two short lists side by side — what a copy keeps and what it leaves — not a list of cards.',
+    reason:
+      '`.summary` sets two short lists side by side — what a copy keeps and what it leaves — not a list of cards.',
   },
   {
-    file: 'src/app/features/ai/recipe-first-draft-review.component.css',
+    file: 'src/app/features/ai/recipe-first-draft-review.component.scss',
     rule: 'card-grid',
     reason: "`.draft-fields-grid` holds a draft's yield and timing, each value with an editor that opens in place. Settled in AU.5.1: `dl[cpFacts] layout=\"across\"` sizes each fact to its content and wraps, so an editor opening in one would reflow its neighbours under the creator's hand, and its bold value would bolden \"Not suggested\" and the Edit control. The draft's provenance, which has no control, moved to `across`.",
   },
@@ -128,11 +140,28 @@ export const EXEMPTIONS = [
   },
 ];
 
-const FRAME_PROPERTIES = /(?:^|[;{\s])((?:padding|margin)(?:-[a-z-]+)?|max-width|width|inline-size|max-inline-size)\s*:/g;
+const FRAME_PROPERTIES =
+  /(?:^|[;{\s])((?:padding|margin)(?:-[a-z-]+)?|max-width|width|inline-size|max-inline-size)\s*:/g;
 
 /** Class names a feature stylesheet may not style, by the rule that owns them. */
 const OWNED_CLASSES = {
-  'page-head': ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb', 'page-icon', 'head-icon', 'title-icon', 'head-media', 'page-media', 'title-media', 'masthead', 'title-row', 'head-picture', 'hero-image'],
+  'page-head': [
+    'page-head',
+    'page-header',
+    'page-title',
+    'back',
+    'breadcrumb',
+    'page-icon',
+    'head-icon',
+    'title-icon',
+    'head-media',
+    'page-media',
+    'title-media',
+    'masthead',
+    'title-row',
+    'head-picture',
+    'hero-image',
+  ],
   'card-grid': ['grid', 'card-grid', 'cards'],
   facts: ['facts', 'fact'],
   'toolbar-field': ['search-field', 'select-field'],
@@ -141,21 +170,154 @@ const OWNED_CLASSES = {
   chip: ['chip', 'chips'],
   'stat-tile': ['stat', 'stats', 'stat-tile', 'stat-tiles', 'kpi', 'kpis', 'figure-tile', 'figure-tiles'],
   'option-card': ['option-card', 'option-cards', 'concept-card', 'concept-title', 'concept-dietary', 'variant-card'],
-  illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art', 'no-picture', 'picture-panel', 'picture-placeholder'],
+  illustration: [
+    'illustration',
+    'illustrations',
+    'empty-art',
+    'empty-illustration',
+    'spot-art',
+    'no-picture',
+    'picture-panel',
+    'picture-placeholder',
+  ],
   utilities: ['cp-muted', 'cp-actions', 'cp-disclosure', 'muted', 'actions'],
 };
 
 const lineAt = (text, index) => text.slice(0, index).split('\n').length;
-/** Comments become blank space of the same shape, so every later index still names the right line. */
-const blankComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '));
+const blank = (text) => text.replace(/[^\n]/g, ' ');
 
-/** Each innermost rule of a stylesheet: its selector list, its declarations, and the line it starts on. */
+/** Where the string opened at `at` ends, just past its closing quote (or the line, if it never closes). */
+const stringEnd = (text, at) => {
+  let end = at + 1;
+  while (end < text.length && text[end] !== text[at] && text[end] !== '\n') end += text[end] === '\\' ? 2 : 1;
+  return Math.min(end + 1, text.length);
+};
+
+/**
+ * Comments become blank space of the same shape, so every later index still names the right line. SCSS adds
+ * `//` line comments to CSS's block comments; a `//` inside a string or an unquoted `url(...)` is not one.
+ */
+function blankComments(css) {
+  let out = '';
+  for (let at = 0, end; at < css.length; at = end) {
+    if (css.startsWith('/*', at)) {
+      end = css.indexOf('*/', at + 2);
+      end = end < 0 ? css.length : end + 2;
+      out += blank(css.slice(at, end));
+      continue;
+    }
+    if (css.startsWith('//', at)) {
+      end = css.indexOf('\n', at);
+      if (end < 0) end = css.length;
+      out += blank(css.slice(at, end));
+      continue;
+    }
+    if (css[at] === '"' || css[at] === "'") end = stringEnd(css, at);
+    else if (/^url\(\s*[^\s'")]/i.test(css.slice(at, at + 64))) {
+      end = css.indexOf(')', at);
+      end = end < 0 ? css.length : end + 1;
+    } else end = at + 1;
+    out += css.slice(at, end);
+  }
+  return out;
+}
+
+/** A selector list split on its own commas, not those inside `:is(...)` or `:not(...)`. */
+function selectorList(list) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let at = 0; at < list.length; at++) {
+    if (list[at] === '(') depth++;
+    else if (list[at] === ')') depth--;
+    else if (list[at] === ',' && depth === 0) {
+      parts.push(list.slice(start, at).trim());
+      start = at + 1;
+    }
+  }
+  parts.push(list.slice(start).trim());
+  return parts;
+}
+
+/** A nested selector written out against its parent, as Sass does: `&` is the parent, and no `&` is a descendant. */
+function nestedSelector(parent, own) {
+  if (parent === null) return own;
+  const parents = selectorList(parent);
+  return selectorList(own)
+    .flatMap((child) => parents.map((p) => (child.includes('&') ? child.replaceAll('&', p) : `${p} ${child}`)))
+    .join(', ');
+}
+
+/**
+ * Each rule of a stylesheet: its full selector list, its own declarations, and the line it starts on. A nested
+ * rule is reported under the selector Sass would write for it, and is blanked out of its parent's declarations;
+ * an at-rule nested in a rule (`@media` inside `:host`) is transparent, so what it declares is the rule's own.
+ */
 export function cssRules(css) {
-  const stripped = blankComments(css);
-  return [...stripped.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => {
-    const lead = m[1].length - m[1].trimStart().length;
-    return { selector: m[1].trim(), body: m[2], line: lineAt(stripped, m.index + lead), bodyAt: m.index + m[1].length + 1, text: stripped };
-  });
+  const text = blankComments(css);
+  const rules = [];
+  const open = [];
+  const own = (frame, to) => {
+    let body = text.slice(frame.bodyAt, to);
+    for (const [from, until] of frame.blanks) {
+      const a = from - frame.bodyAt;
+      const b = until - frame.bodyAt;
+      body = body.slice(0, a) + blank(body.slice(a, b)) + body.slice(b);
+    }
+    return body;
+  };
+  let start = 0;
+  for (let at = 0; at < text.length; at++) {
+    const c = text[at];
+    if (c === '"' || c === "'") {
+      at = stringEnd(text, at) - 1;
+    } else if (c === '#' && text[at + 1] === '{') {
+      // Interpolation, `#{$name}`: part of a selector or value, not a block.
+      const end = text.indexOf('}', at);
+      at = end < 0 ? text.length : end;
+    } else if (c === ';') {
+      start = at + 1;
+    } else if (c === '{') {
+      const prelude = text.slice(start, at);
+      const lead = prelude.length - prelude.trimStart().length;
+      const parent = open.at(-1) ?? null;
+      const inherited = parent ? parent.selector : null;
+      const atRule = prelude.trimStart().startsWith('@');
+      open.push({
+        atRule,
+        name: prelude.trim(),
+        selector: atRule ? inherited : nestedSelector(inherited, prelude.trim()),
+        start,
+        bodyAt: at + 1,
+        line: lineAt(text, start + lead),
+        blanks: [],
+      });
+      start = at + 1;
+    } else if (c === '}') {
+      start = at + 1;
+      const frame = open.pop();
+      if (!frame) continue;
+      const parent = open.at(-1);
+      if (frame.atRule && frame.selector !== null && parent) {
+        // Transparent: only the at-rule's own prelude and braces, and the rules inside it, leave the parent.
+        parent.blanks.push([frame.start, frame.bodyAt], [at, at + 1], ...frame.blanks);
+        continue;
+      }
+      const body = own(frame, at);
+      if (!frame.atRule || body.trim() !== '') {
+        rules.push({
+          selector: frame.atRule ? frame.name : frame.selector,
+          body,
+          line: frame.line,
+          bodyAt: frame.bodyAt,
+          text,
+        });
+      }
+      parent?.blanks.push([frame.start, at + 1]);
+    }
+  }
+  // A rule closes after the rules nested in it; report them in the order they are written.
+  return rules.sort((a, b) => a.bodyAt - b.bodyAt);
 }
 
 /** `frame`: declarations a routed page makes on `:host` itself — `:host`, `:host(...)`, or either in a list. */
@@ -165,7 +327,11 @@ export function frameViolations(css) {
     const targetsHost = rule.selector.split(',').some((selector) => /^:host(\([^)]*\))?$/.test(selector.trim()));
     if (!targetsHost) continue;
     for (const declaration of rule.body.matchAll(FRAME_PROPERTIES)) {
-      found.push({ rule: 'frame', line: lineAt(rule.text, rule.bodyAt + declaration.index + declaration[0].indexOf(declaration[1])), what: `:host sets ${declaration[1]}` });
+      found.push({
+        rule: 'frame',
+        line: lineAt(rule.text, rule.bodyAt + declaration.index + declaration[0].indexOf(declaration[1])),
+        what: `:host sets ${declaration[1]}`,
+      });
     }
   }
   return found;
@@ -189,28 +355,42 @@ export function stylesheetViolations(css) {
   for (const rule of cssRules(css)) {
     for (const [id, names] of Object.entries(OWNED_CLASSES)) {
       for (const name of names) {
-        if (new RegExp(`\\.${name}(?![\\w-])`).test(rule.selector)) found.push({ rule: id, line: rule.line, what: `styles .${name}` });
+        if (new RegExp(`\\.${name}(?![\\w-])`).test(rule.selector))
+          found.push({ rule: id, line: rule.line, what: `styles .${name}` });
       }
     }
-    if (/\[type=["']?search["']?\]/.test(rule.selector)) found.push({ rule: 'toolbar-field', line: rule.line, what: 'styles input[type=search]' });
+    if (/\[type=["']?search["']?\]/.test(rule.selector))
+      found.push({ rule: 'toolbar-field', line: rule.line, what: 'styles input[type=search]' });
     // The head lays out what is projected into it; a feature that styles its own [cpPageHead…] slot redraws the head.
-    for (const m of rule.selector.matchAll(/\[(cpPageHead\w+)\]/g)) found.push({ rule: 'page-head', line: rule.line, what: `styles [${m[1]}]` });
+    for (const m of rule.selector.matchAll(/\[(cpPageHead\w+)\]/g))
+      found.push({ rule: 'page-head', line: rule.line, what: `styles [${m[1]}]` });
     const at = (index) => lineAt(rule.text, rule.bodyAt + index);
-    for (const m of rule.body.matchAll(/repeat\(\s*auto-(?:fill|fit)/g)) found.push({ rule: 'card-grid', line: at(m.index), what: 'lays out an auto-filling grid' });
-    for (const m of rule.body.matchAll(/position\s*:\s*fixed/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'sets position: fixed' });
-    for (const m of rule.body.matchAll(/translateX\(/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'slides with translateX' });
+    for (const m of rule.body.matchAll(/repeat\(\s*auto-(?:fill|fit)/g))
+      found.push({ rule: 'card-grid', line: at(m.index), what: 'lays out an auto-filling grid' });
+    for (const m of rule.body.matchAll(/position\s*:\s*fixed/g))
+      found.push({ rule: 'drawer', line: at(m.index), what: 'sets position: fixed' });
+    for (const m of rule.body.matchAll(/translateX\(/g))
+      found.push({ rule: 'drawer', line: at(m.index), what: 'slides with translateX' });
     // `skeleton`: a placeholder of a feature's own, by its name (`.skeleton`, `.skeleton-row`, `.shimmer`), by the
     // library's skeleton tokens or sweep, or by a keyframe that moves a background — a shimmer whatever it is called.
-    for (const m of rule.selector.matchAll(/\.((?:skeleton|shimmer)[\w-]*)/g)) found.push({ rule: 'skeleton', line: rule.line, what: `styles .${m[1]}` });
-    for (const m of rule.body.matchAll(/--cp-skeleton-[\w-]+|cp-skeleton-sweep/g)) found.push({ rule: 'skeleton', line: at(m.index), what: `draws with ${m[0]}` });
-    if (/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) && /background-position\s*:/.test(rule.body)) {
+    for (const m of rule.selector.matchAll(/\.((?:skeleton|shimmer)[\w-]*)/g))
+      found.push({ rule: 'skeleton', line: rule.line, what: `styles .${m[1]}` });
+    for (const m of rule.body.matchAll(/--cp-skeleton-[\w-]+|cp-skeleton-sweep/g))
+      found.push({ rule: 'skeleton', line: at(m.index), what: `draws with ${m[0]}` });
+    if (
+      /^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) &&
+      /background-position\s*:/.test(rule.body)
+    ) {
       found.push({ rule: 'skeleton', line: rule.line, what: 'animates a background-position shimmer' });
     }
     // `tone`: the route owns a tool's tone (AU.2.1). A part reads --cp-tone*; a feature never sets it.
-    if (/\[data-cp-tone/.test(rule.selector)) found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
-    for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g)) found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });
+    if (/\[data-cp-tone/.test(rule.selector))
+      found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
+    for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g))
+      found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });
     // The panel tokens are cp-media-card's (AU.2.6): a feature reading them is drawing a no-picture panel of its own.
-    for (const m of rule.body.matchAll(/var\(\s*--cp-tone-panel/g)) found.push({ rule: 'illustration', line: at(m.index), what: 'draws a no-picture panel from --cp-tone-panel' });
+    for (const m of rule.body.matchAll(/var\(\s*--cp-tone-panel/g))
+      found.push({ rule: 'illustration', line: at(m.index), what: 'draws a no-picture panel from --cp-tone-panel' });
   }
   return found;
 }
@@ -225,15 +405,22 @@ const FEATURE = /[\\/]src[\\/]app[\\/]features[\\/]/;
  */
 export function featureTemplateViolations(html) {
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
-  return [...markup.matchAll(/<svg[\s>]/g)].map((m) => ({ rule: 'illustration', line: lineAt(markup, m.index), what: 'draws an inline <svg>' }));
+  return [...markup.matchAll(/<svg[\s>]/g)].map((m) => ({
+    rule: 'illustration',
+    line: lineAt(markup, m.index),
+    what: 'draws an inline <svg>',
+  }));
 }
 
 export function templateViolations(html) {
   const found = [];
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
-  for (const m of markup.matchAll(/<h1[\s>]/g)) found.push({ rule: 'one-h1', line: lineAt(markup, m.index), what: 'renders an <h1>' });
-  for (const m of markup.matchAll(/data-cp-tone/g)) found.push({ rule: 'tone', line: lineAt(markup, m.index), what: 'sets data-cp-tone' });
-  for (const m of markup.matchAll(/data-cp-enter/g)) found.push({ rule: 'enter', line: lineAt(markup, m.index), what: 'sets data-cp-enter' });
+  for (const m of markup.matchAll(/<h1[\s>]/g))
+    found.push({ rule: 'one-h1', line: lineAt(markup, m.index), what: 'renders an <h1>' });
+  for (const m of markup.matchAll(/data-cp-tone/g))
+    found.push({ rule: 'tone', line: lineAt(markup, m.index), what: 'sets data-cp-tone' });
+  for (const m of markup.matchAll(/data-cp-enter/g))
+    found.push({ rule: 'enter', line: lineAt(markup, m.index), what: 'sets data-cp-enter' });
   for (const m of markup.matchAll(/\[style\.(--cp-tone[\w-]*)|(--cp-tone[\w-]*)\s*:/g)) {
     found.push({ rule: 'tone', line: lineAt(markup, m.index), what: `declares ${m[1] ?? m[2]} in a style` });
   }
@@ -243,7 +430,11 @@ export function templateViolations(html) {
     const before = markup.slice(0, m.index);
     const inside = (tag) => before.lastIndexOf(`<${tag}`) > before.lastIndexOf(`</${tag}>`);
     if (!inside('cp-search-field') && !inside('cp-field')) {
-      found.push({ rule: 'toolbar-field', line: lineAt(markup, m.index), what: 'has a search input outside cp-search-field and cp-field' });
+      found.push({
+        rule: 'toolbar-field',
+        line: lineAt(markup, m.index),
+        what: 'has a search input outside cp-search-field and cp-field',
+      });
     }
   }
   // `generated` (AU.3.1): an element whose whole text is a label for generated output is a hand-drawn label.
@@ -318,14 +509,16 @@ export function loadingViolations(markup) {
 }
 
 /** The words a feature used to mark generated output before `cp-generated-label`, and the ones it says now. */
-const GENERATED_LABEL = />\s*(Drafted by AI|Made by AI|Read by AI|Written by AI|Written for you|AI[ -]generated|AI[ -]suggested|AI draft|Generated(?: draft)?)\s*</gi;
+const GENERATED_LABEL =
+  />\s*(Drafted by AI|Made by AI|Read by AI|Written by AI|Written for you|AI[ -]generated|AI[ -]suggested|AI draft|Generated(?: draft)?)\s*</gi;
 
 /** What a routed page's own template must and must not hold. */
 export function pageTemplateViolations(html) {
   const found = [];
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
   if (!/<cp-page-head[\s>]/.test(markup)) found.push({ rule: 'page-head', line: 1, what: 'has no <cp-page-head>' });
-  for (const m of markup.matchAll(/<header[\s>]/g)) found.push({ rule: 'page-head', line: lineAt(markup, m.index), what: 'renders its own <header>' });
+  for (const m of markup.matchAll(/<header[\s>]/g))
+    found.push({ rule: 'page-head', line: lineAt(markup, m.index), what: 'renders its own <header>' });
   return found;
 }
 
@@ -353,18 +546,27 @@ export function publicStylesheetViolations(css, { hero = false } = {}) {
     const at = (index) => lineAt(rule.text, rule.bodyAt + index);
     const widths = [...rule.body.matchAll(MEASURE_PROPERTIES)];
     const sides = [...rule.body.matchAll(PADDING_PROPERTIES)].flatMap((m) =>
-      (m[1] === 'padding' ? inlinePadding(m[2]) : [m[2].trim()]).map((value) => ({ value, line: at(m.index + m[0].indexOf(m[1])) })),
+      (m[1] === 'padding' ? inlinePadding(m[2]) : [m[2].trim()]).map((value) => ({
+        value,
+        line: at(m.index + m[0].indexOf(m[1])),
+      })),
     );
     const frames = widths.length > 0 && sides.length > 0;
     for (const m of widths) {
       const value = m[2].trim();
       const line = at(m.index + m[0].indexOf(m[1]));
-      if (frames && !PUBLIC_WIDTH.test(value)) found.push({ rule: 'public-frame', line, what: `frames a section at ${value} rather than a public width` });
-      else if (!frames && !hero && LITERAL_LENGTH.test(value.replace(/var\([^)]*\)/g, ''))) found.push({ rule: 'public-frame', line, what: `caps a measure at the literal ${value}` });
+      if (frames && !PUBLIC_WIDTH.test(value))
+        found.push({ rule: 'public-frame', line, what: `frames a section at ${value} rather than a public width` });
+      else if (!frames && !hero && LITERAL_LENGTH.test(value.replace(/var\([^)]*\)/g, '')))
+        found.push({ rule: 'public-frame', line, what: `caps a measure at the literal ${value}` });
     }
     if (frames) {
       for (const side of sides.filter((s) => s.value !== 'var(--cp-public-gutter)' && s.value !== '0')) {
-        found.push({ rule: 'public-frame', line: side.line, what: `frames a section with the gutter ${side.value} rather than --cp-public-gutter` });
+        found.push({
+          rule: 'public-frame',
+          line: side.line,
+          what: `frames a section with the gutter ${side.value} rather than --cp-public-gutter`,
+        });
       }
     }
   }
@@ -376,10 +578,22 @@ export function publicTemplateViolations(html, { headline = false } = {}) {
   const found = [];
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
   const h1s = [...markup.matchAll(/<h1[\s>]/g)];
-  if (headline && h1s.length !== 1) found.push({ rule: 'public-h1', line: 1, what: `renders ${h1s.length} <h1> rather than the page's one` });
-  if (!headline) for (const m of h1s) found.push({ rule: 'public-h1', line: lineAt(markup, m.index), what: 'renders an <h1> that is not the page headline' });
+  if (headline && h1s.length !== 1)
+    found.push({ rule: 'public-h1', line: 1, what: `renders ${h1s.length} <h1> rather than the page's one` });
+  if (!headline)
+    for (const m of h1s)
+      found.push({
+        rule: 'public-h1',
+        line: lineAt(markup, m.index),
+        what: 'renders an <h1> that is not the page headline',
+      });
   for (const m of markup.matchAll(/<button\b[^>]*>/g)) {
-    if (!/\scpButton(?=[\s>=])/.test(m[0])) found.push({ rule: 'public-control', line: lineAt(markup, m.index), what: 'renders a <button> that is not cpButton' });
+    if (!/\scpButton(?=[\s>=])/.test(m[0]))
+      found.push({
+        rule: 'public-control',
+        line: lineAt(markup, m.index),
+        what: 'renders a <button> that is not cpButton',
+      });
   }
   return found;
 }
@@ -405,9 +619,14 @@ export function inlineParts(source) {
   const parts = {};
   const styles = source.match(/styles:\s*(\[[\s\S]*?\]|`[\s\S]*?`|'[^']*')\s*,?\s*\n/);
   // The array brackets and string delimiters go, or the first selector would read "[`:host" and match nothing.
-  if (styles) parts.styles = { text: styles[1].replace(/^\[|\]$/g, ' ').replace(/[`'"]/g, ' '), line: lineAt(source, styles.index + styles[0].indexOf(styles[1])) };
+  if (styles)
+    parts.styles = {
+      text: styles[1].replace(/^\[|\]$/g, ' ').replace(/[`'"]/g, ' '),
+      line: lineAt(source, styles.index + styles[0].indexOf(styles[1])),
+    };
   const template = source.match(/template:\s*`([\s\S]*?)`/);
-  if (template) parts.template = { text: template[1], line: lineAt(source, template.index + template[0].indexOf('`') + 1) };
+  if (template)
+    parts.template = { text: template[1], line: lineAt(source, template.index + template[0].indexOf('`') + 1) };
   return parts;
 }
 
@@ -424,7 +643,11 @@ export function scriptViolations(source) {
     if (part) code = code.replace(part.text, part.text.replace(/[^\n]/g, ' '));
   }
   for (const m of code.matchAll(/data-cp-tone|setProperty\(\s*['"`](--cp-tone[\w-]*)/g)) {
-    found.push({ rule: 'tone', line: lineAt(code, m.index), what: m[1] ? `sets ${m[1]} from code` : 'sets data-cp-tone from code' });
+    found.push({
+      rule: 'tone',
+      line: lineAt(code, m.index),
+      what: m[1] ? `sets ${m[1]} from code` : 'sets data-cp-tone from code',
+    });
   }
   for (const m of code.matchAll(/data-cp-enter/g)) {
     found.push({ rule: 'enter', line: lineAt(code, m.index), what: 'sets data-cp-enter from code' });
@@ -459,7 +682,8 @@ function run() {
 
   const name = (file) => relative(root, file).replace(/\\/g, '/');
   const failures = [];
-  const report = (file, offset, found) => failures.push(...found.map((f) => ({ ...f, file: name(file), line: f.line + offset })));
+  const report = (file, offset, found) =>
+    failures.push(...found.map((f) => ({ ...f, file: name(file), line: f.line + offset })));
 
   const pages = [...new Set(routedComponents(appRoutes))].filter(
     // Outside the shell, or the shell itself: none of these sits inside the frame.
@@ -475,11 +699,13 @@ function run() {
     const here = dirname(page);
     const inline = inlineParts(source);
     for (const m of source.matchAll(/styleUrls?:\s*(\[[^\]]*\]|['"][^'"]+['"])/g)) {
-      for (const url of m[1].matchAll(/['"]([^'"]+)['"]/g)) report(resolve(here, url[1]), 0, frameViolations(read(resolve(here, url[1]))));
+      for (const url of m[1].matchAll(/['"]([^'"]+)['"]/g))
+        report(resolve(here, url[1]), 0, frameViolations(read(resolve(here, url[1]))));
     }
     if (inline.styles) report(page, inline.styles.line - 1, frameViolations(inline.styles.text));
     const templateUrl = source.match(/templateUrl:\s*['"]([^'"]+)['"]/);
-    if (templateUrl) report(resolve(here, templateUrl[1]), 0, pageTemplateViolations(read(resolve(here, templateUrl[1]))));
+    if (templateUrl)
+      report(resolve(here, templateUrl[1]), 0, pageTemplateViolations(read(resolve(here, templateUrl[1]))));
     else if (inline.template) report(page, inline.template.line - 1, pageTemplateViolations(inline.template.text));
   }
 
@@ -501,7 +727,9 @@ function run() {
   // The public pages: every part rule the shell's pages answer to, and their own shape in place of the frame.
   const publicFiles = filesUnder(appDir).filter((file) => PUBLIC_PAGE.test(file) && !file.endsWith('.spec.ts'));
   if (publicFiles.filter((file) => HEADLINE.test(file)).length !== 2) {
-    console.error('check-page-contract: did not find both public headline templates, so the public pages were not checked. Update this check.');
+    console.error(
+      'check-page-contract: did not find both public headline templates, so the public pages were not checked. Update this check.',
+    );
     return 1;
   }
   for (const file of publicFiles) {
@@ -530,9 +758,17 @@ function run() {
       lines.push('', `[${id}] ${RULES[id]}`, ...mine.map((f) => `  ${f.file}:${f.line}: ${f.what}`));
     }
     if (stale.length > 0) {
-      lines.push('', 'Exemptions that excuse nothing any more — delete them from EXEMPTIONS:', ...stale.map((e) => `  ${e.file} [${e.rule}]`));
+      lines.push(
+        '',
+        'Exemptions that excuse nothing any more — delete them from EXEMPTIONS:',
+        ...stale.map((e) => `  ${e.file} [${e.rule}]`),
+      );
     }
-    lines.push('', 'Fix the file, or list it in EXEMPTIONS in scripts/check-page-contract.mjs with the reason.', 'See src/web/DESIGN-SYSTEM.md, "Composing a page".');
+    lines.push(
+      '',
+      'Fix the file, or list it in EXEMPTIONS in scripts/check-page-contract.mjs with the reason.',
+      'See src/web/DESIGN-SYSTEM.md, "Composing a page".',
+    );
     console.error(lines.join('\n'));
     return 1;
   }

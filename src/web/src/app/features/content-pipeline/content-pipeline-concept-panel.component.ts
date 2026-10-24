@@ -81,7 +81,7 @@ const PICK_SEPARATOR = '|';
     DayNotesNoticeComponent,
   ],
   templateUrl: './content-pipeline-concept-panel.component.html',
-  styleUrl: './content-pipeline-concept-panel.component.css',
+  styleUrl: './content-pipeline-concept-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineConceptPanelComponent implements OnInit {

@@ -202,7 +202,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [CpBadgeComponent, CpButtonComponent, CpNoticeComponent, CpStatusPillComponent],
   templateUrl: './recipe-food-safety.component.html',
-  styleUrl: './recipe-food-safety.component.css',
+  styleUrl: './recipe-food-safety.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeFoodSafetyComponent {

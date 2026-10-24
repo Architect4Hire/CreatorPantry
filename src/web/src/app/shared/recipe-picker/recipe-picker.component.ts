@@ -101,7 +101,7 @@ const FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved'
     CpSkeletonComponent,
   ],
   templateUrl: './recipe-picker.component.html',
-  styleUrl: './recipe-picker.component.css',
+  styleUrl: './recipe-picker.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipePickerComponent {

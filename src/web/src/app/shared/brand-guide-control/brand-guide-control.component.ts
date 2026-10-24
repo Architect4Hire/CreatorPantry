@@ -45,7 +45,7 @@ let nextId = 0;
   standalone: true,
   imports: [CpButtonComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent],
   templateUrl: './brand-guide-control.component.html',
-  styleUrl: './brand-guide-control.component.css',
+  styleUrl: './brand-guide-control.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideControlComponent {

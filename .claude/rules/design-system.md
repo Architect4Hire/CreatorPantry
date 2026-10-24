@@ -8,9 +8,9 @@ The installed Angular 22 design system is the visual source of truth. Do not cre
 - Workspace instructions: `src/web/CLAUDE.md`
 - Library: `src/web/projects/creator-pantry-ui/`
 - Public API: `src/web/projects/creator-pantry-ui/src/public-api.ts`
-- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.css`
-- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.css`
-- Global styles: `src/web/projects/creator-pantry-ui/src/lib/styles/global.css`
+- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.scss`
+- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.scss`
+- Global styles: `src/web/projects/creator-pantry-ui/src/lib/styles/global.scss`
 - Showcase: `src/web/src/app/`
 
 ## Visual contract
@@ -23,10 +23,10 @@ A tool's tone is applied with `data-cp-tone="purple|pink|blue|orange"`, set by t
 
 Consumers import the CSS foundation exactly once, in this order:
 
-```css
-@import '@creator-pantry/ui/styles/tokens.css';
-@import '@creator-pantry/ui/styles/themes.css';
-@import '@creator-pantry/ui/styles/global.css';
+```scss
+@use "@creator-pantry/ui/styles/tokens";
+@use "@creator-pantry/ui/styles/themes";
+@use "@creator-pantry/ui/styles/global";
 ```
 
 ## Implemented public API
@@ -89,4 +89,3 @@ Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are def
 9. Verify WCAG 2.2 AA, keyboard operation, visible focus, screen-reader naming, 200% zoom, narrow layout, long content, both themes, and reduced motion.
 
 Generated `dist/` output and `node_modules/` are never committed.
-

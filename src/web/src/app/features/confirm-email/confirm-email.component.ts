@@ -10,7 +10,7 @@ type ConfirmState = 'confirming' | 'success' | 'invalid_link' | 'unavailable' | 
   standalone: true,
   imports: [RouterLink],
   templateUrl: './confirm-email.component.html',
-  styleUrl: './confirm-email.component.css',
+  styleUrl: './confirm-email.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ConfirmEmailComponent {

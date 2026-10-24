@@ -62,7 +62,7 @@ import { ContentPipelineStagedImageComponent } from './content-pipeline-staged-i
     ContentPipelineStagedImageComponent,
   ],
   templateUrl: './content-pipeline-image-lightbox.component.html',
-  styleUrl: './content-pipeline-image-lightbox.component.css',
+  styleUrl: './content-pipeline-image-lightbox.component.scss',
   host: { '(keydown)': 'onKeydown($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

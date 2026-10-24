@@ -164,7 +164,7 @@ const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on thi
     CpTopicCardComponent,
   ],
   templateUrl: './brand-setup-shell.component.html',
-  styleUrl: './brand-setup-shell.component.css',
+  styleUrl: './brand-setup-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupShellComponent {

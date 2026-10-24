@@ -92,7 +92,7 @@ export const DEFAULT_VALUE_PROPS: readonly LandingValueProp[] = [
   standalone: true,
   imports: [CpCardComponent, CpBadgeComponent, CpCardGridComponent],
   templateUrl: './landing-value-props.component.html',
-  styleUrl: './landing-value-props.component.css',
+  styleUrl: './landing-value-props.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingValuePropsComponent {

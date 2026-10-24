@@ -234,7 +234,7 @@ function newKey(): string {
     CpTopicCardComponent,
   ],
   templateUrl: './workflows-hub.component.html',
-  styleUrl: './workflows-hub.component.css',
+  styleUrl: './workflows-hub.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkflowsHubComponent {

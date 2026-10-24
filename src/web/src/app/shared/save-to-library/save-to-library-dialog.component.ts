@@ -128,7 +128,7 @@ const IDS = {
     CpSkeletonComponent,
   ],
   templateUrl: './save-to-library-dialog.component.html',
-  styleUrl: './save-to-library-dialog.component.css',
+  styleUrl: './save-to-library-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SaveToLibraryDialogComponent {
