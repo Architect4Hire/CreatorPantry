@@ -60,7 +60,9 @@
           <cp-notice tone="warning" role="alert">The brand settings couldn't be saved right now. Your edits are still here; try again.</cp-notice>
         }
         @case ('invalid') {
-          <cp-notice tone="warning" role="alert">Some details need another look. They are marked below.</cp-notice>
+          @if (showInvalidBanner()) {
+            <cp-notice tone="warning" role="alert">Some details need another look. They are marked below.</cp-notice>
+          }
         }
       }
 
@@ -324,7 +326,7 @@
                     autocomplete="off"
                     [maxlength]="limits.reasonMaxLength"
                     [ngModel]="reason()"
-                    (ngModelChange)="reason.set($event)"
+                    (ngModelChange)="setReason($event)"
                   />
                 </cp-field>
               }

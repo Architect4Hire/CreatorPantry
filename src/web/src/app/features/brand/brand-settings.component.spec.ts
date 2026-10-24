@@ -361,15 +361,17 @@ describe('BrandSettingsComponent', () => {
     expect(button('Create brand settings').disabled).toBeFalse();
   });
 
-  it('says a blank name is missing once the creator leaves the field, and not before', async () => {
+  it('says at the field that a blank name is missing once the creator leaves it, and not before', async () => {
     await create({ read: { status: 'first_use' } });
+    // The field's own message; the list below Save says it from the start, see the summary specs.
+    const field = () => input('brand-name').closest('cp-field')!.textContent ?? '';
 
-    expect(text()).not.toContain('A brand needs a name.');
+    expect(field()).not.toContain('A brand needs a name.');
 
     input('brand-name').dispatchEvent(new Event('blur'));
     await settle();
 
-    expect(text()).toContain('A brand needs a name.');
+    expect(field()).toContain('A brand needs a name.');
     expect(input('brand-name').getAttribute('aria-invalid')).toBe('true');
 
     await type('brand-name', "Sam's Kitchen");
@@ -428,8 +430,8 @@ describe('BrandSettingsComponent', () => {
     expect(spies.update).toHaveBeenCalled();
     await type('brand-name', '');
 
-    // The field was left before the save; after it, the form is a fresh start and waits for the next blur.
-    expect(text()).not.toContain('A brand needs a name.');
+    // The field was left before the save; after it, the form is a fresh start and the field waits for the next blur.
+    expect(input('brand-name').closest('cp-field')!.textContent).not.toContain('A brand needs a name.');
   });
 
   it('says once that the asterisk marks a required field, for a screen reader as well', async () => {
@@ -483,18 +485,88 @@ describe('BrandSettingsComponent', () => {
     expect(document.activeElement).toBe(root().querySelector('li.row input[type="url"]'));
   });
 
-  it('lists a problem the form found itself as soon as the field is left', async () => {
+  it('says below a disabled Save what holds it back, before any field has been left', async () => {
     await create({ read: { status: 'first_use' } });
 
-    input('brand-name').dispatchEvent(new Event('blur'));
-    await settle();
-
+    // Save is held back from the start, so the list under it says why from the start too. The field itself still
+    // waits for the creator to leave it before it says anything.
+    expect(button('Create brand settings').disabled).toBeTrue();
     const summary = root().querySelector('cp-validation-summary')!;
     expect(summary.querySelectorAll('li').length).toBe(1);
     expect(summary.querySelector('.where')?.textContent).toBe('Brand name');
+    expect(input('brand-name').closest('cp-field')!.textContent).not.toContain('A brand needs a name.');
 
     await type('brand-name', "Sam's Kitchen");
     expect(summary.querySelector('section')).toBeNull();
+    expect(button('Create brand settings').disabled).toBeFalse();
+  });
+
+  it('names a stored link the rules refuse, so Save is never disabled with nothing on screen to say why', async () => {
+    await create({ read: { status: 'found', profile: profile({ links: [{ kind: 'Website', url: 'example.com', label: null }] }) } });
+
+    expect(button('Save changes').disabled).toBeTrue();
+    const summary = root().querySelector('cp-validation-summary')!;
+    expect(summary.querySelector('.where')?.textContent).toBe('Link 1 address');
+
+    summary.querySelector('button')!.click();
+    await settle();
+    expect(document.activeElement).toBe(root().querySelector('li.row input[type="url"]'));
+  });
+
+  it('drops the server’s word about a field the moment the creator changes it', async () => {
+    await create();
+    spies.update.and.resolveTo({
+      status: 'validation_failed',
+      fieldErrors: { locale: ['Use a language tag such as en-US.'], shortDescription: ['Too long.'] },
+    });
+    await type('brand-default-audience', 'X');
+    await save();
+    expect(text()).toContain('Use a language tag such as en-US.');
+
+    await type('brand-short-description', 'Shorter.');
+
+    // The edited field's refusal is gone, from the field and from the list; the other one stays until it is acted on.
+    expect(input('brand-short-description').closest('cp-field')!.textContent).not.toContain('Too long.');
+    const summary = root().querySelector('cp-validation-summary')!;
+    expect(Array.from(summary.querySelectorAll('.where')).map((where) => where.textContent)).toEqual(['Language']);
+    expect(text()).toContain('Some details need another look');
+  });
+
+  it('stops saying details are marked below once every refusal has been acted on', async () => {
+    await create();
+    spies.update.and.resolveTo({ status: 'validation_failed', fieldErrors: { shortDescription: ['Too long.'] } });
+    await type('brand-default-audience', 'X');
+    await save();
+    expect(text()).toContain('Some details need another look');
+
+    await type('brand-short-description', 'Shorter.');
+
+    expect(text()).not.toContain('Some details need another look');
+    expect(root().querySelector('cp-validation-summary section')).toBeNull();
+  });
+
+  it('drops the server’s word about every link row when one is removed, since the rows after it move up', async () => {
+    await create({
+      read: {
+        status: 'found',
+        profile: profile({
+          links: [
+            { kind: 'Website', url: 'https://example.com', label: null },
+            { kind: 'Website', url: 'https://example.org', label: null },
+          ],
+        }),
+      },
+    });
+    spies.update.and.resolveTo({ status: 'validation_failed', fieldErrors: { 'links[1].url': ['Each link can be listed once.'] } });
+    await type('brand-default-audience', 'X');
+    await save();
+    expect(root().querySelectorAll('li.row')[1].textContent).toContain('Each link can be listed once.');
+
+    root().querySelectorAll<HTMLButtonElement>('li.row button')[0].click();
+    await settle();
+
+    // Row 1 is now row 0; pinning the old message on it would blame a link for being a duplicate it no longer is.
+    expect(text()).not.toContain('Each link can be listed once.');
   });
 
   it('shows server field errors beside the fields and focuses the first', async () => {
