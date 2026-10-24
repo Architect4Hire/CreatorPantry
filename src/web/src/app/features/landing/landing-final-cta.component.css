@@ -13,7 +13,7 @@ h2 {
   margin: 0 0 var(--cp-space-6);
   color: var(--cp-text);
   font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-xl);
+  font-size: var(--cp-font-size-title);
   font-weight: 500;
 }
 

@@ -1,0 +1,48 @@
+@if (renders()) {
+  @if (assets; as pictures) {
+    @if (rates(); as rates) {
+      <section class="compare" aria-labelledby="landing-compare-heading">
+      <h2 id="landing-compare-heading">{{ heading }}</h2>
+      <p class="intro">{{ intro }}</p>
+
+      <figure class="pair">
+        <!--
+          Both pictures are in the page and both are described; the top one is clipped to wherever the divider
+          is. A reader who never touches the divider still has the draft and the finish in front of them.
+        -->
+        <div class="stage" [style.--reveal.%]="reveal()">
+          <!-- Each alt says only which of the two it is; what they both show is in the caption, said once. -->
+          <img class="shot draft" [src]="pictures.draftSrc" [width]="pictures.width" [height]="pictures.height" alt="The draft" decoding="async" />
+          <img class="shot final" [style.clip-path]="finalClip()" [src]="pictures.finalSrc" [width]="pictures.width" [height]="pictures.height" alt="The finished picture" decoding="async" />
+          <span class="seam" aria-hidden="true"></span>
+        </div>
+
+        <label class="divider">
+          <span class="cp-sr-only">How much of the finished picture to show</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            [value]="reveal()"
+            [attr.aria-valuetext]="revealText()"
+            (input)="revealChanged($event)"
+          />
+        </label>
+
+        <figcaption>
+          <span class="side">
+            <span class="label">Draft</span>
+            <span class="cost">about {{ formatCredits(rates.imageDraft) }} credits</span>
+          </span>
+          <span class="side">
+            <span class="label">Finished</span>
+            <span class="cost">about {{ formatCredits(rates.imageHigh) }} credits</span>
+          </span>
+          <span class="prompt">Both show {{ pictures.alt }}, from: “{{ pictures.prompt }}”</span>
+        </figcaption>
+      </figure>
+      </section>
+    }
+  }
+}

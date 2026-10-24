@@ -30,6 +30,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
  * list, a word on a button. The specs guard the first half; nothing guarded the second.
  */
 export const WATCHED = [
+  // The landing page's FAQ answers the one question on a public page a reader's health could turn on. It is
+  // answered with a refusal, and a refusal is one edit away from an assurance, so it is watched like a panel.
+  'src/app/features/landing/landing-faq.component.html',
+  'src/app/features/landing/landing-faq.component.ts',
   'src/app/features/recipes/recipe-dietary-allergen.component.html',
   'src/app/features/recipes/recipe-dietary-allergen.component.ts',
   'src/app/features/recipes/recipe-nutrition.component.html',
@@ -61,6 +65,9 @@ export const FORBIDDEN = [
  * their screens — the server's own disclaimer among them.
  */
 export const DENIALS = [
+  // The FAQ's allergen answer. "Never a guarantee" is the denial itself, so the word has to be allowed here
+  // and nowhere else in that file.
+  "they're never a guarantee",
   'it is not a clearance',
   'not a statement about what these lines contain',
   'not a statement that these lines suit anyone',
@@ -171,7 +178,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   console.error(
-    `check-safety-copy: ${WATCHED.length} files across 3 safety screens assert nothing their records cannot ` +
+    `check-safety-copy: ${WATCHED.length} files across ${WATCHED.length / 2} safety screens assert nothing their records cannot ` +
       `support (${DENIALS.length} denials listed).`,
   );
 }

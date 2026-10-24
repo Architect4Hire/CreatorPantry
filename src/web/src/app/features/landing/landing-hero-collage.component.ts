@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { DOCUMENT } from '@angular/common';
 import { CpThemeService } from '@creator-pantry/ui';
 
-import { HERO_COLLAGE_PHOTOS } from './food-image.service';
+import { FoodImageService, dealHeroCollage } from './food-image.service';
 
 /**
  * A real capture of an AI Recipe Studio first draft's "Keep this draft?" step — Create recipe from this draft,
@@ -23,6 +23,9 @@ export const PARALLAX_QUERY = '(prefers-reduced-motion: no-preference) and (poin
  * The hero's media: three food photos and a proposal card, layered and turned a little, over colour blocks in the
  * fruit accents. Wholly decorative, so the host is `aria-hidden` and every image has empty alt.
  *
+ * The three photos are dealt from the page's {@link FoodImageService}, so the first screen is a different scatter on
+ * every load and the trios further down still repeat none of them.
+ *
  * Nothing shifts as it loads: the collage reserves its own aspect ratio and each image carries its intrinsic size.
  *
  * **The drift.** While the hero is on screen, the pointer's place in the window is written to `--px` and `--py`
@@ -40,7 +43,7 @@ export const PARALLAX_QUERY = '(prefers-reduced-motion: no-preference) and (poin
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingHeroCollageComponent {
-  protected readonly photos = HERO_COLLAGE_PHOTOS;
+  protected readonly photos = dealHeroCollage(inject(FoodImageService));
   protected readonly capture = PROPOSAL_CAPTURE;
   private readonly theme = inject(CpThemeService);
   protected readonly captureSrc = computed(() => PROPOSAL_CAPTURE[this.theme.resolved()]);

@@ -1,0 +1,44 @@
+@if (stops().length) {
+  <section class="tour" aria-labelledby="landing-tour-heading">
+    <h2 id="landing-tour-heading">{{ heading() }}</h2>
+    <p class="intro">{{ intro() }}</p>
+    @for (stop of stops(); track stop.panel) {
+      <span class="anchor" [id]="'tour-' + stop.panel"></span>
+    }
+    <cp-tabs [tabs]="tabs()" ariaLabel="Product tour" [selectedId]="selected()" (selectedIdChange)="onSelected($event)">
+      <div class="stage">
+        <div class="copy">
+          @for (stop of stops(); track stop.panel) {
+            <cp-tab-panel [id]="stop.panel">
+              <p class="promise">{{ stop.promise }}</p>
+              @if (stop.badgeLabel) {
+                <cp-badge [tone]="stop.badgeTone ?? 'neutral'">{{ stop.badgeLabel }}</cp-badge>
+              }
+              <ul>
+                @for (benefit of stop.benefits; track benefit) {
+                  <li>{{ benefit }}</li>
+                }
+              </ul>
+            </cp-tab-panel>
+          }
+        </div>
+        <!--
+          Decorative, which holds only while a screenshot shows nothing its panel's promise and bullets do not
+          already name. A capture that starts saying something of its own needs describing, not hiding.
+        -->
+        <figure class="frame" aria-hidden="true">
+          <span class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+          <span class="shots">
+            @for (picture of pictures(); track picture.panel) {
+              <picture class="shot" [class.current]="isCurrent(picture.panel)">
+                <source type="image/avif" [srcset]="picture.avif" />
+                <source type="image/webp" [srcset]="picture.webp" />
+                <img [src]="picture.src" [width]="picture.width" [height]="picture.height" alt="" decoding="async" />
+              </picture>
+            }
+          </span>
+        </figure>
+      </div>
+    </cp-tabs>
+  </section>
+}

@@ -64,7 +64,12 @@ export class CpTabsComponent {
     this.focusTab(target.id);
   }
 
-  private focusTab(id: string): void {
+  /**
+   * Puts keyboard focus on a tab. Public because a consumer may select a tab from elsewhere on the page — an
+   * in-page link that names a panel, say — and focus has to follow the selection, or the reader is left where
+   * they clicked with nothing said about what changed.
+   */
+  focusTab(id: string): void {
     // Scoped to this instance's own tablist rather than the whole host: the host also contains the
     // projected panels, so an unscoped query reaches a nested cp-tabs' buttons and would let an ancestor
     // steal focus from a descendant whenever two levels happen to share a tab id.

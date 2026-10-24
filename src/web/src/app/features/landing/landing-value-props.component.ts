@@ -100,6 +100,13 @@ export class LandingValuePropsComponent {
   readonly heading = input('What’s in CreatorPantry today');
   readonly intro = input('No roadmap slides. Each of these is in the product now, and scheduling is on its way to every account.');
   readonly items = input<readonly LandingValueProp[]>(DEFAULT_VALUE_PROPS);
-  // Off until the tour exists (LP.5), so no card links to a panel the page does not have.
-  readonly tourLinks = input(false);
+  /**
+   * The tour's panels, which is to say the ones that have been photographed. A card links to its panel only when
+   * it is in here, so a card never offers a visitor a tour stop the page does not have; with none, no card links.
+   */
+  readonly tourPanels = input<readonly LandingTourPanel[]>([]);
+
+  protected onTour(panel: LandingTourPanel | undefined): boolean {
+    return panel !== undefined && this.tourPanels().includes(panel);
+  }
 }

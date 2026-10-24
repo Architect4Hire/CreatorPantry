@@ -25,6 +25,22 @@ Print is always light. Browsers leave backgrounds off a printed page, so `themes
 - Uppercase micro-label, tracked at `--cp-tracking-kicker`: a category line, as a blog sets one over a headline. The breadcrumb (`cpBackLink`) and the sidebar's group labels are the two places it appears; it is not for emphasis.
 - The page title is one size on every page: `--cp-font-size-title` (fluid, about 2.1rem on a phone to 2.9rem on a wide screen), Fredoka at weight 500. It is the `h1` `CpPageHeadComponent` prints, over a hairline that closes the head off from the page, and a card heading on the same page sits a step below it at `--cp-font-size-xl`.
 - A public page's one headline — the landing hero's `h1` — is the exception, and the only one: `--cp-font-size-display` (40px on a phone to 76px on a wide screen) at `--cp-leading-display`, Fredoka at weight 600, still untracked. It never appears inside the app shell. One phrase in it may carry a hand-drawn underline in a fruit accent; the underline is decoration and the sentence reads the same without it.
+- **A public page reads at one size.** Every piece of body copy on the landing page — a card's paragraph, a
+  section's intro, a bullet, the proof note under the CTAs, the footer's links — is `--cp-font-size-lg`, the size
+  of the hero's lede. A marketing page is skimmed, and a section that shrinks its text to fit more in reads as
+  busy and is harder to read, so nothing on it steps down to `--cp-font-size-sm`, `-md` or `-xs`. Headings step
+  up from that body size, not down to meet it: a section heading is `--cp-font-size-title`, and a card, step or
+  panel heading `--cp-font-size-xl`. A figure the page is built around — a price — may be larger still. What is
+  exempt is anything that is not body copy: a control keeps the control scale (a button's label, a tab), and so
+  does a one-word status in a `cp-badge`. A badge carrying a whole sentence is body copy and takes the body
+  size. This is the public page only; inside the shell the scale above applies.
+
+A public page's data sections answer to the same states as any other, with one deliberate exception, written
+down here so it reads as a decision rather than an omission: **the pricing section renders nothing at all when
+the catalogue is empty.** A deployment that publishes no plans and a gateway that cannot be reached are the
+same thing to a visitor — there is no pricing to show — and a marketing page that showed a visitor an error
+about a catalogue would be telling them something they can neither use nor act on. The failure is the
+operator's to see, not the reader's.
 
 ## Composing a page
 
@@ -313,6 +329,10 @@ Toolbar arrow-key navigation (`CpToolbarComponent`) yields the arrow, `Home` and
 Its "More actions" disclosure appears only when the consumer projects something into `[cpToolbarOverflow]`. A control that opens onto an empty popover is a dead end for every user and a mislabeled target for a screen reader, so an empty slot hides the disclosure entirely — which also drops it out of the roving-tabindex sweep.
 
 `CpTabsComponent`'s tablist wraps onto more rows rather than scrolling sideways. SC 1.4.10 (Reflow) asks for no horizontal scrolling at 320 CSS px, and a row of tabs is not two-dimensional content that earns the exception, so a long list that cannot fit gets a second row where a scroller would have hidden tabs off the edge. Each tab also carries `min-height: 2.5rem`, because the label's own line box left the target around 32px — short of the 40px above.
+
+A consumer that selects a tab from elsewhere on the page — an in-page link that names a panel, say — calls
+`selectTab(id)` and then `focusTab(id)`, because the selection is silent: without focus following it, a reader is
+left where they clicked with nothing said about the panel that changed.
 
 A `cp-tabs` may be nested inside another's `cp-tab-panel`; the recipe editor's Edit area does exactly that, with the form's three tabs inside it. Give each tablist its own `ariaLabel`, and keep tab ids unique across the two levels for the sake of the `panel-<id>`/`tab-<id>` element ids the panels are wired up with. Keyboard focus is safe either way: the outer tablist is a sibling of the projected panels rather than an ancestor, so an inner keypress never reaches the outer handler, and each instance's focus lookup is scoped to its own tablist rather than to its whole host subtree.
 

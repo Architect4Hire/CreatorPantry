@@ -1,0 +1,66 @@
+@if (renders() && rates(); as rates) {
+  <section class="credits" aria-labelledby="landing-credits-heading">
+    <h2 id="landing-credits-heading">{{ heading }}</h2>
+    <p class="intro">{{ intro }}</p>
+
+    <div class="board">
+      <h3 id="landing-credits-menu">What one of each costs</h3>
+      <ul aria-labelledby="landing-credits-menu">
+        @for (line of menu; track line.label) {
+          <li>
+            <span class="item">{{ line.label }}</span>
+            <span class="dots" aria-hidden="true"></span>
+            <span class="cost">{{ formatCredits(line.rateOf(rates)) }} credits</span>
+          </li>
+        }
+      </ul>
+      <p class="typical">Typical figures. What a run costs is settled against the work the model actually did.</p>
+    </div>
+
+    <div class="estimator">
+      <h3 id="landing-credits-estimator">Which plan fits what you make?</h3>
+
+      <cp-field label="Pictures a month" forId="landing-credits-pictures" hint="At standard quality.">
+        <input
+          id="landing-credits-pictures"
+          type="range"
+          [min]="pictures.min"
+          [max]="pictures.max"
+          [step]="pictures.step"
+          [value]="picturesAMonth()"
+          [attr.aria-valuetext]="formatCredits(picturesAMonth()) + ' pictures a month'"
+          (input)="picturesChanged($event)"
+        />
+      </cp-field>
+      <p class="slider-value">{{ formatCredits(picturesAMonth()) }} pictures</p>
+
+      <cp-field label="AI writing a month" forId="landing-credits-writing" hint="Drafts and posts, each priced as a text draft.">
+        <input
+          id="landing-credits-writing"
+          type="range"
+          [min]="writing.min"
+          [max]="writing.max"
+          [step]="writing.step"
+          [value]="writingAMonth()"
+          [attr.aria-valuetext]="formatCredits(writingAMonth()) + ' writing actions a month'"
+          (input)="writingChanged($event)"
+        />
+      </cp-field>
+      <p class="slider-value">{{ formatCredits(writingAMonth()) }} writing actions</p>
+
+      <p class="result">
+        <!--
+          The figure changes every frame while it counts, so it is hidden from assistive technology and the
+          settled number is said once, in the live region below, where the content changes only when the
+          estimate does. A region holding the counter would announce twenty times a drag.
+        -->
+        <span class="figure" aria-hidden="true">{{ formatCredits(shownEstimate()) }}</span>
+        <span class="unit" aria-hidden="true">credits a month, estimated at typical figures</span>
+        <!-- `role="status"` is already a polite live region; `aria-live` as well would say it twice. -->
+        <span class="verdict" role="status">
+          <span class="cp-sr-only">{{ formatCredits(estimate()) }} credits a month, estimated. </span>{{ verdict() }}
+        </span>
+      </p>
+    </div>
+  </section>
+}

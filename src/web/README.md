@@ -17,6 +17,27 @@ script (see `DESIGN-SYSTEM.md`, "What the build checks"). The
 publishable library is emitted to `dist/creator-pantry-ui`, and the showcase bundle to
 `dist/showcase/browser`, which `dotnet publish` copies into `CreatorPantry.Web`.
 
+### The landing page's tour screenshots
+
+The product tour on the public landing page shows real screens, photographed from a running product with
+`npm run capture:tour` (`scripts/capture-tour.mjs`). It signs in, visits each panel's screen in both themes at
+1280×800, writes AVIF and WebP at 1x and 2x into `public/images/tour/`, and rewrites the generated
+`src/app/features/landing/landing-tour.captures.ts`. The tour shows the panels that file lists and nothing else,
+so before the first capture the section is simply absent from the page.
+
+```bash
+CAPTURE_BASE_URL=https://localhost:<gateway port> \
+CAPTURE_EMAIL=you@example.com CAPTURE_PASSWORD=... \
+npm run capture:tour
+```
+
+It photographs the sample workspace named in the script's `SAMPLE_WORKSPACES` — `maple-thyme`, which a dedicated
+capture account owns, so no real creator's work reaches the public page — and refuses any other. It also refuses
+a screen that does not visibly show the thing its panel promises, so a panel whose AI work has not been done in that workspace fails by name
+rather than shipping a picture of an empty product. The AI work itself — the concepts, pictures, posts, outlines
+and voice guide — costs credits and a configured provider, so it is done once by hand before the run; a screen
+that lives at an address no script can guess is passed in as, for example, `CAPTURE_URL_LONG_FORM`.
+
 In a development build, `/design-system` renders every state of every primitive (variants, sizes,
 disabled, error, empty, overflow) for visual review. The route only exists when `isDevMode()` is
 true, so it is absent from production builds.

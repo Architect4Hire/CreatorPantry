@@ -218,7 +218,7 @@ BEHAVIOR: Show a static mock (screenshots) and the motion spec; wait for approva
 component and a11y specs.
 ```
 
-## LP.5 Product tour with real screenshots
+## LP.5 Product tour with real screenshots - done
 
 ```text
 SCOPE: Add LandingTourComponent: a tabbed (or scroll-linked on wide screens) tour of AI Recipe Studio,
@@ -235,7 +235,71 @@ BEHAVIOR: Show the panel list, the seed data and the capture plan; wait for appr
 the component and specs.
 ```
 
-## LP.6 Pricing section from the plan catalogue
+*Delivery note (2026-10-24): the component, the capture script and the specs ship; the screenshots do not, because
+the five AI panels need a configured provider and real credits, and the publishing panel needs Buffer configured
+for the sample workspace. So the tour is built to be empty until it is photographed:
+`landing-tour.captures.ts` is generated and starts as an empty list, `LandingTourComponent` renders nothing while
+it is, and `landing.component.ts` leaves the value props' `tourLinks` off for the same reason. `npm run capture:tour`
+(`scripts/capture-tour.mjs`, Playwright and sharp, both new devDependencies) signs in to a running app, photographs
+each panel in both themes at 1280×800 and deviceScaleFactor 2, writes AVIF and WebP at 1x and 2x into
+`public/images/tour/`, and rewrites the generated file — so the page lights up with no hand edit.*
+
+*Three decisions, approved before implementation: no JPEG tier (every browser that runs Angular 22 reads WebP and
+AVIF, so the fallback would have been 24 files nothing fetches), tabs at every width rather than scroll-linking on
+wide screens, and both themes. Two guards keep the restriction about creators' content honest: the script refuses
+any workspace but the sample one named in `SAMPLE_WORKSPACES`, and it refuses to photograph a screen showing a
+`cp-empty-state` or holding no cards, failing that panel by name instead of shipping a picture of an empty product.
+It also reads `TOUR_STOPS` back out of the component and fails if the two lists of panels have drifted.*
+
+*The copy is LP.2 section 4 verbatim, including the publishing panel's **Coming to every account** badge. The
+screenshot frame sits beside the panels rather than inside them — the pictures are decorative, every word in them
+is in the promise and the bullets — which is also what lets one fade into the next; a picture is mounted the first
+time its tab is chosen, so the page loads one screenshot and not six.*
+
+*design-review raised four things, all fixed. A second click on a link a visitor had already followed changed no
+address and so raised no `hashchange`, leaving the tour scrolled into view on the wrong panel — the tour now
+watches clicks on `a[href^="#tour-"]` as well, and writes the selected panel back with `replaceState` once (and
+only once) the address already names one. A hash-driven selection was silent and left focus on the link, so it now
+moves focus to the tab; `CpTabsComponent.focusTab` became public for it, documented in `DESIGN-SYSTEM.md` beside
+`selectTab`. The capture script stamped today's date on a panel it had failed to re-photograph, so it now keeps an
+earlier run's own date for any panel this run did not take in both themes. And the comment claiming the hero's
+largest paint is the preloaded logo was wrong — the front photo is drawn larger — so it says plainly instead that
+the dealt photo may be the LCP element and that LP.11 is where that gets measured. Accepted rather than changed:
+the frame sits below the bullets at narrow widths, and the feature keeps its own browser-frame styling until a
+second consumer earns a library part.*
+
+*Captured on 2026-10-24: **two of the six panels**, AI Recipe Studio and Image Studio, both in light and dark.
+The other four have nothing to photograph — the sample workspace has no content pipeline run, no long-form draft,
+no activated voice guide, and Buffer is not configured — so the script refused them by name and the tour ships
+with the two. A value-prop card links to its panel only when the tour has it (`tourPanels`, from
+`CAPTURED_TOUR_PANELS`), so the four waiting cards carry no link rather than pointing at a stop that is not there.
+Re-running the capture with the other four addresses adds them with no code change.*
+
+*Two guards earned their place during that run. A panel's `proof` — the words that show the work is on screen —
+has to be **visible**, not merely in the DOM: the first run photographed an empty brief form while the concepts
+sat below the fold and the pictures sat in an unselected tab, and both passed. The proof is now scrolled into
+view before the shot, and the Image Studio panel clicks through to its pictures first (`prepare`). The blanket
+"no `cp-empty-state`" rule went: a screen full of real work still carries small empty notes beside it. The second
+guard is `requiresUrl`: the pipeline, long-form, brand-guide and publishing screens exist only at an id of their
+own, so their hub page is never photographed in their place.*
+
+*The capture account and its sample workspace live in the developer's own database: `maple-thyme`, owned by
+`tour-capture@creatorpantry.local`, holding one set of AI concepts and two generated pictures saved to the
+library. Nothing of a real creator's is on the page.*
+
+*And, also at the owner's request: the hero collage's three photos are dealt at random
+from the page's `FoodImageService` rather than fixed (`dealHeroCollage`), so the first screen differs on every
+load. LP.4's reason for fixing them does not apply — the page's largest paint is the preloaded logo, not a photo,
+and the collage still reserves its aspect ratio and each image its intrinsic size. The trios below still repeat
+none of the hero's, because all three now deal from the same pool.*
+
+*A second owner request landed with it: the landing page's type was too varied to read easily. Body copy across
+every section is now one size — `--cp-font-size-lg`, the hero's lede — with headings stepping up from it rather
+than down to meet it (`--cp-font-size-title` for a section, `--cp-font-size-xl` for a card, step or panel). That
+also answers LP.1 finding 9's 13–15px card bodies and 11px proof note. The rule is written down in
+`DESIGN-SYSTEM.md` under the type scale, as a public-page rule only.*
+
+## LP.6 Pricing section from the plan catalogue - done
 
 ```text
 SCOPE: Add an anonymous, read-only GET for the public plan catalogue through the gateway (plan key, name,
@@ -257,7 +321,55 @@ BEHAVIOR: Show the route, the ViewModel and the card/table layout; wait for appr
 endpoint and component tests and an OpenAPI snapshot diff.
 ```
 
-## LP.7 "What do credits buy?" explainer and plan estimator
+*Delivery note (2026-10-24): shipped, including the dependency it names. **AP.4.1 had not been written**, so
+there was no catalogue to read: this change builds its configuration half — `Billing:Plans` and `Billing:Packs`
+bound and validated at startup in a new `Modules/Billing` (Facade, Business, Managers; no Data area, so it
+joins `ProjectionModules` with its reason) — and leaves the `AccountPlan` table and everything that reads a plan
+to AP.4.1 proper. The owner approved that split, and approved seeding development with the pricing analysis's
+"Proposed, awaiting the owner" figures while the real ones wait.*
+
+*`GET /api/v1/plans` is anonymous — the only product route outside `auth` that is — because the catalogue is
+configuration a deployment chose to publish, with no account, workspace or usage in it. It carries
+`Cache-Control: public, max-age=300`, set after the answer rather than before, and the gateway gives it its own
+YARP route with a `public-catalogue` rate limit of 60 a minute per address. `Billing:PublishPlans` is off in
+`appsettings.json` and on in `appsettings.Development.json` alone; with it off the route answers 200 with empty
+lists, because an unpublished catalogue is a state rather than a missing resource, and the section then renders
+nothing. The OpenAPI snapshot was regenerated and its diff is purely additive: one path, three schemas, a tag.*
+
+*One existing assertion was tightened rather than worked around: `OpenApiContractTests` forbade any key beginning
+`"example`, which the catalogue's `exampleMix` field tripped. It now forbids `"example":` and `"examples":`
+exactly — OpenAPI's own sample keywords, which is what that check was protecting — and says so.*
+
+*The component carries no figure of its own: prices, credits, caps and the yearly saving all arrive at runtime.
+The toggle is a real radio group (`CpChoiceGroupComponent`) named by the question printed above it, the
+recommended plan is marked in words and by a 2px edge rather than a colour swap, and the comparison is a real
+`<table>` in a named, focusable scroller behind an `aria-expanded` disclosure. The price counts between the two
+figures and never counts under reduced motion.*
+
+*api-contract-checker and design-review both ran. Fixed from their findings: two animation loops could run at
+once and clear each other mid-count (one generation wins, and a count continues from the figure on screen);
+`li { display: flex }` was unscoped and stripped the list semantics from each card's own list; the card showed a
+monthly figure and a saving but never what a year costs (it now says "Billed yearly at ..."); the CTAs used a
+bare `href`, reloading the whole app from a public page, and now use `routerLink` with the plan as a query
+parameter; `IOptionsMonitor` could serve a configuration reload no validator had seen, so the business reads
+`IOptions`; the decoder turned a present-but-wrong `trialDays` into "no trial", and now refuses the plan; the
+disclosure label said the state that `aria-expanded` already says; the table's scroller had no name or tab stop;
+`withCredentials` was set on an anonymous route; and startup now also refuses a lower-case currency, a plan key
+that is not url-safe, a published plan with no example mix and a pack that expires in nought months.*
+
+*Accepted rather than fixed, and why: the section still pops in after the page paints, because a resolver would
+hold the first paint of a marketing page for a network call and the section sits well below the fold; the
+service still answers every failure with an empty catalogue and no log, which is the visitor's experience by
+design (now written down in `DESIGN-SYSTEM.md`) but leaves an operator unable to tell an outage from an
+unpublished catalogue; the gateway's 429 carries no `retry` field, which is the pre-existing shape the login
+limiter already has and belongs to a separate change; and `CpChoiceGroupComponent` still names itself with
+`aria-label`, so the question is written twice — a `labelledBy` input would fix that in the library.*
+
+*Still blocked by what LP.6 itself says: the figures are proposals, and the flag may not be turned on outside
+development until reviewed Terms, Acceptable Use and Privacy pages replace the footer's placeholders.*
+
+
+## LP.7 "What do credits buy?" explainer and plan estimator - done
 
 ```text
 SCOPE: Add LandingCreditsComponent: a visual "credit menu" (draft image, standard image, high image, text
@@ -273,7 +385,43 @@ BEHAVIOR: Show the menu, the estimator logic and its edge cases (zero, beyond th
 approval; implement with specs for each edge case.
 ```
 
-## LP.8 Draft vs final images, and the no-surprise-bill promise
+*Delivery note (2026-10-24): shipped. `Billing:Rates` joins the catalogue — a text draft, a long-form section,
+and a draft, standard and high picture — published on the same anonymous route and refused at startup if a
+published catalogue leaves any of them at nought. `LandingCreditsComponent` draws the menu board from those
+figures and an estimator over two native range sliders, and the count-up came out of
+`LandingPricingComponent` into `LandingCount`, which both now share.*
+
+*Edge cases, each with a spec: nothing chosen asks for a slider rather than naming a plan; an estimate that
+exactly fills a plan says "with none to spare"; past the largest plan it gives a way out; the trial is never an
+answer, because its credits are a one-off rather than a monthly allowance; and a plan whose daily picture cap
+could not carry the month is passed over even when its credits would cover it.*
+
+*Two decisions worth recording. **The rates are published before anything charges them**: pictures cost no
+credits today (AP.2.4 and AP.2.5), and text settles against `AiQuotaOptions.DefaultTaskEstimate` rather than
+these figures. The owner approved shipping the menu behind the same development-only flag the prices sit
+behind, so no visitor sees the claim before it is true — the dependency is AP.2.4/2.5, and it is a release
+gate, not a suggestion. **The catalogue's rates are optional on the wire**: a server that states none, or
+states them badly, leaves the credit menu off the page and the plans above it untouched. Requiring them took
+the whole pricing section down against a server a few minutes older, which is a poor trade for a field only
+one section reads.*
+
+*design-review found eight things; six are fixed. The counted figure was inside the live region, so a drag
+announced about twenty times a second — the figure is now `aria-hidden` and the settled estimate is said once
+beside the verdict, with `role="status"` alone and the redundant `aria-live` gone. Each slider now carries
+`aria-valuetext`, because a range otherwise announces a bare number. The shared counter wrote nothing until its
+first frame, so a figure jumped to its destination and counted back from the start — it now writes where it is
+starting from synchronously, and `landing-count.spec.ts` covers that and the rest of the helper. The writing
+slider's hint promised long-form sections the estimate did not price. "Add a pack" sent a visitor looking for
+something no section renders yet (LP.8), so it is gone until there is one. And a field's hint stepped below the
+public page's one body size.*
+
+*Two were not changed, with reasons. The reviewer read the intro's "your credits belong to you, not to a
+workspace" as unbacked after looking in the Billing module; it is backed, in `Modules/AiUsage` — the allowance
+is account-scoped (USAGE-001, `AccountAiQuota`), which is why `/app/ai-usage` sits outside a workspace route.
+And "about N credits to spare" keeps its "about": LP.2's approved copy says it, and a headroom derived from an
+estimate is itself an estimate.*
+
+## LP.8 Draft vs final images, and the no-surprise-bill promise - done
 
 ```text
 SCOPE: Two bands. (1) "Explore fast, finish beautifully": a side-by-side of a draft and a final image of
@@ -288,7 +436,51 @@ UTILIZATION: design-review after implementation.
 BEHAVIOR: Show the copy and assets; wait for approval; implement with specs.
 ```
 
-## LP.9 FAQ
+*Delivery note (2026-10-24): both bands built; one of them renders.*
+
+*"No surprise bills. Ever." ships whole. Three tiles, and the two describing billing that is not built carry
+**Coming with billing** in words rather than a tone — `cp-badge` paints without a glyph, so a status told by
+colour is a status a reader can miss. The middle tile has no label because the product already behaves that
+way: an allowance at nought refuses the work before it starts. The packs come from the catalogue LP.6
+publishes. **Packs do not expire** (owner, 2026-10-24): a pack is credits already paid for, so they keep until
+they are spent. That answered the last open question about them, and the catalogue's `ExpiryMonths` went with
+it rather than staying as a field that had to be left empty — one deployment setting it would have put a term
+on the public page that the owner has ruled out. The band says so once, under the list, as the promise it is. With packs on the page
+at last, the estimator's beyond-the-top-plan line says "Add a pack" again — LP.7 had removed it precisely
+because nothing rendered one.*
+
+*"Explore fast. Finish beautifully." is **built and waiting on its pictures.** The band, the divider and the
+specs are all here; `COMPARE_ASSETS` is null, so nothing renders. The restriction asks for real outputs of the
+configured draft and final models, and there are none to ask: quality classes are not built (AP.3.1), the
+Venice request names neither quality nor resolution (AP.2.3), and the model that would make the final picture
+has not been chosen (AP.3.3). Two pictures from two different models with one labelled "draft" would be a
+picture of a feature rather than of the product. The owner asked for the band to be built anyway, so it is,
+gated the way the product tour is: generate one prompt at each quality once those ship, commit the pair, fill
+in `landing-compare.assets.ts`, and the band lights up with no further change. A spec holds the shipped state
+to that null, so it cannot be left half-on.*
+
+*The divider is a native `input[type=range]`, which carries the arrow keys, Home and End, the focus ring and
+an announced value for nothing; both pictures are in the page with their own alt text, so the comparison reads
+without seeing either, and the prompt they share is printed beneath them.*
+
+*design-review found one blocker and six smaller things, all fixed. **The divider announced the opposite of
+what it showed**: the finished picture was clipped *from* the left by `reveal`, so "55% of the finished
+picture" showed 45% of it — and the spec encoded the same inversion, so it passed. The clip is now bound in
+the template rather than written in the stylesheet, precisely so a spec can read which side it insets from.
+The band also gained a third gate: committing two pictures is not enough to claim two tiers, so it renders
+only where the catalogue offers both a draft and a finished quality. The packs now carry the same **Coming
+with billing** label the tiles do, because a pack is exactly as unbuyable as the billing is; the compare costs
+say "about", as the credit menu does; each picture's alt says only which of the two it is, with what they
+both show said once in the caption; "export" became "download", which is what every picture actually has; the
+money formatter is one shared helper rather than a third copy; and the pack list says `role="list"`, which
+Safari takes away from a list with no markers.*
+
+*One claim the owner settled rather than the code: the "At zero" tile says a creator's pictures stay theirs
+while AI waits, and pictures draw on no allowance at all today (AP.2.5). The owner's instruction was that
+pictures will count by the time this page is published. It therefore ships behind the same development-only
+flag as every other figure in this part of the page, and AP.2.5 is a release gate for it.*
+
+## LP.9 FAQ - done
 
 ```text
 SCOPE: Add LandingFaqComponent: an accordion of 8 to 10 answers covering what a credit is, what happens at
@@ -300,6 +492,36 @@ legal or medical promise. Anything undecided is left out, not guessed.
 UTILIZATION: design-review after implementation.
 BEHAVIOR: Present the questions and answers with sources; wait for approval; implement with specs.
 ```
+
+*Delivery note (2026-10-24): ten questions, in native `details` so the keyboard, the marker's state and what a
+screen reader says are the browser's. Each `summary` holds the question as an `h3`, one level under the
+section's own heading, and every one starts closed.*
+
+*Seven of the ten are true of any deployment. The three about credits, rollover and packs render only where
+the catalogue publishes prices — a deployment that sells nothing should not answer questions about what it
+charges. So the accordion is ten questions with pricing on and seven without, which is the honest shape rather
+than LP.9's "8 to 10" exactly.*
+
+*Three questions LP.2 lists are deliberately absent, and the restriction is why: cancelling waits on AP.6.2's
+downgrade timing, who owns what AI makes waits on reviewed Terms that exist as a page to link to, and what a
+trial includes waits on AP.7.1. Undecided is left out, not guessed. A fourth, "what is a credit?", is left out
+for a different reason: the credit menu directly above answers it in full, and an accordion that repeats the
+section above it is noise. Pack expiry became answerable on the day — the owner settled it (packs are bought
+credits; they keep until spent), so it is in.*
+
+*One guard was extended rather than written. `scripts/check-safety-copy.mjs` watched the three recipe screens
+that report records; it now watches the FAQ too, because the allergen question is the one thing on a public
+page a reader's health could turn on, and a refusal is one edit away from an assurance. Its answer's "never a
+guarantee" is listed as a denial, by hand, the way the script's other six are. The script's own test asserted
+that it watched three templates and three components by counting to three; it now names the stems and requires
+both halves of each, which is the rule it was trying to express and survives a fourth screen.*
+
+*Two flaky specs were fixed along the way, both the same fault and neither mine: `LandingHeroCollageComponent`
+aimed its pointer at the window's bottom-right corner and asserted a positive drift, which held only while the
+fixture happened to sit left of that corner — something the specs running before it decide. They now aim past
+the collage's own centre. The `RecipeEditorComponent` anchor-nav spec remains intermittent under a loaded
+suite; it predates this work, passes in isolation, and was reproduced failing on a clean tree before any of
+these prompts were implemented.*
 
 ## LP.10 Sticky nav, section anchors and /pricing
 

@@ -38,6 +38,19 @@ describe('CpTabsComponent', () => {
     target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
   }
 
+  it('focuses a named tab for a consumer that selected one from elsewhere on the page', async () => {
+    const fixture = await createFixture();
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const tabs = fixture.debugElement.children[0].componentInstance as CpTabsComponent;
+
+    tabs.selectTab('three');
+    tabs.focusTab('three');
+    fixture.detectChanges();
+
+    expect(document.activeElement).toBe(tabButtons(host)[2]);
+  });
+
   it('renders one tab button per entry with correct aria-selected and roving tabindex', async () => {
     const fixture = await createFixture();
     fixture.detectChanges();

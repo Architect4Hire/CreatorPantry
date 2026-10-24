@@ -116,6 +116,10 @@ under reduced motion and on coarse pointers.
 
 **Section headline:** Take the tour
 
+**Intro (added at LP.5):** Every picture here is a screen of the product, taken with a sample workspace of our
+own. Source: **Shipped** `scripts/capture-tour.mjs`, which photographs the running product, refuses any workspace
+but the sample one, and refuses a screen with nothing on it.
+
 One panel per tab; each has a promise, three bullets and a real screenshot of seeded sample data.
 
 **AI Recipe Studio** — *Start with an idea, finish with a recipe.*
@@ -271,8 +275,10 @@ motion.
 | At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual."). **Not built** for pictures (AP.2.5) | AP.2.5 |
 | Top-up is yours to switch on | Automatic top-up is off unless you turn it on, and you set its monthly limit. | **Not built** AP.6.4 | AP.6.4 |
 
-**Packs:** `{pack.credits}` credits for `{pack.price}`, used after your plan's credits and good for
-`{pack.expiryMonths}` months. **Catalogue** AP.5; expiry **proposed**.
+**Packs:** `{pack.credits}` credits for `{pack.price}`, used after your plan's credits. **Catalogue** AP.5.
+Under the list, once: "A pack is credits you have bought, so they keep until you spend them. They never
+expire." **Decided** (owner, 2026-10-24) — a pack has no term, and the catalogue carries no expiry field to
+set one with.
 
 **Motion:** tiles lift on hover only.
 
@@ -295,7 +301,7 @@ prompt, and LP.9's rule stands: anything undecided is left out.
 | 7 | What is a credit? | Section 8's body. | **Shipped** + **Catalogue** |
 | 8 | What happens when I run out? | Tile 2 of section 9. | **Shipped** for text; pictures after AP.2.5 |
 | 9 | Do unused credits roll over? | Plan credits don't carry over; each month starts fresh. | **Shipped** `DefaultCarryOver = None`; restate from AP.1.1 |
-| 10 | Do packs expire? | `{pack.expiryMonths}` months after you buy them. | **Catalogue**, AP.5 |
+| 10 | Do packs expire? | No. A pack is credits you have bought, so they keep until you spend them. | **Decided** (owner, 2026-10-24) |
 | 11 | Can I cancel any time? | **Not built** (AP.6.2, downgrade timing still open). Omitted. | — |
 | 12 | Who owns what AI makes for me? | You do, as far as the law allows. Your recipes, pictures and drafts are yours, and so is what CreatorPantry generates for you. We only use them to run the service for you. The Terms of Service say exactly how. | Draft ToS §5 (`docs/legal/terms-of-service.md`). Renders only once the reviewed Terms are published, and links to them |
 | 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); renders after AP.7.1. What a trial may generate is still open (AP.7.1: card on file, or a 10-picture cap) |
@@ -371,5 +377,6 @@ does not go live without all three (LP.6).
 - **Google Fonts.** The Privacy Policy has to disclose that visitors' IP addresses go to Google for fonts,
   unless the fonts are self-hosted (LP.11 can do that as part of the performance pass).
 - **Cancellation and refunds.** Downgrade timing (AP.6.2) and a refund policy are undecided, so FAQ 11 and the
-  matching ToS clauses stay bracketed.
+  matching ToS clauses stay bracketed. Pack expiry is no longer among the open questions: packs do not expire
+  (owner, 2026-10-24).
 - **What a trial may generate.** Card on file, or a cap of 10 trial pictures (AP.7.1).

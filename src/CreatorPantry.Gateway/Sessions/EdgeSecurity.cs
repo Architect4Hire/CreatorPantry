@@ -15,6 +15,13 @@ public static partial class EdgeSecurity
 {
     public const string SpaCorsPolicy = "spa";
 
+    /// <summary>
+    /// The rate limit on the one proxied route a visitor can reach without signing in: the published plan
+    /// catalogue (LP.6). Named here rather than in <see cref="BffEndpoints"/> because YARP applies it from the
+    /// route's own configuration, and the name has to match <c>RateLimiterPolicy</c> in appsettings.
+    /// </summary>
+    public const string PublicCatalogueRateLimitPolicy = "public-catalogue";
+
     public static IHostApplicationBuilder AddBffSession(this IHostApplicationBuilder builder)
     {
         var services = builder.Services;
@@ -89,6 +96,12 @@ public static partial class EdgeSecurity
             options.AddPolicy(BffEndpoints.LoginRateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            // The catalogue is anonymous, identical for everyone and cached for five minutes, so a reader needs
+            // it about once. The allowance is generous enough for a page that reloads and strict enough that an
+            // unauthenticated route cannot be used to hammer the API.
+            options.AddPolicy(PublicCatalogueRateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.OnRejected = (context, _) =>
             {
                 context.HttpContext.Response.Headers.RetryAfter =

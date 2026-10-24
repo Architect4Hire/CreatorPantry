@@ -91,8 +91,16 @@ test('a denial that no longer appears anywhere is reported', () => {
   assert.deepEqual(stale, DENIALS);
 });
 
-test('it watches both halves of each panel', () => {
-  for (const suffix of ['.html', '.ts']) {
-    assert.equal(WATCHED.filter((path) => path.endsWith(suffix)).length, 3);
-  }
+/**
+ * Both halves of every watched screen, named rather than counted: a panel whose template was watched and
+ * whose component was not would be half checked, and a count only catches that while the number is right.
+ */
+test('it watches both halves of each watched screen', () => {
+  const stems = (suffix) =>
+    WATCHED.filter((path) => path.endsWith(suffix))
+      .map((path) => path.slice(0, -suffix.length))
+      .sort();
+
+  assert.deepEqual(stems('.html'), stems('.ts'));
+  assert.ok(stems('.ts').length >= 3);
 });

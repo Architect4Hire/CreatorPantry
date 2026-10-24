@@ -316,7 +316,11 @@ public sealed class OpenApiContractTests : IDisposable
         Assert.Equal("cookie", session["in"]!.GetValue<string>());
 
         Assert.DoesNotContain("bearer", text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\"example", text, StringComparison.Ordinal);
+        // OpenAPI's own `example`/`examples` keywords, which is where a sample value — a token, a key, a real
+        // address — would be published. Matched exactly rather than by prefix: the catalogue's `exampleMix`
+        // (LP.6) is a field in the contract, not a sample of one, and a prefix match made it a failure.
+        Assert.DoesNotContain("\"example\":", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"examples\":", text, StringComparison.Ordinal);
         Assert.Null(document["servers"]);
     }
 

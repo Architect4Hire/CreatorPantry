@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/images/*",
+      "/*.{js,css,map,json,txt,ico,png,jpg,jpeg,webp,avif,svg,woff,woff2}"
+    ]
+  },
+  "mimeTypes": {
+    ".avif": "image/avif",
+    ".webp": "image/webp",
+    ".json": "application/json"
+  },
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Robots-Tag": "noindex, nofollow"
+  }
+}

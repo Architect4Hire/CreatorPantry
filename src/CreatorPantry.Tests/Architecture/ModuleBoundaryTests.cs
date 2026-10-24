@@ -201,8 +201,8 @@ public sealed class ModuleBoundaryTests
         // the same way. Keep it below the whole solution's source count (about 2,270 at 14.1), or a root that
         // picked up every project would pass.
         Assert.InRange(files.Count, 150, 1600);
-        // Sixteen since 14.2 added Nutrition.
-        Assert.Equal(16,files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
+        // Seventeen since LP.6 added Billing, the published plan catalogue.
+        Assert.Equal(17,files.Where(file => file.Module is not null).Select(file => file.Module).Distinct().Count());
 
         // The kernel genuinely imports module namespaces in its four exempted files; if this hits zero the
         // using-extraction has stopped working and the kernel rule below is no longer checking anything.
@@ -393,8 +393,13 @@ public sealed class ModuleBoundaryTests
     /// <remarks>
     /// <c>Dashboard</c> (13.11): the workspace at a glance, a read-only projection over the recipe, AI,
     /// content, media, publishing and brand modules, each asked through its own facade.
+    /// <para>
+    /// <c>Billing</c> (LP.6): the published plan catalogue, which is configuration rather than a table — the
+    /// landing page reads what a deployment chose to publish. AP.4.1 brings the <c>AccountPlan</c> table, and
+    /// this name leaves the list in the same change.
+    /// </para>
     /// </remarks>
-    private static readonly string[] ProjectionModules = ["Dashboard"];
+    private static readonly string[] ProjectionModules = ["Billing", "Dashboard"];
 
     /// <summary>
     /// Modules that so far are only a contract: types in a Managers area and nothing that runs — no table, no

@@ -1,0 +1,83 @@
+:host {
+  display: block;
+}
+
+.promises {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-8);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-title);
+  font-weight: 500;
+  text-align: center;
+}
+
+ul[cpCardGrid] > li {
+  display: flex;
+}
+
+cp-card {
+  width: 100%;
+}
+
+.coming {
+  margin: 0 0 var(--cp-space-2);
+}
+
+/* A phrase rather than a one-word status, and read as part of the tile, so it takes the page's body size. */
+.coming cp-badge {
+  font-size: var(--cp-font-size-lg);
+}
+
+/* Once the tiles sit side by side, the empty slots hold their height so every heading starts on one line. */
+@media (min-width: 40rem) {
+  .coming {
+    min-height: 2.5rem;
+  }
+}
+
+h3 {
+  margin: 0;
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 500;
+}
+
+.body {
+  margin: var(--cp-space-2) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.packs {
+  max-width: var(--cp-measure-prose);
+  margin: var(--cp-space-8) auto 0;
+  text-align: center;
+}
+
+.packs ul {
+  margin: var(--cp-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.packs li + li {
+  margin-top: var(--cp-space-2);
+}
+
+.packs-note {
+  margin: var(--cp-space-4) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}

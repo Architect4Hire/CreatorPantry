@@ -13,7 +13,7 @@ h2 {
   margin: 0 0 var(--cp-space-5);
   color: var(--cp-text);
   font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-xl);
+  font-size: var(--cp-font-size-title);
   font-weight: 500;
 }
 
@@ -28,13 +28,13 @@ h2 {
 .stage {
   margin: 0 0 var(--cp-space-4);
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+  font-size: var(--cp-font-size-lg);
   line-height: var(--cp-leading-normal);
 }
 
 .proof-note {
   margin: 0;
   color: var(--cp-text-faint);
-  font-size: var(--cp-font-size-xs);
+  font-size: var(--cp-font-size-lg);
   line-height: var(--cp-leading-normal);
 }

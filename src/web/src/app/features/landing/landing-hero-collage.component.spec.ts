@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CpThemeService } from '@creator-pantry/ui';
 
-import { HERO_COLLAGE_PHOTOS } from './food-image.service';
+import { FOOD_IMAGES, FoodImageService } from './food-image.service';
 import { LandingHeroCollageComponent, PARALLAX_QUERY, PROPOSAL_CAPTURE } from './landing-hero-collage.component';
 
 describe('LandingHeroCollageComponent', () => {
@@ -32,12 +32,22 @@ describe('LandingHeroCollageComponent', () => {
     resolvedTheme = signal<'light' | 'dark'>('light');
     await TestBed.configureTestingModule({
       imports: [LandingHeroCollageComponent],
-      providers: [{ provide: CpThemeService, useValue: { resolved: resolvedTheme } }],
+      providers: [FoodImageService, { provide: CpThemeService, useValue: { resolved: resolvedTheme } }],
     }).compileComponents();
     fixture = TestBed.createComponent(LandingHeroCollageComponent);
     host = fixture.nativeElement;
     fixture.detectChanges();
     await fixture.whenStable();
+  }
+
+  /**
+   * A point below and to the right of the collage's own centre, whatever the runner's page looks like. The
+   * drift is measured from that centre, so a spec that aimed at the window's bottom-right corner only passed
+   * while the fixture happened to sit left of it — which the specs running before it decide.
+   */
+  function pastCentre(): { x: number; y: number } {
+    const box = host.getBoundingClientRect();
+    return { x: box.left + box.width / 2 + 40, y: box.top + box.height / 2 + 40 };
   }
 
   async function pointAt(x: number, y: number): Promise<void> {
@@ -60,14 +70,14 @@ describe('LandingHeroCollageComponent', () => {
     images.forEach((img) => expect(img.getAttribute('alt')).toBe(''));
   });
 
-  it('shows the fixed hero photos, never a random deal, with the front one asked for first', async () => {
+  it('deals three different food photos, with the front one asked for first', async () => {
     await create(false);
-    const src = (selector: string) => host.querySelector(`${selector} img`)?.getAttribute('src');
+    const src = (selector: string) => host.querySelector<HTMLImageElement>(`${selector} img`)!.getAttribute('src');
+    const dealt = [src('.front'), src('.back-left'), src('.back-right')];
 
-    expect(src('.front')).toBe(HERO_COLLAGE_PHOTOS.front);
-    expect(src('.back-left')).toBe(HERO_COLLAGE_PHOTOS.backLeft);
-    expect(src('.back-right')).toBe(HERO_COLLAGE_PHOTOS.backRight);
-    expect(host.querySelector('.front img')?.getAttribute('fetchpriority')).toBe('high');
+    dealt.forEach((photo) => expect(FOOD_IMAGES).toContain(photo!));
+    expect(new Set(dealt).size).toBe(3);
+    expect(host.querySelector<HTMLImageElement>('.front img')!.getAttribute('fetchpriority')).toBe('high');
   });
 
   it('gives every image its intrinsic size, so nothing shifts as it loads', async () => {
@@ -95,7 +105,8 @@ describe('LandingHeroCollageComponent', () => {
 
   it('drifts with a fine pointer when motion is allowed', async () => {
     await create(true);
-    await pointAt(window.innerWidth, window.innerHeight);
+    const past = pastCentre();
+    await pointAt(past.x, past.y);
 
     expect(offset().x).toBeGreaterThan(0);
     expect(offset().y).toBeGreaterThan(0);
@@ -105,7 +116,8 @@ describe('LandingHeroCollageComponent', () => {
 
   it('comes back to rest when the pointer leaves the page', async () => {
     await create(true);
-    await pointAt(window.innerWidth, window.innerHeight);
+    const past = pastCentre();
+    await pointAt(past.x, past.y);
     document.documentElement.dispatchEvent(new PointerEvent('pointerleave'));
 
     expect(offset()).toEqual({ x: 0, y: 0 });
@@ -120,14 +132,15 @@ describe('LandingHeroCollageComponent', () => {
 
   it('stops drifting, and rests, when the preference changes while the page is open', async () => {
     await create(true);
-    await pointAt(window.innerWidth, window.innerHeight);
+    const past = pastCentre();
+    await pointAt(past.x, past.y);
     expect(offset().x).toBeGreaterThan(0);
 
     motion.matches = false;
     motion.listeners.forEach((listener) => listener({ matches: false } as MediaQueryListEvent));
     expect(offset()).toEqual({ x: 0, y: 0 });
 
-    await pointAt(window.innerWidth, window.innerHeight);
+    await pointAt(past.x, past.y);
     expect(offset()).toEqual({ x: 0, y: 0 });
   });
 

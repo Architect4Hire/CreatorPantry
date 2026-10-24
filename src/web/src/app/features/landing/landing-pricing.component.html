@@ -1,0 +1,116 @@
+@if (plans().length) {
+  <section class="pricing" aria-labelledby="landing-pricing-heading">
+    <h2 id="landing-pricing-heading">{{ heading }}</h2>
+    <p class="intro">{{ intro }}</p>
+
+    <div class="period">
+      <!-- Said once in the page and again as the group's name, so the question is read as well as announced. -->
+      <p class="period-label">{{ periodQuestion }}</p>
+      <cp-choice-group
+        [label]="periodQuestion"
+        layout="fit"
+        [options]="periods"
+        [value]="[period()]"
+        (valueChange)="periodChanged($event)"
+      />
+    </div>
+
+    <ul cpCardGrid minColumn="15rem">
+      @for (plan of plans(); track plan.key) {
+        <li>
+          <cp-card [class.recommended]="plan.recommended">
+            <!--
+              The slot is on every card, carrying the badge on one of them. Empty on the rest so that the plan
+              names, the prices and everything under them line up across the row instead of stepping down by
+              the height of one badge.
+            -->
+            <p class="recommended-badge">
+              @if (plan.recommended) {
+                <cp-badge tone="success">{{ recommendedLabel }}</cp-badge>
+              }
+            </p>
+            <h3>{{ plan.name }}</h3>
+            <p class="price">
+              <span class="amount">{{ formatMoney(shownPriceOf(plan)) }}</span>
+              <span class="per">{{ plan.trialDays === null ? 'a month' : 'to try' }}</span>
+            </p>
+            @if (secondLineOf(plan); as second) {
+              <p class="second-line">{{ second }}</p>
+            }
+            <!--
+              Sentences rather than a `cpFacts` list: a card on a marketing page is read, not looked up, and
+              the term-and-value pairs belong in the comparison table below, where a reader is comparing.
+            -->
+            <ul class="includes">
+              @for (line of includedIn(plan); track line) {
+                <li>{{ line }}</li>
+              }
+            </ul>
+            <a
+              cpButton
+              [variant]="plan.recommended ? 'primary' : 'secondary'"
+              size="lg"
+              routerLink="/sign-up"
+              [queryParams]="planParams(plan)"
+            >
+              Start with {{ plan.name }}
+            </a>
+          </cp-card>
+        </li>
+      }
+    </ul>
+
+    <div class="comparison">
+      <button
+        type="button"
+        cpButton
+        variant="text"
+        [attr.aria-expanded]="comparisonOpen()"
+        aria-controls="landing-pricing-comparison"
+        (click)="comparisonOpen.set(!comparisonOpen())"
+      >
+        <!-- One label, because aria-expanded already says which way it is going. -->
+        Compare every plan
+      </button>
+
+      <!--
+        A region with a name and a tab stop: on a narrow screen the table may still scroll sideways, and a
+        scroller that cannot be focused cannot be scrolled from the keyboard in every browser.
+      -->
+      @if (comparisonOpen()) {
+        <!-- Outside the scroller: a line the reader needs before the table should not scroll away from them. -->
+        <p class="comparison-note">{{ comparisonNote() }}</p>
+      }
+      <div
+        id="landing-pricing-comparison"
+        role="region"
+        aria-label="Every plan compared"
+        tabindex="0"
+        [hidden]="!comparisonOpen()"
+      >
+        <table>
+          <!-- The same words the page already shows above, where a table's own caption belongs for a reader. -->
+          <caption class="cp-sr-only">{{ comparisonNote() }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Plan</th>
+              @for (column of comparisonColumns; track column.label) {
+                <th scope="col">{{ column.label }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (plan of plans(); track plan.key) {
+              <tr>
+                <th scope="row">{{ plan.name }}</th>
+                @for (column of comparisonColumns; track column.label) {
+                  <td>{{ column.valueOf(plan) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+}

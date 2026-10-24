@@ -77,14 +77,24 @@ describe('LandingValuePropsComponent', () => {
     expect(text).not.toMatch(/named version|equipment/i);
   });
 
-  it('links no card to the tour until the tour exists', async () => {
+  it('links no card to the tour until the tour has panels', async () => {
     const fixture = await createFixture();
     expect((fixture.nativeElement as HTMLElement).querySelector('a')).toBeNull();
   });
 
-  it('links each card that has a tour panel to it once tour links are on, naming the card for a screen reader', async () => {
+  it('links only the cards whose panel the tour actually has', async () => {
     const fixture = await createFixture();
-    fixture.componentRef.setInput('tourLinks', true);
+    fixture.componentRef.setInput('tourPanels', ['image-studio']);
+    fixture.detectChanges();
+
+    const links = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('cp-card a'));
+
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['#tour-image-studio']);
+  });
+
+  it('links each card that has a tour panel to it once the tour has them all, naming the card for a screen reader', async () => {
+    const fixture = await createFixture();
+    fixture.componentRef.setInput('tourPanels', DEFAULT_VALUE_PROPS.flatMap((item) => (item.tourPanel ? [item.tourPanel] : [])));
     fixture.detectChanges();
 
     const links = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('cp-card a'));

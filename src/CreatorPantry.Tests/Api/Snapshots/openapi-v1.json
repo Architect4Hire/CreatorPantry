@@ -15041,6 +15041,46 @@
         ]
       }
     },
+    "/api/v1/plans": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "The plans and packs on offer. A deployment that does not publish a catalogue answers with empty lists\nrather than a 404: an unpublished catalogue is a state, not a missing resource, and the page shows no\npricing section either way.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanCatalogue"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanCatalogue"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanCatalogue"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/prompts": {
       "get": {
         "tags": [
@@ -33683,6 +33723,87 @@
           }
         }
       },
+      "CreditPack": {
+        "required": [
+          "key",
+          "credits",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CreditRates": {
+        "required": [
+          "textDraft",
+          "longFormSection",
+          "imageDraft",
+          "imageStandard",
+          "imageHigh"
+        ],
+        "type": "object",
+        "properties": {
+          "textDraft": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "longFormSection": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imageDraft": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imageStandard": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imageHigh": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CursorPage": {
         "required": [
           "items",
@@ -38951,6 +39072,129 @@
               "$ref": "#/components/schemas/LongFormPlanSectionInput"
             },
             "description": "Every section of the plan, in the order the piece should read. A section left out is removed."
+          }
+        }
+      },
+      "Plan": {
+        "required": [
+          "key",
+          "name",
+          "monthlyPrice",
+          "annualMonthlyPrice",
+          "annualPrice",
+          "annualSaving",
+          "credits",
+          "exampleMix",
+          "dailyImageCap",
+          "qualityClasses",
+          "recommended",
+          "trialDays"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "monthlyPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "annualMonthlyPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "annualPrice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "annualSaving": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "exampleMix": {
+            "type": "string"
+          },
+          "dailyImageCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "qualityClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recommended": {
+            "type": "boolean"
+          },
+          "trialDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PlanCatalogue": {
+        "required": [
+          "currency",
+          "plans",
+          "packs",
+          "rates"
+        ],
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Plan"
+            }
+          },
+          "packs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditPack"
+            }
+          },
+          "rates": {
+            "$ref": "#/components/schemas/CreditRates"
           }
         }
       },
@@ -48040,6 +48284,9 @@
     },
     {
       "name": "PhotographyConceptRequests"
+    },
+    {
+      "name": "Plans"
     },
     {
       "name": "Prompts"

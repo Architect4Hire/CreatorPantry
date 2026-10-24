@@ -22,6 +22,7 @@ using CreatorPantry.Domain.Modules.Ingredients.Integration.UsdaFdc;
 using CreatorPantry.Domain.Modules.Nutrition;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Dashboard;
 using CreatorPantry.Domain.Modules.Workflows;
 using CreatorPantry.Domain.Modules.Media;
@@ -135,6 +136,10 @@ builder.Services.AddPlanningModule();
 // facade -- the readiness seam, guided workflows and personal work tasks included -- so it is registered after
 // all of them. The worker has no dashboard.
 builder.Services.AddDashboardModule();
+
+// The published plan catalogue (LP.6): configuration the public landing page reads before anyone signs in. No
+// table, no account, nothing to authorize — so the API registers it and the Worker, which prices nothing, does not.
+builder.Services.AddBillingModule(builder.Configuration);
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

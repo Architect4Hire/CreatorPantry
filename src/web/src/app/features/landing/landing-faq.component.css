@@ -1,0 +1,89 @@
+:host {
+  display: block;
+}
+
+.faq {
+  max-width: var(--cp-measure-prose);
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-8);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-title);
+  font-weight: 500;
+  text-align: center;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li + li {
+  margin-top: var(--cp-space-3);
+}
+
+details {
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  /* Comfortably past the 40px target, and the whole row is the target rather than the words alone. */
+  min-height: 3rem;
+  padding: var(--cp-space-3) var(--cp-space-5);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* The marker is drawn rather than the browser's, so it is the same shape in every one of them. */
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::after {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: auto;
+  border-right: 2px solid var(--cp-text-muted);
+  border-bottom: 2px solid var(--cp-text-muted);
+  transform: rotate(45deg) translate(-0.15em, -0.15em);
+  transition: transform var(--cp-duration-fast) var(--cp-ease);
+}
+
+details[open] summary::after {
+  transform: rotate(225deg) translate(-0.15em, -0.15em);
+}
+
+/* The marker is the only thing that moves; with motion turned down it simply points the other way. */
+@media (prefers-reduced-motion: reduce) {
+  summary::after {
+    transition: none;
+  }
+}
+
+summary h3 {
+  margin: 0;
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 500;
+}
+
+details p {
+  margin: 0;
+  padding: 0 var(--cp-space-5) var(--cp-space-5);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}

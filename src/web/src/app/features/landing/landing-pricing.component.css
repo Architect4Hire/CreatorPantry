@@ -1,0 +1,205 @@
+:host {
+  display: block;
+}
+
+.pricing {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-4);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-title);
+  font-weight: 500;
+  text-align: center;
+}
+
+.intro {
+  max-width: 42rem;
+  margin: 0 auto var(--cp-space-8);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+  text-align: center;
+}
+
+.period {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  align-items: center;
+  margin-bottom: var(--cp-space-8);
+}
+
+.period-label {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  font-weight: 600;
+}
+
+/*
+ * Wide enough for the two tiles to sit side by side: `layout="fit"` gives each a 13rem floor, so a narrower
+ * box than this makes the grid fall back to one tile a row and the answers read as a list rather than a choice.
+ */
+.period cp-choice-group {
+  width: min(100%, 34rem);
+  /* The tiles' own labels, held to the page's one body size like everything else a visitor reads. */
+  font-size: var(--cp-font-size-lg);
+}
+
+/* Only the grid's own items stretch; the list of what a plan includes stays a list, with its markers. */
+ul[cpCardGrid] > li {
+  display: flex;
+}
+
+cp-card {
+  width: 100%;
+}
+
+/*
+ * The recommended plan is marked in words first — the badge says so — and then by weight: a thicker edge, not
+ * the same edge in another colour, because a colour swap alone is nothing to a reader who cannot see it and
+ * the shadow is all but invisible against a dark page.
+ */
+cp-card.recommended {
+  border-color: var(--cp-primary);
+  border-width: 2px;
+  box-shadow: var(--cp-shadow-lg);
+}
+
+.recommended-badge {
+  margin: 0 0 var(--cp-space-2);
+}
+
+/*
+ * Once the cards sit side by side, the slot holds its height whether or not it has a badge in it, so every
+ * card's heading and price start on the same line. In one column there is no row to line up with, and an
+ * empty reserved block would only push the first card down the page.
+ */
+@media (min-width: 40rem) {
+  .recommended-badge {
+    min-height: 3.5rem;
+  }
+}
+
+/* This badge carries a sentence rather than a one-word status, so it is read at the page's body size. */
+.recommended-badge cp-badge {
+  font-size: var(--cp-font-size-lg);
+}
+
+h3 {
+  margin: 0;
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 500;
+}
+
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-2) 0 0;
+}
+
+.amount {
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-2xl);
+  font-weight: 600;
+  line-height: var(--cp-leading-tight);
+  /* The figure counts between two values, so the line cannot be allowed to reflow as the digits change. */
+  font-variant-numeric: tabular-nums;
+}
+
+.per,
+.second-line {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+}
+
+.second-line {
+  margin: var(--cp-space-1) 0 0;
+}
+
+.includes {
+  margin: var(--cp-space-4) 0 var(--cp-space-6);
+  padding-left: var(--cp-space-5);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.includes li + li {
+  margin-top: var(--cp-space-2);
+}
+
+cp-card a[cpButton] {
+  width: 100%;
+}
+
+.comparison {
+  margin-top: var(--cp-space-8);
+  text-align: center;
+}
+
+/* As wide as its content and no wider, so a table of short figures does not stretch across the page. */
+.comparison table {
+  width: auto;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: var(--cp-font-size-lg);
+  text-align: left;
+}
+
+.comparison-note {
+  margin: var(--cp-space-6) 0 var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+}
+
+/* Every value is a short figure or a short phrase; none of them is a sentence that wants to wrap. */
+.comparison th,
+.comparison td {
+  white-space: nowrap;
+}
+
+/*
+ * The plan names stay put while the figures scroll under them, which is what makes a sideways scroll on a
+ * phone readable: a row of numbers with nothing naming it is no comparison at all.
+ */
+.comparison th:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--cp-bg);
+}
+
+.comparison th,
+.comparison td {
+  padding: var(--cp-space-3);
+  border-bottom: 1px solid var(--cp-border);
+  vertical-align: top;
+}
+
+.comparison thead th {
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-weight: 500;
+}
+
+/* The plan names head the rows now, so they read as the thing being compared rather than as a side label. */
+.comparison tbody th {
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-weight: 500;
+}
+
+/* A table of five plans does not fit a phone; it scrolls sideways on its own rather than the page doing so. */
+.comparison > [role='region'] {
+  overflow-x: auto;
+}

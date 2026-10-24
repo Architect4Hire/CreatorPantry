@@ -1,0 +1,151 @@
+:host {
+  display: block;
+}
+
+.credits {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--cp-space-10) var(--cp-space-6);
+}
+
+h2 {
+  margin: 0 0 var(--cp-space-4);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-title);
+  font-weight: 500;
+  text-align: center;
+}
+
+.intro {
+  max-width: 48rem;
+  margin: 0 auto var(--cp-space-8);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+  text-align: center;
+}
+
+h3 {
+  margin: 0 0 var(--cp-space-4);
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 500;
+}
+
+/* Side by side where there is room for both; the menu first when there is not. */
+@media (min-width: 60rem) {
+  .credits {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--cp-space-10);
+    align-items: start;
+  }
+
+  h2,
+  .intro {
+    grid-column: 1 / -1;
+  }
+}
+
+.board,
+.estimator {
+  padding: var(--cp-space-6);
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+  box-shadow: var(--cp-shadow-md);
+}
+
+.board ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A menu board: the item, a run of dots, the price — so the eye travels from one to the other. */
+.board li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-2) 0;
+  font-size: var(--cp-font-size-lg);
+}
+
+.board .dots {
+  flex: 1 1 auto;
+  min-width: var(--cp-space-4);
+  border-bottom: 1px dotted var(--cp-border-strong);
+  transform: translateY(-0.25em);
+}
+
+.board .cost {
+  color: var(--cp-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.typical {
+  margin: var(--cp-space-4) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.estimator cp-field {
+  display: block;
+  margin-bottom: var(--cp-space-1);
+}
+
+/*
+ * A field's hint is `--cp-font-size-sm` inside the shell, where the whole scale is smaller. Here it is
+ * supporting copy on a public page, and the page reads at one size (DESIGN-SYSTEM.md).
+ */
+.estimator cp-field small {
+  font-size: var(--cp-font-size-lg);
+}
+
+.estimator input[type='range'] {
+  width: 100%;
+  min-height: 2.5rem;
+  accent-color: var(--cp-primary);
+}
+
+.slider-value {
+  margin: 0 0 var(--cp-space-5);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  font-weight: 600;
+}
+
+.result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  margin: var(--cp-space-6) 0 0;
+  padding-top: var(--cp-space-5);
+  border-top: 1px solid var(--cp-border);
+}
+
+.figure {
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-2xl);
+  font-weight: 600;
+  line-height: var(--cp-leading-tight);
+  /* The figure counts as a slider moves, so the line must not reflow under it. */
+  font-variant-numeric: tabular-nums;
+}
+
+.unit,
+.verdict {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.verdict {
+  flex: 1 0 100%;
+}

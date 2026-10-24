@@ -1,0 +1,17 @@
+<section class="faq" aria-labelledby="landing-faq-heading">
+  <h2 id="landing-faq-heading">{{ heading }}</h2>
+
+  <ul>
+    @for (entry of entries(); track entry.question) {
+      <li>
+        <!-- Native disclosure: the keyboard, the marker and the state are the browser's, not this page's. -->
+        <details>
+          <summary>
+            <h3>{{ entry.question }}</h3>
+          </summary>
+          <p>{{ entry.answer }}</p>
+        </details>
+      </li>
+    }
+  </ul>
+</section>

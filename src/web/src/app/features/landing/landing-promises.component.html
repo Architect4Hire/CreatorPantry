@@ -1,0 +1,41 @@
+@if (renders()) {
+  <section class="promises" aria-labelledby="landing-promises-heading">
+    <h2 id="landing-promises-heading">{{ heading }}</h2>
+
+    <ul cpCardGrid minColumn="17rem">
+      @for (promise of promises; track promise.heading) {
+        <li>
+          <cp-card>
+            <!--
+              The slot is on every tile so the headings line up, as the plan cards do. It holds one line of
+              badge; at 200% zoom a wrapped label takes two and that tile's heading sits a line lower, which
+              is a fair trade for not reserving two lines of empty space on every other tile.
+            -->
+            <p class="coming">
+              @if (promise.comingLabel) {
+                <cp-badge tone="neutral">{{ promise.comingLabel }}</cp-badge>
+              }
+            </p>
+            <h3>{{ promise.heading }}</h3>
+            <p class="body">{{ promise.body }}</p>
+          </cp-card>
+        </li>
+      }
+    </ul>
+
+    @if (packs().length) {
+      <div class="packs">
+        <!-- A pack cannot be bought any more than the tiles' billing can, so it says so in the same words. -->
+        <p class="coming"><cp-badge tone="neutral">{{ comingWithBilling }}</cp-badge></p>
+        <h3 id="landing-promises-packs">{{ packsHeading }}</h3>
+        <!-- `list-style: none` takes the list semantics away in Safari; this puts them back. -->
+        <ul role="list" aria-labelledby="landing-promises-packs">
+          @for (pack of packs(); track pack.key) {
+            <li>{{ describe(pack) }}</li>
+          }
+        </ul>
+        <p class="packs-note">{{ packsNote }}</p>
+      </div>
+    }
+  </section>
+}

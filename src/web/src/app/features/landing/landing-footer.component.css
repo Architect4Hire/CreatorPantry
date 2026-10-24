@@ -15,7 +15,7 @@
 .brand {
   margin: 0;
   color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-xs);
+  font-size: var(--cp-font-size-lg);
 }
 
 .footer-links,
@@ -26,14 +26,14 @@
   gap: var(--cp-space-5);
 }
 
-/* min-height keeps the actual tap/click target at the 40px touch-target baseline even though the
-   visible text uses the smaller --cp-font-size-xs. */
+/* min-height keeps the tap/click target at the 40px baseline whatever the line box comes to. The page's
+   body size is one size throughout — the hero's — so a footer link is read at the same size as the rest. */
 .footer-links a {
   display: inline-flex;
   align-items: center;
   min-height: 2.5rem;
   color: var(--cp-text);
-  font-size: var(--cp-font-size-xs);
+  font-size: var(--cp-font-size-lg);
   font-weight: 700;
   text-decoration: none;
 }
@@ -51,12 +51,12 @@
   background: none;
   padding: 0;
   color: var(--cp-text-faint);
-  font-size: var(--cp-font-size-xs);
+  font-size: var(--cp-font-size-lg);
   font-family: inherit;
   cursor: not-allowed;
 }
 
 .coming-soon {
-  font-size: var(--cp-font-size-xs);
+  font-size: var(--cp-font-size-lg);
   color: var(--cp-text-faint);
 }

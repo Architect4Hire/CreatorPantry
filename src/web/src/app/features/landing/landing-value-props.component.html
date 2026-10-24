@@ -10,7 +10,7 @@
           <cp-badge [tone]="item.badgeTone">{{ item.badgeLabel }}</cp-badge>
           <h3>{{ item.heading }}</h3>
           <p>{{ item.body }}</p>
-          @if (tourLinks() && item.tourPanel) {
+          @if (onTour(item.tourPanel)) {
             <a class="tour-link" [href]="'#tour-' + item.tourPanel">See it in the tour<span class="cp-sr-only">: {{ item.heading }}</span></a>
           }
         </cp-card>
