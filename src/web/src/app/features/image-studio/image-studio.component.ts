@@ -237,7 +237,7 @@ function memoryFiling(): CreativeContextFilingStore {
     WorkflowReturnNoticeComponent,
   ],
   templateUrl: './image-studio.component.html',
-  styleUrl: './image-studio.component.css',
+  styleUrl: './image-studio.component.scss',
   providers: [CreativeContextSession],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
