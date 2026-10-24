@@ -7,7 +7,7 @@ CreatorPantry is a focused production workspace for food bloggers and content cr
 ## Layers
 
 1. Primitive tokens define scale: spacing, type, radii, motion, z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), and three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), and three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating).
 3. Angular primitives implement interaction and accessibility.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
@@ -34,6 +34,18 @@ Print is always light. Browsers leave backgrounds off a printed page, so `themes
   exempt is anything that is not body copy: a control keeps the control scale (a button's label, a tab), and so
   does a one-word status in a `cp-badge`. A badge carrying a whole sentence is body copy and takes the body
   size. This is the public page only; inside the shell the scale above applies.
+
+- **A public page stays paper, and its sections are told apart by a hairline.** A long marketing page read by
+  scrolling needs its sections separated, and the way to do that here is a 1px `--cp-border` rule between them,
+  not a colour behind them. Colour-blocked bands in the soft fruit tokens were built and taken out again: the
+  logo and the food photography are what carry colour on this page, and a tinted section competed with both and
+  read as pastel. So every section sits on `--cp-bg`, cards stay `--cp-surface`, and the rule between sections
+  is drawn by the page, once, rather than by each section. A section that renders nothing draws no rule — the
+  catalogue sections render no content at all where a deployment publishes no plans, and an empty host with a
+  top border is a stray line across the page.
+  If a band is ever reconsidered, the measurement that went with it is worth keeping: against all four soft
+  tokens in both themes, `--cp-text` clears 11.08:1 and `--cp-text-muted` 5.57:1, while `--cp-text-faint` falls
+  to 3.37–4.10:1 on every dark tint and fails AA.
 
 A public page's data sections answer to the same states as any other, with one deliberate exception, written
 down here so it reads as a decision rather than an omission: **the pricing section renders nothing at all when
@@ -316,6 +328,53 @@ A browser close, refresh or full navigation cannot be confirmed this way — the
 
 Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color alone. Touch targets should be at least 40px. Dialogs, drawers and lightboxes require a title and close action, hold Tab inside themselves, and return focus to what opened them. Form errors remain adjacent to their field and use `role="alert"`. `global.css` honors `prefers-reduced-motion: reduce` for every animation/transition; do not add motion that bypasses it.
 
+### The focus ring
+
+**The ring is opaque, and it is the one thing on screen that says where the keyboard is.** `--cp-focus` is
+`var(--cp-primary)` at full strength, drawn by one rule — `:focus-visible { outline: 3px solid var(--cp-focus);
+outline-offset: 2px }` in `global.css`. It was a 38% (light) and 42% (dark) mix of the action colour with
+`transparent` until it was measured: a translucent ring takes the lightness of whatever is under it, so it came
+to 1.66–1.74:1 on every light surface and 2.40–2.71:1 on every dark one, where WCAG 2.2 1.4.11 asks for 3:1.
+Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 9.97:1 on the dark page, and 4.41:1
+at its worst, on a soft fruit tint. `design-system.spec.ts` holds every surface in both themes at 3:1.
+
+**The colour is always the token.** A component may set its own width or offset — several do, at 2px or with a
+negative offset, where the global 3px at +2px would be clipped or would collide with a neighbour — but none
+names a colour of its own, which is why changing one token reached every indicator in the library and in the
+features at once. A focus rule with a literal colour in it, or with a colour mixed into `transparent`, is a
+defect.
+
+Three things follow, and they are decisions rather than oversights:
+
+- **The 2px gap is what separates the ring from the control it rings, not the ring's colour.** A focused primary
+  button is green fill, 2px of page, green ring — the ring is 1:1 against the fill it haloes. The page showing
+  between them is 5.05:1 (light) and 9.97:1 (dark) against both, which is what makes the indicator findable. A
+  single colour that cleared 3:1 against the surfaces *and* against the primary fill would have to be near-black
+  in the light theme, and in the dark theme does not exist: clearing 3:1 against `#48d593` needs a luminance at
+  or under 0.15 and clearing it against `#071512` needs 0.145 or over.
+- **`cp-card` re-declares the ring in the dark theme**, next to the neutrals and `--cp-primary-text` it already
+  re-declares, because the card is parchment there. The mint that is 9.97:1 on the dark page is 1.13–1.25:1 on
+  that parchment, so a focused control inside a card would have had no visible ring at all. The card's ring is
+  `--cp-primary-text`, 5.04:1 at worst on its surfaces — and 4.01:1 against a primary button's mint fill, so
+  this is the one place where the ring itself, rather than the gap, does the separating. It is the only
+  re-declaration of the token, and it is one because the card is the only thing that re-declares its surfaces.
+- **A refused field keeps the ordinary ring**, rather than turning it red. `cp-field` draws its ring as a
+  `box-shadow` inside a transparent outline, so it is the one indicator the token alone does not reach, and for
+  an invalid control it drew a 28% danger tint: 1.62:1 on a white field, 1.60:1 on a dark one and 1.26:1 on a
+  card's parchment — the worst ring in the system, on the one field the form had just refused. Solid
+  `--cp-danger` is 6.54:1 on a white field but 2.22:1 on that parchment, for the same reason the mint is, so
+  the ring says where the keyboard is and the error goes on being said three other ways that do not depend on
+  it: the `--cp-danger` border, the `!` glyph, and the message in `role="alert"`.
+
+Nothing in the library draws a focus ring over a photograph: `cp-lightbox` puts its close control on a
+`--cp-surface` panel rather than on the scrim, and `cp-media-card` rings the card outside the picture. A new
+component that wants a ring on an image is a question to raise, because no single colour answers it. Nor does
+any ring land on a soft accent tint inside a dark card, which would be the system's remaining gap — the card
+leaves the accent tokens alone, and the card's ring on the dark `--cp-primary-soft` would be 1.61:1 — because
+every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) rings itself at a positive offset, so
+the ring lands on the surface the control sits on rather than on its own fill. A component that would ring
+*inside* a tinted area is the second question to raise.
+
 ## Meters and figures
 
 A meter reads as an amount when the question is "how much have I got" and as a percentage when it is "how far through is this". `CpProgressComponent` does both: `valueText` replaces the percentage figure and is announced as `aria-valuetext`, so a screen reader hears the same words a sighted reader sees rather than a fraction nobody asked for.
@@ -353,7 +412,7 @@ showing it is described by it, so a form that moves focus to a refused section r
 reason. `sectionId` gives the `<section>` an id for a form that scrolls or focuses it; it is already
 `tabindex="-1"`, and never in the tab order.
 
-**A field is a white sheet with an edge you can find.** `CpFieldComponent` draws every projected control on `--cp-field-bg` with a `--cp-border-control` edge, a soft ring of the action colour on focus (`--cp-ring-width`, inside a transparent outline so forced-colours mode keeps the system focus line), a drawn caret on a single `select`, and an error that carries a `!` glyph as well as its colour. Consecutive form sections are ruled off from one another by a hairline, the way a magazine rules between two parts of one piece; the form is still one thing under one Save.
+**A field is a white sheet with an edge you can find.** `CpFieldComponent` draws every projected control on `--cp-field-bg` with a `--cp-border-control` edge, a ring of the action colour on focus (`--cp-ring-width`, solid rather than tinted — see "The focus ring" — inside a transparent outline so forced-colours mode keeps the system focus line), a drawn caret on a single `select`, and an error that carries a `!` glyph as well as its colour. Consecutive form sections are ruled off from one another by a hairline, the way a magazine rules between two parts of one piece; the form is still one thing under one Save.
 
 **Fields stack, one per line, each capped at `--cp-measure-field`.** That is the default and it is most of
 what a form is: a single column of controls at a readable width, with the rest of the card left empty beside

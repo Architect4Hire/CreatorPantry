@@ -58,13 +58,13 @@ describe('app routes', () => {
    * The same page at a second address (LP.10), guarded exactly as '' is and no more: a signed-in visitor goes
    * to the app from here too, rather than being shown marketing.
    */
-  it('serves /pricing as the landing page, anonymous-only and opened at its pricing section', async () => {
+  it('serves /pricing as the landing page, anonymous-only and opened at its pricing section', () => {
     const pricing = routes.find((route) => route.path === 'pricing');
 
     expect(pricing?.canActivate).toEqual([anonymousOnlyGuard]);
     expect(pricing?.pathMatch).toBe('full');
     expect(pricing?.data).toEqual({ title: 'Pricing', scrollTo: 'pricing' });
-    expect(await pricing!.loadComponent!()).toBe(LandingComponent);
+    expect(pricing?.component).toBe(LandingComponent);
   });
 
   /**
@@ -136,10 +136,17 @@ describe('app routes', () => {
     expect(hasShowcaseRoute).toBe(isDevMode());
   });
 
-  it('resolves every lazy loadComponent without throwing, to the right component class', async () => {
-    const landingRoute = routes.find((route) => route.path === '')!;
-    expect(await landingRoute.loadComponent!()).toBe(LandingComponent);
+  /**
+   * The landing page is not in here: it is the one route that is not lazy (LP.11), because the router cannot
+   * begin fetching a lazy component until the route's guards have resolved, which put its chunk a whole round
+   * trip behind the session check rather than beside it.
+   */
+  it('serves the landing page without a chunk to fetch first', () => {
+    expect(routes.find((route) => route.path === '')?.component).toBe(LandingComponent);
+    expect(routes.find((route) => route.path === '')?.loadComponent).toBeUndefined();
+  });
 
+  it('resolves every lazy loadComponent without throwing, to the right component class', async () => {
     const appRoute = routes.find((route) => route.path === 'app')!;
     expect(await appRoute.loadComponent!()).toBe(AppShellComponent);
 

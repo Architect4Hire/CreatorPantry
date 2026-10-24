@@ -1,19 +1,65 @@
 import { DOCUMENT } from '@angular/common';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { CpButtonComponent } from './components/button.component';
 import { CpCardComponent } from './components/card.component';
+import { CpFieldComponent } from './components/field.component';
 import { CpProgressComponent } from './components/progress.component';
 import { CpThemeService } from './theme.service';
 
-function relativeLuminance(hex: string): number {
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i + 1, i + 3), 16) / 255);
-  const linear = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+type Channels = readonly [number, number, number];
+
+/** A token's colour as channels plus alpha, resolved by the browser rather than by a parser of our own: a
+ *  custom property's computed value keeps whatever was written in it, `color-mix()` and all, so measuring the
+ *  text would mean reimplementing colour interpolation. Setting it as a real `color` and reading it back gets
+ *  the browser's own answer, which is how a ring that someone makes translucent again is still measurable. */
+function parseColor(value: string): { channels: Channels; alpha: number } {
+  const probe = document.createElement('span');
+  probe.style.color = value;
+  document.body.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+
+  const rgb = /^rgba?\(([^)]*)\)$/i.exec(resolved);
+  if (rgb) {
+    const [r, g, b, a] = rgb[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    return { channels: [r, g, b], alpha: a ?? 1 };
+  }
+
+  // color-mix() in sRGB comes back in this form, with channels as fractions.
+  const srgb = /^color\(srgb ([^)]*)\)$/i.exec(resolved);
+  if (srgb) {
+    const [r, g, b, a] = srgb[1].split(/[\s/]+/).filter(Boolean).map(Number);
+    return { channels: [r * 255, g * 255, b * 255], alpha: a ?? 1 };
+  }
+
+  throw new Error(`cannot measure the contrast of "${value}": the browser resolved it to "${resolved}"`);
+}
+
+function relativeLuminance([r, g, b]: Channels): number {
+  const linear = (c: number) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4);
   return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
 }
 
-function contrastRatio(hexA: string, hexB: string): number {
-  const [lighter, darker] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort((a, b) => b - a);
+function contrastRatio(colorA: string, colorB: string): number {
+  const [lighter, darker] = [colorA, colorB]
+    .map((color) => relativeLuminance(parseColor(color).channels))
+    .sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** What a ring actually measures where it is drawn: composited over the surface under it first, because a
+ *  translucent ring borrows that surface's lightness and so has no contrast of its own to report. */
+function ringContrast(ring: string, surface: string): number {
+  const { channels: ink, alpha } = parseColor(ring);
+  const { channels: under } = parseColor(surface);
+  const painted: Channels = [
+    ink[0] * alpha + under[0] * (1 - alpha),
+    ink[1] * alpha + under[1] * (1 - alpha),
+    ink[2] * alpha + under[2] * (1 - alpha),
+  ];
+  const [lighter, darker] = [relativeLuminance(painted), relativeLuminance(under)].sort((a, b) => b - a);
   return (lighter + 0.05) / (darker + 0.05);
 }
 
@@ -26,6 +72,18 @@ function readTokens(theme: 'light' | 'dark', names: string[]): Record<string, st
   probe.remove();
   return values;
 }
+
+/** A field the form has refused, which draws its own ring as a box-shadow rather than the global outline. */
+@Component({
+  standalone: true,
+  imports: [CpFieldComponent],
+  template: `
+    <cp-field label="Publish date" forId="ring-invalid" error="Choose a date at least one hour from now.">
+      <input id="ring-invalid" type="text" />
+    </cp-field>
+  `,
+})
+class RefusedFieldHostComponent {}
 
 describe('CreatorPantry UI library', () => {
   it('applies the configured button variant and size', async () => {
@@ -102,6 +160,55 @@ describe('CreatorPantry design tokens', () => {
       expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(3);
       expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
     });
+
+    // WCAG 1.4.11 again, and for the same reason: the ring is the only thing that says which control the
+    // keyboard is on, so it holds 3:1 against every surface it can be drawn over. It is opaque because of
+    // this test — mixed with transparent it borrowed the lightness under it and measured 1.66:1 on the light
+    // page and 2.40:1 on the dark one. A soft fruit tint is in the list because a badge, a chip and a
+    // quick-action card are all drawn on one.
+    it(`draws a focus ring at 3:1 or better on every surface in the ${theme} theme`, () => {
+      const surfaces = [
+        '--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg',
+        '--cp-primary-soft', '--cp-pink-soft', '--cp-orange-soft', '--cp-purple-soft', '--cp-blue-soft',
+        '--cp-danger-soft',
+      ];
+      const tokens = readTokens(theme, ['--cp-focus', ...surfaces]);
+
+      for (const surface of surfaces) {
+        expect(ringContrast(tokens['--cp-focus'], tokens[surface]))
+          .withContext(`${tokens['--cp-focus']} on ${surface} (${tokens[surface]})`)
+          .toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  // A refused field replaces the global outline with a ring of its own, so it is the one indicator the token
+  // test above cannot see. It drew a 28% danger tint until this was measured, which was the worst ring in the
+  // system on the one field the form had just refused.
+  for (const theme of ['light', 'dark'] as const) {
+    it(`draws the ring on a refused field at 3:1 or better in the ${theme} theme`, async () => {
+      await TestBed.configureTestingModule({ imports: [RefusedFieldHostComponent] }).compileComponents();
+      const page = document.createElement('div');
+      page.setAttribute('data-cp-theme', theme);
+      document.body.appendChild(page);
+
+      const fixture = TestBed.createComponent(RefusedFieldHostComponent);
+      page.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      const input = fixture.nativeElement.querySelector('#ring-invalid') as HTMLInputElement;
+      input.focus();
+
+      // "rgb(31, 122, 68) 0px 0px 0px 4px" — the colour is the function in front of the offsets.
+      const shadow = getComputedStyle(input).boxShadow;
+      const ring = /^(rgba?\([^)]*\)|color\([^)]*\)|#[\da-f]{3,8})/i.exec(shadow)?.[1];
+      expect(ring).withContext(`no ring in box-shadow "${shadow}"`).toBeTruthy();
+      expect(ringContrast(ring!, getComputedStyle(input).backgroundColor))
+        .withContext(`${ring} on the field's fill`)
+        .toBeGreaterThanOrEqual(3);
+
+      page.remove();
+    });
   }
 
   describe('primary as text', () => {
@@ -135,5 +242,29 @@ describe('CreatorPantry design tokens', () => {
 
       page.remove();
     });
+  });
+
+  // The same parchment, and the ring has the same problem the text did: the mint that is 9.97:1 on the dark
+  // page is 1.13:1 on this card, so the card re-declares --cp-focus as well. Measured here rather than in the
+  // per-theme test above because the surfaces only exist inside the card's own scope.
+  it('draws a focus ring at 3:1 or better on the parchment card in the dark theme', async () => {
+    await TestBed.configureTestingModule({ imports: [CpCardComponent] }).compileComponents();
+    const page = document.createElement('div');
+    page.setAttribute('data-cp-theme', 'dark');
+    document.body.appendChild(page);
+
+    const fixture = TestBed.createComponent(CpCardComponent);
+    page.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+
+    const computed = getComputedStyle(fixture.nativeElement as HTMLElement);
+    const ring = computed.getPropertyValue('--cp-focus').trim();
+    for (const surface of ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg']) {
+      expect(ringContrast(ring, computed.getPropertyValue(surface).trim()))
+        .withContext(`${ring} on ${surface} (${computed.getPropertyValue(surface).trim()})`)
+        .toBeGreaterThanOrEqual(3);
+    }
+
+    page.remove();
   });
 });

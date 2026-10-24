@@ -35,7 +35,14 @@
   /* Text set over a photograph under --cp-scrim: light in both themes, because the scrim is dark in both. */
   --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(3,9,7,.66);
-  --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
+  /* The focus ring, and it is opaque on purpose. Mixed at 38% it took the lightness of whatever was under it
+     and measured 1.66:1 to 1.74:1 against every surface it can be drawn over, where WCAG 2.2 1.4.11 asks for
+     3:1; solid, the same green is 5.05:1 on the page, 5.35:1 on a white sheet and 4.41:1 at its worst, on a
+     soft fruit tint. Nothing is mixed into it, because translucency was the whole fault. A focused control's
+     own fill is told apart from the ring by the 2px gap `global.css` leaves between them, not by the ring's
+     colour: a primary button and its ring are the same green, and the page showing between them is 5.05:1
+     against both. A spec in `design-system.spec.ts` holds every surface at 3:1. */
+  --cp-focus: var(--cp-primary);
   /* Layered: a tight contact shadow for the edge, a wide soft one for the lift. Warm ink, never grey. */
   --cp-shadow-sm: 0 1px 2px rgba(31,27,22,.05), 0 4px 14px rgba(31,27,22,.05);
   --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
@@ -73,7 +80,7 @@
   --cp-ink-on-accent: #0b120f;
   --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(0,0,0,.66);
-  --cp-focus: color-mix(in srgb, var(--cp-primary) 42%, transparent);
+  --cp-focus: var(--cp-primary);
   --cp-shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 6px 18px rgba(0,0,0,.18);
   --cp-shadow-md: 0 2px 6px rgba(0,0,0,.26), 0 14px 34px rgba(0,0,0,.28);
   --cp-shadow-lg: 0 4px 12px rgba(0,0,0,.28), 0 28px 70px rgba(0,0,0,.42);
@@ -116,7 +123,7 @@
     --cp-ink-on-accent: #ffffff;
     --cp-ink-on-scrim: #ffffff;
     --cp-scrim: rgba(3,9,7,.66);
-    --cp-focus: color-mix(in srgb, var(--cp-primary) 38%, transparent);
+    --cp-focus: var(--cp-primary);
     --cp-shadow-sm: 0 1px 2px rgba(31,27,22,.05), 0 4px 14px rgba(31,27,22,.05);
     --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
     --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);

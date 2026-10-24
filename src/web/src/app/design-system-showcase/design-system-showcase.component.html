@@ -93,6 +93,45 @@
     </div>
   </section>
 
+  <section aria-labelledby="focus-ring-heading">
+    <h2 id="focus-ring-heading">Focus ring</h2>
+    <p class="section-note">
+      One token and one rule — <code>outline: 3px solid var(--cp-focus)</code> at an <code>outline-offset</code>
+      of 2px, on <code>:focus-visible</code> in <code>global.css</code>. The ring is opaque, because a ring
+      mixed with <code>transparent</code> takes
+      the lightness of whatever is under it and measured 1.66:1 on the light page. Tab along the row in both
+      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and on the
+      parchment a <code>cp-card</code> becomes in the dark theme, where the card re-declares the token because
+      the dark theme's mint reads 1.13:1 on it.
+    </p>
+    <div class="focus-row">
+      <button cpButton variant="secondary">On the page</button>
+      <button cpButton>On a primary fill</button>
+      <span class="focus-tint"><button cpButton variant="ghost">On a fruit tint</button></span>
+    </div>
+    <p class="section-note">
+      A focused primary button is green fill, 2px of page, green ring. The ring is the same colour as the fill
+      it haloes; the page showing between them is what separates the two, at 5.05:1 in the light theme and
+      9.97:1 in the dark. Inside the card it is the other way round — there the ring does the separating.
+    </p>
+    <cp-card>
+      <div class="focus-row">
+        <button cpButton variant="secondary">Inside a card</button>
+        <button cpButton>Primary, inside a card</button>
+        <cp-field label="A field's own ring" forId="showcase-focus-ring">
+          <input id="showcase-focus-ring" placeholder="Tab into me" />
+        </cp-field>
+        <cp-field
+          label="And a refused one"
+          forId="showcase-focus-ring-invalid"
+          error="Choose a date at least one hour from now."
+        >
+          <input id="showcase-focus-ring-invalid" placeholder="Tab into me too" />
+        </cp-field>
+      </div>
+    </cp-card>
+  </section>
+
   <section aria-labelledby="dialog-heading">
     <h2 id="dialog-heading">Dialog</h2>
     <p class="section-note">With and without a description, and long scrolling content.</p>

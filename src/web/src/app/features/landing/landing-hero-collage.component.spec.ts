@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CpThemeService } from '@creator-pantry/ui';
 
-import { FOOD_IMAGES, FoodImageService } from './food-image.service';
+import { HERO_COLLAGE_PHOTOS, foodPhoto } from '../../shared/food-photos';
 import { LandingHeroCollageComponent, PARALLAX_QUERY, PROPOSAL_CAPTURE } from './landing-hero-collage.component';
 
 describe('LandingHeroCollageComponent', () => {
@@ -32,7 +32,7 @@ describe('LandingHeroCollageComponent', () => {
     resolvedTheme = signal<'light' | 'dark'>('light');
     await TestBed.configureTestingModule({
       imports: [LandingHeroCollageComponent],
-      providers: [FoodImageService, { provide: CpThemeService, useValue: { resolved: resolvedTheme } }],
+      providers: [{ provide: CpThemeService, useValue: { resolved: resolvedTheme } }],
     }).compileComponents();
     fixture = TestBed.createComponent(LandingHeroCollageComponent);
     host = fixture.nativeElement;
@@ -70,22 +70,41 @@ describe('LandingHeroCollageComponent', () => {
     images.forEach((img) => expect(img.getAttribute('alt')).toBe(''));
   });
 
-  it('deals three different food photos, with the front one asked for first', async () => {
+  /**
+   * Fixed, not dealt: these three are what `index.html` preloads by name, and what makes the page's first-load
+   * bytes the same number on every visit (LP.11).
+   */
+  it('shows the three chosen photos, with the front one asked for first', async () => {
     await create(false);
     const src = (selector: string) => host.querySelector<HTMLImageElement>(`${selector} img`)!.getAttribute('src');
-    const dealt = [src('.front'), src('.back-left'), src('.back-right')];
 
-    dealt.forEach((photo) => expect(FOOD_IMAGES).toContain(photo!));
-    expect(new Set(dealt).size).toBe(3);
+    expect(src('.front')).toBe(foodPhoto(HERO_COLLAGE_PHOTOS.front).jpeg);
+    expect(src('.back-left')).toBe(foodPhoto(HERO_COLLAGE_PHOTOS.backLeft).jpeg);
+    expect(src('.back-right')).toBe(foodPhoto(HERO_COLLAGE_PHOTOS.backRight).jpeg);
     expect(host.querySelector<HTMLImageElement>('.front img')!.getAttribute('fetchpriority')).toBe('high');
+  });
+
+  it('offers each photo as AVIF and WebP before the JPEG every browser can read', async () => {
+    await create(false);
+
+    host.querySelectorAll('.photo').forEach((figure) => {
+      const sources = Array.from(figure.querySelectorAll('source'));
+      expect(sources.map((source) => source.getAttribute('type'))).toEqual(['image/avif', 'image/webp']);
+      sources.forEach((source) => {
+        expect(source.getAttribute('srcset')).toContain('480w');
+        expect(source.getAttribute('srcset')).toContain('960w');
+        // Drawn around 250 px at most, so a phone has to be told not to reach for the 960.
+        expect(source.getAttribute('sizes')).toContain('vw');
+      });
+    });
   });
 
   it('gives every image its intrinsic size, so nothing shifts as it loads', async () => {
     await create(false);
 
     host.querySelectorAll('.photo img').forEach((img) => {
-      expect(img.getAttribute('width')).toBe('400');
-      expect(img.getAttribute('height')).toBe('600');
+      expect(img.getAttribute('width')).toBe('480');
+      expect(img.getAttribute('height')).toBe('720');
     });
     const card = host.querySelector('.proposal img')!;
     expect(card.getAttribute('width')).toBe(String(PROPOSAL_CAPTURE.width));

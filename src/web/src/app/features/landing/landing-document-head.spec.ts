@@ -1,5 +1,7 @@
 import indexHtml from '../../../index.html' with { loader: 'text' };
 
+import { HERO_COLLAGE_PHOTOS } from '../../shared/food-photos';
+
 /**
  * The tags a social scraper and a crawler read (LP.10, LP.1 finding 7).
  *
@@ -59,5 +61,37 @@ describe('the public document head', () => {
   /** A card is a picture, and a picture that is described only to sighted readers is half a card. */
   it('describes what is on the card', () => {
     expect(meta('og:image:alt')).toContain('CreatorPantry');
+  });
+
+  /**
+   * LP.11. The preload is only worth anything while it names the photograph the collage actually shows, and
+   * the two live in different files with nothing but this holding them together. A photo swapped in
+   * `HERO_COLLAGE_PHOTOS` without this line following it is a preload of bytes the page never uses, plus an
+   * LCP candidate discovered a round trip late — which is the exact fault LP.1 finding 2 recorded.
+   */
+  it('preloads the hero collage photograph the page is going to draw', () => {
+    const front = HERO_COLLAGE_PHOTOS.front;
+
+    expect(head).toContain(`href="/images/food/photo-${front}-480.avif"`);
+    expect(head).toContain(
+      `imagesrcset="/images/food/photo-${front}-480.avif 480w, /images/food/photo-${front}-960.avif 960w"`,
+    );
+  });
+
+  /** AVIF only: a WebP preload beside it is fetched too by every browser that reads both formats. */
+  it('preloads one format of that photograph, not two', () => {
+    const preloads = head.match(/<link\s[^>]*rel="preload"[^>]*as="image"[^>]*>/gs) ?? [];
+    const food = preloads.filter((link) => link.includes('/images/food/'));
+
+    expect(food.length).toBe(1);
+    expect(food[0]).toContain('type="image/avif"');
+  });
+
+  /**
+   * The settings every page's bootstrap awaits. Asked for in the document, it travels with main.js rather than
+   * after it.
+   */
+  it('asks for the runtime configuration while the document is still parsing', () => {
+    expect(head).toContain('<link rel="preload" as="fetch" crossorigin href="/runtime-config.json" />');
   });
 });

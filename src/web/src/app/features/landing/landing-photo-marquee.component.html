@@ -1,0 +1,23 @@
+<div class="strip" [class.reverse]="reverse()">
+  <!-- Two identical runs: the track is twice the photographs wide and travels exactly half itself, which is
+       what makes the loop seamless. Hidden as one subtree, so neither copy is announced twice or at all. -->
+  <div class="track" [class.paused]="paused()" aria-hidden="true">
+    @for (run of [1, 2]; track run) {
+      <div class="run">
+        @for (photo of photos(); track photo.id) {
+          <picture class="photo">
+            <source type="image/avif" [srcset]="photo.avif" [sizes]="SIZES" />
+            <source type="image/webp" [srcset]="photo.webp" [sizes]="SIZES" />
+            <img [src]="photo.jpeg" [width]="photo.width" [height]="photo.height" alt="" loading="lazy" decoding="async" />
+          </picture>
+        }
+      </div>
+    }
+  </div>
+
+  @if (animated()) {
+    <button type="button" class="pause" (click)="toggle()">
+      {{ paused() ? 'Play the photo strip' : 'Pause the photo strip' }}
+    </button>
+  }
+</div>

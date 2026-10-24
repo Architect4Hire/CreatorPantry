@@ -40,6 +40,12 @@ figure {
   box-shadow: var(--cp-shadow-lg);
 }
 
+/* The `<picture>` is a format negotiation, not a box: `display: contents` leaves the `<img>` as the figure's
+   own child, so every rule below still sizes the photograph itself. */
+picture {
+  display: contents;
+}
+
 img {
   display: block;
   width: 100%;
@@ -111,6 +117,6 @@ img {
 @keyframes settle {
   from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(var(--cp-space-3));
   }
 }

@@ -2,13 +2,13 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, Injector, afterNextRender, computed, effect, inject, viewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
-import { FoodImageService } from './food-image.service';
 import { LandingFinalCtaComponent } from './landing-final-cta.component';
 import { LandingFooterComponent } from './landing-footer.component';
 import { LandingHeroCollageComponent } from './landing-hero-collage.component';
 import { LandingHeroComponent } from './landing-hero.component';
 import { LandingHowItWorksComponent } from './landing-how-it-works.component';
-import { LandingImageTrioComponent } from './landing-image-trio.component';
+import { LandingPhotoMarqueeComponent } from './landing-photo-marquee.component';
+import { LandingRevealDirective } from './landing-reveal.directive';
 import { LandingPricingComponent } from './landing-pricing.component';
 import { LandingCompareComponent } from './landing-compare.component';
 import { LandingCreditsComponent } from './landing-credits.component';
@@ -20,7 +20,7 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
 
 /**
  * The public landing page: L.3–L.7's sections composed in order, with the product tour under the value props,
- * a photo trio after it, another after how-it-works, and then the catalogue's own sections — pricing, the
+ * a drifting strip of photographs after it, another after how-it-works, and then the catalogue's own sections — pricing, the
  * credit menu, the draft-and-final pair and the billing promises — each of which renders only where a
  * deployment publishes the catalogue it reads (LP.6, LP.7, LP.8). `<cp-landing-footer>` sits outside
  * `<main>` on purpose — nesting a `<footer>` inside `<main>` strips its `contentinfo` landmark role.
@@ -42,13 +42,13 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
     LandingCompareComponent,
     LandingPromisesComponent,
     LandingFaqComponent,
-    LandingImageTrioComponent,
+    LandingPhotoMarqueeComponent,
     LandingHowItWorksComponent,
     LandingTrustComponent,
     LandingFinalCtaComponent,
     LandingFooterComponent,
+    LandingRevealDirective,
   ],
-  providers: [FoodImageService],
   templateUrl: './landing.component.html',
   styleUrl: './landing.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

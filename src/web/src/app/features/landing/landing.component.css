@@ -1,3 +1,15 @@
 :host {
   display: block;
 }
+
+/*
+ * A hairline between sections, rather than a colour band behind them. The page stays paper and white: the logo
+ * and the food photography are what carry colour here, and a tinted section competed with both.
+ *
+ * `:has(*)` is what keeps a rule off a section that drew nothing — the catalogue sections render no content at
+ * all on a deployment that publishes no plans, and an empty host with a top border is a stray line across the
+ * page. A section that rendered has a child element; one that did not has none.
+ */
+main > * + *:has(*) {
+  border-block-start: 1px solid var(--cp-border);
+}

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { DOCUMENT } from '@angular/common';
 import { CpThemeService } from '@creator-pantry/ui';
 
-import { FoodImageService, dealHeroCollage } from './food-image.service';
+import { HERO_COLLAGE_PHOTOS, foodPhoto } from '../../shared/food-photos';
 
 /**
  * A real capture of an AI Recipe Studio first draft's "Keep this draft?" step — Create recipe from this draft,
@@ -23,8 +23,9 @@ export const PARALLAX_QUERY = '(prefers-reduced-motion: no-preference) and (poin
  * The hero's media: three food photos and a proposal card, layered and turned a little, over colour blocks in the
  * fruit accents. Wholly decorative, so the host is `aria-hidden` and every image has empty alt.
  *
- * The three photos are dealt from the page's {@link FoodImageService}, so the first screen is a different scatter on
- * every load and the trios further down still repeat none of them.
+ * The three photos are fixed ({@link HERO_COLLAGE_PHOTOS}) and served as AVIF, WebP and JPEG at 480 and 960 px.
+ * Fixed is what lets `index.html` preload the front one by name: an LCP candidate a browser can only discover
+ * after the lazy landing chunk has run is a round trip of the first screen thrown away (LP.1 finding 2).
  *
  * Nothing shifts as it loads: the collage reserves its own aspect ratio and each image carries its intrinsic size.
  *
@@ -43,7 +44,20 @@ export const PARALLAX_QUERY = '(prefers-reduced-motion: no-preference) and (poin
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingHeroCollageComponent {
-  protected readonly photos = dealHeroCollage(inject(FoodImageService));
+  protected readonly photos = {
+    front: foodPhoto(HERO_COLLAGE_PHOTOS.front),
+    backLeft: foodPhoto(HERO_COLLAGE_PHOTOS.backLeft),
+    backRight: foodPhoto(HERO_COLLAGE_PHOTOS.backRight),
+  };
+
+  /**
+   * What each photograph is actually drawn at, so the browser picks 480 rather than 960 on a phone. The front
+   * one is 46% of a collage that is itself capped at 34rem; the two behind it are 40%. Both stay under 480
+   * device pixels on a phone at DPR 2.625 and on a desktop at DPR 2.
+   */
+  protected readonly FRONT_SIZES = '(min-width: 64rem) 15rem, 41vw';
+  protected readonly BACK_SIZES = '(min-width: 64rem) 13rem, 36vw';
+
   protected readonly capture = PROPOSAL_CAPTURE;
   private readonly theme = inject(CpThemeService);
   protected readonly captureSrc = computed(() => PROPOSAL_CAPTURE[this.theme.resolved()]);

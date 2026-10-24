@@ -213,3 +213,18 @@ code {
   gap: var(--cp-space-4);
   max-width: 20rem;
 }
+
+/* The focus-ring section: every surface the ring can sit on, in one tab order. */
+.focus-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-5);
+}
+
+.focus-tint {
+  display: inline-flex;
+  padding: var(--cp-space-4);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-pink-soft);
+}

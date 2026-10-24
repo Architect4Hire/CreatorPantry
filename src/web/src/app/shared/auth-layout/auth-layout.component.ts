@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { CpLogoComponent } from '../logo/logo.component';
-import { FoodImageService } from '../../features/landing/food-image.service';
+import { foodPhoto, randomFoodPhotoId } from '../food-photos';
 
 /**
  * The frame of a page a visitor meets before they are signed in — sign in, create an account: a food photograph
@@ -18,10 +18,21 @@ import { FoodImageService } from '../../features/landing/food-image.service';
   selector: 'cp-auth-layout',
   standalone: true,
   imports: [RouterLink, CpLogoComponent],
-  providers: [FoodImageService],
   template: `<div class="auth">
     <div class="story">
-      <img class="story-photo" [src]="photo" alt="" decoding="async" fetchpriority="low" />
+      <picture>
+        <source type="image/avif" [srcset]="photo.avif" [sizes]="SIZES" />
+        <source type="image/webp" [srcset]="photo.webp" [sizes]="SIZES" />
+        <img
+          class="story-photo"
+          [src]="photo.jpeg"
+          [width]="photo.width"
+          [height]="photo.height"
+          alt=""
+          decoding="async"
+          fetchpriority="low"
+        />
+      </picture>
       <div class="story-copy">
         <p class="story-kicker">For food creators</p>
         <p class="story-headline">{{ headline() }}</p>
@@ -53,6 +64,10 @@ import { FoodImageService } from '../../features/landing/food-image.service';
         position: relative;
         overflow: hidden;
         background: var(--cp-surface-raised);
+      }
+      /* The picture element is a format negotiation, not a box; without this it leaves an empty inline box. */
+      picture {
+        display: contents;
       }
       .story-photo {
         position: absolute;
@@ -145,5 +160,13 @@ export class AuthLayoutComponent {
   /** A sentence under it. Dropped at a narrow width, where the photograph is a band. */
   readonly dek = input('');
 
-  protected readonly photo = inject(FoodImageService).deal(1)[0];
+  /**
+   * One of the twelve, still picked fresh on every visit: this frame is not a page under LP.11's budget, and a
+   * different photograph each time is what it has done since it was built. It takes the same renditions the
+   * landing page does, because LP.11 replaced the single full-size JPEG these used to point at.
+   */
+  protected readonly photo = foodPhoto(randomFoodPhotoId());
+
+  /** Half the window on a wide screen, a short band above the form on a phone. */
+  protected readonly SIZES = '(min-width: 56rem) 50vw, 100vw';
 }

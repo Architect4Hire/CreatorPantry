@@ -2,6 +2,14 @@ import { isDevMode } from '@angular/core';
 import { Routes } from '@angular/router';
 
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
+// Not lazy, and measured rather than assumed (LP.11). Every other route in this file loads on demand; this one
+// is the first thing a visitor who has never heard of CreatorPantry sees, and its chunk was the last round trip
+// standing between the page and its LCP budget. The router cannot start fetching a lazy component until the
+// route's guards have resolved, so the chunk's fetch sat strictly after the session check instead of beside it:
+// a whole round trip, worth 1.0 s of LCP under Lighthouse's mobile simulation (3.2 s lazy, 2.2 s here).
+// It costs 22.6 kB gzipped in the initial bundle, which a signed-in visitor also downloads once and then has
+// cached forever. Script bytes on the wire went down, not up, because a dozen tiny chunks' overhead went with it.
+import { LandingComponent } from './features/landing/landing.component';
 import { authGuard } from './core/auth.guard';
 import { socialStudioCanDeactivateGuard } from './features/social-studio/social-studio.guard';
 import { themedDaysCanDeactivateGuard } from './features/workspace-settings/themed-days.guard';
@@ -109,7 +117,7 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     canActivate: [anonymousOnlyGuard],
-    loadComponent: () => import('./features/landing/landing.component').then((m) => m.LandingComponent),
+    component: LandingComponent,
   },
   // The same page at its own address, opened at the pricing section (LP.10). Not a second page: one document
   // answers both, which is also why its canonical URL in index.html names '' rather than this. Guarded exactly
@@ -121,7 +129,7 @@ export const routes: Routes = [
     path: 'pricing',
     pathMatch: 'full',
     canActivate: [anonymousOnlyGuard],
-    loadComponent: () => import('./features/landing/landing.component').then((m) => m.LandingComponent),
+    component: LandingComponent,
     data: { title: 'Pricing', scrollTo: 'pricing' },
   },
   // 'app' hosts the signed-in shell's own index page (workspace resolution/creation) before a workspace

@@ -603,7 +603,7 @@ Anything LP.11 or a later prompt wants to reconsider here starts from nothing, n
 *Not done: the skip link, which went out with the nav — with no navigation before `<main>` it would skip
 nothing. design-review was not run, there being no new visual surface left for it to review.*
 
-## LP.11 Motion, depth and image performance pass
+## LP.11 Motion, depth and image performance pass - done
 
 ```text
 SCOPE: Page-wide polish. Scroll-reveal for sections (IntersectionObserver, fade and rise by a few pixels,
@@ -624,6 +624,127 @@ UTILIZATION: design-review after implementation; playwright-cli for Lighthouse b
 BEHAVIOR: Show the motion inventory and the image pipeline; wait for approval; implement; report the
 before/after Lighthouse numbers.
 ```
+
+*Delivery note (2026-10-24): delivered, with one named piece of scope not built and the budget met. **LP.1's
+baseline was stale and its method understated the page**: LP.4 had already replaced the 16 MB photo set, and
+both LP.1's run and the first run here let the anonymous guard through without a round trip — LP.1 blamed CORS,
+but the cause is that a static folder answers `/runtime-config.json` with the SPA's own document, so
+`gatewayUrl` never decodes and `ApiBaseService` refuses the call. The harness now serves that file and
+`/bff/session`, so the guard is really paid for. Measured on `08da041` by that corrected method, the page was
+Performance 84, LCP 4.3 s, CLS 0.013, 414 KB of first-load images in light and 443 KB in dark — not the 12.5 s
+and 4.4/6.3 MB LP.1 recorded.*
+
+| | Before (`08da041`) | After | Budget |
+| --- | --- | --- | --- |
+| Performance | 84 | 98 | — |
+| LCP | 4.3 s | **2.2 s** | < 2.5 s |
+| CLS | 0.013 | 0.013 | < 0.1 |
+| First-load images (412 px, no scroll) | 414 KB light / 443 KB dark, varying per load | **140 KB / 167 KB, the same every load** | < 600 KB |
+| Accessibility | 100 | 100 | — |
+
+*Mobile, simulated, Lighthouse 12.8.2 against a production build served gzipped from a scratch folder, image
+bytes counted separately at 412 px with no scrolling.*
+
+*The LCP element is the hero's `h1` — text — and it was never an image problem. The page cost **three
+serialized round trips after the bundle parsed** before anything could paint: the awaited `runtime-config.json`
+initializer, the guard's session check, and the lazy landing chunk. Each was measured on its own rather than
+reasoned about:*
+
+- *`runtime-config.json`, now asked for by a `<link rel="preload" as="fetch">` in `index.html` so it travels
+  with `main.js` instead of after it: **−1.1 s**, and it is a round trip off the first paint of every page in
+  the product, not just this one.*
+- *The session check: **0 s.** The guard was temporarily made non-blocking and the build re-measured — LCP did
+  not move (render delay 2735 ms against 2712 ms). Lighthouse's simulation overlaps that small request with the
+  script graph. So the answer to this prompt's question is that **the landing page still waits on the session
+  check, and the wait is free**: `anonymousOnlyGuard` stays on `''` and `/pricing`, a signed-in visitor is still
+  forwarded before any marketing paints, and no hint cookie or `localStorage` flag was needed. Worth recording
+  because the obvious fix for it would have cost correctness for nothing — and the deployed document is served
+  by Azure Static Web Apps, so a gateway-side redirect was never available either.*
+- *The lazy landing chunk: **−1.0 s**, and the only thing left between the page and its budget. The router
+  cannot start fetching a lazy component until the route's guards resolve, so the chunk sat strictly behind the
+  session check rather than beside it. **The landing route is now the one route in `app.routes.ts` that is not
+  lazy.** It costs 22.6 kB gzipped on the initial bundle (87.7 → 110.3 kB), which a signed-in visitor downloads
+  once and then has cached; script bytes on the wire went *down*, 128 → 122 KB, because a dozen tiny chunks'
+  overhead went with it. The owner declined this when it was offered as a list item and approved it once it was
+  the measured difference between 3.2 s and 2.2 s.*
+
+*The image pipeline. `npm run make:food-images` (`scripts/make-food-images.mjs`) builds AVIF + WebP at 480 and
+960 px, plus one 480 px JPEG as the `<picture>` fallback, and deletes the unsuffixed files LP.4 left. **The
+camera originals are not in the tree and are not being put back**: twelve files at up to 5191×7787 come to
+16.8 MB, so the script reads them out of git at `bdcb6f1` by default — reproducible on any clone, with a commit
+rather than someone's desktop as the provenance — or from `FOOD_SOURCE_DIR`. **No 1600 px rendition**, against
+the prompt's letter: the largest box a food photo occupies on this page is the hero's front photo at about
+250 CSS px, ~660 device px on a phone, so 960 is already the 2× margin and 1600 would add ~2 MB to the
+repository and never be selected. One line in `WIDTHS` to add it back.*
+
+*Photo choice is deterministic, which **reverses the owner's request of earlier the same day** for the random
+scatter — reversed by the owner here, on the grounds that first-load bytes cannot be measured against a budget
+while they vary by ~40 KB per load, and a photo whose name is not known until the lazy chunk runs cannot be
+preloaded. In exchange the page shows all twelve photographs rather than nine of twelve: `HERO_COLLAGE_PHOTOS`
+fixes the hero's three (chosen off a contact sheet, not picked by id) and `MARQUEE_ORDER` runs all twelve
+through each strip, the second backwards. `index.html` now preloads the hero's front photo by name, AVIF only —
+a second preload for the WebP would be fetched as well by every browser that reads both —
+and `landing-document-head.spec.ts` fails if that stops naming the photo the collage draws.*
+
+*Motion, all of it off under `prefers-reduced-motion` and verified in a real browser rather than asserted:
+section scroll-reveal (`LandingRevealDirective`, fade and an 8 px rise, children staggered 60 ms apart, capped
+at six); the photo marquee replacing both image trios; and LP.4's hero parallax and proposal settle, unchanged.
+**The reveal directive writes inline styles and only once it has decided to**, rather than CSS hiding
+everything and script revealing it: under reduced motion, and in a browser with no `IntersectionObserver`,
+nothing is ever hidden. It also reveals everything on `beforeprint`, so a print or a full-page capture does not
+come out as blank bands. **The hero is deliberately not revealed** — it holds the LCP element.*
+
+*The marquee pauses on hover, on focus, and on a rendered pause control (WCAG 2.2.2); under reduced motion it
+does not animate and the control is **not rendered**, rather than hidden in CSS, which would leave a button
+that does nothing in the accessibility tree. The track is `aria-hidden` with empty alt throughout, and every
+photo in it is `loading="lazy"`.*
+
+*Colour blocking, **built as asked and then taken out at the owner's direction**. Five full-bleed bands in the
+soft fruit tokens (blue, orange, purple, pink), alternating with paper, went in; on seeing them the owner's
+answer was that "the color scheme doesn't work with the logo — we need to stick with white and HR, keep it a
+bit cleaner and less pastel". So the page is paper throughout and its sections are told apart by a 1px
+`--cp-border` hairline, drawn once by `landing.component.css` rather than by each section. `:has(*)` is what
+keeps a rule off a section that drew nothing: the catalogue sections render no content at all where a
+deployment publishes no plans, and an empty host with a top border is a stray line across the page.
+`DESIGN-SYSTEM.md` records the hairline as the rule and the bands as the thing that was tried.*
+
+*The contrast work that went with the bands is kept there rather than thrown away, because it is the expensive
+part if they are ever reconsidered: measured against all four soft tokens in both themes, `--cp-text` clears
+11.08:1 and `--cp-text-muted` 5.57:1, while **`--cp-text-faint` falls to 3.37–4.10:1 on every dark tint and
+fails AA**.*
+
+***Not delivered: the hover lift on cards.*** *`cp-card` already lifts with `--cp-shadow-md`, but only behind
+`interactive`, which also sets `cursor: pointer`. No card on this page is a whole-card link — a value-prop card
+holds an optional tour link, a plan card holds its CTA — so `interactive` would have put a pointer cursor on
+cards that do not respond to a click, and a grid where some cards lift and others do not reads as a bug. The
+one honest route is a `lift` input on `CpCardComponent` (depth without the false affordance), which the owner
+declined. Ten minutes whenever that is reconsidered; nothing here blocks it.*
+
+*Beyond the prompt, at the owner's choice: the `runtime-config.json` preload above. **Offered and declined:**
+caching the plan catalogue — `PlanCatalogueService.catalogue()` makes a fresh GET per subscriber, so five
+landing sections fire **five identical `/api/v1/plans` requests on every load**; a lazily-created
+`shareReplay(1)` fixes it. Recorded here because it is still true and still cheap.*
+
+*design-review found no blockers. Fixed from its report: the reveal's "no JavaScript" rationale was wrong (this
+is an SPA — with no JS there is no page to leave unhidden) and now says what it actually buys; `translate` is
+taken off once a section has settled, so no section is left a stacking context; `food-photos.ts` moved to
+`src/app/shared/`, because the sign-in frame uses it too and a shared component reaching into a feature folder
+was the wrong way round; the marquee's pause control took the library's `2.5rem` control height and
+`--cp-border-control`, and sits in a row of its own rather than over the bottom 16 px of the moving photos; the
+hero's `settle` keyframe and the reveal now rise by the same token; and a stale comment in the build script
+went. Two of its findings were overtaken: it asked for the bands to be documented or dropped, and they were
+dropped; and its claim that a paper card on a band sinks in dark mode was **wrong** — it used `--cp-surface`
+for the card, but `CpCardComponent` redefines its own surface to parchment under
+`:host-context([data-cp-theme='dark'])`, so a card on a dark band was the brightest thing in it. Left for later
+and recorded rather than done: three copies of the
+reduced-motion media query across the reveal, the marquee and the collage, which wants one shared helper, and
+promoting `cpReveal` into `@creator-pantry/ui`, which has one consumer today.*
+
+*Verification: `npm run build` and `npm test` from `src/web` (6041 specs, the page contract and the safety-copy
+check). **Two pre-existing failures are not from this work** — `RecipeEditorComponent`'s two scroll-geometry
+specs; a clean `git worktree` at `08da041` fails the same two, plus a third, in this environment. No `aspire
+run` restart is needed for any of this: it is all web assets and Angular source, served by the Angular dev
+server, and the only backend-adjacent file touched is `index.html`.*
 
 ## LP.11A Focus indicator contrast
 

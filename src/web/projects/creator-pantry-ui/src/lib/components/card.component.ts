@@ -32,6 +32,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
          buttons and soft chips that must match the dark page; as text it is a bright mint on parchment, about
          1.45:1. This is the same green the light theme uses for text, darkened to clear 4.5:1 here. */
       --cp-primary-text: #146137;
+      /* And the focus ring, for the same reason and in the same green. The bright mint reads at 9.97:1 on the
+         dark page, but on this parchment it is 1.13:1 to 1.25:1 — a focused control inside a card would have
+         had no visible ring at all. This green is 5.04:1 at worst here, and 4.01:1 against a primary button's
+         own mint fill, which is the one place in the system where the ring rather than the 2px gap is what
+         separates the two. */
+      --cp-focus: var(--cp-primary-text);
     }
     :host.cp-card--flush { padding:0; overflow:hidden; }
     :host.cp-card--interactive { transition:transform var(--cp-duration-fast) var(--cp-ease),border-color var(--cp-duration-fast),box-shadow var(--cp-duration-fast); cursor:pointer; }

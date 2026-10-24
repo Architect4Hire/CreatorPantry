@@ -135,8 +135,15 @@ small {
   border-color: var(--cp-danger);
 }
 
+/* A refused field keeps the ordinary ring. The ring says where the keyboard is, and a colour mixed with
+   transparent cannot say it: at 28% the danger tint measured 1.62:1 on a white field, 1.60:1 on a dark one and
+   1.26:1 on the parchment a card becomes in the dark theme, against the 3:1 of WCAG 2.2 1.4.11 — the worst
+   ring in the system, on the one field the form has just refused. The error is still said three other ways
+   that do not depend on this: the `--cp-danger` border above, the `!` glyph, and the message in `role=alert`.
+   Solid `--cp-danger` was the other candidate and is 6.54:1 on a white field, but 2.22:1 on that parchment,
+   because a card re-declares its surfaces and leaves the accent tokens alone. */
 :host ::ng-deep [aria-invalid='true']:focus {
-  box-shadow: 0 0 0 var(--cp-ring-width) color-mix(in srgb, var(--cp-danger) 28%, transparent);
+  box-shadow: 0 0 0 var(--cp-ring-width) var(--cp-focus);
 }
 
 :host ::ng-deep input:disabled,

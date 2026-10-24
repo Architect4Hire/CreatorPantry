@@ -48,6 +48,12 @@
     <link rel="icon" href="favicon.ico" sizes="48x48" />
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <!-- The deployment settings the application awaits before it bootstraps (`provideAppInitializer`). Asking
+         for it here starts it while the document is still being parsed, in parallel with main.js, instead of
+         after the bundle has loaded and run — which is a whole round trip off the first paint of every page,
+         not just this one. `crossorigin` because HttpClient fetches it with the default credentials mode, and a
+         preload whose mode does not match is a preload the browser fetches twice. -->
+    <link rel="preload" as="fetch" crossorigin href="/runtime-config.json" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- A plain stylesheet link: the Web host's CSP (script-src 'self') refuses an inline onload handler, so the
@@ -75,6 +81,20 @@
       imagesrcset="/images/logodark-200.webp 200w, /images/logodark-400.webp 400w"
       imagesizes="12.5rem"
       media="(prefers-color-scheme: dark)"
+    />
+    <!-- The hero collage's front photograph: above the fold at every width, and the largest thing on the first
+         screen after the headline. It is named here because LP.11 fixed the collage's three photos; while they
+         were dealt at random, nothing could be asked for until the lazy landing chunk had run and chosen them
+         (LP.1 finding 2). AVIF alone on purpose: a second preload for the WebP would be fetched as well by
+         every browser that reads both, which is the opposite of the point. `landing-document-head.spec.ts`
+         fails if this stops naming HERO_COLLAGE_PHOTOS.front. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/avif"
+      href="/images/food/photo-1-480.avif"
+      imagesrcset="/images/food/photo-1-480.avif 480w, /images/food/photo-1-960.avif 960w"
+      imagesizes="(min-width: 64rem) 15rem, 41vw"
     />
   </head>
   <body>

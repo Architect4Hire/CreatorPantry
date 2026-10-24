@@ -1,18 +1,20 @@
 <main>
+  <!-- The hero carries no reveal on purpose: it is the first screen and holds the page's LCP element, and
+       fading it in would spend the budget LP.11 exists to protect. -->
   <cp-landing-hero>
     <cp-landing-hero-collage cpLandingHeroMedia />
   </cp-landing-hero>
-  <cp-landing-value-props [tourPanels]="tourPanels" />
-  <cp-landing-tour />
-  <cp-landing-image-trio />
-  <cp-landing-how-it-works />
-  <cp-landing-image-trio [mirror]="true" />
-  <cp-landing-pricing />
-  <cp-landing-credits />
-  <cp-landing-compare />
-  <cp-landing-promises />
-  <cp-landing-faq />
-  <cp-landing-trust />
-  <cp-landing-final-cta />
+  <cp-landing-value-props [tourPanels]="tourPanels" cpReveal="li" />
+  <cp-landing-tour cpReveal />
+  <cp-landing-photo-marquee cpReveal />
+  <cp-landing-how-it-works cpReveal="li" />
+  <cp-landing-photo-marquee [reverse]="true" cpReveal />
+  <cp-landing-pricing cpReveal />
+  <cp-landing-credits cpReveal />
+  <cp-landing-compare cpReveal />
+  <cp-landing-promises cpReveal="li" />
+  <cp-landing-faq cpReveal />
+  <cp-landing-trust cpReveal />
+  <cp-landing-final-cta cpReveal />
 </main>
 <cp-landing-footer />
