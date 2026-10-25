@@ -688,6 +688,24 @@
       <li><cp-card>Weeknight ramen</cp-card></li>
       <li><cp-card>Lemon tart</cp-card></li>
     </ul>
+    <p class="section-note">
+      <code>flow="masonry"</code> lets each card keep its own height and packs the columns, for a set of
+      topics that are each as long as they need to be rather than a shelf of like things. The eye reads down
+      a column before it reads across; the order the Tab key and a screen reader follow is unchanged.
+    </p>
+    <ul cpCardGrid flow="masonry" aria-label="Example cards, packed">
+      <li>
+        <cp-card>
+          A card with rather more in it than the others, so that a row would have to be as tall as this one
+          and the short cards beside it would each stand in a gap of their own.
+        </cp-card>
+      </li>
+      <li><cp-card>Short</cp-card></li>
+      <li><cp-card>Also short</cp-card></li>
+      <li><cp-card>A middling card, two lines of it or thereabouts, which is the usual case.</cp-card></li>
+      <li><cp-card>Short again</cp-card></li>
+      <li><cp-card>Last</cp-card></li>
+    </ul>
   </section>
 
   <section aria-labelledby="board-heading">

@@ -891,7 +891,7 @@ added) and the safety-copy check passes. The library is 465/465. The showcase wa
 order-dependent family as in AU.2.6 and AU.3.2, passing 229/229 on their own. That file uses none of the three
 parts this prompt touched.*
 
-## AU.4.1 Dashboard
+## AU.4.1 Dashboard - done
 
 ```text
 SCOPE: Rework the dashboard with the new parts: the head with its lede, a row of figure tiles from the read
@@ -909,6 +909,94 @@ UTILIZATION: design-review; test-gap-analyzer on the states; playwright-cli scre
 BEHAVIOR: Show the layout with the AU.0 capture beside it; wait for approval; implement with specs for every
 state (loading, empty, degraded, error, success); run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the layout from a written sketch — the AU.0 captures
+are gone (`.captures/` is ignored and that session's pictures went with it), and the sample workspace
+`homespun-favorites` no longer exists on this machine, so the before/after pair was shot fresh in the owner's
+own `test` workspace. Four decisions were put and all four taken as recommended.*
+
+*What shipped:*
+
+- *A row of four `cp-stat-tile`s, the "what needs you" set: `workPlan.overdueCount`,
+  `publishing.needsAttentionCount`, `testFollowUps.open` and `aiProposals.awaitingDecision`. Each prints one
+  field as it came; `context` lists further fields the server sent (today's count, the blocking/major/minor
+  split). Only the late-tasks tile has a link, because only My Day is one place to deal with a figure; the
+  other three are dealt with item by item in the card below. The row is not drawn at all in a first use.*
+- *Left out for want of a number the read model does not send, as the restriction asks: **recipes in progress
+  in all** (a count per status, no total — summing is arithmetic), **blocked recipes** (a list, with no count
+  of its own) and **the size of the picture library** (the recent few, with no total). Available and not
+  chosen, because they stay in their own cards: the workflow counts, the week's six figures, `unplannedCount`,
+  `upcoming.cardCount`/`postCount` and `board.total`.*
+- *One featured card above the grid, chosen by the first of the server's counts above zero down the page's own
+  order of urgency — late, failed to publish, blocked, blocking a test, stalled, waiting on a decision, and
+  last what the creator was in the middle of. Nothing is derived: each rung reads one count. A workspace where
+  nothing needs anyone features nothing; one with nothing in it features "Get started".*
+- *Each topic is an `ng-template` the page points at from the featured slot or the grid, so one topic is one
+  card and never two. The grid's order is `DASHBOARD_TOPIC_KEYS`, not the order a view query happens to answer
+  in.*
+- *Loading draws the layout that is coming — four tile silhouettes, a wide featured card, six topics — with
+  one offscreen `role="status"` outside the `aria-busy` region. "Loading your dashboard…" is gone from the
+  page.*
+- *Drawn quiet states where empty means "nothing here yet" (Carry on, Your day, Recipes in progress, Content
+  board, Recently added pictures), and the plain reassuring sentence kept where it means "all clear"
+  (Workflows that need a look, Publishing, blocked recipes, test follow-ups, AI proposals). The owner chose
+  this over drawing every empty topic: on a healthy dashboard the literal reading is eleven drawings at once.*
+- *"Get started" is the featured card, holding `cp-empty-state`'s roomy first-use layout with the `recipe`
+  drawing.*
+- *AU.0's three runs named "Create a recipe": confirmed at the source — `WorkflowRun.Title` falls back to
+  `definition.Goal` (`IWorkflowRunBusiness.cs:126`). The read model carries no linked record, so the recipe a
+  run is about cannot be named without a field the server does not send. A run whose title is its goal is now
+  named by the step it is on ("Create a recipe — Check your method"), and every run link's accessible name
+  carries the day it was last touched, so two unnamed runs on one step still differ. "Carry on with" where the
+  step is the reader's, "Open" where it is somebody else's, which is what `YouCanDoIt` is for.*
+
+*One library change, at the owner's request mid-prompt:* **`cpCardGrid` gained `flow="masonry"`**. *A grid's
+rows are as tall as their tallest card, which left every short topic standing in a gap — visible in the before
+capture and worse once the featured card was lifted out. Masonry lays the same list out in columns that pack.
+The DOM order is unchanged, so the Tab key and a screen reader still read the order of urgency; the eye reads
+down a column before across, which is what masonry means and is written down in DESIGN-SYSTEM.md. The topic
+grid uses it; the figure row stays a grid, because a row of figures should line up. It took the page 870px
+shorter. This replaced the alternative — a library fix to make `cp-topic-card` fill its cell — which
+`design-review` had confirmed as the right shape for the ragged rows and which is now not needed.*
+
+*`design-review` raised ten findings; four were taken:*
+
+- *A retry's accessible name did not contain its visible "Try again" (SC 2.5.3). Now "Try again to read the
+  board", "Try again to load your dashboard".*
+- *A figure's notice and its topic card's notice announced the same unreadable part twice. The tile's notice
+  lost its `role`; the card still announces.*
+- *Focus was dropped when the featured topic moved. A retry that succeeds is exactly what moves a card, so the
+  creator who pressed it would have been left on the document body; focus now goes to that topic's heading,
+  and only where the read actually dropped it.*
+- *The grid's order now comes from the declared key list rather than from query timing.*
+
+*Not taken, with reasons: the degraded tile keeps its label, which is what DESIGN-SYSTEM.md's "Meters and
+figures" prescribes; the zone tile does not repeat the Brand settings link its topic card already carries; the
+other three figures stay linkless for want of one place to send anyone; and the loading state always draws the
+featured silhouette, which is right for all but a workspace where nothing needs anyone.*
+
+*`test-gap-analyzer` found a real defect, pre-existing and made worse by this prompt.* **`firstUse` judged by
+five parts of ten**, *so a workspace whose recipes were all approved — none in progress, nothing on the board,
+nothing uploaded — greeted a creator with a year's work behind them as though they had just arrived, and after
+this prompt it also hid their four figures. It now requires every part to agree, with one documented
+exception: the plan and what is coming up are unavailable until the workspace has a time zone, and that is no
+evidence either way only while no zone is set. The spec's own `emptyWorkspace()` fixture had the same hole and
+asserted the contradiction; it is now genuinely empty, and six specs prove each part alone denies a first use.*
+
+*Also from that analysis: a count above zero with an empty list no longer reads "Nothing under way" or "No
+recipes in progress" (it says none has changed recently); `runName` treats a blank step title as no step
+rather than ending on a dash; the urgency table gained its missing AI-proposals rung and now pins the whole
+order rather than its first heading; and the page gained the two-workspace test tenancy.md requires, which it
+did not have.*
+
+*Left for later, from the same analysis: out-of-order responses between a refresh and the quick-capture re-read
+(no request sequence number), a refresh from ready to not_found, an unknown time-zone id falling back to UTC
+silently, and malformed dates rendering as an empty string. None is new to this prompt.*
+
+*`npm run build` passes. `npm test` is green in full: the page contract holds (32 routed pages, 628 files, 11
+exemptions, none added), safety copy passes, the library is 469/469 (+4 masonry specs) and the showcase
+6097/6097 (+21: nine on the dashboard, twelve in a new `dashboard-presentation.spec.ts`). No intermittents in
+this session's runs.*
 
 ## AU.4.2 Recipe library shows each recipe's picture
 

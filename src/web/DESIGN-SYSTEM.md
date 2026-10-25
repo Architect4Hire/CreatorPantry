@@ -122,6 +122,15 @@ A page has one `h1`, and `CpPageHeadComponent` prints it; the shell prints none.
 
 A library is a list, and `CpCardGridComponent` lays that list out: `cpCardGrid` on the page's own `<ul>`, one `<li>` per card. It fits as many columns as the frame allows and drops to one at a narrow width or high zoom, because the floor is `min(16rem, 100%)` and never wider than its container. It fills rather than fits, so a library with two things in it shows two card-sized cards. Raise `minColumn` for cards that need more room to be read; do not set a column count.
 
+`flow="masonry"` lets each card keep its own height. A grid's rows are as tall as the tallest card in them,
+which is right for a library of like things — a row of pictures, a row of figures — and wrong for a set of
+topics that are each as long as they need to be, where it strands a short card in a gap. Masonry lays the same
+list out in as many columns as fit and lets each card end where it ends. It is columns, so the eye reads down
+one before it reads across, while the DOM order — which the Tab key and a screen reader follow — is unchanged.
+Use it where the cards are independent of one another and their order is a ranking rather than a sequence read
+in turn: the dashboard's topics are the one place today. A library of cards stays a grid, because a creator
+scanning a shelf of pictures reads along the rows.
+
 ### A board: a library in columns
 
 Some libraries are sorted before they are listed: every thing in them is in exactly one of a few named, ordered states, and the page is about moving things between those. That is still a library — the same head, the same toolbar, the same list shell — whose list is laid out by `[cpBoard]` instead of `ul[cpCardGrid]`. It is not a fourth shape.
