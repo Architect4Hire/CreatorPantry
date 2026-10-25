@@ -2,12 +2,12 @@
 
 ## Direction
 
-CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. Its audience writes for the web, so the product should feel like the kind of food blog they run, with a working tool underneath: an editorial voice where they read, productivity-tool density where they work. Fredoka gives every heading the same friendly, rounded display voice as the wordmark, set large and confident the way a food blog sets its headlines; DM Sans keeps controls, labels and data highly legible. The surfaces are paper and warm ink — an off-white page, white sheets with hairline edges, layered soft shadows — and the [logo](public/images/logo.png) and the food photography bring the colour, never flattened into a muted corporate palette. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
+CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. Its audience writes for the web, so the product should feel like the kind of food blog they run, with a working tool underneath: an editorial voice where they read, productivity-tool density where they work. Fredoka gives every heading the same friendly, rounded display voice as the wordmark, set large and confident the way a food blog sets its headlines; DM Sans keeps controls, labels and data highly legible. The surfaces are paper and warm ink — an off-white page, white sheets with hairline edges, layered soft shadows — and the [logo](public/images/logo.png) and the food photography bring the colour, never flattened into a muted corporate palette. In the dark theme the paper becomes charcoal — neutral greys from a `#202020` page, never tinted — so on a dark page too the only colour is the accents' and the photographs'. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
 
 ## Layers
 
 1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, and a skeleton's sweep, `--cp-duration-skeleton`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's two colours (`--cp-skeleton-base`, `--cp-skeleton-shine`).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a control's edge and a field's fill; the edge — of a field, a select, a checkbox's box, a radio's mark, a secondary button — holds 3:1 against the fill and every surface, WCAG 1.4.11, and specs check it as a token and as each control paints it), `--cp-card-edge` (the edge of a sheet — card, dialog, lightbox — a hairline in light and a stronger line in dark, where the sheet's fill barely stands off the page), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's two colours (`--cp-skeleton-base`, `--cp-skeleton-shine`).
 3. Angular primitives implement interaction and accessibility.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
@@ -370,11 +370,14 @@ by hand.
   `--cp-tone` (5.01:1 at worst). Orange's text in the light theme is a step darker than its fill (`--cp-orange-text`):
   the carrot itself is 4.25:1 on the raised surface. `design-system.spec.ts` measures every pair.
 
-**The dark card becomes a dark card (D2).** Parchment is replaced by a raised dark surface (AU.2.2). Until that
-lands, the card's re-declarations described under "The focus ring" stand, and no page wears a tone. Inside a
-parchment card every accent is 1.38–2.28:1 as text on its surfaces. Even an untoned `--cp-tone-text` is the dark
-page's mint there (1.45:1), because a tone token is computed where the theme declares it and the card's own
-re-declarations never reach it.
+**A dark card is a charcoal sheet (D2)** (AU.2.2). The dark theme is charcoal — neutral greys from a `#202020`
+page — and a `cp-card` in it is `--cp-surface` (`#2a2a2a`) edged in `--cp-card-edge`: a sheet raised off the
+page, sharing its fill and edge with `cp-dialog` and `cp-lightbox`, not a light island on it. It re-declares no
+token, so everything inside reads the page's own colours at the page's own ratios: error text 5.63:1 (it was
+1.97:1 on parchment), ink on the danger tint 10.57:1 (1.17:1), the accents as text 5.49–6.96:1 (1.60–2.02:1), and
+any tone's text 7.67:1 untoned. The fill stands 1.14:1 off the page, so the edge (1.93:1) draws the sheet; the
+dark shadow adds little. `design-system.spec.ts`, "inside a card", measures every pair inside an untoned frame
+and each toned one, in both themes.
 
 **The page head says which tool (D3)** (AU.2.5). Beside the title sits a tone-filled tile holding the nav's icon
 for the page, passed by name so the library names no route. The head's hairline takes `--cp-tone`. A detail page
@@ -454,8 +457,9 @@ Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color a
 outline-offset: 2px }` in `global.css`. It was a 38% (light) and 42% (dark) mix of the action colour with
 `transparent` until it was measured: a translucent ring takes the lightness of whatever is under it, so it came
 to 1.66–1.74:1 on every light surface and 2.40–2.71:1 on every dark one, where WCAG 2.2 1.4.11 asks for 3:1.
-Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 9.97:1 on the dark page, and 4.41:1
-at its worst, on a soft fruit tint. `design-system.spec.ts` holds every surface in both themes at 3:1.
+Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 8.70:1 on the dark charcoal page,
+and 4.24:1 at its worst, on the light danger tint. `design-system.spec.ts` holds every surface in both themes at
+3:1. (The 2.40–2.71:1 above was measured on the green-black dark theme that charcoal replaced in AU.2.2.)
 
 **The colour is always the token.** A component may set its own width or offset — several do, at 2px or with a
 negative offset, where the global 3px at +2px would be clipped or would collide with a neighbour — but none
@@ -467,41 +471,35 @@ Three things follow, and they are decisions rather than oversights:
 
 - **The 2px gap is what separates the ring from the control it rings, not the ring's colour.** A focused primary
   button is green fill, 2px of page, green ring — the ring is 1:1 against the fill it haloes. The page showing
-  between them is 5.05:1 (light) and 9.97:1 (dark) against both, which is what makes the indicator findable. A
+  between them is 5.05:1 (light) and 8.70:1 (dark) against both, which is what makes the indicator findable. A
   single colour that cleared 3:1 against the surfaces *and* against the primary fill would have to be near-black
   in the light theme, and in the dark theme does not exist: clearing 3:1 against `#48d593` needs a luminance at
-  or under 0.15 and clearing it against `#071512` needs 0.145 or over.
-- **`cp-card` re-declares the ring in the dark theme**, next to the neutrals and `--cp-primary-text` it already
-  re-declares, because the card is parchment there. The mint that is 9.97:1 on the dark page is 1.13–1.25:1 on
-  that parchment, so a focused control inside a card would have had no visible ring at all. The card's ring is
-  `--cp-primary-text`, 5.04:1 at worst on its surfaces — and 4.01:1 against a primary button's mint fill, so
-  this is the one place where the ring itself, rather than the gap, does the separating. It is the only
-  re-declaration of the token, and it is one because the card is the only thing that re-declares its surfaces.
-- **`cp-card` re-declares `--cp-primary-soft` in the dark theme too**, as a light mint (`#d4e5cf`). Left as the
-  dark page's deep green, it sat under the card's own dark ink at 1.35:1: a picked `cp-choice-group` answer, a
-  current step, a success notice and every feature row marked "the one in force" were unreadable inside a dark
-  card (found in the AU.0 capture). On the mint the card's ink is 12.3:1, its muted ink 4.77:1 and
-  `--cp-primary-text` 5.69:1. The bright mint is 1.42:1 on it, so **nothing writes `--cp-primary` as text on a
-  soft fill**; it writes `--cp-primary-text`, which is the same colour everywhere outside a dark card. A picked
-  choice tile is edged in `--cp-primary-text` for the same reason. `design-system.spec.ts` measures the painted
-  pairs inside a card in both themes.
+  or under 0.137 and clearing it against the charcoal page `#202020` needs 0.143 or over.
+- **Nothing re-declares the ring, a card included.** Until AU.2.2 a dark `cp-card` was parchment, where the mint
+  ring was 1.26–1.63:1 (1.45:1 on its fill), so the card re-declared `--cp-focus`, `--cp-primary-text` and later
+  `--cp-primary-soft` to stay usable; inside it the ring itself did the separating from a primary button, at
+  4.01:1. A dark card is now a charcoal sheet that re-declares nothing. The page's ring is 7.67:1 on it, 7.05:1 on
+  its subtle surface and 9.20:1 on a field, and the 2px gap separates ring from button there as it does
+  everywhere else.
+- **Primary as text on a soft fill is `--cp-primary-text`**, never the raw `--cp-primary`: a badge, a status pill,
+  a pressed chip, a notice's glyph and a picked choice tile's edge all say so. The two are one colour in both
+  themes today. The rule stands because a soft fill is where a surface that re-declared its palette would break
+  first — the parchment card put a picked answer at 1.35:1 (AU.0) — and `--cp-primary-text` is the token such a
+  surface re-declares.
 - **A refused field keeps the ordinary ring**, rather than turning it red. `cp-field` draws its ring as a
   `box-shadow` inside a transparent outline, so it is the one indicator the token alone does not reach, and for
-  an invalid control it drew a 28% danger tint: 1.62:1 on a white field, 1.60:1 on a dark one and 1.26:1 on a
-  card's parchment — the worst ring in the system, on the one field the form had just refused. Solid
-  `--cp-danger` is 6.54:1 on a white field but 2.22:1 on that parchment, for the same reason the mint is, so
-  the ring says where the keyboard is and the error goes on being said three other ways that do not depend on
-  it: the `--cp-danger` border, the `!` glyph, and the message in `role="alert"`.
+  an invalid control it drew a 28% danger tint: 1.62:1 on a white field and 1.60:1 on a dark one — the worst
+  ring in the system, on the one field the form had just refused. Solid `--cp-danger` was ruled out while a dark
+  card was parchment (2.22:1 on it), and the ring says where the keyboard is regardless: the error goes on
+  being said three other ways that do not depend on it, the `--cp-danger` border, the `!` glyph, and the
+  message in `role="alert"`.
 
 Nothing in the library draws a focus ring over a photograph: `cp-lightbox` puts its close control on a
 `--cp-surface` panel rather than on the scrim, and `cp-media-card` rings the card outside the picture. A new
-component that wants a ring on an image is a question to raise, because no single colour answers it. Nor does
-any ring land on a soft accent tint inside a dark card. On the primary tint it would now read (the card's ring
-is 5.69:1 on the re-declared mint), but the pink, orange, purple, blue and danger tints are still the dark
-page's inside a card, and the card's ring on those is the system's remaining gap. It does not arise because
-every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) rings itself at a positive offset, so
-the ring lands on the surface the control sits on rather than on its own fill. A component that would ring
-*inside* a tinted area is the second question to raise.
+component that wants a ring on an image is a question to raise, because no single colour answers it. A ring on
+a soft tint reads, in a card or out of one: 4.24:1 at worst in the light theme (the danger tint; 4.41:1 on the
+pink, the worst fruit tint) and 6.33:1 in the dark (the danger tint). Every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) still rings itself at a
+positive offset, so the ring lands on the surface the control sits on rather than on its own fill.
 
 ## Meters and figures
 

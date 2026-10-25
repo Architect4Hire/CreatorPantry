@@ -734,8 +734,8 @@ was the wrong way round; the marquee's pause control took the library's `2.5rem`
 hero's `settle` keyframe and the reveal now rise by the same token; and a stale comment in the build script
 went. Two of its findings were overtaken: it asked for the bands to be documented or dropped, and they were
 dropped; and its claim that a paper card on a band sinks in dark mode was **wrong** — it used `--cp-surface`
-for the card, but `CpCardComponent` redefines its own surface to parchment under
-`:host-context([data-cp-theme='dark'])`, so a card on a dark band was the brightest thing in it. Left for later
+for the card, but `CpCardComponent` then redefined its own surface to parchment under
+`:host-context([data-cp-theme='dark'])`, so a card on a dark band was the brightest thing in it (until AU.2.2 made the dark card a charcoal sheet). Left for later
 and recorded rather than done: three copies of the
 reduced-motion media query across the reveal, the marquee and the collage, which wants one shared helper, and
 promoting `cpReveal` into `@creator-pantry/ui`, which has one consumer today.*

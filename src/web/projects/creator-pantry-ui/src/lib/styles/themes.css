@@ -10,9 +10,14 @@
   --cp-text-faint: #6d645a;
   --cp-border: #ebe3d5;
   --cp-border-strong: #d5c9b4;
-  /* The edge of a control a creator types into or picks from. Hairlines are for surfaces; a field's boundary
-     has to be found (WCAG 1.4.11, 3:1 against what it sits on), so it is a step darker than any border. */
-  --cp-border-control: #998e7f;
+  /* The edge of a control a creator types into or picks from: a field, a select, a checkbox's box, a radio's
+     mark, a secondary button. Hairlines are for surfaces; a control's boundary has to be found (WCAG 1.4.11, 3:1
+     against what it sits on), so it is a step darker than any border. 3.32:1 at worst, on --cp-surface-raised;
+     the #998e7f before AU.2.2 was 2.72:1 there and 2.81:1 on --cp-surface-subtle. */
+  --cp-border-control: #8a7f70;
+  /* The edge of a sheet: cp-card, cp-dialog, cp-lightbox. A hairline here, where a white sheet already stands
+     off the paper page; stronger in the dark theme, where the sheet's fill barely does. */
+  --cp-card-edge: var(--cp-border);
   --cp-field-bg: #ffffff;
   --cp-primary: #1f7a44;
   --cp-primary-hover: #17633a;
@@ -36,8 +41,8 @@
   --cp-blue-text: var(--cp-blue);
   /* The tool tone (AU.1, D1): what a toned route's parts draw with. With no tone set it is the primary, so on the
      page a part written against --cp-tone* looks as it does today; [data-cp-tone] at the end of the file swaps it.
-     Not inside a dark parchment cp-card: these are computed here, at the root, so they carry the dark page's
-     primary in, and the card's own --cp-primary-text and --cp-primary-soft never reach them. AU.2.2 ends that. */
+     They are computed here, where they are declared, so a scope below that re-declared --cp-primary-* would not
+     reach them; nothing does since AU.2.2 took the parchment re-declarations out of cp-card. */
   --cp-tone: var(--cp-primary);
   --cp-tone-soft: var(--cp-primary-soft);
   --cp-tone-text: var(--cp-primary-text);
@@ -69,19 +74,25 @@
   --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
 }
 
+/* The dark theme is charcoal (AU.2.2, owner's choice, 2026-10-25): neutral greys where it was a green-black, so
+   the fruit accents, the evergreen action colour and the food photographs carry every bit of colour on the page.
+   Only the neutrals are grey; every accent and its tint is unchanged. Each text token clears 4.5:1 on every
+   surface here (faint 4.69:1 at worst, on --cp-surface-raised) and the control edge 3:1 on each (3.18:1 at worst,
+   on raised). A sheet's fill stands 1.14:1 off the page, so its edge (--cp-card-edge, 1.93:1) draws the sheet. */
 [data-cp-theme='dark'] {
   color-scheme: dark;
-  --cp-bg: #071512;
-  --cp-surface: #0d1f1a;
-  --cp-surface-subtle: #122720;
-  --cp-surface-raised: #17332a;
-  --cp-text: #f3f6f1;
-  --cp-text-muted: #a9b6ad;
-  --cp-text-faint: #7c8b81;
-  --cp-border: #24392f;
-  --cp-border-strong: #33493d;
-  --cp-border-control: #5f7468;
-  --cp-field-bg: #0a1a16;
+  --cp-bg: #202020;
+  --cp-surface: #2a2a2a;
+  --cp-surface-subtle: #303030;
+  --cp-surface-raised: #353535;
+  --cp-text: #f2f2f0;
+  --cp-text-muted: #b4b4b0;
+  --cp-text-faint: #a3a39f;
+  --cp-border: #3a3a3a;
+  --cp-border-strong: #4d4d4d;
+  --cp-border-control: #82827e;
+  --cp-card-edge: var(--cp-border-strong);
+  --cp-field-bg: #1b1b1b;
   --cp-primary: #48d593;
   --cp-primary-hover: #72e7ad;
   --cp-primary-ink: #062417;
@@ -103,10 +114,11 @@
   --cp-tone-soft: var(--cp-primary-soft);
   --cp-tone-text: var(--cp-primary-text);
   --cp-tone-on: var(--cp-primary-ink);
-  --cp-skeleton-base: #1a332b;
-  --cp-skeleton-shine: #24423a;
+  --cp-skeleton-base: #383838;
+  --cp-skeleton-shine: #444444;
   --cp-danger: #ff7a68;
-  --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
+  /* 12% here, not 14%: on charcoal the 14% tint put the danger text on it at 4.49:1 (AU.2.2). */
+  --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 12%, var(--cp-surface));
   --cp-ink-on-accent: #0b120f;
   --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(0,0,0,.66);
@@ -133,7 +145,8 @@
     --cp-text-faint: #6d645a;
     --cp-border: #ebe3d5;
     --cp-border-strong: #d5c9b4;
-    --cp-border-control: #998e7f;
+    --cp-border-control: #8a7f70;
+    --cp-card-edge: var(--cp-border);
     --cp-field-bg: #ffffff;
     --cp-primary: #1f7a44;
     --cp-primary-hover: #17633a;
@@ -177,9 +190,8 @@
    --cp-tone, in both themes; design-system.spec.ts measures every pair.
    Last in the file, after print, so an element carrying both data-cp-theme and data-cp-tone keeps its tone on
    paper. A data-cp-theme set *inside* a toned frame starts again from that theme's defaults, which are untoned.
-   Not inside a parchment cp-card: there every accent is 1.38–2.28:1, and a tone token is computed where it is
-   declared, so the card's own re-declarations never reach it. AU.2.2 removes that card before any page wears a
-   tone, and must prove --cp-tone-text and --cp-tone-soft read inside a card. */
+   Inside a cp-card the same pairs hold, because a card re-declares nothing (AU.2.2); design-system.spec.ts,
+   "inside a card", measures them in every tone and both themes. */
 [data-cp-tone='purple'] {
   --cp-tone: var(--cp-purple);
   --cp-tone-soft: var(--cp-purple-soft);

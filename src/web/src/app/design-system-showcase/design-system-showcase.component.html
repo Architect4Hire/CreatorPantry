@@ -100,9 +100,8 @@
       of 2px, on <code>:focus-visible</code> in <code>global.css</code>. The ring is opaque, because a ring
       mixed with <code>transparent</code> takes
       the lightness of whatever is under it and measured 1.66:1 on the light page. Tab along the row in both
-      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and on the
-      parchment a <code>cp-card</code> becomes in the dark theme, where the card re-declares the token because
-      the dark theme's mint reads 1.13:1 on it.
+      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and inside a
+      <code>cp-card</code>, which is a dark sheet in the dark theme and reads the page's own ring.
     </p>
     <div class="focus-row">
       <button cpButton variant="secondary">On the page</button>
@@ -112,7 +111,7 @@
     <p class="section-note">
       A focused primary button is green fill, 2px of page, green ring. The ring is the same colour as the fill
       it haloes; the page showing between them is what separates the two, at 5.05:1 in the light theme and
-      9.97:1 in the dark. Inside the card it is the other way round — there the ring does the separating.
+      8.70:1 in the dark. Inside a card it is the card showing between them, at 5.35:1 and 7.67:1.
     </p>
     <cp-card>
       <div class="focus-row">

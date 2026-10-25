@@ -345,7 +345,7 @@ per run, all in the known order-dependent families, none in the shell, routes or
 The new families seen this time (My Week moving, Content Pipeline brand defaults) point at specs leaving
 SweetAlert confirmations in `document.body`. That is pre-existing and not fixed here.*
 
-## AU.2.2 A true dark card (only if D2 chose to replace parchment)
+## AU.2.2 A true dark card (only if D2 chose to replace parchment) - done
 
 ```text
 SCOPE: Remove the parchment re-declaration from cp-card under [data-cp-theme='dark'] (card.component.ts) and
@@ -370,6 +370,67 @@ three dense pages (recipe editor, Image Studio, workspace settings) in dark.
 BEHAVIOR: Show the before/after ratio table and screenshots; wait for approval; implement, update the
 showcase and docs, run npm run build and npm test from src/web, and report.
 ```
+
+*Delivery note (2026-10-25): shipped, and wider than asked, at the owner's direction.*
+
+- *A dark `cp-card` re-declares no token. It is `--cp-surface` edged in a new `--cp-card-edge`, which is
+  `--cp-border` in light and `--cp-border-strong` in dark, so the component no longer sniffs the theme.
+  `cp-dialog` and `cp-lightbox` share that edge.*
+
+*Two owner decisions taken during the prompt:*
+
+1. **The dark theme is charcoal.* *The owner judged the green-black odd. After a side-by-side preview, every dark
+   neutral became a grey: page `#202020`, sheet `#2a2a2a`, subtle `#303030`, raised `#353535`, field `#1b1b1b`,
+   ink `#f2f2f0`, muted `#b4b4b0`, faint `#a3a39f`, borders `#3a3a3a` and `#4d4d4d`, control edge `#82827e`.
+   Accents and their tints did not change. The dark danger tint mixes 12% rather than 14%, because at 14% the
+   danger text on it was 4.49:1. The theme change also reaches the nav, the top bar and the landing page's dark
+   mode: they read the same theme tokens. The owner chose this knowing that.*
+2. **Fix it in light too.** *`design-review` found that drawn control edges were 1.5–1.9:1 in both themes, and the
+   toolbar search/select fields sat on a 1.2:1 hairline. `--cp-border-control` now edges the checkbox's box, the
+   radio/check mark, the secondary button and the toolbar fields. Light `--cp-border-control` darkened from
+   `#998e7f` to `#8a7f70`, because the old value was 2.72:1 on the raised surface and 2.81:1 on the subtle one.
+   The ghost button keeps its hairline on purpose: its label identifies it, and low emphasis is its job.*
+
+*So "light does not change by a pixel" was broken deliberately, for control edges only. Before that, with only
+the card changed, light was proved pixel-identical on three pages, with a control showing the old card was the
+one served.*
+
+*Measured, dark, inside a card:*
+
+| Pair | Ratio |
+| --- | --- |
+| Ink | 12.80:1 |
+| Muted | 6.90:1 |
+| Faint (worst, on raised) | 4.69:1 |
+| Primary text | 7.67:1 |
+| Ring on card / subtle / field | 7.67 / 7.05 / 9.20:1 |
+| Control edge, worst (raised) | 3.18:1 |
+| Error text | 5.63:1 |
+| Ink on the danger tint | 10.57:1 |
+| Danger on its tint | 4.65:1 |
+| Accents as text | 5.49–6.96:1 |
+| Card fill / edge against the page | 1.14 / 1.93:1 |
+
+*Light: control edge 3.32:1 at worst. The worst ring on a tint is the light danger tint, at 4.24:1.*
+
+*Specs in `design-system.spec.ts`:*
+
+- *Every ink on all five surfaces, and every accent on its tint.*
+- *The control edge on every surface, plus each drawn control's painted edge, on the page and in a card.*
+- *"Inside a card": both themes, untoned and each tone, against the painted card.*
+- *The dark card's edge against the page.*
+
+*Each was shown failing on the old values first: parchment, the old checkbox edge, the 14% tint.*
+
+*Before/after sheets at 375px and 1440px, in both themes, against the AU.0 baseline, are in the session
+scratchpad.*
+
+*`npm run build` passes. The library is 354/354, the page contract holds, and the showcase failed only the 4
+known order-dependent landing-credits specs.*
+
+*Out of date now: the landing page's tour screenshots (`public/images/tour/*`, LP.5) show the green-black dark
+theme. Re-run `capture:tour` in the sample workspace when convenient. The AU.1 delivery note's dark figures were
+measured on the green-black theme. The specs hold the charcoal ones.*
 
 ## AU.2.3 Skeleton loader and the list shell's loading state
 

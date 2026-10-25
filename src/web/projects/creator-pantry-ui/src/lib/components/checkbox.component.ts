@@ -40,7 +40,7 @@ let nextId = 0;
     label { position:relative; display:inline-flex; align-items:center; gap:var(--cp-space-2); min-height:2.5rem; color:var(--cp-text); font-size:var(--cp-checkbox-font-size, var(--cp-font-size-sm)); cursor:pointer; }
     /* Visually replaced, never removed: still focusable, still announced, still a checkbox to a form. */
     input { position:absolute; width:1px; height:1px; margin:0; padding:0; opacity:0; pointer-events:none; }
-    .box { display:grid; place-items:center; flex:0 0 auto; width:1.25rem; height:1.25rem; border:1px solid var(--cp-border-strong); border-radius:var(--cp-radius-sm); background:var(--cp-surface); color:var(--cp-primary-ink); font-size:.75rem; line-height:1; }
+    .box { display:grid; place-items:center; flex:0 0 auto; width:1.25rem; height:1.25rem; border:1px solid var(--cp-border-control); border-radius:var(--cp-radius-sm); background:var(--cp-surface); color:var(--cp-primary-ink); font-size:.75rem; line-height:1; }
     input:checked + .box { border-color:var(--cp-primary); background:var(--cp-primary); }
     label:hover input:not(:disabled) + .box { border-color:var(--cp-primary); }
     /* The same ring global.css gives every other focused control, moved onto the box the input now stands for. */

@@ -15,7 +15,7 @@ The installed Angular 22 design system is the visual source of truth. Do not cre
 
 ## Visual contract
 
-CreatorPantry should feel like a food blog with a working tool underneath: editorial warmth over productivity-tool density. `Fredoka`, a rounded display sans, sets every heading through `--cp-font-display`; `DM Sans` is used for controls, labels, content, and data. Surfaces are paper and warm ink with hairline edges; form controls are edged with `--cp-border-control` (3:1). Evergreen is the primary action color. Pink, orange, purple, and blue distinguish tools and secondary states without competing with primary actions.
+CreatorPantry should feel like a food blog with a working tool underneath: editorial warmth over productivity-tool density. `Fredoka`, a rounded display sans, sets every heading through `--cp-font-display`; `DM Sans` is used for controls, labels, content, and data. Surfaces are paper and warm ink with hairline edges in light, and neutral charcoal greys in dark (a `#202020` page; never tinted); a sheet — card, dialog, lightbox — is edged with `--cp-card-edge`, and every control a creator types into or picks from (field, select, checkbox, radio mark, secondary button) with `--cp-border-control` (3:1 on every surface). Evergreen is the primary action color. Pink, orange, purple, and blue distinguish tools and secondary states without competing with primary actions.
 
 Theme is applied with `data-cp-theme="light|dark"` on `<html>`. `CpThemeService` manages system preference and persistence. Never create separate light/dark component markup.
 
