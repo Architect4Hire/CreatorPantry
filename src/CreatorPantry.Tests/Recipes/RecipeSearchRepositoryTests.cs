@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Modules.Recipes.Data;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
+using CreatorPantry.Tests.Media;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -582,6 +583,85 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         Assert.Equal(1, await CountAsync(new RecipeSearchFilters()));
     }
 
+    /// <summary>
+    /// The hero picture is read in the same statement as the row, and says which asset, which version of it,
+    /// and what the creator wrote about it.
+    /// </summary>
+    [Fact]
+    public async Task A_summary_carries_the_recipes_hero_picture()
+    {
+        var assetId = await AddAssetAsync();
+        await AddAsync(title: "With a photograph", assetId: assetId);
+
+        var hero = Assert.Single(await SearchAsync(new RecipeSearchFilters())).HeroAsset;
+
+        Assert.NotNull(hero);
+        Assert.Equal(assetId, hero.MediaAssetId);
+        Assert.Equal("Seeded asset", hero.Title);
+        Assert.Equal("A cake, cooling on a rack", hero.AltText);
+        // No pin: the row says so rather than filling in the current version, which is Business's rule.
+        Assert.Null(hero.PinnedVersionNumber);
+        Assert.Equal(1, hero.CurrentVersionNumber);
+    }
+
+    /// <summary>
+    /// A use pinned to an older version reads both numbers, so the layer above can ask for the photograph the
+    /// creator chose rather than for whatever replaced it.
+    /// </summary>
+    [Fact]
+    public async Task A_hero_pinned_to_a_version_reads_both_that_version_and_the_current_one()
+    {
+        var assetId = await AddAssetAsync(versions: 3);
+        await AddAsync(title: "Pinned", assetId: assetId, pinnedVersion: 1);
+
+        var hero = Assert.Single(await SearchAsync(new RecipeSearchFilters())).HeroAsset;
+
+        Assert.NotNull(hero);
+        Assert.Equal(1, hero.PinnedVersionNumber);
+        Assert.Equal(3, hero.CurrentVersionNumber);
+    }
+
+    [Fact]
+    public async Task A_recipe_with_no_asset_link_carries_no_hero_picture()
+    {
+        await AddAsync(title: "No photograph");
+
+        Assert.Null(Assert.Single(await SearchAsync(new RecipeSearchFilters())).HeroAsset);
+    }
+
+    /// <summary>
+    /// Only the lead picture is the hero. A recipe whose only linked asset is a gallery image has no hero, and
+    /// the card falls back to the drawn panel rather than borrowing a picture that was never chosen to lead.
+    /// </summary>
+    [Fact]
+    public async Task A_recipe_whose_only_link_is_not_the_hero_carries_no_hero_picture()
+    {
+        await AddAsync(
+            title: "Gallery only",
+            assetId: SqlServerRecipeFixture.MediaAssetIdA,
+            assetRole: RecipeAssetRole.Gallery);
+
+        Assert.Null(Assert.Single(await SearchAsync(new RecipeSearchFilters())).HeroAsset);
+    }
+
+    /// <summary>
+    /// A hero whose asset has been removed from the library reports no picture — not an error, and not a
+    /// half-built one. The link is deliberately left standing when an asset is deleted, so this is the state a
+    /// library screen genuinely meets.
+    /// </summary>
+    [Fact]
+    public async Task A_hero_whose_asset_has_been_deleted_carries_no_hero_picture()
+    {
+        var assetId = await AddAssetAsync(deleted: true);
+        await AddAsync(title: "Photograph since removed", assetId: assetId);
+
+        var row = Assert.Single(await SearchAsync(new RecipeSearchFilters()));
+
+        // The recipe is still listed. Losing a photograph must not lose the recipe.
+        Assert.Equal("Photograph since removed", row.Title);
+        Assert.Null(row.HeroAsset);
+    }
+
     // --- Workspace isolation -----------------------------------------------------------------------------
 
     /// <summary>
@@ -652,10 +732,81 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         Assert.All(rows, row => Assert.StartsWith("B ", row.Title));
     }
 
+    /// <summary>
+    /// Each workspace's card shows its own photograph. Both recipes share a title and both assets share one
+    /// too, so neither row could be told apart by its words — only by the asset id it names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What this proves, exactly: each workspace's search reaches its own recipes, and each of those names its
+    /// own asset. What it does not prove, and cannot, is that the filter on <c>MediaAssets</c> is what stops a
+    /// crossing — because a link in one workspace naming another's asset is <strong>unrepresentable</strong>.
+    /// <c>RecipeAssetLink</c>'s composite foreign key is <c>(WorkspaceId, MediaAssetId)</c>, so the database
+    /// refuses the row this test would need in order to go wrong. Leaving the state unbuilt is the point:
+    /// constructing it would mean disabling the constraint that is the real guarantee, and the test would then
+    /// be evidence about a database no deployment runs.
+    /// </para>
+    /// <para>
+    /// The query's own filter is therefore belt to the key's braces, and it is still the reason the projection
+    /// writes no workspace predicate by hand — the same reasoning <c>RecipeSearchRepository</c> gives
+    /// for the rest of this query. A hero that could cross would be the worst kind of leak: one workspace's
+    /// private creative rendered on another's screen.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_hero_picture_never_names_the_other_workspaces_asset()
+    {
+        var assetInA = await AddAssetAsync();
+        var assetInB = await AddAssetAsync(SqlServerRecipeFixture.WorkspaceB);
+
+        await AddAsync(title: "Shared title", assetId: assetInA);
+        await AddAsync(title: "Shared title", workspaceId: SqlServerRecipeFixture.WorkspaceB, assetId: assetInB);
+
+        var fromA = Assert.Single(await SearchAsync(new RecipeSearchFilters()));
+        var fromB = Assert.Single(
+            await SearchAsync(new RecipeSearchFilters(), workspaceId: SqlServerRecipeFixture.WorkspaceB));
+
+        Assert.Equal(assetInA, fromA.HeroAsset?.MediaAssetId);
+        Assert.Equal(assetInB, fromB.HeroAsset?.MediaAssetId);
+    }
+
     // --- Helpers -----------------------------------------------------------------------------------------
 
     private static IRecipeSearchRepository Search(AsyncServiceScope scope) =>
         scope.ServiceProvider.GetRequiredService<IRecipeSearchRepository>();
+
+    /// <summary>
+    /// A library asset of this test's own, with <paramref name="versions"/> versions and the last of them
+    /// current, optionally already soft-deleted.
+    /// </summary>
+    /// <remarks>
+    /// The fixture's seeded asset is enough for most of these — it is what the link's composite foreign key
+    /// points at — but it has one version and lives for the whole class. A test that pins a link to an older
+    /// version needs more than one, and a test about a tombstone must not leave the shared asset deleted for
+    /// every test that runs after it.
+    /// </remarks>
+    private async Task<Guid> AddAssetAsync(Guid? workspaceId = null, int versions = 1, bool deleted = false)
+    {
+        var owner = workspaceId ?? SqlServerRecipeFixture.WorkspaceA;
+
+        await using var scope = fixture.ScopeFor(owner);
+        var db = SqlServerRecipeFixture.Db(scope);
+
+        var asset = SeededMediaAsset.For(owner, at: Now);
+        asset.CurrentVersionNumber = versions;
+        asset.AltText = "A cake, cooling on a rack";
+        asset.DeletedAt = deleted ? Now : null;
+
+        db.MediaAssets.Add(asset);
+        for (var number = 1; number <= versions; number++)
+        {
+            db.MediaAssetVersions.Add(SeededMediaAsset.VersionOf(asset, number));
+        }
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return asset.Id;
+    }
 
     private async Task<IReadOnlyList<RecipeSummaryRecord>> SearchAsync(
         RecipeSearchFilters filters,
@@ -754,7 +905,10 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         string? description = null,
         IReadOnlyList<Guid>? tagIds = null,
         IReadOnlyList<IngredientMatchStatus>? lineStatuses = null,
-        IReadOnlyList<RecipeVersionReadiness>? versionReadiness = null)
+        IReadOnlyList<RecipeVersionReadiness>? versionReadiness = null,
+        Guid? assetId = null,
+        int? pinnedVersion = null,
+        RecipeAssetRole assetRole = RecipeAssetRole.Hero)
     {
         await using var scope = fixture.ScopeFor(workspaceId ?? SqlServerRecipeFixture.WorkspaceA);
         var db = SqlServerRecipeFixture.Db(scope);
@@ -808,6 +962,19 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         foreach (var tagId in tagIds ?? [])
         {
             recipe.Tags.Add(new RecipeTag { RecipeId = recipe.Id, WorkspaceTagId = tagId });
+        }
+
+        if (assetId is { } linkedAssetId)
+        {
+            recipe.AssetLinks.Add(new RecipeAssetLink
+            {
+                Id = Guid.NewGuid(),
+                RecipeId = recipe.Id,
+                SortOrder = 0,
+                MediaAssetId = linkedAssetId,
+                MediaAssetVersionNumber = pinnedVersion,
+                Role = assetRole,
+            });
         }
 
         db.Recipes.Add(recipe);

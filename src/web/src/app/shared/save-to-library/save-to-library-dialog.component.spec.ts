@@ -43,6 +43,7 @@ function recipe(id: string, title: string): RecipeSummary {
     latestVersionNumber: 1,
     latestVersionReadiness: null,
     hasUnmatchedIngredients: false,
+    heroAsset: null,
   };
 }
 

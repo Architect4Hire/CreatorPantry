@@ -45,7 +45,7 @@ import { BrandProfileService } from '../../services/brand-profile.service';
 import { DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { fileSizeText, imageFormatText } from '../content-pipeline/content-pipeline-image-presentation';
-import { DamAssetThumbnailComponent } from './dam-asset-thumbnail.component';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 import { DamAssetUploadComponent } from './dam-asset-upload.component';
 
 /** How the first page of a search can stand. Later pages have their own two flags, so a failure there keeps the cards. */

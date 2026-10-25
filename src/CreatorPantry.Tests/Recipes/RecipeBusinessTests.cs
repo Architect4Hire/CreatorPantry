@@ -2544,7 +2544,7 @@ public sealed class RecipeBusinessTests
             (string[])
             [
                 "Id", "Title", "Description", "Status", "CuisineId", "CourseId", "CreatedAt", "UpdatedAt",
-                "LatestVersionNumber", "LatestVersionReadiness", "HasUnmatchedIngredients",
+                "LatestVersionNumber", "LatestVersionReadiness", "HasUnmatchedIngredients", "HeroAsset",
             ],
             published);
     }
@@ -2565,6 +2565,77 @@ public sealed class RecipeBusinessTests
         Assert.Equal(row.LatestVersionNumber, summary.LatestVersionNumber);
         Assert.Equal(row.LatestVersionReadiness, summary.LatestVersionReadiness);
         Assert.Equal(row.HasUnmatchedIngredients, summary.HasUnmatchedIngredients);
+    }
+
+    [Fact]
+    public async Task A_summary_carries_the_rows_hero_picture()
+    {
+        var assetId = Guid.NewGuid();
+        var row = SummaryRow(Now, new RecipeHeroAssetRecord(assetId, "On the board", "A cake on a board", 2, 4));
+        _dataLayer.Page = ([row], false, null);
+
+        var hero = Assert.Single((await SearchAsync()).Items).HeroAsset;
+
+        Assert.NotNull(hero);
+        Assert.Equal(assetId, hero.MediaAssetId);
+        Assert.Equal("On the board", hero.Title);
+        Assert.Equal("A cake on a board", hero.AltText);
+        // The pin is what the card shows, and the asset's newest is published beside it so the card can tell
+        // it is looking at an older copy.
+        Assert.Equal(2, hero.VersionNumber);
+        Assert.Equal(4, hero.CurrentVersionNumber);
+    }
+
+    /// <summary>
+    /// A use that follows whichever version is current publishes that version, resolved here rather than in
+    /// the query: "no pin" is a column, and "then show the current one" is the rule about it.
+    /// </summary>
+    [Fact]
+    public async Task An_unpinned_hero_picture_publishes_the_assets_current_version()
+    {
+        var row = SummaryRow(Now, new RecipeHeroAssetRecord(Guid.NewGuid(), "On the board", null, null, 4));
+        _dataLayer.Page = ([row], false, null);
+
+        var hero = Assert.Single((await SearchAsync()).Items).HeroAsset;
+
+        Assert.NotNull(hero);
+        Assert.Equal(4, hero.VersionNumber);
+        Assert.Equal(4, hero.CurrentVersionNumber);
+    }
+
+    /// <summary>
+    /// A row carrying an asset id but missing what it takes to show the picture publishes none, rather than an
+    /// empty title or a version zero the media routes would refuse.
+    /// </summary>
+    [Theory]
+    [InlineData(null, 4)]
+    [InlineData("On the board", null)]
+    public async Task A_half_built_hero_row_publishes_no_picture(string? title, int? currentVersion)
+    {
+        var row = SummaryRow(Now, new RecipeHeroAssetRecord(Guid.NewGuid(), title, null, null, currentVersion));
+        _dataLayer.Page = ([row], false, null);
+
+        Assert.Null(Assert.Single((await SearchAsync()).Items).HeroAsset);
+    }
+
+    /// <summary>
+    /// A recipe with no picture to show publishes no picture — and says so the same way whether the row came
+    /// back null or as an empty one.
+    /// </summary>
+    /// <remarks>
+    /// The second case is the one worth a test rather than a comment: a subquery that matched nothing may
+    /// materialise a record of defaults, and a mapping that checked only for null would publish
+    /// <c>Guid.Empty</c> as an asset id — a card would then ask the media routes for an asset nobody owns.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_summary_with_no_hero_publishes_none(bool emptyRow)
+    {
+        var row = SummaryRow(Now, emptyRow ? new RecipeHeroAssetRecord(null, null, null, null, null) : null);
+        _dataLayer.Page = ([row], false, null);
+
+        Assert.Null(Assert.Single((await SearchAsync()).Items).HeroAsset);
     }
 
     private Task<RecipeSearchPageServiceModel> SearchAsync(string scope = "scope") =>
@@ -3327,7 +3398,7 @@ public sealed class RecipeBusinessTests
             RestoredFromVersionId: null,
             AiProposalId: null);
 
-    private static RecipeSummaryRecord SummaryRow(DateTimeOffset updatedAt) =>
+    private static RecipeSummaryRecord SummaryRow(DateTimeOffset updatedAt, RecipeHeroAssetRecord? hero = null) =>
         new(Guid.NewGuid(),
             "Olive oil cake",
             "A cake.",
@@ -3341,6 +3412,7 @@ public sealed class RecipeBusinessTests
             LatestVersionNumber: 3,
             LatestVersionReadiness: RecipeVersionReadiness.Ready,
             HasUnmatchedIngredients: true,
+            HeroAsset: hero,
             Sort: RecipeSearchSort.RecentlyUpdated);
 
     private sealed class RecordingRecipeDataLayer : IRecipeDataLayer

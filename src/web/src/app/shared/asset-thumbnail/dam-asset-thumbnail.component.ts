@@ -26,6 +26,11 @@ type PictureState = 'waiting' | 'loading' | 'ready' | 'gone' | 'unavailable';
 /**
  * One library asset's picture on a card.
  *
+ * **Shared rather than DAM's own.** The asset library, its picker, a recipe's media dialog and the recipe
+ * library all show the same picture the same way, so this sits in `shared/` — an application-level
+ * composition, not a second primitive: `@creator-pantry/ui` owns none of this, because authorising and loading
+ * bytes is a feature's job and `cp-media-card` deliberately never takes a URL.
+ *
  * **The bytes come from the authorized render route and are shown through an object URL** — a handle inside
  * this browser, never a storage address. The SPA's content security policy refuses an `<img>` pointed at the
  * gateway, which is the same reason `ContentPipelineStagedImageComponent` fetches (.claude/rules/media.md).

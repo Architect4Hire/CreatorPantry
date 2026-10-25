@@ -400,7 +400,7 @@ public sealed class RecipeSearchQueryFactoryTests
 
         var row = new RecipeSummaryRecord(
             recipeId, "Anything", null, RecipeStatus.Draft, null, null, Guid.NewGuid(), Guid.NewGuid(),
-            updatedAt, updatedAt, null, null, false, criteria.Sort);
+            updatedAt, updatedAt, null, null, false, null, criteria.Sort);
 
         return ReferenceCursor.Encode(row.SortValue, row.TieBreaker, criteria.Scope);
     }

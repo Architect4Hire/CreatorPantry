@@ -75,6 +75,7 @@ function summary(id: string, title: string): RecipeSummary {
     latestVersionNumber: 3,
     latestVersionReadiness: 'Draft',
     hasUnmatchedIngredients: false,
+    heroAsset: null,
   };
 }
 

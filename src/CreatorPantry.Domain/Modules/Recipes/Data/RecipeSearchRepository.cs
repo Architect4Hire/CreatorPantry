@@ -214,11 +214,43 @@ internal sealed class RecipeSearchRepository(CreatorPantryDbContext context) : I
     /// touches a version snapshot or a media asset.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The two latest-version subqueries read the same row and become two <c>OUTER APPLY</c>s, each an
     /// index-only seek of <c>UX_RecipeVersions_Workspace_Recipe_VersionNumber</c> — the reason
     /// <c>Readiness</c> is an included column on it. Collapsing them into one apply would mean projecting an
     /// intermediate shape and re-mapping it in memory, which buys one less apply over a page of at most a
     /// hundred rows and costs the projection being readable as the record it produces.
+    /// </para>
+    /// <para>
+    /// The hero picture is a third apply, and the reason it is here rather than read per card is the same one:
+    /// a page of a hundred recipes must cost one statement, not a hundred and one. Its seek is
+    /// <c>UX_RecipeAssetLinks_Workspace_Recipe_Hero</c>, the filtered unique index that makes "at most one
+    /// hero" a fact about the database — which is why there is no <c>OrderBy</c> here to break a tie that
+    /// cannot exist. The join into <c>MediaAssets</c> is a primary-key lookup.
+    /// </para>
+    /// <para>
+    /// <strong>No workspace predicate is written for either table.</strong> Both are workspace-owned, so the
+    /// global filter does not merely exclude a neighbour's photograph from this join — it makes it invisible to
+    /// it, and the hero comes back null. That is what lets the published field answer "no picture" for an
+    /// unknown, a deleted and another workspace's asset alike, without this query knowing which of the three it
+    /// was (tenancy.md). Belt to the braces of <c>RecipeAssetLink</c>'s composite foreign key, which already
+    /// makes a cross-workspace link unrepresentable.
+    /// </para>
+    /// <para>
+    /// <strong>This reads four columns of Media's aggregate root, and that is a documented exception rather
+    /// than a precedent.</strong> backend.md permits another module's entity types to cross "only because a
+    /// foreign key does", and the facade is how this codebase normally fetches another module's words — Media
+    /// itself asks <c>IRecipeFacade</c> when it wants a recipe's title. The exception is taken here because the
+    /// alternative is a second statement composed above this layer for every page of a library, and because
+    /// <c>Title</c>, <c>AltText</c> and <c>CurrentVersionNumber</c> are already published to this same caller
+    /// by the DAM routes, so nothing crosses that the creator could not already read.
+    /// </para>
+    /// <para>
+    /// Two costs come with it, and they are the reason this paragraph exists at all. <c>DeletedAt == null</c>
+    /// restates Media's own definition of a live asset, so a change there has to be followed here. And
+    /// <c>ModuleBoundaryTests</c> cannot see this: it reads <c>using</c> directives, and a <c>DbSet</c> on the
+    /// shared context needs none — so nothing but this comment would catch the next read that widens it.
+    /// </para>
     /// </remarks>
     private IQueryable<RecipeSummaryRecord> Project(IQueryable<Recipe> recipes, RecipeSearchSort sort) =>
         recipes.Select(recipe => new RecipeSummaryRecord(
@@ -244,5 +276,22 @@ internal sealed class RecipeSearchRepository(CreatorPantryDbContext context) : I
                 .FirstOrDefault(),
             context.RecipeIngredients.Any(line =>
                 line.RecipeId == recipe.Id && line.MatchStatus != IngredientMatchStatus.Matched),
+            context.RecipeAssetLinks
+                .Where(link => link.RecipeId == recipe.Id && link.Role == RecipeAssetRole.Hero)
+                .Join(
+                    // A tombstoned asset is gone as far as a card is concerned, so the join drops it and the
+                    // row's hero is null — the same answer a recipe with no hero link gets.
+                    context.MediaAssets.Where(asset => asset.DeletedAt == null),
+                    link => link.MediaAssetId,
+                    asset => asset.Id,
+                    // Both version numbers as the two tables hold them. Which of them a card should show is a
+                    // rule rather than a column, so it is resolved in Business and not here.
+                    (link, asset) => new RecipeHeroAssetRecord(
+                        asset.Id,
+                        asset.Title,
+                        asset.AltText,
+                        link.MediaAssetVersionNumber,
+                        asset.CurrentVersionNumber))
+                .FirstOrDefault(),
             sort));
 }

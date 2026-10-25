@@ -19,6 +19,7 @@ using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -420,6 +421,41 @@ public sealed partial class MediaAssetCreateTests : IDisposable
             created.Id,
             (await db.RecipeAssetLinks.IgnoreQueryFilters().AsNoTracking()
                 .FirstAsync(link => link.RecipeId == recipeId, Token)).MediaAssetId);
+    }
+
+    /// <summary>
+    /// The first picture saved against a recipe becomes its lead one, and the next a gallery picture.
+    /// </summary>
+    /// <remarks>
+    /// The same rule the recipe's own media dialog applies when a creator links a picture by hand. Before
+    /// AU.5.1 every save through this path was a gallery picture, which meant a recipe could collect
+    /// photographs and still show nothing on a library card — a lead picture is the only one a card reads.
+    /// </remarks>
+    [Fact]
+    public async Task The_first_picture_saved_against_a_recipe_becomes_its_lead_one()
+    {
+        var recipeId = await SeedRecipeAsync(WorkspaceA);
+
+        var lead = await UploadAsync(
+            WorkspaceA,
+            BrandSourceSampleFiles.Png(),
+            recipeLink: new MediaAssetRecipeLinkInput(recipeId, "Cooling on the rack"));
+
+        // Different pixels, so neither upload can pass by being mistaken for the other.
+        var second = await UploadAsync(
+            WorkspaceA,
+            BrandSourceSampleFiles.Png(width: 6, height: 5),
+            recipeLink: new MediaAssetRecipeLinkInput(recipeId, "A slice, close up"));
+
+        await using var scope = _provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        var links = await db.RecipeAssetLinks.IgnoreQueryFilters().AsNoTracking()
+            .Where(link => link.RecipeId == recipeId)
+            .ToListAsync(Token);
+
+        Assert.Equal(RecipeAssetRole.Hero, links.Single(link => link.MediaAssetId == lead.Id).Role);
+        Assert.Equal(RecipeAssetRole.Gallery, links.Single(link => link.MediaAssetId == second.Id).Role);
     }
 
     [Fact]
