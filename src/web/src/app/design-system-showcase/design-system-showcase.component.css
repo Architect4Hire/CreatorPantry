@@ -315,3 +315,10 @@ code {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-xs);
 }
+
+.page-head-demo {
+  padding: var(--cp-space-6);
+  border: 1px solid var(--cp-card-edge);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-bg);
+}

@@ -379,12 +379,20 @@ any tone's text 7.67:1 untoned. The fill stands 1.14:1 off the page, so the edge
 dark shadow adds little. `design-system.spec.ts`, "inside a card", measures every pair inside an untoned frame
 and each toned one, in both themes.
 
-**The page head says which tool (D3)** (AU.2.5). Beside the title sits a tone-filled tile holding the nav's icon
-for the page, passed by name so the library names no route. The head's hairline takes `--cp-tone`. A detail page
-may put the record's own picture in a media slot: a fixed-ratio thumbnail beside the title on a wide screen and
-above it on a narrow one. The title keeps `--cp-font-size-title`. The display size and the brush underline stay
-the public hero's (Content hierarchy, above). The media slot holds the thing itself or nothing, never a stand-in
-or a decoration.
+**The page head says which tool (D3)** (AU.2.5). A page projects its section's own nav icon into
+`[cpPageHeadIcon]`, and the head draws it on a 3rem tile of `--cp-tone` in `--cp-tone-on`, beside the title. It is
+a slot, not a name, because the nav's icons are the shell's and the library names no section; the tile is
+`aria-hidden`, and the heading stays the name. The rule under the head is `--cp-tone-rule`: a 2px line in the tool's
+colour on a toned page, and the neutral hairline on an untoned one — not evergreen, which would put the action
+colour under a title where no action is. A detail page may project its record's own `<img>` into
+`[cpPageHeadMedia]` — never a URL, so the feature authorises and loads its own bytes — framed at 4:3, beside the
+title once the head is 34rem wide (a container query on the head, not the window) and above it below that. The
+title keeps `--cp-font-size-title` and stays the one `h1`. The display size and the brush underline stay the public
+hero's (Content hierarchy, above). The media slot holds the thing itself or nothing, never a stand-in or a
+decoration: the picture, or one wrapper around it, and never a control. Its `alt` is the feature's to give — the
+asset's stored alt text, describing what is visible, never a filename or the recipe's name dressed up as a
+description; `alt=""` only where the title beside it already says everything the picture shows. The icon slot holds
+a decorative, non-focusable icon, because the tile around it is hidden from assistive technology.
 
 **Content arrives once, gently (D4)** (AU.3.4). The first time a route's content or a result renders, it fades
 in and rises `--cp-enter-distance` over `--cp-duration-enter`, list items `--cp-enter-stagger` apart. The library
@@ -433,7 +441,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | --- | --- | --- |
 | `frame` | a routed page's `:host` sets `padding`, `margin`, `width`, `max-width` or their logical forms | the shell's frame, and `data: { pageWidth }` on the route |
 | `one-h1` | any template renders an `<h1>` | `cp-page-head`, which prints the one `h1` |
-| `page-head` | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back` or `.breadcrumb` | `cp-page-head` and `a[cpBackLink]` |
+| `page-head` | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back`, `.breadcrumb`, or an icon tile or head picture of its own (`.page-icon`, `.head-icon`, `.title-icon`, `.head-media`, `.page-media`, `.title-media`) | `cp-page-head` and `a[cpBackLink]` |
 | `card-grid` | a stylesheet styles `.grid`, `.card-grid` or `.cards`, or lays out a `repeat(auto-fill, …)` or `repeat(auto-fit, …)` grid | `ul[cpCardGrid]`; `cp-field-row` for short fields; `dl[cpFacts]` for terms and values |
 | `facts` | a stylesheet styles `.facts` or `.fact` | `dl[cpFacts]` of `div[cpFact]` |
 | `toolbar-field` | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field` | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label |

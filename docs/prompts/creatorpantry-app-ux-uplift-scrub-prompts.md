@@ -534,7 +534,7 @@ Studio tone while its button stays evergreen.*
 
 *`npm run build` passes. The library is 382/382, the showcase 6083/6083, and the page contract holds.*
 
-## AU.2.5 Page head accent and record picture
+## AU.2.5 Page head accent and record picture - done
 
 ```text
 SCOPE: Give cp-page-head what D3 chose. As recommended: an optional icon input drawn in a tone-filled tile
@@ -550,6 +550,38 @@ UTILIZATION: creatorpantry-design-system skill; design-review.
 BEHAVIOR: Show the head in each tone and with/without media at 375 and 1440 px; wait for approval; implement
 with specs, update the showcase and docs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the look from screenshots of each tone, with and without a
+picture, at 375px and 1440px in both themes.*
+
+*One approved deviation: the icon is a `[cpPageHeadIcon]` projection slot, not an input "passed by name". The nav's
+icons are shell chrome, and the library must not know the product's sections. So the head draws a 3rem tile of
+`--cp-tone`, and the page projects the nav's own `cp-shell-nav-icon` into it. AU.5.1 now moves that component to
+`src/app/shared/` before a feature projects it.*
+
+*What shipped:*
+
+- *The rule under the head is new tokens, `--cp-tone-rule` and `--cp-tone-rule-width`: a 2px line in the tool's
+  colour on a toned page, and the 1px hairline on an untoned one, never evergreen. This alone changed live pages:
+  the five toned tools now show their line.*
+- *`[cpPageHeadMedia]` takes the page's own `<img>`, or one wrapper around it, in a 4:3 frame. A container query on
+  the head puts it beside the title from 34rem and above it below that. The first try used 40rem, which was too
+  wide for a detail page's column.*
+- *The tile meets the title's first line, and is outlined under forced colours.*
+- *The `page-head` contract rule owns the new class names and fails a feature that styles a `[cpPageHead…]` slot.*
+
+*`design-review` raised these, now handled:*
+
+- *Tile alignment, the forced-colours outline, the container's block-level caveat, the README's slot count, a
+  wrapped-picture spec, alt-text guidance in the docs and in AU.4.3, and contract self-tests that list their names
+  out.*
+
+*Two of its suggestions were left as approved, for the owner to revisit if wanted:*
+
+- *An untoned page's tile is evergreen, not neutral.*
+- *A phone shows the picture at up to 24rem wide.*
+
+*`npm run build` passes. The library is 387/387, the showcase 6083/6083, and the page contract holds.*
 
 ## AU.2.6 Media card without a picture
 
@@ -698,6 +730,9 @@ wide widths and stacked at narrow; skeletons while loading. The recipe's own wor
 From AU.0: the editor stacks three navigation tiers before its first field (Edit/Media/History/…, then
 General/Ingredients/Instructions, then the section nav), which wraps to three rows at 375px. Propose how the
 head and the tiers combine. frontend.md's per-form dirty-state and field-error-selects-its-tab rules stand.
+From AU.2.5: the Hero goes in [cpPageHeadMedia] as the page's own <img>; its alt is the asset's stored alt text
+(media.md: never invented from the filename or the recipe), or alt="" only if the title says all it shows. The
+recipes icon goes in [cpPageHeadIcon].
 CONSTRAINT: APP-005; recipes.md (creator text is verbatim; yield's three facts stay separate; total time is
 shown as stored); frontend.md detail-page rule; DESIGN-SYSTEM.md "The two shapes"; the recipe-kitchen-view
 exemptions in check-page-contract.mjs, which stay as they are.
@@ -719,7 +754,10 @@ cp-notice in its own place, not a card of prose. Give every step a skeleton and 
 The route wears the purple tone and its page head the studio's icon. From AU.0: the template joins lists of
 whole sentences with ", " (suggestedIngredients, dietaryNotes, assumptions in
 recipe-concept-studio.component.html), which prints "components., Dietary goals". Show a list of sentences
-as a list, and keep comma-joining for lists of words.
+as a list, and keep comma-joining for lists of words. From AU.2.5: the page head's icon is a [cpPageHeadIcon]
+slot that takes the nav's own cp-shell-nav-icon. Before the first studio projects it, move
+shell-nav-icon.component.ts from src/app/shell/ to src/app/shared/ (two import paths, no change to how the nav
+renders) so features do not depend on the shell; AU.5.2–AU.5.4 then do the same with their own icons.
 CONSTRAINT: APP-006, APP-007; ai.md (proposals, not applied); recipes.md "Safety and claims" (dietary notes
 stay labelled descriptive, never a guarantee); the AU.3.1 audit's leftovers for features/ai.
 RESTRICTION: No change to prompts, generation, what is saved or the order of steps. The "descriptive only, not

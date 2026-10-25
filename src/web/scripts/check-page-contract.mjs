@@ -117,7 +117,7 @@ const FRAME_PROPERTIES = /(?:^|[;{\s])((?:padding|margin)(?:-[a-z-]+)?|max-width
 
 /** Class names a feature stylesheet may not style, by the rule that owns them. */
 const OWNED_CLASSES = {
-  'page-head': ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb'],
+  'page-head': ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb', 'page-icon', 'head-icon', 'title-icon', 'head-media', 'page-media', 'title-media', 'masthead', 'title-row', 'head-picture', 'hero-image'],
   'card-grid': ['grid', 'card-grid', 'cards'],
   facts: ['facts', 'fact'],
   'toolbar-field': ['search-field', 'select-field'],
@@ -164,6 +164,8 @@ export function stylesheetViolations(css) {
       }
     }
     if (/\[type=["']?search["']?\]/.test(rule.selector)) found.push({ rule: 'toolbar-field', line: rule.line, what: 'styles input[type=search]' });
+    // The head lays out what is projected into it; a feature that styles its own [cpPageHead…] slot redraws the head.
+    for (const m of rule.selector.matchAll(/\[(cpPageHead\w+)\]/g)) found.push({ rule: 'page-head', line: rule.line, what: `styles [${m[1]}]` });
     const at = (index) => lineAt(rule.text, rule.bodyAt + index);
     for (const m of rule.body.matchAll(/repeat\(\s*auto-(?:fill|fit)/g)) found.push({ rule: 'card-grid', line: at(m.index), what: 'lays out an auto-filling grid' });
     for (const m of rule.body.matchAll(/position\s*:\s*fixed/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'sets position: fixed' });

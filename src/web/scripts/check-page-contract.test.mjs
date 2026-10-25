@@ -51,10 +51,15 @@ test('page-head: a routed page opens with cp-page-head and draws no header', () 
 });
 
 test('page-head: no stylesheet draws a page header or a back link', () => {
-  for (const name of ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb']) {
+  // Written out rather than read from the script, so dropping a name from the script fails here.
+  for (const name of ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb', 'page-icon', 'head-icon', 'title-icon', 'head-media', 'page-media', 'title-media', 'masthead', 'title-row', 'head-picture', 'hero-image']) {
     assert.deepEqual(rules(stylesheetViolations(`.${name} { margin: 0; }`)), ['page-head'], name);
   }
   assert.deepEqual(stylesheetViolations('.back-note, .background { margin: 0; }'), []);
+  // A feature styling a slot of the head redraws the head.
+  assert.deepEqual(rules(stylesheetViolations('[cpPageHeadMedia] { border-radius: 0; } [cpPageHeadIcon] svg { width: 2rem; }')), ['page-head', 'page-head']);
+  // The common words stay free: a card's own icon or a picture panel is not the head's.
+  assert.deepEqual(stylesheetViolations('.icon { width: 1rem; } .media { aspect-ratio: 1; } .thumbnail { width: 4rem; }'), []);
 });
 
 test('card-grid: no stylesheet lays out its own grid of cards', () => {

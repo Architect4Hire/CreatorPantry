@@ -15,35 +15,71 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
  * {@link focusHeading} does it, and the ring shows on `:focus` rather than only `:focus-visible`, because a
  * browser does not count script focus after a pointer click as keyboard focus.
  *
+ * **It says which tool (AU.2.5, D3).** A page may project its section's icon into `[cpPageHeadIcon]`; the head
+ * draws it in a tile filled with `--cp-tone`, beside the title. The icon is the page's — the nav's own, so the
+ * library names no section — and decorative: the tile is `aria-hidden`, and the heading stays the name. The rule
+ * under the head is `--cp-tone-rule`, a 2px line in the tool's colour on a toned page and the hairline elsewhere.
+ *
+ * **A detail page may show its record's picture.** `[cpPageHeadMedia]` takes the consumer's own `<img>` — never a
+ * URL, so the feature authorises and loads its own bytes, as `cp-media-card` does — in a 4:3 frame beside the
+ * title where the head is wide, and above it where it is narrow. It holds the thing itself or nothing.
+ *
  * **What it does not own.** Where the breadcrumb goes: the consumer projects its own link, so this names no
- * route. Nor the badges or the action — only where each sits. `heading`, not `title`: a static `title="…"` on
- * the element would also become a browser tooltip over the whole head.
+ * route. Nor the badges, the icon, the picture or the action — only where each sits. `heading`, not `title`: a
+ * static `title="…"` on the element would also become a browser tooltip over the whole head. A slot nothing was
+ * projected into takes no room.
  */
 @Component({
   selector: 'cp-page-head',
   standalone: true,
   template: `<header>
     <nav class="breadcrumb" [attr.aria-label]="breadcrumbLabel()"><ng-content select="[cpPageHeadBreadcrumb]" /></nav>
-    <h1 #title tabindex="-1">{{ heading() }}</h1>
-    <div class="badges"><ng-content select="[cpPageHeadBadges]" /></div>
-    @if (lede()) {
-      <p class="lede">{{ lede() }}</p>
-    }
-    <div class="actions"><ng-content select="[cpPageHeadActions]" /></div>
+    <div class="masthead">
+      <div class="media"><ng-content select="[cpPageHeadMedia]" /></div>
+      <div class="text">
+        <div class="title-row">
+          <span class="icon" aria-hidden="true"><ng-content select="[cpPageHeadIcon]" /></span>
+          <h1 #title tabindex="-1">{{ heading() }}</h1>
+        </div>
+        <div class="badges"><ng-content select="[cpPageHeadBadges]" /></div>
+        @if (lede()) {
+          <p class="lede">{{ lede() }}</p>
+        }
+        <div class="actions"><ng-content select="[cpPageHeadActions]" /></div>
+      </div>
+    </div>
   </header>`,
   styles: [
     `
-      /* A masthead: the title over a hairline that closes the head off from the page, as a blog post's
-         headline and dek sit above the rule where the piece begins. */
+      /* A masthead: the title over a rule that closes the head off from the page, as a blog post's headline
+         and dek sit above the rule where the piece begins. On a toned page the rule is the tool's colour. */
       :host {
         display: block;
         margin-bottom: var(--cp-space-6);
       }
+      /* A container, so the picture sits beside the title by the head's own width rather than the window's. That
+         needs the head to take its width from its parent: a block, as the page frame and a card are. In a
+         shrink-to-fit parent — a flex row, an auto grid column — inline-size containment would collapse it. */
       header {
+        container-type: inline-size;
         padding-bottom: var(--cp-space-6);
-        border-bottom: 1px solid var(--cp-border);
+        border-bottom: var(--cp-tone-rule-width) solid var(--cp-tone-rule);
+      }
+      .masthead {
+        display: grid;
+        gap: var(--cp-space-5);
+      }
+      .text {
+        min-width: 0;
+      }
+      /* The tile meets the title's first line, not the middle of a title that wraps to two or three. */
+      .title-row {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--cp-space-4);
       }
       h1 {
+        min-width: 0;
         margin: 0;
         font: 500 var(--cp-font-size-title) / 1.08 var(--cp-font-display);
         letter-spacing: var(--cp-tracking-display);
@@ -56,6 +92,62 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
         outline: 2px solid var(--cp-focus);
         outline-offset: 2px;
       }
+
+      /* The tool's tile: its tone as the fill, the page's own icon on it in the tone's ink. */
+      .icon {
+        display: grid;
+        flex: none;
+        place-items: center;
+        width: 3rem;
+        height: 3rem;
+        /* Centred on the first line box of the title (its font size at the h1's 1.08 leading). */
+        margin-top: max(0px, calc((var(--cp-font-size-title) * 1.08 - 3rem) / 2));
+        border-radius: var(--cp-radius-md);
+        background: var(--cp-tone);
+        color: var(--cp-tone-on);
+      }
+      /* Forced colours drop the fill; an outline keeps the tile a tile. */
+      @media (forced-colors: active) {
+        .icon {
+          outline: 1px solid CanvasText;
+        }
+      }
+      :host ::ng-deep [cpPageHeadIcon] {
+        display: grid;
+        place-items: center;
+      }
+      :host ::ng-deep [cpPageHeadIcon] svg {
+        width: 1.5rem;
+        height: 1.5rem;
+      }
+
+      /* The record's own picture: above the text where the head is narrow, beside it where it is wide. */
+      .media {
+        width: min(100%, 24rem);
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border: 1px solid var(--cp-card-edge);
+        border-radius: var(--cp-radius-lg);
+        background: var(--cp-surface-subtle);
+      }
+      :host ::ng-deep [cpPageHeadMedia],
+      :host ::ng-deep [cpPageHeadMedia] img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      /* 34rem: an 11rem picture and a title of a few words, side by side, before either is cramped. */
+      @container (min-width: 34rem) {
+        .masthead:has(.media > *) {
+          grid-template-columns: 11rem minmax(0, 1fr);
+          align-items: start;
+        }
+        .media {
+          width: 11rem;
+        }
+      }
+
       .breadcrumb {
         margin-bottom: var(--cp-space-1);
       }
@@ -83,6 +175,8 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
          presence test on rendered children, as cp-toolbar's overflow uses: the wrapper has to exist for the
          slot to exist, so there is nothing an @if could ask. */
       .breadcrumb:not(:has(> *)),
+      .icon:not(:has(> *)),
+      .media:not(:has(> *)),
       .badges:not(:has(> *)),
       .actions:not(:has(> *)) {
         display: none;

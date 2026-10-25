@@ -68,6 +68,7 @@ import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '..
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
 import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
 import { BrandVisualReference, BrandVisualStyleLine } from '../models/brand-visual-style-control.models';
+import { ShellNavIcon, ShellNavIconComponent } from '../shell/shell-nav-icon.component';
 
 type QuickActionTone = Exclude<CpTone, 'neutral'>;
 
@@ -101,6 +102,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpListShellComponent,
     CpSkeletonComponent,
     CpIllustrationComponent,
+    ShellNavIconComponent,
     CpTabsComponent,
     CpTabPanelComponent,
     CpToolbarComponent,
@@ -333,6 +335,15 @@ export class DesignSystemShowcaseComponent {
 
   /** The drawn set (AU.2.4), every one of it. */
   readonly illustrationNames: readonly CpIllustrationName[] = CP_ILLUSTRATION_NAMES;
+
+  /** One head per tool tone (AU.2.5, D3), each with its section's nav icon. */
+  readonly tonedHeads: readonly { tone: 'purple' | 'pink' | 'blue' | 'orange' | null; icon: ShellNavIcon; heading: string; lede: string; action: string }[] = [
+    { tone: null, icon: 'recipes', heading: 'Recipes', lede: 'Every recipe in this workspace. Search and filter to find one.', action: 'New recipe' },
+    { tone: 'purple', icon: 'ai', heading: 'AI Recipe Studio', lede: 'Describe what you are after and get a handful of distinct recipe pitches back.', action: 'Get concepts' },
+    { tone: 'pink', icon: 'image', heading: 'Image Studio', lede: 'Describe a shot, get the words for it, and turn them into pictures.', action: 'Make pictures' },
+    { tone: 'blue', icon: 'social', heading: 'Social Studio', lede: 'Write posts for something you already have.', action: 'Write posts' },
+    { tone: 'orange', icon: 'workflows', heading: 'Long-form', lede: 'From what a piece is about to an article you have accepted, one step at a time.', action: 'Continue' },
+  ];
 
   /** Every tool tone (AU.1, D1), and no tone, which is the primary. */
   readonly tones: readonly { name: 'purple' | 'pink' | 'blue' | 'orange' | null; tool: string }[] = [

@@ -608,6 +608,31 @@
         <cp-page-head heading="Workspace settings" />
       </cp-card>
     </div>
+    <p class="section-note">
+      Which tool (D3): the page projects its section's nav icon into <code>[cpPageHeadIcon]</code> and the head
+      draws it on a tile of the route's tone, over a rule in the same colour. Untoned pages keep the hairline. A
+      detail page may project its record's own picture into <code>[cpPageHeadMedia]</code> — beside the title
+      where the head is wide, above it where it is narrow.
+    </p>
+    <div class="showcase-stack">
+      @for (head of tonedHeads; track head.heading) {
+        <div class="page-head-demo" [attr.data-cp-tone]="head.tone">
+          <cp-page-head [heading]="head.heading" [lede]="head.lede">
+            <cp-shell-nav-icon cpPageHeadIcon [name]="head.icon" />
+            <button cpButton cpPageHeadActions type="button">{{ head.action }}</button>
+          </cp-page-head>
+        </div>
+      }
+      <div class="page-head-demo">
+        <cp-page-head heading="Sesame noodle stir-fry" lede="Weeknight noodles with charred greens, done in one pan.">
+          <a cpBackLink cpPageHeadBreadcrumb href="#page-head-heading">Recipes</a>
+          <img cpPageHeadMedia src="images/food/photo-1-480.jpg" alt="" />
+          <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
+          <cp-status-pill cpPageHeadBadges tone="neutral">Draft</cp-status-pill>
+          <button cpButton cpPageHeadActions type="button">Save</button>
+        </cp-page-head>
+      </div>
+    </div>
   </section>
 
   <section aria-labelledby="card-grid-heading">
