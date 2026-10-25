@@ -7,3 +7,6 @@
 # Per-machine HTTPS dev certificate for `ng serve`, exported from the trusted ASP.NET Core dev cert by
 # scripts/serve.mjs. Regenerated automatically; never shared or committed.
 /.dev-certs
+
+# Screenshots of the signed-in app from scripts/capture-app.mjs (AU.0, AU.8). Local evidence, never committed.
+/.captures

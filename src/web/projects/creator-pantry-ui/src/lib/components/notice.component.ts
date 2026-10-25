@@ -71,7 +71,7 @@ const GLYPHS: Readonly<Record<CpNoticeTone, string>> = {
         color: var(--cp-text);
       }
       :host(.cp-notice--success) .glyph {
-        color: var(--cp-primary);
+        color: var(--cp-primary-text);
       }
       :host(.cp-notice--warning) {
         background: var(--cp-orange-soft);

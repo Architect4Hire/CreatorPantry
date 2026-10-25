@@ -396,6 +396,14 @@ Three things follow, and they are decisions rather than oversights:
   `--cp-primary-text`, 5.04:1 at worst on its surfaces — and 4.01:1 against a primary button's mint fill, so
   this is the one place where the ring itself, rather than the gap, does the separating. It is the only
   re-declaration of the token, and it is one because the card is the only thing that re-declares its surfaces.
+- **`cp-card` re-declares `--cp-primary-soft` in the dark theme too**, as a light mint (`#d4e5cf`). Left as the
+  dark page's deep green, it sat under the card's own dark ink at 1.35:1: a picked `cp-choice-group` answer, a
+  current step, a success notice and every feature row marked "the one in force" were unreadable inside a dark
+  card (found in the AU.0 capture). On the mint the card's ink is 12.3:1, its muted ink 4.77:1 and
+  `--cp-primary-text` 5.69:1. The bright mint is 1.42:1 on it, so **nothing writes `--cp-primary` as text on a
+  soft fill**; it writes `--cp-primary-text`, which is the same colour everywhere outside a dark card. A picked
+  choice tile is edged in `--cp-primary-text` for the same reason. `design-system.spec.ts` measures the painted
+  pairs inside a card in both themes.
 - **A refused field keeps the ordinary ring**, rather than turning it red. `cp-field` draws its ring as a
   `box-shadow` inside a transparent outline, so it is the one indicator the token alone does not reach, and for
   an invalid control it drew a 28% danger tint: 1.62:1 on a white field, 1.60:1 on a dark one and 1.26:1 on a
@@ -407,8 +415,9 @@ Three things follow, and they are decisions rather than oversights:
 Nothing in the library draws a focus ring over a photograph: `cp-lightbox` puts its close control on a
 `--cp-surface` panel rather than on the scrim, and `cp-media-card` rings the card outside the picture. A new
 component that wants a ring on an image is a question to raise, because no single colour answers it. Nor does
-any ring land on a soft accent tint inside a dark card, which would be the system's remaining gap — the card
-leaves the accent tokens alone, and the card's ring on the dark `--cp-primary-soft` would be 1.61:1 — because
+any ring land on a soft accent tint inside a dark card. On the primary tint it would now read (the card's ring
+is 5.69:1 on the re-declared mint), but the pink, orange, purple, blue and danger tints are still the dark
+page's inside a card, and the card's ring on those is the system's remaining gap. It does not arise because
 every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) rings itself at a positive offset, so
 the ring lands on the surface the control sits on rather than on its own fill. A component that would ring
 *inside* a tinted area is the second question to raise.

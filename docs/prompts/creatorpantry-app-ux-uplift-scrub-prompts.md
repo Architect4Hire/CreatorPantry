@@ -105,6 +105,21 @@ is why AU.0 exists. Re-find files before trusting a line number.
 | Motion | The interactive `cp-card` lifts 2px on hover. | Nothing else moves. Results appear with no transition. |
 | Figures | `DESIGN-SYSTEM.md` "Meters and figures"; `cp-progress`. | No figure tile; the dashboard is lists of items in topic cards. |
 
+*Checked against the AU.0 capture (2026-10-25). Confirmed: page head, pictures, AI output, AI choices, figures,
+and the parchment dark card. Corrected:*
+
+- *Colour: `features/ai` and `shared` use the accents too, not only recipes and brand. The finding stands.*
+- *Loading: about 62 non-spec files print about 50 different sentences, not about 21. Every page scored 0. Image
+  Studio's recipe picker shows nothing at all while it loads, and five pages put a placeholder in the h1
+  ("Asset", "Loading card…", "Workflow", "Kitchen view", "Edit recipe").*
+- *Empty states: the dashboard has a "Get started" card and My Day has two plain-card states; the AI allowance
+  page always has figures; Quick Recipe, the Content Pipeline and Long-form are flows that open on step 1. What
+  is missing is a designed empty state where Image Studio, Social Studio and the flows' recipe step have only a
+  one-line note ("You have no recipes yet, so there is nothing to link").*
+- *Dark mode was worse than recorded: a selected `cp-choice-group` answer inside a card was 1.35:1. Fixed on its
+  own after AU.0 (see its delivery note).*
+- *Pages: 33 signed-in routes counting the `/app` gate; 28 were photographed.*
+
 ## Prerequisites already satisfied
 
 - UI.1–UI.8: one frame, the three page shapes, `check-page-contract.mjs`.
@@ -135,7 +150,7 @@ is why AU.0 exists. Re-find files before trusting a line number.
 
 ---
 
-## AU.0 Baseline capture and scorecard (report only)
+## AU.0 Baseline capture and scorecard (report only) - done
 
 ```text
 SCOPE: Add scripts/capture-app.mjs and an npm script "capture:app" that signs in the way capture-tour.mjs does
@@ -157,6 +172,60 @@ BEHAVIOR: Run the capture, present the scorecard as a table (page × rubric) wit
 out, attach a contact sheet of the captures, map each finding to the AU prompt that fixes it, and wait for
 approval before AU.1.
 ```
+
+*Delivery note (2026-10-25): captured and scored; 224 pictures of 28 pages in `src/web/.captures/before/`
+(`index.html` and four contact sheets), nothing committed.*
+
+*The capture account (`robert@creatorpantry.com`) belongs only to `homespun-favorites`, which the owner confirmed
+is sample data. It is added to `capture-app.mjs`'s `SAMPLE_WORKSPACES`, not to the tour's. Run it as
+`CAPTURE_WORKSPACE=homespun-favorites`. The run's empty workspace is `capture-empty-before-2026-10-25-10-27`.
+Workspaces cannot be deleted, so AU.8 reuses it with `CAPTURE_EMPTY_WORKSPACE` rather than making another.*
+
+*Not photographed:*
+
+- *The voice guide, its history and its test drive: no `CAPTURE_URL_BRAND_GUIDE` was given, and no list links to
+  a guide.*
+- *A saved prompt: the sample workspace has none, and it has no themed days either, so Prompt library and Themed
+  days were only ever seen empty.*
+- *The `/app` gate, which only redirects into a workspace.*
+
+*Studio output was not on screen in the run. The AI Recipe Studio's "generated" score comes from the tour capture.*
+
+*Scorecard: the averages are loading 0.00, dark 0.71, identity 0.79, empty 0.81, imagery 0.80, density 1.29 and
+hierarchy 1.43. The three worst pages:*
+
+1. *AI Recipe Studio, 10%.*
+2. *The recipe editor, 17%.*
+3. *Image Studio, 17%, standing for Social Studio and the Content Pipeline's first step, which share its form.*
+
+*`design-review` checked the scores and changed three.*
+
+*Two defects the AU list did not cover:*
+
+1. *A selected `cp-choice-group` answer inside a dark card was 1.35:1, so on Workspace settings and Long-form the
+   creator could not read what they had chosen. At the owner's request this was **fixed on its own** before AU.1:*
+   - *`cp-card` re-declares `--cp-primary-soft` as a light mint in the dark theme.*
+   - *Every part that wrote `--cp-primary` as text on that fill now writes `--cp-primary-text`: badge, status
+     pill, chip, diff legend, the notice glyph, `ai-proposal-panel` and both version comparisons.*
+   - *A picked tile is edged in `--cp-primary-text`.*
+   - *`design-system.spec.ts` measures the painted pairs inside a card in both themes. It failed at 1.35:1 before
+     the fix.*
+   - *DESIGN-SYSTEM.md's focus-ring section records it.*
+
+   *Light theme and the dark page are unchanged, because outside a dark card the two tokens are one colour. The
+   danger family has the same cause and is left to AU.2.2.*
+2. *The picture page is 550px wide at a 375px viewport. It is folded into AU.6.1.*
+
+*The other findings are folded into AU.2.2, AU.2.3, AU.4.1, AU.4.2, AU.4.3, AU.5.1, AU.6.1, AU.6.3, AU.7 and
+AU.8 as "From AU.0" sentences.*
+
+*The showcase suite was intermittent in this session, on code this fix does not touch:*
+
+- *A clean tree failed 5 ContentCardDetail editing specs.*
+- *With the fix, different landing and recipe-editor scroll specs failed.*
+- *Each passed when run alone.*
+
+*The library suite is 326/326.*
 
 ## AU.1 Design decisions, rules and tokens
 
@@ -206,7 +275,11 @@ give dark cards a raised dark surface instead: --cp-surface with a lighter hairl
 card reads as lifted from the page without turning light. Remove the card-scoped --cp-primary-text, --cp-focus
 and field overrides that existed only because of the parchment, and confirm fields, chips, pills, notices and
 the focus ring inside a card against the dark page values. Update the DESIGN-SYSTEM.md focus-ring section that
-describes the card's re-declared ring.
+describes the card's re-declared ring. From AU.0: also remove the card-scoped --cp-primary-soft that the AU.0
+fix added. Then make the danger family read inside a dark card: a field's error text is --cp-danger on the
+card at 2.22:1, and the cp-form-section problem banner and cp-validation-summary put ink on a --cp-danger-soft
+mixed against the dark page. Do the same for the pink, orange, purple and blue tints. If D2 keeps parchment,
+this prompt still runs, limited to the danger family and the other tints.
 CONSTRAINT: APP-009; D2; LP.11A's measured ratios and its method; DESIGN-SYSTEM.md "The focus ring" and
 "Native form controls and color-scheme"; cp-drawer, cp-dialog and cp-lightbox surfaces, which must match.
 RESTRICTION: Every ring ≥3:1, every text ≥4.5:1, every control edge ≥3:1, inside a card, in dark. Light theme
@@ -225,7 +298,9 @@ silhouette), a count, and widths that vary so a block of lines does not read as 
 background-position (the "drawer" rule rejects translateX) and is static under prefers-reduced-motion. The
 host is aria-hidden; the region that is loading keeps aria-busy and one polite status sentence for screen
 readers. Give cp-list-shell a loadingLayout input ('cards' | 'rows', default 'rows') that draws skeletons in
-the shape of what is coming, replacing its visible "Loading…" text with a visually hidden one.
+the shape of what is coming, replacing its visible "Loading…" text with a visually hidden one. From AU.0: an
+empty cp-list-shell says its empty sentence twice, once in the projected state and again as small text at the
+foot (Pictures, Recipes, Brand library and Prompt library); say it once.
 CONSTRAINT: APP-003; AU.1 skeleton tokens; .claude/rules/design-system.md extension rules 1-9; list-shell's
 existing loading/error/empty/ready contract and its specs.
 RESTRICTION: No feature adopts it in this prompt except through cp-list-shell's default. A screen reader still
@@ -364,7 +439,9 @@ docs; run npm run build and npm test from src/web.
 SCOPE: Rework the dashboard with the new parts: the head with its lede, a row of figure tiles from the read
 model's existing counts, the most urgent topic as the one featured card, the remaining topic cards in
 ul[cpCardGrid], skeletons while it loads (replacing "Loading your dashboard…"), an illustrated first-use state
-in "Get started", and an illustrated quiet state in any topic with nothing in it.
+in "Get started", and an illustrated quiet state in any topic with nothing in it. From AU.0: "Carry on where
+you left off" lists three runs each linked as "Create a recipe"; name each by the thing it is about, so
+neither the eye nor a screen reader meets the same link three times.
 CONSTRAINT: APP-003, APP-004, APP-008; frontend.md's dashboard rule (DashboardComponent is the reference: most
 urgent first, counts from the read model, an unreadable topic keeps its card with a notice, each item links to
 where it is dealt with); dashboard.models.ts.
@@ -383,7 +460,9 @@ recipe's Hero asset link, or null) through the full seam, projected in the repos
 loaded per row. In the web, add the field to RecipeSummary and its decoder, and project the picture into each
 cp-media-card through the authorised thumbnail loader the DAM already uses (promote it to src/app/shared if it
 lives in features/dam). Give the library cp-list-shell's 'cards' skeleton and AU.2.4's "recipe" first-use and
-"search" no-results states.
+"search" no-results states. From AU.0: the status filter chips read "InDevelopment" and "ReadyForReview",
+the wire names; label them in words. That is a label correction, not a copy rewrite. A card also stacks a
+"Draft" pill above a "v4 Draft" badge, which says Draft twice.
 CONSTRAINT: APP-005; add-endpoint skill; backend.md seam; tenancy.md (the hero asset is read inside the
 workspace filter, and an asset the caller cannot read is null, never a 404 or an error); api-contract.md
 (additive optional field); recipes.md; media.md (renditions, not originals, are what pages show).
@@ -406,6 +485,9 @@ SCOPE: Give the recipe detail page (and the kitchen view's on-screen head, not i
 head with the recipe's Hero picture in the media slot, loaded from the asset link the detail response already
 carries; times and yield as a dl[cpFacts] inline strip under the head; ingredients and method side by side at
 wide widths and stacked at narrow; skeletons while loading. The recipe's own words are shown exactly as stored.
+From AU.0: the editor stacks three navigation tiers before its first field (Edit/Media/History/…, then
+General/Ingredients/Instructions, then the section nav), which wraps to three rows at 375px. Propose how the
+head and the tiers combine. frontend.md's per-form dirty-state and field-error-selects-its-tab rules stand.
 CONSTRAINT: APP-005; recipes.md (creator text is verbatim; yield's three facts stay separate; total time is
 shown as stored); frontend.md detail-page rule; DESIGN-SYSTEM.md "The two shapes"; the recipe-kitchen-view
 exemptions in check-page-contract.mjs, which stay as they are.
@@ -424,7 +506,10 @@ SCOPE: Present the studio's concepts as cp-option-card in a comparison grid: the
 budget, skill fit and dietary notes as the key facts, the assumptions behind the disclosure, "Choose this
 concept" as the card's one action. Wrap generated results in cp-generated. Show "What the model flagged" as a
 cp-notice in its own place, not a card of prose. Give every step a skeleton and an illustrated empty state.
-The route wears the purple tone and its page head the studio's icon.
+The route wears the purple tone and its page head the studio's icon. From AU.0: the template joins lists of
+whole sentences with ", " (suggestedIngredients, dietaryNotes, assumptions in
+recipe-concept-studio.component.html), which prints "components., Dietary goals". Show a list of sentences
+as a list, and keep comma-joining for lists of words.
 CONSTRAINT: APP-006, APP-007; ai.md (proposals, not applied); recipes.md "Safety and claims" (dietary notes
 stay labelled descriptive, never a guarantee); the AU.3.1 audit's leftovers for features/ai.
 RESTRICTION: No change to prompts, generation, what is saved or the order of steps. The "descriptive only, not
@@ -483,7 +568,9 @@ and npm test from src/web.
 SCOPE: Pictures (DAM): 'cards' skeletons, the AU.2.6 panel for assets still processing, illustrated "picture"
 first-use and "search" no-results states, cp-generated's label on AI-generated assets in place of any private
 marker. Content Board: skeleton cards per column, an illustrated "board" first-use state, and a quiet line in an
-empty column. A board has no featured card.
+empty column. A board has no featured card. From AU.0: a picture's page is 550px wide at a 375px viewport,
+because its versions table (610px) is not in a scroll region of its own; the page must not scroll sideways
+at any width. The library's search placeholder is clipped to "Search by title or des".
 CONSTRAINT: APP-003, APP-004; frontend.md library and board rules (DAM is the reference library;
 ContentBoardComponent the reference board); media.md.
 RESTRICTION: No change to upload, moves, ordering or the keyboard move control. Do not run backend tests.
@@ -508,7 +595,9 @@ BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run 
 ```text
 SCOPE: Each page adopts the parts it is missing: skeletons in place of its loading sentences, an illustrated
 empty state from the set ("brand", "prompt", "board", "recipe"), cp-generated on any generated text (brand
-style test-drive, generated prompts), and Quick Recipe's first-use state.
+style test-drive, generated prompts), and Quick Recipe's first-use state. From AU.0: Workflows lists four
+"Continue" buttons and three runs titled "Create a recipe"; give each action an accessible name that says
+which run it continues, and tell same-kind runs apart by what they are about.
 CONSTRAINT: APP-003, APP-004, APP-006; the existing page shapes of each; the AU.3.1 leftovers.
 RESTRICTION: No behaviour change. Split per page if the change set passes about 25 files. Do not run backend
 tests.
@@ -537,7 +626,9 @@ SCOPE: Find every remaining visible loading sentence in src/app (grep for "Loadi
 templates, excluding specs) and replace each with skeletons in the shape of what is coming, keeping one
 visually hidden status sentence for screen readers. Add a page-contract rule "loading": a routed page's or
 shared component's template shows no visible "Loading…" sentence outside cp-skeleton's hidden status; an
-exemption is a listed path with a reason.
+exemption is a listed path with a reason. From AU.0: while a detail page loads, its h1 reads "Asset",
+"Loading card…", "Workflow", "Kitchen view" or "Edit recipe". The title slot holds the route's title or a
+skeleton line, never a loading sentence.
 CONSTRAINT: APP-003; AU.2.3; check-page-contract.mjs's rule and exemption format and its self-tests.
 RESTRICTION: "Loading more…" on a pager button may stay as button text if the button is the only thing
 changing; list each such case. Do not run backend tests.
@@ -556,7 +647,10 @@ the OpenAPI snapshot with UPDATE_OPENAPI_SNAPSHOT=1 for the AU.4.2 field, read t
 one additive optional property and nothing else. (3) Fix every backend failure caused by this document; a
 failure that predates it is reported, not fixed. (4) From src/web: npm ci, npm run build, npm test. (5) Run
 npm run capture:app with label "after" and present before/after pairs for every page, then re-score the AU.0
-rubric. (6) Walk the app with playwright-cli: both themes, 375/768/1440 px, 200% zoom, keyboard only, reduced
+rubric. Run it with CAPTURE_WORKSPACE=homespun-favorites and
+CAPTURE_EMPTY_WORKSPACE=capture-empty-before-2026-10-25-10-27, plus CAPTURE_URL_BRAND_GUIDE and a saved prompt
+in the sample workspace, so the four pages AU.0 could not reach have a before of their own (capture them in
+the old state first, or say they have no before). (6) Walk the app with playwright-cli: both themes, 375/768/1440 px, 200% zoom, keyboard only, reduced
 motion, every toned route, and the nav unchanged against its AU.0 capture. (7) Mark every "built" prompt done
 once its backend tests pass.
 CONSTRAINT: APP-001..010; CLAUDE.md Usage (test command, BaseOutputPath, Docker for the SQL Server fixture);

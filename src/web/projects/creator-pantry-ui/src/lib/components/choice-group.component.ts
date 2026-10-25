@@ -166,8 +166,10 @@ let cpChoiceGroupUid = 0;
         border-color: color-mix(in srgb, var(--cp-primary) 45%, var(--cp-border));
         box-shadow: var(--cp-shadow-sm);
       }
+      /* The edge is the text green, not the brand mint: they are one colour everywhere but a dark card, where the
+         mint is 1.5:1 on the parchment and the edge would not say which answer is chosen. */
       .tile.picked {
-        border-color: var(--cp-primary);
+        border-color: var(--cp-primary-text);
         background: var(--cp-primary-soft);
       }
       .tile.picked .mark {

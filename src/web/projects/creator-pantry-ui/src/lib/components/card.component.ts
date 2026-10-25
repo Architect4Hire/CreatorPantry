@@ -38,6 +38,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
          own mint fill, which is the one place in the system where the ring rather than the 2px gap is what
          separates the two. */
       --cp-focus: var(--cp-primary-text);
+      /* The soft fill a picked tile, a current step, a success notice or a hovered secondary button sits on. Left
+         to the dark page, it was a deep green under this card's dark ink — 1.35:1, so a creator could not read
+         the answer they had chosen. This is a light mint the card's own text reads on: ink 12.3:1, muted 4.77:1,
+         --cp-primary-text 5.69:1. The bright mint is 1.42:1 on it, which is why nothing writes --cp-primary as
+         text on a soft fill; it writes --cp-primary-text, the same colour everywhere outside this card. */
+      --cp-primary-soft: #d4e5cf;
     }
     :host.cp-card--flush { padding:0; overflow:hidden; }
     :host.cp-card--interactive { transition:transform var(--cp-duration-fast) var(--cp-ease),border-color var(--cp-duration-fast),box-shadow var(--cp-duration-fast); cursor:pointer; }

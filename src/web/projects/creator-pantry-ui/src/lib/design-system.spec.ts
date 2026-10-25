@@ -2,9 +2,12 @@ import { DOCUMENT } from '@angular/common';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
+import { CpBadgeComponent } from './components/badge.component';
 import { CpButtonComponent } from './components/button.component';
 import { CpCardComponent } from './components/card.component';
+import { CpChoiceGroupComponent } from './components/choice-group.component';
 import { CpFieldComponent } from './components/field.component';
+import { CpNoticeComponent } from './components/notice.component';
 import { CpProgressComponent } from './components/progress.component';
 import { CpThemeService } from './theme.service';
 
@@ -84,6 +87,25 @@ function readTokens(theme: 'light' | 'dark', names: string[]): Record<string, st
   `,
 })
 class RefusedFieldHostComponent {}
+
+/** What sits on the soft fill inside a card: a picked answer with its hint, a success notice and a success badge. */
+@Component({
+  standalone: true,
+  imports: [CpCardComponent, CpChoiceGroupComponent, CpNoticeComponent, CpBadgeComponent],
+  template: `
+    <cp-card>
+      <cp-choice-group
+        label="Measurements"
+        idPrefix="soft-"
+        [options]="[{ value: 'us', label: 'US customary', hint: 'Cups, tablespoons, ounces and pounds' }, { value: 'metric', label: 'Metric' }]"
+        [value]="['us']"
+      />
+      <cp-notice tone="success">Saved.</cp-notice>
+      <cp-badge tone="success">Ready</cp-badge>
+    </cp-card>
+  `,
+})
+class SoftFillInCardHostComponent {}
 
 describe('CreatorPantry UI library', () => {
   it('applies the configured button variant and size', async () => {
@@ -266,5 +288,45 @@ describe('CreatorPantry design tokens', () => {
     }
 
     page.remove();
+  });
+
+  // The card re-declares its ink but the soft fill was the dark page's deep green, so a picked answer inside a
+  // card was 1.35:1 in the dark theme (AU.0: Workspace settings and Long-form). Measured as painted, on the
+  // parts themselves, in both themes, so a fill or a text colour moved on either side fails here.
+  describe('the soft fill inside a card', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      it(`carries its text at 4.5:1 in the ${theme} theme`, async () => {
+        await TestBed.configureTestingModule({ imports: [SoftFillInCardHostComponent] }).compileComponents();
+        const page = document.createElement('div');
+        page.setAttribute('data-cp-theme', theme);
+        document.body.appendChild(page);
+
+        const fixture = TestBed.createComponent(SoftFillInCardHostComponent);
+        page.appendChild(fixture.nativeElement);
+        fixture.detectChanges();
+        const root = fixture.nativeElement as HTMLElement;
+        const pair = (text: Element, fill: Element): [string, string] => [
+          getComputedStyle(text).color,
+          getComputedStyle(fill).backgroundColor,
+        ];
+
+        const tile = root.querySelector('#soft-us')!.closest('label')!;
+        const pairs: Record<string, [string, string]> = {
+          'picked answer': pair(tile.querySelector('.label')!, tile),
+          'picked answer hint': pair(tile.querySelector('.hint')!, tile),
+          'success notice': pair(root.querySelector('cp-notice .body')!, root.querySelector('cp-notice')!),
+          'success badge': pair(root.querySelector('cp-badge')!, root.querySelector('cp-badge')!),
+        };
+        for (const [part, [text, fill]] of Object.entries(pairs)) {
+          expect(contrastRatio(text, fill)).withContext(`${part}: ${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+        }
+        // The picked edge is what tells the chosen tile from the others, so it clears 3:1 against the card.
+        expect(contrastRatio(getComputedStyle(tile).borderTopColor, getComputedStyle(root.querySelector('cp-card')!).backgroundColor))
+          .withContext('picked edge on the card')
+          .toBeGreaterThanOrEqual(3);
+
+        page.remove();
+      });
+    }
   });
 });
