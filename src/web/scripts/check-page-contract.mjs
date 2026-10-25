@@ -52,6 +52,7 @@ export const RULES = {
   illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
   generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
   skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
+  enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
   'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
@@ -164,9 +165,21 @@ export function frameViolations(css) {
   return found;
 }
 
+/**
+ * `enter` (AU.3.4): the entrance belongs to `cpEnter` — the three entrance tokens, the `cp-enter` keyframes it
+ * animates, and the `data-cp-enter` it marks an arriving element with. Read over the whole sheet rather than
+ * rule by rule, because a `@keyframes` block's own name is not an innermost rule. It does not claim every
+ * fade-and-rise: a tab panel's switch and the public hero's collage are motion about something else.
+ */
+const ENTRANCE = /--cp-(?:duration-enter|enter-distance|enter-stagger)|data-cp-enter|cp-enter(?![\w-])/g;
+
 /** Everything a feature stylesheet redraws that the library or the shell owns. */
 export function stylesheetViolations(css) {
   const found = [];
+  const sheet = blankComments(css);
+  for (const m of sheet.matchAll(ENTRANCE)) {
+    found.push({ rule: 'enter', line: lineAt(sheet, m.index), what: `animates an entrance of its own with ${m[0]}` });
+  }
   for (const rule of cssRules(css)) {
     for (const [id, names] of Object.entries(OWNED_CLASSES)) {
       for (const name of names) {
@@ -214,6 +227,7 @@ export function templateViolations(html) {
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
   for (const m of markup.matchAll(/<h1[\s>]/g)) found.push({ rule: 'one-h1', line: lineAt(markup, m.index), what: 'renders an <h1>' });
   for (const m of markup.matchAll(/data-cp-tone/g)) found.push({ rule: 'tone', line: lineAt(markup, m.index), what: 'sets data-cp-tone' });
+  for (const m of markup.matchAll(/data-cp-enter/g)) found.push({ rule: 'enter', line: lineAt(markup, m.index), what: 'sets data-cp-enter' });
   for (const m of markup.matchAll(/\[style\.(--cp-tone[\w-]*)|(--cp-tone[\w-]*)\s*:/g)) {
     found.push({ rule: 'tone', line: lineAt(markup, m.index), what: `declares ${m[1] ?? m[2]} in a style` });
   }
@@ -342,6 +356,9 @@ export function scriptViolations(source) {
   }
   for (const m of code.matchAll(/data-cp-tone|setProperty\(\s*['"`](--cp-tone[\w-]*)/g)) {
     found.push({ rule: 'tone', line: lineAt(code, m.index), what: m[1] ? `sets ${m[1]} from code` : 'sets data-cp-tone from code' });
+  }
+  for (const m of code.matchAll(/data-cp-enter/g)) {
+    found.push({ rule: 'enter', line: lineAt(code, m.index), what: 'sets data-cp-enter from code' });
   }
   return found;
 }

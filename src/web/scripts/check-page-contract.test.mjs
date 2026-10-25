@@ -92,6 +92,19 @@ test('option-card: a feature draws no option or concept card of its own', () => 
   assert.deepEqual(stylesheetViolations('.concept-list { gap: 1rem; } .optional { color: red; }'), []);
 });
 
+test('enter: a feature animates no entrance of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.result { animation: cp-enter 200ms; }')), ['enter']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes cp-enter { from { opacity: 0; } }')), ['enter']);
+  assert.deepEqual(rules(stylesheetViolations('.row { animation-duration: var(--cp-duration-enter); animation-delay: var(--cp-enter-stagger); translate: 0 var(--cp-enter-distance); }')), ['enter', 'enter', 'enter']);
+  assert.deepEqual(rules(stylesheetViolations('[data-cp-enter] .row { opacity: 1; }')), ['enter']);
+  assert.deepEqual(rules(templateViolations('<div data-cp-enter></div>')), ['enter']);
+  assert.deepEqual(rules(scriptViolations("el.setAttribute('data-cp-enter', '');")), ['enter']);
+  // A page may ask for the entrance; what it may not do is draw one. Other motion is not this rule's.
+  assert.deepEqual(stylesheetViolations('.panel { animation: cp-panel-in var(--cp-duration-normal) var(--cp-ease); }'), []);
+  assert.deepEqual(templateViolations('<ul [cpEnter]="ready()"></ul>'), []);
+  assert.deepEqual(stylesheetViolations('/* --cp-enter-stagger is the library\u2019s */ .row { gap: 1rem; }'), []);
+});
+
 test('toolbar-field: a search input sits in cp-search-field, or in cp-field when it has a visible label', () => {
   assert.deepEqual(rules(templateViolations('<div class="search"><input type="search" /></div>')), ['toolbar-field']);
   assert.deepEqual(rules(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>\n<input type="search" />')), ['toolbar-field']);

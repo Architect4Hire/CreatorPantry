@@ -205,4 +205,14 @@ describe('CpOptionCardComponent', () => {
     expect(first().querySelector('[role="radio"], [role="radiogroup"]')).toBeNull();
     expect(first().querySelectorAll('button').length).toBe(1);
   });
+
+  // AU.3.4: the cards of a group land one stagger step apart, in the order they were created.
+  it('arrives with the group, each card a stagger step behind the one before it', () => {
+    mount();
+
+    expect(first().hasAttribute('data-cp-enter')).toBeTrue();
+    expect(first().style.animationDelay).toBe('');
+    expect(second().hasAttribute('data-cp-enter')).toBeTrue();
+    expect(second().style.animationDelay).toBe('calc(var(--cp-enter-stagger) * 1)');
+  });
 });

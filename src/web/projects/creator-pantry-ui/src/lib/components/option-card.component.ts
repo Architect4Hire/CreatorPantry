@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 
 import { CpButtonComponent } from './button.component';
 import { CpCardComponent } from './card.component';
+import { CpEnterDirective } from './enter.directive';
 
 /** One key fact about an option: a term and its value, read as a pair ("Time: 45 min"). */
 export interface CpOptionFact {
@@ -45,6 +46,9 @@ let nextId = 0;
   selector: 'cp-option-card',
   standalone: true,
   imports: [CpButtonComponent, CpCardComponent],
+  // The cards of a group land one stagger step apart, in the order they were created (AU.3.4). Choosing one
+  // changes `selected` and not the element, so nothing arrives a second time.
+  hostDirectives: [CpEnterDirective],
   template: `<cp-card [class.selected]="selected()">
     <article [attr.aria-labelledby]="headingId">
       @switch (headingLevel()) {

@@ -312,6 +312,18 @@ export class DesignSystemShowcaseComponent {
     this.drawerOpen.set(null);
   }
 
+  // --- Entrance motion ---
+  /** The run on screen, as a list of one, so the three parts can be taken away and built again (AU.3.4). */
+  readonly entranceRuns = signal<readonly number[]>([0]);
+  private entranceRun = 0;
+
+  replayEntrance(): void {
+    // Emptied in this change detection and filled in the next, so the parts are genuinely built again and
+    // `track` never sees one key re-created, which is what NG0956 warns about.
+    this.entranceRuns.set([]);
+    queueMicrotask(() => this.entranceRuns.set([++this.entranceRun]));
+  }
+
   // --- List shell ---
   readonly listShellState = signal<CpListShellState>('ready');
   readonly listShellStates: CpListShellState[] = ['loading', 'error', 'empty', 'ready'];

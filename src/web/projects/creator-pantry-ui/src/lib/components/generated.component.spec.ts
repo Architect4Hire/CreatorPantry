@@ -141,4 +141,11 @@ describe('CpGeneratedComponent', () => {
     expect(parseFloat(style.borderTopWidth)).toBeLessThanOrEqual(1);
     expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)');
   });
+
+  // AU.3.4: what a model made arrives as it is made, so the surface it arrives on carries the entrance.
+  it('arrives, fading and lifting in, when the result renders', () => {
+    const surface = el.querySelector('cp-generated') as HTMLElement;
+
+    expect(surface.hasAttribute('data-cp-enter')).toBeTrue();
+  });
 });

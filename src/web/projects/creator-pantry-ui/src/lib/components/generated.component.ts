@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+import { CpEnterDirective } from './enter.directive';
+
 /** What a model made: words to read, a picture, or a reading of something the creator supplied. */
 export type CpGeneratedKind = 'words' | 'picture' | 'reading';
 
@@ -105,6 +107,8 @@ export class CpGeneratedLabelComponent {
   selector: 'cp-generated',
   standalone: true,
   imports: [CpGeneratedLabelComponent],
+  // The result arrives once, as it is made (AU.3.4). A regeneration is a new surface, so it arrives again.
+  hostDirectives: [CpEnterDirective],
   host: {
     role: 'group',
     '[attr.aria-labelledby]': 'labelId',

@@ -436,12 +436,40 @@ description; `alt=""` only where the title beside it already says everything the
 a decorative, non-focusable icon, because the tile around it is hidden from assistive technology.
 
 **Content arrives once, gently (D4)** (AU.3.4). The first time a route's content or a result renders, it fades
-in and rises `--cp-enter-distance` over `--cp-duration-enter`, list items `--cp-enter-stagger` apart. The library
-applies it where it is always right — a list shell's ready content, a generated result arriving, a group of
-options — and pages do not apply it themselves. It does not replay on a filter change, a save or a re-render.
+in and rises `--cp-enter-distance` over `--cp-duration-enter`. Several things arriving together land
+`--cp-enter-stagger` apart, in the order they were built — a group of option cards, each its own arrival; not the
+rows inside one list, which rise as the one block the shell marks. The library applies it where it is always
+right — a list shell's ready content, a generated result arriving, a group of options — and pages do not apply
+it themselves. It does not replay on a filter change, a save or a re-render.
 There is no scroll reveal, and under `prefers-reduced-motion` nothing moves and nothing waits. `global.css` zeroes
 durations but not delays, so the entrance clears its stagger delay there too; otherwise a list item would sit
 invisible for its turn.
+
+`CpEnterDirective` (`[cpEnter]`) is how that is done. It marks an arriving element `data-cp-enter`, and
+`global.css` holds the `cp-enter` keyframes keyed on that attribute, because a directive carries no styles of
+its own. The marking is the only thing that hides anything: nothing in the sheet touches an element the
+directive has not marked, so a sheet that never loaded, a page without script and an entrance that has finished
+all leave content that was never hidden — the same way round as `LandingRevealDirective`, and the reason neither
+is written as CSS that hides and script that reveals. Everything created in one change-detection pass is one
+arrival and lands in creation order, capped at five steps, so a group of cards staggers without a page counting
+them. It animates once: a CSS animation declares the once, the input is read in `ngOnInit` and never again, and
+the attribute comes off when the animation ends, so a later DOM move cannot restart it. Hiding an element mid-arrival
+cancels its animation without ending it, so a cancelled animation clears the mark too, or a `[hidden]` tab panel
+would arrive again when it was shown. Focus arriving ends it early: `global.css`'s `:focus-within` stops the
+animation in the same style recalculation, synchronously, and the directive's `focusin` then clears the mark on
+the change detection that follows — two mechanisms because a signal written in a handler is a frame late, and
+`cp-list-shell`'s ready region is focusable, so a creator tabbing into a list that has just landed must not find
+the focus ring on something transparent. Print turns it off outright: paper renders the whole document at once and need not run an animation,
+and the animation fills backwards. `[cpEnter]="false"` writes nothing at all, which is how the list shell arrives
+on its first ready and not on a reload — once per shell, so a shell reused for another record's list does not
+arrive again either. Of the three, only the list shell is on a page today: `cp-generated` and `cp-option-card`
+are built and placed by AU.4.1 onwards, and the entrance switches on with them.
+
+The page contract's `enter` rule guards the three entrance tokens, the `cp-enter` keyframes and
+`data-cp-enter` — the parts a feature would reach for to rebuild this. It does not claim every fade-and-rise:
+a tab panel's switch and the public hero's collage are motion about something else. Nor does it forbid
+`[cpEnter]` in a feature template, so that a later document can hand pages the entrance without a check being
+loosened to let them through.
 
 **An empty state is drawn (D5)** (AU.2.4). `cp-illustration` holds a small set of line drawings — `recipe` (a
 recipe card and a bowl), `picture` (a plated dish under steam), `post` (a phone and a speech bubble), `article` (a

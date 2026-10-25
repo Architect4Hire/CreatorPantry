@@ -226,6 +226,30 @@ describe('CpListShellComponent', () => {
       expect(scroll.textContent).toContain('Row content');
     });
 
+    // AU.3.4: the list landing is an arrival; the same list reloaded by a filter or a save is not.
+    it('lets its ready content arrive the first time it is ready, and not again', async () => {
+      await TestBed.configureTestingModule({ imports: [SignalHostComponent] }).compileComponents();
+      const fixture = TestBed.createComponent(SignalHostComponent);
+      fixture.componentInstance.state.set('loading');
+      fixture.detectChanges();
+
+      fixture.componentInstance.state.set('ready');
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      expect((host.querySelector('.scroll') as HTMLElement).hasAttribute('data-cp-enter')).toBeTrue();
+
+      // The shell remembers after the render that showed it, so wait for that render to settle.
+      await fixture.whenStable();
+      fixture.componentInstance.state.set('loading');
+      fixture.detectChanges();
+      fixture.componentInstance.state.set('ready');
+      fixture.detectChanges();
+
+      const again = host.querySelector('.scroll') as HTMLElement;
+      expect(again.hasAttribute('data-cp-enter')).toBeFalse();
+      expect(again.style.animationDelay).toBe('');
+    });
+
     it('renders the projected pagination slot in the footer', async () => {
       const fixture = await createFixture();
       fixture.componentInstance.showPagination = true;

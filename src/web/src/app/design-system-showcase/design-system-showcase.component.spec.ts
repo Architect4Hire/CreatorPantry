@@ -395,4 +395,42 @@ describe('DesignSystemShowcaseComponent', () => {
       fixture.nativeElement.remove();
     });
   });
+
+  describe('the entrance section', () => {
+    const arriving = (fixture: { nativeElement: HTMLElement }) => {
+      const demo = (fixture.nativeElement as HTMLElement).querySelector('.entrance-demo');
+      return demo ? Array.from(demo.querySelectorAll('[data-cp-enter]')) : [];
+    };
+
+    it('shows the three parts the library applies the entrance to, arriving together', async () => {
+      const fixture = await createFixture();
+      const demo = (fixture.nativeElement as HTMLElement).querySelector('.entrance-demo')!;
+
+      expect(demo.querySelector('cp-list-shell .scroll')!.hasAttribute('data-cp-enter')).toBeTrue();
+      expect(demo.querySelector('cp-generated')!.hasAttribute('data-cp-enter')).toBeTrue();
+      expect(Array.from(demo.querySelectorAll('cp-option-card')).every((card) => card.hasAttribute('data-cp-enter'))).toBeTrue();
+      // Each card lands behind the one before it: three cards, three different waits.
+      const delays = Array.from(demo.querySelectorAll<HTMLElement>('cp-option-card')).map((card) => card.style.animationDelay);
+      expect(new Set(delays).size).toBe(delays.length);
+    });
+
+    it('arrives again when the entrance is replayed, as content next arriving does', async () => {
+      const fixture = await createFixture();
+      const before = arriving(fixture);
+      expect(before.length).toBeGreaterThan(0);
+
+      for (const element of before) element.removeAttribute('data-cp-enter');
+      const replay = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+        (button) => button.textContent?.includes('Replay the entrance'),
+      ) as HTMLButtonElement;
+      replay.click();
+      fixture.detectChanges();
+      expect(arriving(fixture).length).withContext('taken away in this pass').toBe(0);
+
+      // Built again in the next, so nothing is re-created under one key.
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(arriving(fixture).length).toBe(before.length);
+    });
+  });
 });

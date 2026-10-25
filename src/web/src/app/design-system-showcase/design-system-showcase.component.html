@@ -324,6 +324,45 @@
     </div>
   </section>
 
+  <section aria-labelledby="enter-heading">
+    <h2 id="enter-heading">Entrance motion</h2>
+    <p class="section-note">
+      <code>cpEnter</code>: content fades in and rises <code>--cp-enter-distance</code> over
+      <code>--cp-duration-enter</code> the first time it renders, and a group lands
+      <code>--cp-enter-stagger</code> apart in the order it was built. The library applies it where it is always
+      right — a list shell's ready content, a generated result, a group of options — and a page applies none of
+      its own. It happens once: the list below does not arrive again when a filter reloads it. Under
+      <code>prefers-reduced-motion</code> nothing moves and nothing waits, and the whole thing is off for print.
+      Replay re-creates all three, the way the app does when the content next arrives.
+    </p>
+    <div class="button-extras">
+      <button cpButton variant="secondary" size="sm" type="button" (click)="replayEntrance()">Replay the entrance</button>
+    </div>
+    @for (run of entranceRuns(); track run) {
+      <div class="showcase-stack entrance-demo">
+        <cp-list-shell heading="Recent recipes">
+          <table class="demo-table">
+            <thead><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead>
+            <tbody>
+              <tr><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td><td>Sep 16</td></tr>
+              <tr><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td><td>Sep 14</td></tr>
+            </tbody>
+          </table>
+        </cp-list-shell>
+        <cp-generated provenance="gpt-4o · 25 Oct, 08:30">
+          <p>Sweet corn at its peak needs almost nothing: miso butter, a hot pan, and lime at the end.</p>
+        </cp-generated>
+        <ul cpCardGrid minColumn="16rem" aria-label="Example concepts arriving">
+          @for (concept of concepts; track concept.id) {
+            <li>
+              <cp-option-card [heading]="concept.heading" [facts]="concept.facts" [summary]="concept.summary" chooseLabel="Choose this concept" />
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  </section>
+
   <section aria-labelledby="tabs-heading">
     <h2 id="tabs-heading">Tabs</h2>
     <p class="section-note">ARIA tabs pattern with roving tabindex, a disabled tab, and lazy-mounted panels.</p>

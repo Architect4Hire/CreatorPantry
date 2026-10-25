@@ -799,7 +799,7 @@ BEHAVIOR: Show both parts in each tone and theme; wait for approval; implement w
 docs; run npm run build and npm test from src/web.
 ```
 
-## AU.3.4 Entrance motion (only if D4 is yes)
+## AU.3.4 Entrance motion (only if D4 is yes) - done
 
 ```text
 SCOPE: Add a library directive (cpEnter) that fades and lifts an element in by a few pixels the first time it
@@ -817,6 +817,79 @@ UTILIZATION: creatorpantry-design-system skill; design-review.
 BEHAVIOR: Show it with motion on and off; wait for approval; implement with specs, update the showcase and
 docs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the contract as proposed, after seeing it with motion
+on, with motion reduced, and with the stagger delay left in.*
+
+*What shipped:*
+
+- *`CpEnterDirective` (`[cpEnter]`), in `lib/components/enter.directive.ts`. It marks the element
+  `data-cp-enter` and `global.css` holds the `cp-enter` keyframes keyed on that attribute, because a directive
+  carries no styles. The marking is the only thing that hides anything, so an absent sheet, an absent script and
+  a finished entrance all leave content that was never hidden — `LandingRevealDirective`'s direction, without
+  its observer.*
+- *The stagger is the arrival, not an index a page passes: everything created in one change-detection pass
+  takes the next place, in creation order, capped at five steps. That is what reaches a `cp-option-card`, which
+  sits inside its own `<li>` and so has no attributed DOM sibling for CSS or `previousElementSibling` to count.*
+- *`global.css` gains four lines: the keyframes, `[data-cp-enter]`'s `animation … backwards`,
+  `animation-delay: 0s !important` under `prefers-reduced-motion` (the prompt's point: the existing clamp zeroes
+  durations and would leave a staggered item invisible for its turn), and `animation: none !important` under
+  `print`, which replaces LandingReveal's `beforeprint` listener — paper renders the whole document at once and
+  `backwards` would print the from-state.*
+- *Three application sites. `cp-list-shell`'s ready `.scroll` is bound `[cpEnter]="!hasBeenReady()"`, so it
+  arrives on its first ready and not when a filter reloads the same list; `cp-generated` and `cp-option-card`
+  take it as a `hostDirectives`.*
+- *The latch is an `afterRenderEffect`, not an `effect`. A component effect runs before its own view is
+  refreshed, so latching there meant the first ready render already read `true` and nothing ever arrived — the
+  spec caught it.*
+- *Four restrictions, four mechanisms: reduced motion by the two CSS rules; no hiding without script or on paper
+  by the direction above; focus by `focusin` ending the entrance in the same frame, before paint, which matters
+  because `.scroll` is `tabindex="0"`; and no re-animation because a CSS animation declares once, the input is
+  read in `ngOnInit` and never again, and the attribute comes off at `animationend` so a later DOM move cannot
+  restart it.*
+- *The page contract's `enter` rule owns the three entrance tokens, the `cp-enter` keyframe name and
+  `data-cp-enter`, in a stylesheet, a template or code. It does not forbid `cpEnter` itself in a feature
+  template, because a later document may let pages apply it and a check is never loosened. It also does not
+  claim every fade-and-rise: `recipe-editor.component.css`'s `cp-panel-in` (a tab switch) and
+  `landing-hero-collage.component.css`'s `settle` (the public hero) are motion about something else and are
+  left alone — flagged here rather than exempted.*
+- *`angular.json`: the library's karma target now loads `global.css` beside the tokens, which closes the gap
+  AU.3.2 noted. The reduced-motion and print rules are read from the parsed stylesheet, because Chrome cannot
+  be told to prefer reduced motion from a spec; what a marked element draws is measured.*
+
+*`design-review` raised these, now handled:*
+
+- *Focus settled a change detection late. A signal written in a `focusin` handler reaches the DOM on the next
+  pass, so the creator could have met a focus ring on something still transparent — exactly what the prompt
+  forbids. `global.css` now also carries `[data-cp-enter]:focus-within { animation: none }`, which a style
+  recalculation applies synchronously, and the directive's handler stays as the cleanup that takes the mark off
+  for good. A spec calls a real `.focus()` and reads the computed animation with no change detection between.*
+- *An entrance could replay. Hiding an element mid-arrival — a `[hidden]` tab panel that stays mounted, a closed
+  `<details>` — cancels the animation without ending it, and the mark left behind would run it again when the
+  element was shown. `animationcancel` now settles it too, with the same target and name filter.*
+- *The docs and the rule's own text claimed more than the rule checks. `ENTRANCE` catches the three tokens, the
+  `cp-enter` keyframes and `data-cp-enter`; a feature's own `@keyframes rise` passes, deliberately. All four
+  statements now say that, and say why `[cpEnter]` in a feature template is allowed: a later document can hand
+  pages the entrance without a check being loosened.*
+- *The stagger promise did not match what shipped. "List items `--cp-enter-stagger` apart" is AU.1's wording, and
+  `cp-list-shell` marks one container, so a library's rows rise as one block. DESIGN-SYSTEM.md now says a group
+  of options staggers and a list's rows do not, and records that the list shell is the only one of the three on a
+  page today — `cp-generated` and `cp-option-card` are placed from AU.4.1 onwards.*
+- *Two smaller ones: the list shell's latch is per shell instance, not per content, which is now written down;
+  and the "fades and lifts" spec asserted only the duration and the fill, so it now reads the `@keyframes` block
+  and asserts the `from` opacity and translate.*
+
+*Two were not taken.* The reviewer read NG0956 in the showcase run as this section's `@for`; the warnings are for
+a collection of size 2, this one holds one run, and the showcase spec alone logs none — they are someone else's
+and were there before. The replay is a two-pass destroy-and-build anyway, which is honest about re-creating the
+view. And `CP_ENTER_ANIMATION` and `CP_ENTER_MAX_STEPS` stay exported, as `CP_GENERATED_LABELS` and
+`CP_OPTION_CARD_TAG_LIMIT` are.
+
+*`npm run build` passes. The page contract holds (28 self-tests, 32 routed pages, 627 files, 11 exemptions, none
+added) and the safety-copy check passes. The library is 465/465. The showcase was 6060/6060 on one full run and
+6058/6060 on two others, the two reds being `RecipeEditorComponent`'s section-nav scroll specs — the same
+order-dependent family as in AU.2.6 and AU.3.2, passing 229/229 on their own. That file uses none of the three
+parts this prompt touched.*
 
 ## AU.4.1 Dashboard
 

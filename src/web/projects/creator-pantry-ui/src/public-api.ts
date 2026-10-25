@@ -1,4 +1,5 @@
 export * from './lib/theme.service';
+export * from './lib/components/enter.directive';
 export * from './lib/components/button.component';
 export * from './lib/components/card.component';
 export * from './lib/components/badge.component';

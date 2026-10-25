@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, input, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, input, signal, viewChild } from '@angular/core';
 
+import { CpEnterDirective } from './enter.directive';
 import { CpSkeletonComponent } from './skeleton.component';
 
 export type CpListShellState = 'loading' | 'error' | 'empty' | 'ready';
@@ -20,8 +21,8 @@ let cpListShellUid = 0;
  * where the creator's focus is. Clipped, not inert, so an empty list's footer holds status text and no control.
  */
 @Component({
-  selector: 'cp-list-shell', standalone: true, imports: [CpSkeletonComponent],
-  template: `<section [attr.aria-labelledby]="headingId"><header class="head"><h2 [id]="headingId">{{heading()}}</h2><div class="actions"><ng-content select="[cpListShellActions]" /></div></header><p class="offscreen" role="status" aria-live="polite">{{state()==='loading' ? 'Loading…' : ''}}</p><div class="body" [attr.aria-busy]="state()==='loading' ? true : null">@switch(state()){@case('loading'){<cp-skeleton [shape]="loadingLayout()==='cards' ? 'card' : 'line'" [count]="loadingLayout()==='cards' ? 6 : 5" />}@case('error'){<div class="alert" role="alert">{{errorMessage()}}</div>}@case('empty'){<div class="empty-slot" #emptyWrap><ng-content select="[cpListShellEmpty]" /></div>@if(!hasCustomEmpty()){<p class="empty-fallback">{{emptyMessage()}}</p>}}@case('ready'){<div class="scroll" role="region" tabindex="0" [attr.aria-labelledby]="headingId"><ng-content /></div>}}</div><footer class="pagination" [class.offscreen]="state()==='empty'"><ng-content select="[cpListShellPagination]" /></footer></section>`,
+  selector: 'cp-list-shell', standalone: true, imports: [CpEnterDirective, CpSkeletonComponent],
+  template: `<section [attr.aria-labelledby]="headingId"><header class="head"><h2 [id]="headingId">{{heading()}}</h2><div class="actions"><ng-content select="[cpListShellActions]" /></div></header><p class="offscreen" role="status" aria-live="polite">{{state()==='loading' ? 'Loading…' : ''}}</p><div class="body" [attr.aria-busy]="state()==='loading' ? true : null">@switch(state()){@case('loading'){<cp-skeleton [shape]="loadingLayout()==='cards' ? 'card' : 'line'" [count]="loadingLayout()==='cards' ? 6 : 5" />}@case('error'){<div class="alert" role="alert">{{errorMessage()}}</div>}@case('empty'){<div class="empty-slot" #emptyWrap><ng-content select="[cpListShellEmpty]" /></div>@if(!hasCustomEmpty()){<p class="empty-fallback">{{emptyMessage()}}</p>}}@case('ready'){<div class="scroll" [cpEnter]="!hasBeenReady()" role="region" tabindex="0" [attr.aria-labelledby]="headingId"><ng-content /></div>}}</div><footer class="pagination" [class.offscreen]="state()==='empty'"><ng-content select="[cpListShellPagination]" /></footer></section>`,
   styles: [`:host{display:block}/* Consumers: mark a selected row in projected content with background:var(--cp-primary-soft); this shell does not own row selection state. */.head{display:flex;align-items:center;justify-content:space-between;gap:var(--cp-space-4);flex-wrap:wrap}h2{margin:0;font:400 var(--cp-font-size-xl)/var(--cp-leading-tight) var(--cp-font-display);color:var(--cp-text)}.actions{display:flex;align-items:center;gap:var(--cp-space-2)}.body{margin-top:var(--cp-space-4);min-height:var(--cp-space-10)}.empty-fallback{margin:0;color:var(--cp-text-muted);font-size:var(--cp-font-size-sm)}.alert{margin:0;color:var(--cp-danger);font-size:var(--cp-font-size-sm)}.scroll{overflow-x:auto}.pagination{display:flex;align-items:center;justify-content:flex-end;gap:var(--cp-space-2);margin-top:var(--cp-space-4)}.pagination:empty{display:none}.offscreen{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}`],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -32,6 +33,19 @@ export class CpListShellComponent {
   readonly errorMessage = input('');
   readonly emptyMessage = input('No results.');
   readonly headingId = `cp-list-shell-heading-${cpListShellUid++}`;
+  /* The ready content arrives once (AU.3.4): the first time the list is ready and not again, because a filter
+     or a save that reloads the same list builds the same element afresh, and a second entrance would read as
+     the page starting over rather than as the list landing. */
+  protected readonly hasBeenReady = signal(false);
   private readonly emptySlot = viewChild<ElementRef<HTMLElement>>('emptyWrap');
+
+  constructor() {
+    // After the render, not during it: a component effect runs before its own view is refreshed, so latching
+    // there would mean the first ready render already read `true` and nothing ever arrived.
+    afterRenderEffect(() => {
+      if (this.state() === 'ready') this.hasBeenReady.set(true);
+    });
+  }
+
   readonly hasCustomEmpty = computed(() => (this.emptySlot()?.nativeElement.childElementCount ?? 0) > 0);
 }
