@@ -212,6 +212,17 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(emptyStates[0].querySelector('[cpEmptyStateActions] button')).toBeTruthy();
   });
 
+  it('shows generated content as a surface and as a label, in each of its words', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="generated-heading"]') as HTMLElement;
+    const surfaces = [...section.querySelectorAll('cp-generated')] as HTMLElement[];
+    expect(surfaces.length).toBe(2);
+    expect(surfaces[0].querySelectorAll('[cpGeneratedActions]').length).toBe(3);
+    expect(surfaces[1].closest('[data-cp-tone="pink"]')).toBeTruthy();
+    const words = [...section.querySelectorAll('.showcase-generated-labels .words')].map((node) => node.textContent);
+    expect(words).toEqual(['Drafted by AI', 'Made by AI', 'Read by AI']);
+  });
+
   it('shows every illustration in every tone', async () => {
     const fixture = await createFixture();
     const rows = fixture.nativeElement.querySelectorAll('.illustration-row');

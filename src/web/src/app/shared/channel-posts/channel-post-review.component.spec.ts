@@ -128,20 +128,20 @@ describe('ChannelPostReviewComponent', () => {
 
   /** Identified as generated, and editable before acceptance — both, which is the rule (frontend.md). */
   it('marks words a model wrote and stops marking them once the creator’s own replace them', async () => {
-    expect(text()).toContain('Written for you');
+    expect(text()).toContain('Drafted by AI');
     expect(button('Edit')).not.toBeNull();
 
     host.channel.set(channel({ latest: revision({ source: 'CreatorEdit' }) }));
     await settle();
 
-    expect(text()).not.toContain('Written for you');
+    expect(text()).not.toContain('Drafted by AI');
   });
 
   it('does not mark accepted words as generated, because they are the creator’s choice now', async () => {
     host.channel.set(channel({ status: 'Accepted', accepted: revision(), isCurrent: true }));
     await settle();
 
-    expect(text()).not.toContain('Written for you');
+    expect(text()).not.toContain('Drafted by AI');
   });
 
   // ---- the limit -------------------------------------------------------------------------------------

@@ -640,7 +640,7 @@ projected picture. It now uses `.picture ::ng-deep > *`, and a spec asserts the 
 the full suite had an intermittent red in RecipeEditorComponent's section-nav scroll spec. That is a known family,
 and it passed when the file was rerun alone, with and without this change.*
 
-## AU.3.1 One treatment for generated content
+## AU.3.1 One treatment for generated content - done
 
 ```text
 SCOPE: Audit how every feature marks AI output today (start with ai-proposal-panel, ai-advisory-results,
@@ -664,6 +664,68 @@ recommendation is a neutral edge carrying the glyph and the words "Drafted by AI
 BEHAVIOR: Present the audit table (feature, current marker, swap now or later); wait for approval; implement
 with specs and the contract rule, update showcase and docs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the audit table and resolved the OPEN question as
+recommended: the edge is neutral, not purple.*
+
+*What shipped:*
+
+- *`CpGeneratedLabelComponent` (`cp-generated-label`) is the mark: an `aria-hidden` ✦ and words picked by `kind`.
+  `words` is "Drafted by AI", `picture` "Made by AI", `reading` "Read by AI". There is no free-text label;
+  `CP_GENERATED_LABELS` is the one place the words live.*
+  - *An optional `provenance` takes the feature's own text. A screen reader hears a pause before it.*
+  - *The edge is a dashed `--cp-border-control`, with no tone.*
+- *`CpGeneratedComponent` (`cp-generated`) is the surface. It holds the label and provenance, the output, then
+  `[cpGeneratedActions]` last. It is a `role="group"` named by the label's words, with a dashed neutral edge and
+  no fill. No feature adopts it yet: every like-for-like swap was a label already sitting inside an edge.*
+- *Nine markers became `cp-generated-label`, each shown under the same condition as before:*
+  - *channel-post-review, long-form-document-review and long-form-seo-suggestions ("Written for you");*
+  - *long-form-plan-review ("AI suggested"), which `design-review` found;*
+  - *generated-image-run ("AI generated" plus "Made by …", now `kind="picture"` with the maker as
+    provenance);*
+  - *brand-style-test-drive ("Written by AI");*
+  - *save-to-library alt text and prompt-detail ("Generated");*
+  - *quick-recipe ("Generated" on the picture, now `kind="picture"`, and "Generated draft" on the recipe), which
+    the new rule and ai-safety-reviewer found.*
+- *The page contract's `generated` rule fails a template element whose whole text, in any case, is one of the old
+  or new labels.*
+- *DESIGN-SYSTEM.md has a "Generated content" section. It says the words claim origin, not quality: any caution is
+  the feature's sentence beside the label, and a reading always comes with a "check it against the original".*
+
+*The reviews:*
+
+- *ai-safety-reviewer found no blocking issue.*
+- *Both reviews raised these, now handled: the second quick-recipe badge, the rule's case-sensitivity and missing
+  phrases, the group's name now pointing at the words alone, a spoken separator before provenance, and the
+  origin-not-quality guidance.*
+- *The reviews disagreed on the alt text's `kind`. It stays "Drafted by AI": the output is words the creator
+  accepts or edits, and the sentence beside it already says they came from a reading of the picture.*
+
+*Left for each page's own prompt (the AU.3.1 leftovers):*
+
+- *features/ai (AU.5.1):*
+  - *ai-proposal-panel: its own `.panel` headed "AI suggestions", with no label on the suggestions and a private
+    `.provenance` list that the `facts` rule does not catch.*
+  - *ai-advisory-results: no label at all, provenance in a `<details>`.*
+  - *recipe-first-draft-review: the page is the draft but has no label; "How this was made" is a hand-made facts
+    card.*
+  - *recipe-concept-studio: the ideas carry no label.*
+- *content-pipeline (AU.5.4):*
+  - *content-pipeline-prompt-panel: the "These words were written for you…" notice, and the private
+    `p.generated` box holding the model's prompt.*
+  - *content-pipeline-reference-panel: the AI reading of a picture carries no mark. It takes `kind="reading"`
+    with a check-it-against-the-picture sentence. Its "A generated picture" name may also need a look.*
+- *generated-image-run (AU.5.2): the label shows only when the server named a provider. A run with none shows no
+  "Made by AI" at all; this was true before.*
+- *Brand and Prompt Library (AU.6.3):*
+  - *Brand setup's origin pill says "Written for you" from a TypeScript vocabulary that the rule cannot see.*
+  - *A prompt's source is labelled "Written for you" in a purple kind badge (`prompt-library.models.ts`).*
+  - *prompt-detail's card heading "What was written for you" now sits above "Drafted by AI".*
+- *Kept on purpose: a record's kind badge in purple (DAM's "AI generated", including the showcase's page-head
+  example), the recipe-history "AI-assisted ✦" event, and the dashboard's "AI proposals to review". ✦ also appears
+  in two shell empty states; reserving it for the mark is a later choice.*
+
+*`npm run build` passes. The library is 412/412, the showcase 6085/6085, the page contract holds, and its self-tests are 25/25.*
 
 ## AU.3.2 Option card for AI choices
 

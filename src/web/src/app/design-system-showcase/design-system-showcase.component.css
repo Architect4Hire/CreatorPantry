@@ -316,3 +316,12 @@ code {
   border-radius: var(--cp-radius-lg);
   background: var(--cp-bg);
 }
+
+.showcase-generated-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

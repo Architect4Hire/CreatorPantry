@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { CpBadgeComponent, CpButtonComponent, CpFormSectionComponent, CpNoticeComponent, CpProgressComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFormSectionComponent, CpGeneratedLabelComponent, CpNoticeComponent, CpProgressComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -163,9 +163,9 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
   selector: 'cp-generated-image-run',
   standalone: true,
   imports: [
-    CpBadgeComponent,
     CpButtonComponent,
     CpFormSectionComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpProgressComponent,
     CpStatusPillComponent,

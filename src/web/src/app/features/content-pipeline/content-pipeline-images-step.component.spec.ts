@@ -429,7 +429,9 @@ describe('ContentPipelineImagesStepComponent', () => {
       });
       await settle();
 
-      expect(text()).toContain('Made by Foundry, image-1.');
+      const label = el.querySelector('cp-generated-label')!;
+      expect(label.querySelector('.words')?.textContent).toBe('Made by AI');
+      expect(label.querySelector('.provenance')?.textContent?.trim()).toBe('Foundry, image-1');
     });
 
     it('reports each refusal in its own terms', async () => {

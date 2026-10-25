@@ -163,7 +163,7 @@
                           [total]="1"
                         />
                         <p class="cp-muted">
-                          <cp-badge tone="purple">Generated</cp-badge>
+                          <cp-generated-label kind="picture" />
                           Planned from this draft's ingredients. Nothing has checked the picture against them, so
                           look that it shows the dish as written.
                         </p>
@@ -197,7 +197,7 @@
                   </section>
 
                   <section class="recipe" aria-labelledby="cp-quick-recipe-draft-heading">
-                    <p class="plain"><cp-badge tone="purple">Generated draft</cp-badge></p>
+                    <p class="plain"><cp-generated-label /></p>
                     <h3 id="cp-quick-recipe-draft-heading">{{ recipeDraft().title || 'Untitled draft' }}</h3>
                     @if (recipeDraft().description; as description) {
                       <p class="plain">{{ description }}</p>

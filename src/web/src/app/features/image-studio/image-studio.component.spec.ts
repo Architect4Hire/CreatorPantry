@@ -1612,8 +1612,9 @@ describe('ImageStudioComponent', () => {
       );
       await generate();
 
-      expect(root().querySelector('.provenance')?.textContent).toContain('AI generated');
-      expect(text()).not.toContain('Made by');
+      const label = root().querySelector('cp-generated-label')!;
+      expect(label.querySelector('.words')?.textContent).toBe('Made by AI');
+      expect(label.querySelector('.provenance')).toBeNull();
       expect(text()).not.toContain('Foundry');
     });
 

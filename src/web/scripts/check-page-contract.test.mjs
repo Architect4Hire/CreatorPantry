@@ -115,6 +115,16 @@ test('tone: the shell sets the tone once, on the page frame', () => {
   assert.match(uses[0], /class="page-frame"[^>]*\[attr\.data-cp-tone\]="currentPageTone\(\)"/);
 });
 
+test('generated: a template writes no label for generated output of its own', () => {
+  const labels = '<cp-badge tone="purple">Written for you</cp-badge><span>AI generated</span><b> Generated </b><i>Drafted by AI</i><span>Generated draft</span>' +
+    '<cp-badge>AI suggested</cp-badge><span>AI Generated</span><em>Written For You</em>';
+  assert.deepEqual(rules(templateViolations(labels)), Array(8).fill('generated'));
+  // The library's label, a sentence that mentions one, a heading in the creator's terms and a kind bound from code.
+  const fine = '<cp-generated-label kind="picture" /><p>These words were written for you from the recipe.</p>' +
+    '<h3>What was written for you</h3><cp-badge>{{ kindLabel() }}</cp-badge><!-- <b>Generated</b> -->';
+  assert.deepEqual(templateViolations(fine), []);
+});
+
 test('illustration: a feature draws no empty-state art of its own', () => {
   assert.deepEqual(rules(stylesheetViolations('.illustration { width: 7rem; } .empty-art svg { stroke: red; }')), ['illustration', 'illustration']);
   assert.deepEqual(stylesheetViolations('.illustration-credit { font-size: 12px; } .art-direction { margin: 0; }'), []);

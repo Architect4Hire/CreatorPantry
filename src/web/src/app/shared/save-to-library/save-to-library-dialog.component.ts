@@ -15,7 +15,6 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Subscription, combineLatest, debounce, of, switchMap, timer } from 'rxjs';
 import {
-  CpBadgeComponent,
   CpButtonComponent,
   CpCheckboxComponent,
   CpComboboxComponent,
@@ -23,6 +22,7 @@ import {
   CpDialogComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
 } from '@creator-pantry/ui';
 
@@ -116,13 +116,13 @@ const IDS = {
   standalone: true,
   imports: [
     RouterLink,
-    CpBadgeComponent,
     CpButtonComponent,
     CpCheckboxComponent,
     CpComboboxComponent,
     CpDialogComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
   ],
   templateUrl: './save-to-library-dialog.component.html',

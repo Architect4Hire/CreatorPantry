@@ -80,7 +80,9 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
   width is a page; a short thing that does not need the page in view is `CpDialogComponent`; a yes/no is
   `ConfirmService`. A drawer never holds a form the page's Save writes, and a feature that closes one on
   `closeRequested` without confirming a discard of unsaved edits is a defect.
-- Generated content is identified and editable before acceptance.
+- Generated content is identified and editable before acceptance. The mark is `cp-generated-label` (or `cp-generated`
+  around output with no edge of its own), never a badge or label of a feature's own; `src/web/DESIGN-SYSTEM.md`,
+  "Generated content", has the rules.
 - Use `async`, signals, or `takeUntilDestroyed`; no unmanaged subscriptions.
 - Never use `any`; decode unknown data at boundaries.
 

@@ -348,7 +348,7 @@ describe('BrandStyleTestDriveComponent', () => {
 
     await press(host, 'Write both versions');
 
-    expect(text(host)).toContain('Written by AI');
+    expect(host.querySelector('cp-generated-label')?.textContent).toContain('Drafted by AI');
     expect(text(host)).toContain('not a measurement');
     expect(text(host)).toContain('Nothing on this page is saved');
 

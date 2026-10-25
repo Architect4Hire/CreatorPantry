@@ -242,7 +242,7 @@ describe('LongFormSeoSuggestionsComponent', () => {
     expect(text()).toContain('It is the recipe this piece is about.');
 
     // Identified as written for the creator, with each caution beside what it is about, said once.
-    expect(text()).toContain('Written for you');
+    expect(text()).toContain('Drafted by AI');
     expect(text()).toContain('"top ranking" is a claim with no search data behind it.');
     expect(text().split('These are not from search data.').length - 1).toBe(1);
     expect(text()).not.toContain('seo.unsupported_metric');

@@ -48,6 +48,7 @@ export const RULES = {
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
   illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
+  generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
   skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
@@ -216,8 +217,16 @@ export function templateViolations(html) {
       found.push({ rule: 'toolbar-field', line: lineAt(markup, m.index), what: 'has a search input outside cp-search-field and cp-field' });
     }
   }
+  // `generated` (AU.3.1): an element whose whole text is a label for generated output is a hand-drawn label.
+  // A sentence that mentions one is prose, and a record's kind bound from code ({{ kindLabel() }}) is not text here.
+  for (const m of markup.matchAll(GENERATED_LABEL)) {
+    found.push({ rule: 'generated', line: lineAt(markup, m.index), what: `writes its own "${m[1]}" label` });
+  }
   return found;
 }
+
+/** The words a feature used to mark generated output before `cp-generated-label`, and the ones it says now. */
+const GENERATED_LABEL = />\s*(Drafted by AI|Made by AI|Read by AI|Written by AI|Written for you|AI[ -]generated|AI[ -]suggested|AI draft|Generated(?: draft)?)\s*</gi;
 
 /** What a routed page's own template must and must not hold. */
 export function pageTemplateViolations(html) {

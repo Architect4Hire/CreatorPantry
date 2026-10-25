@@ -452,7 +452,8 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
-| `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration` or `.spot-art`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, or `cp-empty-state`'s `illustration` |
+| `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
+| `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
 | `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
 | `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
@@ -636,6 +637,38 @@ copy, `.cp-actions` for a wrapping row of buttons under the thing they act on (i
 no buttons in it), and `.cp-disclosure` for a `<details>` whose summary would otherwise sit under the 40px
 target. A feature stylesheet neither restyles one nor keeps a private `.muted` or `.actions` beside it; the
 build fails on either.
+
+### Generated content
+
+What a model made says so in words, wherever it is on screen and until the creator accepts it or replaces it
+with their own (AU.3.1). `CpGeneratedLabelComponent` is the mark: a ✦, hidden from a screen reader, and the
+words, which come from `kind` and are never passed in — "Drafted by AI" for words, "Made by AI" for a picture,
+"Read by AI" for a reading of something the creator supplied. Before it the product said this four ways
+("Written for you", "Written by AI", "AI generated", "Generated", "AI suggested"); one fact gets one sentence.
+Two vocabularies held in TypeScript still say "Written for you" — Brand setup's origin pill and a prompt's source
+— and move when their own pages do.
+
+- **The label alone** goes where generated output already has an edge of its own: a post's card head, a
+  long-form section's marks, under the alt-text field. A box around a card would be a box in a box.
+- **`CpGeneratedComponent`** is the surface, for output that has none: the label first, the output, then the
+  creator's decisions in `[cpGeneratedActions]` — accept, edit, discard — always last and taking no room when
+  there are none. It is a group named by its label, so a screen reader hears "Drafted by AI" before the content.
+- **Neutral, never a tone.** The label's edge and the surface's are a dashed `--cp-border-control`: the edge a
+  creator already reads as "you can change this", dashed because a draft is not finished. Purple would put a
+  second tone on four toned tools and make a tone mean "made by AI", which "Warmth inside the app" rules out.
+  A record whose *kind* is AI-made — a DAM asset, a prompt's source — keeps its `cp-badge`: that is what the
+  thing is, not a draft awaiting a decision.
+- **Provenance is the feature's text.** What made it and when, composed from what the server returned
+  ("Venice, flux-dev", "gpt-4o · 25 Oct, 08:30"), and left out rather than guessed when it returned none. Never a
+  prompt body, which is the creator's material, and never a token count or cost, which live on the allowance
+  screen.
+- **The words claim origin, not quality.** "Drafted by AI" says who wrote it, not that it is right, safe or
+  checked. Any caution is a sentence of the feature's beside the label — "look that it shows the dish as
+  written", "check it and change anything that is wrong" — and a reading always comes with one telling the
+  creator to check it against the original, because "read" can sound like "verified". The words live in
+  `CP_GENERATED_LABELS` and nowhere else, so a change to them is made there once.
+- **Presentation only.** Neither part saves, accepts or discards anything, or decides when it shows. The feature
+  takes the label away the moment the creator's own words replace the model's.
 
 ### Fitting a form into the width it has
 

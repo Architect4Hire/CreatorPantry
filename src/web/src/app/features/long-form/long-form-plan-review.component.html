@@ -68,7 +68,7 @@
       <div class="cp-actions" data-testid="plan-state">
         <cp-status-pill [tone]="statusPill().tone">{{ statusPill().word }}</cp-status-pill>
         @if (isSuggestion()) {
-          <cp-badge tone="purple">AI suggested</cp-badge>
+          <cp-generated-label />
         }
       </div>
 

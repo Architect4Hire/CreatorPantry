@@ -89,7 +89,7 @@
 
       @if (shown.generatedText !== null) {
         <cp-topic-card heading="What was written for you" headingId="prompt-draft-heading">
-          <p class="plain"><cp-badge tone="purple">Generated</cp-badge></p>
+          <p class="plain"><cp-generated-label /></p>
           @if (draftDiffers()) {
             <p class="plain">You changed this before using it. The prompt above is the one that counts.</p>
             <p class="prompt-text prompt-text--draft">{{ shown.generatedText }}</p>

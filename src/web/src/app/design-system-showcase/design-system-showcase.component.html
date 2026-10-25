@@ -922,6 +922,35 @@
     </div>
   </section>
 
+  <section aria-labelledby="generated-heading">
+    <h2 id="generated-heading">Generated content</h2>
+    <p class="section-note">
+      What a model made says so in words — "Drafted by AI", "Made by AI" or "Read by AI", picked by
+      <code>kind</code> — beside a glyph, never by a colour. The edge is dashed and neutral: a draft is not
+      finished, and no tone means "made by AI". <code>cp-generated</code> is a surface of its own, named by its label,
+      with the creator's decisions last; <code>cp-generated-label</code> is the label alone, for output that already
+      sits in a card or under a field.
+    </p>
+    <div class="showcase-stack">
+      <cp-generated provenance="gpt-4o · 25 Oct, 08:30">
+        <p>Brown butter blondies with toasted pecans and a little flaky salt on top, baked in one pan.</p>
+        <button cpGeneratedActions cpButton size="sm" type="button">Accept</button>
+        <button cpGeneratedActions cpButton variant="secondary" size="sm" type="button">Edit</button>
+        <button cpGeneratedActions cpButton variant="text" size="sm" type="button">Discard</button>
+      </cp-generated>
+      <div data-cp-tone="pink" class="showcase-stack">
+        <cp-generated kind="picture" provenance="Venice, flux-dev">
+          <p>On Image Studio's pink page the surface stays neutral.</p>
+        </cp-generated>
+      </div>
+      <ul class="showcase-generated-labels" aria-label="Generated labels">
+        <li><cp-generated-label /></li>
+        <li><cp-generated-label kind="picture" provenance="Venice, flux-dev" /></li>
+        <li><cp-generated-label kind="reading" /></li>
+      </ul>
+    </div>
+  </section>
+
   <section aria-labelledby="anchor-nav-heading">
     <h2 id="anchor-nav-heading">Anchor nav</h2>
     <p class="section-note">
