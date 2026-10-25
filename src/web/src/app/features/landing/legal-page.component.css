@@ -1,0 +1,124 @@
+:host {
+  display: block;
+}
+
+/*
+ * A public page, set like the landing page's own sections (DESIGN-SYSTEM.md): paper, one body size, Fredoka
+ * headings stepping up from it, and a hairline where a part ends. A legal document is read rather than
+ * skimmed, so it is held to the prose measure the whole way down.
+ */
+.legal {
+  max-width: var(--cp-measure-prose);
+  margin: 0 auto;
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-normal);
+}
+
+.home {
+  display: inline-block;
+  margin-bottom: var(--cp-space-6);
+  border-radius: var(--cp-radius-md);
+}
+
+.home cp-logo {
+  width: 5rem;
+}
+
+h1 {
+  margin: 0 0 var(--cp-space-6);
+  padding-bottom: var(--cp-space-6);
+  border-bottom: 1px solid var(--cp-border);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-title);
+  font-weight: 500;
+  line-height: var(--cp-leading-tight);
+}
+
+/* A destination, never a tab stop, as cp-page-head's title is: the ring shows on :focus, because the page focuses
+   the title by script on every arrival and a browser does not count that as keyboard focus. */
+h1:focus {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+}
+
+h2 {
+  margin: var(--cp-space-10) 0 var(--cp-space-4);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 500;
+  line-height: var(--cp-leading-tight);
+  /* A heading arrived at by its anchor is not hidden under the top of the window. */
+  scroll-margin-top: var(--cp-space-6);
+}
+
+h3 {
+  margin: var(--cp-space-6) 0 var(--cp-space-3);
+  font-size: var(--cp-font-size-lg);
+  font-weight: 600;
+  scroll-margin-top: var(--cp-space-6);
+}
+
+p {
+  margin: 0 0 var(--cp-space-4);
+}
+
+ul {
+  margin: 0 0 var(--cp-space-4);
+  padding-left: var(--cp-space-6);
+}
+
+li + li,
+li > ul {
+  margin-top: var(--cp-space-2);
+}
+
+li > ul {
+  margin-bottom: 0;
+}
+
+strong {
+  font-weight: 600;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+a {
+  overflow-wrap: anywhere;
+}
+
+.table {
+  margin: 0 0 var(--cp-space-5);
+  overflow-x: auto;
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  border-bottom: 1px solid var(--cp-border);
+  font-weight: 600;
+}
+
+tbody th {
+  font-weight: 400;
+}
+
+tbody tr + tr > * {
+  border-top: 1px solid var(--cp-border);
+}

@@ -18,28 +18,28 @@
   font-size: var(--cp-font-size-lg);
 }
 
-.legal-placeholders {
+.legal-links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-5);
+  gap: var(--cp-space-2) var(--cp-space-5);
 }
 
 .legal-link {
   display: inline-flex;
   align-items: center;
-  gap: var(--cp-space-1);
   min-height: 2.5rem;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--cp-text-faint);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
   font-size: var(--cp-font-size-lg);
-  font-family: inherit;
-  cursor: not-allowed;
 }
 
-.coming-soon {
-  font-size: var(--cp-font-size-lg);
-  color: var(--cp-text-faint);
+.legal-link:hover {
+  color: var(--cp-text);
+}
+
+/* The page being read is said by `aria-current` and shown by weight as well, so it is not colour alone. */
+.legal-link.current {
+  color: var(--cp-text);
+  font-weight: 600;
 }

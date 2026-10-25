@@ -3,9 +3,9 @@
 }
 
 .promises {
-  max-width: 72rem;
+  max-width: var(--cp-public-width);
   margin: 0 auto;
-  padding: var(--cp-space-10) var(--cp-space-6);
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
 }
 
 h2 {

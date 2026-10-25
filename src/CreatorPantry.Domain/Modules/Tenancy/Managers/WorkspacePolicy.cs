@@ -26,7 +26,7 @@ public static class WorkspacePolicy
     /// </remarks>
     public static readonly IReadOnlySet<string> ReservedSlugs = new HashSet<string>(StringComparer.Ordinal)
     {
-        "app", "confirm-email", "design-system", "pricing", "sign-in", "sign-up",
+        "acceptable-use", "app", "confirm-email", "design-system", "pricing", "privacy", "sign-in", "sign-up", "terms",
     };
 
     /// <summary>Whether <paramref name="slug"/> is an address the browser already serves something else at.</summary>

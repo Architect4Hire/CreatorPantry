@@ -132,6 +132,28 @@ export const routes: Routes = [
     component: LandingComponent,
     data: { title: 'Pricing', scrollTo: 'pricing' },
   },
+  // The legal documents, each read from docs/legal/ and linked from the landing footer. Unguarded, unlike the
+  // landing page: a signed-in creator is bound by these as much as a visitor, and has to be able to read them.
+  // Lazy, unlike the landing page: their text is most of their weight, and none of it belongs in the first
+  // screen's budget (LP.11).
+  {
+    path: 'privacy',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/landing/legal-page.component').then((m) => m.LegalPageComponent),
+    data: { title: 'Privacy Policy', legal: 'privacy' },
+  },
+  {
+    path: 'terms',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/landing/legal-page.component').then((m) => m.LegalPageComponent),
+    data: { title: 'Terms of Service', legal: 'terms' },
+  },
+  {
+    path: 'acceptable-use',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/landing/legal-page.component').then((m) => m.LegalPageComponent),
+    data: { title: 'Acceptable Use Policy', legal: 'acceptable-use' },
+  },
   // 'app' hosts the signed-in shell's own index page (workspace resolution/creation) before a workspace
   // is chosen. It is therefore, like 'sign-in'/'sign-up'/etc., a literal top-level slug no real workspace
   // may use.

@@ -195,20 +195,16 @@ show at once.
 
 ---
 
-## 6. Draft vs final images — **Not built**
+## 6. Draft vs final images — **Removed**
 
-**Headline:** Explore fast. Finish beautifully.
+Taken off the page (2026-10-25). The product makes one kind of picture: `VeniceImageGenerator` sends the one
+configured model and no size, quality or resolution, so each model's own default applies. Draft, standard,
+high, 2K and 4K are an AP.3.1 roadmap item that has not been built, and the page had begun to describe them
+as a choice a creator could make — on the plan cards, in the comparison table and in the credit menu.
 
-**Body:** Try ideas as quick drafts for a few credits, then make the one you love at full quality.
-
-| Claim | Source |
-| --- | --- |
-| Draft and final quality classes | **Not built** AP.3.1 (quality classes), AP.3.3 (draft model) |
-| Credit cost of each | **Catalogue** `rates.imageDraft`, `rates.imageStandard`, after AP.2.4 |
-| The two pictures | Real outputs of the configured models, generated once (LP.8) |
-
-The section does not render until AP.3.1 and AP.3.3 ship. **Motion:** a drag-to-compare divider, keyboard
-operable; no autoplay.
+No page copy names a picture quality until AP.3.1 ships and a creator can choose one in the image studio.
+The catalogue's `qualityClasses`, `rates.imageDraft` and `rates.imageHigh` are still in the API contract and
+the development configuration, but the page reads none of them.
 
 ---
 
@@ -220,8 +216,8 @@ operable; no autoplay.
 
 **Per plan card:** `{plan.name}` · `{plan.monthlyPrice}` a month, or `{plan.annualMonthlyPrice}` billed
 yearly (`{plan.annualSaving}` saved) · `{plan.credits}` AI credits a month · "about `{plan.exampleMix}`" ·
-up to `{plan.dailyImageCap}` pictures a day · picture quality: `{plan.qualityClasses}` · **Start with
-`{plan.name}`** → `/sign-up?plan={plan.key}`.
+up to `{plan.dailyImageCap}` pictures a day · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
+No picture quality, on a card or in the comparison table (section 6).
 
 "Recommended for most food bloggers" appears on the plan the catalogue flags (`{plan.recommended}`).
 
@@ -245,9 +241,8 @@ motion.
 whichever model does the job. Your credits belong to you, not to a workspace, and they're shared across every
 workspace you work in.
 
-**Menu board:** a text draft `{rates.textDraft}` · a long-form section `{rates.longFormSection}` · a draft
-picture `{rates.imageDraft}` · a standard picture `{rates.imageStandard}` · a high-quality picture
-`{rates.imageHigh}`.
+**Menu board:** a text draft `{rates.textDraft}` · a long-form section `{rates.longFormSection}` · a picture
+`{rates.imageStandard}`. One picture line, because there is one kind of picture (section 6).
 
 **Estimator:** "Pictures a month" and "AI writing a month" sliders. "Your **estimate** fits `{plan.name}`, with
 about `{headroom}` credits to spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack,

@@ -117,6 +117,16 @@ var api = builder.AddProject<Projects.CreatorPantry_ApiService>("api", launchPro
     .WaitForCompletion(migrations)
     .WithHttpHealthCheck("/health");
 
+// Landing:Pricing (LP.12): whether the public plan catalogue — and with it every price, credit and pack on the
+// landing page — is published. The API's own switch is Billing:PublishPlans; this names it once for a developer
+// and sets it for a local run only. Never in publish mode: the API's appsettings.json keeps it off, and it stays
+// off in a deployment until reviewed Terms, Acceptable Use and Privacy pages are live and the figures are the
+// owner's rather than proposals (LP.6). Set it to false in user secrets to see the page with no pricing.
+if (builder.ExecutionContext.IsRunMode)
+{
+    api.WithEnvironment("Billing__PublishPlans", builder.Configuration.GetValue("Landing:Pricing", true) ? "true" : "false");
+}
+
 // The same fingerprint key the API gets, and for the same reason: the worker registers AddIdempotency, whose
 // options are ValidateOnStart, so an absent key stops this host at startup rather than at first use. It must
 // also be the *same* key, because a fingerprint hashed by one host is compared by the other.

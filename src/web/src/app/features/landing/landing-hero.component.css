@@ -7,9 +7,9 @@
   grid-template-columns: 1fr;
   align-items: center;
   gap: var(--cp-space-10);
-  max-width: 76rem;
+  max-width: var(--cp-public-width-wide);
   margin: 0 auto;
-  padding: var(--cp-space-6) var(--cp-space-6) var(--cp-space-10);
+  padding: var(--cp-space-6) var(--cp-public-gutter) var(--cp-public-section-space);
 }
 
 /* Logo, headline, subheadline, CTAs, note: one column in reading order at every width. The logo shrinks with

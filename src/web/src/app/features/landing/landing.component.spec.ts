@@ -57,7 +57,6 @@ describe('LandingComponent', () => {
       'cp-landing-how-it-works',
       'cp-landing-pricing',
       'cp-landing-credits',
-      'cp-landing-compare',
       'cp-landing-promises',
       'cp-landing-faq',
       'cp-landing-trust',

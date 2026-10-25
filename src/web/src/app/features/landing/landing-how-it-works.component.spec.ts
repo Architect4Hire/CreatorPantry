@@ -16,7 +16,7 @@ describe('LandingHowItWorksComponent', () => {
   it('renders the four default steps in order', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
-    const headings = el.querySelectorAll('.steps h3');
+    const headings = el.querySelectorAll('.sequence h3');
 
     expect(headings.length).toBe(DEFAULT_HOW_IT_WORKS_STEPS.length);
     headings.forEach((heading, i) => expect(heading.textContent).toContain(DEFAULT_HOW_IT_WORKS_STEPS[i].heading));
@@ -58,8 +58,8 @@ describe('LandingHowItWorksComponent', () => {
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;
-    expect(el.querySelectorAll('.steps > li').length).toBe(1);
-    expect(el.querySelector('.steps h3')?.textContent).toContain('Custom step');
+    expect(el.querySelectorAll('.sequence > li').length).toBe(1);
+    expect(el.querySelector('.sequence h3')?.textContent).toContain('Custom step');
   });
 
   it("labels the section by its own heading, giving it an accessible name", async () => {
@@ -75,7 +75,7 @@ describe('LandingHowItWorksComponent', () => {
   it('uses ordered-list semantics with decorative, non-redundant step numbers', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
-    const list = el.querySelector('ol.steps')!;
+    const list = el.querySelector('ol.sequence')!;
     const stepNumbers = el.querySelectorAll('.step-number');
 
     expect(list.getAttribute('role')).toBe('list');

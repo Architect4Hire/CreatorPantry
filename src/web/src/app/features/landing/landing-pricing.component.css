@@ -3,15 +3,17 @@
 }
 
 .pricing {
-  max-width: 72rem;
+  max-width: var(--cp-public-width);
   margin: 0 auto;
-  padding: var(--cp-space-10) var(--cp-space-6);
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
   /* /pricing opens the page here, with a little air above the heading rather than none. */
   scroll-margin-top: var(--cp-space-6);
 }
 
+/* As wide as its words, so the ring /pricing draws round it on arrival frames the heading, not the row. */
 h2 {
-  margin: 0 0 var(--cp-space-4);
+  width: fit-content;
+  margin: 0 auto var(--cp-space-4);
   color: var(--cp-text);
   font-family: var(--cp-font-display);
   font-size: var(--cp-font-size-title);
@@ -19,8 +21,15 @@ h2 {
   text-align: center;
 }
 
+/* /pricing focuses this heading by script on arrival; the ring shows on :focus, as cp-page-head's title does. */
+h2:focus {
+  outline: 2px solid var(--cp-focus);
+  outline-offset: 2px;
+  border-radius: var(--cp-radius-sm);
+}
+
 .intro {
-  max-width: 42rem;
+  max-width: var(--cp-measure-prose);
   margin: 0 auto var(--cp-space-8);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-lg);

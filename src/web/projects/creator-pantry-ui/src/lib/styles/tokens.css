@@ -61,6 +61,14 @@
   --cp-page-width-reading: 52rem;
   --cp-page-width-standard: 80rem;
   --cp-page-width-wide: 90rem;
+  /* The public page's frame. There is no shell outside the app, so each section of the landing page frames
+     itself — but from these and nothing else: one gutter, one rhythm between sections, and three widths (one
+     centred column; a section; the hero, whose copy sits beside its collage). The widths include the gutter. */
+  --cp-public-gutter: var(--cp-space-6);
+  --cp-public-section-space: var(--cp-space-10);
+  --cp-public-width-narrow: 42rem;
+  --cp-public-width: 72rem;
+  --cp-public-width-wide: 76rem;
   /* cp-drawer's two widths: a short form, and a comparison or a preview. At 40rem and narrower the drawer is
      a full-screen sheet and neither applies. */
   --cp-drawer-width: 30rem;

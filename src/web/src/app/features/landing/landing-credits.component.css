@@ -3,9 +3,9 @@
 }
 
 .credits {
-  max-width: 72rem;
+  max-width: var(--cp-public-width);
   margin: 0 auto;
-  padding: var(--cp-space-10) var(--cp-space-6);
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
 }
 
 h2 {
@@ -18,7 +18,7 @@ h2 {
 }
 
 .intro {
-  max-width: 48rem;
+  max-width: var(--cp-measure-prose);
   margin: 0 auto var(--cp-space-8);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-lg);
@@ -49,7 +49,7 @@ h3 {
   }
 }
 
-.board,
+.menu,
 .estimator {
   padding: var(--cp-space-6);
   border: 1px solid var(--cp-border);
@@ -58,14 +58,14 @@ h3 {
   box-shadow: var(--cp-shadow-md);
 }
 
-.board ul {
+.menu ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 /* A menu board: the item, a run of dots, the price — so the eye travels from one to the other. */
-.board li {
+.menu li {
   display: flex;
   align-items: baseline;
   gap: var(--cp-space-2);
@@ -73,14 +73,14 @@ h3 {
   font-size: var(--cp-font-size-lg);
 }
 
-.board .dots {
+.menu .dots {
   flex: 1 1 auto;
   min-width: var(--cp-space-4);
   border-bottom: 1px dotted var(--cp-border-strong);
   transform: translateY(-0.25em);
 }
 
-.board .cost {
+.menu .cost {
   color: var(--cp-text);
   font-weight: 600;
   white-space: nowrap;

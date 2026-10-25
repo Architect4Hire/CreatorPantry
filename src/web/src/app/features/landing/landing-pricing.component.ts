@@ -90,7 +90,8 @@ export class LandingPricingComponent {
    *
    * Every value here is short on purpose. What a plan's credits buy is a sentence, and a column of sentences is
    * what made this table wider than the page; it is on each card already, where it is read rather than
-   * compared. Quality is the best class a plan reaches rather than the whole list, for the same reason.
+   * compared. There is no quality column: the catalogue lists quality classes for AP.3.1, but a picture has
+   * no quality to choose today, so no plan can differ by one.
    *
    * The labels are the page's; every value is the plan's own, so a figure cannot drift from the card above it
    * and no number is written into this file.
@@ -99,7 +100,6 @@ export class LandingPricingComponent {
     { label: 'Price', valueOf: (plan) => this.formatMoney(this.priceOf(plan)) },
     { label: 'Credits a month', valueOf: (plan) => this.formatCredits(plan.credits) },
     { label: 'Pictures a day', valueOf: (plan) => plan.dailyImageCap.toLocaleString() },
-    { label: 'Best picture quality', valueOf: (plan) => this.topQualityOf(plan) },
     { label: 'Free trial', valueOf: (plan) => (plan.trialDays === null ? 'No' : `${plan.trialDays} days`) },
   ];
 
@@ -107,11 +107,6 @@ export class LandingPricingComponent {
   protected readonly comparisonNote = computed(
     () => `Every plan, one to a row. Prices are ${this.period() === 'annual' ? 'per month, billed yearly' : 'per month'}.`,
   );
-
-  /** The highest class a plan reaches. The catalogue lists them in increasing order, so that is the last. */
-  protected topQualityOf(plan: Plan): string {
-    return plan.qualityClasses.at(-1) ?? '—';
-  }
 
   protected priceOf(plan: Plan): number {
     return this.period() === 'annual' ? plan.annualMonthlyPrice : plan.monthlyPrice;
@@ -153,7 +148,6 @@ export class LandingPricingComponent {
       `${this.formatCredits(plan.credits)} AI credits a month`,
       `About ${plan.exampleMix}`,
       `Up to ${plan.dailyImageCap.toLocaleString()} pictures a day`,
-      `Picture quality: ${plan.qualityClasses.join(', ')}`,
     ];
   }
 

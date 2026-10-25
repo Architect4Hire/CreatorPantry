@@ -23,43 +23,45 @@ describe('LandingFooterComponent', () => {
     expect(brand?.textContent).toContain(String(new Date().getFullYear()));
   });
 
-  it('renders the placeholder legal links as visibly disabled, not fabricated real links', async () => {
+  it('links to the three legal pages, in order', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
-    const legalLinks = el.querySelectorAll<HTMLButtonElement>('.legal-link');
+    const links = Array.from(el.querySelectorAll<HTMLAnchorElement>('a.legal-link'));
 
-    expect(legalLinks.length).toBe(2);
-    legalLinks.forEach((link) => {
-      expect(link.tagName).toBe('BUTTON');
-      expect(link.disabled).toBeTrue();
-      expect(link.textContent).toContain('coming soon');
-    });
-    expect(legalLinks[0].textContent).toContain('Privacy Policy');
-    expect(legalLinks[1].textContent).toContain('Terms of Service');
+    expect(links.map((link) => link.textContent?.trim())).toEqual([
+      'Privacy Policy',
+      'Terms of Service',
+      'Acceptable Use Policy',
+    ]);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/privacy', '/terms', '/acceptable-use']);
+    expect(el.querySelector('button')).toBeNull();
   });
 
   it('renders custom product name and legal links supplied via inputs', async () => {
     const fixture = await createFixture();
     fixture.componentRef.setInput('productName', 'Custom Co');
-    fixture.componentRef.setInput('legalLinks', ['Cookie Policy']);
+    fixture.componentRef.setInput('legalLinks', [{ label: 'Cookie Policy', path: '/cookies' }]);
     fixture.detectChanges();
 
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('.brand')?.textContent).toContain('Custom Co');
     expect(el.querySelectorAll('.legal-link').length).toBe(1);
     expect(el.querySelector('.legal-link')?.textContent).toContain('Cookie Policy');
+    expect(el.querySelector('.legal-link')?.getAttribute('href')).toBe('/cookies');
   });
 
   /**
-   * The sign-in link was taken out of the footer in 305994b and the empty region was left behind, which a
-   * screen reader then announced as a navigation landmark holding nothing (LP.1 finding 8). A landmark comes
-   * back when there are links to put in it, not before.
+   * The empty `<nav aria-label="Footer">` this once rendered was a landmark holding nothing (LP.1 finding 8).
+   * The one navigation it has now is named for what is in it, and is never empty.
    */
-  it('leaves no empty navigation landmark behind', async () => {
+  it('has one navigation landmark, named Legal, with links in it', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
+    const navs = el.querySelectorAll('nav');
 
-    expect(el.querySelector('nav')).toBeNull();
-    expect(el.querySelector('footer')).not.toBeNull();
+    expect(navs.length).toBe(1);
+    expect(navs[0].getAttribute('aria-label')).toBe('Legal');
+    expect(navs[0].querySelectorAll('a').length).toBeGreaterThan(0);
+    expect(navs[0].closest('footer')).not.toBeNull();
   });
 });

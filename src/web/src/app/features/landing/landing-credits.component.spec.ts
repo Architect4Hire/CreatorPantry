@@ -80,7 +80,7 @@ describe('LandingCreditsComponent', () => {
 
   it('prices every kind of action from the catalogue, and says the figures are typical', async () => {
     await create(published);
-    const lines = Array.from(host.querySelectorAll('.board li')).map((li) => [
+    const lines = Array.from(host.querySelectorAll('.menu li')).map((li) => [
       li.querySelector('.item')?.textContent?.trim(),
       li.querySelector('.cost')?.textContent?.trim(),
     ]);
@@ -88,9 +88,8 @@ describe('LandingCreditsComponent', () => {
     expect(lines).toEqual([
       ['A text draft', '10 credits'],
       ['A long-form section', '10 credits'],
-      ['A draft picture', '25 credits'],
-      ['A standard picture', '50 credits'],
-      ['A high-quality picture', '90 credits'],
+      // One kind of picture: there is no quality to choose, so the draft and high rates are never shown.
+      ['A picture', '50 credits'],
     ]);
     expect(host.querySelector('.typical')?.textContent).toContain('Typical figures');
   });

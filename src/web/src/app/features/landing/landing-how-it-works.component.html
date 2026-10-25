@@ -1,6 +1,6 @@
 <section class="how-it-works" aria-labelledby="landing-how-it-works-heading">
   <h2 id="landing-how-it-works-heading">{{ heading() }}</h2>
-  <ol class="steps" role="list">
+  <ol class="sequence" role="list">
     @for (step of steps(); track step.heading; let i = $index) {
       <li>
         <span class="step-number" aria-hidden="true">{{ i + 1 }}</span>

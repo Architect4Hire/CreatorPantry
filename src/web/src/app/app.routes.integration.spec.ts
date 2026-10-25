@@ -5,6 +5,7 @@ import { of } from 'rxjs';
 
 import { routes } from './app.routes';
 import { LandingComponent } from './features/landing/landing.component';
+import { LegalPageComponent } from './features/landing/legal-page.component';
 import { PlanCatalogue } from './models/plan-catalogue.models';
 import { AuthService, SessionState } from './services/auth.service';
 import { PlanCatalogueService } from './services/plan-catalogue.service';
@@ -99,9 +100,16 @@ describe("app routing at '/'", () => {
     await harness.fixture.whenStable();
     harness.detectChanges();
 
+    // The page waits for its typefaces before it jumps, so a late font cannot move the section it jumped to.
+    await document.fonts.ready;
+    await harness.fixture.whenStable();
+
     expect(rootComponent).toBeInstanceOf(LandingComponent);
     expect(TestBed.inject(Router).url).toBe('/pricing');
-    expect(document.activeElement?.id).toBe('pricing');
+    // The section's heading, not the section: its name is announced, and the ring sits round a heading rather
+    // than round the whole screen.
+    expect(document.activeElement?.id).toBe('landing-pricing-heading');
+    expect(document.activeElement?.closest('#pricing')).not.toBeNull();
   });
 
   /**
@@ -133,6 +141,32 @@ describe("app routing at '/'", () => {
     expect(rootComponent).not.toBeInstanceOf(LandingComponent);
     expect(TestBed.inject(Router).url).toBe('/app');
   });
+
+  /**
+   * The legal documents are for everyone: a signed-in creator is bound by them as much as a visitor, so unlike
+   * the landing page they forward nobody into the app. Each is reachable from the landing footer.
+   */
+  for (const session of [{ status: 'anonymous' }, { status: 'authenticated', displayName: 'Robert' }] as const) {
+    it(`renders each legal page for an ${session.status} visitor, from the landing footer's own links`, async () => {
+      configureWithSession(session);
+
+      const harness = await RouterTestingHarness.create();
+      for (const [url, title] of [
+        ['/privacy', 'CreatorPantry Privacy Policy'],
+        ['/terms', 'CreatorPantry Terms of Service'],
+        ['/acceptable-use', 'CreatorPantry Acceptable Use Policy'],
+      ]) {
+        const page = await harness.navigateByUrl(url, LegalPageComponent);
+        harness.detectChanges();
+
+        const el = harness.routeNativeElement as HTMLElement;
+        expect(page).toBeInstanceOf(LegalPageComponent);
+        expect(TestBed.inject(Router).url).toBe(url);
+        expect(el.querySelector('h1')?.textContent?.trim()).toBe(title);
+        expect(el.querySelector(`cp-landing-footer a[href="${url}"]`)?.getAttribute('aria-current')).toBe('page');
+      }
+    });
+  }
 
   it('still renders the landing page when the session check comes back degraded, rather than trapping the visitor', async () => {
     configureWithSession({ status: 'degraded' });

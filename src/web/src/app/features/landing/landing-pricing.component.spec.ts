@@ -86,6 +86,18 @@ describe('LandingPricingComponent', () => {
   });
 
   /**
+   * The catalogue carries quality classes for AP.3.1, but a picture has no quality to choose today, so the
+   * page must not offer one — on a card or in the table.
+   */
+  it('claims no picture quality the product cannot make', async () => {
+    await create(published);
+    host.querySelector<HTMLButtonElement>('.comparison button')!.click();
+    fixture.detectChanges();
+
+    expect(text().toLowerCase()).not.toContain('quality');
+  });
+
+  /**
    * The cards sit side by side as a grid. `cpCardGrid` is an attribute directive, so leaving it out of the
    * component's imports is silent: the attribute stays on the `<ul>`, nothing matches it, and every card drops
    * to full width in a stack. That is exactly what shipped before this test existed.
@@ -176,7 +188,7 @@ describe('LandingPricingComponent', () => {
     const rowHeaders = Array.from(table.querySelectorAll('tbody th')).map((th) => th.textContent?.trim());
 
     expect(table.querySelector('caption')).not.toBeNull();
-    expect(columnHeaders).toEqual(['Plan', 'Price', 'Credits a month', 'Pictures a day', 'Best picture quality', 'Free trial']);
+    expect(columnHeaders).toEqual(['Plan', 'Price', 'Credits a month', 'Pictures a day', 'Free trial']);
     expect(rowHeaders).toEqual(['Trial', 'Creator']);
     expect(Array.from(table.querySelectorAll('tbody th')).every((th) => th.getAttribute('scope') === 'row')).toBeTrue();
     expect(Array.from(table.querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col')).toBeTrue();
@@ -192,7 +204,8 @@ describe('LandingPricingComponent', () => {
 
     expect(table.textContent).not.toContain('50 recipe drafts');
     expect(host.querySelector('.includes')?.textContent).toContain('50 recipe drafts');
-    expect(Array.from(table.querySelectorAll('tbody td')).map((td) => td.textContent?.trim())).toContain('high');
+    // The short figure the table does carry for the same plan.
+    expect(Array.from(table.querySelectorAll('tbody td')).map((td) => td.textContent?.trim())).toContain('25');
   });
 
   /**

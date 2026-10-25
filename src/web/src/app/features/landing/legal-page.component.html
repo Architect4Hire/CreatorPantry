@@ -1,0 +1,63 @@
+<main class="legal">
+  <a class="home" routerLink="/"><cp-logo /></a>
+  <h1 #heading tabindex="-1">{{ document.title }}</h1>
+
+  @for (block of document.blocks; track $index) {
+    @switch (block.kind) {
+      @case ('heading') {
+        @if (block.level === 2) {
+          <h2 [id]="block.id"><cp-legal-inline [spans]="block.content" /></h2>
+        } @else {
+          <h3 [id]="block.id"><cp-legal-inline [spans]="block.content" /></h3>
+        }
+      }
+      @case ('paragraph') {
+        <p><cp-legal-inline [spans]="block.content" /></p>
+      }
+      @case ('list') {
+        <ul>
+          @for (item of block.items; track $index) {
+            <li>
+              <cp-legal-inline [spans]="item.content" />
+              @if (item.children.length > 0) {
+                <ul>
+                  @for (child of item.children; track $index) {
+                    <li><cp-legal-inline [spans]="child" /></li>
+                  }
+                </ul>
+              }
+            </li>
+          }
+        </ul>
+      }
+      @case ('table') {
+        <!-- A table wider than a phone scrolls inside its own box, which is a region a keyboard can reach. -->
+        <div class="table" tabindex="0" role="region" [attr.aria-label]="block.label">
+          <table>
+            <thead>
+              <tr>
+                @for (cell of block.head; track $index) {
+                  <th scope="col"><cp-legal-inline [spans]="cell" /></th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of block.rows; track $index) {
+                <tr>
+                  @for (cell of row; track $index) {
+                    @if ($first) {
+                      <th scope="row"><cp-legal-inline [spans]="cell" /></th>
+                    } @else {
+                      <td><cp-legal-inline [spans]="cell" /></td>
+                    }
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+</main>
+<cp-landing-footer />

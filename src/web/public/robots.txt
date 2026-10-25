@@ -7,7 +7,8 @@
 # would only mean a crawler obeyed whichever it read first.
 #
 # At launch both change together: delete the X-Robots-Tag line from staticwebapp.config.json, and replace the
-# two lines below with an Allow for the public pages ('/' and '/pricing') and a Disallow for the application's
+# two lines below with an Allow for the public pages ('/', '/pricing', '/privacy', '/terms' and
+# '/acceptable-use') and a Disallow for the application's
 # own addresses — /app, /sign-in, /sign-up, /confirm-email and every workspace route — none of which answers
 # anything to a signed-out reader anyway.
 

@@ -3,9 +3,9 @@
 }
 
 .how-it-works {
-  max-width: 72rem;
+  max-width: var(--cp-public-width);
   margin: 0 auto;
-  padding: var(--cp-space-10) var(--cp-space-6);
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
 }
 
 h2 {
@@ -17,17 +17,17 @@ h2 {
   text-align: center;
 }
 
-.steps {
+.sequence {
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-6);
-  max-width: 42rem;
+  max-width: var(--cp-measure-prose);
   margin: 0 auto;
   padding: 0;
   list-style: none;
 }
 
-.steps > li {
+.sequence > li {
   display: flex;
   align-items: flex-start;
   gap: var(--cp-space-4);

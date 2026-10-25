@@ -83,6 +83,15 @@ A machine that supplies the whole thing as `ConnectionStrings:publishing-buffer`
 `Endpoint=https://api.buffer.com;Key=<key>;Workspace=<workspace id>` — is not prompted. A missing or half-made one is
 no provider, never a host that will not start.
 
+One switch is not a credential at all: `Landing:Pricing`, whether the landing page shows the plan catalogue
+(LP.12). It is `true` in the AppHost's `appsettings.json` and sets the API's `Billing:PublishPlans` **in run mode
+only** — a deployment keeps the API's own `false` until the legal pages are reviewed and the figures are final
+(LP.6). To see the page as a deployment with no plans renders it:
+
+```
+dotnet user-secrets set "Landing:Pricing" "false" --project src/CreatorPantry.AppHost
+```
+
 A seventh is also off by default: `usda-fdc-api-key`, a free api.data.gov key for USDA FoodData Central, the
 approved source of nutrition and density evidence (14.1, B-33). `Usda:Evidence` is `false` in the AppHost's
 `appsettings.json`; the API alone takes it, as the connection string `evidence-usda-fdc`, and sends the key only

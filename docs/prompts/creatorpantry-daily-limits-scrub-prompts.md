@@ -1,0 +1,372 @@
+# CreatorPantry — Plan Daily Limits SCRUB Prompts
+
+Atomic prompts that set, enforce and validate each plan's daily picture limit, charge pictures against the
+credit allowance, and make the plan's credits the account's real allowance — so that what the landing page's
+pricing, credits and promises sections say is what the product does. For use with Claude Code and the
+CreatorPantry `.claude/` toolkit. Path in the repo: `docs/prompts/creatorpantry-daily-limits-scrub-prompts.md`.
+
+This document is a narrow slice of `docs/prompts/creatorpantry-ai-pricing-scrub-prompts.md` (AP.*). It
+delivers the parts of AP.2.4, AP.2.5, AP.4.1, AP.4.2 and AP.4.4 that the landing page already claims, in a
+form that needs **no quality classes and no Stripe**. It does not redefine anything in `CLAUDE.md`,
+`.claude/rules/` or the AP decisions; where it narrows an AP prompt, the relationship table below says how.
+
+## Reusable SCRUB skeleton
+
+```text
+SCOPE:        one observable change and the exact repository seam it touches
+CONSTRAINT:   stack, rule files, skills, requirement IDs, and prerequisites
+RESTRICTION:  explicit exclusions and invariants that must not be weakened
+UTILIZATION:  skills, read-only reviewers, and tools to invoke
+BEHAVIOR:     inspect, plan, wait for approval, implement, test, and report
+```
+
+Run one prompt at a time, in order, in a clean context where practical. Mark a prompt `- done` only after
+its stated verification passes, and add a delivery note under it when what shipped differs from what was
+asked.
+
+## The ask
+
+Owner, 2026-10-25, after the landing page's picture-quality claims were removed: "create a new document in
+docs/prompts for setting and validating the billing limits per day to make this true." "This" is the three
+claims a landing-page review found the product does not back:
+
+| # | What the page says | What the product does today |
+| --- | --- | --- |
+| 1 | Plan card and comparison table: "Up to `{plan.dailyImageCap}` pictures a day" (Trial 5, Creator 25, Pro 75, Studio 150). | One flat cap for everyone: `Limits:ImageVariantsPerWorkspacePerDay = 200`, per **workspace**, not per account or plan. Nothing reads `PlanOption.DailyImageCap`. |
+| 2 | Credit menu: "A picture — `{rates.imageStandard}` credits"; the estimator charges pictures at that rate. | Pictures cost no credits. The image studio says so: "Making pictures doesn't use your AI allowance." |
+| 3 | "At zero, AI waits" and the FAQ's "What happens when I run out of credits?": AI requests stop before they start. | True for text (USAGE-006). A picture request at zero still runs. |
+
+A fourth follows from the first three: each plan card states "`{plan.credits}` AI credits a month", and the
+estimator measures against it, but every account gets `Ai:Quota:DefaultAllowance` (1,000), whatever plan the
+page says it is on. DL.8 closes it.
+
+| ID | Requirement | Prompt |
+| --- | --- | --- |
+| DLIM-001 | Every account resolves to exactly one plan from the catalogue: its own, or the configured default. | DL.2 |
+| DLIM-002 | A platform administrator can set an account's plan, audited. | DL.3 |
+| DLIM-003 | Pictures one account may request in a UTC day are capped by its plan, across every workspace it works in. | DL.4, DL.5 |
+| DLIM-004 | The cap the catalogue publishes and the cap admission enforces are the same number, read from the same place. | DL.6 |
+| DLIM-005 | A configuration that would publish a cap the product cannot keep fails startup. | DL.6 |
+| DLIM-006 | A picture is charged the catalogue's picture rate against the credit allowance, and refused at zero. | DL.7 |
+| DLIM-007 | An account's period allowance is its plan's credits. | DL.8 |
+| DLIM-008 | A creator can see how many pictures they have left today, and why a request was refused. | DL.9 |
+| DLIM-009 | The landing page's sources for claims 1–3 read **Shipped**. | DL.10 |
+
+## Decisions already made
+
+1. **Billing scope.** Plans and metering are in scope on the owner's request (AP decision 1). Payment is not:
+   nothing here takes money. A plan is set by configuration or by ops until Phase 6 of the AP document.
+2. **A plan is per Identity account, across workspaces** (AP decision 4, USAGE-001). The daily picture cap is
+   therefore the account's, and two workspaces the same person works in share it.
+3. **The per-workspace cap stays.** `ImageVariantsPerWorkspacePerDay` remains a runaway bound on every
+   workspace, beside the plan's. A request must pass both.
+4. **One kind of picture.** There are no quality classes (AP.3.1 is not built, and the landing page no longer
+   names any). One picture rate applies to every picture until AP.3.1 keys rates by class.
+5. **The day is UTC**, as `LimitDay` already defines it, and a refusal says so and says when it resets.
+6. **Prices are still proposals.** `Billing:PublishPlans` stays `false` outside Development. Enforcing the
+   caps makes the page's statements about them true; it does not decide the numbers. AP.1.1 does.
+7. **Limits in code, never in a model** (ai.md): no model sees a balance, a cap or a plan.
+
+## Open, for the owner in DL.1
+
+- **The default plan.** What an account with no plan row is on. Proposed: `trial`, read from a new
+  `Billing:DefaultPlan`, so a new sign-up gets the Trial's 5 pictures a day. Until AP.7.1, the trial does not
+  expire.
+- **What counts against the day.** Proposed: every variant **requested** is held at admission. A variant the
+  provider generated or flagged is spent (Venice bills a flagged one). A variant never sent, because the
+  provider was unavailable, the request was cancelled first or it failed before generation, is released and
+  can be requested again the same day.
+- **Charge pictures before Stripe exists.** Proposed: yes. Closing the image cost leak needs no billing (AP
+  decision 2), and the landing page already says pictures cost credits.
+- **Which credit-allowance gate refuses first.** Proposed order at the request: daily plan cap, then the
+  per-workspace cap, then credits. The cap tells the creator when to come back; credits do not reset today.
+
+## How this list was built
+
+A read of `dev` at `5c2dfea` on 2026-10-25. Re-find files before trusting a line number.
+
+| Area | What exists | The gap |
+| --- | --- | --- |
+| Catalogue | `Modules/Billing`: `BillingOptions` (`Plans[].DailyImageCap`, `Plans[].Credits`, `Rates.ImageStandard`), `IPlanCatalogueFacade`, `GET` plans endpoint (LP.6). | The remarks say it outright: "no code reads these figures to admit or refuse work. The landing page is the only consumer." |
+| Plan per account | Nothing. | No `AccountPlan`, no default plan, no ops route. |
+| Daily picture cap | `GeneratedImageGenerationBusiness.RefuseIfOverLimitsAsync` counts the workspace's own operations since `LimitDay.StartOf(now)` (`CountForLimitsAsync`); the worker re-checks with `VariantsRequestedThroughAsync` and fails with `GeneratedImageFailureCategory.BudgetExhausted`. `LimitRefusal.Budget` is workspace-scoped. | Workspace-scoped only, so it cannot count an account's pictures across workspaces without `IgnoreQueryFilters()`, which tenancy.md forbids outside its listed carve-outs. |
+| Credits | `Modules/AiUsage`: `IAiQuotaAdmissionFacade` (`AdmitAsync`, `PeekAsync`, settlement), `AccountAiQuota*`, `AccountAiUsageEntry`. `AiQuotaAdmissionRequestServiceModel` names an `AiOperationId` and an `AiTaskType`. | Built around `AiOperation`; a `GeneratedImageOperation` cannot be admitted. Allowance is `AiQuotaOptions.DefaultAllowance` for every account. |
+| Image operation | `GeneratedImageOperation` carries `WorkspaceId`, `VariantCount`, `RequestedByMembershipId`, `IdempotencyKey`. The request knows `IWorkspaceContext.AccountId`. | No account id on the row. |
+| Web | `image-studio.component.ts` `countRemedy`: "Making pictures doesn't use your AI allowance." `features/ai-usage` shows text usage. | No per-day picture count or plan anywhere a creator can see. |
+
+## Prerequisites already satisfied
+
+Reuse these; do not rebuild them:
+
+- `BillingOptions` and its startup validation (`PlanCatalogueTests`), `PlansEndpointTests`, the LP.6 catalogue
+  endpoint and its OpenAPI snapshot entry.
+- `LimitsOptions`, `LimitDay`, `LimitRefusal`, `LimitsTelemetry`, `LimitErrorCodes.BudgetExhausted` and its
+  `retry: later` mapping, `GeneratedImageWorkerTests.Limits.cs`, `LimitsConfigurationTests`.
+- `IAiQuotaAdmissionFacade`, the quota problem family (`QuotaProblemResultsTests`) and the USAGE-010 states.
+- `IdempotentCommandExecutor`, `IPlatformAuditWriter`, the ops AI-usage routes (`OpsAiUsageController`).
+- `SqlServerTestDatabase` for anything a migration or a concurrency guarantee depends on.
+
+## Relationship to the AI pricing document
+
+| AP prompt | Effect of this document |
+| --- | --- |
+| AP.1.1 | **Required first.** DL.1 checks it is done and adds only what it does not cover. |
+| AP.2.4 | **Narrowed by DL.7** to a single picture rate. AP.2.4 later keys rates by model, quality and resolution. |
+| AP.2.5 | **Delivered by DL.7** for one kind of picture. The ledger change, settlement and resume rules are AP.2.5's. |
+| AP.2.6 | Unchanged. DL.9 shows the day's count; the per-request credit quote stays AP.2.6's. |
+| AP.4.1 | **Entity half delivered by DL.2.** The catalogue half already shipped as LP.6. |
+| AP.4.2 | **Delivered by DL.4, DL.5 and DL.8** for the daily picture cap and the allowance. Plan-dependent *running* images stay flat (out of bounds below). |
+| AP.4.3, AP.3.* | Untouched. No quality class appears anywhere in this document. |
+| AP.4.4 | **Delivered by DL.3.** |
+
+## Out of bounds for this document
+
+- Payment, Stripe, checkout, packs, auto top-up (AP Phases 5 and 6).
+- Quality classes, resolution, a second image model (AP.2.3, AP.3.*, AP.4.3).
+- Trial expiry and the trial gate (AP.7.1).
+- Plan-dependent running or in-flight image limits. `ImageRunningPerWorkspace` and `ImageInFlightPerWorkspace`
+  stay flat; the landing page makes no claim about them.
+- Deciding prices. `PublishPlans` stays off outside Development.
+
+## Checkpoints
+
+| After | Demonstrable result |
+| --- | --- |
+| **DL.3** | Ops sets an account to Pro; the account resolves to Pro everywhere, and an account with no row resolves to the default plan. |
+| **DL.6** | An account on Creator makes 25 pictures across two workspaces in one UTC day and the 26th is refused with the account's own figures; startup refuses a catalogue whose cap could not be kept. |
+| **DL.7** | A picture request at zero credits is refused before it is queued; a successful run of four is charged four times the menu's picture rate. |
+| **DL.10** | Every landing-page claim about caps, picture credits and running out cites shipped code, and a test fails if a catalogue figure and the enforced figure ever diverge. |
+
+---
+
+# Phase 1 — Record
+
+## DL.1 Decision record for plan daily limits
+
+```text
+SCOPE: Documentation only. Confirm AP.1.1 is done (docs/architecture-decisions/ai-pricing.md exists and
+CLAUDE.md's "Billing, plans, or metering" points at it); if it is not, stop and say so — this document does
+not replace it. Then add a section to ai-pricing.md, under the next free B-number, recording this document's
+"Decisions already made" and the owner's answers to "Open, for the owner in DL.1". Add a "Picks up at DL.2"
+marker here.
+CONSTRAINT: AP.1.1; docs/architecture-decisions/baseline.md for record format and numbering; DLIM-001..009.
+RESTRICTION: No code. Do not record a proposed value as decided. Do not touch the AP prompts' text beyond
+a one-line pointer under AP.4.2 to this document.
+UTILIZATION: architecture-reviewer (read-only) on the record.
+BEHAVIOR: Ask the owner the four open questions, show the record and every edit, wait for approval, write
+them, and report any conflict with an existing B-decision.
+```
+
+---
+
+# Phase 2 — Who is on which plan
+
+## DL.2 AccountPlan and plan resolution
+
+```text
+SCOPE: In Modules/Billing, a platform-scoped AccountPlan entity (account id, plan key, source: default |
+ops, effective from, row version) with a migration, a Billing:DefaultPlan option, and
+IAccountPlanFacade.ResolveAsync(accountId) returning the account's plan as a ServiceModel: key, name,
+DailyImageCap and Credits, read from BillingOptions.Plans. An account with no row resolves to DefaultPlan.
+CONSTRAINT: DLIM-001; AP.4.1 (entity half); .claude/rules/tenancy.md (platform-scoped, like AccountAiQuota:
+no WorkspaceId, keyed by IWorkspaceContext.AccountId), backend.md; add-workspace-entity skill for
+conventions only. Memory: check the migration against a SQL Server fixture, not only SQLite.
+RESTRICTION: No Stripe field and no price on AccountPlan; figures live in the catalogue only, never copied
+onto the row. One effective plan per account, enforced by a unique index. A row naming a plan key the
+catalogue no longer has resolves to DefaultPlan and logs a warning — it never throws on a creator's request.
+Startup refuses a DefaultPlan that names no catalogue plan. A trial plan as the default does not expire
+until AP.7.1 builds that; the option's documentation says so. Other modules reach this through the
+facade only; ModuleBoundaryTests stays green.
+UTILIZATION: architecture-reviewer and workspace-isolation-auditor after implementation.
+BEHAVIOR: Show the entity, index, option and resolution rules; wait for approval; implement with tests for
+default resolution, an unknown key, the unique index under two concurrent writes, and startup refusal.
+```
+
+## DL.3 Ops: read and set an account's plan
+
+```text
+SCOPE: Extend the ops AI-usage routes so a platform administrator can read an account's resolved plan and
+set or clear its AccountPlan (source ops), with a platform audit event per change carrying the old and new
+plan keys. Setting a plan the catalogue does not have is a 422 with a stable code.
+CONSTRAINT: DLIM-002; AP.4.4; baseline B-13/B-14; OpsAiUsageController, IPlatformAuditWriter;
+.claude/rules/auth.md, api-contract.md; add-endpoint skill.
+RESTRICTION: Ops API keys only (B-14); no creator route sets a plan. Row version on update; a stale write is
+a 409 whose retry value is registered with ProblemResults (api-contract.md). A plan change takes effect for
+the daily cap at once and for the allowance at the next period (DL.8); the response says both.
+UTILIZATION: api-contract-checker after implementation.
+BEHAVIOR: Show routes, ViewModels, problem codes and audit shape; wait for approval; implement with
+authorization tests (creator token refused, ops key admitted), the 422, the 409 and the audit row;
+regenerate the OpenAPI snapshot and read the diff.
+```
+
+---
+
+# Phase 3 — The daily picture cap
+
+## DL.4 Account daily picture holds, at the request
+
+```text
+SCOPE: A platform-scoped AccountImageDayHold (account id, image operation id — unique, UTC day, variants,
+status: held | spent | released, row version) in Modules/Billing, and IAccountPlanFacade
+.HoldDailyImagesAsync(accountId, operationId, variantCount) that takes a hold only when the account's
+held-plus-spent variants for the UTC day plus this request stay within its plan's DailyImageCap. Call it
+from GeneratedImageGenerationBusiness after replay detection and before the operation is queued, in the same
+transaction as the operation insert. A refusal is LimitRefusal.Budget at LimitScope.User with the plan's cap
+and LimitDay.NextAfter(now).
+CONSTRAINT: DLIM-003; DL.2; .claude/rules/backend.md "Limits (15.3)", tenancy.md, media.md;
+LimitRefusal, LimitsTelemetry; add-media-feature skill. Memory: SQL Server fixture for the migration and
+the concurrency test; the SQLite host cannot take concurrent requests.
+RESTRICTION: Counting is never done over GeneratedImageOperation across workspaces and never with
+IgnoreQueryFilters(): the hold table is the account's own record, counts and ids only, no prompt or content.
+All of a request or none of it, as today. Two concurrent requests on the last pictures of the day cannot
+both hold (row-version retry or a locking read; show which). A replayed request finds its own hold and is
+never refused. The refusal carries only the caller's own figures and names no workspace (LimitRefusal).
+The per-workspace cap still runs, in the order DL.1 decided. Add a User-scoped budget message to
+LimitRefusal rather than reusing the workspace sentence.
+UTILIZATION: workspace-isolation-auditor and test-gap-analyzer after implementation.
+BEHAVIOR: Show the table, the transaction, the concurrency mechanism and the refusal body; wait for
+approval; implement with tests: exactly the cap admits and one more refuses; a request of four with three
+left is refused whole; two workspaces of one account share the cap; two accounts in one workspace do not;
+a replay is admitted; two concurrent last-picture requests on SQL Server, one admitted.
+```
+
+## DL.5 Worker re-check, spend and release
+
+```text
+SCOPE: Before any provider call, the image worker confirms the operation's AccountImageDayHold is held and
+fails the operation with GeneratedImageFailureCategory.BudgetExhausted when it is not. As variants complete,
+the worker marks the hold spent for each variant generated or flagged, and releases the rest when the
+operation ends with variants never sent (provider unavailable before generation, cancelled, failed before
+the first call), as DL.1 decided. Holds for operations that never reach the worker (abandoned queue rows)
+are released by the existing reconciliation sweep pattern, never left to block the day.
+CONSTRAINT: DLIM-003; DL.4; .claude/rules/backend.md "checked again in the worker before anything is
+spent"; GeneratedImageGenerationBusiness worker path, GeneratedImageWorkerTests.Limits.cs.
+RESTRICTION: The worker reaches Billing through IAccountPlanFacade only, after resolving and validating the
+workspace through the ordinary tenancy path. A resumed pass never spends a variant twice or releases a
+spent one. A plan downgraded after a hold was taken does not cancel that hold; the next request sees the new
+cap. Nothing is logged that names a prompt.
+UTILIZATION: test-gap-analyzer and integration-reviewer after implementation.
+BEHAVIOR: Show the hold state transitions for success, partial success, flagged, provider failure, cancel
+and resume; wait for approval; implement; extend ImagesJourneyEndToEndTests with a released variant that
+can be requested again the same day and a resumed pass that charges nothing twice.
+```
+
+## DL.6 Validation: the published cap is the enforced cap
+
+```text
+SCOPE: Make it impossible for the catalogue to state a daily cap the product does not enforce. At startup,
+when Billing:PublishPlans is true: Limits:Enabled must be true; every plan's DailyImageCap is at least 1 and
+at most Limits:ImageVariantsPerWorkspacePerDay (otherwise a one-workspace creator could never reach the
+number their card promises); DefaultPlan names a plan. Then add tests that bind the two ends together: for
+every plan in appsettings.Development.json, an account on that plan is admitted exactly DailyImageCap
+pictures in a UTC day and refused the next, through the real API and the gateway; and the plans endpoint's
+dailyImageCap equals IAccountPlanFacade.ResolveAsync's for the same key.
+CONSTRAINT: DLIM-004/005; DL.2–DL.5; BillingOptions validation (PlanCatalogueTests), LimitsOptions,
+PlansEndpointTests; .claude/rules/aspire.md (API and Worker bind the same values).
+RESTRICTION: One source: the cap is read from BillingOptions.Plans at both ends, never copied into
+LimitsOptions or a second configuration key. The validation names the plan and the two numbers in its
+message and never runs on a creator's request. Do not loosen an existing validation to let a plan through.
+UTILIZATION: test-gap-analyzer after implementation.
+BEHAVIOR: Show each rule with the configuration that trips it; wait for approval; implement with one
+failing-startup test per rule and the per-plan admission test; run the full backend suite.
+```
+
+---
+
+# Phase 4 — Credits
+
+## DL.7 Pictures cost credits, and wait at zero
+
+```text
+SCOPE: Charge each picture Billing:Rates:ImageStandard credits against the requesting account's allowance.
+At the request, refuse with the existing quota problem family when the account's balance cannot cover
+variantCount × that rate (PeekAsync's role, extended to images). In the worker, hold variantCount × the rate
+before the first provider call, and settle per variant on DL.5's rules: spent for generated or flagged,
+released for never sent. Extend IAiQuotaAdmissionFacade and AccountAiUsageEntry so a hold and a ledger row
+can name a generated-image operation as well as an AiOperation, with a migration. Change the image studio's
+countRemedy and every other "doesn't use your AI allowance" line to state the charge.
+CONSTRAINT: DLIM-006; AP.2.4 (one rate), AP.2.5 (ledger, settlement, resume); USAGE-001/002/004/006/007;
+IAiQuotaAdmissionFacade, IGeneratedImageGenerationBusiness, the image worker; .claude/rules/ai.md,
+media.md, tenancy.md, frontend.md; add-media-feature skill. Memory: SQL Server fixture for multiple cascade
+paths on the new ledger reference.
+RESTRICTION: One rate source: the number the landing page's credit menu shows is the number charged, read
+from the same option; a test asserts it. No rate literal in C# or TypeScript. A missing or zero rate refuses
+the request; a picture is never free by accident. Media reaches AiUsage and Billing through facades only.
+The ledger stays counts-only (USAGE-002). The quota hold and the daily hold commit or fail together.
+UTILIZATION: workspace-isolation-auditor, test-gap-analyzer and design-review after implementation.
+BEHAVIOR: Show the ledger change and the request/worker sequence beside DL.4/DL.5's; wait for approval;
+implement; extend ImagesJourneyEndToEndTests and CreativePipelineEndToEndTests with an at-zero refusal
+before queueing, a partial run charged per variant, and two-account isolation; update the studio specs.
+```
+
+## DL.8 The plan's credits are the account's allowance
+
+```text
+SCOPE: When an account has no explicit AccountAiQuota override, the quota period resolver takes the
+period's allowance from the account's resolved plan (Credits, monthly) instead of
+Ai:Quota:DefaultAllowance. A plan change takes effect at the next period roll.
+CONSTRAINT: DLIM-007; AP.4.2 (allowance half), USAGE-003/009; IAiQuotaPeriodResolver,
+IAccountPlanFacade; .claude/rules/backend.md.
+RESTRICTION: An ops-set AccountAiQuota still wins (USAGE-009). A running period's allowance is never
+rewritten. A trial plan's credits are granted per period like any other until AP.7.1 decides otherwise;
+the ADR says so. DefaultAllowance remains the fallback only for an account whose plan cannot be resolved.
+UTILIZATION: test-gap-analyzer after implementation.
+BEHAVIOR: Show precedence and period-roll behaviour; wait for approval; implement with tests for override
+precedence, a mid-period plan change, and the fallback.
+```
+
+---
+
+# Phase 5 — Say it
+
+## DL.9 Today's pictures, where a creator asks for them
+
+```text
+SCOPE: Image Studio and the Content Pipeline's picture step show how many pictures the creator has left
+today on their plan and when that resets, from a read-only figure on the existing usage read model; the
+day-cap refusal from DL.4 is its own state, separate from the workspace cap and from running out of
+credits, and says which it is. The usage page shows the plan's name, today's pictures used of the cap, and
+credits used of the allowance.
+CONSTRAINT: DLIM-008; USAGE-008/010; features/ai-usage, image-studio, content pipeline picture step;
+.claude/rules/frontend.md, design-system.md, api-contract.md; add-endpoint, new-component and
+creatorpantry-design-system skills.
+RESTRICTION: Server figures only; the browser does no cap or credit arithmetic. A refusal never discards
+the filled-in request. Components do not inject HttpClient. Every state: loading, empty, degraded, error,
+success. The count is announced politely, not on every change.
+UTILIZATION: design-review and api-contract-checker after implementation.
+BEHAVIOR: Show the ServiceModel field, the three refusal states and the layout; wait for approval;
+implement with specs per state and keyboard operation; regenerate the OpenAPI snapshot and read the diff.
+```
+
+## DL.10 Landing page and records match the product
+
+```text
+SCOPE: Bring every record of the three claims up to what DL.2–DL.9 shipped. In BillingOptions and
+CreditRatesOption, replace the "no code reads these figures" remarks with what now reads them. In
+docs/landing-page-copy.md, change the sources for "Up to N pictures a day", "Picture rates", "At zero, AI
+waits" and FAQ 8 from Not built to Shipped with the class and test names; the trial's open question stays
+open. Add a web spec beside landing-credits and landing-pricing that fails if the page's picture line reads
+any rate but imageStandard or any cap but dailyImageCap. Confirm the FAQ and promise copy still read true
+for pictures and change no word that already does.
+CONSTRAINT: DLIM-009; LP.6–LP.9; .claude/rules/frontend.md "Verification"; check-safety-copy.mjs.
+RESTRICTION: Do not publish the catalogue outside Development: prices remain proposals (decision 6). No new
+claim — this prompt makes existing words true, it does not add any. Quality classes stay off the page.
+UTILIZATION: design-review after implementation; playwright-cli for a screenshot of the pricing and credit
+sections in Development with the comparison table open.
+BEHAVIOR: Show every changed source line; wait for approval; implement; run npm run build and npm test from
+src/web, and the backend suite; report each claim with the code and test that now backs it.
+```
+
+## DL.11 Daily limits audit
+
+```text
+SCOPE: Audit DL.2–DL.10: no picture reaches a provider without a daily hold and a credit hold; the
+published and enforced caps cannot diverge; holds are released exactly once; no count crosses an account or
+a workspace it should not; refusals disclose nothing about anyone else.
+CONSTRAINT: DLIM-001..009; USAGE-001..010; .claude/rules/tenancy.md "Required tests".
+RESTRICTION: Report first; no unrelated redesign.
+UTILIZATION: architecture-reviewer, workspace-isolation-auditor, api-contract-checker, integration-reviewer
+and test-gap-analyzer.
+BEHAVIOR: Return findings, wait for approval, fix blockers, rerun focused and end-to-end tests, and add a
+delivery note here.
+```

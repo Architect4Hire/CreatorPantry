@@ -9,8 +9,12 @@
 //
 // Two scopes. The `frame` and `page-head` rules judge routed pages: every `loadComponent` and `loadChildren`
 // reachable from the two routes that mount the shell. Every other rule judges every template and stylesheet
-// under `src/app`, because a part redrawn in a child component is still redrawn. Sign-in, sign-up,
-// confirm-email, the landing page and the showcase sit outside the shell and are not judged.
+// under `src/app`, because a part redrawn in a child component is still redrawn.
+//
+// The public pages — the landing page and the legal documents — are the third scope: outside the shell, each
+// framing itself. They answer to every part rule the shell's pages do, and to three of their own in place of
+// the shell's frame: one headline per page; one gutter and three widths, all tokens; and buttons from the
+// library. Sign-in, sign-up, confirm-email and the showcase sit outside the shell and are not judged.
 //
 // A rule is never loosened to let a file through. Fix the file, or list it in EXEMPTIONS with the reason; an
 // exemption that no longer matches anything fails too, so the list cannot outlive what it excuses.
@@ -24,6 +28,12 @@ const appDir = resolve(root, 'src/app');
 const appRoutes = resolve(appDir, 'app.routes.ts');
 const SHELL = './shell/app-shell.component';
 const OUTSIDE_SHELL = /[\\/](sign-in|sign-up|confirm-email|landing|design-system-showcase)[\\/]/;
+/** The public pages: outside the shell, and judged by their own shape rather than skipped. */
+const PUBLIC_PAGE = /[\\/]features[\\/]landing[\\/]/;
+/** The template that holds each public page's one `h1`: the landing hero, and the legal document. */
+const HEADLINE = /[\\/](?:landing-hero|legal-page)\.component\.html$/;
+/** The hero is the one part of a public page that draws itself: its headline, its collage and their sizes. */
+const HERO = /[\\/]landing-hero(?:-collage)?\.component\.(?:css|html|ts)$/;
 
 /** What each rule protects, printed once under its failures. */
 export const RULES = {
@@ -38,6 +48,9 @@ export const RULES = {
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
+  'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
+  'public-frame': "A public page frames each section from the public tokens: width `--cp-public-width`, `-narrow` or `-wide` (or `--cp-measure-prose`), gutter `--cp-public-gutter`. A section's `:host` sets no padding, margin or width, and a measure inside a section is a token, never a literal length. Only the hero sizes its own parts.",
+  'public-control': "A button on a public page is `cpButton` (`<button cpButton>` or `<a cpButton>`), so its size, focus and states are the library's.",
 };
 
 /**
@@ -176,6 +189,61 @@ export function pageTemplateViolations(html) {
   return found;
 }
 
+const MEASURE_PROPERTIES = /(?:^|[;{\s])(max-width|max-inline-size)\s*:\s*([^;]+)/g;
+const PADDING_PROPERTIES = /(?:^|[;{\s])(padding(?:-inline|-left|-right)?)\s*:\s*([^;]+)/g;
+/** A width a public page may frame a section with: one of its three, or the prose measure. */
+const PUBLIC_WIDTH = /^var\(--cp-(?:public-width(?:-narrow|-wide)?|measure-prose)\)$/;
+const LITERAL_LENGTH = /\d(?:\.\d+)?(?:rem|em|px|ch|vw|vh)/;
+
+/** The inline part of a `padding` shorthand: the only value, the second, or the second and the fourth. */
+function inlinePadding(value) {
+  const parts = value.trim().split(/\s+(?![^(]*\))/);
+  if (parts.length === 1) return [parts[0]];
+  return parts.length === 4 ? [parts[1], parts[3]] : [parts[1]];
+}
+
+/**
+ * `public-frame`, for one public stylesheet. A rule that caps a width and pads its sides is a section's frame,
+ * and takes both from the public tokens. Outside the hero, no width is capped with a literal length, and no
+ * section pads, caps or offsets its own host — the hairline between sections is drawn against the host.
+ */
+export function publicStylesheetViolations(css, { hero = false } = {}) {
+  const found = hero ? [] : frameViolations(css).map((f) => ({ ...f, rule: 'public-frame' }));
+  for (const rule of cssRules(css)) {
+    const at = (index) => lineAt(rule.text, rule.bodyAt + index);
+    const widths = [...rule.body.matchAll(MEASURE_PROPERTIES)];
+    const sides = [...rule.body.matchAll(PADDING_PROPERTIES)].flatMap((m) =>
+      (m[1] === 'padding' ? inlinePadding(m[2]) : [m[2].trim()]).map((value) => ({ value, line: at(m.index + m[0].indexOf(m[1])) })),
+    );
+    const frames = widths.length > 0 && sides.length > 0;
+    for (const m of widths) {
+      const value = m[2].trim();
+      const line = at(m.index + m[0].indexOf(m[1]));
+      if (frames && !PUBLIC_WIDTH.test(value)) found.push({ rule: 'public-frame', line, what: `frames a section at ${value} rather than a public width` });
+      else if (!frames && !hero && LITERAL_LENGTH.test(value.replace(/var\([^)]*\)/g, ''))) found.push({ rule: 'public-frame', line, what: `caps a measure at the literal ${value}` });
+    }
+    if (frames) {
+      for (const side of sides.filter((s) => s.value !== 'var(--cp-public-gutter)' && s.value !== '0')) {
+        found.push({ rule: 'public-frame', line: side.line, what: `frames a section with the gutter ${side.value} rather than --cp-public-gutter` });
+      }
+    }
+  }
+  return found;
+}
+
+/** `public-h1` and `public-control`, for one public template. `headline` marks the template that owns the page's `h1`. */
+export function publicTemplateViolations(html, { headline = false } = {}) {
+  const found = [];
+  const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
+  const h1s = [...markup.matchAll(/<h1[\s>]/g)];
+  if (headline && h1s.length !== 1) found.push({ rule: 'public-h1', line: 1, what: `renders ${h1s.length} <h1> rather than the page's one` });
+  if (!headline) for (const m of h1s) found.push({ rule: 'public-h1', line: lineAt(markup, m.index), what: 'renders an <h1> that is not the page headline' });
+  for (const m of markup.matchAll(/<button\b[^>]*>/g)) {
+    if (!/\scpButton(?=[\s>=])/.test(m[0])) found.push({ rule: 'public-control', line: lineAt(markup, m.index), what: 'renders a <button> that is not cpButton' });
+  }
+  return found;
+}
+
 const read = (file) => readFileSync(file, 'utf8');
 const imports = (source, loader) =>
   [...source.matchAll(new RegExp(`${loader}:\\s*\\(\\)\\s*=>\\s*import\\(\\s*['"]([^'"]+)['"]`, 'g'))].map((m) => m[1]);
@@ -265,6 +333,28 @@ function run() {
     }
   }
 
+  // The public pages: every part rule the shell's pages answer to, and their own shape in place of the frame.
+  const publicFiles = filesUnder(appDir).filter((file) => PUBLIC_PAGE.test(file) && !file.endsWith('.spec.ts'));
+  if (publicFiles.filter((file) => HEADLINE.test(file)).length !== 2) {
+    console.error('check-page-contract: did not find both public headline templates, so the public pages were not checked. Update this check.');
+    return 1;
+  }
+  for (const file of publicFiles) {
+    const hero = HERO.test(file);
+    const markupFound = (html) => [
+      ...templateViolations(html).filter((f) => f.rule !== 'one-h1'),
+      ...publicTemplateViolations(html, { headline: HEADLINE.test(file) }),
+    ];
+    const styleFound = (css) => [...stylesheetViolations(css), ...publicStylesheetViolations(css, { hero })];
+    if (file.endsWith('.css')) report(file, 0, styleFound(read(file)));
+    else if (file.endsWith('.html')) report(file, 0, markupFound(read(file)));
+    else if (file.endsWith('.ts')) {
+      const inline = inlineParts(read(file));
+      if (inline.styles) report(file, inline.styles.line - 1, styleFound(inline.styles.text));
+      if (inline.template) report(file, inline.template.line - 1, markupFound(inline.template.text));
+    }
+  }
+
   const { standing, stale } = judge(failures, EXEMPTIONS);
 
   if (standing.length > 0 || stale.length > 0) {
@@ -282,7 +372,9 @@ function run() {
     return 1;
   }
 
-  console.log(`check-page-contract: ${pages.length} routed pages and ${files.length} files hold to the page contract (${EXEMPTIONS.length} exemptions).`);
+  console.log(
+    `check-page-contract: ${pages.length} routed pages, ${files.length} files and ${publicFiles.length} public-page files hold to the page contract (${EXEMPTIONS.length} exemptions).`,
+  );
   return 0;
 }
 

@@ -12,6 +12,8 @@ import {
   inlineParts,
   judge,
   pageTemplateViolations,
+  publicStylesheetViolations,
+  publicTemplateViolations,
   stylesheetViolations,
   templateViolations,
 } from './check-page-contract.mjs';
@@ -117,6 +119,43 @@ test('rules nested in @media are read, and a stylesheet with none is quiet', () 
   assert.equal(stylesheetViolations('@media print {\n  .a { color: red; }\n  .muted { margin: 0; }\n}')[0].line, 3);
   assert.deepEqual(stylesheetViolations(''), []);
   assert.deepEqual(inlineParts("@Component({ templateUrl: './x.html' })"), {});
+});
+
+test('public-frame: a section is framed from the public tokens, and its host is not', () => {
+  const section = (width, padding) => `.section { max-width: ${width}; margin: 0 auto; padding: ${padding}; }`;
+  for (const width of ['var(--cp-public-width)', 'var(--cp-public-width-narrow)', 'var(--cp-public-width-wide)', 'var(--cp-measure-prose)']) {
+    assert.deepEqual(publicStylesheetViolations(section(width, 'var(--cp-public-section-space) var(--cp-public-gutter)')), [], width);
+  }
+  assert.deepEqual(rules(publicStylesheetViolations(section('72rem', 'var(--cp-public-section-space) var(--cp-public-gutter)'))), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations(section('var(--cp-page-width-standard)', '0 var(--cp-public-gutter)'))), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations(section('var(--cp-public-width)', 'var(--cp-space-10) var(--cp-space-6)'))), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations(section('var(--cp-public-width)', '1rem 2rem 1rem var(--cp-public-gutter)'))), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations('.s { max-width: var(--cp-public-width); padding-inline: 1.5rem; }')), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations(':host { display: block; padding: 1rem; }')), ['public-frame']);
+});
+
+test('public-frame: a measure inside a section is a token; only the hero sizes its own parts', () => {
+  assert.deepEqual(rules(publicStylesheetViolations('.intro { max-width: 42rem; margin: 0 auto; }')), ['public-frame']);
+  assert.deepEqual(rules(publicStylesheetViolations('.intro { max-inline-size: min(100%, 30ch); }')), ['public-frame']);
+  assert.deepEqual(publicStylesheetViolations('.intro { max-width: var(--cp-measure-prose); } .t { max-width: 100%; } .n { max-width: none; }'), []);
+  assert.deepEqual(publicStylesheetViolations('.subheadline { max-width: 36rem; } :host { max-width: 34rem; margin-inline: auto; }', { hero: true }), []);
+  // The hero still frames itself from the tokens: it draws its parts, not its own gutter.
+  const literalHero = '.hero { max-width: 76rem; margin: 0 auto; padding: 1rem 1.5rem 2rem; }';
+  assert.deepEqual(rules(publicStylesheetViolations(literalHero, { hero: true })), ['public-frame', 'public-frame']);
+});
+
+test('public-h1: one per public page, in the template that owns it', () => {
+  assert.deepEqual(publicTemplateViolations('<section><h1>Headline</h1></section>', { headline: true }), []);
+  assert.deepEqual(rules(publicTemplateViolations('<section><h2>No headline</h2></section>', { headline: true })), ['public-h1']);
+  assert.deepEqual(rules(publicTemplateViolations('<h1>One</h1><h1>Two</h1>', { headline: true })), ['public-h1']);
+  assert.deepEqual(rules(publicTemplateViolations('<section>\n<h1 id="x">A section</h1></section>')), ['public-h1']);
+  assert.deepEqual(publicTemplateViolations('<h2>Pricing</h2><!-- <h1>old</h1> -->'), []);
+});
+
+test("public-control: a public page's buttons are the library's", () => {
+  assert.deepEqual(rules(publicTemplateViolations('<button type="button" class="pause">Pause</button>')), ['public-control']);
+  assert.deepEqual(publicTemplateViolations('<button type="button" cpButton variant="text">Compare</button><a cpButton routerLink="/sign-up">Start</a>'), []);
+  assert.deepEqual(rules(publicTemplateViolations('<button type="button" cpButtonish>x</button>')), ['public-control']);
 });
 
 test('every exemption names a real rule and says why', () => {

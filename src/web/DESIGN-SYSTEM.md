@@ -67,7 +67,42 @@ Every signed-in page sits in one frame, and the app shell owns it. `AppShellComp
 - **A page may still be a container.** `container:` on a `:host` is the page measuring the space the frame gave it, and it stays. The editor, the kitchen view and the concept studio size themselves that way.
 - **On paper the frame is nothing.** Under `@media print` it gives up its padding and its width, as `<main>` gives up its own offsets, so a feature's print rules lay out the content and nothing else.
 
-`scripts/check-page-contract.mjs` runs first in `npm test`. Its `frame` rule follows every route the shell mounts to its component's stylesheet and fails when a `:host` rule sets `padding`, `margin`, `width` or `max-width`. Sign-in, sign-up, confirm-email and the landing page sit outside the shell and are not in the frame. The rest of what it holds a page to is under "What the build checks".
+`scripts/check-page-contract.mjs` runs first in `npm test`. Its `frame` rule follows every route the shell mounts to its component's stylesheet and fails when a `:host` rule sets `padding`, `margin`, `width` or `max-width`. Sign-in, sign-up and confirm-email sit outside the shell and are not in the frame; the public pages have a frame of their own ("The public page"). The rest of what it holds a page to is under "What the build checks".
+
+### The public page
+
+The landing page (`''` and `/pricing`) and the legal documents (`/privacy`, `/terms`, `/acceptable-use`) are read
+by people who have not signed in, so there is no shell around them to own a gutter, a width or a heading. A
+public page is not a fourth shape of signed-in page; it is the one shape outside the app, and it divides the
+work like this.
+
+**What a public page draws itself:**
+
+- **The hero.** The landing page's first screen is its own: the one `h1` at `--cp-font-size-display`, the lede,
+  the CTAs and the collage, sized however the composition needs. It is the only part of a public page that may
+  size its own parts with literal lengths (the lede's measure, the collage's box, the logo).
+- **Its sections.** Each section is a component under `features/landing/`, with its own `h2` at
+  `--cp-font-size-title`, its own intro and its own layout inside. The page draws the hairline between
+  sections once (`landing.component.css`), and a section that rendered nothing draws none.
+- **Its gutter and widths — but only from the public tokens.** With no shell, each section frames itself, and
+  every frame comes from the same five tokens in `tokens.css`: `--cp-public-gutter` at the sides,
+  `--cp-public-section-space` above and below, and one of three widths — `--cp-public-width-narrow` (one
+  centred column: trust, the final CTA), `--cp-public-width` (a section) and `--cp-public-width-wide` (the hero,
+  whose copy sits beside its collage). A document read as prose, the FAQ or a legal page, frames itself at
+  `--cp-measure-prose` instead, and an intro inside a section is held to the same measure. The widths include
+  the gutter. A section's `:host` sets no padding, margin or width: the hairline is drawn against the host.
+- **One headline per page.** The landing hero's `h1`, or the legal document's title. Every section starts at
+  `h2`.
+
+**What a public page takes from the library**, exactly as a signed-in page does: every button is `cpButton`
+(on a `<button>` or an `<a>`); a surface is `cp-card`; a short status is `cp-badge`; a list of cards is
+`ul[cpCardGrid]`; a field is `cp-field`; a choice is `cp-choice-group`; tabs are `cp-tabs`; colour, type,
+space, radius, shadow and motion are tokens. Every part rule in "What the build checks" applies to the public
+pages unchanged, so a public section that calls something `.board` or `.steps` is renamed for what it is —
+the credit menu is `.menu`, how-it-works is `.sequence`.
+
+The typography and colour rules for a public page are under "Content hierarchy": one body size, paper, and a
+hairline between sections.
 
 ### The page head
 
@@ -296,7 +331,7 @@ What a drawer does, so a feature does not have to:
 
 Before anything else about a new page, say which of the three shapes it is — a library, a detail page or a flow. A page that is none of them is a question to raise, not a fourth shape to draw.
 
-`scripts/check-page-contract.mjs` runs first in `npm test` and fails the run when a page drifts from this section. Karma runs in a browser and cannot read a stylesheet from disk, which is why it is a script and not a spec; `scripts/check-page-contract.test.mjs` runs before it and proves each rule still fires. Two rules judge routed pages only, and the rest judge every template and stylesheet under `src/app` inside the shell, because a part redrawn in a child component is still redrawn.
+`scripts/check-page-contract.mjs` runs first in `npm test` and fails the run when a page drifts from this section. Karma runs in a browser and cannot read a stylesheet from disk, which is why it is a script and not a spec; `scripts/check-page-contract.test.mjs` runs before it and proves each rule still fires. Two rules judge routed pages only, and the rest judge every template and stylesheet under `src/app` inside the shell, because a part redrawn in a child component is still redrawn. The public pages under `features/landing/` are judged by every part rule and by the three `public-*` rules in place of `frame`, `one-h1` and `page-head`.
 
 | Rule | Fails when | Use instead |
 | --- | --- | --- |
@@ -311,6 +346,9 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
+| `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
+| `public-frame` | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged | the `--cp-public-*` tokens ("The public page") |
+| `public-control` | a public template renders a `<button>` without `cpButton` | `<button cpButton>` or `<a cpButton>` |
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 

@@ -3,9 +3,9 @@
 }
 
 .value-props {
-  max-width: 72rem;
+  max-width: var(--cp-public-width);
   margin: 0 auto;
-  padding: var(--cp-space-10) var(--cp-space-6);
+  padding: var(--cp-public-section-space) var(--cp-public-gutter);
 }
 
 h2 {
@@ -18,7 +18,7 @@ h2 {
 }
 
 .intro {
-  max-width: 42rem;
+  max-width: var(--cp-measure-prose);
   margin: 0 auto var(--cp-space-8);
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-lg);
@@ -53,7 +53,7 @@ p {
 .tour-link {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 2.5rem;
   margin-top: var(--cp-space-2);
   font-size: var(--cp-font-size-lg);
   font-weight: 600;

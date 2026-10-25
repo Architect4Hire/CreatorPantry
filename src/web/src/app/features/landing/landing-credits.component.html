@@ -3,7 +3,7 @@
     <h2 id="landing-credits-heading">{{ heading }}</h2>
     <p class="intro">{{ intro }}</p>
 
-    <div class="board">
+    <div class="menu">
       <h3 id="landing-credits-menu">What one of each costs</h3>
       <ul aria-labelledby="landing-credits-menu">
         @for (line of menu; track line.label) {
@@ -20,7 +20,7 @@
     <div class="estimator">
       <h3 id="landing-credits-estimator">Which plan fits what you make?</h3>
 
-      <cp-field label="Pictures a month" forId="landing-credits-pictures" hint="At standard quality.">
+      <cp-field label="Pictures a month" forId="landing-credits-pictures">
         <input
           id="landing-credits-pictures"
           type="range"

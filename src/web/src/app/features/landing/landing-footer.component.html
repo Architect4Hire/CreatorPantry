@@ -1,10 +1,8 @@
 <footer class="landing-footer">
-  <div class="legal-placeholders">
-    @for (link of legalLinks(); track link) {
-      <button type="button" class="legal-link" disabled>
-        {{ link }} <span class="coming-soon">(coming soon)</span>
-      </button>
+  <nav class="legal-links" aria-label="Legal">
+    @for (link of legalLinks(); track link.path) {
+      <a class="legal-link" [routerLink]="link.path" routerLinkActive="current" ariaCurrentWhenActive="page">{{ link.label }}</a>
     }
-  </div>
+  </nav>
   <span class="brand">© {{ currentYear }} {{ productName() }}</span>
 </footer>

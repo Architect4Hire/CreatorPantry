@@ -781,3 +781,51 @@ and screenshots.
 BEHAVIOR: Run everything, fix in-scope findings, run npm build and npm test from src/web and the API
 tests, and report proof for each item with screenshots attached.
 ```
+
+*Delivery note (2026-10-25): built and verified, **with the LP.11 budget left unconfirmed** — so not yet marked
+done. The composition is LP.2's order less the two parts the owner took out (the nav, LP.10; the draft-and-final
+band, removed with picture quality, AP.3.1): hero, value props, tour, how-it-works, pricing, credits, packs and
+promises, FAQ, trust, final CTA, footer. The legal pages (`/privacy`, `/terms`, `/acceptable-use`) landed during
+this prompt, so the footer's links are real and the LP.6 gate is now about review of their text, not their
+existence.*
+
+- ***The flag.*** *`Landing:Pricing` was a name only the docs used; the switch was the API's
+  `Billing:PublishPlans`. The AppHost now owns the name (`appsettings.json`, `true`) and sets
+  `Billing__PublishPlans` from it **in run mode only**, so `aspire publish` carries nothing and a deployment keeps
+  the API's own `false`. `.claude/rules/aspire.md` says how to turn it off locally.*
+- ***The public page shape.*** *`DESIGN-SYSTEM.md` "The public page": what a public page draws itself (the hero,
+  its sections, one headline per page, its frame from five new `--cp-public-*` tokens) and what it takes from the
+  library (every part rule, unchanged). `check-page-contract.mjs` now judges `features/landing/` rather than
+  skipping it — every part rule plus `public-h1`, `public-frame` and `public-control`, with 4 new tests. LP.1
+  finding 10 is closed: every section frame is a token, and the two class names the part rules ban were renamed
+  for what they are (`.board` → `.menu`, `.steps` → `.sequence`). The legal page's literal gutter was the one
+  thing the new rules caught.*
+- ***Fixed from the journey:*** */pricing focused the whole section, so the ring framed the screen; it now focuses
+  the section's heading, sized to its words, with the ring cp-page-head's title has. It also landed anywhere from
+  −38px to +16px from where it was put, because a late font re-wrapped the sections above; it now waits for
+  `document.fonts.ready` and lands at the same place every time. The legal title hid its ring; it now shows it, as
+  the library's focused headings do. The legal parser rode in the first-screen bundle with the footer's links;
+  the links are now `legal-links.ts` and the parser stays in the legal chunk (−0.9 kB).*
+- ***Verified in a real browser*** *through real routing and guards against `aspire run` (21/21): the order, one
+  h1/main/footer and no skipped level; /pricing opens at pricing with the heading focused; all 11 distinct link
+  targets clicked and reached (both CTAs, four plan CTAs with `?plan=`, two tour links, three legal pages); with
+  `/api/v1/plans` failing, pricing, credits and packs render nothing, the FAQ drops from ten to seven, no stray
+  hairline, and /pricing stays at the top; light and dark at 375/768/1440 with no sideways scroll; 200% zoom on
+  `/` and `/privacy`; reduced motion with no running animation and nothing left hidden; a keyboard walk of 24
+  stops in each theme, every ring at ≥3:1 against what it is drawn over (lowest 4.56:1 light, 5.82:1 dark).
+  Signed-in behaviour is proven by `app.routes.integration.spec.ts` with the real guards; a real signed-in
+  browser needs a confirmed address, and the confirmation sink is in-memory.*
+- ***The budget, not reproduced.*** *Images 140 KB light / 167 KB dark and CLS 0.02 — inside it. LCP 3.2–3.3 s in
+  three Lighthouse 12.8.2 mobile runs, against 2.5 s. `HEAD` before this prompt measures 3.3–3.4 s in the same
+  harness, so this prompt does not move it; the difference from LP.11's 2.2 s is the harness, which LP.11 never
+  committed and this one recreates (production build gzipped, `runtime-config.json` and an anonymous
+  `/bff/session` answered at the same origin). 86% of LCP is render delay. Initial script is 119.9 kB gzipped,
+  about 10 kB over LP.11's 110.3 kB, and that growth predates this prompt. Committing a harness is what would
+  settle it.*
+- ***Reviewers.*** *design-review: no blocker; its two warnings are fixed (the doc now says `public-frame`
+  judges capped widths, not the size of a part; the legal title's ring). api-contract-checker: the wiring is
+  correct; open and outside this prompt — nothing tests the AppHost switch, no gateway test pins
+  `/api/v1/plans`'s limiter, a workspace already named `privacy`, `terms` or `acceptable-use` would be shadowed
+  (reserved slugs apply at creation only), and a rate-limited visitor sees no pricing and no notice, which is
+  the documented choice. test-gap-analyzer: `/sign-up?plan=` is linked but sign-up does not read the plan
+  (checkout is AP.6).*

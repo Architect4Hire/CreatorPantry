@@ -69,13 +69,17 @@ export class LandingCreditsComponent {
   protected readonly nothingChosen = NOTHING_CHOSEN;
   protected readonly contact = BEYOND_TOP_PLAN_CONTACT;
 
-  /** The menu, in the order LP.2 lists it: what writing costs, then what pictures cost. */
+  /**
+   * The menu, in the order LP.2 lists it: what writing costs, then what a picture costs.
+   *
+   * One picture line, not three. The catalogue still carries draft and high rates for AP.3.1, but the product
+   * makes one kind of picture — the configured model at its own default size, with no quality to ask for — so
+   * a menu pricing a draft and a high-quality one would be pricing pictures nobody can make.
+   */
   protected readonly menu: readonly CreditMenuLine[] = [
     { label: 'A text draft', rateOf: (rates) => rates.textDraft },
     { label: 'A long-form section', rateOf: (rates) => rates.longFormSection },
-    { label: 'A draft picture', rateOf: (rates) => rates.imageDraft },
-    { label: 'A standard picture', rateOf: (rates) => rates.imageStandard },
-    { label: 'A high-quality picture', rateOf: (rates) => rates.imageHigh },
+    { label: 'A picture', rateOf: (rates) => rates.imageStandard },
   ];
 
   protected readonly picturesAMonth = signal<number>(PICTURES_PER_MONTH.start);

@@ -4,6 +4,7 @@ import { Routes } from '@angular/router';
 import { anonymousOnlyGuard } from './core/anonymous-only.guard';
 import { authGuard } from './core/auth.guard';
 import { routes } from './app.routes';
+import { LegalPageComponent } from './features/landing/legal-page.component';
 import { AppShellComponent } from './shell/app-shell.component';
 import { PlaceholderSectionComponent } from './shell/placeholder-section.component';
 import { WorkspaceGateComponent } from './shell/workspace-gate.component';
@@ -67,6 +68,21 @@ describe('app routes', () => {
     expect(pricing?.component).toBe(LandingComponent);
   });
 
+  it('serves the three legal documents to everyone, unguarded', async () => {
+    for (const [path, title, legal] of [
+      ['privacy', 'Privacy Policy', 'privacy'],
+      ['terms', 'Terms of Service', 'terms'],
+      ['acceptable-use', 'Acceptable Use Policy', 'acceptable-use'],
+    ]) {
+      const route = routes.find((candidate) => candidate.path === path);
+
+      expect(await route?.loadComponent?.()).toBe(LegalPageComponent);
+      expect(route?.canActivate).toBeUndefined();
+      expect(route?.pathMatch).toBe('full');
+      expect(route?.data).toEqual({ title, legal });
+    }
+  });
+
   /**
    * ':workspaceSlug' matches any single segment, so a literal route after it would never be reached — the
    * router would send /pricing through authGuard as if it were a workspace. The server holds the other half:
@@ -79,6 +95,7 @@ describe('app routes', () => {
     const slug = routes.findIndex((route) => route.path === ':workspaceSlug');
 
     expect(literals).toContain('pricing');
+    expect(literals).toEqual(jasmine.arrayContaining(['privacy', 'terms', 'acceptable-use']));
     for (const literal of literals) {
       expect(routes.findIndex((route) => route.path === literal)).toBeLessThan(slug);
     }

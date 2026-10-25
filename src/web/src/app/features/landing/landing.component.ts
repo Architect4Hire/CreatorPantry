@@ -9,7 +9,6 @@ import { LandingHeroComponent } from './landing-hero.component';
 import { LandingHowItWorksComponent } from './landing-how-it-works.component';
 import { LandingRevealDirective } from './landing-reveal.directive';
 import { LandingPricingComponent } from './landing-pricing.component';
-import { LandingCompareComponent } from './landing-compare.component';
 import { LandingCreditsComponent } from './landing-credits.component';
 import { LandingFaqComponent } from './landing-faq.component';
 import { LandingPromisesComponent } from './landing-promises.component';
@@ -19,9 +18,11 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
 
 /**
  * The public landing page: L.3–L.7's sections composed in order, with the product tour under the value props,
- * how-it-works after it, and then the catalogue's own sections — pricing, the credit menu, the draft-and-final
- * pair and the billing promises — each of which renders only where a
- * deployment publishes the catalogue it reads (LP.6, LP.7, LP.8). `<cp-landing-footer>` sits outside
+ * how-it-works after it, and then the catalogue's own sections — pricing, the credit menu and the billing
+ * promises — each of which renders only where a deployment publishes the catalogue it reads (LP.6, LP.7,
+ * LP.8). There is no draft-and-final picture band: the product makes one kind of picture, with no quality to
+ * choose (AP.3.1 is not built), so a band comparing two would be selling a feature that does not exist.
+ * `<cp-landing-footer>` sits outside
  * `<main>` on purpose — nesting a `<footer>` inside `<main>` strips its `contentinfo` landmark role.
  *
  * It answers at two addresses (LP.10): `''`, and `/pricing`, which is this same page opened at its pricing
@@ -38,7 +39,6 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
     LandingTourComponent,
     LandingPricingComponent,
     LandingCreditsComponent,
-    LandingCompareComponent,
     LandingPromisesComponent,
     LandingFaqComponent,
     LandingHowItWorksComponent,
@@ -102,17 +102,26 @@ export class LandingComponent {
           if (arrived || !target) return;
 
           arrived = true;
-          // No animation: there is nothing on screen yet for a slide to explain.
-          target.scrollIntoView({ behavior: 'auto', block: 'start' });
-
-          // So the first Tab starts at the section the address named rather than at the top of the page. The
-          // attribute stays: `-1` adds no tab stop, and taking it off an element that currently has focus
-          // makes it unfocusable again, which hands focus straight back to the body.
-          target.setAttribute('tabindex', '-1');
-          target.focus({ preventScroll: true });
+          // After the typefaces: a font that swaps in once the jump is made re-wraps every section above this
+          // one, and moved the section by as much as 60px off where it was put (LP.12).
+          void (this.document.fonts?.ready ?? Promise.resolve()).then(() => this.arriveAt(target));
         },
         { injector },
       );
     });
+  }
+
+  private arriveAt(target: HTMLElement): void {
+    // No animation: there is nothing on screen yet for a slide to explain.
+    target.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+    // So the first Tab starts at the section the address named rather than at the top of the page, and the
+    // section's name is what is announced. Its heading takes focus, not the section: the ring shows on a focused
+    // heading (DESIGN-SYSTEM.md), and drawn round a whole section it framed the screen. The attribute stays: `-1`
+    // adds no tab stop, and taking it off an element that currently has focus makes it unfocusable again, which
+    // hands focus straight back to the body.
+    const heading = target.querySelector<HTMLElement>('h2') ?? target;
+    heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
   }
 }
