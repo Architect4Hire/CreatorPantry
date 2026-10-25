@@ -395,23 +395,58 @@
 
   <section aria-labelledby="empty-state-heading">
     <h2 id="empty-state-heading">Empty state</h2>
-    <p class="section-note">First-use and no-results variants — action order is DOM order.</p>
+    <p class="section-note">
+      First-use and no-results variants — action order is DOM order. With an <code>illustration</code> a first use
+      is the roomy layout and takes the page's tone (the pink one is inside an Image Studio tone); no-results stays
+      compact. Without one it is the older glyph in a disc.
+    </p>
     <div class="card-row">
       <cp-card [flush]="true">
-        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use">
+        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use" illustration="recipe">
           <div cpEmptyStateActions>
             <button cpButton>＋ Create recipe</button>
           </div>
         </cp-empty-state>
       </cp-card>
+      <div data-cp-tone="pink">
+        <cp-card [flush]="true">
+          <cp-empty-state title="No pictures yet" description="Pictures you make or keep land here, newest first." variant="first-use" illustration="picture">
+            <div cpEmptyStateActions>
+              <button cpButton>Make a picture</button>
+            </div>
+          </cp-empty-state>
+        </cp-card>
+      </div>
       <cp-card [flush]="true">
-        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" icon="⌕">
+        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" illustration="search">
           <div cpEmptyStateActions>
             <button cpButton variant="secondary">Clear filters</button>
           </div>
         </cp-empty-state>
       </cp-card>
+      <cp-card [flush]="true">
+        <cp-empty-state title="No notes yet" description="The older glyph, for a page not yet drawn." variant="first-use" icon="✎" />
+      </cp-card>
     </div>
+  </section>
+
+  <section aria-labelledby="illustration-heading">
+    <h2 id="illustration-heading">Illustrations</h2>
+    <p class="section-note">
+      The drawn set, for empty states and cards with no picture: line art in <code>currentColor</code>, so each takes
+      the tone it sits in. Decorative — the words beside one say what it shows.
+    </p>
+    @for (tone of tones; track tone.name) {
+      <div class="illustration-row" [attr.data-cp-tone]="tone.name">
+        <code>{{ tone.name ?? 'none' }}</code>
+        @for (name of illustrationNames; track name) {
+          <figure>
+            <cp-illustration [name]="name" />
+            <figcaption>{{ name }}</figcaption>
+          </figure>
+        }
+      </div>
+    }
   </section>
 
   <section aria-labelledby="uploader-heading">

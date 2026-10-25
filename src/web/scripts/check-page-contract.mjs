@@ -47,6 +47,7 @@ export const RULES = {
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
+  illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set; a feature draws none of its own.",
   skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
@@ -123,6 +124,7 @@ const OWNED_CLASSES = {
   board: ['board', 'board-column', 'lane', 'lanes', 'kanban'],
   stepper: ['step-list', 'steps', 'stepper'],
   chip: ['chip', 'chips'],
+  illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art'],
   utilities: ['cp-muted', 'cp-actions', 'cp-disclosure', 'muted', 'actions'],
 };
 
@@ -181,6 +183,18 @@ export function stylesheetViolations(css) {
 }
 
 /** What any template under the shell may not hold. */
+/** A feature's own folder, where a template draws no picture of its own. */
+const FEATURE = /[\\/]src[\\/]app[\\/]features[\\/]/;
+
+/**
+ * `illustration`, for a feature's template: an inline `<svg>` is a drawing the feature made for itself, which is
+ * `cp-illustration`'s to draw (AU.2.4). Comments are left out; a picture of the creator's is an `<img>`, not this.
+ */
+export function featureTemplateViolations(html) {
+  const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
+  return [...markup.matchAll(/<svg[\s>]/g)].map((m) => ({ rule: 'illustration', line: lineAt(markup, m.index), what: 'draws an inline <svg>' }));
+}
+
 export function templateViolations(html) {
   const found = [];
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
@@ -363,12 +377,15 @@ function run() {
 
   const files = filesUnder(appDir).filter((file) => !OUTSIDE_SHELL.test(file) && !file.endsWith('.spec.ts'));
   for (const file of files) {
+    // A feature's own templates also may not draw: the shell's nav icons are chrome and sit outside features/.
+    const feature = FEATURE.test(file);
+    const markup = (html) => [...templateViolations(html), ...(feature ? featureTemplateViolations(html) : [])];
     if (file.endsWith('.css')) report(file, 0, stylesheetViolations(read(file)));
-    else if (file.endsWith('.html')) report(file, 0, templateViolations(read(file)));
+    else if (file.endsWith('.html')) report(file, 0, markup(read(file)));
     else if (file.endsWith('.ts')) {
       const inline = inlineParts(read(file));
       if (inline.styles) report(file, inline.styles.line - 1, stylesheetViolations(inline.styles.text));
-      if (inline.template) report(file, inline.template.line - 1, templateViolations(inline.template.text));
+      if (inline.template) report(file, inline.template.line - 1, markup(inline.template.text));
       report(file, 0, scriptViolations(read(file)));
     }
   }

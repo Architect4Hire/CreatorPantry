@@ -203,11 +203,20 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(toolbar.querySelectorAll('[cpToolbarOverflow]').length).toBe(2);
   });
 
-  it('renders both empty-state variants with a projected action', async () => {
+  it('renders both empty-state variants, drawn and as the older glyph, with a projected action', async () => {
     const fixture = await createFixture();
-    const emptyStates = fixture.nativeElement.querySelectorAll('cp-empty-state');
-    expect(emptyStates.length).toBe(2);
+    const emptyStates = [...fixture.nativeElement.querySelectorAll('cp-empty-state')] as HTMLElement[];
+    expect(emptyStates.map((state) => state.getAttribute('data-variant'))).toEqual(['first-use', 'first-use', 'no-results', 'first-use']);
+    expect(emptyStates.filter((state) => state.querySelector('cp-illustration')).length).toBe(3);
+    expect(emptyStates[3].querySelector('.icon')).toBeTruthy();
     expect(emptyStates[0].querySelector('[cpEmptyStateActions] button')).toBeTruthy();
+  });
+
+  it('shows every illustration in every tone', async () => {
+    const fixture = await createFixture();
+    const rows = fixture.nativeElement.querySelectorAll('.illustration-row');
+    expect(rows.length).toBe(5);
+    expect(rows[0].querySelectorAll('cp-illustration').length).toBe(10);
   });
 
   it('renders one uploader row per seeded item and removes it on remove', async () => {

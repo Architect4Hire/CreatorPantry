@@ -46,7 +46,8 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpSkeletonComponent`: what is loading, drawn as `line`, `block`, `circle` or `card` (a media-card silhouette, as a card grid), `count` of them. `aria-hidden` — the loading region owns `aria-busy` and its one status sentence; shimmers by `background-position`, still under reduced motion. Use it rather than a "Loading…" sentence or a `.skeleton` in a feature stylesheet
 - `CpTabsComponent` / `CpTabPanelComponent`: ARIA tabs pattern, roving tabindex, disabled tabs, lazy-mounted panels
 - `CpToolbarComponent`: search/filters/actions/overflow slots, loading/disabled states, roving-tabindex keyboard nav
-- `CpEmptyStateComponent`: title/description/icon, projected actions slot, `first-use | no-results` variants
+- `CpEmptyStateComponent`: title/description, `illustration` (one of the drawn set; wins over the older `icon` glyph), projected actions slot, `first-use | no-results` variants. Drawn, a first use is the roomy layout in `--cp-tone-text`; no-results stays compact and uses `search`
+- `CpIllustrationComponent` (`cp-illustration`): the drawn set — `recipe`, `picture`, `post`, `article`, `calendar`, `board`, `prompt`, `brand`, `search`, `sparkle` — inline SVG in `currentColor`, `aria-hidden`, `--cp-illustration-size` (7rem). Drawn for this library; no claims on food. Use it rather than an `.illustration` or a drawing in a feature
 - `CpUploaderComponent`: browse/drag-drop shell, per-item queued/uploading/success/error rendering, retry/cancel/remove — no transport of its own
 - `CpDiffLegendComponent`: legend for `added | removed | changed | moved | unchanged | warning | selected`; presentation only, no diff computation
 - `CpToastRegionComponent`: polite/assertive toast region, auto-dismiss with hover/focus pause, dedup, persistent warning/error

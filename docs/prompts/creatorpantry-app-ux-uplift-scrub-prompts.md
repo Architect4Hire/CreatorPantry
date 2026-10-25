@@ -488,7 +488,7 @@ AU.4.2, AU.6.1 and AU.6.3 now say so. AU.7 now names what is left: about thirty 
 *`npm run build` passes, the library is 366/366, and the page contract holds. The showcase's failures were only
 in the known order-dependent families, and My Week and the content board pass alone (227/227).*
 
-## AU.2.4 Empty states with illustrations
+## AU.2.4 Empty states with illustrations - done
 
 ```text
 SCOPE: Give cp-empty-state an illustration input naming one of a small drawn set: recipe, picture, post,
@@ -506,6 +506,33 @@ UTILIZATION: creatorpantry-design-system skill; design-review.
 BEHAVIOR: Show the illustration set in both themes and every tone; wait for approval; implement with specs,
 update the showcase and docs, run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the drawn set from a preview grid of all ten drawings ×
+both themes × no tone and the four tones.*
+
+- *They live in a new public part, `CpIllustrationComponent` (`cp-illustration`), rather than inside
+  `cp-empty-state`, because AU.2.6 reuses them on cards with no picture.*
+- *Each drawing is inline SVG via `@switch`, so no `innerHTML` and no sanitizer. It is `currentColor` on a faint wash
+  of itself, `aria-hidden`, sized by `--cp-illustration-size` (7rem), and drops the wash and fills under forced
+  colours.*
+- *`CP_ILLUSTRATION_NAMES` is the single list the type derives from.*
+
+*`cp-empty-state` gained `illustration`, which wins over `icon`. **A judgement call:** the roomy first-use layout
+applies only when an illustration is given — art at 7rem in `--cp-tone-text`, the title at `--cp-font-size-xl`,
+the sentence at `--cp-font-size-md`. Read literally, the SCOPE says the first-use variant becomes roomier, but 26
+feature files use `cp-empty-state` and "pages adopt it in their own prompts", so an undrawn page keeps its glyph and
+its old proportions. `design-review` agreed. A no-results state stays compact, with the art at 4.5rem.*
+
+*The `illustration` contract rule fails:*
+
+- *a stylesheet that styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration` or `.spot-art`;*
+- *a template under `src/app/features/` that draws an inline `<svg>`. The shell's nav icons sit outside that folder.*
+
+*No feature changed. The specs assert that the SVG namespace survives `@switch`, and that a consumer's
+`--cp-illustration-size` is honoured. On the real showcase, in both themes, the pink drawing takes the Image
+Studio tone while its button stays evergreen.*
+
+*`npm run build` passes. The library is 382/382, the showcase 6083/6083, and the page contract holds.*
 
 ## AU.2.5 Page head accent and record picture
 

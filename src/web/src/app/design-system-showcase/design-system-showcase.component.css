@@ -289,3 +289,29 @@ code {
   gap: var(--cp-space-5);
   max-width: 48rem;
 }
+
+.illustration-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-tone-text);
+}
+
+.illustration-row code {
+  min-width: 4rem;
+  color: var(--cp-text-muted);
+}
+
+.illustration-row figure {
+  display: grid;
+  justify-items: center;
+  gap: var(--cp-space-1);
+  margin: 0;
+  --cp-illustration-size: 4.5rem;
+}
+
+.illustration-row figcaption {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}

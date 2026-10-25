@@ -29,6 +29,9 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpIllustrationComponent,
+  CpIllustrationName,
+  CP_ILLUSTRATION_NAMES,
   CpListShellComponent,
   CpListShellLoadingLayout,
   CpListShellState,
@@ -97,6 +100,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpStatusPillComponent,
     CpListShellComponent,
     CpSkeletonComponent,
+    CpIllustrationComponent,
     CpTabsComponent,
     CpTabPanelComponent,
     CpToolbarComponent,
@@ -326,6 +330,9 @@ export class DesignSystemShowcaseComponent {
   onUploaderRemove(id: string): void {
     this.uploadItems.update((items) => items.filter((item) => item.id !== id));
   }
+
+  /** The drawn set (AU.2.4), every one of it. */
+  readonly illustrationNames: readonly CpIllustrationName[] = CP_ILLUSTRATION_NAMES;
 
   /** Every tool tone (AU.1, D1), and no tone, which is the primary. */
   readonly tones: readonly { name: 'purple' | 'pink' | 'blue' | 'orange' | null; tool: string }[] = [

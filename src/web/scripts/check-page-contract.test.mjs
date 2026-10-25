@@ -15,6 +15,7 @@ import {
   pageTemplateViolations,
   publicStylesheetViolations,
   publicTemplateViolations,
+  featureTemplateViolations,
   scriptViolations,
   stylesheetViolations,
   templateViolations,
@@ -107,6 +108,13 @@ test('tone: the shell sets the tone once, on the page frame', () => {
   const uses = shell.split('\n').filter((line) => line.includes('data-cp-tone'));
   assert.equal(uses.length, 1, uses.join('\n'));
   assert.match(uses[0], /class="page-frame"[^>]*\[attr\.data-cp-tone\]="currentPageTone\(\)"/);
+});
+
+test('illustration: a feature draws no empty-state art of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.illustration { width: 7rem; } .empty-art svg { stroke: red; }')), ['illustration', 'illustration']);
+  assert.deepEqual(stylesheetViolations('.illustration-credit { font-size: 12px; } .art-direction { margin: 0; }'), []);
+  assert.deepEqual(rules(featureTemplateViolations('<div><svg viewBox="0 0 10 10"><path d="M0 0"/></svg></div>')), ['illustration']);
+  assert.deepEqual(featureTemplateViolations('<!-- an <svg> once lived here --><cp-illustration name="recipe" /><img src="x.png" alt="">'), []);
 });
 
 test('skeleton: a feature draws no placeholder or shimmer of its own', () => {
