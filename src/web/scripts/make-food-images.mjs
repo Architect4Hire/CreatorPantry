@@ -36,7 +36,7 @@ const COUNT = 12;
 const WIDTHS = [480, 960];
 const QUALITY = { avif: 50, webp: 75, jpeg: 72 };
 
-/** Every photo is a 2:3 portrait, and the collage and the marquee both reserve that ratio before loading. */
+/** Every photo is a 2:3 portrait, and the collage reserves that ratio before loading. */
 const ASPECT = 2 / 3;
 
 /** The one format every browser has. It is what the `<img>` inside each `<picture>` falls back to. */

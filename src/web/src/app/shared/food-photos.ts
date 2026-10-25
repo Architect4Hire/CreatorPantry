@@ -13,8 +13,7 @@
  * pool, so the page showed nine of twelve in a different scatter on every load. That cost two things LP.11
  * needs: first-load image bytes that vary by roughly 40 KB per load cannot be measured against a budget, and a
  * photo whose name is only known once the lazy chunk runs cannot be preloaded from the document. So the hero's
- * three are {@link HERO_COLLAGE_PHOTOS} and the marquees run all twelve in {@link MARQUEE_ORDER}. The page
- * shows more photographs than it used to, not fewer — the variety moved from load-to-load into the page itself.
+ * three are {@link HERO_COLLAGE_PHOTOS}, the same three on every load.
  */
 
 /** Every photo the page has, by id. `photo-<id>-<width>.<format>` is the file naming the script writes. */
@@ -69,13 +68,6 @@ export function foodPhoto(id: number): FoodPhoto {
  * `landing-document-head.spec.ts` checks, so the two cannot drift apart unnoticed.
  */
 export const HERO_COLLAGE_PHOTOS = { front: 1, backLeft: 11, backRight: 6 } as const;
-
-/**
- * The order the marquee runs all twelve in: light and dark plates alternating, and no two photographs of the
- * same dish shape next to each other. The second strip runs it backwards, so two strips on one page never read
- * as the same strip drawn twice.
- */
-export const MARQUEE_ORDER: readonly number[] = [6, 3, 11, 9, 2, 7, 12, 5, 10, 4, 1, 8];
 
 /**
  * One photo at random, for the sign-in and sign-up frame, which is not a page under LP.11's budget and has

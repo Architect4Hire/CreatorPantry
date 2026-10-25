@@ -1,4 +1,4 @@
-import { FOOD_PHOTO_IDS, HERO_COLLAGE_PHOTOS, MARQUEE_ORDER, foodPhoto, randomFoodPhotoId } from './food-photos';
+import { FOOD_PHOTO_IDS, HERO_COLLAGE_PHOTOS, foodPhoto, randomFoodPhotoId } from './food-photos';
 
 describe('the landing page food photos', () => {
   it('offers every built width of every format, newest format first', () => {
@@ -30,10 +30,6 @@ describe('the landing page food photos', () => {
 
     expect(new Set(chosen).size).toBe(3);
     chosen.forEach((id) => expect(FOOD_PHOTO_IDS).toContain(id));
-  });
-
-  it('runs every photograph through the marquee exactly once', () => {
-    expect([...MARQUEE_ORDER].sort((a, b) => a - b)).toEqual([...FOOD_PHOTO_IDS].sort((a, b) => a - b));
   });
 
   /** Only the sign-in and sign-up frame asks for this; the landing page is deterministic end to end. */

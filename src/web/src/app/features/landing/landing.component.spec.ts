@@ -44,7 +44,7 @@ describe('LandingComponent', () => {
     return fixture;
   }
 
-  it('composes the landing sections and both photo strips, in order, inside <main>', async () => {
+  it('composes the landing sections, in order, inside <main>', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
     const main = el.querySelector('main')!;
@@ -54,9 +54,7 @@ describe('LandingComponent', () => {
       'cp-landing-hero',
       'cp-landing-value-props',
       'cp-landing-tour',
-      'cp-landing-photo-marquee',
       'cp-landing-how-it-works',
-      'cp-landing-photo-marquee',
       'cp-landing-pricing',
       'cp-landing-credits',
       'cp-landing-compare',

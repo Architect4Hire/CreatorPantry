@@ -7,7 +7,6 @@ import { LandingFooterComponent } from './landing-footer.component';
 import { LandingHeroCollageComponent } from './landing-hero-collage.component';
 import { LandingHeroComponent } from './landing-hero.component';
 import { LandingHowItWorksComponent } from './landing-how-it-works.component';
-import { LandingPhotoMarqueeComponent } from './landing-photo-marquee.component';
 import { LandingRevealDirective } from './landing-reveal.directive';
 import { LandingPricingComponent } from './landing-pricing.component';
 import { LandingCompareComponent } from './landing-compare.component';
@@ -20,8 +19,8 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
 
 /**
  * The public landing page: L.3–L.7's sections composed in order, with the product tour under the value props,
- * a drifting strip of photographs after it, another after how-it-works, and then the catalogue's own sections — pricing, the
- * credit menu, the draft-and-final pair and the billing promises — each of which renders only where a
+ * how-it-works after it, and then the catalogue's own sections — pricing, the credit menu, the draft-and-final
+ * pair and the billing promises — each of which renders only where a
  * deployment publishes the catalogue it reads (LP.6, LP.7, LP.8). `<cp-landing-footer>` sits outside
  * `<main>` on purpose — nesting a `<footer>` inside `<main>` strips its `contentinfo` landmark role.
  *
@@ -42,7 +41,6 @@ import { LandingValuePropsComponent } from './landing-value-props.component';
     LandingCompareComponent,
     LandingPromisesComponent,
     LandingFaqComponent,
-    LandingPhotoMarqueeComponent,
     LandingHowItWorksComponent,
     LandingTrustComponent,
     LandingFinalCtaComponent,
