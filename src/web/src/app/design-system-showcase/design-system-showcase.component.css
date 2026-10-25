@@ -222,6 +222,61 @@ code {
   gap: var(--cp-space-5);
 }
 
+.tone-list {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tone-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.tone-fill,
+.tone-soft {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  font-weight: 600;
+}
+
+.tone-fill {
+  min-width: 11rem;
+  background: var(--cp-tone);
+  color: var(--cp-tone-on);
+}
+
+.tone-soft {
+  background: var(--cp-tone-soft);
+  color: var(--cp-tone-text);
+}
+
+.tone-text {
+  color: var(--cp-tone-text);
+  font-weight: 600;
+}
+
+.tone-skeleton {
+  display: grid;
+  gap: var(--cp-space-2);
+  max-width: 24rem;
+}
+
+.tone-skeleton span {
+  height: 0.875rem;
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-skeleton-base);
+}
+
+.tone-skeleton span:last-child {
+  width: 60%;
+  background: var(--cp-skeleton-shine);
+}
+
 .focus-tint {
   display: inline-flex;
   padding: var(--cp-space-4);

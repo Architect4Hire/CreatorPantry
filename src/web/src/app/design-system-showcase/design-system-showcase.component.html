@@ -132,6 +132,31 @@
     </cp-card>
   </section>
 
+  <section aria-labelledby="tones-heading">
+    <h2 id="tones-heading">Tool tones</h2>
+    <p class="section-note">
+      A route sets <code>data-cp-tone</code> on the page frame and every part under it draws with
+      <code>--cp-tone</code>, <code>--cp-tone-soft</code>, <code>--cp-tone-text</code> and
+      <code>--cp-tone-on</code>. No tone is the primary. The tone marks the tool, never the primary action or a
+      status. Switch themes: every text here holds 4.5:1.
+    </p>
+    <ul class="tone-list">
+      @for (tone of tones; track tone.name) {
+        <li class="tone-row" [attr.data-cp-tone]="tone.name">
+          <span class="tone-fill">{{ tone.tool }}</span>
+          <span class="tone-soft">On its tint</span>
+          <span class="tone-text">As text</span>
+          <code>{{ tone.name ?? 'none' }}</code>
+        </li>
+      }
+    </ul>
+    <p class="section-note">A skeleton's resting block and its shine, shown still.</p>
+    <div class="tone-skeleton" aria-hidden="true">
+      <span></span>
+      <span></span>
+    </div>
+  </section>
+
   <section aria-labelledby="dialog-heading">
     <h2 id="dialog-heading">Dialog</h2>
     <p class="section-note">With and without a description, and long scrolling content.</p>

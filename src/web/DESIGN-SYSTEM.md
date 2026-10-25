@@ -6,8 +6,8 @@ CreatorPantry is a focused production workspace for food bloggers and content cr
 
 ## Layers
 
-1. Primitive tokens define scale: spacing, type, radii, motion, z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), and three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating).
+1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, and a skeleton's sweep, `--cp-duration-skeleton`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's two colours (`--cp-skeleton-base`, `--cp-skeleton-shine`).
 3. Angular primitives implement interaction and accessibility.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
@@ -326,6 +326,84 @@ What a drawer does, so a feature does not have to:
 - **It slides on `--cp-duration-normal` and `--cp-ease`,** and does not move at all under `prefers-reduced-motion`.
 
 `CpDialogComponent` and `CpLightboxComponent` share the focus return, the Tab trap and the scroll lock (`modal-surface.ts`, internal to the library). Each stays where it is in the DOM and does not make the page inert. They are two components: a drawer is not a dialog variant, and neither takes an input that turns it into the other.
+
+### Warmth inside the app
+
+The app takes the landing page's accents, imagery, hierarchy and finish, and leaves its marketing behind: no
+scroll reveal, no hero collage, no colour-blocked bands, no decorative photography. It stays a tool that scans
+fast. The owner settled five questions on 2026-10-25 (`docs/prompts/creatorpantry-app-ux-uplift-scrub-prompts.md`,
+D1–D5). Each part named here is built by the AU prompt in brackets, and until it is built no page draws the look
+by hand.
+
+**A tool has one tone (D1).** Five creative tools wear a fruit accent, and nothing else does:
+
+| Tool | Tone |
+| --- | --- |
+| AI Recipe Studio | purple |
+| Image Studio | pink |
+| Social Studio | blue |
+| Long-form, Content Pipeline | orange |
+| Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week, the dashboard | none: evergreen |
+| Workflows hub, a guided run, Quick Recipe, Workspace settings, AI allowance | none: evergreen (not named by D1; untoned by default) |
+
+- **The route owns it.** A route declares `data: { tone }` and the shell's page frame sets `data-cp-tone` inside
+  `<main>`. A feature stylesheet or template neither sets `data-cp-tone` nor declares a `--cp-tone*`. AU.2.1
+  builds both, and adds the page-contract rule that will enforce this.
+- **A drawer keeps the tone of the page that opened it.** `cp-drawer` moves itself to `<body>` while open, outside
+  the frame, so it carries the opener's tone with it (AU.2.1). The nav and the top bar never take a tone.
+- **Parts draw with four tokens.** These are `--cp-tone` (a fill or an edge), `--cp-tone-soft` (a tint),
+  `--cp-tone-text` (the tone as text) and `--cp-tone-on` (text or a glyph on a `--cp-tone` fill). With no tone set
+  they are the primary's four, so on the page a part written against them looks as it did on an untoned page.
+- **Sparingly.** The tone marks where you are: the head's icon tile and hairline (D3), a toned flow's progress and
+  stepper, an illustration (D5). It is never the primary action — Save, Generate and Continue stay evergreen,
+  the action colour on every page — and never the nav, body text, a field, or a section's background. The one
+  exception to the last is the single featured card a page may have (AU.3.3), whose surface is
+  `--cp-tone-soft`.
+- **A tone is not a status.** The accents still colour badges and status pills, where a word and a glyph carry
+  the state, so the Direction's "tools and states" stands. The tone is the accent picked for a tool's identity,
+  and nothing reads as success, warning or "made by AI" because of it.
+- **One tool, one tone, everywhere it appears.** A dashboard link into Image Studio is pink there too.
+- **Measured.** In both themes, `--cp-tone-text` clears 4.5:1 on `--cp-bg`, every surface, `--cp-field-bg` and its
+  own soft tint (4.53:1 at worst, primary on the raised surface in light). `--cp-tone-on` clears 4.5:1 on
+  `--cp-tone` (5.01:1 at worst). Orange's text in the light theme is a step darker than its fill (`--cp-orange-text`):
+  the carrot itself is 4.25:1 on the raised surface. `design-system.spec.ts` measures every pair.
+
+**The dark card becomes a dark card (D2).** Parchment is replaced by a raised dark surface (AU.2.2). Until that
+lands, the card's re-declarations described under "The focus ring" stand, and no page wears a tone. Inside a
+parchment card every accent is 1.38–2.28:1 as text on its surfaces. Even an untoned `--cp-tone-text` is the dark
+page's mint there (1.45:1), because a tone token is computed where the theme declares it and the card's own
+re-declarations never reach it.
+
+**The page head says which tool (D3)** (AU.2.5). Beside the title sits a tone-filled tile holding the nav's icon
+for the page, passed by name so the library names no route. The head's hairline takes `--cp-tone`. A detail page
+may put the record's own picture in a media slot: a fixed-ratio thumbnail beside the title on a wide screen and
+above it on a narrow one. The title keeps `--cp-font-size-title`. The display size and the brush underline stay
+the public hero's (Content hierarchy, above). The media slot holds the thing itself or nothing, never a stand-in
+or a decoration.
+
+**Content arrives once, gently (D4)** (AU.3.4). The first time a route's content or a result renders, it fades
+in and rises `--cp-enter-distance` over `--cp-duration-enter`, list items `--cp-enter-stagger` apart. The library
+applies it where it is always right — a list shell's ready content, a generated result arriving, a group of
+options — and pages do not apply it themselves. It does not replay on a filter change, a save or a re-render.
+There is no scroll reveal, and under `prefers-reduced-motion` nothing moves and nothing waits. `global.css` zeroes
+durations but not delays, so the entrance clears its stagger delay there too; otherwise a list item would sit
+invisible for its turn.
+
+**An empty state is drawn (D5)** (AU.2.4). A small set of line illustrations — recipe, picture, post, article,
+calendar, board, prompt, brand, search, sparkle — drawn for this library as inline SVG in `currentColor`, so
+they take `--cp-tone-text` and both themes. They are `aria-hidden`: the title and sentence beside one say
+everything it shows. They are not stock, not traced, not generated by a model, and no drawing of food carries a
+claim. A first-use state is roomy and leads to its one action; a no-results state stays compact and uses
+"search".
+
+**Loading looks like what is coming** (AU.2.3, AU.7). A skeleton draws the shape about to arrive — rows, or
+card silhouettes — on `--cp-skeleton-base`, with `--cp-skeleton-shine` sweeping across it by
+`background-position` over `--cp-duration-skeleton`. It is static under reduced motion. Its host is
+`aria-hidden`; the region that is loading carries `aria-busy` and one visually hidden status sentence, so a
+screen reader hears that it is loading exactly once. A skeleton sits on the page or a sheet (`--cp-bg`,
+`--cp-surface`), where it reads; on the subtle and raised surfaces it all but vanishes. No page shows a visible
+"Loading…" sentence, except a pager button saying "Loading more…" while it fetches (AU.7). The page head's
+title is never a loading sentence: it is the route's title, or a skeleton line where the record's title will be.
 
 ### What the build checks
 

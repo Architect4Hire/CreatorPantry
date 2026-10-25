@@ -82,8 +82,10 @@ strong." Then: "create the prompts … where they don't run the backend unit tes
 | D1 | Which accent belongs to which tool? | AI Recipe Studio purple, Image Studio pink, Social Studio blue, Long-form and Content Pipeline orange. Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week and the dashboard stay evergreen (no tone). A tool keeps one tone everywhere it appears. |
 | D2 | Does `cp-card` stay parchment in dark mode? | **Replace it with a true dark raised surface.** Today a dark page is a set of cream islands (`card.component.ts:11-40`); LP.1 finding 9 flagged the same thing on the landing page. It is the largest single visual change in this document and needs its own prompt (AU.2.2), with every LP.11A focus ratio re-measured. Keeping parchment is a valid choice; if kept, AU.2.2 is skipped. |
 | D3 | What does a page head's accent look like? | A tone-filled icon tile beside the title, a tone hairline under the head instead of the neutral one, and an optional thumbnail slot for a detail page's own picture. The brush underline stays a public-hero device. On a dense tool page it reads as marketing. |
-| D4 | Does content animate in? | One short fade-and-rise (`--cp-duration-base` or less) when a route's content or a result first renders, done in the library, and nothing under `prefers-reduced-motion`. No scroll reveal inside the app. |
+| D4 | Does content animate in? | One short fade-and-rise (`--cp-duration-enter`, 200ms, which AU.1 added; there is no `--cp-duration-base`) when a route's content or a result first renders, done in the library, and nothing under `prefers-reduced-motion`. No scroll reveal inside the app. |
 | D5 | Illustrations for empty states? | A small set of drawn line illustrations as inline SVG in the library, one colour (`currentColor`, picking up the tone), decorative (`aria-hidden`). Not stock photos and not AI-generated pictures, so they stay crisp, theme-aware and weightless. |
+
+*Settled by the owner, 2026-10-25: all five as recommended. D2 replaces parchment, so AU.2.2 runs in full.*
 
 ## How this list was built
 
@@ -227,7 +229,7 @@ AU.8 as "From AU.0" sentences.*
 
 *The library suite is 326/326.*
 
-## AU.1 Design decisions, rules and tokens
+## AU.1 Design decisions, rules and tokens - done
 
 ```text
 SCOPE: Settle D1-D5 with the owner, then write them down and add the tokens they need. In DESIGN-SYSTEM.md:
@@ -249,6 +251,53 @@ then write the rules and tokens, show the contrast table, run npm run build and 
 report.
 ```
 
+*Delivery note (2026-10-25): the owner chose all five recommendations. The decisions are written into
+DESIGN-SYSTEM.md "Warmth inside the app", its "Layers" list, and `.claude/rules/design-system.md`. Line 27
+stands, because D3 chose no underline.*
+
+*Tokens:*
+
+- *In `themes.css`, for light, dark and print:*
+  - *`--cp-{pink,orange,purple,blue}-text`.*
+  - *The four tone defaults, `--cp-tone`, `-soft`, `-text` and `-on`, which are the primary's.*
+  - *`--cp-skeleton-base` and `-shine`.*
+  - *Four `[data-cp-tone]` rules, last in the file so a tone wins over print.*
+- *In `tokens.css`: `--cp-duration-enter` (200ms), `--cp-enter-distance`, `--cp-enter-stagger` and
+  `--cp-duration-skeleton`. There was no `--cp-duration-base`, and D4 now says so.*
+
+*What differs from the prompt:*
+
+- *Orange cannot be its own text in the light theme. It is 4.25:1 on the raised surface and 4.37:1 on the subtle
+  one, so `--cp-orange-text` is `#a84a0a`, at 4.87:1. That is why the accents gained `-text` tokens.*
+- *The showcase had no token page. It gained a "Tool tones" section instead, showing each tone as a fill, a tint
+  and text, plus the skeleton, in both themes.*
+
+*Measured minimums across `--cp-bg`, the three surfaces, `--cp-field-bg` and the tone's own tint:*
+
+| Theme | Worst `--cp-tone-text` | Worst `--cp-tone-on` on `--cp-tone` |
+| --- | --- | --- |
+| Light | 4.53:1 (no tone, on the raised surface) | 5.01:1 (orange) |
+| Dark | 5.21:1 (pink, on the raised surface) | 7.25:1 (pink) |
+
+*`design-system.spec.ts` measures the 10 theme × tone cases and the skeleton. Its orange case failed at 4.25:1
+with the raw carrot, before the fix.*
+
+*`design-review` raised these, now handled:*
+
+- *The tone defaults are wrong inside a parchment card. They are now documented, and AU.2.2 must prove them.*
+- *A drawer leaves the toned frame. AU.2.1 gains that.*
+- *Reduced motion zeroes durations but not delays. AU.3.4 gains that.*
+- *The tone block came before the print rules. It has moved after them.*
+- *Wording: tone versus status, the featured card's tinted surface, "Loading more…", and pages D1 did not name.*
+
+*One question is left for the owner, written into AU.3.1: should AI output be edged in purple on every tool, or
+take no tone?*
+
+*`npm run build` and `npm test` pass. The library is 338/338 and the page contract holds. The showcase was
+6075/6075 on the final run. Earlier runs this session failed 5 to 30 specs in the known order-dependent
+families: content card, landing credits, pricing and collage, and recipe-editor scroll. That is not caused by
+this change, and it has not been fixed.*
+
 ## AU.2.1 Tone plumbing
 
 ```text
@@ -256,7 +305,9 @@ SCOPE: A route may declare data: { tone: 'purple' | 'pink' | 'blue' | 'orange' }
 it and sets data-cp-tone on the frame element inside <main>, so every part on the page resolves --cp-tone*
 from AU.1. Set the D1 tones on the routes for AI Recipe Studio, Image Studio, Social Studio, Long-form and the
 Content Pipeline (and their child routes). Add a page-contract rule "tone": a feature stylesheet or template
-neither sets data-cp-tone nor declares --cp-tone*; the route owns it.
+neither sets data-cp-tone nor declares --cp-tone*; the route owns it. From AU.1's review: cp-drawer moves itself
+to <body> while open, outside the frame, so a drawer opened on a toned page would draw untoned. When it opens it
+carries the opener's nearest data-cp-tone onto its own host; test that too.
 CONSTRAINT: APP-002; AU.1 tokens; frontend.md "The shell's page frame owns the one gutter"; the existing
 pageWidth route-data handling in the shell, which this mirrors.
 RESTRICTION: The nav, the sidebar's active-item style and the top bar do not change colour with the tone.
@@ -279,7 +330,10 @@ describes the card's re-declared ring. From AU.0: also remove the card-scoped --
 fix added. Then make the danger family read inside a dark card: a field's error text is --cp-danger on the
 card at 2.22:1, and the cp-form-section problem banner and cp-validation-summary put ink on a --cp-danger-soft
 mixed against the dark page. Do the same for the pink, orange, purple and blue tints. If D2 keeps parchment,
-this prompt still runs, limited to the danger family and the other tints.
+this prompt still runs, limited to the danger family and the other tints. From AU.1: the tone tokens are
+computed where the theme declares them, so on parchment even an untoned --cp-tone-text is the dark page's mint
+(1.45:1). With the card's re-declarations gone, add a spec that mounts a toned frame holding a card, plus an
+untoned card, and measures --cp-tone-text on the card's surfaces and on --cp-tone-soft in both themes.
 CONSTRAINT: APP-009; D2; LP.11A's measured ratios and its method; DESIGN-SYSTEM.md "The focus ring" and
 "Native form controls and color-scheme"; cp-drawer, cp-dialog and cp-lightbox surfaces, which must match.
 RESTRICTION: Every ring ≥3:1, every text ≥4.5:1, every control edge ≥3:1, inside a card, in dark. Light theme
@@ -380,6 +434,10 @@ RESTRICTION: Presentation only: no change to when output is saved, accepted or d
 display prompt bodies. Do not run backend tests.
 UTILIZATION: creatorpantry-design-system skill; design-review; ai-safety-reviewer on the label copy and the
 provenance line.
+OPEN (from AU.1's review, for the owner before this prompt starts): edging AI output in purple on every page
+puts a second tone on the four other toned tools — Image Studio's results would be purple on a pink page — and
+makes purple read as "made by AI", which DESIGN-SYSTEM.md "Warmth inside the app" says no tone does. The
+recommendation is a neutral edge carrying the glyph and the words "Drafted by AI", taking no tone.
 BEHAVIOR: Present the audit table (feature, current marker, swap now or later); wait for approval; implement
 with specs and the contract rule, update showcase and docs; run npm run build and npm test from src/web.
 ```
@@ -422,7 +480,9 @@ docs; run npm run build and npm test from src/web.
 SCOPE: Add a library directive (cpEnter) that fades and lifts an element in by a few pixels the first time it
 renders, with an optional stagger for list items, using the AU.1 duration. Apply it in the library where it is
 always right: a cp-list-shell's ready content, a cp-generated result arriving, a cp-option-card group. Pages do
-not apply it themselves in this document.
+not apply it themselves in this document. Use AU.1's --cp-duration-enter, --cp-enter-distance and
+--cp-enter-stagger. global.css's reduced-motion rule zeroes durations but not delays, so cpEnter sets
+animation-delay: 0 under reduced motion, or a staggered item sits invisible for its turn; spec it.
 CONSTRAINT: APP-010; D4; DESIGN-SYSTEM.md "Accessibility baseline" (reduced motion); LandingRevealDirective as
 the reference for print and reduced-motion handling, not for scroll triggering.
 RESTRICTION: Nothing moves under prefers-reduced-motion, nothing is hidden when script fails or under print,

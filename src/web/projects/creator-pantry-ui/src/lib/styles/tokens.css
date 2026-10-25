@@ -47,6 +47,16 @@
   --cp-duration-fast: 150ms;
   --cp-duration-normal: 250ms;
   --cp-ease: cubic-bezier(.2,.8,.2,1);
+  /* Entrance (AU.1, D4): content fades in and rises this far the first time it renders, once, and never on
+     scroll. Shorter than --cp-duration-normal so a page never waits on it. The stagger spaces list items; a
+     list longer than a screen stops staggering rather than queueing. global.css's reduced-motion rule zeroes
+     durations but not delays, so the part that animates (AU.3.4) sets animation-delay: 0 there too; otherwise a
+     staggered item would sit invisible for its delay with nothing moving. */
+  --cp-duration-enter: 200ms;
+  --cp-enter-distance: .375rem;
+  --cp-enter-stagger: 40ms;
+  /* One sweep of a skeleton's shine. Slow, because it says "still coming", not "hurry". */
+  --cp-duration-skeleton: 1.4s;
   /* The ring a focused field or control draws inside its own border, on top of the global outline. */
   --cp-ring-width: 4px;
   --cp-z-topbar: 15;

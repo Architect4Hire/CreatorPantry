@@ -290,6 +290,44 @@ describe('CreatorPantry design tokens', () => {
     page.remove();
   });
 
+  // A tool's tone (AU.1, D1) is read where the route sets it, so it is measured that way: a toned element inside a
+  // themed one. No tone is the primary, and has to hold to the same pairs as the four that replace it.
+  describe('tool tones', () => {
+    const surfaces = ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg'];
+    for (const theme of ['light', 'dark'] as const) {
+      for (const tone of [null, 'purple', 'pink', 'blue', 'orange'] as const) {
+        it(`${tone ?? 'no tone'} reads at 4.5:1 as text and under its own ink in the ${theme} theme`, () => {
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+          const computed = getComputedStyle(frame);
+          const read = (name: string) => computed.getPropertyValue(name).trim();
+
+          for (const under of [...surfaces, '--cp-tone-soft']) {
+            expect(contrastRatio(read('--cp-tone-text'), read(under)))
+              .withContext(`--cp-tone-text ${read('--cp-tone-text')} on ${under} ${read(under)}`)
+              .toBeGreaterThanOrEqual(4.5);
+          }
+          expect(contrastRatio(read('--cp-tone-on'), read('--cp-tone')))
+            .withContext(`--cp-tone-on ${read('--cp-tone-on')} on --cp-tone ${read('--cp-tone')}`)
+            .toBeGreaterThanOrEqual(4.5);
+
+          page.remove();
+        });
+      }
+
+      // Decorative, so not held to a text ratio, but a skeleton nobody can see is a blank page with extra steps.
+      it(`draws a skeleton that stands off the page and the sheet in the ${theme} theme`, () => {
+        const tokens = readTokens(theme, ['--cp-skeleton-base', '--cp-bg', '--cp-surface']);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(1.15);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(1.15);
+      });
+    }
+  });
+
   // The card re-declares its ink but the soft fill was the dark page's deep green, so a picked answer inside a
   // card was 1.35:1 in the dark theme (AU.0: Workspace settings and Long-form). Measured as painted, on the
   // parts themselves, in both themes, so a fill or a text colour moved on either side fails here.

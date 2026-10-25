@@ -322,6 +322,15 @@ export class DesignSystemShowcaseComponent {
     this.uploadItems.update((items) => items.filter((item) => item.id !== id));
   }
 
+  /** Every tool tone (AU.1, D1), and no tone, which is the primary. */
+  readonly tones: readonly { name: 'purple' | 'pink' | 'blue' | 'orange' | null; tool: string }[] = [
+    { name: null, tool: 'Recipes' },
+    { name: 'purple', tool: 'AI Recipe Studio' },
+    { name: 'pink', tool: 'Image Studio' },
+    { name: 'blue', tool: 'Social Studio' },
+    { name: 'orange', tool: 'Long-form' },
+  ];
+
   // --- Toast region ---
   /** The showcase's own anchor-nav sample, with one destination marked so the aria-current treatment is visible. */
   readonly anchorNavItems: CpAnchorNavItem[] = [

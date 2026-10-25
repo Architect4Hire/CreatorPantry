@@ -19,6 +19,8 @@ CreatorPantry should feel like a food blog with a working tool underneath: edito
 
 Theme is applied with `data-cp-theme="light|dark"` on `<html>`. `CpThemeService` manages system preference and persistence. Never create separate light/dark component markup.
 
+A tool's tone is applied with `data-cp-tone="purple|pink|blue|orange"`, set by the route's `data: { tone }` on the page frame (AU.2.1 builds this) and never by a feature: AI Recipe Studio purple, Image Studio pink, Social Studio blue, Long-form and the Content Pipeline orange, every other page none. Parts draw with `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`, which are the primary's when no tone is set. A tone marks the tool, never the primary action or a status. An accent as text is `--cp-<accent>-text`, never the raw accent (light orange is darker as text). Loading draws `--cp-skeleton-base`/`--cp-skeleton-shine`; entrance motion uses `--cp-duration-enter`, `--cp-enter-distance` and `--cp-enter-stagger`. `src/web/DESIGN-SYSTEM.md`, "Warmth inside the app", has the rules.
+
 Consumers import the CSS foundation exactly once, in this order:
 
 ```css

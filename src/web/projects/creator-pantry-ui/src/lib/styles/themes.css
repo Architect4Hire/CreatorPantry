@@ -27,6 +27,26 @@
   --cp-purple-soft: #f0e6fb;
   --cp-blue: #1f68b0;
   --cp-blue-soft: #e2eefb;
+  /* Each accent as text, the way --cp-primary-text is primary as text. Three are the accent itself; orange is
+     4.25:1 on --cp-surface-raised and 4.37:1 on --cp-surface-subtle in this theme, so its text is a step darker
+     (4.87:1 at worst). The fill stays the brighter carrot. */
+  --cp-pink-text: var(--cp-pink);
+  --cp-orange-text: #a84a0a;
+  --cp-purple-text: var(--cp-purple);
+  --cp-blue-text: var(--cp-blue);
+  /* The tool tone (AU.1, D1): what a toned route's parts draw with. With no tone set it is the primary, so on the
+     page a part written against --cp-tone* looks as it does today; [data-cp-tone] at the end of the file swaps it.
+     Not inside a dark parchment cp-card: these are computed here, at the root, so they carry the dark page's
+     primary in, and the card's own --cp-primary-text and --cp-primary-soft never reach them. AU.2.2 ends that. */
+  --cp-tone: var(--cp-primary);
+  --cp-tone-soft: var(--cp-primary-soft);
+  --cp-tone-text: var(--cp-primary-text);
+  --cp-tone-on: var(--cp-primary-ink);
+  /* A skeleton's resting block and the band that sweeps across it. Decorative (the host is aria-hidden), so it
+     is held to being seen on --cp-bg and --cp-surface rather than to a text ratio. It is faint on
+     --cp-surface-subtle and -raised (about 1.1:1 in this theme), so a skeleton is drawn on the page or a sheet. */
+  --cp-skeleton-base: #ece4d6;
+  --cp-skeleton-shine: #f7f2ea;
   --cp-danger: #b3261e;
   /* The soft counterpart every other accent already has. Five places hand-rolled this same color-mix
      before it existed; a semantic intent that is missing belongs in both themes, not in each caller. */
@@ -75,6 +95,16 @@
   --cp-purple-soft: #2e2440;
   --cp-blue: #6fb4f5;
   --cp-blue-soft: #17304a;
+  --cp-pink-text: var(--cp-pink);
+  --cp-orange-text: var(--cp-orange);
+  --cp-purple-text: var(--cp-purple);
+  --cp-blue-text: var(--cp-blue);
+  --cp-tone: var(--cp-primary);
+  --cp-tone-soft: var(--cp-primary-soft);
+  --cp-tone-text: var(--cp-primary-text);
+  --cp-tone-on: var(--cp-primary-ink);
+  --cp-skeleton-base: #1a332b;
+  --cp-skeleton-shine: #24423a;
   --cp-danger: #ff7a68;
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
   --cp-ink-on-accent: #0b120f;
@@ -118,6 +148,16 @@
     --cp-purple-soft: #f0e6fb;
     --cp-blue: #1f68b0;
     --cp-blue-soft: #e2eefb;
+    --cp-pink-text: var(--cp-pink);
+    --cp-orange-text: #a84a0a;
+    --cp-purple-text: var(--cp-purple);
+    --cp-blue-text: var(--cp-blue);
+    --cp-tone: var(--cp-primary);
+    --cp-tone-soft: var(--cp-primary-soft);
+    --cp-tone-text: var(--cp-primary-text);
+    --cp-tone-on: var(--cp-primary-ink);
+    --cp-skeleton-base: #ece4d6;
+    --cp-skeleton-shine: #f7f2ea;
     --cp-danger: #b3261e;
     --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
     --cp-ink-on-accent: #ffffff;
@@ -128,4 +168,42 @@
     --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
     --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
   }
+}
+
+/* A tool's tone (AU.1, D1). The route sets data-cp-tone on the page frame inside <main> (AU.2.1), and every part
+   under it resolves --cp-tone* from here. Each line names theme tokens rather than colours, so it resolves to
+   whichever theme — or print — is in force where it is set: one rule per tone serves both themes. --cp-tone-text
+   clears 4.5:1 on --cp-bg, every surface, --cp-field-bg and its own soft fill, and --cp-tone-on clears 4.5:1 on
+   --cp-tone, in both themes; design-system.spec.ts measures every pair.
+   Last in the file, after print, so an element carrying both data-cp-theme and data-cp-tone keeps its tone on
+   paper. A data-cp-theme set *inside* a toned frame starts again from that theme's defaults, which are untoned.
+   Not inside a parchment cp-card: there every accent is 1.38–2.28:1, and a tone token is computed where it is
+   declared, so the card's own re-declarations never reach it. AU.2.2 removes that card before any page wears a
+   tone, and must prove --cp-tone-text and --cp-tone-soft read inside a card. */
+[data-cp-tone='purple'] {
+  --cp-tone: var(--cp-purple);
+  --cp-tone-soft: var(--cp-purple-soft);
+  --cp-tone-text: var(--cp-purple-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+}
+
+[data-cp-tone='pink'] {
+  --cp-tone: var(--cp-pink);
+  --cp-tone-soft: var(--cp-pink-soft);
+  --cp-tone-text: var(--cp-pink-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+}
+
+[data-cp-tone='blue'] {
+  --cp-tone: var(--cp-blue);
+  --cp-tone-soft: var(--cp-blue-soft);
+  --cp-tone-text: var(--cp-blue-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+}
+
+[data-cp-tone='orange'] {
+  --cp-tone: var(--cp-orange);
+  --cp-tone-soft: var(--cp-orange-soft);
+  --cp-tone-text: var(--cp-orange-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
 }
