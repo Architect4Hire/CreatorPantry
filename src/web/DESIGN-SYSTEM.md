@@ -137,11 +137,11 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 
 ### A card for one thing in a library
 
-`CpMediaCardComponent` is one thing shown by its picture. The picture is the feature's own component, projected, because the feature authorises and loads it; where there is none a tinted panel holds the same 4:3 shape with a glyph, so a row of cards stays even. The title is the link and the card is not: one link named by the title is what a screen reader should find. Facts go inline under the badges, and an action that does not open the thing goes last.
+`CpMediaCardComponent` is one thing shown by its picture. The picture is the feature's own component, projected, because the feature authorises and loads it; where there is none a drawn panel holds the same 4:3 shape, so a row of cards stays even. Hovering or focusing the title leans the picture in a little inside its rounded frame — the card answers its link without becoming one — and under reduced motion it stays still. The title is the link and the card is not: one link named by the title is what a screen reader should find. Facts go inline under the badges, and an action that does not open the thing goes last.
 
 What goes in each slot is the same on every library, so a creator who has read one card can read them all:
 
-- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel, with a glyph for the kind of thing: `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example. Until that library's empty state is drawn, use the glyph it uses; once it is, the same `cp-illustration` name (`picture`, `recipe`, `prompt`, `brand`; AU.2.6 maps the glyphs to them). A card never borrows a picture from something related to stand in for its own.
+- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel (AU.2.6): a faint gingham on `--cp-tone-panel` with the kind's `cp-illustration` at 5rem in `--cp-tone-panel-ink` — the tool's tint and colour on a toned page, the neutral subtle surface and muted ink on an untoned one, never the action colour. Name the drawing with `illustration` (`picture`, `recipe`, `prompt`, `brand`, or any other in the set). The four glyphs a library passed before the set existed still work and draw theirs — `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example — and any other glyph shows as text; a library moves from its glyph to the name when its own empty state is drawn. The panel is decoration, hidden from a screen reader. A card never borrows a picture from something related to stand in for its own.
 - **Title** — the thing's own name, as the link to its page. Nothing else on the card is a link to that page.
 - **Description** — the creator's own words about it, or the start of it: a recipe's description, the opening of a prompt. One run of plain text; line breaks are kept where the whole thing is shown, not here. End it with an ellipsis only when the text really is cut. A thing with no words of its own has no description, not a placeholder.
 - **Badges** — what state it is in, then what kind of thing it is. State is a `cp-status-pill`, because a state has a tone and a glyph (Draft, Approved, "Ingredients need review", "Text ready"); kind is a `cp-badge` (channel, document type, source). State comes first. A fact with a number or a date in it is not a badge.
@@ -356,8 +356,11 @@ by hand.
 - **Parts draw with four tokens.** These are `--cp-tone` (a fill or an edge), `--cp-tone-soft` (a tint),
   `--cp-tone-text` (the tone as text) and `--cp-tone-on` (text or a glyph on a `--cp-tone` fill). With no tone set
   they are the primary's four, so on the page a part written against them looks as it did on an untoned page.
+  Two pairs are the exception, neutral rather than the primary's when no tone is set, because evergreen there would
+  put the action colour where no action is: the rule under a page head (`--cp-tone-rule`) and a media card's
+  no-picture panel and its drawing (`--cp-tone-panel`, `--cp-tone-panel-ink`).
 - **Sparingly.** The tone marks where you are: the head's icon tile and hairline (D3), a toned flow's progress and
-  stepper, an illustration (D5). It is never the primary action — Save, Generate and Continue stay evergreen,
+  stepper, an illustration (D5) and the panel a card without a picture draws it on (AU.2.6). It is never the primary action — Save, Generate and Continue stay evergreen,
   the action colour on every page — and never the nav, body text, a field, or a section's background. The one
   exception to the last is the single featured card a page may have (AU.3.3), whose surface is
   `--cp-tone-soft`.

@@ -234,7 +234,8 @@ describe('BrandLibraryComponent', () => {
 
     expect(root().querySelectorAll('ul[cpCardGrid] > li').length).toBe(2);
     expect(cards()[0].querySelector('.picture')?.children.length).toBe(0);
-    expect(cards()[0].querySelector('.panel')?.textContent).toBe('◆');
+    // The glyph it passes draws its illustration (AU.2.6).
+    expect(cards()[0].querySelector('.panel cp-illustration')?.getAttribute('data-name')).toBe('brand');
     expect(getComputedStyle(cards()[0].querySelector('.panel')!).display).not.toBe('none');
   });
 

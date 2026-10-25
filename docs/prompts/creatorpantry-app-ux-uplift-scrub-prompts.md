@@ -583,7 +583,7 @@ icons are shell chrome, and the library must not know the product's sections. So
 
 *`npm run build` passes. The library is 387/387, the showcase 6083/6083, and the page contract holds.*
 
-## AU.2.6 Media card without a picture
+## AU.2.6 Media card without a picture - done
 
 ```text
 SCOPE: Replace cp-media-card's flat tint and text glyph with a designed panel: a soft --cp-tone-soft (or
@@ -598,6 +598,47 @@ UTILIZATION: creatorpantry-design-system skill; design-review.
 BEHAVIOR: Show a mixed grid (with and without pictures) in both themes; wait for approval; implement with
 specs, update showcase and docs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the look from screenshots of a mixed grid. The grid had
+real photos beside each kind of empty panel, untoned and on a pink page, at 1440px and 375px, in both themes.*
+
+*What shipped:*
+
+- *The panel is a faint gingham, drawn in CSS from the panel's own ink at 4%. A first try at 6% was loud on a tint.
+  It sits on two new tokens, `--cp-tone-panel` and `--cp-tone-panel-ink`.*
+  - *On a toned page they are the tool's tint and text colour.*
+  - *On an untoned page they are `--cp-surface-subtle` and `--cp-text-muted`, not evergreen. This follows
+    `--cp-tone-rule`'s reasoning. All four libraries are untoned today, so their panels are neutral.*
+  - *The drawing is the kind's `cp-illustration` at 5rem.*
+- *A typed `illustration` input wins over `glyph`. `glyph` maps `▣ ⌘ ❝ ◆` to `picture`, `recipe`, `prompt` and
+  `brand`, and shows any other glyph as text. The libraries keep passing their glyphs, so they draw their
+  illustrations with no feature change.*
+- *The projected picture leans to 1.04 on the title's hover or `:focus`, clipped by its rounded frame. It uses
+  `:focus` rather than `:focus-visible`, the same as the title's ring, for a title focused by script after "Load
+  more". Under reduced motion it does not move.*
+- *The library now owns the picture's 4:3 frame. Before, each consumer had to give its picture the panel's shape,
+  so a card with a bare `<img>` would sit unevenly in a row. A bare `<img>` is now cropped to fit, and a component
+  such as DAM's thumbnail keeps its own display.*
+- *The page contract's `illustration` rule fails a feature that draws its own no-picture panel. That covers the
+  class names `no-picture`, `picture-panel` and `picture-placeholder`, and any read of `var(--cp-tone-panel`.*
+
+*`design-review` raised these, now handled:*
+
+- *The 4:3 frame belonged to each consumer; the library now owns it.*
+- *The glyph map was a prototype-reachable object; it is now a `Map`.*
+- *The panel pair was missing from "Warmth inside the app"'s list of neutral exceptions.*
+- *The `glyph` JSDoc was stale, and the showcase had a dead `.showcase-picture` style.*
+- *Two showcase titles and one alt text claimed more than their photos show.*
+
+*One finding was wrong:* the review said the print block lacked the panel tokens. They are there, beside
+`--cp-tone-rule`.
+
+*Testing found a bug in the prototype:* the zoom selector was scoped by emulated encapsulation and never reached a
+projected picture. It now uses `.picture ::ng-deep > *`, and a spec asserts the transform.
+
+*`npm run build` passes. The library is 403/403, the showcase 6084/6084, and the page contract holds. One run of
+the full suite had an intermittent red in RecipeEditorComponent's section-nav scroll spec. That is a known family,
+and it passed when the file was rerun alone, with and without this change.*
 
 ## AU.3.1 One treatment for generated content
 

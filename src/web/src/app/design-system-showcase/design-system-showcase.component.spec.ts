@@ -219,6 +219,18 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(rows[0].querySelectorAll('cp-illustration').length).toBe(10);
   });
 
+  it('mixes media cards with and without pictures, untoned and on a toned page', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="media-card-heading"]') as HTMLElement;
+    const [untoned, toned] = [...section.querySelectorAll('ul[cpCardGrid]')] as HTMLElement[];
+    const drawings = (grid: HTMLElement) =>
+      [...grid.querySelectorAll('cp-media-card')].map((card) => card.querySelector('[cpMediaCardPicture]') ? 'photo' : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'));
+
+    expect(drawings(untoned)).toEqual(['photo', 'recipe', 'prompt', 'photo', 'brand', 'picture']);
+    expect(toned.getAttribute('data-cp-tone')).toBe('pink');
+    expect(drawings(toned)).toEqual(['photo', 'picture', 'post']);
+  });
+
   it('renders one uploader row per seeded item and removes it on remove', async () => {
     const fixture = await createFixture();
     expect(fixture.componentInstance.uploadItems().length).toBe(4);

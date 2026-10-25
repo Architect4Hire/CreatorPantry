@@ -118,6 +118,9 @@ test('tone: the shell sets the tone once, on the page frame', () => {
 test('illustration: a feature draws no empty-state art of its own', () => {
   assert.deepEqual(rules(stylesheetViolations('.illustration { width: 7rem; } .empty-art svg { stroke: red; }')), ['illustration', 'illustration']);
   assert.deepEqual(stylesheetViolations('.illustration-credit { font-size: 12px; } .art-direction { margin: 0; }'), []);
+  // A card with no picture takes cp-media-card's panel (AU.2.6), by class name or by its tokens.
+  assert.deepEqual(rules(stylesheetViolations('.no-picture { aspect-ratio: 4 / 3; } .tile { background: var(--cp-tone-panel); }')), ['illustration', 'illustration']);
+  assert.deepEqual(stylesheetViolations('.panel { padding: 1rem; } .placeholder { color: var(--cp-tone-text); }'), []);
   assert.deepEqual(rules(featureTemplateViolations('<div><svg viewBox="0 0 10 10"><path d="M0 0"/></svg></div>')), ['illustration']);
   assert.deepEqual(featureTemplateViolations('<!-- an <svg> once lived here --><cp-illustration name="recipe" /><img src="x.png" alt="">'), []);
 });

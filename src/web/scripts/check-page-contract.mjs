@@ -47,7 +47,7 @@ export const RULES = {
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
-  illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set; a feature draws none of its own.",
+  illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
   skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
@@ -124,7 +124,7 @@ const OWNED_CLASSES = {
   board: ['board', 'board-column', 'lane', 'lanes', 'kanban'],
   stepper: ['step-list', 'steps', 'stepper'],
   chip: ['chip', 'chips'],
-  illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art'],
+  illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art', 'no-picture', 'picture-panel', 'picture-placeholder'],
   utilities: ['cp-muted', 'cp-actions', 'cp-disclosure', 'muted', 'actions'],
 };
 
@@ -180,6 +180,8 @@ export function stylesheetViolations(css) {
     // `tone`: the route owns a tool's tone (AU.2.1). A part reads --cp-tone*; a feature never sets it.
     if (/\[data-cp-tone/.test(rule.selector)) found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
     for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g)) found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });
+    // The panel tokens are cp-media-card's (AU.2.6): a feature reading them is drawing a no-picture panel of its own.
+    for (const m of rule.body.matchAll(/var\(\s*--cp-tone-panel/g)) found.push({ rule: 'illustration', line: at(m.index), what: 'draws a no-picture panel from --cp-tone-panel' });
   }
   return found;
 }

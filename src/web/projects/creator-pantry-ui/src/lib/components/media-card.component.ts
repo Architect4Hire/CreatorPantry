@@ -1,7 +1,16 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 import { CpCardComponent } from './card.component';
+import { CpIllustrationComponent, CpIllustrationName } from './illustration.component';
+
+/** The glyphs DESIGN-SYSTEM.md documents, and the drawing each now stands for. Any other glyph is shown as text. */
+const GLYPH_ILLUSTRATIONS: ReadonlyMap<string, CpIllustrationName> = new Map([
+  ['▣', 'picture'],
+  ['⌘', 'recipe'],
+  ['❝', 'prompt'],
+  ['◆', 'brand'],
+]);
 
 /** The heading level a card's title sits at: one below whatever heads the list the card is in. */
 export type CpMediaCardHeadingLevel = 2 | 3 | 4;
@@ -16,8 +25,14 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
  *
  * **The picture is projected.** A picture in this product is authorised and loaded by the feature that owns
  * it, and that must not move into the library — so this never takes a URL. When nothing is projected it shows
- * a tinted panel with a glyph at the same shape, so a grid of cards with and without pictures keeps even
- * rows. The glyph is decoration and is hidden from a screen reader; the title already says what the card is.
+ * a panel at the same shape, so a grid of cards with and without pictures keeps even rows: a faint gingham on
+ * `--cp-tone-panel`, with the kind's drawing from `cp-illustration` (AU.2.6). `illustration` names the drawing;
+ * without one, the four glyphs DESIGN-SYSTEM.md documented before the set existed map to theirs, and any other
+ * glyph is shown as text. The panel is decoration and is hidden from a screen reader; the title already says
+ * what the card is. It is never a picture borrowed from something related.
+ *
+ * **The picture leans in.** Hovering or focusing the title scales the projected picture a little inside its
+ * rounded frame, so the card answers the link without the card becoming one. Under reduced motion it stays put.
  *
  * **The title is the link, not the card.** The consumer projects its own `<a>`, which keeps `routerLink` in
  * the feature and gives a screen reader one link named by the title rather than a card-sized one named by
@@ -34,11 +49,17 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
 @Component({
   selector: 'cp-media-card',
   standalone: true,
-  imports: [NgTemplateOutlet, CpCardComponent],
+  imports: [NgTemplateOutlet, CpCardComponent, CpIllustrationComponent],
   template: `<cp-card>
     <article>
       <div class="picture"><ng-content select="[cpMediaCardPicture]" /></div>
-      <div class="panel" aria-hidden="true">{{ glyph() }}</div>
+      <div class="panel" aria-hidden="true">
+        @if (drawing(); as name) {
+          <cp-illustration [name]="name" />
+        } @else {
+          {{ glyph() }}
+        }
+      </div>
 
       <!-- One slot, three possible elements: a template, because a slot repeated per branch only fills one. -->
       <ng-template #title><ng-content select="[cpMediaCardTitle]" /></ng-template>
@@ -81,15 +102,49 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
         grid-template-columns: minmax(0, 1fr);
         gap: var(--cp-space-2);
       }
+      /* The panel's 4:3, so a card with a picture and one without stand the same height whatever the consumer
+         projects. The frame clips the picture's lean, so the zoom stays inside the rounded corners. */
+      .picture {
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border-radius: var(--cp-radius-md);
+      }
+      /* The picture is the consumer's element, so ::ng-deep reaches it; .picture before it keeps the rule to this
+         card. It fills the frame and keeps its own display, so a component lays out its own inside; a bare <img>
+         is made a block, so no baseline gap shows under it, and cropped to the frame. */
+      .picture ::ng-deep > * {
+        width: 100%;
+        height: 100%;
+        transition: transform var(--cp-duration-normal) var(--cp-ease);
+      }
+      :host:has(.title a:hover, .title a:focus) .picture ::ng-deep > * {
+        transform: scale(1.04);
+      }
+      .picture ::ng-deep > img {
+        display: block;
+        object-fit: cover;
+      }
+      /* A gingham drawn from the panel's own ink at 4%: faint on every tint, and in the tool's colour on a toned
+         page because it is the drawing's colour. Where the squares cross they double, as a cloth's do. */
       .panel {
         display: grid;
         place-items: center;
         aspect-ratio: 4 / 3;
         border-radius: var(--cp-radius-md);
-        background: var(--cp-surface-subtle);
-        color: var(--cp-text-faint);
+        color: var(--cp-tone-panel-ink);
+        background-color: var(--cp-tone-panel);
+        background-image:
+          linear-gradient(90deg, color-mix(in srgb, currentColor 4%, transparent) 50%, transparent 50%),
+          linear-gradient(color-mix(in srgb, currentColor 4%, transparent) 50%, transparent 50%);
+        background-size: 1.5rem 1.5rem;
         font-size: var(--cp-font-size-2xl);
         line-height: 1;
+        --cp-illustration-size: 5rem;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        :host:has(.title a:hover, .title a:focus) .picture ::ng-deep > * {
+          transform: none;
+        }
       }
       .title {
         margin: 0;
@@ -143,8 +198,13 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
 export class CpMediaCardComponent {
   /** A line or two under the title. Plain text; nothing is shown when it is empty. */
   readonly description = input('');
-  /** What the tinted panel shows when no picture is projected. Decoration, never announced. */
+  /** What the drawn panel shows when no picture is projected and no `illustration` is named: one of the four
+   *  documented glyphs draws its illustration, and any other is shown as text. Decoration, never announced. */
   readonly glyph = input('▣');
+  /** The drawing the panel shows when no picture is projected. Wins over `glyph`. */
+  readonly illustration = input<CpIllustrationName | undefined>(undefined);
+
+  protected readonly drawing = computed(() => this.illustration() ?? GLYPH_ILLUSTRATIONS.get(this.glyph()));
   /** The level of the title's heading: one below the heading of the list this card is in. */
   readonly headingLevel = input<CpMediaCardHeadingLevel>(3);
 }

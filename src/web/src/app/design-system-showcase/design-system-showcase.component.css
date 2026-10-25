@@ -190,12 +190,6 @@ code {
 }
 
 /* Stands in for a photograph in the media-card example; a real picture is the consuming feature's to load. */
-.showcase-picture {
-  aspect-ratio: 4 / 3;
-  border-radius: var(--cp-radius-md);
-  background: linear-gradient(135deg, var(--cp-orange-soft), var(--cp-pink-soft));
-}
-
 /* Fields in a drawer stack with the same gap a form section gives them. */
 .drawer-form {
   display: grid;

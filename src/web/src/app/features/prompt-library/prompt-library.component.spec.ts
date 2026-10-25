@@ -228,7 +228,8 @@ describe('PromptLibraryComponent', () => {
 
     expect(root().querySelectorAll('ul[cpCardGrid] > li cp-media-card').length).toBe(2);
     expect(rows()[0].querySelector('.picture')?.children.length).toBe(0);
-    expect(rows()[0].querySelector('.panel')?.textContent).toBe('❝');
+    // The glyph it passes draws its illustration (AU.2.6).
+    expect(rows()[0].querySelector('.panel cp-illustration')?.getAttribute('data-name')).toBe('prompt');
     expect(getComputedStyle(rows()[0].querySelector('.panel')!).display).not.toBe('none');
 
     // Everything a row showed has a slot: three badges, the saved date as a fact, and Preview as the action.

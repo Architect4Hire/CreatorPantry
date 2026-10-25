@@ -52,6 +52,10 @@
      untoned title would put the action colour where no action is. */
   --cp-tone-rule: var(--cp-border);
   --cp-tone-rule-width: 1px;
+  /* A media card's panel where it has no picture (AU.2.6), and the drawing on it: the tool's tint and colour on a
+     toned page, and like the rule, neutral rather than the primary's on an untoned one. */
+  --cp-tone-panel: var(--cp-surface-subtle);
+  --cp-tone-panel-ink: var(--cp-text-muted);
   /* A skeleton's resting block and the band that sweeps across it. Decorative (the host is aria-hidden), so it
      is held to being seen on --cp-bg and --cp-surface rather than to a text ratio. It is faint on
      --cp-surface-subtle and -raised (about 1.1:1 in this theme), so a skeleton is drawn on the page or a sheet. */
@@ -121,6 +125,8 @@
   --cp-tone-on: var(--cp-primary-ink);
   --cp-tone-rule: var(--cp-border);
   --cp-tone-rule-width: 1px;
+  --cp-tone-panel: var(--cp-surface-subtle);
+  --cp-tone-panel-ink: var(--cp-text-muted);
   --cp-skeleton-base: #383838;
   --cp-skeleton-shine: #444444;
   --cp-danger: #ff7a68;
@@ -178,6 +184,8 @@
     --cp-tone-on: var(--cp-primary-ink);
     --cp-tone-rule: var(--cp-border);
     --cp-tone-rule-width: 1px;
+    --cp-tone-panel: var(--cp-surface-subtle);
+    --cp-tone-panel-ink: var(--cp-text-muted);
     --cp-skeleton-base: #ece4d6;
     --cp-skeleton-shine: #f7f2ea;
     --cp-danger: #b3261e;
@@ -208,6 +216,8 @@
   --cp-tone-on: var(--cp-ink-on-accent);
   --cp-tone-rule: var(--cp-tone);
   --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
 }
 
 [data-cp-tone='pink'] {
@@ -217,6 +227,8 @@
   --cp-tone-on: var(--cp-ink-on-accent);
   --cp-tone-rule: var(--cp-tone);
   --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
 }
 
 [data-cp-tone='blue'] {
@@ -226,6 +238,8 @@
   --cp-tone-on: var(--cp-ink-on-accent);
   --cp-tone-rule: var(--cp-tone);
   --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
 }
 
 [data-cp-tone='orange'] {
@@ -235,4 +249,6 @@
   --cp-tone-on: var(--cp-ink-on-accent);
   --cp-tone-rule: var(--cp-tone);
   --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
 }

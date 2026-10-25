@@ -407,6 +407,29 @@ describe('CreatorPantry design tokens', () => {
 
           page.remove();
         });
+
+        // A media card's panel (AU.2.6): the tool's tint on a toned page and the neutral subtle surface on an untoned
+        // one, never the primary's, which would put the action colour on a card that has no picture.
+        it(`gives ${tone ?? 'no tone'} a picture panel whose drawing stands off it in the ${theme} theme`, () => {
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+          const computed = getComputedStyle(frame);
+          const read = (name: string) => computed.getPropertyValue(name).trim();
+
+          expect(read('--cp-tone-panel')).toBe(read(tone ? '--cp-tone-soft' : '--cp-surface-subtle'));
+          expect(read('--cp-tone-panel-ink')).toBe(read(tone ? '--cp-tone-text' : '--cp-text-muted'));
+          if (!tone) expect(read('--cp-tone-panel')).not.toBe(read('--cp-primary-soft'));
+          // Decorative, so 3:1 (a graphic's bar) rather than text's, and met with room to spare.
+          expect(contrastRatio(read('--cp-tone-panel-ink'), read('--cp-tone-panel')))
+            .withContext(`--cp-tone-panel-ink ${read('--cp-tone-panel-ink')} on --cp-tone-panel ${read('--cp-tone-panel')}`)
+            .toBeGreaterThanOrEqual(3);
+
+          page.remove();
+        });
       }
 
       // Decorative, so not held to a text ratio, but a skeleton nobody can see is a blank page with extra steps.

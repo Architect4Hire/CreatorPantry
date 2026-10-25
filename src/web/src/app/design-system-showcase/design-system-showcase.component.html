@@ -687,15 +687,16 @@
     <h2 id="media-card-heading">Media card</h2>
     <p class="section-note">
       One thing in a library, shown by its picture. The picture is projected — the feature that owns it
-      authorises and loads it — and a tinted panel with a glyph stands in when there is none, so a row of
-      cards stays even. The title is the link; the card is not one. An action that does not open the thing — a
+      authorises and loads it — and a drawn panel stands in when there is none, so a row of cards stays even:
+      a faint gingham and the kind's illustration, named or mapped from the older glyph. Hover or focus a title
+      and its picture leans in. The title is the link; the card is not one. An action that does not open the thing — a
       preview — goes last, in the actions slot.
     </p>
     <ul cpCardGrid aria-label="Example media cards">
       <li>
-        <cp-media-card description="Overhead, on the oak board.">
-          <div cpMediaCardPicture class="showcase-picture" role="img" aria-label="A stand-in for a photograph"></div>
-          <a cpMediaCardTitle href="#media-card-heading">Soda bread hero</a>
+        <cp-media-card description="Shot close, against the window.">
+          <img cpMediaCardPicture src="images/food/photo-1-480.jpg" alt="Noodles lifted from a bowl on a fork" />
+          <a cpMediaCardTitle href="#media-card-heading">Noodle twirl hero</a>
           <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
           <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
           <dl cpFacts layout="inline">
@@ -705,15 +706,62 @@
         </cp-media-card>
       </li>
       <li>
-        <cp-media-card glyph="❝" description="No picture: the panel keeps the card's shape.">
+        <cp-media-card illustration="recipe" description="Nutty, chewy, and done in one pan.">
+          <a cpMediaCardTitle href="#media-card-heading">Brown butter blondies</a>
+          <cp-status-pill cpMediaCardBadges tone="warning">Ingredients need review</cp-status-pill>
+          <dl cpFacts layout="inline">
+            <div cpFact label="Updated">12 Oct 2026</div>
+          </dl>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card glyph="❝" description="Write a warm, unhurried caption for an autumn bake…">
           <a cpMediaCardTitle href="#media-card-heading">Cosy autumn caption, long enough to wrap onto a second line</a>
           <cp-badge cpMediaCardBadges>Prompt</cp-badge>
           <button cpMediaCardActions cpButton variant="secondary" size="sm" type="button">Preview</button>
         </cp-media-card>
       </li>
       <li>
+        <cp-media-card description="Low light, wooden blocks behind.">
+          <img cpMediaCardPicture src="images/food/photo-10-480.jpg" alt="A burger with a fried egg beside two pepper mills" />
+          <a cpMediaCardTitle href="#media-card-heading">Brunch burger</a>
+          <cp-badge cpMediaCardBadges>Original</cp-badge>
+          <dl cpFacts layout="inline">
+            <div cpFact label="File">JPEG · 3.1 MB</div>
+          </dl>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card glyph="◆">
+          <a cpMediaCardTitle href="#media-card-heading">Sunday supper voice</a>
+          <cp-badge cpMediaCardBadges>Brand example</cp-badge>
+        </cp-media-card>
+      </li>
+      <li>
         <cp-media-card>
           <a cpMediaCardTitle href="#media-card-heading">Title only</a>
+        </cp-media-card>
+      </li>
+    </ul>
+    <p class="section-note">On a toned page the panel takes the tool's tint and its drawing the tool's colour.</p>
+    <ul cpCardGrid data-cp-tone="pink" aria-label="Example media cards on a toned page">
+      <li>
+        <cp-media-card description="Overhead, in the pan it baked in.">
+          <img cpMediaCardPicture src="images/food/photo-11-480.jpg" alt="A fillet of fish with dill, tomatoes and lemon in a dark pan" />
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 2</a>
+          <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card illustration="picture" description="Still generating.">
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 3</a>
+          <cp-status-pill cpMediaCardBadges tone="progress">Generating</cp-status-pill>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card illustration="post">
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish carousel</a>
+          <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
         </cp-media-card>
       </li>
     </ul>
