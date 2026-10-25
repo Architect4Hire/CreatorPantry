@@ -283,3 +283,9 @@ code {
   border-radius: var(--cp-radius-md);
   background: var(--cp-pink-soft);
 }
+
+.skeleton-demo {
+  display: grid;
+  gap: var(--cp-space-5);
+  max-width: 48rem;
+}

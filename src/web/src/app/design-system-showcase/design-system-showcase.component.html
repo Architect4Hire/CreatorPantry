@@ -278,13 +278,20 @@
 
   <section aria-labelledby="list-shell-heading">
     <h2 id="list-shell-heading">List shell</h2>
-    <p class="section-note">Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.</p>
+    <p class="section-note">
+      Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.
+      Loading draws skeletons in the shape that is coming, as rows or as a library of cards, and says
+      "Loading…" to a screen reader only. Until the list is ready its footer is said, not shown.
+    </p>
     <div class="button-extras">
       @for (state of listShellStates; track state) {
         <button cpButton [variant]="listShellState() === state ? 'primary' : 'secondary'" size="sm" (click)="listShellState.set(state)">{{ state }}</button>
       }
+      @for (layout of listShellLayouts; track layout) {
+        <button cpButton [variant]="listShellLayout() === layout ? 'primary' : 'secondary'" size="sm" (click)="listShellLayout.set(layout)">loading as {{ layout }}</button>
+      }
     </div>
-    <cp-list-shell heading="Recent recipes" [state]="listShellState()" errorMessage="Couldn't load recipes. Check your connection and try again.">
+    <cp-list-shell heading="Recent recipes" [state]="listShellState()" [loadingLayout]="listShellLayout()" errorMessage="Couldn't load recipes. Check your connection and try again.">
       <div cpListShellActions>
         <button cpButton variant="text" size="sm">View all →</button>
       </div>
@@ -300,6 +307,21 @@
         <button cpButton variant="ghost" size="sm">Next</button>
       </div>
     </cp-list-shell>
+  </section>
+
+  <section aria-labelledby="skeleton-heading">
+    <h2 id="skeleton-heading">Skeleton</h2>
+    <p class="section-note">
+      The shape of what is loading: <code>line</code>, <code>block</code>, <code>circle</code> and
+      <code>card</code>. Hidden from assistive technology — the region that is loading says so once. Still under
+      reduced motion.
+    </p>
+    <div class="skeleton-demo">
+      <cp-skeleton shape="circle" [count]="3" />
+      <cp-skeleton shape="line" [count]="4" />
+      <cp-skeleton shape="block" />
+      <cp-skeleton shape="card" [count]="3" />
+    </div>
   </section>
 
   <section aria-labelledby="tabs-heading">

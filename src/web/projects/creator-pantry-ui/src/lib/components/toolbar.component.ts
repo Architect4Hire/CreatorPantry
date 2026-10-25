@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, input } from '@
 
 @Component({
   selector: 'cp-toolbar', standalone: true,
-  template: `<div class="cp-toolbar" role="toolbar" aria-orientation="horizontal" [attr.aria-label]="ariaLabel()" [attr.aria-disabled]="disabled() ? true : null" [class.cp-toolbar--disabled]="disabled()" (keydown)="onKeydown($event)">@if(loading()){<span class="status" role="status" aria-live="polite">Loading…</span>}<div class="group"><ng-content select="[cpToolbarSearch]" /></div><div class="group"><ng-content select="[cpToolbarFilters]" /></div><div class="group"><ng-content select="[cpToolbarActions]" /></div><details class="overflow"><summary><span class="chevron" aria-hidden="true">⋯</span>More actions</summary><div class="overflow-content"><ng-content select="[cpToolbarOverflow]" /></div></details></div>`,
+  template: `<div class="cp-toolbar" role="toolbar" aria-orientation="horizontal" [attr.aria-label]="ariaLabel()" [attr.aria-disabled]="disabled() ? true : null" [class.cp-toolbar--disabled]="disabled()" [attr.aria-busy]="loading() ? true : null" (keydown)="onKeydown($event)"><div class="group"><ng-content select="[cpToolbarSearch]" /></div><div class="group"><ng-content select="[cpToolbarFilters]" /></div><div class="group"><ng-content select="[cpToolbarActions]" /></div><details class="overflow"><summary><span class="chevron" aria-hidden="true">⋯</span>More actions</summary><div class="overflow-content"><ng-content select="[cpToolbarOverflow]" /></div></details></div>`,
   styles: [`
     :host { display:block; }
     .cp-toolbar { display:flex; flex-wrap:wrap; gap:var(--cp-space-3); align-items:center; }
@@ -11,7 +11,6 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, input } from '@
        its group to that option and pushes the page sideways at 320px, where max-width:100% on the select
        has nothing definite to be a percentage of. */
     .group { display:flex; flex-wrap:wrap; gap:var(--cp-space-2); align-items:center; min-width:0; max-width:100%; }
-    .status { font:400 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans); color:var(--cp-text-muted); }
     .overflow { position:relative; }
     /* A "More actions" control that opens onto nothing is worse than no control, so the disclosure is
        hidden until the consumer projects something into the overflow slot. The slot can only be measured

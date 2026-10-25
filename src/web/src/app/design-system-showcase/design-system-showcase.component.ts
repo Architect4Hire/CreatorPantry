@@ -30,8 +30,10 @@ import {
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpListShellComponent,
+  CpListShellLoadingLayout,
   CpListShellState,
   CpMediaCardComponent,
+  CpSkeletonComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
@@ -94,6 +96,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpQuickActionComponent,
     CpStatusPillComponent,
     CpListShellComponent,
+    CpSkeletonComponent,
     CpTabsComponent,
     CpTabPanelComponent,
     CpToolbarComponent,
@@ -262,6 +265,8 @@ export class DesignSystemShowcaseComponent {
   // --- List shell ---
   readonly listShellState = signal<CpListShellState>('ready');
   readonly listShellStates: CpListShellState[] = ['loading', 'error', 'empty', 'ready'];
+  readonly listShellLayout = signal<CpListShellLoadingLayout>('rows');
+  readonly listShellLayouts: CpListShellLoadingLayout[] = ['rows', 'cards'];
 
   // --- Tabs ---
   readonly tabs = [

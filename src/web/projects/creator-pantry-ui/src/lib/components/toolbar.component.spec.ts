@@ -70,24 +70,25 @@ describe('CpToolbarComponent', () => {
     expect(toolbar.getAttribute('aria-orientation')).toBe('horizontal');
   });
 
-  it('renders a role="status" aria-live="polite" element when loading', async () => {
+  // AU.2.3: the toolbar sits over the list that is loading, and that list says so once (cp-list-shell). A
+  // sentence here as well was a second, visible "Loading…" on every library, so the toolbar is only busy.
+  it('marks itself busy while loading, and says nothing of its own', async () => {
     const fixture = await createFixture();
     fixture.componentInstance.loading = true;
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const status = host.querySelector('[role="status"]') as HTMLElement;
-
-    expect(status).toBeTruthy();
-    expect(status.getAttribute('aria-live')).toBe('polite');
-    expect(status.textContent).toContain('Loading');
+    expect((host.querySelector('[role="toolbar"]') as HTMLElement).getAttribute('aria-busy')).toBe('true');
+    expect(host.querySelector('[role="status"]')).toBeNull();
+    expect(host.textContent).not.toContain('Loading');
   });
 
-  it('does not render a status element when not loading', async () => {
+  it('is not busy when not loading', async () => {
     const fixture = await createFixture();
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
+    expect((host.querySelector('[role="toolbar"]') as HTMLElement).hasAttribute('aria-busy')).toBeFalse();
     expect(host.querySelector('[role="status"]')).toBeNull();
   });
 

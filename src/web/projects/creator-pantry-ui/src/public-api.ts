@@ -10,6 +10,7 @@ export * from './lib/components/lightbox.component';
 export * from './lib/components/quick-action.component';
 export * from './lib/components/status-pill.component';
 export * from './lib/components/list-shell.component';
+export * from './lib/components/skeleton.component';
 export * from './lib/components/tabs.component';
 export * from './lib/components/toolbar.component';
 export * from './lib/components/empty-state.component';

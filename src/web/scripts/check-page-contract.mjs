@@ -47,6 +47,7 @@ export const RULES = {
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
+  skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
   'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
@@ -165,6 +166,13 @@ export function stylesheetViolations(css) {
     for (const m of rule.body.matchAll(/repeat\(\s*auto-(?:fill|fit)/g)) found.push({ rule: 'card-grid', line: at(m.index), what: 'lays out an auto-filling grid' });
     for (const m of rule.body.matchAll(/position\s*:\s*fixed/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'sets position: fixed' });
     for (const m of rule.body.matchAll(/translateX\(/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'slides with translateX' });
+    // `skeleton`: a placeholder of a feature's own, by its name (`.skeleton`, `.skeleton-row`, `.shimmer`), by the
+    // library's skeleton tokens or sweep, or by a keyframe that moves a background — a shimmer whatever it is called.
+    for (const m of rule.selector.matchAll(/\.((?:skeleton|shimmer)[\w-]*)/g)) found.push({ rule: 'skeleton', line: rule.line, what: `styles .${m[1]}` });
+    for (const m of rule.body.matchAll(/--cp-skeleton-[\w-]+|cp-skeleton-sweep/g)) found.push({ rule: 'skeleton', line: at(m.index), what: `draws with ${m[0]}` });
+    if (/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) && /background-position\s*:/.test(rule.body)) {
+      found.push({ rule: 'skeleton', line: rule.line, what: 'animates a background-position shimmer' });
+    }
     // `tone`: the route owns a tool's tone (AU.2.1). A part reads --cp-tone*; a feature never sets it.
     if (/\[data-cp-tone/.test(rule.selector)) found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
     for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g)) found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });

@@ -432,7 +432,7 @@ known order-dependent landing-credits specs.*
 theme. Re-run `capture:tour` in the sample workspace when convenient. The AU.1 delivery note's dark figures were
 measured on the green-black theme. The specs hold the charcoal ones.*
 
-## AU.2.3 Skeleton loader and the list shell's loading state
+## AU.2.3 Skeleton loader and the list shell's loading state - done
 
 ```text
 SCOPE: Add CpSkeletonComponent to @creator-pantry/ui: shapes line, block, circle and card (a media-card
@@ -452,6 +452,41 @@ BEHAVIOR: Define the selector, inputs, ARIA and reduced-motion behaviour; wait f
 specs, add it to public-api.ts, the showcase, README.md, DESIGN-SYSTEM.md and the public-API list in CLAUDE.md
 and .claude/rules/design-system.md; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. `CpSkeletonComponent` (`cp-skeleton`) has these properties:*
+
+- *Shapes `line`, `block`, `circle` and `card`. `card` matches cp-card's padding and edge, has a 4:3 picture and a
+  title line, and lays a `count` out as a card grid.*
+- *`count` is capped at 24, and NaN draws one.*
+- *A block of lines cycles its widths and ends at 60%.*
+- *The host is `aria-hidden`.*
+- *It sweeps by `background-position`. Under reduced motion it is flat (checked in a real browser), and under
+  forced colours it is outlined.*
+
+*`cp-list-shell` gained `loadingLayout` (`rows` by default, or `cards`). While loading it draws the matching
+skeleton.*
+
+*What differs from the prompt, all from `design-review`:*
+
+1. *The shell's status region is always in the page, outside the `aria-busy` body, and only its words change. A
+   region inserted with its text, or held inside a busy subtree, may not be read. This has not been checked with
+   a real screen reader.*
+2. *`cp-toolbar`, a library part, printed its own visible "Loading…" on the five libraries, which was a second
+   announcement. Its `loading` now sets `aria-busy` and says nothing. Every toolbar using it sits above a list
+   shell that announces.*
+3. *The footer is hidden only while the list is **empty**, not while it is loading or in error, as first built.
+   Hiding it while loading left test history's Previous/Next, and the histories' "Load older versions", as
+   invisible focus stops. Hiding it only while empty fixes the duplicate sentence without changing any feature.*
+4. *The `skeleton` contract rule catches any class beginning `skeleton` or `shimmer`, any use of a
+   `--cp-skeleton-*` token or the library's sweep, and any keyframe that animates `background-position`. `bone`
+   is left out on purpose: food copy says "bone-in".*
+
+*No feature file changed. The libraries still load as rows until their own prompts pass `loadingLayout="cards"`:
+AU.4.2, AU.6.1 and AU.6.3 now say so. AU.7 now names what is left: about thirty feature status sentences, and the
+"Loading…" label on "Load older versions".*
+
+*`npm run build` passes, the library is 366/366, and the page contract holds. The showcase's failures were only
+in the known order-dependent families, and My Week and the content board pass alone (227/227).*
 
 ## AU.2.4 Empty states with illustrations
 
@@ -741,7 +776,8 @@ BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run 
 ## AU.6.3 Brand, Prompt Library, Workflows and Quick Recipe
 
 ```text
-SCOPE: Each page adopts the parts it is missing: skeletons in place of its loading sentences, an illustrated
+SCOPE: Each page adopts the parts it is missing: skeletons in place of its loading sentences (Brand library and
+Prompt Library are grids of cp-media-card, so their cp-list-shell takes loadingLayout="cards"), an illustrated
 empty state from the set ("brand", "prompt", "board", "recipe"), cp-generated on any generated text (brand
 style test-drive, generated prompts), and Quick Recipe's first-use state. From AU.0: Workflows lists four
 "Continue" buttons and three runs titled "Create a recipe"; give each action an accessible name that says
@@ -776,7 +812,11 @@ visually hidden status sentence for screen readers. Add a page-contract rule "lo
 shared component's template shows no visible "Loading…" sentence outside cp-skeleton's hidden status; an
 exemption is a listed path with a reason. From AU.0: while a detail page loads, its h1 reads "Asset",
 "Loading card…", "Workflow", "Kitchen view" or "Edit recipe". The title slot holds the route's title or a
-skeleton line, never a loading sentence.
+skeleton line, never a loading sentence. From AU.2.3: cp-toolbar's own "Loading…" is gone (it is aria-busy now)
+and cp-list-shell's is offscreen, so what remains is in src/app: about thirty feature status sentences (e.g.
+dashboard.component.html, recipe-editor.component.html, content-pipeline-shell.component.html) and the
+"Loading…" label on "Load older versions" in recipe-history and brand-guide-history, which is not the
+"Loading more…" the exemption allows. Keep one status region per loading area, present before it loads.
 CONSTRAINT: APP-003; AU.2.3; check-page-contract.mjs's rule and exemption format and its self-tests.
 RESTRICTION: "Loading more…" on a pager button may stay as button text if the button is the only thing
 changing; list each such case. Do not run backend tests.

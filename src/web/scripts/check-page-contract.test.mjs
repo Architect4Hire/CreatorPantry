@@ -109,6 +109,15 @@ test('tone: the shell sets the tone once, on the page frame', () => {
   assert.match(uses[0], /class="page-frame"[^>]*\[attr\.data-cp-tone\]="currentPageTone\(\)"/);
 });
 
+test('skeleton: a feature draws no placeholder or shimmer of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.skeleton { height: 1rem; } .shimmer { opacity: .5; }')), ['skeleton', 'skeleton']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes pulse { from { background-position: 100% 0; } to { background-position: 0 0; } }')), ['skeleton', 'skeleton']);
+  assert.deepEqual(stylesheetViolations('@keyframes fade { from { opacity: 0; } to { opacity: 1; } } .hero { background-position: center; }'), []);
+  assert.deepEqual(rules(stylesheetViolations('.skeleton-row { height: 1rem; }')), ['skeleton']);
+  assert.deepEqual(rules(stylesheetViolations('.placeholder { background: var(--cp-skeleton-base); }')), ['skeleton']);
+  assert.deepEqual(stylesheetViolations('.placeholder { background: var(--cp-surface-subtle); } .bone-in { margin: 0; }'), []);
+});
+
 test('drawer: a feature positions nothing against the viewport', () => {
   assert.deepEqual(rules(stylesheetViolations('.panel { position: fixed; transform: translateX(100%); }')), ['drawer', 'drawer']);
   assert.deepEqual(stylesheetViolations('.bar { position: sticky; top: 0; }'), []);
