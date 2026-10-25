@@ -24,9 +24,10 @@ const SECTION_ROUTES: Routes = [
     path: 'workflows',
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/workflows/workflows-hub.component').then((m) => m.WorkflowsHubComponent), data: { title: 'Workflows' } },
-      { path: 'content-pipeline', loadChildren: () => import('./features/content-pipeline/content-pipeline.routes').then((m) => m.CONTENT_PIPELINE_ROUTES) },
+      // A tone on a section's parent reaches every page under it (AU.2.1); the two pipelines are orange (D1).
+      { path: 'content-pipeline', loadChildren: () => import('./features/content-pipeline/content-pipeline.routes').then((m) => m.CONTENT_PIPELINE_ROUTES), data: { tone: 'orange' } },
       // The second guided journey (B-38): long-form, with its own route and its own steps. Nothing of it is a step of the one above.
-      { path: 'long-form', loadChildren: () => import('./features/long-form/long-form-pipeline.routes').then((m) => m.LONG_FORM_PIPELINE_ROUTES) },
+      { path: 'long-form', loadChildren: () => import('./features/long-form/long-form-pipeline.routes').then((m) => m.LONG_FORM_PIPELINE_ROUTES), data: { tone: 'orange' } },
       // One page: the run is in its query parameters, so there is no step segment and nothing to guard on leaving.
       { path: 'quick-recipe', loadComponent: () => import('./features/quick-recipe/quick-recipe.component').then((m) => m.QuickRecipeComponent), data: { title: 'Quick Recipe' } },
       // One guided run in the shared shell (13A.12). The server's current step is the only step, so there is no step segment.
@@ -44,11 +45,12 @@ const SECTION_ROUTES: Routes = [
   // components, so the guards and pages load with the section rather than with the app shell.
   { path: 'recipes', loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.RECIPES_ROUTES) },
   { path: 'brand', loadChildren: () => import('./features/brand/brand.routes').then((m) => m.BRAND_ROUTES) },
-  { path: 'ai-recipe-studio', loadChildren: () => import('./features/ai/ai-recipe-studio.routes').then((m) => m.AI_RECIPE_STUDIO_ROUTES) },
+  { path: 'ai-recipe-studio', loadChildren: () => import('./features/ai/ai-recipe-studio.routes').then((m) => m.AI_RECIPE_STUDIO_ROUTES), data: { tone: 'purple' } },
   // The studio, and the studio opened for a creative context (AF.1.4): the id is a path segment after a
   // literal `context`. One page either way: with an id it reads that context, without one it starts new work (AF.3.1).
   {
     path: 'image-studio',
+    data: { tone: 'pink' },
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio', pageWidth: 'wide' } },
       { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio', pageWidth: 'wide' } },
@@ -58,6 +60,7 @@ const SECTION_ROUTES: Routes = [
   // without one it starts new work. Both leave through one guard, which asks only when a post has unsaved words.
   {
     path: 'social-studio',
+    data: { tone: 'blue' },
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },
       { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },

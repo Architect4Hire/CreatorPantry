@@ -87,8 +87,10 @@
 
   <main>
     <!-- The one gutter and the one width every signed-in page has; a route picks its width with
-         `data: { pageWidth }`. No title here: the page's one h1 is its own cp-page-head (DESIGN-SYSTEM.md). -->
-    <div class="page-frame" [attr.data-page-width]="currentPageWidth()">
+         `data: { pageWidth }`, and a tool its tone with `data: { tone }` — set here and nowhere else, so the nav
+         and the top bar, outside this frame, never take it. No title here: the page's one h1 is its own
+         cp-page-head (DESIGN-SYSTEM.md). -->
+    <div class="page-frame" [attr.data-page-width]="currentPageWidth()" [attr.data-cp-tone]="currentPageTone()">
       <router-outlet />
     </div>
   </main>

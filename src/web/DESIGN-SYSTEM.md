@@ -346,11 +346,13 @@ by hand.
 | Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week, the dashboard | none: evergreen |
 | Workflows hub, a guided run, Quick Recipe, Workspace settings, AI allowance | none: evergreen (not named by D1; untoned by default) |
 
-- **The route owns it.** A route declares `data: { tone }` and the shell's page frame sets `data-cp-tone` inside
-  `<main>`. A feature stylesheet or template neither sets `data-cp-tone` nor declares a `--cp-tone*`. AU.2.1
-  builds both, and adds the page-contract rule that will enforce this.
-- **A drawer keeps the tone of the page that opened it.** `cp-drawer` moves itself to `<body>` while open, outside
-  the frame, so it carries the opener's tone with it (AU.2.1). The nav and the top bar never take a tone.
+- **The route owns it.** A route declares `data: { tone }` — on a section's parent route, so every page below it
+  inherits the tone — and the shell's page frame sets `data-cp-tone` inside `<main>`, the deepest route that
+  names one winning, as with `pageWidth`. A feature stylesheet or template neither sets `data-cp-tone` nor
+  declares a `--cp-tone*`; the page contract's `tone` rule fails one that does.
+- **A drawer keeps the tone of the page that opened it.** `cp-drawer` moves its panel to `<body>` while open,
+  outside the frame, so the panel copies the nearest `data-cp-tone` above it as it goes. A dialog and a lightbox
+  stay where they are and inherit it. The nav and the top bar sit outside the frame and never take a tone.
 - **Parts draw with four tokens.** These are `--cp-tone` (a fill or an edge), `--cp-tone-soft` (a tint),
   `--cp-tone-text` (the tone as text) and `--cp-tone-on` (text or a glyph on a `--cp-tone` fill). With no tone set
   they are the primary's four, so on the page a part written against them looks as it did on an untoned page.
@@ -423,6 +425,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
+| `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
 | `public-frame` | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged | the `--cp-public-*` tokens ("The public page") |

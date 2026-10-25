@@ -1,9 +1,9 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { CpThemeService } from '@creator-pantry/ui';
-import { EMPTY } from 'rxjs';
+import { EMPTY, Observable, Subject } from 'rxjs';
 
 import { AppShellComponent } from './app-shell.component';
 import { QuickCaptureComponent } from '../shared/quick-capture/quick-capture.component';
@@ -16,6 +16,7 @@ interface FakeRouteNode {
   readonly section?: string;
   readonly title?: string;
   readonly pageWidth?: string;
+  readonly tone?: string;
   /** Any other route parameter the node names — a record id, say. */
   readonly params?: Readonly<Record<string, string>>;
 }
@@ -30,7 +31,11 @@ function buildRouteChain(nodes: readonly FakeRouteNode[]): { firstChild: unknown
       snapshot: {
         paramMap: fakeParamMap({ ...(node.slug ? { workspaceSlug: node.slug } : {}), ...(node.params ?? {}) }),
         url: node.section ? [{ path: node.section }] : [],
-        data: { ...(node.title ? { title: node.title } : {}), ...(node.pageWidth ? { pageWidth: node.pageWidth } : {}) },
+        data: {
+          ...(node.title ? { title: node.title } : {}),
+          ...(node.pageWidth ? { pageWidth: node.pageWidth } : {}),
+          ...(node.tone ? { tone: node.tone } : {}),
+        },
       },
     };
   }
@@ -59,6 +64,7 @@ describe('AppShellComponent', () => {
     section = 'recipes',
     route: { firstChild: unknown } = fakeRouteTree(slug, section),
     memberships: unknown = { status: 'loading' },
+    events: Observable<unknown> = EMPTY,
   ) {
     navigateByUrlSpy = jasmine.createSpy('navigateByUrl').and.resolveTo(true);
     logoutSpy = jasmine.createSpy('logout').and.resolveTo(undefined);
@@ -71,7 +77,7 @@ describe('AppShellComponent', () => {
       providers: [
         { provide: AuthService, useValue: { session: () => session, logout: logoutSpy } },
         { provide: WorkspaceMembershipService, useValue: { state: () => memberships, ensureLoaded: ensureLoadedSpy } },
-        { provide: Router, useValue: { events: EMPTY, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy } },
+        { provide: Router, useValue: { events, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy } },
         { provide: ActivatedRoute, useValue: route },
         { provide: CpThemeService, useValue: { resolved: resolvedTheme, toggle: toggleThemeSpy } },
       ],
@@ -276,6 +282,60 @@ describe('AppShellComponent', () => {
 
       expect(frame.getAttribute('data-page-width')).toBe('standard');
       expect(style.maxWidth).toBe('700px');
+    });
+  });
+
+  // A tool's tone (AU.2.1): asked for by a route's data, set on the frame and nowhere else.
+  describe('tone', () => {
+    const authenticated: SessionState = { status: 'authenticated', displayName: 'Robert' };
+    const studio = (tone?: string) =>
+      // The tone sits on the section's parent route and the page below it names none, as in app.routes.ts.
+      buildRouteChain([{ slug: 'cozy-fall' }, { section: 'image-studio', tone }, { title: 'Image Studio' }]);
+    const frameOf = (fixture: ComponentFixture<AppShellComponent>) =>
+      fixture.nativeElement.querySelector('main > .page-frame') as HTMLElement;
+
+    it('sets no tone for a route that names none', async () => {
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'recipes', studio());
+      expect(frameOf(fixture).hasAttribute('data-cp-tone')).toBeFalse();
+    });
+
+    it("sets the tone a parent route names on the frame, for the page below it", async () => {
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', studio('pink'));
+      expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('pink');
+    });
+
+    it('ignores a tone that is not one of the four, rather than reaching the DOM with it', async () => {
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', studio('teal'));
+      expect(frameOf(fixture).hasAttribute('data-cp-tone')).toBeFalse();
+    });
+
+    it('sets it on the frame alone, so the nav and the top bar never take it', async () => {
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', studio('pink'));
+      const toned = [...fixture.nativeElement.querySelectorAll('[data-cp-tone]')] as HTMLElement[];
+      expect(toned).toEqual([frameOf(fixture)]);
+    });
+
+    it('clears it when the creator navigates to an untoned page, and sets it again on the way back', async () => {
+      const events = new Subject<unknown>();
+      const route = studio('pink');
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', route, { status: 'loading' }, events);
+      expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('pink');
+
+      route.firstChild = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes' }]).firstChild;
+      events.next(new NavigationEnd(1, '/cozy-fall/recipes', '/cozy-fall/recipes'));
+      fixture.detectChanges();
+      expect(frameOf(fixture).hasAttribute('data-cp-tone')).toBeFalse();
+
+      route.firstChild = studio('pink').firstChild;
+      events.next(new NavigationEnd(2, '/cozy-fall/image-studio', '/cozy-fall/image-studio'));
+      fixture.detectChanges();
+      expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('pink');
+    });
+
+    it('lets a deeper route name its own tone over its parent', async () => {
+      const route = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'workflows', tone: 'blue' }, { title: 'Long-form', tone: 'orange' }]);
+      const fixture = await createFixture(authenticated, 'cozy-fall', 'workflows', route);
+      expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('orange');
     });
   });
 

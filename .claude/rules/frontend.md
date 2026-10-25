@@ -32,6 +32,9 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
 - The shell's page frame owns the one gutter (`--cp-page-gutter`) and the one width every signed-in page has; a
   routed component that sets `padding` or `max-width` on its `:host` is a defect, and a page that needs another
   width asks for it with `data: { pageWidth: 'reading' | 'wide' }` on its route.
+- The frame also owns a tool's tone. A creative tool's parent route declares `data: { tone: 'purple' | 'pink' |
+  'blue' | 'orange' }` and the frame sets `data-cp-tone`; parts read `--cp-tone*`. A feature that sets
+  `data-cp-tone` or declares a `--cp-tone*` is a defect, and the page contract's `tone` rule fails it.
 - A form is a card, a legend, and named sections a `--cp-space-8` apart, built from `CpFormSectionComponent`.
   A feature stylesheet that redraws a form heading, a section intro, a section-level server error or a field
   row is a defect. Optionality is stated once in the legend, never field by field.

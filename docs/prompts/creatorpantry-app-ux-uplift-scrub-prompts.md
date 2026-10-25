@@ -298,7 +298,7 @@ take no tone?*
 families: content card, landing credits, pricing and collage, and recipe-editor scroll. That is not caused by
 this change, and it has not been fixed.*
 
-## AU.2.1 Tone plumbing
+## AU.2.1 Tone plumbing - done
 
 ```text
 SCOPE: A route may declare data: { tone: 'purple' | 'pink' | 'blue' | 'orange' }. The shell's page frame reads
@@ -317,6 +317,33 @@ BEHAVIOR: Show where the frame applies the attribute and the routes that get a t
 implement with specs (a toned route sets the attribute, an untoned one does not, navigating between them
 clears it) and the contract rule with its own test; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped as planned.*
+
+- *The shell reads `data: { tone }` beside `pageWidth`. The deepest route wins and an unknown value is dropped.
+  The frame binds it as `[attr.data-cp-tone]`, so an untoned page has no attribute.*
+- *The tones sit on the five tools' parent routes, so `context/:id`, the first-draft review, every pipeline step
+  and every long-form address inherit them. On the live app the frame was the only toned element: Recipes,
+  Quick Recipe and the Workflows hub carried none, and `--cp-tone` resolved to each accent.*
+- *`cp-drawer`'s panel copies the nearest `data-cp-tone` as it moves to `<body>`, and clears it otherwise.*
+
+*The `tone` page-contract rule covers more than the prompt asked. `design-review` found ways around the first
+version, so it also reads inline style declarations and component code: `host` bindings, `setAttribute` and
+`style.setProperty`. The shell's template is its one exemption. A self-test holds that template to the single
+frame binding, so the exemption cannot cover a toned nav.*
+
+*Specs:*
+
+- *Shell: no tone, a parent's tone reaching the page, an unknown tone dropped, frame only, cleared and restored
+  on navigation, and deepest wins.*
+- *Drawer: carries the tone, takes none, and does not keep a tone across a reopen.*
+- *`app.routes.spec.ts` resolves every lazy child and holds the table to D1 exactly. It failed on a deliberate
+  `'purpel'`.*
+
+*`npm run build` passes. The library is 341/341 and the page contract holds. The showcase failed 10 to 45 specs
+per run, all in the known order-dependent families, none in the shell, routes or drawer, and each passes alone.
+The new families seen this time (My Week moving, Content Pipeline brand defaults) point at specs leaving
+SweetAlert confirmations in `document.body`. That is pre-existing and not fixed here.*
 
 ## AU.2.2 A true dark card (only if D2 chose to replace parchment)
 

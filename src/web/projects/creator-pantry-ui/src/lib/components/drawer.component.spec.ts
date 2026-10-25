@@ -93,6 +93,31 @@ describe('CpDrawerComponent', () => {
     expect(scrim()).toBeNull();
   });
 
+  // Moved to <body>, the panel is outside the frame that sets the page's tone (AU.2.1), so it takes it along.
+  it('keeps the tone of the page it was opened on', () => {
+    mount();
+    el.setAttribute('data-cp-tone', 'pink');
+    openFrom();
+    expect(panel()!.getAttribute('data-cp-tone')).toBe('pink');
+    expect(getComputedStyle(panel()!).getPropertyValue('--cp-tone').trim()).toBe(getComputedStyle(el).getPropertyValue('--cp-tone').trim());
+  });
+
+  it('takes no tone from an untoned page', () => {
+    mount();
+    openFrom();
+    expect(panel()!.hasAttribute('data-cp-tone')).toBeFalse();
+  });
+
+  it('reads the tone again on every open, so one it was opened under before does not stay', () => {
+    mount();
+    el.setAttribute('data-cp-tone', 'pink');
+    openFrom();
+    close();
+    el.removeAttribute('data-cp-tone');
+    openFrom();
+    expect(panel()!.hasAttribute('data-cp-tone')).toBeFalse();
+  });
+
   it('is a modal dialog named by its heading and described by its description', () => {
     mount((h) => h.description.set('Shown beside the picture.'));
     openFrom();

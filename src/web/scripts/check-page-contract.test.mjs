@@ -3,6 +3,7 @@
 // nothing would pass every page for ever.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -14,6 +15,7 @@ import {
   pageTemplateViolations,
   publicStylesheetViolations,
   publicTemplateViolations,
+  scriptViolations,
   stylesheetViolations,
   templateViolations,
 } from './check-page-contract.mjs';
@@ -77,6 +79,34 @@ test('toolbar-field: a search input sits in cp-search-field, or in cp-field when
   assert.deepEqual(rules(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>\n<input type="search" />')), ['toolbar-field']);
   assert.deepEqual(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>'), []);
   assert.deepEqual(templateViolations('<cp-field label="Search"><input type="search" /></cp-field>'), []);
+});
+
+test('tone: a feature neither sets a tone nor declares the tone tokens; it may read them', () => {
+  assert.deepEqual(rules(templateViolations('<section data-cp-tone="pink"></section>')), ['tone']);
+  assert.deepEqual(rules(templateViolations('<div [attr.data-cp-tone]="tone()"></div>')), ['tone']);
+  assert.deepEqual(rules(stylesheetViolations(':host { --cp-tone: var(--cp-pink); --cp-tone-text: red; }')), ['tone', 'tone']);
+  assert.deepEqual(rules(stylesheetViolations('[data-cp-tone="pink"] .title { color: red; }')), ['tone']);
+  assert.deepEqual(stylesheetViolations('.title { color: var(--cp-tone-text); border-color: var(--cp-tone); }'), []);
+  assert.deepEqual(templateViolations('<p class="tone-note">A tone of voice.</p>'), []);
+  assert.deepEqual(rules(templateViolations('<div style="--cp-tone: red"></div><div [style.--cp-tone-text]="x"></div>')), ['tone', 'tone']);
+  assert.deepEqual(templateViolations('<div style="color: var(--cp-tone-text)"></div>'), []);
+});
+
+test('tone: nor sets one from code; a comment saying so, and an inline template read elsewhere, are not counted twice', () => {
+  assert.deepEqual(rules(scriptViolations("@Component({ host: { '[attr.data-cp-tone]': 'tone()' } })")), ['tone']);
+  assert.deepEqual(rules(scriptViolations("el.setAttribute('data-cp-tone', 'pink');")), ['tone']);
+  assert.deepEqual(rules(scriptViolations("el.style.setProperty('--cp-tone', 'red');")), ['tone']);
+  assert.deepEqual(scriptViolations("// the frame sets data-cp-tone\n/* and data-cp-tone here */ const x = getComputedStyle(el).getPropertyValue('--cp-tone');"), []);
+  assert.deepEqual(scriptViolations('@Component({ template: `<div [attr.data-cp-tone]="t"></div>`, })'), []);
+});
+
+// The shell's exemption covers its whole template, so this holds it to the one binding it exists for: on the
+// frame inside <main>, and nowhere the nav or the top bar could pick it up.
+test('tone: the shell sets the tone once, on the page frame', () => {
+  const shell = readFileSync(new URL('../src/app/shell/app-shell.component.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const uses = shell.split('\n').filter((line) => line.includes('data-cp-tone'));
+  assert.equal(uses.length, 1, uses.join('\n'));
+  assert.match(uses[0], /class="page-frame"[^>]*\[attr\.data-cp-tone\]="currentPageTone\(\)"/);
 });
 
 test('drawer: a feature positions nothing against the viewport', () => {

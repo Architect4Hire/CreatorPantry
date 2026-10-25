@@ -30,6 +30,19 @@ function isPageWidth(value: unknown): value is PageWidth {
   return typeof value === 'string' && PAGE_WIDTHS.includes(value);
 }
 
+/**
+ * A tool's tone (AU.1, D1), asked for through `data: { tone }` the same way. The frame sets it as `data-cp-tone`
+ * and every part on the page resolves `--cp-tone*` from it; a route that says nothing is untoned, which is the
+ * primary (DESIGN-SYSTEM.md, "Warmth inside the app").
+ */
+export type PageTone = 'purple' | 'pink' | 'blue' | 'orange';
+
+const PAGE_TONES: readonly string[] = ['purple', 'pink', 'blue', 'orange'] satisfies readonly PageTone[];
+
+function isPageTone(value: unknown): value is PageTone {
+  return typeof value === 'string' && PAGE_TONES.includes(value);
+}
+
 interface ShellNavItem {
   readonly path: string;
   readonly label: string;
@@ -142,6 +155,7 @@ export class AppShellComponent {
   readonly currentSection = () => this.routeState().section;
   readonly currentPageTitle = () => this.routeState().title;
   readonly currentPageWidth = () => this.routeState().pageWidth;
+  readonly currentPageTone = () => this.routeState().tone;
 
   /** The record on the page behind, when quick capture may offer to link a task to it (13A.31). */
   readonly quickCaptureLink = () => this.routeState().link;
@@ -223,6 +237,7 @@ export class AppShellComponent {
     section: string;
     title: string;
     pageWidth: PageWidth;
+    tone: PageTone | null;
     link: QuickCaptureLink | null;
   } {
     let node = this.route.firstChild;
@@ -230,6 +245,7 @@ export class AppShellComponent {
     let section = 'dashboard';
     let title = 'CreatorPantry';
     let pageWidth: PageWidth = 'standard';
+    let tone: PageTone | null = null;
     // Every parameter down the tree, the deepest winning, so the page's own record id is the one read.
     const params = new Map<string, string>();
     // A node can exist in the tree with its `snapshot` not yet assigned: this runs once synchronously
@@ -248,12 +264,15 @@ export class AppShellComponent {
       // three steps is ignored rather than reaching the DOM as an attribute no rule matches.
       const routeWidth: unknown = node.snapshot.data['pageWidth'];
       if (isPageWidth(routeWidth)) pageWidth = routeWidth;
+      // A tone is set on a section's parent route and its pages inherit it by being below it; the same rule.
+      const routeTone: unknown = node.snapshot.data['tone'];
+      if (isPageTone(routeTone)) tone = routeTone;
       for (const key of node.snapshot.paramMap.keys) {
         const value = node.snapshot.paramMap.get(key);
         if (value) params.set(key, value);
       }
       node = node.firstChild;
     }
-    return { slug, section, title, pageWidth, link: quickCaptureLinkFrom(params) };
+    return { slug, section, title, pageWidth, tone, link: quickCaptureLinkFrom(params) };
   }
 }
