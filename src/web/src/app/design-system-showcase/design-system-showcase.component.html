@@ -798,6 +798,40 @@
     </ul>
   </section>
 
+  <section aria-labelledby="stat-tile-heading">
+    <h2 id="stat-tile-heading">Figure tile and featured card</h2>
+    <p class="section-note">
+      A figure is never a bare number: the count and what it counts are one sentence, with an optional line of
+      context and a link to where it is dealt with. The featured card is the one topic on a page that matters
+      most — the tool's tint, edged in its colour — and a page has at most one. Each tone is shown here once.
+    </p>
+    @for (tone of tones; track tone.tool) {
+      <div class="showcase-stack showcase-figure-row" [attr.data-cp-tone]="tone.name">
+        <p class="cp-muted">{{ tone.tool }}</p>
+        <ul cpCardGrid minColumn="12rem" [attr.aria-label]="'Figures on ' + tone.tool">
+          <li>
+            <cp-stat-tile value="12" label="recipes waiting for review" context="Across three projects.">
+              <a cpStatTileLink href="#stat-tile-heading">Review the 12 recipes</a>
+            </cp-stat-tile>
+          </li>
+          <li><cp-stat-tile value="1,284" label="AI credits left this month" context="Resets on 1 November." /></li>
+          <li>
+            <cp-stat-tile value="4" label="posts scheduled this week">
+              <a cpStatTileLink href="#stat-tile-heading">Open My Week</a>
+            </cp-stat-tile>
+          </li>
+        </ul>
+        <cp-topic-card heading="Due today" [headingLevel]="3" featured>
+          <p>Brown butter blondies goes to Instagram at 6pm. The caption is drafted and waiting for you.</p>
+          <div class="cp-actions">
+            <button cpButton type="button" size="sm">Review the caption</button>
+            <a href="#stat-tile-heading">See the whole day</a>
+          </div>
+        </cp-topic-card>
+      </div>
+    }
+  </section>
+
   <section aria-labelledby="topic-card-heading">
     <h2 id="topic-card-heading">Topic card and facts</h2>
     <p class="section-note">

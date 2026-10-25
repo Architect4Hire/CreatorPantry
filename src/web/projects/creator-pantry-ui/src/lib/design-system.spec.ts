@@ -129,6 +129,20 @@ class DrawnControlsHostComponent {}
 })
 class SoftFillInCardHostComponent {}
 
+/** What a featured card carries (AU.3.3): ink, muted ink, and an evergreen link or text button. */
+@Component({
+  standalone: true,
+  imports: [CpCardComponent],
+  template: `
+    <cp-card featured>
+      <p class="ink" style="color: var(--cp-text)">Due today</p>
+      <p class="muted" style="color: var(--cp-text-muted)">At 6pm</p>
+      <a class="link" href="#" style="color: var(--cp-primary-text)">See the whole day</a>
+    </cp-card>
+  `,
+})
+class FeaturedCardHostComponent {}
+
 describe('CreatorPantry UI library', () => {
   it('applies the configured button variant and size', async () => {
     await TestBed.configureTestingModule({ imports: [CpButtonComponent] }).compileComponents();
@@ -438,6 +452,46 @@ describe('CreatorPantry design tokens', () => {
         expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(1.15);
         expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(1.15);
       });
+    }
+  });
+
+  // The featured card's fill is the tool's tint mixed with the sheet (AU.3.3). On the pure tint an evergreen link was
+  // 4.41:1 on light pink, so every tone is measured as painted, in both themes.
+  describe('the featured card', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const tone of [null, 'purple', 'pink', 'blue', 'orange'] as const) {
+        it(`carries ink, muted ink and an evergreen link at 4.5:1 ${tone ? `in a ${tone} tool` : 'untoned'} in the ${theme} theme`, async () => {
+          await TestBed.configureTestingModule({ imports: [FeaturedCardHostComponent] }).compileComponents();
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+
+          const fixture = TestBed.createComponent(FeaturedCardHostComponent);
+          frame.appendChild(fixture.nativeElement);
+          fixture.detectChanges();
+          const root = fixture.nativeElement as HTMLElement;
+          const card = root.querySelector('cp-card')!;
+          const fill = getComputedStyle(card).backgroundColor;
+
+          for (const part of ['ink', 'muted', 'link']) {
+            const text = getComputedStyle(root.querySelector(`.${part}`)!).color;
+            expect(contrastRatio(text, fill)).withContext(`${part}: ${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+          }
+          // Tinted, not the plain sheet, and edged in the tool's colour: one that looked like every other card would
+          // feature nothing. Probes resolve the tokens to the same form the card's computed colours are in.
+          const probe = document.createElement('span');
+          probe.style.backgroundColor = 'var(--cp-surface)';
+          probe.style.color = 'var(--cp-tone)';
+          frame.appendChild(probe);
+          expect(fill).not.toBe(getComputedStyle(probe).backgroundColor);
+          expect(getComputedStyle(card).borderTopColor).toBe(getComputedStyle(probe).color);
+
+          page.remove();
+        });
+      }
     }
   });
 

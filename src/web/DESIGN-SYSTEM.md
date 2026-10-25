@@ -394,7 +394,14 @@ by hand.
   stepper, an illustration (D5) and the panel a card without a picture draws it on (AU.2.6). It is never the primary action — Save, Generate and Continue stay evergreen,
   the action colour on every page — and never the nav, body text, a field, or a section's background. The one
   exception to the last is the single featured card a page may have (AU.3.3), whose surface is
-  `--cp-tone-soft`.
+  `--cp-tone-soft` mixed four parts to one with the sheet.
+- **At most one featured card per page.** `featured` on `cp-card` (or `cp-topic-card`) marks the one topic that
+  matters most there — the dashboard's most urgent, say — with the tool's tint (the primary's on an untoned page)
+  and an edge in the tool's colour. Two of them feature nothing, so a page never has a second, and a list never
+  features its items. Hold its actions to primary, secondary and text buttons: a ghost button's edge is lost on the
+  tint. Under forced colours the tint goes, so its edge doubles. The tint is mixed with the sheet because the pure tint put an evergreen link at 4.41:1 on
+  light pink; mixed, ink, muted ink and evergreen all clear 4.5:1 on it in every tone and both themes, which
+  `design-system.spec.ts` measures.
 - **A tone is not a status.** The accents still colour badges and status pills, where a word and a glyph carry
   the state, so the Direction's "tools and states" stands. The tone is the accent picked for a tool's identity,
   and nothing reads as success, warning or "made by AI" because of it.
@@ -483,6 +490,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
 | `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's `.concept-card`, `.concept-title` or `.concept-dietary` (exempt until AU.5.1 adopts the card) | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
+| `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
 | `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
@@ -567,6 +575,18 @@ A meter reads as an amount when the question is "how much have I got" and as a p
 Its `tone` colours the fill and does nothing else — it adds no glyph, changes no text and changes no ARIA. That is deliberate: a bar that only changed colour would be status by colour alone. Pair a toned meter with a `CpStatusPillComponent` naming the state in a word, and the meter's colour becomes the quieter half of something already said.
 
 A figure is bold `--cp-font-sans`, not the display face: metrics are read, not declaimed. Put the reading measure on a wrapper free to shrink rather than on the track, where a `max-width` becomes the meter's floor instead of its ceiling.
+
+**A figure on its own is `CpStatTileComponent`** (AU.3.3, APP-008): the number at `--cp-font-size-2xl` with what it
+counts in words beside it, as one sentence ("12 recipes waiting for review"), never a bare number. Under it an
+optional sentence of `context`, and an optional link (`[cpStatTileLink]`, the feature's own `<a>`, named by what it
+opens) at the foot, so a row of tiles lines its links up. The figure is the server's count as the feature formats
+it: the tile adds no precision, no unit and no arithmetic, and a page derives none (the dashboard rule). There is
+no trend arrow and no delta; a comparison appears only when the server sends one, and then as words in `context`.
+A figure that could not be read keeps its tile and label, leaves `value` empty and says so in a `cp-notice` in the
+default slot. Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
+the tile, not the window: `--cp-font-size-2xl` is its ceiling, and a narrow tile sets it smaller, so a four-digit
+count never runs out of its column. A feature draws no tile of its own: the page contract's `stat-tile` rule fails
+a `.stat`, `.kpi` or `.figure-tile` in a feature stylesheet.
 
 Toolbar arrow-key navigation (`CpToolbarComponent`) yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in its search slot keeps its own caret and value behavior.
 

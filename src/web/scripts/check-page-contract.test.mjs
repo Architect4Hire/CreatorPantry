@@ -80,6 +80,12 @@ test('facts, stepper, chip and toolbar-field: the library owns each', () => {
   assert.deepEqual(stylesheetViolations('.steps-disclosure summary { font-weight: 700; } .chip-note { margin: 0; }'), []);
 });
 
+test('stat-tile: a feature draws no figure tile of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.stat { font-size: 3rem; } .kpi-value { margin: 0; } .figure-tile { padding: 1rem; }')), ['stat-tile', 'stat-tile']);
+  // A table's figure cell and a statistic named in prose are not tiles.
+  assert.deepEqual(stylesheetViolations('.figure { font-variant-numeric: tabular-nums; } .status { color: red; }'), []);
+});
+
 test('option-card: a feature draws no option or concept card of its own', () => {
   assert.deepEqual(rules(stylesheetViolations('.concept-title { font-weight: 700; } .option-card { padding: 1rem; }')), ['option-card', 'option-card']);
   // A list of concepts is a grid the card-grid rule already owns, and an optional field is not an option card.

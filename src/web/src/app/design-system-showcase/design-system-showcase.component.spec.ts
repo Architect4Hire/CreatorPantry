@@ -238,6 +238,19 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([false, false, true]);
   });
 
+  it('shows figure tiles and one featured card in each tone', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="stat-tile-heading"]') as HTMLElement;
+    const rows = [...section.querySelectorAll('.showcase-figure-row')] as HTMLElement[];
+    expect(rows.map((row) => row.getAttribute('data-cp-tone'))).toEqual([null, 'purple', 'pink', 'blue', 'orange']);
+    for (const row of rows) {
+      expect(row.querySelectorAll('cp-stat-tile').length).toBe(3);
+      // At most one featured card on a page; here, one per tone.
+      expect(row.querySelectorAll('cp-card.cp-card--featured').length).toBe(1);
+    }
+    expect(rows[0].querySelector('cp-stat-tile .figure')?.textContent).toBe('12 recipes waiting for review');
+  });
+
   it('shows every illustration in every tone', async () => {
     const fixture = await createFixture();
     const rows = fixture.nativeElement.querySelectorAll('.illustration-row');
