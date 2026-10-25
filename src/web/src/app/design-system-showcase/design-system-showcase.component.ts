@@ -40,6 +40,8 @@ import {
   CpMediaCardComponent,
   CpSkeletonComponent,
   CpNoticeComponent,
+  CpOptionCardComponent,
+  CpOptionFact,
   CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
@@ -118,6 +120,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpChipGroupComponent,
     CpChoiceGroupComponent,
     CpNoticeComponent,
+    CpOptionCardComponent,
     CpComboboxComponent,
     CpDiffLegendComponent,
     CpToastRegionComponent,
@@ -131,6 +134,41 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DesignSystemShowcaseComponent {
+  /** The option-card example: three concepts, one chosen at a time, the way a studio offers them. */
+  protected readonly concepts: readonly { id: string; heading: string; summary: string; facts: readonly CpOptionFact[] }[] = [
+    {
+      id: 'miso',
+      heading: 'Smoky miso corn',
+      summary: 'Charred corn brushed with miso butter, finished with lime and chives.',
+      facts: [
+        { label: 'Time', value: '30 min' },
+        { label: 'Skill', value: 'Weeknight' },
+        { label: 'Serves', value: '4' },
+      ],
+    },
+    {
+      id: 'salad',
+      heading: 'Charred corn salad',
+      summary: 'Corn off the cob with tomatoes, feta and a sharp dressing.',
+      facts: [
+        { label: 'Time', value: '20 min' },
+        { label: 'Skill', value: 'Beginner' },
+        { label: 'Serves', value: '6' },
+        { label: 'Dietary notes', value: 'Vegetarian as written — descriptive only, not a guarantee.' },
+      ],
+    },
+    {
+      id: 'chowder',
+      heading: 'Sweet corn chowder',
+      summary: 'A slow pot of corn, potato and smoked paprika.',
+      facts: [
+        { label: 'Time', value: '1 hr 10 min' },
+        { label: 'Skill', value: 'Comfortable' },
+      ],
+    },
+  ];
+  protected readonly chosenConcept = signal('miso');
+
   /**
    * The validation example: the same engine a real form uses. A blank title is an error that shows once the
    * creator leaves the field or tries to save; a very large batch is a warning that shows as they type.

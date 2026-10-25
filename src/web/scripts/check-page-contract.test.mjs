@@ -80,6 +80,12 @@ test('facts, stepper, chip and toolbar-field: the library owns each', () => {
   assert.deepEqual(stylesheetViolations('.steps-disclosure summary { font-weight: 700; } .chip-note { margin: 0; }'), []);
 });
 
+test('option-card: a feature draws no option or concept card of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.concept-title { font-weight: 700; } .option-card { padding: 1rem; }')), ['option-card', 'option-card']);
+  // A list of concepts is a grid the card-grid rule already owns, and an optional field is not an option card.
+  assert.deepEqual(stylesheetViolations('.concept-list { gap: 1rem; } .optional { color: red; }'), []);
+});
+
 test('toolbar-field: a search input sits in cp-search-field, or in cp-field when it has a visible label', () => {
   assert.deepEqual(rules(templateViolations('<div class="search"><input type="search" /></div>')), ['toolbar-field']);
   assert.deepEqual(rules(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>\n<input type="search" />')), ['toolbar-field']);

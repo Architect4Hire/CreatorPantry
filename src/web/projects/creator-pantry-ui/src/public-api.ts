@@ -31,6 +31,7 @@ export * from './lib/components/back-link.component';
 export * from './lib/components/card-grid.component';
 export * from './lib/components/board.component';
 export * from './lib/components/media-card.component';
+export * from './lib/components/option-card.component';
 export * from './lib/components/topic-card.component';
 export * from './lib/components/facts.component';
 export * from './lib/components/toolbar-field.component';

@@ -223,6 +223,21 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(words).toEqual(['Drafted by AI', 'Made by AI', 'Read by AI']);
   });
 
+  it('compares three concepts as option cards, one chosen at a time', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="option-card-heading"]') as HTMLElement;
+    const cards = () => [...section.querySelectorAll('cp-option-card')] as HTMLElement[];
+    expect(cards().length).toBe(3);
+    expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([true, false, false]);
+    // The fourth fact on the second card is in its disclosure, not dropped.
+    expect(cards()[1].querySelectorAll('dl.tags > .tag').length).toBe(3);
+    expect(cards()[1].querySelector('details dl.more dt')?.textContent).toBe('Dietary notes');
+
+    (cards()[2].querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([false, false, true]);
+  });
+
   it('shows every illustration in every tone', async () => {
     const fixture = await createFixture();
     const rows = fixture.nativeElement.querySelectorAll('.illustration-row');

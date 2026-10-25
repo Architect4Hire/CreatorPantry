@@ -148,6 +148,37 @@ What goes in each slot is the same on every library, so a creator who has read o
 - **Facts** — what is measured or dated: file and size, version, tags, when it was updated. `dl[cpFacts]` with `layout="inline"`, a handful at most, and a fact with nothing to say is left out rather than shown empty. Tags are one fact, comma-separated.
 - **Actions** — `[cpMediaCardActions]`, for the rare thing that can be done from the list without opening the card: the Prompt Library's Preview. Small, secondary, and named for its card (`aria-label="Preview Chili hero"`) since every card has one. Editing, deleting and anything that needs the whole record belong on the thing's own page.
 
+### Choosing between options
+
+`CpOptionCardComponent` is one choice among several that the creator compares before picking one — a studio's
+concepts, a post's variants (AU.3.2, APP-007). The cards sit in `ul[cpCardGrid]` (raise `minColumn` to about
+`18rem`) and are read across, not down:
+
+- **The name**, in a real heading at `headingLevel`; the card is an `article` named by it.
+- **Up to three key facts as tags**, which the feature picks for comparing ("Time · 30 min", "Skill ·
+  Weeknight"). Each is a term-and-value pair, so it is read as one. A fourth fact or more moves into the disclosure
+  rather than being dropped: nothing on an option is cut without a way to read it.
+- **One sentence** about it, then whatever must always be seen — a caution about this option goes in the default
+  slot and is never put behind the disclosure.
+- **The rest on request**, in a native `<details>` (`[cpOptionCardDetail]`, its summary `detailLabel` named with the
+  option's name too): the
+  assumptions, the full ingredient list. A list of sentences is a list there, not a comma-joined line.
+- **One button** that says what choosing does (`chooseLabel`, "Choose this concept"), named with the option's
+  name as well so a grid of them never offers three identical buttons. It emits `chosen`; what happens is the
+  feature's.
+
+The chosen card says so three ways: a 2px edge in the action colour (`--cp-primary-text`, a picked choice tile's
+edge colour), a ✓, and "Chosen" beside the name. Its button then reads "Chosen" at full strength — not faded like an
+unavailable button — stays focusable with `aria-disabled`, and does nothing, so focus is not moved at the moment
+the creator acted; the feature says what happens next in its own place. Which card is chosen is the feature's
+state, one at a time. It takes no tone: selection is a state, not the tool.
+
+**An option card or a choice group.** If picking it is a value a Save submits, it is a field, and a field's tiles
+are `CpChoiceGroupComponent`: short options, arrow keys between them, its label and error owned by the
+`cp-field` or `cp-form-section` around it. If picking it is an action that happens now — start a draft from this
+concept, take this variant — it is an option card. An option card is never a form control: it has no value, no
+radio and no arrow keys between cards.
+
 ### A card for one topic on a detail page
 
 `CpTopicCardComponent` is a `cp-card` with a heading that names its region, a body held to `--cp-measure-prose`, and its actions underneath. The heading can take focus by script and is never a tab stop (`focusHeading()`), for a card that has just replaced the one the creator was working in. A card stretches to the frame; a paragraph that did too would be unreadable, so the measure is the default and `wide` is the exception, for a table or a preview. Its heading is a step below the page title, at `--cp-font-size-xl`.
@@ -451,6 +482,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
+| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's `.concept-card`, `.concept-title` or `.concept-dietary` (exempt until AU.5.1 adopts the card) | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
 | `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
@@ -732,6 +764,9 @@ the cap rather than letting a pick disappear.
 A single-answer group has no deselect — a radio cannot be unticked by clicking it — so a question that must be
 answerable with *no answer* gives that its own option. The brand questionnaire's "Not sure yet" is one, and it
 stands for the empty answer rather than being stored as a choice.
+
+A choice group is a form's answer. Comparing rich alternatives where choosing *does* something — a studio's
+concepts — is `CpOptionCardComponent` instead ("Choosing between options").
 
 ### Tabs, anchor navs, and one Save
 

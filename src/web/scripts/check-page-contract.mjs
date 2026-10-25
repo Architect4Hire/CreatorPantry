@@ -46,6 +46,7 @@ export const RULES = {
   board: 'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
+  'option-card': "One choice among several, compared side by side, is `cp-option-card` in a `ul[cpCardGrid]`: its key facts as tags, the rest behind its disclosure, and its one button. A value a Save submits is `cp-choice-group` (DESIGN-SYSTEM.md, \"Choosing between options\").",
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
   illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
   generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
@@ -112,6 +113,11 @@ export const EXEMPTIONS = [
     rule: 'card-grid',
     reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has no across layout; give it one and this goes.",
   },
+  {
+    file: 'src/app/features/ai/recipe-concept-studio.component.css',
+    rule: 'option-card',
+    reason: 'The concept cards this rule was written against (AU.3.2). AU.5.1 rebuilds them as `cp-option-card`; this line goes when it does. Until then it excuses the whole file from this rule, so a new option card drawn here is excused too.',
+  },
 ];
 
 const FRAME_PROPERTIES = /(?:^|[;{\s])((?:padding|margin)(?:-[a-z-]+)?|max-width|width|inline-size|max-inline-size)\s*:/g;
@@ -125,6 +131,7 @@ const OWNED_CLASSES = {
   board: ['board', 'board-column', 'lane', 'lanes', 'kanban'],
   stepper: ['step-list', 'steps', 'stepper'],
   chip: ['chip', 'chips'],
+  'option-card': ['option-card', 'option-cards', 'concept-card', 'concept-title', 'concept-dietary', 'variant-card'],
   illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art', 'no-picture', 'picture-panel', 'picture-placeholder'],
   utilities: ['cp-muted', 'cp-actions', 'cp-disclosure', 'muted', 'actions'],
 };

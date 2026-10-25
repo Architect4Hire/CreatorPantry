@@ -767,6 +767,37 @@
     </ul>
   </section>
 
+  <section aria-labelledby="option-card-heading">
+    <h2 id="option-card-heading">Option card</h2>
+    <p class="section-note">
+      One choice among several, compared side by side: the name, up to three key facts as tags, a sentence, the
+      rest behind a disclosure — a fourth fact moves there rather than being dropped — and the one button that
+      chooses it. Choosing is an action the feature handles, not a form value; the chosen card shows an edge, a ✓
+      and the word, and its button stays focusable. A field's answer in a form is <code>cp-choice-group</code>.
+    </p>
+    <ul cpCardGrid minColumn="18rem" aria-label="Example concepts">
+      @for (concept of concepts; track concept.id) {
+        <li>
+          <cp-option-card
+            [heading]="concept.heading"
+            [facts]="concept.facts"
+            [summary]="concept.summary"
+            chooseLabel="Choose this concept"
+            [selected]="chosenConcept() === concept.id"
+            (chosen)="chosenConcept.set(concept.id)"
+          >
+            @if (concept.id === 'miso') {
+              <ul cpOptionCardDetail>
+                <li>Assumes a grill or a very hot pan.</li>
+                <li>Assumes white miso; red is saltier.</li>
+              </ul>
+            }
+          </cp-option-card>
+        </li>
+      }
+    </ul>
+  </section>
+
   <section aria-labelledby="topic-card-heading">
     <h2 id="topic-card-heading">Topic card and facts</h2>
     <p class="section-note">

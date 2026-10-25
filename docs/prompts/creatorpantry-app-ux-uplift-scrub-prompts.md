@@ -727,7 +727,7 @@ recommended: the edge is neutral, not purple.*
 
 *`npm run build` passes. The library is 412/412, the showcase 6085/6085, the page contract holds, and its self-tests are 25/25.*
 
-## AU.3.2 Option card for AI choices
+## AU.3.2 Option card for AI choices - done
 
 ```text
 SCOPE: Add CpOptionCardComponent: one choice among several. A title, up to three short key facts as tags (the
@@ -742,6 +742,46 @@ UTILIZATION: creatorpantry-design-system skill; design-review.
 BEHAVIOR: Define the API and the CpChoiceGroup boundary; wait for approval; implement with specs, update
 showcase and docs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-25): shipped. The owner approved the API and the boundary as proposed.*
+
+*What shipped:*
+
+- *`CpOptionCardComponent` (`cp-option-card`) has these parts:*
+  - *`heading` at `headingLevel`, in an `article` named by it.*
+  - *`facts` (`CpOptionFact[]`): the first three are term-and-value tags, and the rest move into the disclosure,
+    never dropped.*
+  - *A one-sentence `summary`.*
+  - *A default slot that is always shown, including bare text.*
+  - *`[cpOptionCardDetail]` behind a native `<details>`. It is omitted when there is nothing behind it, and its
+    summary is named with the option, like the button.*
+  - *One secondary button, named "<chooseLabel> <heading>", that emits `chosen`.*
+- *`selected` shows a 2px `--cp-primary-text` edge (border plus outline, so it survives forced colours), a ✓ and
+  "Chosen". The button then reads "Chosen" at full strength. It stays focusable with `aria-disabled` and emits
+  nothing. It takes no tone, and it is not a form control.*
+- *DESIGN-SYSTEM.md's "Choosing between options" sets the boundary. A value a Save submits is `cp-choice-group`; an
+  action that happens now is `cp-option-card`. The choice-group paragraph points back to it.*
+- *The page contract's `option-card` rule owns `.option-card`, `.option-cards`, `.variant-card`, `.concept-card`,
+  `.concept-title` and `.concept-dietary`. `recipe-concept-studio.component.css` is exempt until AU.5.1 adopts
+  the card. The exemption covers that whole file for this rule.*
+- *global.css: `.cp-disclosure > summary` is `list-item` again, with its 40px from padding. As `flex` it had dropped
+  the browser's marker, so every `.cp-disclosure` in the app (13 templates) read as a label with no sign it
+  opens. This contradicted the rule's own comment. No spec guards it: neither karma target loads global.css.*
+
+*`design-review` raised these, now handled:*
+
+- *Bare text in the always-shown slot was hidden; it is now `:empty`, with a spec.*
+- *cpButton faded the aria-disabled "Chosen" and its focus ring to 52%; the card overrides it, with a spec.*
+- *The disclosures had identical names.*
+- *The edge token, wrapping of long fact text, and a stale comment.*
+- *Four generic class names were dropped from the rule.*
+
+*One suggestion was not taken:* setting the name in Fredoka. "Content hierarchy" sets item titles in sans semibold,
+and an option in a grid is an item, as a media card's title is.
+
+*`npm run build` passes. The library is 427/427 and the page contract holds (26 self-tests).
+The showcase is 6085/6086. The one red is RecipeEditorComponent's section-nav scroll spec, the same intermittent
+one as in AU.2.6, and it passed on a rerun of that file with the showcase spec.*
 
 ## AU.3.3 Figure tile and featured card
 

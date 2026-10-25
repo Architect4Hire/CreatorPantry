@@ -26,7 +26,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
    component's own styles do not reach what it is given. Held to the window and to its own pixels: never
    scaled past the size it was made at, never needing a scroll to be seen whole. */
 cp-lightbox .cp-lightbox-stage img { display: block; width: auto; height: auto; max-width: 100%; max-height: var(--cp-lightbox-picture-max-height); margin-inline: auto; }
-.cp-disclosure > summary { display: flex; align-items: center; min-height: 2.5rem; font-weight: 600; cursor: pointer; }
+/* `list-item`, not flex, so the marker is kept: a flex summary drops ::marker, and what was left read as a label
+   with no sign it opens (AU.3.2). The 40px comes from padding instead: a 1.5rem line and a space-2 either side. */
+.cp-disclosure > summary { display: list-item; min-height: 2.5rem; padding-block: var(--cp-space-2); font-weight: 600; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
