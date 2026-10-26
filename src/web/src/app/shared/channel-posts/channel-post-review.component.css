@@ -33,6 +33,12 @@
   margin: 0;
 }
 
+/* How the post sits against the channel's length: the bar, then the pill that says whether it fits. */
+.length {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
 /* The figure beside the pill. Tabular digits so a live count does not shift the row as it changes. */
 .count {
   color: var(--cp-text-muted);

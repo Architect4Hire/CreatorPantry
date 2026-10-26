@@ -416,6 +416,16 @@ async function type(selector: string, value: string): Promise<void> {
   await settle();
 }
 
+/** Move on a step, as the step card's Continue does. */
+async function next(times = 1): Promise<void> {
+  for (let i = 0; i < times; i += 1) await click('Continue');
+}
+
+/** The step card's heading: the name of the step on screen. */
+function stepHeading(): HTMLElement | null {
+  return root().querySelector<HTMLElement>('#cp-social-step-heading');
+}
+
 /** Send whatever the autosave is waiting to send, without waiting out its delay. */
 async function saved(): Promise<void> {
   await session().flush();
@@ -425,16 +435,22 @@ async function saved(): Promise<void> {
 describe('SocialStudioComponent', () => {
   // ---- first use -------------------------------------------------------------------------------------
 
-  it('opens with the three things posts can be about, and leaves nothing behind by arriving', async () => {
+  it('opens with the three things posts can be about, a step at a time, and leaves nothing behind by arriving', async () => {
     await create();
 
     expect(root().querySelector('cp-page-head')?.textContent).toContain('Social Studio');
+    expect(stepHeading()?.textContent).toContain('Choose what it’s about');
     expect(root().querySelector('cp-recipe-picker')).not.toBeNull();
-    expect(button('Choose a picture')).not.toBeNull();
     expect(root().querySelector('#cp-social-brief')).not.toBeNull();
+    expect(button('Choose a picture')).withContext('the picture is the next step').toBeNull();
+
+    await next();
+    expect(stepHeading()?.textContent).toContain('Pick a picture to go with them');
+    expect(button('Choose a picture')).not.toBeNull();
 
     // Nothing to write for yet, and the run says how to get there in this page's own words.
-    expect(text()).toContain('Link a recipe, choose a picture or write a few lines above');
+    await next();
+    expect(text()).toContain('Go back to the first step to link a recipe or write a few lines');
     expect(root().querySelector('input[type="checkbox"]')).toBeNull();
 
     expect(server.creates.length).toBe(0);
@@ -467,8 +483,9 @@ describe('SocialStudioComponent', () => {
     expect(server.stored(SLUG, 'ctx-1')?.pictureBrief).toBeNull();
     expect(server.stored(SLUG, 'ctx-1')?.references).toEqual([]);
 
-    // The address is now the one that finds this work again, and the channels are offered.
-    expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio/context/ctx-1`);
+    // The address is now the one that finds this work again — on this step — and the channels are offered.
+    expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio/context/ctx-1?step=about`);
+    await next(2);
     expect(root().querySelectorAll('input[type="checkbox"]').length).toBe(2);
   });
 
@@ -476,6 +493,7 @@ describe('SocialStudioComponent', () => {
     await create();
     await type('#cp-social-title', 'Cookbook launch');
     await saved();
+    await next(2);
 
     root().querySelector<HTMLInputElement>('input[type="checkbox"][value="instagram"]')!.click();
     await settle();
@@ -490,13 +508,19 @@ describe('SocialStudioComponent', () => {
 
   it('names a chosen library picture on the work as something it draws on, and copies nothing', async () => {
     await create();
+    await next();
+
+    // The step's status line is there before anything is said in it, so what is said is heard.
+    const status = root().querySelector('.picture-status');
+    expect(status?.getAttribute('role')).toBe('status');
+    expect(status?.textContent?.trim()).toBe('');
 
     await click('Choose a picture');
     root().querySelector<HTMLButtonElement>('[data-choose="a-loaf"]')!.click();
     await settle();
 
     expect(server.added.at(-1)?.source).toEqual({ kind: 'DamAsset', mediaAssetId: 'a-loaf' });
-    expect(text()).toContain('A picture goes with these posts.');
+    expect(text()).toContain('A picture goes with these posts. It is shown with the posts on the next step.');
     expect(button('Choose a different picture')).not.toBeNull();
 
     await click('Remove the picture');
@@ -510,6 +534,7 @@ describe('SocialStudioComponent', () => {
     await type('#cp-social-title', 'Loaf');
     await saved();
     server.refuseAddWith = 'source_unavailable';
+    await next();
 
     await click('Choose a picture');
     root().querySelector<HTMLButtonElement>('[data-choose="a-loaf"]')!.click();
@@ -538,16 +563,17 @@ describe('SocialStudioComponent', () => {
     expect(server.creates[0].draft.day).toBe('Monday');
     expect(server.creates[0].draft.weeklyThemeKey).toBe('meat-free-monday');
     // The day's notes are in effect, and said before any post is asked for.
+    await next(2);
     expect(text()).toContain('standing notes are in effect');
   });
 
   // ---- reopened --------------------------------------------------------------------------------------
 
   describe('opened on an existing piece of work', () => {
-    const open = (role: WorkspaceRole = 'Editor', setup: () => void = () => undefined): Promise<void> =>
+    const open = (role: WorkspaceRole = 'Editor', setup: () => void = () => undefined, query = ''): Promise<void> =>
       create({
         role,
-        url: `/${SLUG}/social-studio/context/ctx-have`,
+        url: `/${SLUG}/social-studio/context/ctx-have${query}`,
         setup: () => {
           server.seed(SLUG, 'ctx-have', { workingTitle: 'Olive oil cake', workingBrief: 'Warm, with coffee.' });
           posts.packages[`${SLUG}/ctx-have`] = pkg('ctx-have', [channel('instagram'), channel('pinterest')]);
@@ -558,11 +584,49 @@ describe('SocialStudioComponent', () => {
     it('reads what the posts are about and the posts themselves, and creates nothing', async () => {
       await open();
 
-      expect(root().querySelector<HTMLInputElement>('#cp-social-title')!.value).toBe('Olive oil cake');
-      expect(root().querySelector<HTMLTextAreaElement>('#cp-social-brief')!.value).toBe('Warm, with coffee.');
       expect(root().querySelectorAll('cp-channel-post-review').length).toBe(2);
       expect(text()).toContain('Drafted by AI');
+
+      await click('Back');
+      await click('Back');
+      expect(root().querySelector<HTMLInputElement>('#cp-social-title')!.value).toBe('Olive oil cake');
+      expect(root().querySelector<HTMLTextAreaElement>('#cp-social-brief')!.value).toBe('Warm, with coffee.');
       expect(server.creates.length).toBe(0);
+    });
+
+    it('opens on its posts, says it picked up where it was left, and names the step in the address', async () => {
+      await open();
+
+      expect(stepHeading()?.textContent).toContain('Write and choose your posts');
+      expect(text()).toContain('Picked up where you left off: Step 3 of 3: Write and choose your posts.');
+      expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio/context/ctx-have?step=write`);
+    });
+
+    it('opens the step the address names, rather than where the work stands', async () => {
+      await open('Editor', () => undefined, '?step=about');
+
+      expect(stepHeading()?.textContent).toContain('Choose what it’s about');
+      expect(text()).not.toContain('Picked up where you left off');
+      expect(root().querySelector('cp-channel-post-run')).toBeNull();
+    });
+
+    it('keeps words being edited through a move between steps, without asking, and still asks on leaving', async () => {
+      await open();
+
+      button('Edit', root().querySelector('cp-channel-post-review')!)!.click();
+      await settle();
+      await type('textarea[id$="instagram-body"]', 'Mine, half done.');
+
+      await click('Back');
+      expect(confirmCalls).withContext('a step is not a leave').toEqual([]);
+      await next();
+
+      expect(root().querySelector<HTMLTextAreaElement>('textarea[id$="instagram-body"]')!.value).toBe('Mine, half done.');
+
+      confirmAnswer = false;
+      await harness.navigateByUrl(`/${SLUG}/dashboard`);
+      await settle();
+      expect(confirmCalls).toEqual(['Leave with unsaved words?']);
     });
 
     it('shows nothing as accepted that the creator has not accepted', async () => {
@@ -624,8 +688,10 @@ describe('SocialStudioComponent', () => {
       expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio`);
       expect(server.stored(SLUG, 'ctx-have')?.workingTitle).toBe('Olive oil cake');
       expect(server.patches.length).toBe(0);
-      // The button pressed has gone with the work it left; focus is on the page's title, not dropped.
-      expect(document.activeElement).toBe(root().querySelector('h1'));
+      // Back on the first step; the button pressed has gone with the work it left, so focus is on its heading.
+      expect(document.activeElement).toBe(stepHeading());
+      expect(stepHeading()?.textContent).toContain('Choose what it’s about');
+      expect(button('Start something new')).withContext('nothing to leave yet').toBeNull();
     });
 
     it('says plainly that a saved prompt this work names is not what posts are written from', async () => {
@@ -635,7 +701,7 @@ describe('SocialStudioComponent', () => {
           ...context,
           references: [server.reference({ kind: 'PromptRecord', promptRecordId: 'pr-1' }, 0)],
         });
-      });
+      }, '?step=about');
 
       expect(text()).toContain('Posts are not written from one');
     });
@@ -751,7 +817,84 @@ describe('SocialStudioComponent', () => {
     server.offline = false;
     await click('Try again');
 
+    expect(root().querySelector('cp-channel-post-run')).not.toBeNull();
+    await click('Back');
+    await click('Back');
     expect(root().querySelector<HTMLInputElement>('#cp-social-title')!.value).toBe('Olive oil cake');
+  });
+
+  // ---- the flow (AU.5.3) -----------------------------------------------------------------------------
+
+  describe('as a flow', () => {
+    it('heads the page with the studio’s icon and no action, and shows its progress beside one step card', async () => {
+      await create();
+
+      const head = root().querySelector('cp-page-head')!;
+      expect(head.querySelector('cp-shell-nav-icon')?.getAttribute('name')).toBe('social');
+      expect(head.querySelectorAll('button, a[cpButton]').length).withContext('a flow’s head has no action').toBe(0);
+
+      expect(root().querySelector('cp-progress')?.textContent).toContain('Step 1 of 3');
+      const steps = Array.from(root().querySelectorAll('cp-stepper li')).map((item) => item.textContent?.trim() ?? '');
+      expect(steps.length).toBe(3);
+      expect(steps[0]).toContain('Choose what it’s about');
+      expect(steps[1]).toContain('Pick a picture to go with them');
+      expect(steps[2]).toContain('Write and choose your posts');
+      expect(root().querySelector('nav[aria-label="Social Studio progress"] cp-stepper')).not.toBeNull();
+
+      expect(button('Back')).withContext('nothing before the first step').toBeNull();
+      expect(button('Continue')).not.toBeNull();
+      expect(root().querySelector('cp-social-studio-recent')).withContext('Recent posts sits under the flow').not.toBeNull();
+    });
+
+    it('moves focus to the new step’s heading, says where it is, and keeps the step in the address', async () => {
+      await create();
+
+      await next();
+
+      expect(document.activeElement).toBe(stepHeading());
+      expect(stepHeading()?.getAttribute('tabindex')).toBe('-1');
+      expect(text()).toContain('Step 2 of 3: Pick a picture to go with them.');
+      expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio?step=picture`);
+      expect(root().querySelector('cp-stepper')?.textContent).toContain('Done');
+
+      await next();
+      expect(button('Continue')).withContext('nothing after the last step').toBeNull();
+
+      await click('Back');
+      expect(stepHeading()?.textContent).toContain('Pick a picture to go with them');
+      expect(TestBed.inject(Location).path()).toBe(`/${SLUG}/social-studio?step=picture`);
+    });
+
+    it('says once per step what is optional, and nothing of the kind on the posts', async () => {
+      await create();
+
+      expect(root().querySelector('.legend')?.textContent).toContain('Everything else is optional.');
+      await next();
+      expect(root().querySelector('.legend')?.textContent).toContain('Posts can be written without a picture.');
+      await next();
+      expect(root().querySelector('.legend')).toBeNull();
+    });
+
+    it('draws the shape of the step while it loads, and says so once', async () => {
+      await create({ setup: () => membershipSignal.set({ status: 'loading' } as MyMembershipsState) });
+
+      expect(root().querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(root().querySelector('.loading-status')?.textContent).toContain('Loading your studio…');
+      expect(root().querySelector('cp-topic-card')).toBeNull();
+    });
+
+    it('never says a post went out', async () => {
+      await create({
+        url: `/${SLUG}/social-studio/context/ctx-have`,
+        setup: () => {
+          server.seed(SLUG, 'ctx-have', { workingTitle: 'Olive oil cake' });
+          posts.packages[`${SLUG}/ctx-have`] = pkg('ctx-have', [channel('instagram', { status: 'Accepted', accepted: revision(), isCurrent: true })]);
+        },
+      });
+
+      expect(text()).toContain('Accepted');
+      expect(text()).not.toMatch(/\b(published|posted|scheduled)\b/i);
+    });
   });
 
   // ---- accessibility ---------------------------------------------------------------------------------

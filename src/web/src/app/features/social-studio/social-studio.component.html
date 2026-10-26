@@ -1,14 +1,9 @@
 @if (!hosted) {
   <cp-page-head
-    #head
     [heading]="pageTitle"
     lede="Write posts for something you already have — a recipe, a picture in your library, or a few lines of your own. Each channel gets its own post, and nothing goes out from here."
   >
-    @if (phase() === 'ready' && canWrite() && creativeContextId() !== null) {
-      <button cpPageHeadActions cpButton type="button" variant="secondary" (click)="startNew()">
-        Start something new
-      </button>
-    }
+    <cp-shell-nav-icon cpPageHeadIcon name="social" />
   </cp-page-head>
   @if (workflowRun && workspaceSlug()) {
     <cp-workflow-return-notice [workspaceSlug]="workspaceSlug()" [runId]="workflowRun" />
@@ -17,6 +12,9 @@
 
 <div class="studio">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+  <!-- Always in the page, so it is announced when its words change: a live region created already holding its
+       text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
+  <p class="cp-sr-only loading-status" role="status">{{ phase() === 'loading' ? 'Loading your studio…' : '' }}</p>
 
   @if (phase() !== 'ready') {
     <!-- Hosted, the step's own card holds these; on the studio's page each is a card of its own. -->
@@ -31,46 +29,44 @@
 
   @switch (phase()) {
     @case ('ready') {
-      <!-- Keyed on the owner and on "Start something new": a change of workspace, of who is signed in, or of the
-           piece of work destroys the panels rather than swapping new work underneath components still holding
-           the last one's answers. -->
-      @for (key of panelKeys(); track 'social@' + key) {
-        @if (shows('write') && channels.state().status === 'unavailable') {
-          <cp-notice tone="warning" role="status">
-            The list of channels couldn't be loaded, so new channels can't be offered right now. Posts already
-            written are still here, and still yours to read and edit.
-          </cp-notice>
-        }
-
-        @if (canWrite() && (shows('about') || shows('picture'))) {
-          @if (hosted) {
-            <ng-container [ngTemplateOutlet]="about" />
-          } @else {
-            <cp-card>
-              <ng-container [ngTemplateOutlet]="about" />
-            </cp-card>
-          }
-        } @else if (!hosted && creativeContextId() === null) {
-          <cp-card>
-            <cp-notice role="note">
-              You have view-only access to this workspace, so you can't start new posts here. You can read and
-              copy posts that have already been written — choose a set below.
-            </cp-notice>
-          </cp-card>
-        }
-
-        @if (shows('write') && (canWrite() || creativeContextId() !== null)) {
-          @if (hosted) {
-            <ng-container [ngTemplateOutlet]="posts" />
-          } @else {
-            <cp-card>
-              <ng-container [ngTemplateOutlet]="posts" />
-            </cp-card>
-          }
-        }
-      }
-
       @if (!hosted) {
+        <!--
+          A flow, as the "Create social posts" workflow is (AU.5.3): the progress and the steps beside one wide card
+          headed by the step's name, holding that step's sections and Back / Continue.
+        -->
+        <div class="layout">
+          <div class="progress">
+            <cp-progress label="Social Studio progress" [value]="percent()" [valueText]="progressText()" />
+            <nav aria-label="Social Studio progress">
+              <cp-stepper label="Social Studio steps" [steps]="stepperSteps()" />
+            </nav>
+          </div>
+
+          <!-- The heading takes focus when the step changes. -->
+          <cp-topic-card [heading]="currentStep().label" [headingId]="stepHeadingId" wide>
+            <details class="help cp-disclosure">
+              <summary>Need help with this step?</summary>
+              <p class="cp-muted">{{ currentStep().help }}</p>
+            </details>
+
+            <ng-container [ngTemplateOutlet]="work" />
+
+            <div cpTopicCardActions class="cp-actions">
+              @if (!isFirst()) {
+                <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+              }
+              <!-- Nothing is required to move on: the posts step says what it still needs. -->
+              @if (!isLast()) {
+                <button cpButton type="button" variant="primary" (click)="continue()">Continue</button>
+              }
+              <!-- Not a discard: the work left behind keeps its posts and stays in Recent posts. -->
+              @if (canWrite() && creativeContextId() !== null) {
+                <button cpButton type="button" variant="text" (click)="startNew()">Start something new</button>
+              }
+            </div>
+          </cp-topic-card>
+        </div>
+
         <cp-topic-card heading="Recent posts" wide>
           <cp-social-studio-recent
             [workspaceSlug]="workspaceSlug()"
@@ -78,6 +74,9 @@
             [currentContextId]="creativeContextId()"
           />
         </cp-topic-card>
+      } @else {
+        <!-- Hosted, the workflow's own card holds the part: a second card inside it would be a card in a card. -->
+        <ng-container [ngTemplateOutlet]="work" />
       }
 
       @if (canWrite() && shows('picture')) {
@@ -98,13 +97,48 @@
   }
 </div>
 
+<ng-template #work>
+  <!-- Keyed on the owner and on "Start something new": a change of workspace, of who is signed in, or of the
+       piece of work destroys the panels rather than swapping new work underneath components still holding the
+       last one's answers. -->
+  @for (key of panelKeys(); track 'social@' + key) {
+    <!-- A note, not a status: it is how the step is when it opens, not news arriving while it is open. -->
+    @if (shows('write') && channels.state().status === 'unavailable') {
+      <cp-notice tone="warning" role="note">
+        The list of channels couldn't be loaded, so new channels can't be offered right now. Posts already
+        written are still here, and still yours to read and edit.
+      </cp-notice>
+    }
+
+    @if (canWrite() && (shows('about') || shows('picture'))) {
+      <ng-container [ngTemplateOutlet]="about" />
+    } @else if (!hosted && !canWrite()) {
+      @if (creativeContextId() === null) {
+        <cp-notice role="note">
+          You have view-only access to this workspace, so you can't start new posts here. You can read and
+          copy posts that have already been written — choose a set in Recent posts.
+        </cp-notice>
+      } @else if (!shows('write')) {
+        <cp-notice role="note">
+          You have view-only access to this workspace, so what these posts are about can't be changed here. The
+          posts themselves are on the last step, to read and copy.
+        </cp-notice>
+      }
+    }
+
+    @if (shows('write') && (canWrite() || creativeContextId() !== null)) {
+      <ng-container [ngTemplateOutlet]="posts" />
+    }
+  }
+</ng-template>
+
 <ng-template #about>
   <div class="sections">
+    <!-- Said once, above the step's sections, rather than on each field (DESIGN-SYSTEM.md). -->
+    @if (legend(); as text) {
+      <p class="legend cp-muted">{{ text }}</p>
+    }
     @if (shows('about')) {
-      <!-- Said once, above the sections, rather than on each field (DESIGN-SYSTEM.md). -->
-      @if (!hosted) {
-        <p class="legend cp-muted">{{ legendText }}</p>
-      }
 
       @if (otherSources().ideas; as ideas) {
         <cp-notice role="note">These posts are also written from {{ ideas }}.</cp-notice>
@@ -134,13 +168,12 @@
         sectionId="cp-social-picture"
       >
         @if (pictureReference() !== null) {
-          <p class="state">A picture goes with these posts. It is shown with the posts{{ hosted ? '' : ' below' }}.</p>
+          <p class="state">A picture goes with these posts. It is shown with the posts{{ hosted ? '' : ' on the next step' }}.</p>
         }
 
+        <!-- Always here while the step is, so "Adding…" is heard when it is set rather than created with it. -->
+        <p class="cp-muted picture-status" role="status">{{ pictureAction().status === 'working' ? pictureSentence() : '' }}</p>
         @switch (pictureAction().status) {
-          @case ('working') {
-            <p class="cp-muted" role="status">{{ pictureSentence() }}</p>
-          }
           @case ('failed') {
             <cp-notice tone="error" role="alert">{{ pictureSentence() }}</cp-notice>
           }
@@ -212,12 +245,14 @@
         intro="If these posts are for one of your themed days, say which, and they follow that day’s theme."
         sectionId="cp-social-day"
       >
+        <!-- Always here while the step is: it is set as the themed days are read, not created holding the words. -->
+        <p class="cp-sr-only" role="status">{{ themes().status === 'loading' ? 'Loading your themed days…' : '' }}</p>
         @switch (themes().status) {
           @case ('loading') {
-            <p class="cp-muted" role="status">Loading your themed days…</p>
+            <cp-skeleton shape="line" />
           }
           @case ('unavailable') {
-            <cp-notice tone="warning" role="status">
+            <cp-notice tone="warning" role="note">
               Your themed days couldn't be loaded, so one can't be chosen right now. The posts can still be written.
               <button cpButton type="button" variant="secondary" size="sm" (click)="retryThemes()">Try again</button>
             </cp-notice>
@@ -285,7 +320,12 @@
 <ng-template #states>
   @switch (phase()) {
     @case ('loading') {
-      <p class="state" role="status">Loading your studio…</p>
+      <!-- The shape of the step that is coming (APP-003), said by the status line above. -->
+      <div class="loading" aria-busy="true">
+        <cp-skeleton shape="line" [count]="2" />
+        <cp-skeleton shape="block" />
+        <cp-skeleton shape="line" [count]="4" />
+      </div>
     }
     @case ('unavailable') {
       <cp-notice tone="error" role="alert">

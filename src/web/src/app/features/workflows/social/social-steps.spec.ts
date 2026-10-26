@@ -224,9 +224,12 @@ describe('"Create social posts" step screens (13A.20)', () => {
       expect(keepDraft).toHaveBeenCalledOnceWith({ kind: 'CreativeContext', id: 'ctx-9' });
       expect(port.registration()!.results!()).toEqual([{ kind: 'CreativeContext', id: 'ctx-9' }]);
       expect(port.registration()!.ready!()).toBeTrue();
-      expect((fixture.nativeElement as HTMLElement).querySelector('p.elsewhere a')?.getAttribute('href')).toBe(
-        `/${SLUG}/social-studio/context/ctx-9?workflowRun=${RUN_ID}`,
+      // The studio goes the same steps, so the link opens it on this one; it no longer promises one page.
+      const elsewhere = (fixture.nativeElement as HTMLElement).querySelector('p.elsewhere');
+      expect(elsewhere?.querySelector('a')?.getAttribute('href')).toBe(
+        `/${SLUG}/social-studio/context/ctx-9?workflowRun=${RUN_ID}&step=about`,
       );
+      expect(elsewhere?.textContent).not.toContain('one page');
     });
 
     it('opens the later parts on the work the run holds, and offers the run’s recipe on the first part only', async () => {
@@ -456,6 +459,7 @@ describe('"Create social posts" step screens (13A.20)', () => {
       const fixture = await render(SocialBoardStepComponent, { run: socialRun([]), workspaceSlug: SLUG });
 
       expect(text(fixture)).toContain('There is nothing to put on the board yet.');
+      expect((fixture.nativeElement as HTMLElement).querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('board');
       expect(button(fixture, 'Add to your board')).toBeNull();
     });
   });

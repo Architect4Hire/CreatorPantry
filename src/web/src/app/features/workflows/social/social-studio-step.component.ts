@@ -79,10 +79,10 @@ import { contextPointer, newestLinked, runContextId } from '../creative-work/cre
           </cp-notice>
         }
 
+        <!-- The studio goes the same steps, so this opens it on the one in hand (AU.5.3). -->
         @if (contextId(); as id) {
           <p class="cp-muted elsewhere">
             <a [routerLink]="studioLink(id)" [queryParams]="returnQuery()">Open this in the Social Studio</a>
-            to see every part of it on one page.
           </p>
         }
       }
@@ -115,7 +115,8 @@ export class SocialStudioStepComponent implements OnInit {
   protected readonly guide = signal<BrandStyleGuideActiveReadOutcome | { readonly status: 'loading' }>({ status: 'loading' });
 
   protected readonly missingWork = computed(() => this.part() !== 'about' && this.contextId() === null);
-  protected readonly returnQuery = computed(() => workflowRunQuery(this.run().id));
+  /** The way back to this run, and the studio's step that is this one: the parts share their names. */
+  protected readonly returnQuery = computed(() => ({ ...workflowRunQuery(this.run().id), step: this.part() }));
 
   protected readonly voiceName = computed(() => {
     const guide = this.guide();
