@@ -433,7 +433,10 @@ public sealed class AiOperationWorkerTests : IDisposable
             var outcome = await gateway.CompleteAsync(
                 new AiCompletionRequest<AiOutputDocument>(
                     envelope, Schema, context.Scope, "fixture.worker", "1.0.0", context.CorrelationId,
-                    AiOutputValidator.AsDelegate),
+                    AiOutputValidator.AsDelegate)
+                {
+                    Task = AiTaskType.RecipeConcepts,
+                },
                 ct);
 
             Assert.True(outcome.Succeeded, outcome.Failure?.Message);

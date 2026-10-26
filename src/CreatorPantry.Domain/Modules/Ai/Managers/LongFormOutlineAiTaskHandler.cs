@@ -145,7 +145,10 @@ internal sealed partial class LongFormOutlineAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiLongFormOutlineOutputValidator.For(expectation)),
+                AiLongFormOutlineOutputValidator.For(expectation))
+            {
+                Task = AiTaskType.LongFormOutline,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

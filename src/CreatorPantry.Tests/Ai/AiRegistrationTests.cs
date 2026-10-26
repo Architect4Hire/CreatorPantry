@@ -314,6 +314,81 @@ public sealed class AiRegistrationTests
         Assert.Contains("Ai:Gateway:ModelName", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>The registered chat client sends a ceiling the way reasoning models take it (AP.2.2).</summary>
+    [Fact]
+    public void The_chat_client_sends_its_ceiling_as_max_completion_tokens()
+    {
+        using var host = BuildHost(chat: FoundryLocalConnectionString, embeddings: FoundryLocalConnectionString);
+
+        Assert.NotNull(host.Services.GetRequiredService<IChatClient>().GetService(typeof(MaxCompletionTokensChatClient)));
+    }
+
+    /// <summary>
+    /// A ceiling worth more credits than the estimate its call is held under lets one call settle past its
+    /// hold. Found at startup, by task and by figure — in development too, where it is cheapest to fix.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_task_estimate_below_its_ceilings_worst_case_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            settings: new(ModelRateTableTests.ShippedRateSettings())
+            {
+                ["Ai:Quota:TaskEstimates:LongFormSection"] = "10",
+            }));
+
+        Assert.Contains("LongFormSection: 8,000 output tokens is 12.5 credits", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("LongFormOutline", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The hold is the per-call estimate times the calls a run may make; one fewer than the gateway's corrections
+    /// allow under-holds every corrected run.
+    /// </summary>
+    [Fact]
+    public void Fewer_estimated_calls_than_a_corrected_run_makes_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Quota:EstimatedCallsPerRun"] = "1" }));
+
+        Assert.Contains("EstimatedCallsPerRun is 1", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Raising a ceiling past what its estimate covers is the same mistake from the other side.</summary>
+    [Fact]
+    public void Raising_the_default_ceiling_past_the_default_estimate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Gateway:MaxOutputTokens"] = "16000" }));
+
+        Assert.Contains("RecipeFirstDraft: 16,000 output tokens is 25 credits", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The shipped ceilings and estimates agree on the shipped chat model, long-form included.</summary>
+    [Fact]
+    public void The_shipped_ceilings_fit_the_shipped_estimates()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new(ModelRateTableTests.ShippedRateSettings())
+            {
+                ["Ai:Quota:TaskEstimates:LongFormOutline"] = "15",
+                ["Ai:Quota:TaskEstimates:LongFormSection"] = "15",
+            });
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
     /// <summary>Development may try a model before anyone has priced it; its calls settle at the estimate.</summary>
     [Fact]
     public void Unrated_chat_model_in_development_still_starts()

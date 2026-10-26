@@ -282,6 +282,7 @@ public sealed class LiveLongFormSectionCheck
         {
             var response = await base.GetResponseAsync(messages, options, cancellationToken);
             Answers.Add(response.Text);
+            LiveUsage.Record("LiveLongFormSectionCheck", options, response);
 
             return response;
         }

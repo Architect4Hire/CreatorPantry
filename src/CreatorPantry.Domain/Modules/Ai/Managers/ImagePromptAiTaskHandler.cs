@@ -145,7 +145,10 @@ internal sealed class ImagePromptAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiImagePromptOutputValidator.AsDelegate),
+                AiImagePromptOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.ImagePrompt,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

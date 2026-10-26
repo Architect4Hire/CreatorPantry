@@ -359,6 +359,79 @@ public sealed class AiCompletionGatewayTests
         }
         """;
 
+    /// <summary>
+    /// Every call carries its task's output ceiling (AP.2.2): the default for most tasks, long-form's own for
+    /// long-form, and a configured ceiling over either. The correction carries it too.
+    /// </summary>
+    [Theory]
+    [InlineData(AiTaskType.RecipeConcepts, null, 4_000)]
+    [InlineData(AiTaskType.ChannelPosts, null, 4_000)]
+    [InlineData(AiTaskType.LongFormOutline, null, 8_000)]
+    [InlineData(AiTaskType.LongFormSection, null, 8_000)]
+    [InlineData(AiTaskType.RecipeConcepts, 2_500, 2_500)]
+    public async Task Every_call_is_sent_with_its_tasks_output_ceiling(AiTaskType task, int? configured, int expected)
+    {
+        var client = FakeChatClient.Sequence(() => "not json", () => ValidAnswer);
+
+        var outcome = await Complete(
+            client,
+            task: task,
+            configure: configured is { } ceiling ? options => options.MaxOutputTokens = ceiling : null);
+
+        Assert.True(outcome.Succeeded, outcome.Failure?.Message);
+        Assert.Equal(2, client.Options.Count);
+        Assert.All(client.Options, options => Assert.Equal(expected, options?.MaxOutputTokens));
+    }
+
+    /// <summary>
+    /// An answer stopped at the ceiling is the front of an answer. It is never parsed — even when it happens to
+    /// be valid JSON — and gets the one correction, which says it was cut off.
+    /// </summary>
+    [Fact]
+    public async Task An_answer_cut_off_at_the_ceiling_is_corrected_rather_than_accepted()
+    {
+        var client = FakeChatClient.Responses(
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, ValidAnswer)) { FinishReason = ChatFinishReason.Length },
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, ValidAnswer)) { FinishReason = ChatFinishReason.Stop });
+
+        var outcome = await Complete(client);
+
+        Assert.True(outcome.Succeeded, outcome.Failure?.Message);
+        Assert.Equal(2, outcome.Attempts.Count);
+        Assert.Equal(AiFailureCategory.OutputSchemaInvalid, outcome.Attempts[0].FailureCategory);
+        Assert.Contains(AiOutputReason.Truncated, client.LastMessages![^1].Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A reasoning model cut off before it wrote anything returns no text. The correction is sent without an
+    /// empty assistant turn, which a provider may refuse.
+    /// </summary>
+    [Fact]
+    public async Task A_correction_after_an_empty_cut_off_reply_echoes_no_empty_turn()
+    {
+        var client = FakeChatClient.Responses(
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, string.Empty)) { FinishReason = ChatFinishReason.Length },
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, ValidAnswer)) { FinishReason = ChatFinishReason.Stop });
+
+        var outcome = await Complete(client);
+
+        Assert.True(outcome.Succeeded, outcome.Failure?.Message);
+        Assert.DoesNotContain(client.LastMessages!, message => message.Role == ChatRole.Assistant);
+        Assert.Equal(ChatRole.User, client.LastMessages![^1].Role);
+    }
+
+    [Fact]
+    public async Task An_answer_cut_off_twice_fails_as_truncated()
+    {
+        var cutOff = new ChatResponse(new ChatMessage(ChatRole.Assistant, "{\"schemaVersion\":")) { FinishReason = ChatFinishReason.Length };
+
+        var outcome = await Complete(FakeChatClient.Responses(cutOff, cutOff));
+
+        AssertFailed(outcome, AiFailureCategory.OutputSchemaInvalid);
+        Assert.Equal(AiOutputReason.Truncated, outcome.Failure!.ReasonCode);
+        Assert.Equal(2, outcome.Attempts.Count);
+    }
+
     private static void AssertFailed(AiCompletionOutcome<AiOutputDocument> outcome, AiFailureCategory category)
     {
         Assert.False(outcome.Succeeded);
@@ -375,7 +448,9 @@ public sealed class AiCompletionGatewayTests
         TimeSpan? attemptTimeout = null,
         int maxSchemaCorrections = 1,
         Guid? correlationId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AiTaskType task = AiTaskType.RecipeConcepts,
+        Action<AiGatewayOptions>? configure = null)
     {
         const string pipelineKey = "test-ai";
 
@@ -411,7 +486,7 @@ public sealed class AiCompletionGatewayTests
                 ModelName = "test-model",
                 ModelDeployment = "test-deployment",
                 MaxSchemaCorrections = maxSchemaCorrections,
-            },
+            }.Configured(configure),
             NullLogger<AiCompletionGateway>.Instance);
 
         var envelope = new PromptEnvelopeBuilder(Workspace)
@@ -427,7 +502,10 @@ public sealed class AiCompletionGatewayTests
                 "fixture.concepts",
                 "1.0.0",
                 correlationId ?? Guid.NewGuid(),
-                AiOutputValidator.AsDelegate),
+                AiOutputValidator.AsDelegate)
+            {
+                Task = task,
+            },
             cancellationToken);
     }
 
@@ -449,6 +527,9 @@ public sealed class AiCompletionGatewayTests
         /// <summary>The messages of the most recent call, so a corrective turn can be inspected.</summary>
         public IReadOnlyList<ChatMessage>? LastMessages { get; private set; }
 
+        /// <summary>The options of every call, in order, so the ceiling each one carried can be read.</summary>
+        public List<ChatOptions?> Options { get; } = [];
+
         /// Distinctly named rather than overloaded: a lambda that only throws satisfies every return type,
         /// so overloads on the return type alone are ambiguous at every throwing call site.
         public static FakeChatClient Returning(string text) =>
@@ -462,6 +543,18 @@ public sealed class AiCompletionGatewayTests
 
         public static FakeChatClient AlwaysAsync(Func<CancellationToken, Task<string>> text) =>
             new() { _always = async token => Answer(await text(token)) };
+
+        public static FakeChatClient Responses(params ChatResponse[] responses)
+        {
+            var client = new FakeChatClient();
+
+            foreach (var response in responses)
+            {
+                client._scripted.Enqueue(_ => Task.FromResult(response));
+            }
+
+            return client;
+        }
 
         public static FakeChatClient Sequence(params Func<string>[] texts)
         {
@@ -482,6 +575,7 @@ public sealed class AiCompletionGatewayTests
         {
             Calls++;
             LastMessages = messages.ToList();
+            Options.Add(options);
 
             var next = _scripted.Count > 0 ? _scripted.Dequeue() : _always!;
 
@@ -524,5 +618,15 @@ public sealed class AiCompletionGatewayTests
                 ? new AiFailureClassification(
                     AiFailureCategory.SafetyBlocked, false, null, "The provider's safety filter refused it.")
                 : base.Classify(exception, callerToken);
+    }
+}
+
+/// <summary>Lets a case adjust the gateway options it builds, without a parameter per option.</summary>
+file static class GatewayOptionsExtensions
+{
+    public static AiGatewayOptions Configured(this AiGatewayOptions options, Action<AiGatewayOptions>? configure)
+    {
+        configure?.Invoke(options);
+        return options;
     }
 }

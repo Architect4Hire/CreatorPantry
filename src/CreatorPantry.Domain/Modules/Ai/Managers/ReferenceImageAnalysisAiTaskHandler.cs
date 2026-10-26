@@ -104,7 +104,10 @@ internal sealed class ReferenceImageAnalysisAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiReferenceImageOutputValidator.AsDelegate),
+                AiReferenceImageOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.ReferenceImageAnalysis,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

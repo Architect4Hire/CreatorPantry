@@ -158,7 +158,10 @@ internal sealed class PhotographyConceptAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiPhotographyConceptOutputValidator.AsDelegate),
+                AiPhotographyConceptOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.PhotographyConcept,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

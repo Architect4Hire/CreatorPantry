@@ -11,6 +11,12 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 public static class AiOutputReason
 {
     public const string EmptyPayload = "ai.output.empty_payload";
+
+    /// <summary>
+    /// The provider stopped the answer at the output ceiling (AP.2.2). Whatever came back is incomplete, so it
+    /// is a schema failure and gets the one correction — never parsed as though it were the whole answer.
+    /// </summary>
+    public const string Truncated = "ai.output.truncated";
     public const string PayloadTooLarge = "ai.output.payload_too_large";
     public const string MalformedJson = "ai.output.malformed_json";
     public const string SchemaVersionMissing = "ai.output.schema_version_missing";

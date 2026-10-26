@@ -257,6 +257,7 @@ public sealed class LiveChannelPostsCheck
         {
             var response = await base.GetResponseAsync(messages, options, cancellationToken);
             Answers.Add(response.Text);
+            LiveUsage.Record("LiveChannelPostsCheck", options, response);
 
             return response;
         }

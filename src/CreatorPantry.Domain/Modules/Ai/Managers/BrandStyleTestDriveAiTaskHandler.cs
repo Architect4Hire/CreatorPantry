@@ -201,7 +201,10 @@ internal sealed class BrandStyleTestDriveAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiBrandStyleSamplesOutputValidator.AsDelegate()),
+                AiBrandStyleSamplesOutputValidator.AsDelegate())
+            {
+                Task = AiTaskType.BrandStyleTestDrive,
+            },
             cancellationToken);
     }
 

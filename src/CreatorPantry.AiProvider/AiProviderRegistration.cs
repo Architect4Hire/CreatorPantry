@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Net.Http.Headers;
 using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -59,8 +60,10 @@ public static class AiProviderRegistration
             // credential and deployment name out of the connection string. Also registers the
             // Microsoft.Extensions.AI trace sources and meters, so AI calls correlate with the rest of the
             // request without a ServiceDefaults change.
-            builder.AddAzureChatCompletionsClient(AiModelConnections.Chat).AddChatClient();
+            builder.AddAzureChatCompletionsClient(AiModelConnections.Chat).AddChatClient()
+                .Use(inner => new MaxCompletionTokensChatClient(inner));
             RequireChatRate(builder);
+            RequireEstimatesCoverCeilings(builder);
         }
         else
         {
@@ -184,10 +187,7 @@ public static class AiProviderRegistration
             return;
         }
 
-        var declared = builder.Configuration[$"{AiGatewayOptions.SectionName}:{nameof(AiGatewayOptions.ModelName)}"];
-        var model = string.IsNullOrWhiteSpace(declared) || declared == new AiGatewayOptions().ModelName
-            ? ChatDeployment(builder)
-            : declared;
+        var model = ChatModel(builder);
 
         if (model.Length == 0)
         {
@@ -214,6 +214,93 @@ public static class AiProviderRegistration
             $"The chat model '{model}' has no entry under {string.Join(" or ", missing)}. Add one at the pinned "
             + "credit unit (credits = list $ x 1,250), or set Ai:Gateway:ModelName to the model the chat "
             + "deployment runs if its deployment name is not the model's.");
+    }
+
+    /// <summary>
+    /// Refuses to start when a task's output ceiling could cost more than the estimate its call is admitted
+    /// under (AP.2.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Admission holds a task's per-call estimate; settlement charges what the call used. A ceiling worth more
+    /// credits than the estimate means a single call can settle past what was held for it, so the hold stops
+    /// being a bound. The worst case is the ceiling's tokens at the chat model's output rate — the price of the
+    /// most the model is permitted to write, reasoning included.
+    /// </para>
+    /// <para>
+    /// It is an output-cost bound only. Input is not in it — the ceiling does not bound input, and a prompt's
+    /// size depends on the creator's own material — and a corrective re-ask re-sends the prompt. The hold is
+    /// the per-call estimate times <c>Ai:Quota:EstimatedCallsPerRun</c>, which therefore has to cover every
+    /// call the gateway may make for one run (<c>Ai:Gateway:MaxSchemaCorrections</c> + 1); that is checked here
+    /// too, because the two are configured in different modules and nothing else holds them together. Every
+    /// environment runs it, development included, so a mismatch is met on the machine that made it; a chat model with no rate is skipped, because there is nothing to price the ceiling at, and
+    /// outside development <see cref="RequireChatRate"/> has already refused that.
+    /// </para>
+    /// </remarks>
+    private static void RequireEstimatesCoverCeilings(IHostApplicationBuilder builder)
+    {
+        var model = ChatModel(builder);
+        var quota = builder.Configuration.GetSection(AiQuotaOptions.SectionName).Get<AiQuotaOptions>()
+            ?? new AiQuotaOptions();
+
+        if (!AiModelRateKeys.TryFind(quota.ModelRates, model, out var rate))
+        {
+            return;
+        }
+
+        var gateway = builder.Configuration.GetSection(AiGatewayOptions.SectionName).Get<AiGatewayOptions>()
+            ?? new AiGatewayOptions();
+
+        if (quota.EstimatedCallsPerRun < gateway.MaxSchemaCorrections + 1)
+        {
+            throw new InvalidOperationException(
+                $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.EstimatedCallsPerRun)} is "
+                + $"{quota.EstimatedCallsPerRun}, but a run may call the model "
+                + $"{gateway.MaxSchemaCorrections + 1} times ({AiGatewayOptions.SectionName}:"
+                + $"{nameof(AiGatewayOptions.MaxSchemaCorrections)} + 1), so its hold would not cover a corrected run.");
+        }
+
+        var over = Enum.GetValues<AiTaskType>()
+            .Where(task => task is not AiTaskType.Unspecified)
+            .Select(task =>
+            {
+                var ceiling = gateway.MaxOutputTokensFor(task);
+                var worst = ceiling / 1_000_000m * rate.CreditsPerMillionOutputTokens;
+                var estimate = quota.TaskEstimates.TryGetValue(task, out var configured)
+                    ? configured
+                    : quota.DefaultTaskEstimate;
+
+                return (Task: task, Ceiling: ceiling, Worst: worst, Estimate: estimate);
+            })
+            .Where(check => check.Worst > check.Estimate)
+            .Select(check =>
+                $"{check.Task}: {check.Ceiling:N0} output tokens is {check.Worst:0.##} credits at '{model}', over its "
+                + $"per-call estimate of {check.Estimate:0.##}")
+            .ToList();
+
+        if (over.Count == 0)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "A task's output ceiling can cost more than the estimate its call is admitted under — "
+            + string.Join("; ", over)
+            + $". Raise {AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.TaskEstimates)}:<task>, or lower "
+            + $"{AiGatewayOptions.SectionName}:{nameof(AiGatewayOptions.MaxOutputTokensByTask)}:<task>.");
+    }
+
+    /// <summary>
+    /// The model the chat deployment runs, as declared: <c>Ai:Gateway:ModelName</c> when set, otherwise the
+    /// deployment's own name. Empty when neither is known.
+    /// </summary>
+    private static string ChatModel(IHostApplicationBuilder builder)
+    {
+        var declared = builder.Configuration[$"{AiGatewayOptions.SectionName}:{nameof(AiGatewayOptions.ModelName)}"];
+
+        return string.IsNullOrWhiteSpace(declared) || declared == new AiGatewayOptions().ModelName
+            ? ChatDeployment(builder)
+            : declared;
     }
 
     private static HashSet<string> Rates(IHostApplicationBuilder builder, string section) =>

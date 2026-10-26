@@ -142,7 +142,10 @@ internal sealed class SeoPackageAiTaskHandler(
                         requested,
                         subject.Captions,
                         candidates.Select(candidate => candidate.Id).ToHashSet(),
-                        subject.RecipeId))),
+                        subject.RecipeId)))
+            {
+                Task = AiTaskType.SeoPackage,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)
