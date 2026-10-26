@@ -55,6 +55,24 @@ export const READINESS_EVIDENCE_KIND_LABELS: Readonly<Record<string, string>> = 
   AiProposal: 'AI proposal',
 };
 
+/**
+ * The fields a finding can point at, in the words the editor uses for them. The wire value is a property name
+ * (`YieldText`, `TotalTimeMinutes`), which is for the code and not the creator. Tolerant like the kinds: a field
+ * this app has no words for is humanised from its name.
+ */
+export const READINESS_EVIDENCE_FIELD_LABELS: Readonly<Record<string, string>> = {
+  AttributionText: 'Attribution',
+  CourseId: 'Course',
+  CuisineId: 'Cuisine',
+  Description: 'Description',
+  LatestTestOutcome: 'Latest test outcome',
+  TagCount: 'Tags',
+  TotalTimeMinutes: 'Total time',
+  YieldText: 'Yield',
+  MatchStatus: 'Ingredient match',
+  Severity: 'Severity',
+};
+
 /** Mirrors RecipeTransitionTargetViewModel — the states a transition may name. */
 export type RecipeTransitionTarget = 'Draft' | 'InDevelopment' | 'Testing' | 'ReadyForReview' | 'Approved' | 'Archived';
 
