@@ -23,6 +23,7 @@ import {
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
+  READINESS_EVIDENCE_FIELD_LABELS,
   READINESS_EVIDENCE_KIND_LABELS,
   RECIPE_STATUS_LABELS,
   RecipeReadiness,
@@ -93,6 +94,21 @@ const GROUP_TONES: Readonly<Record<RecipeReadinessStatus, CpStatusPillTone>> = {
 };
 
 let nextInstance = 0;
+
+/**
+ * A field's name in the editor's words; one this app has no words for is humanised ("PanSize" → "Pan size"),
+ * without a trailing "Id", which names a column rather than anything a creator entered.
+ */
+function evidenceFieldLabel(fieldName: string): string {
+  const known = READINESS_EVIDENCE_FIELD_LABELS[fieldName];
+  if (known !== undefined) return known;
+
+  const words = fieldName
+    .replace(/(.)Id$/, '$1')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 /**
  * The readiness checklist and the editorial state machine's controls (TEST-UI-003).
@@ -290,6 +306,22 @@ export class RecipeReadinessComponent {
 
   activateEvidence(evidence: RecipeReadinessEvidence): void {
     this.evidenceActivated.emit(evidence);
+  }
+
+  /**
+   * One piece of evidence as text: what the check looked at, in the editor's words.
+   *
+   * On a recipe's own readiness "Recipe" is the page itself, so a recipe field is named by the field alone —
+   * "Yield", not "Recipe YieldText". The creator's own words are quoted untouched; a bare number (a version) reads
+   * straight after its kind.
+   */
+  evidenceText(evidence: RecipeReadinessEvidence): string {
+    const field = evidence.fieldName === null ? null : evidenceFieldLabel(evidence.fieldName);
+    if (evidence.kind === 'Recipe' && field !== null) return field;
+
+    const kind = this.evidenceKindLabel(evidence.kind);
+    const named = evidence.label ? `${kind}${/^\d+$/.test(evidence.label) ? ' ' : ': '}${evidence.label}` : kind;
+    return field === null ? named : `${named} · ${field}`;
   }
 
   async reevaluate(): Promise<void> {

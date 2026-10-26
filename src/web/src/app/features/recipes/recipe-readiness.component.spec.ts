@@ -381,6 +381,34 @@ describe('RecipeReadinessComponent', () => {
     expect(evidence[0].fieldName).toBe('ingredientId');
   });
 
+  // It used to show the wire's property names: "Recipe YieldText", "Recipe TotalTimeMinutes".
+  it('names a recipe field in the editor’s words, never by its property name', async () => {
+    service.readinessOutcome = {
+      status: 'found',
+      readiness: readiness({
+        findings: [
+          finding({
+            status: 'Blocker',
+            evidence: [
+              { kind: 'Recipe', recordId: 'r1', fieldName: 'YieldText', label: null },
+              { kind: 'Recipe', recordId: 'r1', fieldName: 'TotalTimeMinutes', label: null },
+              { kind: 'Recipe', recordId: 'r1', fieldName: 'PanSize', label: null },
+              { kind: 'RecipeVersion', recordId: 'v1', fieldName: null, label: '1' },
+            ],
+          }),
+        ],
+      }),
+    };
+    const element = await render();
+
+    const names = Array.from(element.querySelectorAll('.evidence button')).map((button) => button.textContent?.trim());
+    expect(names).toEqual(['Yield', 'Total time', 'Pan size', 'Version 1']);
+
+    // Still the way to the record, not just its name.
+    buttonWith(element, 'Yield')?.click();
+    expect(evidence.at(-1)?.fieldName).toBe('YieldText');
+  });
+
   it('names an evidence kind it has never heard of rather than dropping it', async () => {
     service.readinessOutcome = {
       status: 'found',
