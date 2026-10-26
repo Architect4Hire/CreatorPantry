@@ -527,7 +527,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
-| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's `.concept-card`, `.concept-title` or `.concept-dietary` (exempt until AU.5.1 adopts the card) | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
+| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's old `.concept-card`, `.concept-title` or `.concept-dietary` | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
 | `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
@@ -541,7 +541,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 
-A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, each with an edit control of its own, which AU.5.1 weighs against `dl[cpFacts]`'s `across` layout.
+A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's yield and timing values, each with an editor that opens in place — which AU.5.1 kept off `dl[cpFacts]`'s `across` layout, because a strip sized to its content would reflow round an editor opening in it.
 
 ## Confirmations
 

@@ -1103,7 +1103,7 @@ before the review fixes. After them, one run had 10 reds, all in the known inter
 credits, pricing and collage, and the editor's step-layout spec), and the editor and landing specs then
 passed alone (415/415). Two `CpMediaCardComponent` focus specs failed once in an earlier run and passed alone.*
 
-## AU.5.1 AI Recipe Studio
+## AU.5.1 AI Recipe Studio - done
 
 ```text
 SCOPE: Present the studio's concepts as cp-option-card in a comparison grid: the dish name as the title, time
@@ -1126,6 +1126,69 @@ UTILIZATION: design-review; ai-safety-reviewer on the dietary and assumption pre
 BEHAVIOR: Show the concept grid against the tour capture; wait for approval; implement with specs; run npm run
 build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped. The owner approved the concept grid from a written sketch against the tour
+capture, and chose to keep dietary notes out of the tags (option A).*
+
+*The concept studio:*
+
+- *Each concept is a `cp-option-card` in `ul[cpCardGrid]`, inside `cp-generated` in the list shell's ready content.*
+  - *Time budget and skill fit are the tags.*
+  - *Dietary notes are always shown, as a `dl[cpFacts]`. Its term is "Dietary notes — descriptive only, not a
+    guarantee", so the caveat is the page's own words, and the model's sentences are a list under it. A tag holds one
+    string, so a list of sentences there would have needed a library change.*
+  - *A concept's own warnings are `cp-notice`s, always shown.*
+  - *The rationale, the suggested ingredients (still comma-joined: they are words) and the assumptions (now a list:
+    they are sentences) are behind the disclosure. Its summary reads "…and what it assumes" when there are any.*
+- *"What the model flagged" is a section with an `h3` and one `cp-notice` per flag, after the list shell. It shows
+  even when no concepts came back, since a flag is often why.*
+- *"Try a new brief" is the surface's `[cpGeneratedActions]`.*
+- *Provenance is "model (provider)". It is left out in a guided step, as 13A.19 does for pictures.*
+- *Page head: `cp-shell-nav-icon name="ai"` from `shared/nav-icon/`. The purple tone was already on the route.*
+- *Loading sentences became `cp-skeleton` with one always-present offscreen status line, which also says "Asking
+  for concepts…" while a brief is sent.*
+- *Empty states are illustrated, and a first-use state ("Your concepts will appear here") stands where the concepts
+  will land.*
+- *The option-card exemption is gone.*
+
+*The first-draft review:*
+
+- *The page head icon, a skeleton, and illustrated idle and gone states.*
+- *A `cp-generated-label` before the anchor nav.*
+- *"How this was made" is `dl[cpFacts] layout="across"`.*
+- ***Settled:** yield and timing keep `.draft-fields-grid` and its exemption. Each value opens an editor in place,
+  and `across` sizes a fact to its content and wraps, so an opening editor would reflow its neighbours. The reason in
+  the script and in DESIGN-SYSTEM.md now says so.*
+
+*The rest of the AU.3.1 leftovers for features/ai:*
+
+- *`ai-proposal-panel`:*
+  - *`cp-generated-label` in its header.*
+  - *Provenance as `dl[cpFacts]`, still in its disclosure.*
+  - *A skeleton under an always-present status line.*
+  - *An illustrated gone state.*
+- *`ai-advisory-results`: `cp-generated` round the items, and provenance as `dl[cpFacts]`.*
+
+*The reviews:*
+
+- *ai-safety-reviewer found nothing blocking. Taken: the disclosure names the assumptions, and a spec pins the caveat
+  outside the model's sentences.*
+- *Left for the owner:*
+  - *A concept with no dietary notes says nothing about diet. It did before.*
+  - *The panel and the advisory list name the model in a guided step too. They have no host to ask.*
+- *design-review:*
+  - *Fixed: the panel's loading line was a live region created already holding its text (blocking).*
+  - *Fixed: "submitting" was not announced.*
+  - *Fixed: a leftover class.*
+- *Left for the owner:*
+  - *`cp-generated` round a grid of option cards, and round the advisory list's bordered items. This prompt asks for
+    the surface, but "Generated content" says a box round a card is a box in a box and takes the label alone. The
+    swap is one line in each template if the label alone is preferred.*
+  - *`cp-empty-state` always prints an `h3`, which skips a level under the draft review's `h1`. It needs a heading
+    level input in the library.*
+
+*`npm run build` passes. The page contract holds (28 self-tests), safety copy holds, the library is 471/471 and the
+showcase is 6191/6191.*
 
 ## AU.5.2 Image Studio
 

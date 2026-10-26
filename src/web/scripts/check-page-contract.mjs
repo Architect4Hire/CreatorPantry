@@ -113,12 +113,7 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/features/ai/recipe-first-draft-review.component.css',
     rule: 'card-grid',
-    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has had an `across` layout since AU.4.3, for figures with no control; whether these can move to it is AU.5.1's to settle.",
-  },
-  {
-    file: 'src/app/features/ai/recipe-concept-studio.component.css',
-    rule: 'option-card',
-    reason: 'The concept cards this rule was written against (AU.3.2). AU.5.1 rebuilds them as `cp-option-card`; this line goes when it does. Until then it excuses the whole file from this rule, so a new option card drawn here is excused too.',
+    reason: "`.draft-fields-grid` holds a draft's yield and timing, each value with an editor that opens in place. Settled in AU.5.1: `dl[cpFacts] layout=\"across\"` sizes each fact to its content and wraps, so an editor opening in one would reflow its neighbours under the creator's hand, and its bold value would bolden \"Not suggested\" and the Edit control. The draft's provenance, which has no control, moved to `across`.",
   },
 ];
 

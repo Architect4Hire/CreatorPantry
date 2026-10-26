@@ -124,19 +124,7 @@
 }
 
 .advisory-provenance-list {
-  display: grid;
-  grid-template-columns: minmax(9rem, max-content) minmax(0, 1fr);
-  gap: var(--cp-space-1) var(--cp-space-3);
-  margin: var(--cp-space-2) 0 0 0;
-}
-
-.advisory-provenance-list dt {
-  font-weight: 600;
-}
-
-.advisory-provenance-list dd {
-  margin: 0;
-  overflow-wrap: anywhere;
+  margin-top: var(--cp-space-2);
 }
 
 /* A literal stack, not a token: the design system has no monospace family (see ai-proposal-panel.component.css). */

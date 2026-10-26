@@ -1,5 +1,5 @@
 import { ApplicationRef } from '@angular/core';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable } from 'rxjs';
 
@@ -699,6 +699,69 @@ describe('RecipeFirstDraftReviewComponent', () => {
     settle();
 
     expect(component.isEdited(target.key)).toBe(false);
+  }));
+
+  // ---- the studio's part (AU.5.1) ---------------------------------------------------------------------
+
+  it("wears the studio's icon in its page head", fakeAsync(() => {
+    render({});
+
+    expect(element().querySelector('cp-page-head cp-shell-nav-icon[cpPageHeadIcon]')).not.toBeNull();
+  }));
+
+  it('illustrates the page with nothing to review', fakeAsync(() => {
+    render({});
+
+    expect(element().querySelector('cp-empty-state cp-illustration')).not.toBeNull();
+  }));
+
+  it('draws the shape of the draft while it looks for it, and says so offscreen', fakeAsync(() => {
+    service.watchStatus = () => new Observable<WatchRecipeDraftOutcome>(() => undefined);
+    render();
+
+    expect(fixture.componentInstance.state()).toBe('loading');
+    const loading = element().querySelector('.draft-loading')!;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.querySelector('cp-skeleton')).not.toBeNull();
+    expect(element().querySelector('.draft-loading-status')?.textContent).toContain('Looking for your draft');
+    discardPeriodicTasks();
+  }));
+
+  it('illustrates a request that is no longer there', fakeAsync(() => {
+    service.statuses = [{ status: 'not_found' }];
+    render();
+
+    const empty = element().querySelector('cp-empty-state')!;
+    expect(empty.textContent).toContain("couldn't find that draft request");
+    expect(empty.querySelector('cp-illustration')).not.toBeNull();
+  }));
+
+  it('marks the draft as drafted by AI before its first part, naming the model and never the prompt', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+
+    const label = element().querySelector('cp-generated-label.draft-generated')!;
+    expect(label.textContent).toContain('Drafted by AI');
+    expect(label.textContent).toContain('phi-4 (foundry-local)');
+    expect(label.textContent).not.toContain('recipe.first-draft');
+    // Ahead of the parts it marks.
+    const nav = element().querySelector('cp-anchor-nav')!;
+    expect(label.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }));
+
+  it('says how the draft was made as a strip of facts, and keeps the yield and timing in their grid', fakeAsync(() => {
+    service.statuses = [ready()];
+    render();
+
+    const provenance = element().querySelector('[aria-labelledby="cp-draft-provenance"] dl[cpFacts]')!;
+    expect(provenance.getAttribute('data-layout')).toBe('across');
+    const terms = Array.from(provenance.querySelectorAll('dt')).map((dt) => dt.textContent?.trim());
+    expect(terms).toEqual(['Model', 'Provider', 'Prompt', 'Answer shape']);
+
+    // Each of these opens an editor in place, which a strip sized to its content would reflow.
+    const yieldSection = element().querySelector('[aria-labelledby="cp-draft-yield"]')!;
+    expect(yieldSection.querySelectorAll('dl.draft-fields-grid').length).toBe(2);
+    expect(yieldSection.querySelector('dl[cpFacts]')).toBeNull();
   }));
 
   // ---- errors -----------------------------------------------------------------------------------------

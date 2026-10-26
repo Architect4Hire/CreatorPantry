@@ -596,6 +596,32 @@ describe('AiProposalPanelComponent', () => {
     expect(details?.textContent).toContain('sha256:abc123');
   }));
 
+  it('marks the suggestions as drafted by AI in its header, and discloses provenance as a list of facts', fakeAsync(() => {
+    service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
+    const host = render();
+
+    const label = host.querySelector('.panel-header cp-generated-label')!;
+    expect(label.textContent).toContain('Drafted by AI');
+    expect(label.textContent).toContain('phi-4');
+    expect(label.textContent).not.toContain('sha256');
+
+    const terms = Array.from(host.querySelectorAll('details.provenance dl[cpFacts] dt')).map((dt) => dt.textContent?.trim());
+    expect(terms).toEqual(['Made by', 'Instructions used', 'Read from recipe version', 'Reference']);
+  }));
+
+  it('draws the shape of the suggestions while it looks for the request, and says so offscreen', fakeAsync(() => {
+    service.watchStatus = () => new Observable<AiProposalStatusOutcome>(() => undefined);
+    const host = render();
+
+    expect(fixture.componentInstance.state()).toBe('loading');
+    expect(host.querySelector('cp-skeleton')).not.toBeNull();
+    // The status line is outside the panel's section, present before and after it shows.
+    const status = host.querySelector(':scope > p.cp-sr-only[role="status"]');
+    expect(status?.textContent).toContain('Looking for your request');
+    expect(host.querySelector('cp-generated-label')).toBeNull();
+    discardPeriodicTasks();
+  }));
+
   it('says so when the model had nothing to suggest', fakeAsync(() => {
     service.statuses = [found({ status: 'Proposed', proposal: proposal([]) })];
     const host = render();

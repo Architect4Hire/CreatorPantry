@@ -2,18 +2,25 @@
   <cp-page-head
     [heading]="pageTitle"
     lede="Describe what you're after and get a handful of distinct recipe pitches back. Nothing here writes a recipe — choosing one is the start of a draft, not the recipe itself."
-  />
+  >
+    <cp-shell-nav-icon cpPageHeadIcon name="ai" />
+  </cp-page-head>
 } @else {
   <!-- Hosted, the step's card is the head: the sentence the page rests on is said here instead. -->
   <p class="cp-muted">Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the start of a draft.</p>
 }
+
+<!-- Always in the page, so the words are announced when they change: a live region created already holding its
+     text may never be read. The skeletons below are aria-hidden, so this is the one thing said while they show. -->
+<p class="cp-sr-only studio-loading-status" role="status">{{ loadingSentence() }}</p>
 
 <div class="studio">
   <!-- Opened for a piece of work (AF.7.4): say which, so the creator knows what the ideas are for, and say
        when its themed day has standing notes that will shape them. -->
   @switch (work().status) {
     @case ('loading') {
-      <p class="cp-muted" role="status">Reading the work these ideas are for…</p>
+      <!-- The shape of the one line that is coming, "Ideas for …" (APP-003). -->
+      <cp-skeleton class="studio-work-loading" shape="line" />
     }
     @case ('missing') {
       <cp-notice tone="warning" role="status">
@@ -270,22 +277,35 @@
     <p class="studio-problem" role="alert">{{ problem.message }}</p>
   }
 
-  @if (state() === 'gone') {
+  @if (state() === 'idle') {
+    <!-- Where the concepts will land, before anything has been asked: a first use, not a blank. -->
+    <cp-empty-state
+      class="studio-first-use"
+      title="Your concepts will appear here"
+      description="Ask, and a few different takes on your brief come back to compare side by side. Nothing is added to your recipes."
+      illustration="sparkle"
+    />
+  } @else if (state() === 'gone') {
     <p class="cp-sr-only" role="alert">
       This request is no longer here. It has gone, or it belongs to a workspace you can't see.
     </p>
     <cp-empty-state
       title="This request is no longer here"
       description="It has gone, or it belongs to a workspace you can't see. Nothing was changed."
-      icon="○"
+      illustration="search"
       variant="no-results"
     />
   } @else if (state() === 'forbidden') {
     <p class="studio-blocked" role="status">
       This request can't be read with your role in this workspace.
     </p>
-  } @else if (state() === 'loading') {
-    <p class="studio-status" role="status">Looking for your request…</p>
+  } @else if (state() === 'loading' || state() === 'submitting') {
+    <!-- The shape of what is coming: the request's status line, then the concepts (APP-003). Said by the status
+         line at the top of the page, outside this busy region, or by the brief's own "Asking…". -->
+    <div class="studio-loading" aria-busy="true">
+      <cp-skeleton shape="line" />
+      <cp-skeleton shape="card" [count]="3" />
+    </div>
   } @else if (operation(); as op) {
     <cp-ai-operation-status
       [status]="op.status"
@@ -317,6 +337,7 @@
          heading treatment as the recipe library and the version history. -->
     <cp-list-shell
       heading="Recipe concepts"
+      loadingLayout="cards"
       [state]="conceptsListState()"
       [errorMessage]="conceptsErrorMessage()"
       emptyMessage="No concepts came back for this brief."
@@ -325,96 +346,97 @@
         <cp-empty-state
           title="No concepts for this brief"
           description="The model didn't return any. Change something about the brief above and ask again."
-          icon="○"
+          illustration="search"
           variant="no-results"
         />
       </div>
 
-      <ul cpCardGrid minColumn="18rem" class="concept-list">
-        @for (concept of conceptCards(); track concept.targetId) {
-          <li>
-            <cp-card>
-              <article [attr.aria-labelledby]="'concept-title-' + concept.targetId">
-                <h3 [id]="'concept-title-' + concept.targetId" class="concept-title">{{ concept.title }}</h3>
-
-                @if (concept.summary) {
-                  <p class="concept-summary">{{ concept.summary }}</p>
+      <!--
+        What the model made, marked as such (APP-006), and compared side by side (APP-007): each concept's key
+        facts as tags under its name, its dietary notes and its cautions always shown, and the rest on request.
+        Choosing is an action on this page, not a value a Save submits.
+      -->
+      <cp-generated [provenance]="provenance()">
+        <ul cpCardGrid minColumn="18rem">
+          @for (card of conceptViews(); track card.concept.targetId) {
+            <li>
+              <cp-option-card
+                [heading]="card.concept.title"
+                [facts]="card.facts"
+                [summary]="card.concept.summary ?? ''"
+                [detailLabel]="card.detailLabel"
+                chooseLabel="Choose this concept"
+                [selected]="isSelected(card.concept)"
+                (chosen)="choose(card.concept)"
+              >
+                <!--
+                  Always shown, never behind the disclosure: a dietary note is the one fact a reader must not
+                  take as a guarantee, so the caveat is the term itself, in this page's words, and the model's
+                  sentences are the value — one to a line, because each is a whole sentence (recipes.md).
+                -->
+                @if (card.concept.dietaryNotes.length > 0) {
+                  <dl cpFacts>
+                    <div cpFact label="Dietary notes — descriptive only, not a guarantee">
+                      <ul class="concept-sentences">
+                        @for (note of card.concept.dietaryNotes; track $index) {
+                          <li>{{ note }}</li>
+                        }
+                      </ul>
+                    </div>
+                  </dl>
                 }
 
-                @if (concept.distinctnessRationale) {
-                  <p class="concept-distinct">
-                    <span class="concept-label">What makes this one different:</span>
-                    {{ concept.distinctnessRationale }}
-                  </p>
+                @for (warning of card.concept.warnings; track $index) {
+                  <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+                    {{ warning.message }}
+                  </cp-notice>
                 }
 
-                @if (concept.suggestedIngredients.length > 0) {
-                  <p class="concept-field">
-                    <span class="concept-label">Suggested ingredients:</span>
-                    {{ concept.suggestedIngredients.join(', ') }}
-                  </p>
-                }
-
-                @if (concept.timeBudgetNote) {
-                  <p class="concept-field">
-                    <span class="concept-label">Time budget:</span> {{ concept.timeBudgetNote }}
-                  </p>
-                }
-
-                @if (concept.skillLevelFit) {
-                  <p class="concept-field">
-                    <span class="concept-label">Skill fit:</span> {{ concept.skillLevelFit }}
-                  </p>
-                }
-
-                @if (concept.dietaryNotes.length > 0) {
-                  <p class="concept-field concept-dietary">
-                    <span class="concept-label">Dietary notes:</span> {{ concept.dietaryNotes.join(', ') }}
-                    <span class="concept-caveat">— descriptive only, not a guarantee.</span>
-                  </p>
-                }
-
-                @if (concept.assumptions.length > 0) {
-                  <p class="concept-field">
-                    <span class="concept-label">Assumed:</span> {{ concept.assumptions.join(', ') }}
-                  </p>
-                }
-
-                @if (concept.warnings.length > 0) {
-                  <ul class="warnings-list" role="list">
-                    @for (warning of concept.warnings; track $index) {
-                      <li class="warning" [attr.data-kind]="warning.kind">{{ warning.message }}</li>
+                @if (card.hasDetail) {
+                  <dl cpFacts cpOptionCardDetail>
+                    @if (card.concept.distinctnessRationale) {
+                      <div cpFact label="What makes this one different">{{ card.concept.distinctnessRationale }}</div>
                     }
-                  </ul>
+                    <!-- Words, so commas; the assumptions below are sentences, so a list. -->
+                    @if (card.concept.suggestedIngredients.length > 0) {
+                      <div cpFact label="Suggested ingredients">{{ card.concept.suggestedIngredients.join(', ') }}</div>
+                    }
+                    @if (card.concept.assumptions.length > 0) {
+                      <div cpFact label="Assumed">
+                        <ul class="concept-sentences">
+                          @for (assumption of card.concept.assumptions; track $index) {
+                            <li>{{ assumption }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  </dl>
                 }
-
-                <button
-                  cpButton
-                  type="button"
-                  [variant]="isSelected(concept) ? 'secondary' : 'primary'"
-                  size="sm"
-                  (click)="choose(concept)"
-                >
-                  {{ isSelected(concept) ? 'Chosen' : 'Choose this concept' }}
-                </button>
-              </article>
-            </cp-card>
-          </li>
-        }
-      </ul>
-    </cp-list-shell>
-
-    <!-- After the concepts, and an h3 under the frame's own heading: the same place and the same level the
-         advisory surface puts "About this request", because it is the same kind of note â about the answer as
-         a whole rather than about any one item. -->
-    @if (state() === 'proposed' && generalWarnings().length > 0) {
-      <cp-topic-card class="warnings" heading="What the model flagged" headingId="cp-concept-warnings-heading" [headingLevel]="3">
-        <ul class="warnings-list" role="list">
-          @for (warning of generalWarnings(); track $index) {
-            <li class="warning" [attr.data-kind]="warning.kind">{{ warning.message }}</li>
+              </cp-option-card>
+            </li>
           }
         </ul>
-      </cp-topic-card>
+
+        <div cpGeneratedActions>
+          <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
+        </div>
+      </cp-generated>
+    </cp-list-shell>
+
+    <!--
+      About the answer as a whole rather than any one concept, so after the concepts and in a place of its own:
+      one notice to a flag, a caution with the warning glyph. Shown whether or not any concepts came back, since
+      a flag is often the reason none did. Nothing here is a verdict: an unflagged concept has not been checked.
+    -->
+    @if (state() === 'proposed' && generalWarnings().length > 0) {
+      <section class="studio-flags" aria-labelledby="cp-concept-warnings-heading">
+        <h3 class="studio-flags-heading" id="cp-concept-warnings-heading">What the model flagged</h3>
+        @for (warning of generalWarnings(); track $index) {
+          <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+            {{ warning.message }}
+          </cp-notice>
+        }
+      </section>
     }
 
     @if (selectedConcept(); as chosen) {
@@ -472,12 +494,6 @@
           />
         }
       </cp-topic-card>
-    }
-
-    @if (state() === 'proposed' && conceptCards().length > 0) {
-      <div class="studio-recovery">
-        <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
-      </div>
     }
   }
 </div>

@@ -1,3 +1,7 @@
+<!-- Always in the page, so the words are announced when they change: a live region created already holding its
+     text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
+<p class="cp-sr-only" role="status">{{ state() === 'loading' ? 'Looking for your request…' : '' }}</p>
+
 <!-- Nothing renders without a request to watch: the host owns asking, this owns reviewing. -->
 @if (state() !== 'idle') {
   <section class="panel" [attr.aria-labelledby]="headingId" [attr.aria-busy]="state() === 'deciding' ? 'true' : null">
@@ -15,6 +19,12 @@
       @if (proposal() !== null && state() !== 'decided') {
         <cp-status-pill class="panel-unsaved" tone="warning" role="status">Not saved to your recipe yet</cp-status-pill>
       }
+
+      <!-- Whose suggestions these are, said in the one mark the app uses for it (APP-006). The panel is already
+           an edge round them, so the label alone; the full detail stays in "How this was generated". -->
+      @if (proposal(); as made) {
+        <cp-generated-label class="panel-generated" [provenance]="made.modelName + ' (' + made.providerName + ')'" />
+      }
     </header>
 
     @if (state() === 'gone') {
@@ -27,7 +37,7 @@
       <cp-empty-state
         title="These suggestions are no longer here"
         description="The request has gone, or it belongs to a recipe you can't see. Nothing was changed."
-        icon="○"
+        illustration="search"
         variant="no-results"
       />
     } @else if (state() === 'forbidden') {
@@ -35,7 +45,8 @@
         These suggestions can't be read with your role in this workspace. Ask an editor or the owner about them.
       </p>
     } @else if (state() === 'loading') {
-      <p class="panel-notice" role="status">Looking for your request…</p>
+      <!-- The shape of what is coming (APP-003), said by the status line above the panel. -->
+      <cp-skeleton shape="line" [count]="4" />
     } @else if (operation(); as op) {
       <cp-ai-operation-status
         [status]="op.status"
@@ -393,19 +404,19 @@
                conversation that needs them. -->
           <details class="provenance">
             <summary>How this was generated</summary>
-            <dl class="provenance-list">
-              <dt>Made by</dt>
-              <dd>{{ detail.modelName }} ({{ detail.providerName }})</dd>
-              <dt>Instructions used</dt>
-              <dd>{{ detail.promptTemplateId }}, version {{ detail.promptTemplateVersion }}</dd>
+            <dl cpFacts class="provenance-list">
+              <div cpFact label="Made by">{{ detail.modelName }} ({{ detail.providerName }})</div>
+              <div cpFact label="Instructions used">{{ detail.promptTemplateId }}, version {{ detail.promptTemplateVersion }}</div>
               <!-- Which version of the recipe every "was" value above was read from. The whole basis for
                    accepting a suggestion safely is that this is still the current version, so it is named. -->
-              <dt>Read from recipe version</dt>
-              <dd class="provenance-code">{{ op.sourceVersionId ?? 'not recorded' }}</dd>
-              <dt>Reference</dt>
-              <dd class="provenance-code">
-                {{ detail.proposalId }} · {{ detail.outputSchemaVersion }} · {{ detail.promptTemplateBodyChecksum }}
-              </dd>
+              <div cpFact label="Read from recipe version">
+                <span class="provenance-code">{{ op.sourceVersionId ?? 'not recorded' }}</span>
+              </div>
+              <div cpFact label="Reference">
+                <span class="provenance-code">
+                  {{ detail.proposalId }} · {{ detail.outputSchemaVersion }} · {{ detail.promptTemplateBodyChecksum }}
+                </span>
+              </div>
             </dl>
           </details>
         }

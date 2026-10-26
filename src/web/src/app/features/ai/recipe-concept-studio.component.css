@@ -24,8 +24,7 @@
  * them apart: what this page cannot do for you is muted, what it is busy doing is muted, and only a failure
  * takes the danger tone.
  */
-.studio-blocked,
-.studio-status {
+.studio-blocked {
   margin: 0;
   max-width: var(--cp-measure-prose);
   color: var(--cp-text-muted);
@@ -112,65 +111,38 @@
   font-size: var(--cp-font-size-xs);
 }
 
-.warnings-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-1);
+/*
+ * The model's flags about the answer as a whole: a heading one step under the frame's own, then one notice to a
+ * flag — the notice owns the fill and the glyph.
+ */
+.studio-flags {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  max-width: var(--cp-measure-prose);
+}
+
+.studio-flags-heading {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.warning {
-  font-size: var(--cp-font-size-sm);
+  font: 500 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
-}
-
-.warning[data-kind='SafetyCaution'] {
-  color: var(--cp-danger);
-}
-
-.concept-title {
-  margin: 0 0 var(--cp-space-2);
-  font: 400 var(--cp-font-size-lg) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
-}
-
-.concept-summary {
-  margin: 0 0 var(--cp-space-3);
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-sm);
-  line-height: var(--cp-leading-normal);
-}
-
-.concept-field,
-.concept-distinct {
-  margin: 0 0 var(--cp-space-2);
-  color: var(--cp-text);
-  font-size: var(--cp-font-size-sm);
-}
-
-.concept-label {
-  font-weight: 700;
-}
-
-.concept-dietary .concept-caveat {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-xs);
-}
-
-.concept-list button[cpButton] {
-  margin-top: var(--cp-space-2);
 }
 
 /*
- * `minmax(0, 1fr)`, never a bare `1fr`: an `auto` floor is the content's max-content width, so one long
- * unbroken string in a concept would have held this single column wider than the page (DESIGN-SYSTEM.md).
+ * A concept's dietary notes and assumptions are whole sentences, so they read as a list, one to a line, rather
+ * than run together with commas (AU.0).
  */
-@container cp-recipe-concept-studio (max-width: 30rem) {
-  .concept-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.concept-sentences {
+  display: grid;
+  gap: var(--cp-space-1);
+  margin: 0;
+  padding-inline-start: var(--cp-space-5);
+}
+
+.studio-loading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
 }
 
 /* Which piece of work the ideas are for, when the studio was opened for one. */

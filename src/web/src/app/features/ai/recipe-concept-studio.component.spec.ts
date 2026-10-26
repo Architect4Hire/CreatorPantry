@@ -595,7 +595,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     const alert = element().querySelector('p.cp-sr-only[role="alert"]');
     expect(alert?.textContent).toContain("Didn't finish");
-    expect(element().querySelector('p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe('');
+    expect(element().querySelector('cp-ai-operation-status p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe('');
   }));
 
   // ---- Page frame and results frame ----
@@ -632,7 +632,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     expect(fixture.componentInstance.conceptsListState()).toBe('empty');
     expect(element().querySelector('cp-empty-state')).not.toBeNull();
-    expect(element().querySelector('.concept-list')).toBeNull();
+    expect(element().querySelector('ul[cpCardGrid]')).toBeNull();
   }));
 
   it('reports a request that did not finish as an error in the results frame', fakeAsync(() => {
@@ -665,6 +665,191 @@ describe('RecipeConceptStudioComponent', () => {
   }));
 
   // ---- Drafting the chosen concept (AF.2.1) ----
+
+  // ---- The concept grid (AU.5.1) ----
+
+  function richConcept(): readonly AiProposedChange[] {
+    return [
+      change({ changeId: 'add-1', targetId: 'concept-1', afterValue: 'Maple-butter overnight rolls', proposedPosition: 0 }),
+      setRow('summary', 'Soft rolls brushed with maple butter.'),
+      setRow('timeBudgetNote', 'Overnight rise, then a morning window.'),
+      setRow('skillLevelFit', 'Weekend home bakers.'),
+      setRow('dietaryNotes', 'Contains wheat and dairy based on the provided components.; Dietary goals were not specified.'),
+      setRow('assumptions', 'The starter is active.; Rolls are small portions.'),
+      setRow('suggestedIngredients', 'bread flour; maple syrup; butter'),
+      setRow('distinctnessRationale', 'The only one finished in the pan.'),
+    ];
+  }
+
+  function optionCards(): HTMLElement[] {
+    return Array.from(element().querySelectorAll<HTMLElement>('cp-option-card'));
+  }
+
+  it('compares its concepts as option cards inside one generated surface, named by what made them', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+    click('Get concepts');
+
+    const generated = element().querySelector('cp-list-shell cp-generated');
+    expect(generated).not.toBeNull();
+    const label = generated!.querySelector('cp-generated-label');
+    expect(label?.textContent).toContain('Drafted by AI');
+    expect(label?.textContent).toContain('phi-4 (foundry-local)');
+    // Never the prompt: its id and checksum are not this line's to show.
+    expect(label?.textContent).not.toContain('recipe.concepts');
+
+    expect(optionCards().length).toBe(2);
+    expect(generated!.querySelectorAll('ul[cpCardGrid] > li > cp-option-card').length).toBe(2);
+    expect(optionCards()[0].querySelector('h3')?.textContent?.trim()).toBe('Slow-roasted tomato soup');
+  }));
+
+  it('tags each concept with its time budget and skill fit, and keeps the rest behind its disclosure', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(richConcept()) })];
+    click('Get concepts');
+
+    const card = optionCards()[0];
+    const tags = Array.from(card.querySelectorAll('.tags .tag')).map((tag) => [
+      tag.querySelector('dt')?.textContent?.trim(),
+      tag.querySelector('dd')?.textContent?.trim(),
+    ]);
+    expect(tags).toEqual([
+      ['Time budget', 'Overnight rise, then a morning window.'],
+      ['Skill fit', 'Weekend home bakers.'],
+    ]);
+    expect(card.querySelector('.summary')?.textContent).toContain('Soft rolls brushed with maple butter.');
+
+    const detail = card.querySelector('details')!;
+    expect(detail.querySelector('summary')?.textContent).toContain('and what it assumes');
+    expect(detail.textContent).toContain('The only one finished in the pan.');
+    // A list of words is still joined with commas.
+    expect(detail.textContent).toContain('bread flour, maple syrup, butter');
+    // A list of sentences is a list, never "portions., The" (AU.0).
+    const assumptions = Array.from(detail.querySelectorAll('.concept-sentences li')).map((li) => li.textContent?.trim());
+    expect(assumptions).toEqual(['The starter is active.', 'Rolls are small portions.']);
+    expect(card.textContent).not.toContain('., ');
+  }));
+
+  it('shows every dietary note as a sentence of its own, always open, under its caveat', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(richConcept()) })];
+    click('Get concepts');
+
+    const card = optionCards()[0];
+    const fact = Array.from(card.querySelectorAll<HTMLElement>('[cpFact]')).find((el) =>
+      el.querySelector('dt')?.textContent?.includes('Dietary notes'),
+    )!;
+    expect(fact).toBeTruthy();
+    // Not behind the disclosure, and the caveat is the term itself, in this page's words.
+    expect(fact.closest('details')).toBeNull();
+    expect(fact.querySelector('dt')?.textContent).toContain('descriptive only, not a guarantee');
+    // The caveat is this page's term, never one of the model's sentences, so no refactor can lose it among them.
+    expect(fact.querySelector('dd')?.textContent).not.toContain('guarantee');
+    const notes = Array.from(fact.querySelectorAll('dd li')).map((li) => li.textContent?.trim());
+    expect(notes).toEqual(['Contains wheat and dairy based on the provided components.', 'Dietary goals were not specified.']);
+  }));
+
+  it("keeps a concept's own cautions on its card, never behind the disclosure", fakeAsync(() => {
+    render();
+    service.statuses = [
+      found({
+        status: 'Proposed',
+        proposal: proposal(twoConcepts(), [{ kind: 'SafetyCaution', message: 'Cool the soup quickly.', changeId: 'add-1' }]),
+      }),
+    ];
+    click('Get concepts');
+
+    const notice = optionCards()[0].querySelector('cp-notice');
+    expect(notice?.textContent).toContain('Cool the soup quickly.');
+    expect(notice?.closest('details')).toBeNull();
+    expect(notice?.classList).toContain('cp-notice--warning');
+    expect(optionCards()[1].querySelector('cp-notice')).toBeNull();
+  }));
+
+  it('marks the chosen card as chosen, by its edge, a ✓ and the word', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+    click('Get concepts');
+    click('Choose this concept');
+
+    const [first, second] = optionCards();
+    expect(first.querySelector('cp-card')?.classList).toContain('selected');
+    expect(first.querySelector('.chosen')?.textContent).toContain('Chosen');
+    expect(second.querySelector('.chosen')).toBeNull();
+  }));
+
+  it('says what the model flagged as notices of their own, after the concepts', fakeAsync(() => {
+    render();
+    service.statuses = [
+      found({
+        status: 'Proposed',
+        proposal: proposal(twoConcepts(), [
+          { kind: 'Assumption', message: 'The dish name was the only ingredient spec.', changeId: null },
+          { kind: 'SafetyCaution', message: 'Check the starter is active.', changeId: null },
+        ]),
+      }),
+    ];
+    click('Get concepts');
+
+    const flags = element().querySelector('section.studio-flags')!;
+    expect(flags.querySelector('h3')?.textContent).toContain('What the model flagged');
+    expect(flags.querySelector('cp-topic-card')).toBeNull();
+    const notices = Array.from(flags.querySelectorAll('cp-notice'));
+    expect(notices.length).toBe(2);
+    expect(notices[0].textContent).toContain('The dish name was the only ingredient spec.');
+    expect(notices[1].textContent).toContain('Check the starter is active.');
+    expect(notices[1].classList).toContain('cp-notice--warning');
+    // Its own place: not inside a concept, and not inside the frame.
+    expect(flags.closest('cp-list-shell')).toBeNull();
+  }));
+
+  it("still shows the model's flags when no concepts came back, since a flag is often why", fakeAsync(() => {
+    render();
+    service.statuses = [
+      found({ status: 'Proposed', proposal: proposal([], [{ kind: 'Unspecified', message: 'The brief was empty.', changeId: null }]) }),
+    ];
+    click('Get concepts');
+
+    expect(element().querySelector('section.studio-flags')?.textContent).toContain('The brief was empty.');
+    expect(element().querySelector('cp-list-shell cp-empty-state cp-illustration')).not.toBeNull();
+  }));
+
+  it('offers a new brief inside the generated surface, as its action', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+    click('Get concepts');
+
+    expect(buttonWith('Try a new brief').closest('[cpGeneratedActions]')).not.toBeNull();
+    expect(buttons('Try a new brief').length).toBe(1);
+  }));
+
+  it("wears the studio's icon in its page head", fakeAsync(() => {
+    render();
+
+    expect(element().querySelector('cp-page-head cp-shell-nav-icon[cpPageHeadIcon]')).not.toBeNull();
+  }));
+
+  it('shows an illustrated first use where the concepts will land, before anything is asked', fakeAsync(() => {
+    render();
+
+    const empty = element().querySelector('cp-empty-state.studio-first-use');
+    expect(empty).not.toBeNull();
+    expect(empty!.querySelector('cp-illustration')).not.toBeNull();
+
+    service.statuses = [found({ status: 'Running' })];
+    click('Get concepts');
+    expect(element().querySelector('cp-empty-state.studio-first-use')).toBeNull();
+    discardPeriodicTasks();
+  }));
+
+  it('leaves its loading line empty once nothing is loading', fakeAsync(() => {
+    render();
+    service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+    click('Get concepts');
+
+    expect(element().querySelector('.studio-loading-status')?.textContent?.trim()).toBe('');
+    expect(element().querySelector('.studio-loading')).toBeNull();
+  }));
 
   describe('drafting the chosen concept', () => {
     function draftNavigations(): unknown[][] {
@@ -1174,6 +1359,35 @@ describe('RecipeConceptStudioComponent', () => {
 
       expect(fixture.componentInstance.requestId()).toBe('op-kept');
       expect(element().textContent).toContain('Slow-roasted tomato soup');
+    }));
+
+    it('draws the shape of the concepts while it looks for the request it resumes on, and says so offscreen', fakeAsync(() => {
+      host!.conceptRequestId = 'op-kept';
+      configure();
+      // A first poll that never answers leaves the request "loading".
+      service.watchStatus = () => new Observable<WatchConceptsOutcome>(() => undefined);
+      fixture.detectChanges();
+      settle();
+
+      expect(fixture.componentInstance.state()).toBe('loading');
+      const loading = element().querySelector('.studio-loading')!;
+      expect(loading.getAttribute('aria-busy')).toBe('true');
+      expect(loading.querySelector('cp-skeleton')).not.toBeNull();
+      expect(element().querySelector('.studio-loading-status')?.textContent).toContain('Looking for your request');
+      discardPeriodicTasks();
+    }));
+
+    it('still marks the concepts as drafted by AI in a guided step, without naming the model', fakeAsync(() => {
+      host!.conceptRequestId = 'op-kept';
+      configure();
+      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      fixture.detectChanges();
+      settle();
+      settle();
+
+      const label = element().querySelector('cp-generated cp-generated-label');
+      expect(label?.textContent).toContain('Drafted by AI');
+      expect(label?.textContent).not.toContain('phi-4');
     }));
 
     it('hands the draft it asked for to the host instead of opening the review page', fakeAsync(() => {
