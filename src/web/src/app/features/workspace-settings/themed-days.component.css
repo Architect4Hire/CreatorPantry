@@ -16,6 +16,13 @@
   margin: 0 0 var(--cp-space-3);
 }
 
+/* The week while it loads: its days as far apart as the real ones, at the fields' measure. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-8);
+  max-width: var(--cp-measure-field);
+}
+
 .legend {
   margin: 0;
   max-width: var(--cp-measure-field);

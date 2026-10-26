@@ -229,11 +229,18 @@ describe('BrandSetupGuideStepComponent', () => {
         draft: saved({ id: 'voice', body: 'Drafted words.', origin: 'draft', citedDocumentIds: ['d1'] }),
         goals: NO_ANSWERS,
       });
-      expect(text()).toContain('Written for you');
+      // The product's one mark for what a model made, not a pill of the step's own (AU.6.3).
+      const where = () => el.querySelector('#cp-guide-voice .where')!;
+      expect(where().querySelector('cp-generated-label')?.textContent).toContain('Drafted by AI');
+      expect(where().querySelector('cp-status-pill')).toBeNull();
+      expect(text()).not.toContain('Written for you');
+      expect(text()).toContain('Change anything that does not sound like you.');
       expect(text()).toContain('Written from My best banana bread post.');
       expect(documents.reads).toEqual(['d1']);
 
       await type('voice', 'Drafted words, but mine now.');
+      // Once the creator has rewritten it, it is theirs: a pill, and no generated mark.
+      expect(where().querySelector('cp-generated-label')).toBeNull();
       expect(text()).toContain('Changed by you');
       expect(text()).toContain('stays exactly as you left it');
       expect(sectionOf('voice')).toEqual(jasmine.objectContaining({ origin: 'draft', edited: true }));

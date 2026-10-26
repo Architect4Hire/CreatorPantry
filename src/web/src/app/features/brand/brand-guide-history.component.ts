@@ -19,6 +19,7 @@ import {
   CpNoticeComponent,
   CpNoticeTone,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -92,6 +93,7 @@ const ACTIVATE_ROLES: readonly WorkspaceRole[] = ['Owner'];
     CpEmptyStateComponent,
     CpListShellComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     BrandGuideActivateComponent,
     BrandGuideVersionComparisonComponent,
@@ -241,7 +243,8 @@ export class BrandGuideHistoryComponent {
    * answer landed.
    */
   readonly statusMessage = computed(() => {
-    if (this.loadState().status === 'loading') return 'Loading version history…';
+    // Nothing while the history loads: the list shell draws its rows and says "Loading…" itself, once (AU.6.3).
+    if (this.loadState().status === 'loading') return '';
 
     switch (this.comparisonState().status) {
       case 'loading':

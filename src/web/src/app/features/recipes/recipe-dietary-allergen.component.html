@@ -28,9 +28,13 @@
 
   <!-- The selection ------------------------------------------------------ -->
 
+  <!-- The lists' own status, beside the answer's: in the DOM from first render for the same reason (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ lists().status === 'loading' ? copy.listsLoading : '' }}</p>
+
   @switch (lists().status) {
     @case ('loading') {
-      <p class="cp-muted measure" role="status">{{ copy.listsLoading }}</p>
+      <!-- The two pick lists as they will arrive: a few choices' worth of lines. -->
+      <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
     }
     @case ('unavailable') {
       <!-- The way out sits in the sentence it belongs to, which is what cp-notice projects content for. -->

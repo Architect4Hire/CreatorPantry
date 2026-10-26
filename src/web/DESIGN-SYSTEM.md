@@ -547,6 +547,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
 | `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
 | `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
+| `loading` | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
 | `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
@@ -635,7 +636,9 @@ opens) at the foot, so a row of tiles lines its links up. The figure is the serv
 it: the tile adds no precision, no unit and no arithmetic, and a page derives none (the dashboard rule). There is
 no trend arrow and no delta; a comparison appears only when the server sends one, and then as words in `context`.
 A figure that could not be read keeps its tile and label, leaves `value` empty and says so in a `cp-notice` in the
-default slot. Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
+default slot. A page whose figures all come from one answer that could not be read draws no tiles at all, and says
+so once where the figures would be — the AI allowance page's error card — and a figure the product describes rather
+than counts (an allowance in a unit other than credits) has no tile, because there is no number to show (AU.6.4). Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
 the tile, not the window: `--cp-font-size-2xl` is its ceiling, and a narrow tile sets it smaller, so a four-digit
 count never runs out of its column. A feature draws no tile of its own: the page contract's `stat-tile` rule fails
 a `.stat`, `.kpi` or `.figure-tile` in a feature stylesheet.
@@ -749,8 +752,10 @@ with their own (AU.3.1). `CpGeneratedLabelComponent` is the mark: a ✦, hidden 
 words, which come from `kind` and are never passed in — "Drafted by AI" for words, "Made by AI" for a picture,
 "Read by AI" for a reading of something the creator supplied. Before it the product said this four ways
 ("Written for you", "Written by AI", "AI generated", "Generated", "AI suggested"); one fact gets one sentence.
-Two vocabularies held in TypeScript still say "Written for you" — Brand setup's origin pill and a prompt's source
-— and move when their own pages do.
+The two vocabularies held in TypeScript that said "Written for you" moved with their pages (AU.6.3). Brand setup
+marks a drafted part with the label, not a pill. A saved prompt carries the label on its card and in its head,
+and its source's own words, "Written for you" among them, are left only in "Where it came from", which is a fact
+about the record, not the mark.
 
 - **The label alone** goes where generated output already has an edge of its own: a post's card head, a
   long-form section's marks, under the alt-text field. A box around a card would be a box in a box.

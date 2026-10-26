@@ -19,10 +19,13 @@
 
   <!-- A polite announcement when a read finishes; visually hidden, so a reload is never silent. -->
   <p class="cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+  <!-- And one while it reads, there from the start, so its words change rather than arriving with it (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ state().status === 'loading' ? 'Checking what can be exported…' : '' }}</p>
 
   @switch (state().status) {
     @case ('loading') {
-      <p class="cp-muted" role="status">Checking what can be exported…</p>
+      <!-- What can be exported, arriving: the choices and the files as a few lines. -->
+      <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
     }
 
     @case ('not_found') {

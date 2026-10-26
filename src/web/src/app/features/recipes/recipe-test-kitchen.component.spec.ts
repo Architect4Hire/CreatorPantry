@@ -152,8 +152,12 @@ class StubTestRunService {
     return of(this.historyOutcome);
   }
 
+  /** Set to leave a test's read unanswered, so it stays opening. */
+  holdGet = false;
+
   getTestRun(_slug: string, _recipeId: string, testRunId: string): Promise<GetTestRunOutcome> {
     this.getCalls.push(testRunId);
+    if (this.holdGet) return new Promise(() => undefined);
     return Promise.resolve(this.getOutcome);
   }
 
@@ -303,6 +307,31 @@ describe('RecipeTestKitchenComponent', () => {
     const element = await render(7);
 
     expect(element.textContent).toContain('version 7');
+  });
+
+  // ---- Opening a test (AU.7) ----------------------------------------------
+
+  it('draws the test arriving while it is read, said once from a region that is there while it is open', async () => {
+    service.holdGet = true;
+    const element = await render();
+    await pickFirstRow(element);
+
+    const status = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+      each.textContent?.includes('Opening this test…'),
+    );
+    expect(status).withContext('the opening status').toBeTruthy();
+    const busy = element.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('keeps that status, emptied, once the test is read', async () => {
+    const element = await render();
+    await pickFirstRow(element);
+
+    const statuses = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]'));
+    expect(statuses.some((each) => each.textContent?.includes('Opening this test…'))).toBeFalse();
+    expect(element.querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
   });
 
   // ---- When recording is unavailable --------------------------------------

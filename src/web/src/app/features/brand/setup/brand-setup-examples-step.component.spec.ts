@@ -57,9 +57,12 @@ async function settle(): Promise<void> {
 
 async function mount(
   draft: Record<string, unknown> | null = null,
-  library: BrandSourceListOutcome = { status: 'ok', page: { items: [], nextCursor: null } },
+  library: BrandSourceListOutcome | 'pending' = { status: 'ok', page: { items: [], nextCursor: null } },
 ): Promise<void> {
-  list = jasmine.createSpy('list').and.resolveTo(library);
+  list =
+    library === 'pending'
+      ? jasmine.createSpy('list').and.returnValue(new Promise<BrandSourceListOutcome>(() => undefined))
+      : jasmine.createSpy('list').and.resolveTo(library);
   upload = jasmine.createSpy('upload').and.callFake(async (_s: string, f: File) => added(doc('new', { title: f.name })));
   pasteText = jasmine.createSpy('pasteText').and.callFake(async (_s: string, b: { title: string }) => added(doc('pasted', { title: b.title })));
   TestBed.configureTestingModule({
@@ -102,6 +105,26 @@ async function click(label: string): Promise<void> {
 const file = (name = 'post.txt', content = 'hello'): File => new File([content], name, { type: 'text/plain' });
 
 describe('BrandSetupExamplesStepComponent', () => {
+  // AU.6.3: the examples arriving as rows, not a sentence saying they are coming.
+  it('draws its examples arriving while the library is checked, and says so once offscreen', async () => {
+    await mount(null, 'pending');
+
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Checking your examples'))!;
+    expect(status.classList).toContain('cp-sr-only');
+    const busy = el.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+    // Not "Nothing added yet" before the library has said so.
+    expect(text()).not.toContain('Nothing added yet');
+  });
+
+  it('keeps that status once the library is checked, with nothing in it', async () => {
+    await mount();
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(el.querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
+  });
+
   it('starts empty, optional, with nothing to add until the creator says what it shows', async () => {
     await mount();
     // Optionality is the shell's legend, said once per step: the step itself must not repeat it per field.
@@ -237,7 +260,7 @@ describe('BrandSetupExamplesStepComponent', () => {
     expect(text()).toContain('only takes it off this step');
     await click('Remove');
     expect(el.querySelectorAll('cp-brand-setup-example').length).toBe(0);
-    expect(el.querySelector('.cp-sr-only[role="status"]')?.textContent).toContain('a.txt removed from this step');
+    expect(el.querySelector('.cp-sr-only[role="status"][aria-atomic]')?.textContent).toContain('a.txt removed from this step');
     expect(last().draft).toEqual({ items: [] });
   });
 
@@ -330,7 +353,7 @@ describe('BrandSetupExamplesStepComponent', () => {
     await pick('blog');
     await chooseFiles(file('a.txt'));
     expect(el.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBeTruthy();
-    const live = el.querySelector('.cp-sr-only[role="status"]');
+    const live = el.querySelector('.cp-sr-only[role="status"][aria-atomic]');
     expect(live?.getAttribute('aria-live')).toBe('polite');
     expect(live?.textContent).toContain('added');
     expect(button('Remove')?.getAttribute('aria-label')).toBe('Remove a.txt from this step');

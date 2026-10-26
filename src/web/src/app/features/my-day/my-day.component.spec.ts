@@ -276,6 +276,27 @@ describe('MyDayComponent', () => {
     expect(outcome()).toContain('Planned “Pitch the cookbook” for today.');
   });
 
+  // ---- While the day is read (AU.7) ----
+
+  it('draws the day arriving while it is read, said once from a status that is always there', async () => {
+    await mount(found(fullDay()));
+    const status = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('');
+
+    // Another workspace: the page reads afresh, and this read never answers.
+    today.and.returnValue(new Promise<TodayOutcome>(() => undefined));
+    await harness.navigateByUrl('/other-kitchen/my-day');
+    await settle();
+
+    const shown = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(shown.textContent).toBe('Reading your day…');
+    const busy = root().querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+    // Nothing is featured before the day says what matters most.
+    expect(root().querySelector('.cp-card--featured')).toBeNull();
+  });
+
   // ---- The featured card and the drawn empty day (AU.6.2) ----
 
   const lead = () => root().querySelector<HTMLElement>('#my-day-heading-lead')!.closest('cp-topic-card')!;

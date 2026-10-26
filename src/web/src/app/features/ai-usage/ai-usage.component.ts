@@ -2,11 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpCardGridComponent,
   CpListShellComponent,
   CpListShellState,
   CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
+  CpSkeletonComponent,
+  CpStatTileComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
   CpTopicCardComponent,
@@ -16,7 +19,7 @@ import { injectRouteTitle } from '../../core/route-title';
 
 import { AiTaskType } from '../../models/ai-proposal.models';
 import { AiUsageService } from '../../services/ai-usage.service';
-import { allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
+import { allowanceFigure, allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
 
 /**
  * What each capability is called, in the creator's language.
@@ -72,8 +75,11 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
     CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpCardGridComponent,
     CpListShellComponent,
     CpProgressComponent,
+    CpSkeletonComponent,
+    CpStatTileComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
   ],
@@ -147,6 +153,49 @@ export class AiUsageComponent {
 
     return carried === null ? '' : `Includes ${carried} carried over from last time.`;
   });
+
+  /**
+   * The allowance as figures read at a glance (AU.6.4, APP-008): what is left, what has been used, and the
+   * whole allowance — each the server's own number, formatted and nothing more. "Left" is the server's
+   * `remaining`, which also holds back what requests still running have set aside, so the three need not add up
+   * while one is in flight; the server's own `reserved` says how much, beside "left", rather than the page working
+   * it out. None at all for a unit this product describes rather than counts: the card's headline says it in
+   * words instead.
+   */
+  protected readonly tiles = computed(() => {
+    const figures = this.figures();
+    if (figures === null) return null;
+
+    const left = allowanceFigure(Math.max(0, figures.remaining), figures.unit);
+    const used = allowanceFigure(figures.consumed, figures.unit);
+    const whole = allowanceFigure(figures.allowance, figures.unit);
+    if (left === null || used === null || whole === null) return null;
+
+    return [
+      { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
+      { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: '' },
+      { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
+    ];
+  });
+
+  /**
+   * What "left" needs said beside it, in words: that these are the last figures we had, when they could not be
+   * checked, and what requests still running are holding back, when the server says any are.
+   */
+  private readonly leftContext = computed(() => {
+    const parts: string[] = [];
+    if (this.state().status === 'degraded') parts.push('The last figures we had.');
+
+    const figures = this.figures();
+    const reserved = this.currentUsage()?.period.reserved ?? 0;
+    const held = figures !== null && reserved > 0 ? formatAllowanceAmount(reserved, figures.unit) : null;
+    if (held !== null) parts.push(`${held} set aside for requests still running.`);
+
+    return parts.join(' ');
+  });
+
+  /** Skeleton places for the figures while they load. */
+  protected readonly tilePlaces = [0, 1, 2] as const;
 
   protected readonly resetLine = computed(() => {
     const figures = this.figures();

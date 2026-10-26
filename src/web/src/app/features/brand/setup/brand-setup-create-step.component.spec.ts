@@ -38,10 +38,13 @@ class StubDocuments {
   readonly details = new Map<string, BrandSourceDocumentDetail>();
   readonly unavailable = new Set<string>();
   readonly reads: string[] = [];
+  /** Set to leave every read unanswered, so the step stays looking its examples up. */
+  hold = false;
 
   get(slug: string, documentId: string): Promise<BrandSourceDetailOutcome> {
     expect(slug).toBe(SLUG);
     this.reads.push(documentId);
+    if (this.hold) return new Promise(() => undefined);
     if (this.unavailable.has(documentId)) return Promise.resolve({ status: 'unavailable' });
     const found = this.details.get(documentId);
     return Promise.resolve(found ? { status: 'ok', document: found } : { status: 'not_found' });
@@ -149,6 +152,26 @@ describe('BrandSetupCreateStepComponent', () => {
         { provide: AiUsageService, useValue: usage },
       ],
     });
+  });
+
+  // AU.6.3: the examples arriving as rows, not a sentence saying they are coming.
+  it('draws its examples arriving while they are looked up, and says so once offscreen', async () => {
+    documents.hold = true;
+    await mount({ sources: examples({ documentId: 'd1', kind: 'sounds-like-me' }) });
+
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Looking up your examples'))!;
+    expect(status.classList).toContain('cp-sr-only');
+    const busy = el.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('keeps that status once the examples are found, with nothing in it', async () => {
+    documents.details.set('d1', detail('d1', 'My best banana bread post'));
+    await mount({ sources: examples({ documentId: 'd1', kind: 'sounds-like-me' }) });
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(el.querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
   });
 
   describe('the choice', () => {

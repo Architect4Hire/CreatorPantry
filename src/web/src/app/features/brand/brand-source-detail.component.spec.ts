@@ -148,17 +148,28 @@ describe('BrandSourceDetailComponent', () => {
       archive?: BrandSourceShelfOutcome;
       confirmed?: boolean;
       reads?: BrandSourceDetailOutcome[];
+      /** Reads whose answer never comes, so the page stays loading where they are drawn. */
+      pending?: readonly ('document' | 'versions' | 'usage')[];
     } = {},
   ): Promise<void> {
+    const never = <T>() => new Promise<T>(() => undefined);
+    const pending = new Set(options.pending ?? []);
+
     getSpy = jasmine.createSpy('get');
-    if (options.reads) {
+    if (pending.has('document')) {
+      getSpy.and.returnValue(never<BrandSourceDetailOutcome>());
+    } else if (options.reads) {
       getSpy.and.returnValues(...options.reads.map((each) => Promise.resolve(each)));
     } else {
       getSpy.and.resolveTo(read);
     }
 
-    versionsSpy = jasmine.createSpy('listVersions').and.resolveTo(options.versions ?? { status: 'ok', page: VERSIONS });
-    usageSpy = jasmine.createSpy('usage').and.resolveTo(options.usage ?? { status: 'ok', usage: USAGE });
+    versionsSpy = pending.has('versions')
+      ? jasmine.createSpy('listVersions').and.returnValue(never<BrandSourceVersionsOutcome>())
+      : jasmine.createSpy('listVersions').and.resolveTo(options.versions ?? { status: 'ok', page: VERSIONS });
+    usageSpy = pending.has('usage')
+      ? jasmine.createSpy('usage').and.returnValue(never<BrandSourceUsageOutcome>())
+      : jasmine.createSpy('usage').and.resolveTo(options.usage ?? { status: 'ok', usage: USAGE });
     archiveSpy = jasmine.createSpy('archive').and.resolveTo(options.archive ?? { status: 'done', document: detail({ status: 'Archived' }) });
     unarchiveSpy = jasmine.createSpy('unarchive').and.resolveTo(options.archive ?? { status: 'done', document: detail() });
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(options.confirmed ?? true);
@@ -487,6 +498,31 @@ describe('BrandSourceDetailComponent', () => {
 
     // Once ready there is nothing to announce; what matters is that the loading state had a live region.
     expect(live === null || live.textContent !== null).toBeTrue();
+  });
+
+  // ---- While it loads (AU.6.3): the page arriving, said once ----
+
+  it('draws its cards arriving while the example is read, and says so once from a region that is always there', async () => {
+    await create(undefined, { pending: ['document'] });
+
+    const live = root().querySelector('p.cp-sr-only[role="status"][aria-live]')!;
+    expect(live.textContent).toBe('Loading this example…');
+    const busy = root().querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(3);
+    expect(busy.textContent!.trim()).toBe('');
+    // The one h1 is still there, as on every state of the page.
+    expect(root().querySelectorAll('h1').length).toBe(1);
+  });
+
+  it('draws the versions and the usage arriving inside their own cards', async () => {
+    await create(undefined, { pending: ['versions', 'usage'] });
+
+    expect(root().querySelector('p.cp-sr-only[role="status"][aria-live]')!.textContent).toBe('');
+    for (const heading of ['Versions', 'Where it’s used']) {
+      const card = topic(heading);
+      expect(card.querySelector('[aria-busy="true"] cp-skeleton')).withContext(heading).not.toBeNull();
+      expect(card.querySelector('p.cp-sr-only[role="status"]')!.textContent).withContext(heading).toContain('Loading');
+    }
   });
 
   // ---- The detail shape ----

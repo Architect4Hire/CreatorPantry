@@ -70,8 +70,11 @@
         </button>
       </div>
     }
+    <!-- What the creator just asked for, said where it is shown; the always-present status beside it is what a
+         screen reader hears, because a region that arrives with its words may not be read (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ readingName() ? 'Reading the name you typed…' : '' }}</p>
     @if (readingName()) {
-      <p class="cp-muted" role="status">Reading the name you typed…</p>
+      <p class="cp-muted" aria-hidden="true">Reading the name you typed…</p>
     }
     @if (nameUnread()) {
       <cp-notice role="status">

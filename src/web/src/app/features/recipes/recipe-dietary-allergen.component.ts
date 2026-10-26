@@ -8,6 +8,7 @@ import {
   CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -339,6 +340,7 @@ let nextInstance = 0;
     CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-dietary-allergen.component.html',

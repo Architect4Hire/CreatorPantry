@@ -293,6 +293,21 @@ describe('DamAssetDetailComponent', () => {
     expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading this picture');
     expect(contentSpy).not.toHaveBeenCalled();
     expect(usageSpy).not.toHaveBeenCalled();
+
+    // Said once, offscreen; what shows is the page arriving: the picture, then what is known about it (AU.7).
+    expect(root().querySelector('[role="status"]')?.classList).toContain('cp-sr-only');
+    const busy = root().querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton[data-shape="block"][data-aspect]')).not.toBeNull();
+    expect(busy.querySelectorAll('cp-card').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('empties the loading status once the picture is read', async () => {
+    detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
+    await create();
+
+    expect(root().querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(root().querySelector('.loading')).toBeNull();
   });
 
   it('answers an asset that is not there in one sentence, with a way back and nothing else', async () => {

@@ -20,6 +20,7 @@ import {
   CpEmptyStateComponent,
   CpFieldComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { DamAssetSearchQuery, DamAssetSummary } from '../../models/dam-asset.models';
@@ -54,7 +55,15 @@ const SEARCH_ID = 'cp-dam-picker-search';
 @Component({
   selector: 'cp-dam-asset-picker',
   standalone: true,
-  imports: [CpCardGridComponent, CpButtonComponent, CpEmptyStateComponent, CpFieldComponent, CpNoticeComponent, DamAssetThumbnailComponent],
+  imports: [
+    CpCardGridComponent,
+    CpButtonComponent,
+    CpEmptyStateComponent,
+    CpFieldComponent,
+    CpNoticeComponent,
+    CpSkeletonComponent,
+    DamAssetThumbnailComponent,
+  ],
   template: `
     <div class="picker">
       <!-- A search landmark and not a form: a host may itself sit inside a form (brand settings does), and a
@@ -77,7 +86,17 @@ const SEARCH_ID = 'cp-dam-picker-search';
 
       @switch (state()) {
         @case ('loading') {
-          <p class="placeholder" role="status">Loading the library…</p>
+          <!-- The grid as it will arrive: a picture and its title on each tile. Said by the status above. -->
+          <div aria-busy="true">
+            <ul cpCardGrid minColumn="9.5rem" aria-hidden="true">
+              @for (place of loadingTiles; track place) {
+                <li class="tile">
+                  <cp-skeleton shape="block" pictureAspect="4 / 3" />
+                  <cp-skeleton shape="line" />
+                </li>
+              }
+            </ul>
+          </div>
         }
         @case ('error') {
           <cp-notice tone="error" role="alert">
@@ -134,7 +153,7 @@ const SEARCH_ID = 'cp-dam-picker-search';
           @if (nextCursor() !== null) {
             <div class="more">
               <button cpButton type="button" variant="secondary" [disabled]="loadingMore()" (click)="loadMore()">
-                {{ loadingMore() ? 'Loading…' : 'Load more' }}
+                {{ loadingMore() ? 'Loading more…' : 'Load more' }}
               </button>
             </div>
           }
@@ -163,11 +182,6 @@ const SEARCH_ID = 'cp-dam-picker-search';
         overflow-wrap: anywhere;
       }
       .tile-facts,
-      .placeholder {
-        margin: 0;
-        color: var(--cp-text-muted);
-        font-size: var(--cp-font-size-sm);
-      }
       .more {
         display: flex;
         justify-content: center;
@@ -198,7 +212,12 @@ export class DamAssetPickerComponent {
   protected readonly loadMoreFailed = signal(false);
 
   /** Said to a screen reader when a search settles; the grid itself is not a live region. */
+  /** The tiles drawn while the library loads: a few, not a count of the real ones. */
+  protected readonly loadingTiles = [0, 1, 2, 3, 4, 5] as const;
+
   protected readonly announcement = computed(() => {
+    // The one status the picker keeps: it says the library is on its way, then how much of it arrived (AU.7).
+    if (this.state() === 'loading') return 'Loading the library…';
     if (this.state() !== 'ready') return '';
 
     const total = this.totalCount();

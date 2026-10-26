@@ -300,6 +300,8 @@
           </ul>
 
           @if (state() === 'proposed' || state() === 'deciding') {
+            <!-- Always present where the actions go (APP-003, AU.7): said once while the memberships are read. -->
+            <p class="cp-sr-only" role="status">{{ !mayDecide() && !rolesKnown() ? 'Checking what you can do with these…' : '' }}</p>
             @if (mayDecide()) {
               <div class="feedback">
                 <fieldset class="feedback-helpful">
@@ -394,8 +396,9 @@
                 Your role in this workspace can read these suggestions but not decide about them.
               </p>
             } @else {
-              <!-- Not a role claim: the memberships have not arrived, so what the creator may do is unknown. -->
-              <p class="panel-notice" role="status">Checking what you can do with these…</p>
+              <!-- Not a role claim: the memberships have not arrived, so what the creator may do is unknown. A line
+                   where the actions will be, and the status above says why. -->
+              <div class="actions-arriving" aria-busy="true"><cp-skeleton shape="line" /></div>
             }
           }
 

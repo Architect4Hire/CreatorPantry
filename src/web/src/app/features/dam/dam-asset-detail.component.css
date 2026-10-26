@@ -47,6 +47,16 @@ h3 {
   margin: 0;
 }
 
+/* The page while it loads: its cards, at the page's own spacing, the picture no wider than it will be shown. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+.loading-picture {
+  max-width: var(--cp-measure-prose);
+}
+
 .note {
   color: var(--cp-text-muted);
 }

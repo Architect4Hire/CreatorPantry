@@ -8,6 +8,7 @@ import {
   CpFactsComponent,
   CpFieldComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -469,6 +470,7 @@ let nextInstance = 0;
     CpFactsComponent,
     CpFieldComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-nutrition.component.html',

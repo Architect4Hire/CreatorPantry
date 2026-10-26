@@ -14,6 +14,7 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpToast,
   CpToastRegionComponent,
   CpTopicCardComponent,
@@ -147,6 +148,7 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
     BrandLogosComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpTopicCardComponent,
   ],
   templateUrl: './brand-settings.component.html',
@@ -156,6 +158,8 @@ const CHANNEL_PATTERN = /^channelDefaults(\[\d+]\.channelKey)?$/;
 export class BrandSettingsComponent {
   /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
   protected readonly pageTitle = injectRouteTitle('Brand settings');
+  /** The named parts the form is drawn with while it loads (AU.6.3): a few, not a count of the real ones. */
+  protected readonly loadingParts = [0, 1, 2] as const;
   private readonly route = inject(ActivatedRoute);
   private readonly service = inject(BrandProfileService);
   private readonly memberships = inject(WorkspaceMembershipService);

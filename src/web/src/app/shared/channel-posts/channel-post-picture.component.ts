@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { CpBadgeComponent, CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpBadgeComponent, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 import { Observable, map, of } from 'rxjs';
 
 import { CreativeContextPicture } from '../../models/creative-context.models';
@@ -44,7 +44,7 @@ interface ShownObservation {
 @Component({
   selector: 'cp-channel-post-picture',
   standalone: true,
-  imports: [CpBadgeComponent, CpButtonComponent, CpNoticeComponent],
+  imports: [CpBadgeComponent, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './channel-post-picture.component.html',
   styleUrl: './channel-post-picture.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -247,7 +247,11 @@ describe('WorkflowsHubComponent', () => {
     it('leads with what the creator can do, and shows no empty sections', async () => {
       await create();
 
-      expect(text()).toContain('Nothing in progress yet.');
+      expect(text()).toContain('Nothing in progress yet');
+      // Drawn, and compact: the goals below it are the first thing to do (AU.6.3).
+      const empty = root().querySelector('section.goals cp-empty-state')!;
+      expect(empty.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('board');
+      expect(empty.getAttribute('data-variant')).toBe('no-results');
       expect(card('Continue where you left off')).toBeNull();
       expect(card('Needs attention')).toBeNull();
       expect(card('Recent outcomes')).toBeNull();
@@ -293,7 +297,73 @@ describe('WorkflowsHubComponent', () => {
         `/${SLUG}/workflows/runs/run-1`,
         `/${SLUG}/workflows/content-pipeline/picture`,
       ]);
-      expect(text()).not.toContain('Nothing in progress yet.');
+      expect(text()).not.toContain('Nothing in progress yet');
+    });
+
+    // From AU.0: three runs nobody named all read "Create a recipe", and each Continue was the same link (AU.6.3).
+    it('tells same-kind runs apart by the step each is on and when it was saved, for the eye and a screen reader', async () => {
+      await create({
+        runs: {
+          mine: {
+            items: [
+              summary('run-a', { nextStepTitle: 'Check your ingredients', updatedAt: '2026-10-15T07:15:00Z' }),
+              summary('run-b', { nextStepTitle: 'Start your recipe', updatedAt: '2026-10-15T06:44:00Z' }),
+              summary('run-c', { nextStepTitle: 'Start your recipe', updatedAt: '2026-10-15T04:43:00Z' }),
+            ],
+            nextCursor: null,
+          },
+        },
+      });
+
+      const continuing = card('Continue where you left off')!;
+      const names = Array.from(continuing.querySelectorAll('a')).map((a) => a.getAttribute('aria-label')!);
+      expect(new Set(names).size).toBe(3);
+      expect(names[0]).toMatch(/^Continue Create a recipe — Check your ingredients, last saved /);
+      expect(names[1]).toMatch(/^Continue Create a recipe — Start your recipe, last saved /);
+
+      // Each still begins with what it shows (WCAG 2.5.3), and each row says when it was saved.
+      for (const link of Array.from(continuing.querySelectorAll('a'))) {
+        expect(link.getAttribute('aria-label')!.startsWith(link.textContent!.trim())).toBeTrue();
+      }
+      expect(new Set(rows('Continue where you left off')).size).toBe(3);
+    });
+
+    it('names a run the creator did name by that name, and the day it was finished', async () => {
+      await create({
+        runs: {
+          completed: {
+            items: [
+              summary('done-1', { status: 'Completed', completedAt: '2026-10-18T12:00:00Z', nextStepTitle: null }),
+              summary('done-2', { title: 'Soda bread', status: 'Completed', completedAt: '2026-10-17T12:00:00Z', nextStepTitle: null }),
+            ],
+            nextCursor: null,
+          },
+        },
+      });
+
+      const names = Array.from(card('Recent outcomes')!.querySelectorAll('a')).map((a) => a.getAttribute('aria-label')!);
+      expect(names[0]).toMatch(/^See what you made with Create a recipe — Ingredients, finished /);
+      expect(names[1]).toMatch(/^See what you made with “Soda bread”, finished /);
+    });
+
+    it('says when each run that needs a look was last saved, so three alike are three rows', async () => {
+      await create({
+        runs: {
+          attention: {
+            items: [
+              summary('stale-1', { attentionReasons: ['idle'], updatedAt: '2026-10-01T09:00:00Z' }),
+              summary('stale-2', { attentionReasons: ['idle'], updatedAt: '2026-10-02T09:00:00Z' }),
+            ],
+            nextCursor: null,
+          },
+        },
+      });
+
+      const shown = rows('Needs attention');
+      expect(shown.every((row) => row.includes('Last saved'))).toBeTrue();
+      expect(new Set(shown).size).toBe(2);
+      const names = Array.from(card('Needs attention')!.querySelectorAll('a')).map((a) => a.getAttribute('aria-label'));
+      expect(new Set(names).size).toBe(2);
     });
 
     it('shows five, then more on asking — reading the next page of runs when it needs to', async () => {
@@ -491,10 +561,72 @@ describe('WorkflowsHubComponent', () => {
 
       await search('spaceship');
       expect(text()).toContain('Nothing matches that');
+      // The one under the search, not first use's above it.
+      const noResults = Array.from(root().querySelectorAll('section.goals cp-empty-state')).find((each) =>
+        each.textContent?.includes('Try another word'),
+      )!;
+      expect(noResults.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('search');
 
       control(root().querySelector('section.goals'), 'Clear search')!.click();
       await settle();
       expect(goals().length).toBe(6);
+    });
+  });
+
+  // ---- While it loads (AU.6.3): the page arriving, said once ----
+
+  describe('while it loads', () => {
+    const status = () => root().querySelector('.hub > p.cp-sr-only[role="status"]')!;
+
+    it('draws a card of work in progress and three goal cards while the workspaces are read', async () => {
+      await create({ state: { status: 'loading' } });
+
+      expect(status().textContent).toBe('Loading your workflows…');
+      const busy = root().querySelector('.loading[aria-busy="true"]')!;
+      expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(4);
+      expect(busy.textContent!.trim()).toBe('');
+      expect(root().querySelector('section.goals')).toBeNull();
+    });
+
+    it('holds the work-in-progress place with a skeleton while the runs are read', async () => {
+      spyOn(hubStore, 'runs').and.returnValue(new Promise<WorkflowRunListOutcome>(() => undefined));
+      await create();
+
+      expect(status().textContent).toBe('Checking what you have in progress…');
+      const place = root().querySelector('ul.topics[aria-busy="true"]')!;
+      expect(place.getAttribute('aria-hidden')).toBe('true');
+      expect(place.querySelectorAll('cp-skeleton').length).toBe(1);
+      expect(text()).not.toContain('Nothing in progress yet');
+    });
+
+    it('says both parts still on its way when the runs and the workflows are read at once', async () => {
+      await create();
+      holdDefinitions = null;
+      spyOn(hubStore, 'runs').and.returnValue(new Promise<WorkflowRunListOutcome>(() => undefined));
+      await harness.navigateByUrl(`/${OTHER_SLUG}/workflows`);
+      await settle();
+
+      expect(status().textContent).toBe('Checking what you have in progress… Loading what you can do…');
+      expect(root().querySelector('ul.topics[aria-busy="true"]')).not.toBeNull();
+      expect(root().querySelectorAll('li.goal-loading').length).toBe(3);
+    });
+
+    it('lists the journeys that need no reading, then skeletons for the workflows still on their way', async () => {
+      await create();
+      // Hold the next read, and read the next workspace: its own workflows are then on their way.
+      holdDefinitions = null;
+      await harness.navigateByUrl(`/${OTHER_SLUG}/workflows`);
+      await settle();
+
+      expect(status().textContent).toBe('Loading what you can do…');
+      expect(goals()).toEqual(['Make a picture and posts from one idea', 'Draft a recipe from a dish name']);
+      const placeholders = root().querySelectorAll('section.goals li.goal-loading[aria-hidden="true"]');
+      expect(placeholders.length).toBe(3);
+
+      holdDefinitions!();
+      await settle();
+      expect(root().querySelector('li.goal-loading')).toBeNull();
+      expect(status().textContent).toBe('');
     });
   });
 
@@ -586,7 +718,7 @@ describe('WorkflowsHubComponent', () => {
         const name = el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '';
         expect(name.length).withContext(el.outerHTML).toBeGreaterThan(0);
       }
-      expect(control(card('Continue where you left off'), 'Continue')!.getAttribute('aria-label')).toBe('Continue “Soda bread”');
+      expect(control(card('Continue where you left off'), 'Continue')!.getAttribute('aria-label')).toMatch(/^Continue “Soda bread”, last saved /);
 
       // A name that says more still begins with what is shown (WCAG 2.5.3).
       for (const el of Array.from(root().querySelectorAll<HTMLElement>('a[aria-label], button[aria-label]'))) {

@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { Observable, Subject, of } from 'rxjs';
+import { NEVER, Observable, Subject, of } from 'rxjs';
 
 import { ContentChannel } from '../../models/brand-profile.models';
 import { BrandLibraryPage, BrandLibraryQuery, BrandLibraryRow } from '../../models/brand-source-document.models';
@@ -369,7 +369,17 @@ describe('BrandLibraryComponent', () => {
 
     expect(text()).toContain('No examples yet');
     expect(root().querySelector('cp-empty-state')?.getAttribute('data-variant')).toBe('first-use');
+    // Drawn as the brand's own chef's hat (AU.6.3).
+    expect(root().querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('brand');
     expect(button('Upload example')).toBeTruthy();
+  });
+
+  it('arrives as card silhouettes while the first page is read, not as lines of text', async () => {
+    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(NEVER);
+    await create();
+    await settle();
+
+    expect(root().querySelector('cp-list-shell cp-skeleton')?.getAttribute('data-shape')).toBe('card');
   });
 
   it('says a filter is why the list is empty, and offers to clear it', async () => {
@@ -379,6 +389,7 @@ describe('BrandLibraryComponent', () => {
 
     expect(text()).toContain('No examples match these filters');
     expect(root().querySelector('cp-empty-state')?.getAttribute('data-variant')).toBe('no-results');
+    expect(root().querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('search');
 
     button('Clear filters').click();
     await settle();

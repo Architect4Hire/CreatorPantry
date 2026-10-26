@@ -108,6 +108,22 @@ describe('ContentPipelineStagedImageComponent', () => {
     expect(img()?.getAttribute('src')?.startsWith('blob:')).toBeTrue();
   });
 
+  // AU.7: the picture's own shape while its bytes arrive, said once from a status that is always there.
+  it('draws the picture’s shape while its bytes are read, and empties its status once they land', async () => {
+    const status = el.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading this picture…');
+    const block = el.querySelector('[aria-busy="true"] cp-skeleton[data-shape="block"]') as HTMLElement;
+    expect(block).not.toBeNull();
+    expect(block.style.getPropertyValue('--cp-skeleton-picture-aspect')).toContain('/');
+
+    previews[0].next({ status: 'found', bytes: new Blob(['bytes'], { type: 'image/png' }) });
+    await settle();
+
+    expect(status.isConnected).toBeTrue();
+    expect(status.textContent).toBe('');
+    expect(el.querySelector('cp-skeleton')).toBeNull();
+  });
+
   it('describes only what the server stated, never what the picture might show', async () => {
     previews[0].next({ status: 'found', bytes: new Blob(['bytes']) });
     await settle();

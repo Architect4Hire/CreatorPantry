@@ -24,6 +24,7 @@ import {
   CpFormSectionComponent,
   CpGeneratedLabelComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -124,6 +125,7 @@ const IDS = {
     CpFormSectionComponent,
     CpGeneratedLabelComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './save-to-library-dialog.component.html',
   styleUrl: './save-to-library-dialog.component.css',

@@ -13,6 +13,12 @@ cp-page-head {
   margin: 0;
 }
 
+/* The page while it loads: its cards, at the page's own spacing. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
 /* The creator's own line breaks are part of what they wrote, so they are kept; a long unbroken run still wraps. */
 .description,
 .note {

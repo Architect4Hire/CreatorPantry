@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { AiOpenProposal, AiProposalDispositionResult, AiTaskType } from '../../../models/ai-proposal.models';
 import { AiProposalService } from '../../../services/ai-proposal.service';
@@ -42,12 +42,14 @@ const KIND_NAMES: Partial<Record<AiTaskType, string>> = {
 @Component({
   selector: 'cp-recipe-open-suggestions',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, AiProposalPanelComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, AiProposalPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ listed().status === 'loading' ? 'Looking for suggestions waiting for you…' : '' }}</p>
     @switch (listed().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Looking for suggestions waiting for you…</p>
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('unavailable') {
         <cp-notice tone="error" role="alert">

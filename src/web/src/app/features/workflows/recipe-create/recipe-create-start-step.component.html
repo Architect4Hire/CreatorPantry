@@ -27,6 +27,8 @@
     </cp-notice>
   }
 
+  <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ stage().kind === 'finding' ? 'Picking up where you left off…' : '' }}</p>
   @switch (stage().kind) {
     @case ('write') {
       <p class="plain cp-muted">Give it a name to start. You’ll add what goes in, the method and the timing in the next steps.</p>
@@ -39,7 +41,8 @@
       <cp-recipe-editor />
     }
     @case ('finding') {
-      <p class="cp-muted" role="status">Picking up where you left off…</p>
+      <!-- What the creator was working on, arriving. The status above says it, once. -->
+      <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
     }
     @case ('not-found') {
       <cp-notice tone="error" role="alert">

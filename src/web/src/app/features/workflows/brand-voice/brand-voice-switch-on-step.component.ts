@@ -12,7 +12,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { BrandStyleGuideDetail, BrandStyleGuideVersionRow } from '../../../models/brand-style-guide.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
@@ -51,12 +51,21 @@ type Read =
 @Component({
   selector: 'cp-brand-voice-switch-on-step',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, BrandGuideActivateComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, BrandGuideActivateComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{
+      read().status === 'loading'
+        ? 'Reading your guide…'
+        : read().status === 'ready' && !isOn() && role() === 'loading'
+          ? 'Checking who can switch it on…'
+          : ''
+    }}</p>
     @switch (read().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your guide…</p>
+        <!-- The guide arriving, as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('missing') {
         <cp-notice tone="warning" role="status">{{ noGuide }}</cp-notice>
@@ -72,7 +81,8 @@ type Read =
           @if (isOn()) {
             <cp-notice tone="success" role="status">“{{ state.guide.displayName }}” is switched on. Continue to finish.</cp-notice>
           } @else if (role() === 'loading') {
-            <p class="cp-muted" role="status">Checking who can switch it on…</p>
+            <!-- Where what the creator can do will be, while who they are here is read; said by the status above. -->
+            <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
           } @else if (role() === 'unknown') {
             <cp-notice tone="error" role="alert">
               We couldn’t check who can switch it on just now.

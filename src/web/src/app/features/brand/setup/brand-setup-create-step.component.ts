@@ -6,6 +6,7 @@ import {
   CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
 
@@ -61,6 +62,7 @@ import { formatSize, kindOption } from './brand-setup-examples';
     CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './brand-setup-create-step.component.html',
   styleUrl: './brand-setup-create-step.component.css',

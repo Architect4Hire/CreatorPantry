@@ -6,6 +6,7 @@ import {
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillTone,
   CpUploaderComponent,
 } from '@creator-pantry/ui';
@@ -73,6 +74,7 @@ type Library = 'loading' | 'ready' | 'degraded';
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpUploaderComponent,
   ],
   templateUrl: './brand-setup-examples-step.component.html',

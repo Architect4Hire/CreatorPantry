@@ -1,3 +1,5 @@
+<!-- Always present, and outside the busy section (AU.7): what the control is still reading is said once. -->
+<p class="cp-sr-only" role="status">{{ status() === 'loading' ? 'Checking your brand voice…' : '' }}</p>
 <section class="control" [attr.aria-labelledby]="headingId" [attr.aria-busy]="status() === 'loading' ? 'true' : null">
   <header class="head">
     <h3 [id]="headingId">Brand voice</h3>
@@ -9,7 +11,8 @@
 
   @switch (status()) {
     @case ('loading') {
-      <p class="summary" role="status">Checking your brand voice…</p>
+      <!-- The summary as it will arrive; the section around it is busy until it does. -->
+      <cp-skeleton shape="line" [count]="2" />
     }
 
     @case ('error') {
@@ -98,9 +101,12 @@
         <div class="rules">
           <h4>How this will sound</h4>
 
+          <!-- Always present, outside the busy lines (AU.7): the channel's rules arriving are said once. -->
+          <p class="cp-sr-only" role="status">{{ rulesStatus() === 'loading' ? 'Loading how this will sound…' : '' }}</p>
           @switch (rulesStatus()) {
             @case ('loading') {
-              <p class="cp-muted measure" role="status">Loading…</p>
+              <!-- The rules as they will arrive: a line or two. -->
+              <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
             }
             @case ('error') {
               <p class="cp-muted measure" role="status">We could not load the rules for this channel. Your guide still applies.</p>

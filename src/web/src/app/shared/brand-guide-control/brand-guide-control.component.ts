@@ -11,7 +11,7 @@ import {
   viewChild,
   ElementRef,
 } from '@angular/core';
-import { CpButtonComponent, CpFieldComponent, CpStatusPillComponent, CpStatusPillTone } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent, CpStatusPillTone } from '@creator-pantry/ui';
 
 import {
   BrandGuideChannelRule,
@@ -43,7 +43,7 @@ let nextId = 0;
 @Component({
   selector: 'cp-brand-guide-control',
   standalone: true,
-  imports: [CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
+  imports: [CpButtonComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent],
   templateUrl: './brand-guide-control.component.html',
   styleUrl: './brand-guide-control.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

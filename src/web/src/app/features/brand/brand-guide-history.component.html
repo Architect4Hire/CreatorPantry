@@ -162,13 +162,27 @@
     }
   </ul>
 
+  <!-- Older versions arriving where they will land, at the end of the list, and said once from a region that is
+       always here (AU.7). The button keeps its words: it is not what is on its way. -->
+  <p class="cp-sr-only" role="status">{{ loadingOlder() ? 'Loading older versions…' : '' }}</p>
+  @if (loadingOlder()) {
+    <div class="older-loading" aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
+  }
+
   <div cpListShellPagination>
     @if (hasOlderVersions()) {
       <!-- Said out loud rather than left implicit: without it the oldest versions would be missing from both
            the list and the picker with nothing to say they exist. -->
       <p class="older">Showing the {{ versions().length }} most recent versions.</p>
-      <button cpButton variant="secondary" type="button" [disabled]="loadingOlder()" (click)="loadOlder()">
-        {{ loadingOlder() ? 'Loading…' : 'Load older versions' }}
+      <button
+        cpButton
+        variant="secondary"
+        type="button"
+        [disabled]="loadingOlder()"
+        [attr.aria-busy]="loadingOlder() ? 'true' : null"
+        (click)="loadOlder()"
+      >
+        Load older versions
       </button>
     } @else if (pagingDegraded()) {
       <cp-notice tone="warning" role="status">

@@ -1,6 +1,9 @@
 <div class="review">
+  <!-- Always present, so its words change rather than arrive with it (AU.6.3). -->
+  <p class="cp-sr-only" role="status">{{ loaded() ? '' : 'Checking your examples…' }}</p>
   @if (!loaded()) {
-    <p class="cp-muted" role="status">Checking your examples…</p>
+    <!-- The examples arriving as rows. -->
+    <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
   } @else if (entries().length === 0) {
     <cp-form-section heading="Nothing to check here">
       <p class="cp-muted">

@@ -1,10 +1,13 @@
 <figure class="picture">
+  <!-- Always present, outside the busy square (AU.7): the picture arriving is said once. -->
+  <p class="cp-sr-only" role="status">{{ !source() && !bytesFailed() ? 'Loading the picture…' : '' }}</p>
   @if (source(); as src) {
     <img [src]="src" [alt]="alt()" width="160" height="160" />
   } @else if (bytesFailed()) {
     <p class="cp-muted missing" role="status">This picture couldn't be shown just now.</p>
   } @else {
-    <p class="cp-muted missing" role="status">Loading the picture…</p>
+    <!-- The picture as it will arrive: the same square. -->
+    <div class="pending" aria-busy="true"><cp-skeleton shape="block" pictureAspect="1 / 1" /></div>
   }
 
   <figcaption>
@@ -65,8 +68,11 @@
         </p>
       }
 
+      <!-- What the creator just asked for, said where it is shown; the always-present status beside it is what a
+           screen reader hears, because a region that arrives with its words may not be read (AU.7). -->
+      <p class="cp-sr-only" role="status">{{ reading() ? 'Reading the picture…' : '' }}</p>
       @if (reading()) {
-        <p class="cp-muted" role="status">Reading the picture…</p>
+        <p class="cp-muted" aria-hidden="true">Reading the picture…</p>
       }
     }
 

@@ -242,6 +242,18 @@ describe('BrandVisualStyleControlComponent', () => {
       expect(text(await render({ referencesStatus: 'error' }))).toContain('You can still continue without them.');
       expect(text(await render({ referencesStatus: 'loading' }))).toContain('Loading your references…');
     });
+
+    it('draws the references arriving, said once from a status the fieldset keeps (AU.7)', async () => {
+      const loading = await render({ referencesStatus: 'loading' });
+      const fieldset = () => loading.querySelector('fieldset.references')!;
+
+      expect(fieldset().querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('Loading your references…');
+      expect(fieldset().querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+
+      const ready = await render();
+      expect(ready.querySelector('fieldset.references p.cp-sr-only[role="status"]')!.textContent).toBe('');
+      expect(ready.querySelector('fieldset.references cp-skeleton')).toBeNull();
+    });
   });
 
   describe('change selection', () => {
@@ -322,6 +334,19 @@ describe('BrandVisualStyleControlComponent', () => {
       expect(host.querySelector('section')?.getAttribute('aria-busy')).toBe('true');
       expect(text(host)).toContain('Checking your visual style');
       expect(text(host)).not.toContain('Using your visual style');
+
+      // Said once, offscreen and outside the busy section; what shows is the summary arriving (AU.7).
+      const status = host.querySelector(':scope > p.cp-sr-only[role="status"]')!;
+      expect(status.textContent).toBe('Checking your visual style…');
+      expect(host.querySelector('section[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(host.querySelector('section .summary')).toBeNull();
+    });
+
+    it('empties that status once the guide is read', async () => {
+      const host = await render();
+
+      expect(host.querySelector(':scope > p.cp-sr-only[role="status"]')!.textContent).toBe('');
+      expect(host.querySelector('section > cp-skeleton')).toBeNull();
     });
 
     it('offers a retry on error', async () => {

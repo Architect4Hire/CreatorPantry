@@ -6,6 +6,7 @@ import {
   CpFactComponent,
   CpFactsComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
@@ -32,12 +33,15 @@ type Read =
 @Component({
   selector: 'cp-publish-check-step',
   standalone: true,
-  imports: [RouterLink, CpBadgeComponent, CpButtonComponent, CpFactComponent, CpFactsComponent, CpNoticeComponent],
+  imports: [RouterLink, CpBadgeComponent, CpButtonComponent, CpFactComponent, CpFactsComponent, CpNoticeComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ read().status === 'loading' ? 'Reading your card…' : '' }}</p>
     @switch (read().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your card…</p>
+        <!-- The card arriving, as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('no-card') {
         <cp-notice role="note">Go back a step and choose the card you want to publish.</cp-notice>

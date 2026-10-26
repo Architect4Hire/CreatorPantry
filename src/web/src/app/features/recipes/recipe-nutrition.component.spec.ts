@@ -246,8 +246,12 @@ class StubNutritionService {
     this.release = null;
   }
 
+  /** Set to leave the mapping's read unanswered, so its region stays loading. */
+  holdMapping = false;
+
   getMapping(_workspaceSlug: string, ingredientId: string): Promise<NutritionMappingOutcome> {
     this.mappingCalls.push(ingredientId);
+    if (this.holdMapping) return new Promise(() => undefined);
     return Promise.resolve(this.mappingOutcome);
   }
 
@@ -684,6 +688,27 @@ describe('RecipeNutritionComponent', () => {
   });
 
   // ---- Mapping review ---------------------------------------------------
+
+  it('draws the mapping arriving while it is read, said once from a region that is always in it (AU.7)', async () => {
+    service.holdMapping = true;
+    const element = await render();
+    await openMapping(element);
+
+    const region = element.querySelector<HTMLElement>(`[id="${fixture.componentInstance.mappingElementId('l2')}"]`)!;
+    expect(region.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe(PANEL_COPY.mappingLoading);
+    const busy = region.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('keeps the mapping’s status, emptied, once it is read', async () => {
+    const element = await render();
+    await openMapping(element);
+
+    const region = element.querySelector<HTMLElement>(`[id="${fixture.componentInstance.mappingElementId('l2')}"]`)!;
+    expect(region.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(region.querySelector('cp-skeleton')).toBeNull();
+  });
 
   it('reads the mapping for the line’s platform ingredient, joined from the saved recipe', async () => {
     const element = await render();

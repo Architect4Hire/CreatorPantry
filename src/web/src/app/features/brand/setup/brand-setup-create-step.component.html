@@ -6,8 +6,11 @@
         some.
       </cp-notice>
     } @else {
+      <!-- Always present, so its words change rather than arrive with it (AU.6.3). -->
+      <p class="cp-sr-only" role="status">{{ loaded() ? '' : 'Looking up your examples…' }}</p>
       @if (!loaded()) {
-        <p class="cp-muted" role="status">Looking up your examples…</p>
+        <!-- The examples arriving as rows. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @if (unreachableCount() > 0) {
         <cp-notice tone="warning" role="status">
@@ -19,14 +22,18 @@
         </cp-notice>
       }
 
-      @for (entry of entries(); track entry.row.documentId) {
-        <cp-brand-setup-example
-          [title]="titleOf(entry.row)"
-          [meta]="metaOf(entry.row)"
-          [tone]="toneOf(entry.state)"
-          [status]="statusOf(entry.state)"
-          [note]="noteOf(entry.state)"
-        />
+      <!-- Once they are looked up: until then the skeleton above stands in for them, rather than a row each
+           saying "Looking it up…" beside it (AU.7). -->
+      @if (loaded()) {
+        @for (entry of entries(); track entry.row.documentId) {
+          <cp-brand-setup-example
+            [title]="titleOf(entry.row)"
+            [meta]="metaOf(entry.row)"
+            [tone]="toneOf(entry.state)"
+            [status]="statusOf(entry.state)"
+            [note]="noteOf(entry.state)"
+          />
+        }
       }
 
       @if (loaded() && summary()) {

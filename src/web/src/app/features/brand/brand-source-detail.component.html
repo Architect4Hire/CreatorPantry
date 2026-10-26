@@ -22,11 +22,17 @@
   </ng-container>
 </cp-page-head>
 
+<!-- Always present, and outside the busy cards (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading this example…' : '' }}</p>
+
 @switch (state().status) {
   @case ('loading') {
-    <cp-card>
-      <p class="state" role="status" aria-live="polite">Loading this example…</p>
-    </cp-card>
+    <!-- The page as it will arrive: what the example is, its text, and its versions. -->
+    <div class="loading" aria-busy="true">
+      <cp-card><cp-skeleton shape="line" [count]="5" /></cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="2" /></cp-card>
+    </div>
   }
   @case ('missing') {
     <cp-card>
@@ -112,13 +118,16 @@
       </cp-topic-card>
 
       <cp-topic-card heading="Versions" headingId="brand-source-versions-heading" wide>
+            <!-- Always present in the card, so its words change rather than arrive with it. -->
+            <p class="cp-sr-only" role="status">{{ !versionsDegraded() && versions().length === 0 ? 'Loading the history…' : '' }}</p>
             @if (versionsDegraded()) {
               <p class="state" role="alert">
                 The version history couldn’t be loaded. Everything else on this page is up to date.
               </p>
               <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
             } @else if (versions().length === 0) {
-              <p class="state" role="status">Loading the history…</p>
+              <!-- Its versions arriving: a line or two. -->
+              <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
             } @else {
               <!-- Each version keeps its own file and its own text. That is what this list is for. -->
               <ul class="versions">
@@ -172,6 +181,8 @@
       </cp-topic-card>
 
       <cp-topic-card heading="Where it’s used" headingId="brand-source-usage-heading" wide>
+            <!-- Always present in the card, so its words change rather than arrive with it. -->
+            <p class="cp-sr-only" role="status">{{ !usageDegraded() && !usage() ? 'Loading where it’s used…' : '' }}</p>
             @if (usageDegraded()) {
               <p class="state" role="alert">
                 What points at this example couldn’t be loaded. Everything else on this page is up to date.
@@ -216,7 +227,8 @@
                 </ul>
               }
             } @else {
-              <p class="state" role="status">Loading…</p>
+              <!-- What points at it, arriving. -->
+              <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
             }
       </cp-topic-card>
 

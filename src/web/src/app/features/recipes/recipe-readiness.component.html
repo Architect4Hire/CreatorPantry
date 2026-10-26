@@ -42,8 +42,11 @@
     }
   }
 
+  <!-- Always present, so its words change as the first check is read rather than arriving with it (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ loading() && readiness() === null ? 'Checking this recipe…' : '' }}</p>
   @if (loading() && readiness() === null) {
-    <p class="cp-muted measure" role="status">Checking this recipe…</p>
+    <!-- The answer as it will arrive: its counts, then the rules as a few lines. -->
+    <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
   }
 
   @if (readiness(); as check) {

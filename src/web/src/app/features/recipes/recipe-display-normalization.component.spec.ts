@@ -94,10 +94,12 @@ function payload(overrides: Record<string, unknown> = {}): Record<string, unknow
 interface Harness {
   readonly fixture: ComponentFixture<RecipeDisplayNormalizationComponent>;
   readonly http: HttpTestingController;
+  /** The catalogue's read, when `holdCatalogue` left it unanswered. */
+  readonly catalogue?: ReturnType<HttpTestingController['expectOne']>;
 }
 
 async function createFixture(
-  options: { catalogueFails?: boolean; sourceVersionNumber?: number | null } = {},
+  options: { catalogueFails?: boolean; holdCatalogue?: boolean; sourceVersionNumber?: number | null } = {},
 ): Promise<Harness> {
   await TestBed.configureTestingModule({
     imports: [RecipeDisplayNormalizationComponent],
@@ -121,6 +123,10 @@ async function createFixture(
   fixture.detectChanges();
 
   const catalogue = http.expectOne((request) => request.url === UNITS_URL);
+  if (options.holdCatalogue) {
+    fixture.detectChanges();
+    return { fixture, http, catalogue };
+  }
   if (options.catalogueFails) {
     catalogue.flush({}, { status: 500, statusText: 'Server Error' });
   } else {
@@ -163,6 +169,29 @@ describe('RecipeDisplayNormalizationComponent', () => {
     expect(text(fixture)).toContain('A recipe records the number, never how it reads');
     // And where the creator does the thing this panel cannot do for them.
     expect(text(fixture)).toContain('type the amount you want on the line in Ingredients');
+  });
+
+  // ---- While the catalogue loads (AU.7) ----
+
+  it('draws the form arriving while the unit catalogue is read, and says so once from a region that is always there', async () => {
+    const { fixture, catalogue } = await createFixture({ holdCatalogue: true });
+    const host = fixture.nativeElement as HTMLElement;
+
+    const status = host.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading the unit catalogue…');
+    const busy = host.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('form')).toBeNull();
+
+    catalogue!.flush({ items: CATALOGUE, nextCursor: null });
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+
+    expect(host.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(host.querySelector('cp-skeleton')).toBeNull();
+    expect(host.querySelector('form')).not.toBeNull();
   });
 
   // ---- Canonical versus display ----
@@ -509,7 +538,7 @@ describe('RecipeDisplayNormalizationComponent', () => {
 
     // The announcement is a persistent region whose text changes, not the card itself: a live region
     // inserted already holding its content is not reliably announced.
-    const region: HTMLElement = harness.fixture.nativeElement.querySelector('[role="status"][aria-live="polite"]');
+    const region: HTMLElement = harness.fixture.nativeElement.querySelector('.calculation-announcement[role="status"][aria-live="polite"]');
     expect(region.getAttribute('aria-live')).toBe('polite');
     expect(region.textContent?.trim().length).toBeGreaterThan(0);
     expect(harness.fixture.nativeElement.querySelector('.result-card').getAttribute('role')).toBeNull();

@@ -5,6 +5,7 @@ import {
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -73,6 +74,7 @@ const FAILURE_MESSAGE: Record<BrandSourceExtractionFailure, string> = {
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './brand-source-text.component.html',

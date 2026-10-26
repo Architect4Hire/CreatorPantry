@@ -9,6 +9,7 @@ import {
   CpEmptyStateComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -88,6 +89,7 @@ interface Message {
     CpEmptyStateComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpTopicCardComponent,
     MyDayTaskComponent,
     MyDayTopThreeComponent,

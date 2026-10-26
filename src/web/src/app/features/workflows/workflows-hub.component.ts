@@ -21,6 +21,7 @@ import {
   CpNoticeComponent,
   CpPageHeadComponent,
   CpSearchFieldComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
@@ -162,6 +163,24 @@ function whenText(iso: string, style: 'day' | 'dayTime' = 'dayTime'): string {
   return new Intl.DateTimeFormat(undefined, style === 'day' ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(at);
 }
 
+/**
+ * What to call one guided run where several are listed together (AU.6.3, as the dashboard's `runName`, AU.4.1). A
+ * run nobody named is titled after its goal, so three runs of one workflow were three links all called "Continue
+ * “Create a recipe”". Where the title is only the goal, the step the run is on is what tells it from its siblings;
+ * the run summary names no record it is about, so nothing is made up beyond that.
+ */
+function runName(run: WorkflowRunSummary): string {
+  if (run.title.trim() !== run.goal.trim()) return `“${run.title}”`;
+
+  const step = (run.nextStepTitle ?? run.currentStepTitle)?.trim() ?? '';
+  return step === '' ? run.goal : `${run.goal} — ${step}`;
+}
+
+/** A run link's accessible name: what it does, which run, and when — so two runs on one step are still two links. */
+function runLinkLabel(action: string, run: WorkflowRunSummary, when: string, whenWord: 'last saved' | 'finished'): string {
+  return when === '' ? `${action} ${runName(run)}` : `${action} ${runName(run)}, ${whenWord} ${when}`;
+}
+
 /** Who may start something that needs `role`, in words. */
 function roleNote(role: WorkspaceRoleName): string {
   switch (role) {
@@ -210,6 +229,7 @@ function newKey(): string {
     CpNoticeComponent,
     CpPageHeadComponent,
     CpSearchFieldComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
   ],
@@ -288,6 +308,7 @@ export class WorkflowsHubComponent {
     if (mine.state === 'read') {
       for (const run of mine.value.items) {
         const done = run.completedStepCount + run.skippedStepCount;
+        const when = whenText(run.updatedAt);
         rows.push({
           id: `run:${run.id}`,
           goal: run.goal,
@@ -296,11 +317,11 @@ export class WorkflowsHubComponent {
             ? `Next: ${run.nextStepTitle} · ${done} of ${run.stepCount} steps done`
             : 'Every step is done. Finish when you’re ready.',
           lines: [],
-          when: whenText(run.updatedAt),
+          when,
           at: time(run.updatedAt),
           link: ['/', slug, 'workflows', 'runs', run.id],
           action: 'Continue',
-          actionLabel: `Continue “${run.title}”`,
+          actionLabel: runLinkLabel('Continue', run, when, 'last saved'),
         });
       }
     }
@@ -366,17 +387,18 @@ export class WorkflowsHubComponent {
         const theirs = run.owner.membershipId !== me
           ? `Started by ${run.owner.displayName ?? 'someone who has left the workspace'}.`
           : null;
+        const when = whenText(run.updatedAt);
         rows.push({
           id: `run:${run.id}`,
           goal: run.goal,
           title: run.title !== run.goal ? run.title : null,
           detail: theirs ?? '',
           lines: run.attentionReasons.map(attentionReasonText),
-          when: whenText(run.updatedAt),
+          when,
           at: time(run.updatedAt),
           link: ['/', slug, 'workflows', 'runs', run.id],
           action: 'Open',
-          actionLabel: `Open “${run.title}”`,
+          actionLabel: runLinkLabel('Open', run, when, 'last saved'),
         });
       }
     }
@@ -415,18 +437,21 @@ export class WorkflowsHubComponent {
     const read = this.finished();
     if (read.state !== 'read') return [];
     const slug = this.workspaceSlug();
-    return read.value.items.map((run) => ({
-      id: `run:${run.id}`,
-      goal: run.goal,
-      title: run.title !== run.goal ? run.title : null,
-      detail: '',
-      lines: [],
-      when: whenText(run.completedAt ?? run.updatedAt, 'day'),
-      at: time(run.completedAt ?? run.updatedAt),
-      link: ['/', slug, 'workflows', 'runs', run.id],
-      action: 'See what you made',
-      actionLabel: `See what you made with “${run.title}”`,
-    }));
+    return read.value.items.map((run) => {
+      const when = whenText(run.completedAt ?? run.updatedAt, 'day');
+      return {
+        id: `run:${run.id}`,
+        goal: run.goal,
+        title: run.title !== run.goal ? run.title : null,
+        detail: '',
+        lines: [],
+        when,
+        at: time(run.completedAt ?? run.updatedAt),
+        link: ['/', slug, 'workflows', 'runs', run.id],
+        action: 'See what you made',
+        actionLabel: runLinkLabel('See what you made with', run, when, 'finished'),
+      };
+    });
   });
 
   readonly outcomesVisible = computed(() => this.outcomeRows().slice(0, this.shown.completed()));
@@ -535,6 +560,32 @@ export class WorkflowsHubComponent {
 
   /** Still finding out what the creator has in progress. */
   readonly checking = computed(() => [this.mine(), this.attention(), this.finished()].some((read) => read.state === 'loading'));
+
+  /** Whether the work-in-progress cards have anything to show yet: what the skeleton in their place waits for. */
+  readonly workInProgressShown = computed(
+    () =>
+      !this.firstUse() &&
+      (this.continueRows().length > 0 || this.continueDegraded() || this.attentionRows().length > 0 || this.attentionDegraded()),
+  );
+
+  /**
+   * The one thing said while part of the page is still on its way (AU.6.3). What shows is the shape of what is
+   * coming, so a screen reader hears this once instead, from a region that is always there.
+   */
+  readonly loadingWords = computed(() => {
+    if (this.phase() === 'loading') return 'Loading your workflows…';
+    if (this.phase() !== 'ready') return '';
+
+    // Each part still on its way, under the same conditions that draw its skeleton.
+    const parts = [
+      this.checking() && !this.workInProgressShown() ? 'Checking what you have in progress…' : '',
+      this.definitions().state === 'loading' ? 'Loading what you can do…' : '',
+    ];
+    return parts.filter((part) => part !== '').join(' ');
+  });
+
+  /** Skeleton places, by count, for the shapes drawn while the page loads. */
+  protected readonly goalPlaces = [0, 1, 2] as const;
 
   constructor() {
     void this.memberships.ensureLoaded();

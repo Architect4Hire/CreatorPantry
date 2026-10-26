@@ -8,6 +8,7 @@ import {
   CpFactsComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { AI_FEATURE_AREAS, AiFeature, AiFeatureArea, describeAiFeature } from '../../models/ai-feature.models';
@@ -59,6 +60,7 @@ const CHANGED_ELSEWHERE =
     CpFactsComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './workspace-ai-features.component.html',
   styleUrl: './workspace-ai-features.component.css',

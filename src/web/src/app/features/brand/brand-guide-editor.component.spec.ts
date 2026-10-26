@@ -143,7 +143,11 @@ class StubGuideService {
   readonly saveKeys: string[] = [];
   discards = 0;
 
+  /** Set to leave the guide's read unanswered, so the page stays loading. */
+  holdDetail = false;
+
   getDetail(): Promise<BrandStyleGuideDetailOutcome> {
+    if (this.holdDetail) return new Promise(() => undefined);
     return Promise.resolve(this.detailOutcomes?.shift() ?? this.detailOutcome);
   }
 
@@ -815,6 +819,18 @@ describe('BrandGuideEditorComponent', () => {
     await create();
 
     expect(root().querySelector('.status[role="status"]')).not.toBeNull();
+  });
+
+  it('draws the guide’s form arriving while it is read, and says so only from that region (AU.6.3)', async () => {
+    service.holdDetail = true;
+    await create();
+
+    expect(root().querySelector('.status[role="status"]')!.textContent).toContain('Loading this guide…');
+    const busy = root().querySelector('cp-card .loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-skeleton').length).toBe(3);
+    // No second, visible sentence beside the skeleton.
+    expect(busy.textContent!.trim()).toBe('');
+    expect(Array.from(root().querySelectorAll('p')).filter((each) => each.textContent?.includes('Loading this guide')).length).toBe(1);
   });
 
   it('labels every part and the reason field', async () => {

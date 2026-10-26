@@ -12,6 +12,13 @@
   margin: 0 0 var(--cp-space-3);
 }
 
+/* The form while it loads, held to the measure its choices will take. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-4);
+  max-width: var(--cp-measure-field);
+}
+
 .dirty {
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);

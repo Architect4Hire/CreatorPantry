@@ -10,6 +10,11 @@
   gap: var(--cp-space-2);
 }
 
+/* The text while it is read: lines at the measure the text itself will take. */
+.reading {
+  max-width: var(--cp-measure-prose);
+}
+
 .state,
 .why {
   max-width: var(--cp-measure-prose);

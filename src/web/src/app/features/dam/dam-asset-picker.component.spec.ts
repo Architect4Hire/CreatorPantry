@@ -227,6 +227,29 @@ describe('DamAssetPickerComponent', () => {
     expect(text()).not.toContain('Late arrival');
   });
 
+  // AU.7: the grid arriving as tiles, said once from the status that is always there.
+  it('draws tiles arriving while the library is read, and says so once', async () => {
+    searchSpy.and.returnValue(new Subject<DamAssetSearchOutcome>());
+    await create();
+
+    expect(root().querySelector('[role="status"].cp-sr-only')?.textContent).toBe('Loading the library…');
+    const busy = root().querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('ul[cpCardGrid] li cp-skeleton[data-shape="block"]').length).toBe(6);
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('says "Loading more…" on Load more while the next page is read, and nothing else changes', async () => {
+    const slow = new Subject<DamAssetSearchOutcome>();
+    searchSpy.and.callFake((_slug, query) => (query.cursor === null ? found([assetSummary()], 'c2', 2) : slow));
+    await create();
+
+    button('Load more').click();
+    await settle();
+
+    expect(root().querySelector('.more button')?.textContent?.trim()).toBe('Loading more…');
+    expect(text()).toContain('Soda bread hero');
+  });
+
   it('offers a retry when the library cannot be loaded', async () => {
     searchSpy.and.returnValue(of<DamAssetSearchOutcome>({ status: 'unavailable' }));
     await create();

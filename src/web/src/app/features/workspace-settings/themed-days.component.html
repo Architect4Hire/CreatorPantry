@@ -3,11 +3,19 @@
 </cp-page-head>
 
 <section class="themed-days" aria-label="Themed days">
+  <!-- Always present, and outside the busy form (APP-003): one place the page says it is still loading. -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your themed days…' : '' }}</p>
 
   @switch (load().status) {
     @case ('loading') {
+      <!-- The week as it will arrive: its legend, then a few of its days. -->
       <cp-card>
-        <p class="state" role="status">Loading your themed days…</p>
+        <div class="loading" aria-busy="true">
+          <cp-skeleton shape="line" />
+          @for (place of loadingDays; track place) {
+            <cp-skeleton shape="line" [count]="2" />
+          }
+        </div>
       </cp-card>
     }
     @case ('not_found') {
@@ -27,7 +35,7 @@
           <cp-empty-state
             title="Give a day of your week a theme"
             description="A themed day is a standing idea for one day of the week — a soup day, a baking day. Name it, write down anything that should always hold for it, and what you generate for that day will follow it."
-            icon="🗓"
+            illustration="calendar"
           >
             @if (canEdit()) {
               <div cpEmptyStateActions>
@@ -286,13 +294,17 @@
   <details class="cp-disclosure history" (toggle)="onHistoryToggle(key, $event)">
     <summary>Already made<span class="cp-sr-only"> for {{ name }}</span></summary>
 
-    <!-- No live region here: the creator has just opened this and is moving into it, and a region inside a
-         disclosure that may be closed is not one a screen reader can be relied on to announce. The loading
-         line is a status of its own. -->
+    <!-- No live region for the list: the creator has just opened this and is moving into it, and a region inside
+         a disclosure that may be closed is not one a screen reader can be relied on to announce. The loading
+         status is no exception — its words are already there while the disclosure is closed, so opening it is not
+         an arrival a screen reader announces. It stays as the history's status for whoever reads into it, and is
+         emptied once the list is read (AU.6.4). -->
     <div class="history-body">
       @let state = historyOf(key);
+      <p class="cp-sr-only" role="status">{{ state === null || state.status === 'loading' ? "Loading what you've made…" : '' }}</p>
       @if (state === null || state.status === 'loading') {
-        <p class="cp-muted" role="status">Loading what you've made…</p>
+        <!-- What was made, arriving as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
       } @else if (state.status === 'failed') {
         <cp-notice tone="warning">
           This list couldn't be loaded right now.
@@ -338,7 +350,7 @@
             [disabled]="state.more === 'loading'"
             (click)="loadMoreHistory(key)"
           >
-            {{ state.more === 'loading' ? 'Loading…' : 'Show more' }}<span class="cp-sr-only"> made for {{ name }}</span>
+            {{ state.more === 'loading' ? 'Loading more…' : 'Show more' }}<span class="cp-sr-only"> made for {{ name }}</span>
           </button>
         }
         @if (state.more === 'failed') {

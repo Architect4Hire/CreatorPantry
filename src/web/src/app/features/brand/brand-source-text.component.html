@@ -1,6 +1,10 @@
+<!-- Always present, and outside the busy lines (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ read().status === 'loading' ? 'Reading the text…' : '' }}</p>
+
 @switch (read().status) {
   @case ('loading') {
-    <p class="state" role="status" aria-live="polite">Reading the text…</p>
+    <!-- The example's own words, arriving. -->
+    <div class="reading" aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
   }
   @case ('missing') {
     <p class="state" role="alert">This version could not be found. It may have been removed.</p>

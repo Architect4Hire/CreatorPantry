@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Observable, of } from 'rxjs';
+import { NEVER, Observable, of } from 'rxjs';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import { VisibilityService } from '../../core/visibility.service';
@@ -352,6 +352,31 @@ describe('RecipeMediaLinkDialogComponent', () => {
 
       await submit();
       expect(linkSpy.calls.mostRecent().args[2].versionNumber).toBe(1);
+    });
+
+    it('draws the version field arriving while the versions are read, said once from a region always there (AU.7)', async () => {
+      detailSpy.and.returnValue(NEVER);
+      await choose();
+      await pick('pin-keep');
+
+      const status = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+        each.textContent?.includes('Loading this picture’s versions…'),
+      );
+      expect(status).withContext('the versions’ status').toBeTruthy();
+      const busy = root().querySelector('.versions-loading[aria-busy="true"]')!;
+      expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+      expect(busy.textContent!.trim()).toBe('');
+      expect(root().querySelector('#cp-recipe-media-version')).toBeNull();
+    });
+
+    it('keeps the versions’ status, emptied, once they are read', async () => {
+      await choose();
+      await pick('pin-keep');
+
+      expect(root().querySelector('#cp-recipe-media-version')).not.toBeNull();
+      expect(root().querySelector('.versions-loading')).toBeNull();
+      const statuses = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]'));
+      expect(statuses.some((each) => each.textContent?.includes('versions…'))).toBeFalse();
     });
 
     it('says so when the versions cannot be read, and offers a retry', async () => {

@@ -8,6 +8,7 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpSearchFieldComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 import { debounceTime, distinctUntilChanged, firstValueFrom, switchMap } from 'rxjs';
 
@@ -57,6 +58,7 @@ function countSaid(shown: number, total: number | null): string {
     CpFormSectionComponent,
     CpNoticeComponent,
     CpSearchFieldComponent,
+    CpSkeletonComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -75,9 +77,12 @@ function countSaid(shown: number, total: number | null): string {
         />
       </cp-search-field>
 
+      <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+      <p class="cp-sr-only" role="status">{{ found().status === 'loading' ? 'Finding your recipes…' : '' }}</p>
       @switch (found().status) {
         @case ('loading') {
-          <p class="cp-muted" role="status">Finding your recipes…</p>
+          <!-- The recipes to choose from, arriving as the rows the choices will be. -->
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
         }
         @case ('unavailable') {
           <cp-notice tone="error" role="alert">
@@ -100,7 +105,7 @@ function countSaid(shown: number, total: number | null): string {
             @if (moreCursor()) {
               <div class="cp-actions">
                 <button cpButton type="button" variant="secondary" [attr.aria-disabled]="loadingMore() || null" (click)="loadMore()">
-                  {{ loadingMore() ? 'Loading…' : 'Show more recipes' }}
+                  {{ loadingMore() ? 'Loading more…' : 'Show more recipes' }}
                 </button>
               </div>
             }

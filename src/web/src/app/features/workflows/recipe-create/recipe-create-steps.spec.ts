@@ -169,6 +169,55 @@ function editorOf<T>(fixture: ComponentFixture<T>): RecipeEditorComponent | null
 describe('"Create a recipe" step screens (13A.14)', () => {
   beforeEach(() => configure());
 
+  // AU.7: what a step is waiting for arrives as its shape, and is said once from a region that is always there.
+  describe('while a step reads what it needs', () => {
+    const statuses = (host: HTMLElement) => Array.from(host.querySelectorAll('p.cp-sr-only[role="status"]'));
+    /** The busy lines drawn beside a status: the step's own, not a child panel's. */
+    const busyBeside = (status: Element) =>
+      Array.from(status.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'));
+
+    function expectLoading(host: HTMLElement, sentence: string): void {
+      const status = statuses(host).find((p) => p.textContent === sentence);
+      expect(status).withContext(sentence).toBeTruthy();
+      const busy = busyBeside(status!)!;
+      expect(busy).toBeTruthy();
+      expect(busy.textContent!.trim()).toBe('');
+      expect(Array.from(host.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+    }
+
+    function expectRead(host: HTMLElement, sentence: string): void {
+      // The region stays, its words gone, and the lines beside it with them.
+      const emptied = statuses(host).filter((p) => p.textContent === '');
+      expect(emptied.length).toBeGreaterThan(0);
+      expect(statuses(host).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+      expect(emptied.some((p) => busyBeside(p))).toBeFalse();
+    }
+
+    it('Start your recipe: draws lines while it picks up an AI request it left, then keeps its status emptied', async () => {
+      // The step's own look is left unanswered: the request is still being found.
+      draftWatches = 1;
+      const fixture = await render(RecipeCreateStartStepComponent, {
+        step: BOTH_WAYS,
+        run: startRun({ draft: { kind: 'AiRequest', id: 'draft-1' } }),
+        workspaceSlug: SLUG,
+      });
+      expectLoading(root(fixture), 'Picking up where you left off…');
+
+      const read = await render(RecipeCreateStartStepComponent, { step: BOTH_WAYS, run: startRun(), workspaceSlug: SLUG });
+      expectRead(root(read), 'Picking up where you left off…');
+    });
+
+    it('Try it at another size: draws lines while it reads the recipe, then keeps its status emptied', async () => {
+      recipes.getRecipeDetail.and.returnValue(new Promise(() => undefined));
+      const fixture = await render(RecipeSizesStepComponent, { run: laterRun(), workspaceSlug: SLUG });
+      expectLoading(root(fixture), 'Reading your recipe…');
+
+      recipes.getRecipeDetail.and.resolveTo({ status: 'found', recipe: DETAIL });
+      const read = await render(RecipeSizesStepComponent, { run: laterRun(), workspaceSlug: SLUG });
+      expectRead(root(read), 'Reading your recipe…');
+    });
+  });
+
   describe('Start your recipe', () => {
     function start(run: WorkflowRun, step: WorkflowNextAction = BOTH_WAYS) {
       return render(RecipeCreateStartStepComponent, { step, run, workspaceSlug: SLUG });

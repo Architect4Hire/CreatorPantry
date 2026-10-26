@@ -42,6 +42,11 @@
   flex: none;
 }
 
+/* Where the actions will be, while what the creator may do is still being read. */
+.actions-arriving {
+  max-width: 16rem;
+}
+
 .panel-notice,
 .panel-watch-note,
 .bulk-count,

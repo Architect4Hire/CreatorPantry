@@ -6,14 +6,26 @@
     @if (prompt(); as shown) {
       <cp-badge tone="blue">{{ channelName() }}</cp-badge>
       <cp-badge>{{ kindLabel() }}</cp-badge>
-      <cp-badge [tone]="shown.source === 'Manual' ? 'neutral' : 'purple'">{{ sourceLabel() }}</cp-badge>
+      <!-- A model had a hand in every source but Manual: the one mark for it, and "About this prompt" says which. -->
+      @if (shown.source === 'Manual') {
+        <cp-badge>{{ sourceLabel() }}</cp-badge>
+      } @else {
+        <cp-generated-label />
+      }
     }
   </ng-container>
 </cp-page-head>
 
+<!-- Always present, and outside the busy region (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading the prompt…' : '' }}</p>
+
 @switch (state().status) {
   @case ('loading') {
-    <cp-card><p class="plain" role="status">Loading the prompt…</p></cp-card>
+    <!-- The page as it will arrive: the prompt's card, then the one about using it again. -->
+    <div class="loading" aria-busy="true">
+      <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="2" /></cp-card>
+    </div>
   }
   @case ('not_found') {
     <cp-card>
@@ -59,7 +71,13 @@
           Start something new in Image Studio with a copy of these words. The prompt saved here stays exactly as it is.
         </p>
 
-        @switch (reuseAccess()) {
+        <!-- Always present, so its words change rather than arrive with it (AU.7): said only while the access is
+             still being read, which is every answer but the three below. -->
+        @let access = reuseAccess();
+        <p class="cp-sr-only" role="status">
+          {{ access === 'view_only' || access === 'unknown' || access === 'allowed' ? '' : 'Checking what you can do here…' }}
+        </p>
+        @switch (access) {
           @case ('view_only') {
             <cp-notice role="note">
               You have view-only access to this workspace, so you can't make pictures from this. You can still copy
@@ -74,7 +92,8 @@
           }
           @case ('allowed') {}
           @default {
-            <p class="plain" role="status">Checking what you can do here…</p>
+            <!-- Where the button will be once the memberships are read: a line. -->
+            <div class="checking" aria-busy="true"><cp-skeleton shape="line" /></div>
           }
         }
 

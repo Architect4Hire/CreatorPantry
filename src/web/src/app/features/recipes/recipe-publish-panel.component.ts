@@ -6,6 +6,7 @@ import {
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -97,6 +98,7 @@ const DOWNLOADS: readonly Omit<DownloadRow, 'href'>[] = [
     CpEmptyStateComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-publish-panel.component.html',

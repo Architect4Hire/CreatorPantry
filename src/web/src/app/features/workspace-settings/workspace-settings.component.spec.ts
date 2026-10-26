@@ -25,8 +25,11 @@ class StubSettings {
   getOutcome: WorkspaceOutcome = { status: 'found', workspace: workspace() };
   saveOutcome: SaveMeasurementPreferenceOutcome | null = null;
   readonly saves: { slug: string; system: WorkspaceMeasurementSystem }[] = [];
+  /** Set to leave the read unanswered, so the page stays loading. */
+  hold = false;
 
   get(): Promise<WorkspaceOutcome> {
+    if (this.hold) return new Promise(() => undefined);
     return Promise.resolve(this.getOutcome);
   }
 
@@ -76,6 +79,35 @@ describe('WorkspaceSettingsComponent', () => {
         },
       ],
     });
+  });
+
+  // ---- The head and loading (AU.6.4) ----
+
+  it('says what the page is for in its head', async () => {
+    const host = await render();
+
+    expect(host.querySelector('cp-page-head .lede')?.textContent).toContain(
+      'What everyone in this workspace works with: how new recipe drafts are measured',
+    );
+  });
+
+  it('draws the form arriving while the settings are read, and says so once from a region that is always there', async () => {
+    settings.hold = true;
+
+    const host = await render();
+
+    const status = host.querySelector('section.workspace-settings > p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading your workspace settings…');
+    const busy = host.querySelector('cp-card .loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-skeleton').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('form')).toBeNull();
+  });
+
+  it('empties that status once the settings are read', async () => {
+    const host = await render();
+
+    expect(host.querySelector('section.workspace-settings > p.cp-sr-only[role="status"]')!.textContent).toBe('');
   });
 
   it('shows the workspace’s current system picked, with nothing to save', async () => {

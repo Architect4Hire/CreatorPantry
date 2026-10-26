@@ -185,8 +185,21 @@ describe('BrandSettingsComponent', () => {
   it('shows a loading status while the profile is in flight', async () => {
     await create({ hold: true });
 
-    expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading');
     expect(root().querySelector('form')).toBeNull();
+
+    // Said once, offscreen, in the page's own status; what shows is the form arriving (AU.6.3).
+    const status = root().querySelector('.brand-settings > p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading your brand settings…');
+    const busy = root().querySelector('cp-card .loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-skeleton').length).toBe(4);
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('empties the loading status once the profile is read', async () => {
+    await create();
+
+    expect(root().querySelector('.brand-settings > p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(root().querySelector('cp-skeleton')).toBeNull();
   });
 
   it('links to the Create my voice wizard for the same workspace', async () => {

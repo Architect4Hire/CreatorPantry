@@ -58,8 +58,12 @@ class StubThemes {
   readonly replaces: (readonly WeeklyThemeInput[])[] = [];
   readonly deletes: string[] = [];
   readonly historyReads: { key: string; cursor: string | null }[] = [];
+  /** Set to leave the week's read, or a history's, unanswered, so the page stays loading there. */
+  holdWeek = false;
+  holdHistory = false;
 
   getWeek(): Promise<WeeklyThemeWeekOutcome> {
+    if (this.holdWeek) return new Promise(() => undefined);
     return Promise.resolve(this.weekOutcome ?? { status: 'found', themes: this.week });
   }
 
@@ -88,6 +92,7 @@ class StubThemes {
 
   getHistory(_slug: string, key: string, options: { cursor?: string | null } = {}): Promise<ThemedDayHistoryOutcome> {
     this.historyReads.push({ key, cursor: options.cursor ?? null });
+    if (this.holdHistory) return new Promise(() => undefined);
     return Promise.resolve(
       this.historyOutcomes.shift() ?? { status: 'found', page: { items: [], nextCursor: null } },
     );
@@ -211,6 +216,26 @@ describe('ThemedDaysComponent', () => {
 
   // ---- Loading and first use ----
 
+  it('draws the week arriving while it is read, and says so once from a region that is always there (AU.6.4)', async () => {
+    themes.holdWeek = true;
+
+    const host = await render();
+
+    const status = host.querySelector('section.themed-days > p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading your themed days…');
+    const busy = host.querySelector('cp-card .loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-skeleton').length).toBe(4);
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('form')).toBeNull();
+  });
+
+  it('empties that status once the week is read', async () => {
+    const host = await render();
+
+    expect(host.querySelector('section.themed-days > p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(host.querySelector('.loading')).toBeNull();
+  });
+
   it('says the workspace could not be found, or offers another try, when the week cannot be read', async () => {
     themes.weekOutcome = { status: 'unavailable' };
 
@@ -227,6 +252,9 @@ describe('ThemedDaysComponent', () => {
     const host = await render();
 
     expect(host.querySelector('cp-empty-state')).not.toBeNull();
+    // Drawn, and roomy: the first use invites the week (AU.6.4).
+    expect(host.querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('calendar');
+    expect(host.querySelector('cp-empty-state')?.getAttribute('data-variant')).toBe('first-use');
     expect(sections(host).length).toBe(0);
 
     await press(button(host, 'Set up your week'));
@@ -561,6 +589,32 @@ describe('ThemedDaysComponent', () => {
     // Closing and reopening does not read it again.
     await open(details);
     expect(themes.historyReads.length).toBe(2);
+  });
+
+  it('draws what was made arriving while a history is read, its status kept once it is (AU.6.4)', async () => {
+    themes.holdHistory = true;
+    const host = await render();
+    const details = section(host, 'Monday').querySelector('details') as HTMLDetailsElement;
+
+    await open(details);
+
+    const status = details.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe("Loading what you've made…");
+    expect(details.querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+    expect(details.textContent).not.toContain('Nothing made for this theme');
+  });
+
+  it('keeps a history’s status, emptied, once what was made is read', async () => {
+    const host = await render();
+    const details = section(host, 'Monday').querySelector('details') as HTMLDetailsElement;
+
+    await open(details);
+
+    expect(details.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(details.querySelector('cp-skeleton')).toBeNull();
+    // An empty history is one quiet line, not a drawing: it is part of a form (AU.6.4).
+    expect(details.textContent).toContain('Nothing made for this theme in the last year yet.');
+    expect(details.querySelector('cp-empty-state')).toBeNull();
   });
 
   it('says when nothing was made, and offers another try when the history cannot be read', async () => {

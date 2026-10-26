@@ -27,7 +27,11 @@
   @for (view of views(); track view.definition.id) {
     <cp-form-section [heading]="view.definition.label" [sectionId]="view.anchorId">
       <div class="where">
-        <cp-status-pill [tone]="view.tone">{{ view.pill }}</cp-status-pill>
+        @if (view.generated) {
+          <cp-generated-label />
+        } @else {
+          <cp-status-pill [tone]="view.tone">{{ view.pill }}</cp-status-pill>
+        }
         <p class="marker cp-muted">
           {{ view.marker }}
           @if (view.citation) {

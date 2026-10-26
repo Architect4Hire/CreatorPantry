@@ -46,6 +46,37 @@ describe('WorkspaceGateComponent', () => {
     expect(navigateSpy).toHaveBeenCalledWith(['/', 'cozy-fall', 'dashboard']);
   });
 
+  // AU.7: a card arriving while the workspaces are read, and while the page goes into one, each said once.
+  it('draws a card while the workspaces are read, and says so once offscreen', async () => {
+    state = { status: 'loading' };
+    const fixture = await createFixture();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')?.textContent).toBe('Loading your workspaces…');
+    expect(el.querySelector('cp-card [aria-busy="true"] cp-skeleton')).not.toBeNull();
+    expect(el.querySelector('cp-card')!.textContent!.trim()).toBe('');
+  });
+
+  it('keeps the card while it takes the creator into their workspace, and says where it is going', async () => {
+    state = {
+      status: 'ready',
+      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+    };
+    const fixture = await createFixture();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')?.textContent).toBe('Taking you to your workspace…');
+    expect(el.querySelector('cp-card [aria-busy="true"] cp-skeleton')).not.toBeNull();
+  });
+
+  it('says nothing is on its way once the account has no workspace to go into', async () => {
+    state = { status: 'ready', memberships: [] };
+    const fixture = await createFixture();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('p.cp-sr-only[role="status"]')?.textContent).toBe('');
+    expect((fixture.nativeElement as HTMLElement).querySelector('cp-skeleton')).toBeNull();
+  });
+
   it('shows a create-workspace form instead of redirecting when there are no memberships', async () => {
     state = { status: 'ready', memberships: [] };
     const fixture = await createFixture();

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { CONTENT_BOARD_COLUMN_LABELS, ContentCard, NO_BOARD_FILTERS } from '../../../models/content-board.models';
@@ -29,12 +29,15 @@ const MOST = 25;
 @Component({
   selector: 'cp-publish-choose-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpChoiceGroupComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpChoiceGroupComponent, CpNoticeComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ read().status === 'loading' ? 'Reading your board…' : '' }}</p>
     @switch (read().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your board…</p>
+        <!-- The board’s cards arriving, as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
       }
       @case ('unavailable') {
         <cp-notice tone="error" role="alert">

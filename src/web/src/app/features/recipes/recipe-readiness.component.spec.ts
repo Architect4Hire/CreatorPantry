@@ -117,10 +117,13 @@ class StubReadinessService {
   transitionCalls: TransitionCall[] = [];
 
   holdNext = false;
+  /** Set to leave the readiness read unanswered, so the panel stays checking. */
+  holdReadiness = false;
   private release: (() => void) | null = null;
 
   getReadiness(): Promise<RecipeReadinessOutcome> {
     this.readinessCalls += 1;
+    if (this.holdReadiness) return new Promise(() => undefined);
     return Promise.resolve(this.readinessOutcome);
   }
 
@@ -238,6 +241,28 @@ describe('RecipeReadinessComponent', () => {
   });
 
   // ---- The checklist ----------------------------------------------------
+
+  it('draws the answer arriving while the first check is read, said once from a region that is always there (AU.7)', async () => {
+    service.holdReadiness = true;
+    const element = await render();
+
+    const status = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+      each.textContent?.includes('Checking this recipe…'),
+    );
+    expect(status).withContext('the loading status').toBeTruthy();
+    const busy = element.querySelector('.measure[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('keeps that status, emptied, once the check is read', async () => {
+    const element = await render();
+
+    const statuses = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]'));
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses.some((each) => each.textContent?.includes('Checking this recipe…'))).toBeFalse();
+    expect(element.querySelector('cp-skeleton')).toBeNull();
+  });
 
   it('reads the evaluation once for the recipe it was given', async () => {
     await render();

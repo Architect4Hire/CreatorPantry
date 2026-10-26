@@ -10,6 +10,7 @@ import {
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { DamKeepRecipe } from '../../models/dam-asset.models';
@@ -97,6 +98,7 @@ const FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved'
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './recipe-picker.component.html',
   styleUrl: './recipe-picker.component.css',

@@ -20,6 +20,7 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -137,6 +138,7 @@ function orNull(value: string): string | null {
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     DatePipe,
     NgTemplateOutlet,
@@ -161,6 +163,8 @@ export class ThemedDaysComponent {
   protected readonly workspaceSlug = this.resolveWorkspaceSlug();
   protected readonly days = WEEK_DAYS;
   protected readonly limits = WEEKLY_THEME_LIMITS;
+  /** The days drawn while the week loads (AU.6.4): a few, not a count of the real ones. */
+  protected readonly loadingDays = [0, 1, 2] as const;
 
   protected readonly load = signal<LoadState>({ status: 'loading' });
   protected readonly saveState = signal<SaveState>({ status: 'idle' });

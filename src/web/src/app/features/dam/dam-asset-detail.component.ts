@@ -21,6 +21,7 @@ import {
   CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -119,6 +120,7 @@ interface Fact {
     CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpTopicCardComponent,
     DamAssetEditComponent,
     DamAssetLogUseComponent,

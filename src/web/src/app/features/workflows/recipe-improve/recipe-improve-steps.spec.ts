@@ -204,6 +204,94 @@ async function pick<T>(fixture: ComponentFixture<T>, id: string): Promise<void> 
 describe('"Improve a recipe" step screens (13A.15)', () => {
   beforeEach(() => configure());
 
+  // AU.7: what a step is waiting for arrives as its shape, and is said once from a region that is always there.
+  describe('while a step reads what it needs', () => {
+    const statuses = (scope: Element) => Array.from(scope.querySelectorAll('p.cp-sr-only[role="status"]'));
+    const never = <T>() => new Promise<T>(() => undefined);
+    /** The busy lines drawn beside a status: the step's own, not a child panel's. */
+    const busyBeside = (status: Element) =>
+      Array.from(status.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'));
+
+    function expectLoading(scope: Element, sentence: string): void {
+      const status = statuses(scope).find((p) => p.textContent === sentence);
+      expect(status).withContext(sentence).toBeTruthy();
+      const busy = busyBeside(status!)!;
+      expect(busy).toBeTruthy();
+      expect(busy.textContent!.trim()).toBe('');
+      expect(Array.from(scope.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+    }
+
+    function expectRead(scope: Element, sentence: string): void {
+      // The region stays, its words gone: it was there before the answer, so the next change to it is heard.
+      const emptied = statuses(scope).filter((p) => p.textContent === '');
+      expect(emptied.length).toBeGreaterThan(0);
+      expect(statuses(scope).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+      expect(emptied.some((p) => busyBeside(p))).toBeFalse();
+    }
+
+    it('Choose the recipe: draws the rows arriving while it finds the recipes, then keeps its status emptied', async () => {
+      recipes.searchRecipes.and.returnValue(NEVER);
+      const fixture = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      await settle(fixture);
+      expectLoading(root(fixture), 'Finding your recipes…');
+
+      recipes.searchRecipes.and.returnValue(
+        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: null, totalCount: 1 } }),
+      );
+      const read = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      await settle(read);
+      expectRead(root(read), 'Finding your recipes…');
+    });
+
+    it('Choose the recipe: its pager says "Loading more…" while it reads the next page', async () => {
+      recipes.searchRecipes.and.returnValue(
+        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 } }),
+      );
+      const fixture = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      await settle(fixture);
+
+      recipes.searchRecipes.and.returnValue(NEVER);
+      const more = () => Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('more'))!;
+      more().click();
+      await settle(fixture);
+
+      expect(more().textContent?.trim()).toBe('Loading more…');
+    });
+
+    it('Make your changes: draws lines while it reads the recipe, then keeps its status emptied', async () => {
+      recipes.getRecipeDetail.and.returnValue(never());
+      const fixture = await render(RecipeImproveChangeStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectLoading(root(fixture), 'Reading your recipe…');
+
+      recipes.getRecipeDetail.and.resolveTo({ status: 'found', recipe: detail() });
+      const read = await render(RecipeImproveChangeStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectRead(root(read), 'Reading your recipe…');
+    });
+
+    it('Decide on every suggestion: draws lines while it looks for what is waiting, then keeps its status emptied', async () => {
+      listOpen.and.returnValue(never());
+      const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectLoading(root(fixture).querySelector('cp-recipe-open-suggestions')!, 'Looking for suggestions waiting for you…');
+
+      listOpen.and.callFake(() => Promise.resolve(open));
+      const read = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectRead(root(read).querySelector('cp-recipe-open-suggestions')!, 'Looking for suggestions waiting for you…');
+    });
+
+    it('Compare with before: draws lines while it compares, then keeps its status emptied', async () => {
+      recipes.getVersionHistory.and.returnValue(never());
+      const fixture = await render(RecipeImproveCompareStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectLoading(root(fixture), 'Comparing your recipe with how it was…');
+
+      recipes.getVersionHistory.and.resolveTo({ status: 'found', page: { items: [version(3, '2026-10-01T09:00:00Z')], nextCursor: null } });
+      const read = await render(RecipeImproveCompareStepComponent, { run: improveRun(), workspaceSlug: SLUG });
+      expectRead(root(read), 'Comparing your recipe with how it was…');
+    });
+  });
+
   describe('Choose the recipe', () => {
     async function choose(run = improveRun({ recipe: false })) {
       const fixture = await render(RecipeChooseStepComponent, { run, workspaceSlug: SLUG });

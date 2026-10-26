@@ -70,3 +70,10 @@
 .state {
   margin: 0 0 var(--cp-space-3);
 }
+
+/* The form while it loads: its parts as far apart as the real ones. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-8);
+  max-width: var(--cp-measure-field);
+}

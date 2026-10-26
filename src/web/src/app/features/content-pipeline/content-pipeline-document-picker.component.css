@@ -20,3 +20,8 @@
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+
+/* The library arriving, at the width its search field will take. */
+.arriving {
+  max-width: var(--cp-measure-field);
+}

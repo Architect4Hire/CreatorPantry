@@ -31,9 +31,17 @@
   <cp-notice tone="warning" role="status">You’re offline. Your day is as it was last read; changes can be made when you’re back.</cp-notice>
 }
 
+<!-- Always present, and outside the busy cards (APP-003, AU.7): one place the page says the day is on its way. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Reading your day…' : '' }}</p>
+
 @switch (state().status) {
   @case ('loading') {
-    <cp-card><p class="plain" role="status">Reading your day…</p></cp-card>
+    <!-- The day as it will arrive: what to do next first, then a group of the day. Neither is featured: what
+         matters most is not known until the day is read. -->
+    <div class="loading" aria-busy="true">
+      <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+    </div>
   }
   @case ('no_time_zone') {
     <cp-topic-card heading="Your day needs a time zone" headingId="my-day-heading-zone">

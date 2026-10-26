@@ -91,6 +91,8 @@ let listDocuments: jasmine.Spy;
 let getDetail: jasmine.Spy;
 let listVersions: jasmine.Spy;
 let getActive: jasmine.Spy;
+/** The memberships as read: ready by default, so a spec that needs them still on their way sets them so. */
+let memberships: ReturnType<typeof signal<Record<string, unknown>>>;
 
 function configure(): void {
   port = new WorkflowStepPort();
@@ -102,6 +104,10 @@ function configure(): void {
   getDetail = jasmine.createSpy('getDetail').and.resolveTo({ status: 'ok', guide: guide() });
   getActive = jasmine.createSpy('getActive').and.resolveTo({ status: 'none' });
   listVersions = jasmine.createSpy('listVersions').and.resolveTo({ status: 'ok', page: { items: [versionRow(2, 'Approved'), versionRow(1, 'Approved')], nextCursor: null } });
+  memberships = signal<Record<string, unknown>>({
+    status: 'ready',
+    memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+  });
 
   TestBed.configureTestingModule({
     providers: [
@@ -116,10 +122,7 @@ function configure(): void {
       {
         provide: WorkspaceMembershipService,
         useValue: {
-          state: signal({
-            status: 'ready',
-            memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
-          }),
+          state: memberships,
           ensureLoaded: () => Promise.resolve(),
         },
       },
@@ -375,6 +378,50 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
 
       expect(text(fixture)).toContain('is switched on. Continue to finish.');
       expect(port.registration()!.ready!()).toBeTrue();
+    });
+  });
+
+  // AU.7: what is on its way is drawn as lines and said once, from a status that is always there.
+  describe('while something is read', () => {
+    const never = () => new Promise<never>(() => undefined);
+    const statuses = <T>(fixture: ComponentFixture<T>) =>
+      Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
+    const shown = <T>(fixture: ComponentFixture<T>, sentence: string) =>
+      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence));
+    const busy = <T>(fixture: ComponentFixture<T>) => root(fixture).querySelector('[aria-busy="true"] cp-skeleton');
+
+    const cases: readonly [string, () => void, () => Promise<ComponentFixture<unknown>>, string][] = [
+      ['finding the setup', () => getSession.and.returnValue(never()), () => render(BrandVoiceSetupStepComponent, { run: voiceRun({ guide: false }), workspaceSlug: SLUG }), 'Finding your setup…'],
+      ['counting the examples', () => listDocuments.and.returnValue(never()), () => render(BrandVoiceExamplesStepComponent, { run: voiceRun(), workspaceSlug: SLUG }), 'Counting your examples…'],
+      ['reading the guide to review', () => getDetail.and.returnValue(never()), () => render(BrandVoiceGuideStepComponent, { run: voiceRun(), workspaceSlug: SLUG, mode: 'review' }), 'Reading your guide…'],
+      ['reading the guide to switch on', () => getDetail.and.returnValue(never()), () => render(BrandVoiceSwitchOnStepComponent, { run: voiceRun(), workspaceSlug: SLUG }), 'Reading your guide…'],
+    ];
+
+    for (const [what, hold, mount, sentence] of cases) {
+      it(`draws lines while ${what}, says it once, and empties the status once it is read`, async () => {
+        hold();
+        const held = await mount();
+        // The step's own status; the library's upload dialog the examples step holds may keep one of its own.
+        expect(statuses(held)).toContain(sentence);
+        expect(busy(held)).not.toBeNull();
+        expect(shown(held, sentence)).toBeFalse();
+        held.destroy();
+
+        TestBed.resetTestingModule();
+        configure();
+        const read = await mount();
+        expect(statuses(read).every((each) => each === '')).toBeTrue();
+        expect(busy(read)).toBeNull();
+      });
+    }
+
+    it('draws a line where the switch will be while who the creator is here is read, said by the step’s one status', async () => {
+      memberships.set({ status: 'loading' });
+      const fixture = await render(BrandVoiceSwitchOnStepComponent, { run: voiceRun(), workspaceSlug: SLUG });
+
+      expect(statuses(fixture)).toEqual(['Checking who can switch it on…']);
+      expect(busy(fixture)).not.toBeNull();
+      expect(shown(fixture, 'Checking who can switch it on…')).toBeFalse();
     });
   });
 });

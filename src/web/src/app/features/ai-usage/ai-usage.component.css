@@ -39,10 +39,16 @@
   line-height: var(--cp-leading-normal);
 }
 
-.loading,
 .failed p {
   margin: 0;
   color: var(--cp-text-muted);
+}
+
+/* The page while it loads: its parts at the page's own spacing. */
+.loading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
 }
 
 .failed {

@@ -11,9 +11,13 @@
     </p>
   }
 
+  <!-- Always present, so it is there before the catalogue is read and its words change rather than arrive (AU.7). -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ catalogue().status === 'loading' ? 'Loading the unit catalogue…' : '' }}</p>
+
   @switch (catalogue().status) {
     @case ('loading') {
-      <p class="calculation-status" role="status" aria-live="polite">Loading the unit catalogue…</p>
+      <!-- The form as it will arrive: a few fields' worth of lines. -->
+      <div class="calculation-loading" aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
     }
     @case ('unavailable') {
       <p class="calculation-problem" role="alert">

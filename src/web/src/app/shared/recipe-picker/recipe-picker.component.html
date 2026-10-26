@@ -26,9 +26,12 @@
 
   @if (reference(); as link) {
     <div class="linked">
+      <!-- Always present, outside the busy lines (AU.7): the linked recipe arriving is said once. -->
+      <p class="cp-sr-only" role="status">{{ linked().status === 'loading' ? 'Reading the linked recipe…' : '' }}</p>
       @switch (linked().status) {
         @case ('loading') {
-          <p class="cp-muted" role="status">Reading the linked recipe…</p>
+          <!-- The linked recipe's summary as it will arrive. -->
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
         }
         @case ('unavailable') {
           <cp-notice tone="warning" role="status">

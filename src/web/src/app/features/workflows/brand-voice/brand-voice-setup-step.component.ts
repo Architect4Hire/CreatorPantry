@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { BRAND_SETUP_STEPS, BrandSetupSession, parseBrandSetupDraft, stepIndexOf } from '../../../models/brand-setup.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
@@ -26,12 +26,15 @@ type Read =
 @Component({
   selector: 'cp-brand-voice-setup-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ read().status === 'loading' ? 'Finding your setup…' : '' }}</p>
     @switch (read().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Finding your setup…</p>
+        <!-- Where the setup stands, arriving as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('unavailable') {
         <cp-notice tone="error" role="alert">

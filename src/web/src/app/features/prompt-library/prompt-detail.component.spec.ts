@@ -214,6 +214,32 @@ describe('PromptDetailComponent', () => {
 
     expect(getSpy).toHaveBeenCalledOnceWith(SLUG, 'p1');
     expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading the prompt');
+
+    // Said once, offscreen; what shows is the page arriving, not a sentence (AU.6.3).
+    expect(root().querySelector('[role="status"]')?.classList).toContain('cp-sr-only');
+    const busy = root().querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(2);
+    expect(busy.textContent?.trim()).toBe('');
+  });
+
+  it('marks a prompt a model had a hand in with the one generated mark, and one the creator wrote by its source', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
+    await create();
+
+    const badges = root().querySelector('cp-page-head')!;
+    expect(badges.querySelector('cp-generated-label')?.textContent).toContain('Drafted by AI');
+    expect(badges.querySelector('cp-badge[data-tone="purple"]')).toBeNull();
+    // The words for where it came from stay in the facts.
+    expect(root().querySelector('dl[cpFacts]')?.textContent).toContain('Written for you');
+  });
+
+  it('gives a prompt the creator wrote no generated mark', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt({ source: 'Manual', generatedText: null })));
+    await create();
+
+    const head = root().querySelector('cp-page-head')!;
+    expect(head.querySelector('cp-generated-label')).toBeNull();
+    expect(head.textContent).toContain('Written by you');
   });
 
   it('shows the whole prompt with its line breaks, under its own name', async () => {
@@ -489,6 +515,24 @@ describe('PromptDetailComponent', () => {
     expect(link('Download as text')).toBeTruthy();
     expect(hasButton('Use in Image Studio')).toBeFalse();
     expect(text()).toContain('view-only access');
+  });
+
+  it('holds the reuse button’s place while the memberships are read, said from a status that is always there (AU.7)', async () => {
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt()));
+    await create({ state: { status: 'loading' } });
+
+    const card = root().querySelector('[aria-labelledby="prompt-reuse-heading"]') as HTMLElement;
+    const status = card.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent?.trim()).toBe('Checking what you can do here…');
+    expect(card.querySelector('.checking[aria-busy="true"] cp-skeleton')).not.toBeNull();
+
+    memberships.set({ status: 'ready', memberships: [member('w1', SLUG, 'm1', 'Editor')] });
+    harness.detectChanges();
+
+    // The same region, now with nothing to say.
+    expect(card.querySelector('p.cp-sr-only[role="status"]')).toBe(status);
+    expect(status.textContent?.trim()).toBe('');
+    expect(card.querySelector('.checking')).toBeNull();
   });
 
   it('offers a retry instead of a guess when memberships could not be read', async () => {

@@ -16,9 +16,16 @@
   </ng-container>
 </cp-page-head>
 
+<!-- Always present, and outside the busy cards (APP-003): one place the page says it is still loading. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading the card…' : '' }}</p>
+
 @switch (state().status) {
   @case ('loading') {
-    <cp-card><p class="plain" role="status">Loading the card…</p></cp-card>
+    <!-- The card's page as it will arrive: what it is, then what it holds (AU.7). -->
+    <div class="loading" aria-busy="true">
+      <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+    </div>
   }
   @case ('not_found') {
     <cp-card>

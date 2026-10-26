@@ -8,6 +8,7 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -55,6 +56,7 @@ const NOT_ALLOWED = 'Only an Owner of this workspace can change this.';
     CpFormSectionComponent,
     CpNoticeComponent,
     RouterLink,
+    CpSkeletonComponent,
     CpTopicCardComponent,
     WorkspaceAiFeaturesComponent,
   ],

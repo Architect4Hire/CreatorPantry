@@ -1,7 +1,7 @@
 import { Component, Type, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { NEVER, of } from 'rxjs';
 
 import { WorkspaceRole } from '../../../models/auth.models';
 import { ContentCard, ContentCardDetail } from '../../../models/content-board.models';
@@ -399,5 +399,41 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
       expect(text(fixture)).toContain('Nothing has changed because of that');
       expect(port.registration()!.ready!()).toBe(false);
     });
+  });
+
+  // AU.7: what is on its way is drawn as lines and said once, from a status that is always there.
+  describe('while something is read', () => {
+    const root = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
+    const statuses = (fixture: ComponentFixture<unknown>) =>
+      Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
+    const chosen = () => publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' }]);
+    const booked = () =>
+      publishRun([
+        { kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' },
+        { kind: 'PublishingRecord', resourceId: 'rec-1', stepKey: 'schedule' },
+      ]);
+
+    const cases: readonly [string, Type<unknown>, () => WorkflowRun, () => jasmine.Spy, string][] = [
+      ['the board', PublishChooseStepComponent, () => publishRun(), () => list, 'Reading your board…'],
+      ['the card', PublishCheckStepComponent, chosen, () => cardDetail, 'Reading your card…'],
+      ['what happened', PublishConfirmStepComponent, booked, () => readRecord, 'Reading what happened…'],
+    ];
+
+    for (const [what, step, run, spy, sentence] of cases) {
+      it(`draws lines while ${what} is read, says it once, and empties the status once it is`, async () => {
+        spy().and.returnValue(NEVER);
+        const held = await render(step, run());
+        expect(statuses(held)).toEqual([sentence]);
+        expect(root(held).querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+        expect(Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence))).toBeFalse();
+        held.destroy();
+
+        TestBed.resetTestingModule();
+        configure();
+        const read = await render(step, run());
+        expect(statuses(read)).toEqual(['']);
+        expect(root(read).querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
+      });
+    }
   });
 });

@@ -1096,6 +1096,19 @@ describe('AiProposalPanelComponent', () => {
     expect(checkboxes().length).toBe(0);
     expect(host.textContent).toContain('Checking what you can do');
     expect(host.textContent).not.toContain('not decide about them');
+
+    // Said once, offscreen, from a status that stays; a line where the actions will be (AU.7).
+    const status = Array.from(host.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+      each.textContent?.includes('Checking what you can do'),
+    ) as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(host.querySelector('.actions-arriving[aria-busy="true"] cp-skeleton')).not.toBeNull();
+
+    memberships.state.set({ status: 'ready', memberships: [] });
+    fixture.detectChanges();
+    expect(status.isConnected).toBeTrue();
+    expect(status.textContent).toBe('');
+    expect(host.querySelector('.actions-arriving')).toBeNull();
   }));
 
   it('offers a reader no way to decide, and says why', fakeAsync(() => {

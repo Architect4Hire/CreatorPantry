@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Observable, of } from 'rxjs';
+import { NEVER, Observable, of } from 'rxjs';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import { PublishingProfiles, PublishingRecord } from '../../models/publishing.models';
@@ -62,11 +62,13 @@ class FakePublishing {
   cancelOutcome: CancelPublishingOutcome = { status: 'answered', record: record({ status: 'Cancelled' }) };
   readonly cancelled: string[] = [];
   reads = 0;
+  /** Set to leave the read unanswered, so the card stays loading. */
+  hold = false;
 
   forCard(): Observable<PublishingRecordsOutcome> {
     this.reads += 1;
 
-    return of(this.records);
+    return this.hold ? NEVER : of(this.records);
   }
 
   profiles(): Observable<PublishingProfilesOutcome> {
@@ -141,6 +143,24 @@ describe('ContentCardPublishingComponent', () => {
   });
 
   // ---- Reading ----
+
+  // AU.7: what has been scheduled arrives as lines, said once from a status that is always there.
+  it('draws what has been scheduled arriving while it is read', async () => {
+    server.hold = true;
+    await mount();
+
+    const status = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Reading what has been scheduled…');
+    expect(root().querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+    expect(text()).not.toContain('Nothing has been scheduled');
+  });
+
+  it('empties that status once what has been scheduled is read', async () => {
+    await mount();
+
+    expect(root().querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(root().querySelector('cp-skeleton')).toBeNull();
+  });
 
   it('says nothing is scheduled for a card with no publications, and offers the way to schedule one', async () => {
     await mount();

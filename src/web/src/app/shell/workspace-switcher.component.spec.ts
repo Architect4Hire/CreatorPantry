@@ -32,6 +32,16 @@ describe('WorkspaceSwitcherComponent', () => {
   it('shows a loading status while memberships load', async () => {
     const fixture = await createFixture({ status: 'loading' });
     expect(fixture.nativeElement.querySelector('[role="status"]')?.textContent).toContain('Loading');
+
+    // Said once, offscreen; what shows is a line the switcher's width (AU.7).
+    expect(fixture.nativeElement.querySelector('[role="status"]')?.classList).toContain('cp-sr-only');
+    expect(fixture.nativeElement.querySelector('.loading[aria-busy="true"] cp-skeleton')).not.toBeNull();
+  });
+
+  it('keeps that status, emptied, once the memberships are read', async () => {
+    const fixture = await createFixture({ status: 'ready', memberships: [] });
+    expect(fixture.nativeElement.querySelector('.cp-sr-only[role="status"]')?.textContent).toBe('');
+    expect(fixture.nativeElement.querySelector('cp-skeleton')).toBeNull();
   });
 
   it('shows an error status when memberships fail to load', async () => {
