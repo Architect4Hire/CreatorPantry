@@ -1,10 +1,9 @@
 <div class="toolbar">
   <button cpButton variant="secondary" type="button" (click)="openPasteDialog()">Paste ingredients to parse</button>
-  <!-- Ahead of the group button: grouping is opt-in, and the way to a plain list should not be the one a creator
-       has to discover under an empty state. Only while the list is plain. Once it has groups, each one has its own
-       "Add ingredient" beneath its lines, which says which group the new line goes to; a second, up here, could only
-       guess. -->
-  @if (!showGroups()) {
+  <!-- Only while there is nothing to add beneath. Once the list has a line, "Add ingredient" sits under its last
+       one, where the creator who has just filled that line already is: up here, every new line meant a trip back
+       to the top of a list that only gets longer. Ahead of the group button, because grouping is opt-in. -->
+  @if (groups().length === 0) {
     <button cpButton variant="secondary" type="button" (click)="addRow()">Add ingredient</button>
   }
   <button cpButton variant="secondary" type="button" (click)="addGroup()">Add ingredient group</button>
@@ -273,9 +272,9 @@
         }
       </ol>
 
-      @if (showGroups()) {
-        <button cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
-      }
+      <!-- Under the last line of every group, grouped or not: grouped, it also says which group the new line goes
+           to, which a single button at the top could only guess. -->
+      <button class="add-line" cpButton variant="secondary" type="button" (click)="addRow(group.key)">Add ingredient</button>
     </section>
   }
     </div>

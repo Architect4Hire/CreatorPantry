@@ -80,6 +80,11 @@
   scroll-margin-top: var(--cp-sticky-below-bars);
 }
 
+/* Its own width, not the group's: a full-width bar under the lines would read as a divider, not a button. */
+.add-line {
+  justify-self: start;
+}
+
 .group-header {
   display: flex;
   align-items: flex-end;
