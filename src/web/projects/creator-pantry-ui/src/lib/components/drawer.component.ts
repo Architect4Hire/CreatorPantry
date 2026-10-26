@@ -249,6 +249,11 @@ export class CpDrawerComponent {
       const doc = panel.ownerDocument;
       const surfaces = [scrim, panel];
       const restoreFocus = cpCaptureFocus(doc);
+      // Moved to <body>, the panel leaves the page's frame and the tone the frame sets, so it takes that tone
+      // with it: a drawer opened in a toned tool is still in that tool. Read before the move, while it can see.
+      const tone = panel.closest('[data-cp-tone]')?.getAttribute('data-cp-tone');
+      if (tone) panel.setAttribute('data-cp-tone', tone);
+      else panel.removeAttribute('data-cp-tone');
       doc.body.append(scrim, panel);
       this.moved = surfaces;
       const releaseInert = cpInertOthers(doc, surfaces);

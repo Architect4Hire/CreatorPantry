@@ -10,9 +10,14 @@
   --cp-text-faint: #6d645a;
   --cp-border: #ebe3d5;
   --cp-border-strong: #d5c9b4;
-  /* The edge of a control a creator types into or picks from. Hairlines are for surfaces; a field's boundary
-     has to be found (WCAG 1.4.11, 3:1 against what it sits on), so it is a step darker than any border. */
-  --cp-border-control: #998e7f;
+  /* The edge of a control a creator types into or picks from: a field, a select, a checkbox's box, a radio's
+     mark, a secondary button. Hairlines are for surfaces; a control's boundary has to be found (WCAG 1.4.11, 3:1
+     against what it sits on), so it is a step darker than any border. 3.32:1 at worst, on --cp-surface-raised;
+     the #998e7f before AU.2.2 was 2.72:1 there and 2.81:1 on --cp-surface-subtle. */
+  --cp-border-control: #8a7f70;
+  /* The edge of a sheet: cp-card, cp-dialog, cp-lightbox. A hairline here, where a white sheet already stands
+     off the paper page; stronger in the dark theme, where the sheet's fill barely does. */
+  --cp-card-edge: var(--cp-border);
   --cp-field-bg: #ffffff;
   --cp-primary: #1f7a44;
   --cp-primary-hover: #17633a;
@@ -27,6 +32,35 @@
   --cp-purple-soft: #f0e6fb;
   --cp-blue: #1f68b0;
   --cp-blue-soft: #e2eefb;
+  /* Each accent as text, the way --cp-primary-text is primary as text. Three are the accent itself; orange is
+     4.25:1 on --cp-surface-raised and 4.37:1 on --cp-surface-subtle in this theme, so its text is a step darker
+     (4.87:1 at worst). The fill stays the brighter carrot. */
+  --cp-pink-text: var(--cp-pink);
+  --cp-orange-text: #a84a0a;
+  --cp-purple-text: var(--cp-purple);
+  --cp-blue-text: var(--cp-blue);
+  /* The tool tone (AU.1, D1): what a toned route's parts draw with. With no tone set it is the primary, so on the
+     page a part written against --cp-tone* looks as it does today; [data-cp-tone] at the end of the file swaps it.
+     They are computed here, where they are declared, so a scope below that re-declared --cp-primary-* would not
+     reach them; nothing does since AU.2.2 took the parchment re-declarations out of cp-card. */
+  --cp-tone: var(--cp-primary);
+  --cp-tone-soft: var(--cp-primary-soft);
+  --cp-tone-text: var(--cp-primary-text);
+  --cp-tone-on: var(--cp-primary-ink);
+  /* The rule under a page head (AU.2.5, D3): the neutral hairline on an untoned page, a 2px line in the tool's
+     colour on a toned one. Unlike the four above it is not the primary when untoned — evergreen under every
+     untoned title would put the action colour where no action is. */
+  --cp-tone-rule: var(--cp-border);
+  --cp-tone-rule-width: 1px;
+  /* A media card's panel where it has no picture (AU.2.6), and the drawing on it: the tool's tint and colour on a
+     toned page, and like the rule, neutral rather than the primary's on an untoned one. */
+  --cp-tone-panel: var(--cp-surface-subtle);
+  --cp-tone-panel-ink: var(--cp-text-muted);
+  /* A skeleton's resting block and the band that sweeps across it. Decorative (the host is aria-hidden), so it
+     is held to being seen on --cp-bg and --cp-surface rather than to a text ratio. It is faint on
+     --cp-surface-subtle and -raised (about 1.1:1 in this theme), so a skeleton is drawn on the page or a sheet. */
+  --cp-skeleton-base: #ece4d6;
+  --cp-skeleton-shine: #f7f2ea;
   --cp-danger: #b3261e;
   /* The soft counterpart every other accent already has. Five places hand-rolled this same color-mix
      before it existed; a semantic intent that is missing belongs in both themes, not in each caller. */
@@ -49,19 +83,25 @@
   --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
 }
 
+/* The dark theme is charcoal (AU.2.2, owner's choice, 2026-10-25): neutral greys where it was a green-black, so
+   the fruit accents, the evergreen action colour and the food photographs carry every bit of colour on the page.
+   Only the neutrals are grey; every accent and its tint is unchanged. Each text token clears 4.5:1 on every
+   surface here (faint 4.69:1 at worst, on --cp-surface-raised) and the control edge 3:1 on each (3.18:1 at worst,
+   on raised). A sheet's fill stands 1.14:1 off the page, so its edge (--cp-card-edge, 1.93:1) draws the sheet. */
 [data-cp-theme='dark'] {
   color-scheme: dark;
-  --cp-bg: #071512;
-  --cp-surface: #0d1f1a;
-  --cp-surface-subtle: #122720;
-  --cp-surface-raised: #17332a;
-  --cp-text: #f3f6f1;
-  --cp-text-muted: #a9b6ad;
-  --cp-text-faint: #7c8b81;
-  --cp-border: #24392f;
-  --cp-border-strong: #33493d;
-  --cp-border-control: #5f7468;
-  --cp-field-bg: #0a1a16;
+  --cp-bg: #202020;
+  --cp-surface: #2a2a2a;
+  --cp-surface-subtle: #303030;
+  --cp-surface-raised: #353535;
+  --cp-text: #f2f2f0;
+  --cp-text-muted: #b4b4b0;
+  --cp-text-faint: #a3a39f;
+  --cp-border: #3a3a3a;
+  --cp-border-strong: #4d4d4d;
+  --cp-border-control: #82827e;
+  --cp-card-edge: var(--cp-border-strong);
+  --cp-field-bg: #1b1b1b;
   --cp-primary: #48d593;
   --cp-primary-hover: #72e7ad;
   --cp-primary-ink: #062417;
@@ -75,8 +115,23 @@
   --cp-purple-soft: #2e2440;
   --cp-blue: #6fb4f5;
   --cp-blue-soft: #17304a;
+  --cp-pink-text: var(--cp-pink);
+  --cp-orange-text: var(--cp-orange);
+  --cp-purple-text: var(--cp-purple);
+  --cp-blue-text: var(--cp-blue);
+  --cp-tone: var(--cp-primary);
+  --cp-tone-soft: var(--cp-primary-soft);
+  --cp-tone-text: var(--cp-primary-text);
+  --cp-tone-on: var(--cp-primary-ink);
+  --cp-tone-rule: var(--cp-border);
+  --cp-tone-rule-width: 1px;
+  --cp-tone-panel: var(--cp-surface-subtle);
+  --cp-tone-panel-ink: var(--cp-text-muted);
+  --cp-skeleton-base: #383838;
+  --cp-skeleton-shine: #444444;
   --cp-danger: #ff7a68;
-  --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
+  /* 12% here, not 14%: on charcoal the 14% tint put the danger text on it at 4.49:1 (AU.2.2). */
+  --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 12%, var(--cp-surface));
   --cp-ink-on-accent: #0b120f;
   --cp-ink-on-scrim: #ffffff;
   --cp-scrim: rgba(0,0,0,.66);
@@ -103,7 +158,8 @@
     --cp-text-faint: #6d645a;
     --cp-border: #ebe3d5;
     --cp-border-strong: #d5c9b4;
-    --cp-border-control: #998e7f;
+    --cp-border-control: #8a7f70;
+    --cp-card-edge: var(--cp-border);
     --cp-field-bg: #ffffff;
     --cp-primary: #1f7a44;
     --cp-primary-hover: #17633a;
@@ -118,6 +174,20 @@
     --cp-purple-soft: #f0e6fb;
     --cp-blue: #1f68b0;
     --cp-blue-soft: #e2eefb;
+    --cp-pink-text: var(--cp-pink);
+    --cp-orange-text: #a84a0a;
+    --cp-purple-text: var(--cp-purple);
+    --cp-blue-text: var(--cp-blue);
+    --cp-tone: var(--cp-primary);
+    --cp-tone-soft: var(--cp-primary-soft);
+    --cp-tone-text: var(--cp-primary-text);
+    --cp-tone-on: var(--cp-primary-ink);
+    --cp-tone-rule: var(--cp-border);
+    --cp-tone-rule-width: 1px;
+    --cp-tone-panel: var(--cp-surface-subtle);
+    --cp-tone-panel-ink: var(--cp-text-muted);
+    --cp-skeleton-base: #ece4d6;
+    --cp-skeleton-shine: #f7f2ea;
     --cp-danger: #b3261e;
     --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
     --cp-ink-on-accent: #ffffff;
@@ -128,4 +198,57 @@
     --cp-shadow-md: 0 2px 4px rgba(31,27,22,.05), 0 12px 28px rgba(31,27,22,.08);
     --cp-shadow-lg: 0 4px 10px rgba(31,27,22,.05), 0 28px 60px rgba(31,27,22,.13);
   }
+}
+
+/* A tool's tone (AU.1, D1). The route sets data-cp-tone on the page frame inside <main> (AU.2.1), and every part
+   under it resolves --cp-tone* from here. Each line names theme tokens rather than colours, so it resolves to
+   whichever theme — or print — is in force where it is set: one rule per tone serves both themes. --cp-tone-text
+   clears 4.5:1 on --cp-bg, every surface, --cp-field-bg and its own soft fill, and --cp-tone-on clears 4.5:1 on
+   --cp-tone, in both themes; design-system.spec.ts measures every pair.
+   Last in the file, after print, so an element carrying both data-cp-theme and data-cp-tone keeps its tone on
+   paper. A data-cp-theme set *inside* a toned frame starts again from that theme's defaults, which are untoned.
+   Inside a cp-card the same pairs hold, because a card re-declares nothing (AU.2.2); design-system.spec.ts,
+   "inside a card", measures them in every tone and both themes. */
+[data-cp-tone='purple'] {
+  --cp-tone: var(--cp-purple);
+  --cp-tone-soft: var(--cp-purple-soft);
+  --cp-tone-text: var(--cp-purple-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+  --cp-tone-rule: var(--cp-tone);
+  --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
+}
+
+[data-cp-tone='pink'] {
+  --cp-tone: var(--cp-pink);
+  --cp-tone-soft: var(--cp-pink-soft);
+  --cp-tone-text: var(--cp-pink-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+  --cp-tone-rule: var(--cp-tone);
+  --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
+}
+
+[data-cp-tone='blue'] {
+  --cp-tone: var(--cp-blue);
+  --cp-tone-soft: var(--cp-blue-soft);
+  --cp-tone-text: var(--cp-blue-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+  --cp-tone-rule: var(--cp-tone);
+  --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
+}
+
+[data-cp-tone='orange'] {
+  --cp-tone: var(--cp-orange);
+  --cp-tone-soft: var(--cp-orange-soft);
+  --cp-tone-text: var(--cp-orange-text);
+  --cp-tone-on: var(--cp-ink-on-accent);
+  --cp-tone-rule: var(--cp-tone);
+  --cp-tone-rule-width: 2px;
+  --cp-tone-panel: var(--cp-tone-soft);
+  --cp-tone-panel-ink: var(--cp-tone-text);
 }

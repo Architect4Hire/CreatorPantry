@@ -3,6 +3,7 @@
 // nothing would pass every page for ever.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -14,6 +15,8 @@ import {
   pageTemplateViolations,
   publicStylesheetViolations,
   publicTemplateViolations,
+  featureTemplateViolations,
+  scriptViolations,
   stylesheetViolations,
   templateViolations,
 } from './check-page-contract.mjs';
@@ -48,10 +51,15 @@ test('page-head: a routed page opens with cp-page-head and draws no header', () 
 });
 
 test('page-head: no stylesheet draws a page header or a back link', () => {
-  for (const name of ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb']) {
+  // Written out rather than read from the script, so dropping a name from the script fails here.
+  for (const name of ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb', 'page-icon', 'head-icon', 'title-icon', 'head-media', 'page-media', 'title-media', 'masthead', 'title-row', 'head-picture', 'hero-image']) {
     assert.deepEqual(rules(stylesheetViolations(`.${name} { margin: 0; }`)), ['page-head'], name);
   }
   assert.deepEqual(stylesheetViolations('.back-note, .background { margin: 0; }'), []);
+  // A feature styling a slot of the head redraws the head.
+  assert.deepEqual(rules(stylesheetViolations('[cpPageHeadMedia] { border-radius: 0; } [cpPageHeadIcon] svg { width: 2rem; }')), ['page-head', 'page-head']);
+  // The common words stay free: a card's own icon or a picture panel is not the head's.
+  assert.deepEqual(stylesheetViolations('.icon { width: 1rem; } .media { aspect-ratio: 1; } .thumbnail { width: 4rem; }'), []);
 });
 
 test('card-grid: no stylesheet lays out its own grid of cards', () => {
@@ -72,11 +80,93 @@ test('facts, stepper, chip and toolbar-field: the library owns each', () => {
   assert.deepEqual(stylesheetViolations('.steps-disclosure summary { font-weight: 700; } .chip-note { margin: 0; }'), []);
 });
 
+test('stat-tile: a feature draws no figure tile of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.stat { font-size: 3rem; } .kpi-value { margin: 0; } .figure-tile { padding: 1rem; }')), ['stat-tile', 'stat-tile']);
+  // A table's figure cell and a statistic named in prose are not tiles.
+  assert.deepEqual(stylesheetViolations('.figure { font-variant-numeric: tabular-nums; } .status { color: red; }'), []);
+});
+
+test('option-card: a feature draws no option or concept card of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.concept-title { font-weight: 700; } .option-card { padding: 1rem; }')), ['option-card', 'option-card']);
+  // A list of concepts is a grid the card-grid rule already owns, and an optional field is not an option card.
+  assert.deepEqual(stylesheetViolations('.concept-list { gap: 1rem; } .optional { color: red; }'), []);
+});
+
+test('enter: a feature animates no entrance of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.result { animation: cp-enter 200ms; }')), ['enter']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes cp-enter { from { opacity: 0; } }')), ['enter']);
+  assert.deepEqual(rules(stylesheetViolations('.row { animation-duration: var(--cp-duration-enter); animation-delay: var(--cp-enter-stagger); translate: 0 var(--cp-enter-distance); }')), ['enter', 'enter', 'enter']);
+  assert.deepEqual(rules(stylesheetViolations('[data-cp-enter] .row { opacity: 1; }')), ['enter']);
+  assert.deepEqual(rules(templateViolations('<div data-cp-enter></div>')), ['enter']);
+  assert.deepEqual(rules(scriptViolations("el.setAttribute('data-cp-enter', '');")), ['enter']);
+  // A page may ask for the entrance; what it may not do is draw one. Other motion is not this rule's.
+  assert.deepEqual(stylesheetViolations('.panel { animation: cp-panel-in var(--cp-duration-normal) var(--cp-ease); }'), []);
+  assert.deepEqual(templateViolations('<ul [cpEnter]="ready()"></ul>'), []);
+  assert.deepEqual(stylesheetViolations('/* --cp-enter-stagger is the library\u2019s */ .row { gap: 1rem; }'), []);
+});
+
 test('toolbar-field: a search input sits in cp-search-field, or in cp-field when it has a visible label', () => {
   assert.deepEqual(rules(templateViolations('<div class="search"><input type="search" /></div>')), ['toolbar-field']);
   assert.deepEqual(rules(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>\n<input type="search" />')), ['toolbar-field']);
   assert.deepEqual(templateViolations('<cp-search-field label="x"><input type="search" /></cp-search-field>'), []);
   assert.deepEqual(templateViolations('<cp-field label="Search"><input type="search" /></cp-field>'), []);
+});
+
+test('tone: a feature neither sets a tone nor declares the tone tokens; it may read them', () => {
+  assert.deepEqual(rules(templateViolations('<section data-cp-tone="pink"></section>')), ['tone']);
+  assert.deepEqual(rules(templateViolations('<div [attr.data-cp-tone]="tone()"></div>')), ['tone']);
+  assert.deepEqual(rules(stylesheetViolations(':host { --cp-tone: var(--cp-pink); --cp-tone-text: red; }')), ['tone', 'tone']);
+  assert.deepEqual(rules(stylesheetViolations('[data-cp-tone="pink"] .title { color: red; }')), ['tone']);
+  assert.deepEqual(stylesheetViolations('.title { color: var(--cp-tone-text); border-color: var(--cp-tone); }'), []);
+  assert.deepEqual(templateViolations('<p class="tone-note">A tone of voice.</p>'), []);
+  assert.deepEqual(rules(templateViolations('<div style="--cp-tone: red"></div><div [style.--cp-tone-text]="x"></div>')), ['tone', 'tone']);
+  assert.deepEqual(templateViolations('<div style="color: var(--cp-tone-text)"></div>'), []);
+});
+
+test('tone: nor sets one from code; a comment saying so, and an inline template read elsewhere, are not counted twice', () => {
+  assert.deepEqual(rules(scriptViolations("@Component({ host: { '[attr.data-cp-tone]': 'tone()' } })")), ['tone']);
+  assert.deepEqual(rules(scriptViolations("el.setAttribute('data-cp-tone', 'pink');")), ['tone']);
+  assert.deepEqual(rules(scriptViolations("el.style.setProperty('--cp-tone', 'red');")), ['tone']);
+  assert.deepEqual(scriptViolations("// the frame sets data-cp-tone\n/* and data-cp-tone here */ const x = getComputedStyle(el).getPropertyValue('--cp-tone');"), []);
+  assert.deepEqual(scriptViolations('@Component({ template: `<div [attr.data-cp-tone]="t"></div>`, })'), []);
+});
+
+// The shell's exemption covers its whole template, so this holds it to the one binding it exists for: on the
+// frame inside <main>, and nowhere the nav or the top bar could pick it up.
+test('tone: the shell sets the tone once, on the page frame', () => {
+  const shell = readFileSync(new URL('../src/app/shell/app-shell.component.html', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const uses = shell.split('\n').filter((line) => line.includes('data-cp-tone'));
+  assert.equal(uses.length, 1, uses.join('\n'));
+  assert.match(uses[0], /class="page-frame"[^>]*\[attr\.data-cp-tone\]="currentPageTone\(\)"/);
+});
+
+test('generated: a template writes no label for generated output of its own', () => {
+  const labels = '<cp-badge tone="purple">Written for you</cp-badge><span>AI generated</span><b> Generated </b><i>Drafted by AI</i><span>Generated draft</span>' +
+    '<cp-badge>AI suggested</cp-badge><span>AI Generated</span><em>Written For You</em>';
+  assert.deepEqual(rules(templateViolations(labels)), Array(8).fill('generated'));
+  // The library's label, a sentence that mentions one, a heading in the creator's terms and a kind bound from code.
+  const fine = '<cp-generated-label kind="picture" /><p>These words were written for you from the recipe.</p>' +
+    '<h3>What was written for you</h3><cp-badge>{{ kindLabel() }}</cp-badge><!-- <b>Generated</b> -->';
+  assert.deepEqual(templateViolations(fine), []);
+});
+
+test('illustration: a feature draws no empty-state art of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.illustration { width: 7rem; } .empty-art svg { stroke: red; }')), ['illustration', 'illustration']);
+  assert.deepEqual(stylesheetViolations('.illustration-credit { font-size: 12px; } .art-direction { margin: 0; }'), []);
+  // A card with no picture takes cp-media-card's panel (AU.2.6), by class name or by its tokens.
+  assert.deepEqual(rules(stylesheetViolations('.no-picture { aspect-ratio: 4 / 3; } .tile { background: var(--cp-tone-panel); }')), ['illustration', 'illustration']);
+  assert.deepEqual(stylesheetViolations('.panel { padding: 1rem; } .placeholder { color: var(--cp-tone-text); }'), []);
+  assert.deepEqual(rules(featureTemplateViolations('<div><svg viewBox="0 0 10 10"><path d="M0 0"/></svg></div>')), ['illustration']);
+  assert.deepEqual(featureTemplateViolations('<!-- an <svg> once lived here --><cp-illustration name="recipe" /><img src="x.png" alt="">'), []);
+});
+
+test('skeleton: a feature draws no placeholder or shimmer of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.skeleton { height: 1rem; } .shimmer { opacity: .5; }')), ['skeleton', 'skeleton']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes pulse { from { background-position: 100% 0; } to { background-position: 0 0; } }')), ['skeleton', 'skeleton']);
+  assert.deepEqual(stylesheetViolations('@keyframes fade { from { opacity: 0; } to { opacity: 1; } } .hero { background-position: center; }'), []);
+  assert.deepEqual(rules(stylesheetViolations('.skeleton-row { height: 1rem; }')), ['skeleton']);
+  assert.deepEqual(rules(stylesheetViolations('.placeholder { background: var(--cp-skeleton-base); }')), ['skeleton']);
+  assert.deepEqual(stylesheetViolations('.placeholder { background: var(--cp-surface-subtle); } .bone-in { margin: 0; }'), []);
 });
 
 test('drawer: a feature positions nothing against the viewport', () => {

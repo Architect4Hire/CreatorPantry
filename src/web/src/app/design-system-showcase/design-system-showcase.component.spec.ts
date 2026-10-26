@@ -203,11 +203,71 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(toolbar.querySelectorAll('[cpToolbarOverflow]').length).toBe(2);
   });
 
-  it('renders both empty-state variants with a projected action', async () => {
+  it('renders both empty-state variants, drawn and as the older glyph, with a projected action', async () => {
     const fixture = await createFixture();
-    const emptyStates = fixture.nativeElement.querySelectorAll('cp-empty-state');
-    expect(emptyStates.length).toBe(2);
+    const emptyStates = [...fixture.nativeElement.querySelectorAll('cp-empty-state')] as HTMLElement[];
+    expect(emptyStates.map((state) => state.getAttribute('data-variant'))).toEqual(['first-use', 'first-use', 'no-results', 'first-use']);
+    expect(emptyStates.filter((state) => state.querySelector('cp-illustration')).length).toBe(3);
+    expect(emptyStates[3].querySelector('.icon')).toBeTruthy();
     expect(emptyStates[0].querySelector('[cpEmptyStateActions] button')).toBeTruthy();
+  });
+
+  it('shows generated content as a surface and as a label, in each of its words', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="generated-heading"]') as HTMLElement;
+    const surfaces = [...section.querySelectorAll('cp-generated')] as HTMLElement[];
+    expect(surfaces.length).toBe(2);
+    expect(surfaces[0].querySelectorAll('[cpGeneratedActions]').length).toBe(3);
+    expect(surfaces[1].closest('[data-cp-tone="pink"]')).toBeTruthy();
+    const words = [...section.querySelectorAll('.showcase-generated-labels .words')].map((node) => node.textContent);
+    expect(words).toEqual(['Drafted by AI', 'Made by AI', 'Read by AI']);
+  });
+
+  it('compares three concepts as option cards, one chosen at a time', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="option-card-heading"]') as HTMLElement;
+    const cards = () => [...section.querySelectorAll('cp-option-card')] as HTMLElement[];
+    expect(cards().length).toBe(3);
+    expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([true, false, false]);
+    // The fourth fact on the second card is in its disclosure, not dropped.
+    expect(cards()[1].querySelectorAll('dl.tags > .tag').length).toBe(3);
+    expect(cards()[1].querySelector('details dl.more dt')?.textContent).toBe('Dietary notes');
+
+    (cards()[2].querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([false, false, true]);
+  });
+
+  it('shows figure tiles and one featured card in each tone', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="stat-tile-heading"]') as HTMLElement;
+    const rows = [...section.querySelectorAll('.showcase-figure-row')] as HTMLElement[];
+    expect(rows.map((row) => row.getAttribute('data-cp-tone'))).toEqual([null, 'purple', 'pink', 'blue', 'orange']);
+    for (const row of rows) {
+      expect(row.querySelectorAll('cp-stat-tile').length).toBe(3);
+      // At most one featured card on a page; here, one per tone.
+      expect(row.querySelectorAll('cp-card.cp-card--featured').length).toBe(1);
+    }
+    expect(rows[0].querySelector('cp-stat-tile .figure')?.textContent).toBe('12 recipes waiting for review');
+  });
+
+  it('shows every illustration in every tone', async () => {
+    const fixture = await createFixture();
+    const rows = fixture.nativeElement.querySelectorAll('.illustration-row');
+    expect(rows.length).toBe(5);
+    expect(rows[0].querySelectorAll('cp-illustration').length).toBe(10);
+  });
+
+  it('mixes media cards with and without pictures, untoned and on a toned page', async () => {
+    const fixture = await createFixture();
+    const section = fixture.nativeElement.querySelector('section[aria-labelledby="media-card-heading"]') as HTMLElement;
+    const [untoned, toned] = [...section.querySelectorAll('ul[cpCardGrid]')] as HTMLElement[];
+    const drawings = (grid: HTMLElement) =>
+      [...grid.querySelectorAll('cp-media-card')].map((card) => card.querySelector('[cpMediaCardPicture]') ? 'photo' : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'));
+
+    expect(drawings(untoned)).toEqual(['photo', 'recipe', 'prompt', 'photo', 'brand', 'picture']);
+    expect(toned.getAttribute('data-cp-tone')).toBe('pink');
+    expect(drawings(toned)).toEqual(['photo', 'picture', 'post']);
   });
 
   it('renders one uploader row per seeded item and removes it on remove', async () => {
@@ -333,6 +393,44 @@ describe('DesignSystemShowcaseComponent', () => {
 
       expect(document.activeElement).toBe(view.title);
       fixture.nativeElement.remove();
+    });
+  });
+
+  describe('the entrance section', () => {
+    const arriving = (fixture: { nativeElement: HTMLElement }) => {
+      const demo = (fixture.nativeElement as HTMLElement).querySelector('.entrance-demo');
+      return demo ? Array.from(demo.querySelectorAll('[data-cp-enter]')) : [];
+    };
+
+    it('shows the three parts the library applies the entrance to, arriving together', async () => {
+      const fixture = await createFixture();
+      const demo = (fixture.nativeElement as HTMLElement).querySelector('.entrance-demo')!;
+
+      expect(demo.querySelector('cp-list-shell .scroll')!.hasAttribute('data-cp-enter')).toBeTrue();
+      expect(demo.querySelector('cp-generated')!.hasAttribute('data-cp-enter')).toBeTrue();
+      expect(Array.from(demo.querySelectorAll('cp-option-card')).every((card) => card.hasAttribute('data-cp-enter'))).toBeTrue();
+      // Each card lands behind the one before it: three cards, three different waits.
+      const delays = Array.from(demo.querySelectorAll<HTMLElement>('cp-option-card')).map((card) => card.style.animationDelay);
+      expect(new Set(delays).size).toBe(delays.length);
+    });
+
+    it('arrives again when the entrance is replayed, as content next arriving does', async () => {
+      const fixture = await createFixture();
+      const before = arriving(fixture);
+      expect(before.length).toBeGreaterThan(0);
+
+      for (const element of before) element.removeAttribute('data-cp-enter');
+      const replay = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+        (button) => button.textContent?.includes('Replay the entrance'),
+      ) as HTMLButtonElement;
+      replay.click();
+      fixture.detectChanges();
+      expect(arriving(fixture).length).withContext('taken away in this pass').toBe(0);
+
+      // Built again in the next, so nothing is re-created under one key.
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(arriving(fixture).length).toBe(before.length);
     });
   });
 });

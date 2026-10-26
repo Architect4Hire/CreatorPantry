@@ -65,7 +65,7 @@ export class CpChipGroupComponent {
       :host([aria-pressed='true']) {
         border-color: var(--cp-primary);
         background: var(--cp-primary-soft);
-        color: var(--cp-primary);
+        color: var(--cp-primary-text);
         font-weight: 600;
       }
       :host(:focus-visible) {

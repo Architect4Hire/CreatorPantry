@@ -11,7 +11,6 @@
   line-height: var(--cp-leading-normal);
 }
 
-.status,
 .kitchen-note {
   font-size: var(--cp-font-size-md);
 }
@@ -48,6 +47,12 @@ cp-notice {
 /* A live region holding its place before it has anything to say takes up no room either. */
 cp-notice.quiet {
   margin-bottom: 0;
+}
+
+/* What is coming, in its places: the facts line where the facts go, then the two columns. */
+.loading-facts {
+  max-width: 32rem;
+  margin-bottom: var(--cp-space-8);
 }
 
 .layout {

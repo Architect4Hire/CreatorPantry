@@ -20,9 +20,12 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpTabDefinition,
   CpTabPanelComponent,
@@ -66,6 +69,8 @@ import { RecipeVersionRestored } from './recipe-restore.component';
 import { RecipeEditorFocus, RecipeEditorHost } from './recipe-editor-host';
 import { RecipeDetailsSectionComponent } from './recipe-details-section.component';
 import { RecipeFormState } from './recipe-form-state';
+import { RecipeFact, RecipeHeroPicture, recipeFacts } from './recipe-head';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
 import { RecipeInstructionsSectionComponent } from './recipe-instructions-section.component';
 import { RecipeNotesSectionComponent } from './recipe-notes-section.component';
 import { RecipeTimingSectionComponent } from './recipe-timing-section.component';
@@ -305,8 +310,12 @@ type RecipeEditorSaveState =
     RecipeToolsDrawerComponent,
     RecipeYieldSectionComponent,
     CpBackLinkComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpSkeletonComponent,
+    ShellNavIconComponent,
   ],
-  providers: [RecipeFormState],
+  providers: [RecipeFormState, RecipeHeroPicture],
   templateUrl: './recipe-editor.component.html',
   styleUrl: './recipe-editor.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -564,6 +573,19 @@ export class RecipeEditorComponent {
 
   private readonly savedYieldTextSignal = signal<string | null>(null);
   readonly savedYieldText = this.savedYieldTextSignal.asReadonly();
+
+  /**
+   * The yield and times under the page head (AU.4.3), **as saved** for the same reason as the yield above: the
+   * strip says what the recipe is, and the form says what it is about to become. So it moves whenever a saved
+   * recipe arrives — a save, a restore, an apply, a media or status change, each of which answers with one — and
+   * never on a keystroke, and its Total is the stored total, which the editor derives only when it saves. The
+   * head's title above it is the form's and follows typing; that is the name being edited, not a figure.
+   */
+  private readonly savedFactsSignal = signal<readonly RecipeFact[]>([]);
+  readonly savedFacts = this.savedFactsSignal.asReadonly();
+
+  /** The recipe's lead picture, for the page head. Never read for a host, which draws no head. */
+  protected readonly hero = inject(RecipeHeroPicture);
 
   /**
    * The recipe's saved yield unit.
@@ -1588,6 +1610,10 @@ export class RecipeEditorComponent {
     this.savedYieldTextSignal.set(detail.yieldText);
     this.savedYieldUnitIdSignal.set(detail.yieldUnitId);
     this.savedInstructionGroupsSignal.set(detail.instructionGroups);
+    this.savedFactsSignal.set(recipeFacts(detail));
+
+    // A link or unlink on the Media tab returns the recipe, so a new lead picture arrives here too.
+    if (!this.host) this.hero.show(this.workspaceSlug, detail.assetLinks);
   }
 
   private resolveWorkspaceSlug(): string {

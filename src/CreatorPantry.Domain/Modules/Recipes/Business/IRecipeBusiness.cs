@@ -781,7 +781,41 @@ internal sealed class RecipeBusiness(
             row.UpdatedAt,
             row.LatestVersionNumber,
             row.LatestVersionReadiness,
-            row.HasUnmatchedIngredients);
+            row.HasUnmatchedIngredients,
+            ToHeroAsset(row.HeroAsset));
+
+    /// <summary>
+    /// The row's hero picture as the wire shape, or null when there is nothing to show.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The asset id is the discriminator rather than the record's own nullness, because a row that found no
+    /// asset may arrive as a record whose members are all null rather than as no record at all. Reading the id
+    /// means both shapes publish the same field, and that an empty row can never leave here as
+    /// <c>Guid.Empty</c> pretending to be an asset.
+    /// </para>
+    /// <para>
+    /// Every member but the alt text is required rather than defaulted. The row reads them all from one joined
+    /// asset, so an id without a title or a version cannot come from a query that still does what it says — and
+    /// publishing an empty title or a version zero would be inventing a picture rather than reporting one. No
+    /// picture is the honest answer, and the card has a panel for it. Only <c>AltText</c> is genuinely
+    /// optional: nobody may have written any.
+    /// </para>
+    /// <para>
+    /// <strong>Which version a card shows is decided here</strong>, from the two the row carries: the pin when
+    /// the recipe's use of the asset is pinned to one, and the current version when it follows whichever is
+    /// newest. That is a rule about what the creator chose, which is why it is not a column in the projection.
+    /// </para>
+    /// </remarks>
+    private static RecipeHeroAssetServiceModel? ToHeroAsset(RecipeHeroAssetRecord? hero) =>
+        hero is { MediaAssetId: { } mediaAssetId, Title: { } title, CurrentVersionNumber: { } currentVersion }
+            ? new RecipeHeroAssetServiceModel(
+                mediaAssetId,
+                title,
+                hero.AltText,
+                hero.PinnedVersionNumber ?? currentVersion,
+                currentVersion)
+            : null;
 
     public async Task<OperationResult<RecipeVersionHistoryPageResult>> GetVersionHistoryAsync(
         RecipeVersionHistoryCriteria criteria,

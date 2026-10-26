@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, Signal, afterNextRender, computed, inject, signal, viewChild, viewChildren } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { combineLatest, firstValueFrom, map } from 'rxjs';
@@ -8,10 +8,13 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpCardGridComponent,
+  CpEmptyStateComponent,
   CpFactComponent,
   CpFactsComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
+  CpStatTileComponent,
   CpStatusPillComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
@@ -22,11 +25,34 @@ import { estimateWords } from '../../shared/work-tasks/work-task-presentation';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { CONTENT_BOARD_COLUMN_LABELS } from '../../models/content-board.models';
 import { DAM_ASSET_KIND_LABELS } from '../../models/dam-asset.models';
-import { Dashboard, DashboardPublishingItem, DashboardSection, DashboardTask, DashboardWorkPlan, aiTaskLabel } from '../../models/dashboard.models';
+import {
+  Dashboard,
+  DashboardPublishingItem,
+  DashboardRecipesInProgress,
+  DashboardSection,
+  DashboardTask,
+  DashboardWorkPlan,
+  aiTaskLabel,
+} from '../../models/dashboard.models';
 import { RECIPE_STATUS_LABELS } from '../../models/recipe-readiness.models';
 import { DashboardOutcome, DashboardService } from '../../services/dashboard.service';
-import { PUBLISHING_STATUS_WORDS, SEVERITY_WORDS, TASK_STATUS_WORDS, attentionWords } from './dashboard-presentation';
+import { DASHBOARD_TOPIC_KEYS, DashboardTopicDirective, DashboardTopicKey } from './dashboard-topic.directive';
+import { PUBLISHING_STATUS_WORDS, SEVERITY_WORDS, TASK_STATUS_WORDS, attentionWords, runLinkLabel, runName } from './dashboard-presentation';
 import { platformName } from '../../shared/publishing-names';
+
+/**
+ * One figure in the row across the top of the page (AU.4.1, APP-008): the server's own count as text, what it
+ * counts in words, and — where there is no figure to show — which of the two reasons there is none. A part
+ * that could not be read keeps its tile and says so; a part that needs a day the workspace has not got says
+ * that instead, because there is nothing wrong and nothing to retry.
+ */
+export interface DashboardFigure {
+  readonly key: 'late' | 'publishing' | 'tests' | 'proposals';
+  readonly value: string;
+  readonly label: string;
+  readonly context: string;
+  readonly missing: 'read' | 'zone' | null;
+}
 
 type State =
   | { readonly status: 'loading' }
@@ -66,12 +92,16 @@ type State =
     CpButtonComponent,
     CpCardComponent,
     CpCardGridComponent,
+    CpEmptyStateComponent,
     CpFactComponent,
     CpFactsComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
+    CpStatTileComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
+    DashboardTopicDirective,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
@@ -104,6 +134,8 @@ export class DashboardComponent {
   protected readonly severityWords = SEVERITY_WORDS;
   protected readonly aiTaskLabel = aiTaskLabel;
   protected readonly platformName = platformName;
+  protected readonly runName = runName;
+  protected readonly runLinkLabel = runLinkLabel;
 
   protected readonly dashboard = computed(() => {
     const state = this.state();
@@ -111,39 +143,72 @@ export class DashboardComponent {
     return state.status === 'ready' ? state.dashboard : null;
   });
 
+  /** Each part of the read model, or null when the server could not read that part. */
+  protected readonly workflows = this.part((dashboard) => dashboard.workflows);
+  protected readonly workPlan = this.part((dashboard) => dashboard.workPlan);
+  protected readonly recipes = this.part((dashboard) => dashboard.recipesInProgress);
+  protected readonly readiness = this.part((dashboard) => dashboard.readinessBlockers);
+  protected readonly proposals = this.part((dashboard) => dashboard.aiProposals);
+  protected readonly tests = this.part((dashboard) => dashboard.testFollowUps);
+  protected readonly upcoming = this.part((dashboard) => dashboard.upcoming);
+  protected readonly board = this.part((dashboard) => dashboard.board);
+  protected readonly uploads = this.part((dashboard) => dashboard.recentUploads);
+  protected readonly publishing = this.part((dashboard) => dashboard.publishing);
+
   /**
-   * A workspace with nothing in it yet: no recipe in progress, no card on the board, no picture in the library,
-   * no guided workflow under way and nothing kept on the creator's own plan. Read from the server's own zeros;
-   * nothing is counted here.
+   * Whether a topic that needs a day has none because the workspace has no time zone set. Not the same as a
+   * part that could not be read: there is nothing wrong and nothing to retry.
+   */
+  protected readonly needsZone = computed(() => this.dashboard()?.timeZoneState === 'NotSet');
+
+  /** The topic cards as declared, which is the order the grid draws them in. */
+  private readonly topics = viewChildren(DashboardTopicDirective);
+
+  /** How many silhouettes the loading page draws where the figures and the topics will be. */
+  protected readonly figurePlaces = [0, 1, 2, 3];
+  protected readonly topicPlaces = [0, 1, 2, 3, 4, 5];
+
+  /**
+   * A workspace with nothing in it yet: nothing in progress, nothing on the board, nothing in the library,
+   * no guided workflow, nothing published or waiting to publish, no test issue, no proposal, nothing coming
+   * up and nothing on the creator's own plan. Read from the server's own zeros; nothing is counted here.
    *
-   * The plan is unavailable until a zone is set, and a workspace without one is new enough for that to be no
-   * evidence either way, so an unreadable plan does not keep the first-use card from showing.
+   * **Every part has to agree.** A workspace whose recipes are all approved has none in progress, and judging
+   * by that alone would greet a creator with a year of work behind them as though they had just arrived.
+   *
+   * **A part that could not be read is not evidence of emptiness**, so an unreadable part keeps the page from
+   * claiming a first use — with one exception. The plan and what is coming up are unavailable until the
+   * workspace has a time zone, and a workspace without one is new enough for that to be no evidence either
+   * way. Once a zone is set, those two are read like any other part.
    */
   protected readonly firstUse = computed(() => {
     const dashboard = this.dashboard();
     if (dashboard === null) return false;
 
-    const { recipesInProgress, board, recentUploads, workflows, workPlan } = dashboard;
-    const noPlan =
-      workPlan.status !== 'ready' ||
-      (workPlan.data.overdueCount === 0 &&
-        workPlan.data.todayCount === 0 &&
-        workPlan.data.unplannedCount === 0 &&
-        workPlan.data.thisWeek.plannedTaskCount === 0 &&
-        workPlan.data.thisWeek.inProgressCount === 0 &&
-        workPlan.data.thisWeek.waitingCount === 0);
+    const empty = <T>(section: DashboardSection<T>, nothingIn: (data: T) => boolean): boolean =>
+      section.status === 'ready' && nothingIn(section.data);
+    const emptyDayBound = <T>(section: DashboardSection<T>, nothingIn: (data: T) => boolean): boolean =>
+      section.status === 'ready' ? nothingIn(section.data) : dashboard.timeZoneState === 'NotSet';
 
     return (
-      recipesInProgress.status === 'ready' &&
-      recipesInProgress.data.counts.every((count) => count.count === 0) &&
-      board.status === 'ready' &&
-      board.data.total === 0 &&
-      recentUploads.status === 'ready' &&
-      recentUploads.data.length === 0 &&
-      workflows.status === 'ready' &&
-      workflows.data.inProgressCount === 0 &&
-      workflows.data.needsAttentionCount === 0 &&
-      noPlan
+      empty(dashboard.recipesInProgress, (recipes) => recipes.counts.every((count) => count.count === 0)) &&
+      empty(dashboard.board, (board) => board.total === 0) &&
+      empty(dashboard.recentUploads, (uploads) => uploads.length === 0) &&
+      empty(dashboard.workflows, (workflows) => workflows.inProgressCount === 0 && workflows.needsAttentionCount === 0) &&
+      empty(dashboard.publishing, (publishing) => publishing.needsAttentionCount === 0 && publishing.counts.every((count) => count.count === 0)) &&
+      empty(dashboard.testFollowUps, (tests) => tests.open === 0) &&
+      empty(dashboard.aiProposals, (proposals) => proposals.awaitingDecision === 0) &&
+      emptyDayBound(dashboard.upcoming, (upcoming) => upcoming.cardCount === 0 && upcoming.postCount === 0) &&
+      emptyDayBound(
+        dashboard.workPlan,
+        (plan) =>
+          plan.overdueCount === 0 &&
+          plan.todayCount === 0 &&
+          plan.unplannedCount === 0 &&
+          plan.thisWeek.plannedTaskCount === 0 &&
+          plan.thisWeek.inProgressCount === 0 &&
+          plan.thisWeek.waitingCount === 0,
+      )
     );
   });
 
@@ -158,6 +223,102 @@ export class DashboardComponent {
     const membership = state.memberships.find((candidate) => candidate.workspaceSlug === this.workspaceSlug());
 
     return membership !== undefined && membership.role !== 'Viewer';
+  });
+
+  /**
+   * The row across the top: four of the server's own counts, each the answer to "does this need me now"
+   * (APP-008). Every value is one field of the read model printed as it came; nothing here adds two counts
+   * together, which is why there is no tile for recipes in progress (the read model sends a count per status
+   * and no total), for blocked recipes (a list, with no count of its own) or for the picture library (the
+   * most recent few, with no total).
+   */
+  protected readonly figures = computed<readonly DashboardFigure[]>(() => {
+    const plan = this.workPlan();
+    const publishing = this.publishing();
+    const tests = this.tests();
+    const proposals = this.proposals();
+    // A plan is unavailable until a zone is set, which is the creator's to fix rather than ours to retry.
+    const noPlan = this.needsZone() ? 'zone' : 'read';
+
+    return [
+      {
+        key: 'late',
+        value: plan === null ? '' : `${plan.overdueCount}`,
+        label: plan?.overdueCount === 1 ? 'task late' : 'tasks late',
+        context: plan === null ? '' : `${plan.todayCount} ${plan.todayCount === 1 ? 'task' : 'tasks'} planned for today.`,
+        missing: plan === null ? noPlan : null,
+      },
+      {
+        key: 'publishing',
+        value: publishing === null ? '' : `${publishing.needsAttentionCount}`,
+        label: publishing?.needsAttentionCount === 1 ? 'post needs a look' : 'posts need a look',
+        context: '',
+        missing: publishing === null ? 'read' : null,
+      },
+      {
+        key: 'tests',
+        value: tests === null ? '' : `${tests.open}`,
+        label: tests?.open === 1 ? 'test issue open' : 'test issues open',
+        context: tests === null || tests.open === 0 ? '' : `${tests.blocking} blocking, ${tests.major} major and ${tests.minor} minor.`,
+        missing: tests === null ? 'read' : null,
+      },
+      {
+        key: 'proposals',
+        value: proposals === null ? '' : `${proposals.awaitingDecision}`,
+        label: proposals?.awaitingDecision === 1 ? 'AI proposal waiting for you' : 'AI proposals waiting for you',
+        context: '',
+        missing: proposals === null ? 'read' : null,
+      },
+    ];
+  });
+
+  /**
+   * The one topic that matters most on the page (DESIGN-SYSTEM.md, "Warmth inside the app": at most one
+   * featured card), taken from the page's own order of urgency — what is late, then what has failed, then
+   * what is blocked, and last what the creator was in the middle of.
+   *
+   * Nothing is derived: each line asks whether one of the server's counts is above zero, and a part that
+   * could not be read is passed over rather than guessed at. A workspace with nothing needing anyone features
+   * nothing, and a workspace with nothing in it at all features "Get started" instead.
+   */
+  protected readonly featured = computed<DashboardTopicKey | null>(() => {
+    if (this.dashboard() === null || this.firstUse()) return null;
+
+    const plan = this.workPlan();
+    if (plan !== null && plan.overdueCount > 0) return 'day';
+
+    const publishing = this.publishing();
+    if (publishing !== null && publishing.needsAttentionCount > 0) return 'publishing';
+
+    const readiness = this.readiness();
+    if (readiness !== null && readiness.blocked.length > 0) return 'readiness';
+
+    const tests = this.tests();
+    if (tests !== null && tests.blocking > 0) return 'tests';
+
+    const workflows = this.workflows();
+    if (workflows !== null && workflows.needsAttentionCount > 0) return 'stuck';
+
+    const proposals = this.proposals();
+    if (proposals !== null && proposals.awaitingDecision > 0) return 'proposals';
+
+    return workflows !== null && workflows.inProgressCount > 0 ? 'continue' : null;
+  });
+
+  /** That topic's card, to draw above the grid. */
+  protected readonly featuredTopic = computed(() => this.topics().find((topic) => topic.key() === this.featured()) ?? null);
+
+  /**
+   * Every other topic, in the order `DASHBOARD_TOPIC_KEYS` names rather than the order a view query happens
+   * to answer in, so the page's order is a list a reader can check against the rule it follows. The featured
+   * one is lifted out, never repeated.
+   */
+  protected readonly gridTopics = computed(() => {
+    const declared = new Map(this.topics().map((topic) => [topic.key(), topic]));
+
+    return DASHBOARD_TOPIC_KEYS.filter((key) => key !== this.featured())
+      .map((key) => declared.get(key))
+      .filter((topic): topic is DashboardTopicDirective => topic !== undefined);
   });
 
   protected readonly link = (...segments: readonly string[]): readonly string[] => ['/', this.workspaceSlug(), ...segments];
@@ -254,6 +415,26 @@ export class DashboardComponent {
     return section.status === 'ready' ? section.data : null;
   }
 
+  /**
+   * One part of the read model as a signal of its own: its data, or null when the server could not read it.
+   * A method rather than a field, so the fields above can call it while they are being initialised.
+   */
+  private part<T>(pick: (dashboard: Dashboard) => DashboardSection<T>): Signal<T | null> {
+    return computed(() => {
+      const dashboard = this.dashboard();
+
+      return dashboard === null ? null : this.data(pick(dashboard));
+    });
+  }
+
+  /**
+   * Whether no recipe is in any in-progress state — the server's own counts, every one of them zero. Read,
+   * not added up: nothing here needs the total the read model does not send.
+   */
+  protected noRecipesInProgress(recipes: DashboardRecipesInProgress): boolean {
+    return recipes.counts.every((count) => count.count === 0);
+  }
+
   /** Whether this task is one of the three the creator chose to do first today (13A.32). */
   protected chosen(plan: DashboardWorkPlan, task: DashboardTask): boolean {
     return plan.topThree.includes(task.id);
@@ -283,7 +464,34 @@ export class DashboardComponent {
     }
   }
 
+  /**
+   * The heading of the topic card the creator is working in, if they are in one. The featured topic moves
+   * between the top of the page and the grid as the counts change, and Angular builds a new card where it
+   * lands, so a creator whose focus was on a retry inside that card — one that has just succeeded, which is
+   * exactly what moves it — would be left on the document body.
+   */
+  private focusedTopicHeading(): string | null {
+    const card = (document.activeElement as HTMLElement | null)?.closest('cp-topic-card') ?? null;
+
+    return card?.querySelector('.heading')?.id ?? null;
+  }
+
+  /** Puts focus back in that topic, on its heading, but only where the read has actually dropped it. */
+  private keepFocusInTopic(headingId: string | null): void {
+    if (headingId === null) return;
+
+    afterNextRender(
+      () => {
+        if (document.activeElement !== null && document.activeElement !== document.body) return;
+
+        document.getElementById(headingId)?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
   private async read(slug: string): Promise<DashboardOutcome['status'] | 'superseded'> {
+    const wasFocusedIn = this.focusedTopicHeading();
     const outcome = await firstValueFrom(this.service.get(slug));
     if (this.workspaceSlug() !== slug) return 'superseded';
 
@@ -298,6 +506,8 @@ export class DashboardComponent {
         // A refresh that failed keeps what is on screen; only a first read with nothing to show is an error.
         if (this.state().status !== 'ready') this.state.set({ status: 'error' });
     }
+
+    this.keepFocusInTopic(wasFocusedIn);
 
     return outcome.status;
   }

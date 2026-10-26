@@ -9,6 +9,7 @@ import { DashboardOutcome, DashboardService } from '../../services/dashboard.ser
 import { QuickCaptureService } from '../../shared/quick-capture/quick-capture.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { DashboardComponent } from './dashboard.component';
+import { DASHBOARD_TOPIC_KEYS } from './dashboard-topic.directive';
 import { dashboardBody } from './dashboard.fixtures';
 
 const SLUG = 'cozy-fall';
@@ -42,6 +43,11 @@ describe('DashboardComponent', () => {
     Array.from(root().querySelectorAll('cp-topic-card')).find(
       (each) => each.querySelector('.heading')?.textContent?.trim() === heading,
     ) as HTMLElement;
+  /** Every topic heading in the order the page draws them: the featured card first, then the grid. */
+  const headings = (): string[] =>
+    Array.from(root().querySelectorAll('cp-topic-card h2')).map((heading) => heading.textContent?.trim() ?? '');
+  const figure = (label: string): HTMLElement =>
+    Array.from(root().querySelectorAll('cp-stat-tile')).find((tile) => tile.textContent?.includes(label)) as HTMLElement;
   const button = (name: string): HTMLButtonElement =>
     Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === name)!;
 
@@ -103,6 +109,14 @@ describe('DashboardComponent', () => {
       board: { status: 'Ready', data: { total: 0, columns: [] } },
       recentUploads: { status: 'Ready', data: { items: [] } },
       workflows: { status: 'Ready', data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] } },
+      publishing: { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } },
+      testFollowUps: { status: 'Ready', data: { open: 0, blocking: 0, major: 0, minor: 0, recent: [] } },
+      aiProposals: { status: 'Ready', data: { awaitingDecision: 0, recent: [] } },
+      readinessBlockers: { status: 'Ready', data: { evaluated: 0, unevaluated: 0, blocked: [] } },
+      upcoming: {
+        status: 'Ready',
+        data: { from: '2026-10-14', through: '2026-10-27', cardCount: 0, cards: [], postCount: 0, posts: [] },
+      },
       workPlan: {
         status: 'Ready',
         data: {
@@ -129,13 +143,20 @@ describe('DashboardComponent', () => {
 
   // ---- The page ----
 
-  it('is a detail page about the workspace: one head and a heading for every topic, in order of urgency', async () => {
+  it('is a detail page about the workspace: one head, the most urgent topic first, then the rest', async () => {
     await mount(found());
 
     expect(root().querySelectorAll('h1').length).toBe(1);
     expect(root().querySelector('h1')!.textContent).toBe('Dashboard');
-    expect(Array.from(root().querySelectorAll('cp-topic-card h2')).map((heading) => heading.textContent?.trim())).toEqual(TOPICS);
-    expect(root().querySelector('ul[cpCardGrid]')!.getAttribute('aria-label')).toBe('Your workspace at a glance');
+
+    // Two tasks are late, so "Your day" is lifted out of the grid as the one featured card and leads the
+    // page. Every other topic keeps the order it was declared in, and no topic is drawn twice.
+    expect(headings()).toEqual(['Your day', ...TOPICS.filter((heading) => heading !== 'Your day')]);
+    expect(root().querySelector('ul[aria-label="What needs you"]')).toBeTruthy();
+    expect(root().querySelector('ul.topics')!.getAttribute('aria-label')).toBe('Your workspace at a glance');
+
+    // A topic added to the page without a heading here would pass every other spec in this file.
+    expect(TOPICS.length).toBe(DASHBOARD_TOPIC_KEYS.length);
     expect(reads).toEqual([SLUG]);
   });
 
@@ -227,7 +248,7 @@ describe('DashboardComponent', () => {
 
     expect(topic('What is holding recipes back').querySelector('a')!.getAttribute('aria-label')).toBe('Readiness of Soda bread');
     const retries = Array.from(root().querySelectorAll('cp-topic-card cp-notice button')).map((retry) => retry.getAttribute('aria-label'));
-    expect(retries).toEqual(['Try reading the board again', 'Try reading recent pictures again']);
+    expect(retries).toEqual(['Try again to read the board', 'Try again to read recent pictures']);
   });
 
   it('says none is blocked only about recipes that were actually checked', async () => {
@@ -241,17 +262,37 @@ describe('DashboardComponent', () => {
 
   // ---- States ----
 
-  it('says it is loading until the dashboard answers', async () => {
+  it('draws the shape of what is coming while it loads, and says it once, offscreen', async () => {
     const answer = new Subject<DashboardOutcome>();
     await mount(answer);
 
-    expect(root().querySelector('cp-card [role="status"]')!.textContent).toContain('Loading your dashboard');
+    // No visible "Loading…" sentence (APP-003): the figures, the featured card and the topics as
+    // silhouettes, which say nothing, and one status line nobody sees.
+    const loading = root().querySelector('.loading')!;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.querySelectorAll('cp-skeleton').length).toBe(11);
+    for (const bone of Array.from(loading.querySelectorAll('cp-skeleton'))) {
+      expect(bone.getAttribute('aria-hidden')).toBe('true');
+    }
+
+    const status = root().querySelector('.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toContain('Loading your dashboard');
+
+    // Outside the busy region: a live region held inside one may never be read at all.
+    expect(loading.contains(status)).toBe(false);
+
+    // Said once. The page's own outcome region is the only other one, and it is empty.
+    expect(Array.from(root().querySelectorAll('[role="status"]')).filter((region) => region.textContent?.trim() !== '').length).toBe(1);
     expect(root().querySelector('cp-topic-card')).toBeNull();
+    expect(root().querySelector('cp-stat-tile')).toBeNull();
 
     answer.next({ status: 'found', dashboard: decodeDashboard(dashboardBody())! });
     answer.complete();
     await settle();
+
     expect(root().querySelectorAll('cp-topic-card').length).toBe(TOPICS.length);
+    expect(root().querySelector('.loading')).toBeNull();
+    expect(root().querySelector('.cp-sr-only[role="status"]')).toBeNull();
   });
 
   it('says so when it cannot be loaded, keeps its head, and loads on request with focus on the page', async () => {
@@ -328,6 +369,37 @@ describe('DashboardComponent', () => {
     expect(topic('Get started')).toBeTruthy();
   });
 
+  /**
+   * Each part on its own is enough to say the workspace is not new. A workspace whose recipes are all
+   * approved has none in progress, so judging by one part would greet a creator with a year of work behind
+   * them as though they had just arrived.
+   */
+  const busyParts = (): readonly { readonly part: string; readonly data: Record<string, unknown> }[] => [
+    { part: 'a post that needs a look', data: { publishing: dashboardBody()['publishing'] as Record<string, unknown> } },
+    { part: 'an open test issue', data: { testFollowUps: dashboardBody()['testFollowUps'] as Record<string, unknown> } },
+    { part: 'a proposal waiting', data: { aiProposals: dashboardBody()['aiProposals'] as Record<string, unknown> } },
+    { part: 'something coming up', data: { upcoming: dashboardBody()['upcoming'] as Record<string, unknown> } },
+    { part: 'a picture in the library', data: { recentUploads: dashboardBody()['recentUploads'] as Record<string, unknown> } },
+    { part: 'a card on the board', data: { board: dashboardBody()['board'] as Record<string, unknown> } },
+  ];
+
+  for (const row of busyParts()) {
+    it(`does not offer a first step to a workspace with ${row.part}`, async () => {
+      await mount(found({ ...emptyWorkspace(), ...row.data }));
+
+      expect(topic('Get started')).toBeUndefined();
+      expect(root().querySelectorAll('cp-stat-tile').length).toBe(4);
+    });
+  }
+
+  it('does not offer a first step when the plan could not be read and the workspace has a zone', async () => {
+    // With a zone set, an unreadable plan is a part we cannot judge by, like any other: it may hold the
+    // creator's whole week. Only a workspace with no zone at all makes an unreadable plan no evidence.
+    await mount(found({ ...emptyWorkspace(), workPlan: { status: 'Unavailable', data: null } }));
+
+    expect(topic('Get started')).toBeUndefined();
+  });
+
   it('does not offer a first step while a part it would judge by could not be read', async () => {
     await mount(found({ recentUploads: { status: 'Unavailable', data: null }, board: { status: 'Ready', data: { total: 0, columns: [] } } }));
 
@@ -345,7 +417,7 @@ describe('DashboardComponent', () => {
     const rows = Array.from(carryOn.querySelectorAll('.items > li'));
     expect(rows.length).toBe(2);
     expect(rows[0].querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/w1`);
-    expect(rows[0].querySelector('a')!.getAttribute('aria-label')).toBe('Carry on with Soda bread, start to finish');
+    expect(rows[0].querySelector('a')!.getAttribute('aria-label')).toBe('Carry on with Soda bread, start to finish, last touched Oct 14');
     expect(rows[0].textContent).toContain('Check your method');
 
     // A step above the reader's role is said in words, not left to a colour or to silence.
@@ -478,7 +550,7 @@ describe('DashboardComponent', () => {
 
     expect(topic('Your day').querySelector('cp-notice')!.textContent).toContain("couldn't be read just now");
     expect(topic('Your week').querySelector('cp-notice')!.textContent).toContain("couldn't be read just now");
-    expect(topic('Your day').querySelector('button')!.getAttribute('aria-label')).toBe('Try reading your day again');
+    expect(topic('Your day').querySelector('button')!.getAttribute('aria-label')).toBe('Try again to read your day');
     expect(topic('Carry on where you left off').querySelector('cp-notice')).toBeNull();
     expect(topic('Carry on where you left off').textContent).toContain('4 workflows are under way');
   });
@@ -497,7 +569,7 @@ describe('DashboardComponent', () => {
     }
 
     // Nothing offers a retry for a condition a retry cannot change. The card's own actions stay.
-    expect(topic('Your day').querySelector('button[aria-label="Try reading your day again"]')).toBeNull();
+    expect(topic('Your day').querySelector('button[aria-label="Try again to read your day"]')).toBeNull();
   });
 
   it('says what the creator’s own empty topics mean in their own words', async () => {
@@ -524,10 +596,277 @@ describe('DashboardComponent', () => {
       }),
     );
 
-    expect(topic('Carry on where you left off').textContent).toContain('Nothing under way.');
+    // Two of these mean "nothing here yet", and are drawn (APP-004); the other two mean "all clear", and a
+    // drawing of good news on every quiet topic would be a page of drawings on a dashboard that is simply fine.
+    const carryOn = topic('Carry on where you left off');
+    expect(carryOn.textContent).toContain('Nothing under way');
+    expect(carryOn.querySelector('cp-empty-state cp-illustration')!.getAttribute('data-name')).toBe('board');
+
+    const day = topic('Your day');
+    expect(day.textContent).toContain('Nothing is late, and nothing is planned for today.');
+    expect(day.querySelector('cp-empty-state cp-illustration')!.getAttribute('data-name')).toBe('calendar');
+
     expect(topic('Workflows that need a look').textContent).toContain('Nothing has stalled.');
-    expect(topic('Your day').textContent).toContain('Nothing is late, and nothing is planned for today.');
+    expect(topic('Workflows that need a look').querySelector('cp-empty-state')).toBeNull();
     expect(topic('Your week').textContent).toContain('Nothing is waiting to be planned.');
+    expect(topic('Your week').querySelector('cp-empty-state')).toBeNull();
+  });
+
+  // ---- The figures and the featured card (AU.4.1) ----
+
+  it('reads four of the server’s own counts at a glance, each a figure and what it counts', async () => {
+    await mount(found());
+
+    const tiles = Array.from(root().querySelectorAll('cp-stat-tile'));
+    expect(tiles.map((tile) => tile.querySelector('.value')?.textContent)).toEqual(['2', '3', '6', '7']);
+
+    // The figure and its label are one sentence, never a bare number, and the context is the server's too.
+    expect(figure('tasks late').textContent).toContain('2 tasks late');
+    expect(figure('tasks late').textContent).toContain('3 tasks planned for today.');
+    expect(figure('posts need a look').textContent).toContain('3 posts need a look');
+    expect(figure('test issues open').textContent).toContain('1 blocking, 2 major and 3 minor.');
+    expect(figure('AI proposals waiting for you').textContent).toContain('7 AI proposals waiting for you');
+
+    // One destination, named for what it opens. The other three are dealt with item by item in the cards.
+    expect(figure('tasks late').querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/my-day`);
+    expect(figure('posts need a look').querySelector('a')).toBeNull();
+  });
+
+  it('says one late task in the singular, and adds up nothing', async () => {
+    const plan = dashboardBody()['workPlan'] as { data: Record<string, unknown> };
+    await mount(found({ workPlan: { status: 'Ready', data: { ...plan.data, overdueCount: 1, todayCount: 1 } } }));
+
+    expect(figure('task late').textContent).toContain('1 task late');
+    expect(figure('task late').textContent).toContain('1 task planned for today.');
+
+    // No tile claims a number the read model does not send: no total of recipes in progress, no count of
+    // blocked recipes, no size of the picture library.
+    expect(root().querySelectorAll('cp-stat-tile').length).toBe(4);
+  });
+
+  it('keeps a figure whose part could not be read, with its label and why it is not there', async () => {
+    await mount(found({ testFollowUps: { status: 'Unavailable', data: null } }));
+
+    const tile = figure('test issues open');
+    expect(tile.querySelector('.value')).toBeNull();
+    expect(tile.textContent).toContain('test issues open');
+    expect(tile.querySelector('cp-notice')!.textContent).toContain("couldn't be read just now");
+
+    // The other three are untouched.
+    expect(figure('tasks late').querySelector('.value')!.textContent).toBe('2');
+  });
+
+  it('says a figure that needs a day needs a time zone, not that it could not be read', async () => {
+    await mount(found({ timeZoneId: null, today: null, timeZoneState: 'NotSet', workPlan: { status: 'Unavailable', data: null } }));
+
+    const tile = figure('tasks late');
+    expect(tile.querySelector('cp-notice')!.textContent).toContain('needs your workspace’s time zone');
+    expect(tile.textContent).not.toContain("couldn't be read");
+
+    // Nothing to open for a figure there is no figure for.
+    expect(tile.querySelector('a')).toBeNull();
+  });
+
+  it('features the most urgent topic, and only ever one', async () => {
+    await mount(found());
+
+    const featured = Array.from(root().querySelectorAll('cp-topic-card')).filter((card) => card.querySelector('.cp-card--featured'));
+    expect(featured.length).toBe(1);
+    expect(featured[0].querySelector('h2')!.textContent!.trim()).toBe('Your day');
+    expect(headings()[0]).toBe('Your day');
+  });
+
+  /**
+   * The page's order of urgency, each step turning off the one above it: what is late, then what failed to
+   * publish, then what is blocked, then what blocks a test, then a workflow that has stalled, and last what
+   * the creator was in the middle of. Each case is its own spec, because one spec mounts one page.
+   */
+  const onTime = (): Record<string, unknown> => {
+    const plan = dashboardBody()['workPlan'] as { data: Record<string, unknown> };
+
+    return { status: 'Ready', data: { ...plan.data, overdueCount: 0, overdue: [] } };
+  };
+  const calmWorkflows = (): Record<string, unknown> => {
+    const workflows = dashboardBody()['workflows'] as { data: Record<string, unknown> };
+
+    return { status: 'Ready', data: { ...workflows.data, needsAttentionCount: 0, needsAttention: [] } };
+  };
+  const quietPublishing = { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } };
+  const unblocked = { status: 'Ready', data: { evaluated: 1, unevaluated: 0, blocked: [] } };
+  const passing = { status: 'Ready', data: { open: 0, blocking: 0, major: 0, minor: 0, recent: [] } };
+  const noProposals = { status: 'Ready', data: { awaitingDecision: 0, recent: [] } };
+
+  const urgency = (): readonly { readonly featured: string; readonly overrides: Record<string, unknown> }[] => [
+    { featured: 'Publishing that needs you', overrides: { workPlan: onTime() } },
+    { featured: 'What is holding recipes back', overrides: { workPlan: onTime(), publishing: quietPublishing } },
+    {
+      featured: 'Test kitchen follow-ups',
+      overrides: { workPlan: onTime(), publishing: quietPublishing, readinessBlockers: unblocked },
+    },
+    {
+      featured: 'Workflows that need a look',
+      overrides: { workPlan: onTime(), publishing: quietPublishing, readinessBlockers: unblocked, testFollowUps: passing },
+    },
+    {
+      featured: 'AI proposals to review',
+      overrides: {
+        workPlan: onTime(),
+        publishing: quietPublishing,
+        readinessBlockers: unblocked,
+        testFollowUps: passing,
+        workflows: calmWorkflows(),
+      },
+    },
+    {
+      featured: 'Carry on where you left off',
+      overrides: {
+        workPlan: onTime(),
+        publishing: quietPublishing,
+        readinessBlockers: unblocked,
+        testFollowUps: passing,
+        workflows: calmWorkflows(),
+        aiProposals: noProposals,
+      },
+    },
+  ];
+
+  for (const [step, row] of urgency().entries()) {
+    it(`features "${row.featured}" once the ${step + 1} topics above it are clear`, async () => {
+      await mount(found(row.overrides));
+
+      // The whole order, not just its head: a topic drawn twice, or dropped from the grid when it was
+      // lifted out of it, would pass an assertion about the first heading alone.
+      expect(headings()).toEqual([row.featured, ...TOPICS.filter((heading) => heading !== row.featured)]);
+      expect(root().querySelectorAll('.cp-card--featured').length).toBe(1);
+    });
+  }
+
+  it('features nothing on a dashboard where nothing needs anyone', async () => {
+    await mount(
+      found({
+        workflows: { status: 'Ready', data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] } },
+        workPlan: { status: 'Unavailable', data: null },
+        publishing: { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } },
+        readinessBlockers: { status: 'Ready', data: { evaluated: 1, unevaluated: 0, blocked: [] } },
+        testFollowUps: { status: 'Ready', data: { open: 0, blocking: 0, major: 0, minor: 0, recent: [] } },
+        aiProposals: { status: 'Ready', data: { awaitingDecision: 0, recent: [] } },
+      }),
+    );
+
+    expect(root().querySelectorAll('.cp-card--featured').length).toBe(0);
+    expect(headings()).toEqual(TOPICS);
+  });
+
+  it('features the first step in a workspace with nothing in it, and shows no figures above it', async () => {
+    await mount(found(emptyWorkspace()));
+
+    const start = topic('Get started');
+    expect(start.querySelector('.cp-card--featured')).toBeTruthy();
+    expect(root().querySelectorAll('.cp-card--featured').length).toBe(1);
+    expect(start.querySelector('cp-empty-state cp-illustration')!.getAttribute('data-name')).toBe('recipe');
+    expect(start.querySelector('cp-empty-state')!.getAttribute('data-variant')).toBe('first-use');
+
+    // Four zeros above a first step say nothing the first step does not say better.
+    expect(root().querySelector('cp-stat-tile')).toBeNull();
+  });
+
+  it('draws the topics whose emptiness means nothing here yet', async () => {
+    await mount(
+      found({
+        recipesInProgress: {
+          status: 'Ready',
+          data: { counts: [{ status: 'Draft', count: 0 }], recent: [] },
+        },
+        board: { status: 'Ready', data: { total: 0, columns: [] } },
+        recentUploads: { status: 'Ready', data: { items: [] } },
+      }),
+    );
+
+    const drawn: Record<string, string> = {
+      'Recipes in progress': 'recipe',
+      'Content board': 'board',
+      'Recently added pictures': 'picture',
+    };
+    for (const [heading, illustration] of Object.entries(drawn)) {
+      const card = topic(heading);
+      expect(card.querySelector('cp-empty-state cp-illustration')!.getAttribute('data-name')).toBe(illustration);
+
+      // Compact, not the roomy first-use layout: a dashboard holds a dozen of these at once.
+      expect(card.querySelector('cp-empty-state')!.getAttribute('data-variant')).toBe('no-results');
+    }
+
+    // A board with nothing on it says so rather than listing a column of zeros.
+    expect(topic('Content board').querySelector('dl')).toBeNull();
+    expect(topic('Recipes in progress').querySelector('dl')).toBeNull();
+  });
+
+  it('still lists the statuses when a recipe is in progress, drawn state or not', async () => {
+    await mount(found());
+
+    expect(topic('Recipes in progress').querySelector('cp-empty-state')).toBeNull();
+    expect(topic('Recipes in progress').textContent).toContain('Soda bread');
+  });
+
+  // ---- Naming a run nobody named (AU.4.1, from AU.0) ----
+
+  it('tells three runs of one workflow apart, for the eye and for a screen reader', async () => {
+    // A run nobody gave a name to is titled after its goal, so these three all arrive as "Create a recipe".
+    const run = (id: string, stepTitle: string | null, updatedAt: string): Record<string, unknown> => ({
+      id,
+      title: 'Create a recipe',
+      definitionKey: 'recipe.create',
+      goal: 'Create a recipe',
+      stepKey: stepTitle === null ? null : 'step',
+      stepTitle,
+      youCanDoIt: true,
+      updatedAt,
+      attentionReasons: [],
+    });
+
+    await mount(
+      found({
+        workflows: {
+          status: 'Ready',
+          data: {
+            inProgressCount: 3,
+            continue: [
+              run('w1', 'Check your method', '2026-10-14T11:00:00+00:00'),
+              run('w2', 'Write the headnote', '2026-10-13T11:00:00+00:00'),
+              run('w3', null, '2026-10-12T11:00:00+00:00'),
+            ],
+            needsAttentionCount: 0,
+            needsAttention: [],
+          },
+        },
+      }),
+    );
+
+    const links = Array.from(topic('Carry on where you left off').querySelectorAll('.items a'));
+    expect(links.map((link) => link.textContent?.trim())).toEqual([
+      'Create a recipe — Check your method',
+      'Create a recipe — Write the headnote',
+      'Create a recipe — finish it',
+    ]);
+
+    // Each accessible name differs too, and carries the visible one inside it (SC 2.5.3).
+    const names = links.map((link) => link.getAttribute('aria-label') ?? '');
+    expect(new Set(names).size).toBe(3);
+    expect(names[0]).toBe('Carry on with Create a recipe — Check your method, last touched Oct 14');
+    for (const [index, link] of links.entries()) {
+      expect(names[index]).toContain(link.textContent!.trim());
+    }
+  });
+
+  it('keeps the creator’s own name for a run they named, and offers to open one that is not theirs to take', async () => {
+    await mount(found());
+
+    const rows = Array.from(topic('Carry on where you left off').querySelectorAll('.items > li'));
+
+    // Named by its creator: shown as they wrote it, with no step bolted on.
+    expect(rows[0].querySelector('a')!.textContent!.trim()).toBe('Soda bread, start to finish');
+
+    // Somebody else's step: offered as something to open, not to carry on with.
+    expect(rows[1].querySelector('a')!.getAttribute('aria-label')).toBe('Open Granola, improved, last touched Oct 13');
   });
 
   it('refreshes on request, says so, and keeps what it shows if the refresh fails', async () => {
@@ -571,6 +910,38 @@ describe('DashboardComponent', () => {
     slow.complete();
     await settle();
     expect(button('Refresh')).toBeTruthy();
+  });
+
+  it('keeps one workspace’s dashboard out of another’s, and reads the one in the route', async () => {
+    const other = 'winter-kitchen';
+    await mount(
+      found(),
+      found({
+        recipesInProgress: {
+          status: 'Ready',
+          data: {
+            counts: [{ status: 'Draft', count: 1 }],
+            recent: [{ id: 'r9', title: 'Winter kitchen loaf', status: 'Draft', updatedAt: '2026-10-14T09:00:00+00:00' }],
+          },
+        },
+      }),
+    );
+
+    expect(topic('Recipes in progress').textContent).toContain('Soda bread');
+
+    await harness.navigateByUrl(`/${other}/dashboard`, DashboardComponent);
+    await settle();
+
+    // Read by the slug in the route, and every link now points into that workspace and no other.
+    expect(reads).toEqual([SLUG, other]);
+    expect(topic('Recipes in progress').textContent).toContain('Winter kitchen loaf');
+    expect(topic('Recipes in progress').textContent).not.toContain('Soda bread');
+
+    const hrefs = Array.from(root().querySelectorAll('a')).map((link) => link.getAttribute('href') ?? '');
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href.startsWith(`/${other}/`)).toBe(true);
+    }
   });
 
   it('says a workspace it cannot find is not found', async () => {

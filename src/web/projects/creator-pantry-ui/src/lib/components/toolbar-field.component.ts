@@ -31,7 +31,7 @@ const SHARED_STYLES = `
     /* 40px, the minimum target. */
     min-height: 2.5rem;
     padding: 0 var(--cp-space-3);
-    border: 1px solid var(--cp-border);
+    border: 1px solid var(--cp-border-control);
     border-radius: var(--cp-radius-md);
     background: var(--cp-surface);
     color: var(--cp-text);

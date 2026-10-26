@@ -242,7 +242,7 @@ describe('PromptDetailComponent', () => {
     await create();
 
     const draft = root().querySelector('[aria-labelledby="prompt-draft-heading"]') as HTMLElement;
-    expect(draft.textContent).toContain('Generated');
+    expect(draft.querySelector('cp-generated-label')?.textContent).toContain('Drafted by AI');
     expect(draft.textContent).toContain('A bowl of chili.');
     expect(draft.textContent).toContain('The prompt above is the one that counts');
   });

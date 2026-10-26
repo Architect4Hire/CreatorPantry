@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
+using CreatorPantry.Domain.Modules.Recipes.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -178,6 +179,14 @@ public interface IMediaAssetRepository
 
     /// <summary>The next sort order for a recipe's asset links, so a new link lands at the end.</summary>
     Task<int> NextRecipeLinkOrderAsync(Guid recipeId, CancellationToken cancellationToken);
+
+    /// <summary>Whether this recipe already has a lead picture, in the resolved workspace.</summary>
+    /// <remarks>
+    /// Asked so that the first picture saved against a recipe becomes its lead one — see the role choice in
+    /// <c>MediaAssetDataLayer</c>. Filtered to the workspace like every read here, so a neighbour's hero is
+    /// not merely excluded from the answer, it is invisible to it.
+    /// </remarks>
+    Task<bool> RecipeHasHeroLinkAsync(Guid recipeId, CancellationToken cancellationToken);
 
     void Add(MediaAsset asset);
 
@@ -384,6 +393,13 @@ internal sealed class MediaAssetRepository(CreatorPantryDbContext context) : IMe
             .Where(link => link.RecipeId == recipeId)
             .Select(link => (int?)link.SortOrder)
             .MaxAsync(cancellationToken) + 1 ?? 0;
+
+    public Task<bool> RecipeHasHeroLinkAsync(Guid recipeId, CancellationToken cancellationToken) =>
+        context.RecipeAssetLinks
+            .AsNoTracking()
+            .AnyAsync(
+                link => link.RecipeId == recipeId && link.Role == RecipeAssetRole.Hero,
+                cancellationToken);
 
     public void Add(MediaAsset asset) => context.MediaAssets.Add(asset);
 

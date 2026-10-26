@@ -94,4 +94,22 @@ describe('CpFactsComponent', () => {
     const value = fact(0).querySelector('dd')!.getBoundingClientRect();
     expect(Math.round(value.left)).toBeGreaterThanOrEqual(Math.round(term.right));
   });
+
+  it('sets the facts side by side when across, each a small term over a bold value, wrapping when out of room', () => {
+    mount((h) => h.layout.set('across'));
+    const list = el.querySelector('dl')!;
+    expect(getComputedStyle(list).display).toBe('flex');
+    expect(getComputedStyle(list).flexWrap).toBe('wrap');
+
+    const first = fact(0).getBoundingClientRect();
+    const second = fact(1).getBoundingClientRect();
+    expect(Math.round(second.left)).toBeGreaterThan(Math.round(first.right));
+    expect(Math.round(second.top)).toBe(Math.round(first.top));
+
+    const term = fact(0).querySelector('dt')!;
+    const value = fact(0).querySelector('dd')!;
+    expect(getComputedStyle(term).fontSize).toBe('11px');
+    expect(Math.round(value.getBoundingClientRect().top)).toBeGreaterThanOrEqual(Math.round(term.getBoundingClientRect().bottom));
+    expect(getComputedStyle(value).fontWeight).toBe('600');
+  });
 });

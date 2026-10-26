@@ -534,8 +534,8 @@ describe('LongFormDocumentReviewComponent', () => {
     ];
     await create();
 
-    expect(text(card(1))).toContain('Written for you');
-    expect(text(card(2))).not.toContain('Written for you');
+    expect(text(card(1))).toContain('Drafted by AI');
+    expect(text(card(2))).not.toContain('Drafted by AI');
   });
 
   it('says whose words a section began as when it was written from accepted copy', async () => {
@@ -603,7 +603,7 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(items[2]).toContain('The writer’s own note: A note from the writer.');
 
     // Their own text, with cautions on it, is still theirs to keep, settle and accept.
-    expect(text(card(2))).not.toContain('Written for you');
+    expect(text(card(2))).not.toContain('Drafted by AI');
     expect(button('Mark as settled', card(2))).not.toBeNull();
     expect(button('Accept this piece')?.getAttribute('aria-disabled')).toBeNull();
   });
@@ -691,7 +691,7 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(card(2).querySelector('textarea')).toBeNull();
     expect(host.review().hasUnsavedWork()).toBeFalse();
     expect(announcement()).toBe('Saved “Three tips”.');
-    expect(text(card(2))).not.toContain('Written for you');
+    expect(text(card(2))).not.toContain('Drafted by AI');
   });
 
   it('keeps the creator’s text in the box when a save fails, and says it is still there', async () => {

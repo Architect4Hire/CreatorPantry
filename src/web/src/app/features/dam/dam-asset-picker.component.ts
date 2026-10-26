@@ -24,7 +24,7 @@ import {
 
 import { DamAssetSearchQuery, DamAssetSummary } from '../../models/dam-asset.models';
 import { DamAssetSearchOutcome, DamAssetService } from '../../services/dam-asset.service';
-import { DamAssetThumbnailComponent } from './dam-asset-thumbnail.component';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 
 type BrowseState = 'loading' | 'ready' | 'empty' | 'error';
 

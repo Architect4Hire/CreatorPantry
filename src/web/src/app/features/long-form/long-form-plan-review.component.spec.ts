@@ -291,7 +291,7 @@ describe('LongFormPlanReviewComponent', () => {
 
     expect(service.reads).toEqual([['cozy-fall', 'd-1']]);
     expect(headings()).toEqual(['Why this cake', 'Three tips', 'Until next time']);
-    expect(text()).toContain('AI suggested');
+    expect(text()).toContain('Drafted by AI');
     expect(text()).toContain('Not approved yet');
     expect(service.patches.length + service.approvals.length).toBe(0);
   });
@@ -433,7 +433,7 @@ describe('LongFormPlanReviewComponent', () => {
 
     expect(host.review().hasUnsavedWork()).toBeTrue();
     expect(text()).toContain('Unsaved changes');
-    expect(text()).not.toContain('AI suggested');
+    expect(text()).not.toContain('Drafted by AI');
     expect(service.patches.length).toBe(0);
   });
 

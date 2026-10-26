@@ -83,7 +83,7 @@ let nextId = 0;
         max-height: 100%;
         overflow: auto;
         padding: var(--cp-space-5);
-        border: 1px solid var(--cp-border);
+        border: 1px solid var(--cp-card-edge);
         border-radius: var(--cp-radius-xl);
         background: var(--cp-surface);
         box-shadow: var(--cp-shadow-lg);

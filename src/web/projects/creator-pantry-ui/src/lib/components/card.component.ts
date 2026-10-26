@@ -1,47 +1,38 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 @Component({
   selector: 'cp-card', standalone: true, template: '<ng-content />',
-  host: { '[class.cp-card--interactive]': 'interactive()', '[class.cp-card--flush]': 'flush()' },
+  host: { '[class.cp-card--interactive]': 'interactive()', '[class.cp-card--flush]': 'flush()', '[class.cp-card--featured]': 'featured()' },
   styles: [`
     :host {
-      display:block; padding:var(--cp-space-6); border:1px solid var(--cp-border); border-radius:var(--cp-radius-lg);
+      display:block; padding:var(--cp-space-6); border:1px solid var(--cp-card-edge); border-radius:var(--cp-radius-lg);
       background:var(--cp-surface); color:var(--cp-text); box-shadow:var(--cp-shadow-sm);
     }
     /*
-     * The card is meant to read as a popped-forward surface in dark mode too — clearly lighter than
-     * the page, not blended into it — but a literal white island next to a near-black page was too
-     * harsh a jump. This is a warm, muted parchment tone instead: still ~14.5:1 contrast against the
-     * dark page (plenty of "pop"), just not stark white. Re-declaring the neutral tokens inside the
-     * card's own scope (rather than just flipping background/color) means any projected content that
-     * references --cp-text-muted, --cp-border, nested cp-badge/cp-status-pill tones, etc. all resolve
-     * correctly against this lighter surface too, instead of inheriting dark-theme values tuned for a
-     * dark background. --cp-bg is included too: CpFieldComponent styles inputs/textareas against it
-     * for a "recessed" look relative to --cp-surface, so leaving it as the dark page background would
-     * strand every form field inside a card as a near-black box floating in a lighter card. Brand/
-     * accent tokens (primary, pink, orange, purple, blue, danger) are deliberately left alone so
-     * interactive affordances still match the rest of the dark page.
+     * A card is a sheet in either theme and re-declares no token, so everything inside reads the page's own ink,
+     * accents, ring and field colours at the ratios themes.css holds them to (AU.2.2, D2). Its edge is
+     * --cp-card-edge, shared with cp-dialog and cp-lightbox: a hairline on the light paper, a stronger line on the
+     * dark page, where the sheet's fill is only 1.14:1 off the page. The theme decides that, not this component.
+     * The dark card used to be parchment, which put every accent, the danger text and anything on a tint out of
+     * reach inside it; DESIGN-SYSTEM.md, "The focus ring", has the history.
      */
-    :host-context([data-cp-theme='dark']) {
-      --cp-bg: #ddd3b8; --cp-surface: #eae2cd; --cp-surface-subtle: #e4dbc4; --cp-surface-raised: #cddccd;
-      --cp-text: #16231c; --cp-text-muted: #536459; --cp-text-faint: #576357;
-      --cp-border: #cbbf9e; --cp-border-strong: #b3a582;
-      /* A field on this parchment is a lighter sheet than the card, edged at 3:1 against it. */
-      --cp-border-control: #7d725f; --cp-field-bg: #f5efe0;
-      /* Primary as *text* on this surface. The brand token is left alone, as above, because it also fills
-         buttons and soft chips that must match the dark page; as text it is a bright mint on parchment, about
-         1.45:1. This is the same green the light theme uses for text, darkened to clear 4.5:1 here. */
-      --cp-primary-text: #146137;
-      /* And the focus ring, for the same reason and in the same green. The bright mint reads at 9.97:1 on the
-         dark page, but on this parchment it is 1.13:1 to 1.25:1 — a focused control inside a card would have
-         had no visible ring at all. This green is 5.04:1 at worst here, and 4.01:1 against a primary button's
-         own mint fill, which is the one place in the system where the ring rather than the 2px gap is what
-         separates the two. */
-      --cp-focus: var(--cp-primary-text);
-    }
     :host.cp-card--flush { padding:0; overflow:hidden; }
+    /*
+     * The one topic on a page that matters most (AU.3.3): the tool's tint, and the primary's on an untoned page, edged
+     * in the tool's colour. At most one per page — DESIGN-SYSTEM.md, "Warmth inside the app" — or it features nothing.
+     * The tint is mixed four parts to one with the sheet: on the pure tint an evergreen link was 4.41:1 on light pink
+     * and 4.44:1 on light purple; mixed, it is 4.6:1 or better on every tint (design-system.spec.ts measures it).
+     */
+    :host.cp-card--featured { background:color-mix(in srgb,var(--cp-tone-soft) 80%,var(--cp-surface)); border-color:var(--cp-tone); }
+    /* Forced colours drop the tint and repaint the edge, which would leave a featured card a plain one. */
+    @media (forced-colors: active) { :host.cp-card--featured { border-width:2px; } }
     :host.cp-card--interactive { transition:transform var(--cp-duration-fast) var(--cp-ease),border-color var(--cp-duration-fast),box-shadow var(--cp-duration-fast); cursor:pointer; }
     :host.cp-card--interactive:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--cp-primary) 45%,var(--cp-border)); box-shadow:var(--cp-shadow-md); }
   `], changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CpCardComponent { readonly interactive = input(false); readonly flush = input(false); }
+export class CpCardComponent {
+  readonly interactive = input(false);
+  readonly flush = input(false);
+  /** The one topic on the page that matters most. At most one per page. A bare `featured` attribute turns it on. */
+  readonly featured = input(false, { transform: booleanAttribute });
+}

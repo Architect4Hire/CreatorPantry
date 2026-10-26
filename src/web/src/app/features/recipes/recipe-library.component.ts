@@ -13,6 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, map, merge, switchMap, tap } from 'rxjs';
 import {
+  CpBadgeComponent,
   CpButtonComponent,
   CpCardGridComponent,
   CpChipComponent,
@@ -30,18 +31,23 @@ import {
   CpStatusPillComponent,
   CpStatusPillTone,
   CpToolbarComponent,
+  CpTone,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
 
+import { DamAssetPicture } from '../../models/dam-asset.models';
+import { RECIPE_STATUS_LABELS } from '../../models/recipe-readiness.models';
 import {
   DEFAULT_RECIPE_SEARCH_QUERY,
   RecipeSearchQuery,
   RecipeSearchSort,
   RecipeStatus,
   RecipeSummary,
+  recipeHeroPicture,
 } from '../../models/recipe.models';
 import { RecipeSearchOutcome, RecipeService } from '../../services/recipe.service';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 
 /** How the first page of a search can stand. Later pages have their own two flags, so a failure there keeps the cards. */
 type Phase = 'loading' | 'error' | 'ready';
@@ -104,7 +110,11 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
  * once the filters it was issued under change, and the server refuses it when they do. Reloading therefore
  * returns to the first page of the same search rather than to a position that may no longer exist.
  *
- * **A card has no picture.** The search response carries none, so every card shows the panel in its place.
+ * **A card shows the recipe's own hero photograph.** The list response names it — the asset, which version,
+ * and what the creator said it shows — and the shared thumbnail fetches the bytes from the authorised render
+ * route, one card at a time as each nears the screen. Nothing here holds a storage address, and a recipe with
+ * no hero, or one whose picture has left the library, takes `cp-media-card`'s drawn panel instead: the server
+ * says null for all of those alike, and a missing photograph never costs the creator the recipe.
  */
 @Component({
   selector: 'cp-recipe-library',
@@ -112,6 +122,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
   imports: [
     RouterLink,
     DatePipe,
+    CpBadgeComponent,
     CpButtonComponent,
     CpCardGridComponent,
     CpChipComponent,
@@ -127,6 +138,7 @@ const FILTER_REJECTED = 'That combination of filters could not be applied. Clear
     CpSelectFieldComponent,
     CpStatusPillComponent,
     CpToolbarComponent,
+    DamAssetThumbnailComponent,
   ],
   templateUrl: './recipe-library.component.html',
   styleUrl: './recipe-library.component.css',
@@ -158,6 +170,25 @@ export class RecipeLibraryComponent {
   readonly sort = signal<RecipeSearchSort>('RecentlyUpdated');
 
   readonly statusOptions = FILTERABLE_STATUSES;
+
+  /** The words for each state. The wire names ("InDevelopment") are identifiers, not labels a creator reads. */
+  protected readonly statusLabels = RECIPE_STATUS_LABELS;
+
+  /**
+   * Each card's picture, by recipe id.
+   *
+   * Built once per page of results rather than per render: the thumbnail takes an object, and rebuilding one
+   * in the template would hand it a new identity on every change detection pass.
+   */
+  protected readonly pictures = computed(() => {
+    const byRecipe = new Map<string, DamAssetPicture>();
+
+    for (const recipe of this.items()) {
+      if (recipe.heroAsset !== null) byRecipe.set(recipe.id, recipeHeroPicture(recipe.heroAsset));
+    }
+
+    return byRecipe;
+  });
 
   /**
    * Which search the cards on screen belong to. Raised whenever the filters or ordering change, so an answer
@@ -282,6 +313,28 @@ export class RecipeLibraryComponent {
 
   statusTone(status: RecipeStatus): CpStatusPillTone {
     return STATUS_TONE[status];
+  }
+
+  /**
+   * The latest version, as a badge — "v4", or "v4 Ready" when the readiness is news.
+   *
+   * The status pill beside it already says the state in words, so repeating the same word under it ("Draft"
+   * over "v4 Draft") told the creator nothing twice. Nothing is hidden: an approved recipe whose newest
+   * version is still a draft reads "Approved" and "v4 Draft", because there the two differ and both matter.
+   * Empty for a recipe with no versions, which has no version to name.
+   */
+  versionLabel(recipe: RecipeSummary): string {
+    const readiness = recipe.latestVersionReadiness;
+    if (readiness === null || recipe.latestVersionNumber === null) return '';
+
+    const version = `v${recipe.latestVersionNumber}`;
+
+    return this.statusLabels[recipe.status] === readiness ? version : `${version} ${readiness}`;
+  }
+
+  /** A ready version is worth a colour; a draft one is the ordinary case. */
+  versionTone(recipe: RecipeSummary): CpTone {
+    return recipe.latestVersionReadiness === 'Ready' ? 'success' : 'neutral';
   }
 
   // ---- Internals ----

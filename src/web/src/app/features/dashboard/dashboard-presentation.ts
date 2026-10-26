@@ -1,3 +1,4 @@
+import { DashboardWorkflowRun } from '../../models/dashboard.models';
 import { PublishingStatusValue } from '../../models/publishing.models';
 import { TestIssueSeverity } from '../../models/recipe-test-run.models';
 import { WorkTaskStatus } from '../../models/work-task.models';
@@ -67,4 +68,33 @@ export function attentionWords(reasons: readonly string[]): readonly string[] {
     .filter((text): text is string => text !== undefined);
 
   return words.length > 0 ? words : ['We could not say why. Open it to see where it stopped.'];
+}
+
+/**
+ * What to call one guided run where several are listed together (AU.4.1). A run nobody gave a name to is
+ * titled after its goal, so three runs of one workflow all read "Create a recipe" — the same link three times
+ * over, for the eye and for a screen reader alike.
+ *
+ * Where the title is the goal, the step the run is on is what tells it from its siblings, and it is the run's
+ * own word rather than one made up here. The read model carries no linked record, so the recipe a run is
+ * about cannot be named without a field the server does not send.
+ */
+export function runName(run: DashboardWorkflowRun): string {
+  if (run.title.trim() !== run.goal.trim()) return run.title;
+
+  // A step with no title of its own says nothing, and "Create a recipe — " says less than nothing.
+  const step = run.stepTitle?.trim() ?? '';
+
+  return step === '' ? `${run.title} — finish it` : `${run.title} — ${step}`;
+}
+
+/**
+ * A run link's accessible name: what the run is called, and the day it was last touched — so two unnamed runs
+ * of one workflow sitting on one step are still two different links.
+ *
+ * "Carry on with" where the step is the reader's to take and "Open" where it is somebody else's, which is what
+ * `YouCanDoIt` is for: the dashboard offers to open a run it cannot offer to continue.
+ */
+export function runLinkLabel(run: DashboardWorkflowRun, lastTouched: string): string {
+  return `${run.youCanDoIt ? 'Carry on with' : 'Open'} ${runName(run)}, last touched ${lastTouched}`;
 }

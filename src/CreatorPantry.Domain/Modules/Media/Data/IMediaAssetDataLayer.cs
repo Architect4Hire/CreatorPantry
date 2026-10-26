@@ -1016,13 +1016,27 @@ internal sealed class MediaAssetDataLayer(
 
             if (creation.RecipeLink is { } link)
             {
+                // The first picture saved against a recipe becomes its lead one, and every one after it a
+                // gallery picture — the same rule the recipe's own media dialog applies when a creator links
+                // a picture by hand. Before this, every save here was a gallery picture, so a recipe could
+                // collect photographs and still have nothing to show on a card.
+                //
+                // Read, then written, with the window between them unguarded — as the sort order beside it
+                // already is. UX_RecipeAssetLinks_Workspace_Recipe_Hero makes a second hero unrepresentable,
+                // so two saves racing for a recipe's first picture end as NotCommitted and the creator saves
+                // again; the alternative is choosing the role in a statement, which is not worth it for a
+                // race between one creator's own two saves of the same moment.
+                var role = await assets.RecipeHasHeroLinkAsync(link.RecipeId, cancellationToken)
+                    ? RecipeAssetRole.Gallery
+                    : RecipeAssetRole.Hero;
+
                 assets.Add(new RecipeAssetLink
                 {
                     Id = Guid.NewGuid(),
                     WorkspaceId = workspace.WorkspaceId,
                     RecipeId = link.RecipeId,
                     MediaAssetId = asset.Id,
-                    Role = RecipeAssetRole.Gallery,
+                    Role = role,
                     Caption = link.Caption,
                     SortOrder = await assets.NextRecipeLinkOrderAsync(link.RecipeId, cancellationToken),
                 });

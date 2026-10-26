@@ -26,7 +26,28 @@ button, a { -webkit-tap-highlight-color: transparent; }
    component's own styles do not reach what it is given. Held to the window and to its own pixels: never
    scaled past the size it was made at, never needing a scroll to be seen whole. */
 cp-lightbox .cp-lightbox-stage img { display: block; width: auto; height: auto; max-width: 100%; max-height: var(--cp-lightbox-picture-max-height); margin-inline: auto; }
-.cp-disclosure > summary { display: flex; align-items: center; min-height: 2.5rem; font-weight: 600; cursor: pointer; }
+/* `list-item`, not flex, so the marker is kept: a flex summary drops ::marker, and what was left read as a label
+   with no sign it opens (AU.3.2). The 40px comes from padding instead: a 1.5rem line and a space-2 either side. */
+.cp-disclosure > summary { display: list-item; min-height: 2.5rem; padding-block: var(--cp-space-2); font-weight: 600; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
 }
+/* The entrance (AU.3.4, D4). `cpEnter` marks what has just arrived for as long as it is arriving, and this is
+   the only thing that hides it: nothing here touches an element the directive has not marked, so a sheet that
+   never loaded, a page without script and an entrance that has finished all leave content that was never
+   hidden. `translate`, not `transform`, so an element's own transform survives its arrival; `backwards`, so a
+   staggered item waits transparent rather than appearing and then flashing out. */
+@keyframes cp-enter { from { opacity: 0; translate: 0 var(--cp-enter-distance); } }
+[data-cp-enter] { animation: cp-enter var(--cp-duration-enter) var(--cp-ease) backwards; }
+/* Focus ends the arrival here as well as in the directive, because a style recalculation is synchronous and a
+   signal written in a `focusin` handler is not: without this a creator tabbing into a list that has just landed
+   would see the focus ring on something still transparent for a frame. The directive then takes the mark off
+   for good, so nothing can animate again when focus leaves. */
+[data-cp-enter]:focus-within { animation: none; }
+/* The clamp above shortens the animation to one instant and leaves the delay, which would hold a staggered
+   item invisible for its turn with nothing to see at the end of the wait. `!important` because the delay the
+   directive writes is an inline style. */
+@media (prefers-reduced-motion: reduce) { [data-cp-enter] { animation-delay: 0s !important; } }
+/* Paper renders the whole document at once and need not run an animation at all, and `backwards` would then
+   hold the from-state and print the page blank. */
+@media print { [data-cp-enter] { animation: none !important; } }

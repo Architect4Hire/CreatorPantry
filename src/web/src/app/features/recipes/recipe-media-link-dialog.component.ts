@@ -41,7 +41,7 @@ import { RecipeAssetRole, RecipeDetail } from '../../models/recipe.models';
 import { DamAssetService } from '../../services/dam-asset.service';
 import { RecipeAssetLinkService } from '../../services/recipe-asset-link.service';
 import { DamAssetPickerComponent } from '../dam/dam-asset-picker.component';
-import { DamAssetThumbnailComponent } from '../dam/dam-asset-thumbnail.component';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 
 type Stage = 'browse' | 'describe';
 type PinMode = 'follow' | 'keep';

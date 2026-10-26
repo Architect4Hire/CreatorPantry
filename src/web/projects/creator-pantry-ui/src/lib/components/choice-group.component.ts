@@ -132,7 +132,7 @@ let cpChoiceGroupUid = 0;
         width: 1.25rem;
         height: 1.25rem;
         margin-block-start: 0.1rem;
-        border: 1px solid var(--cp-border-strong);
+        border: 1px solid var(--cp-border-control);
         border-radius: var(--cp-radius-sm);
         background: var(--cp-surface);
         color: var(--cp-primary-ink);
@@ -166,8 +166,11 @@ let cpChoiceGroupUid = 0;
         border-color: color-mix(in srgb, var(--cp-primary) 45%, var(--cp-border));
         box-shadow: var(--cp-shadow-sm);
       }
+      /* The edge is what says which answer is chosen, so it is drawn in --cp-primary-text, the primary as a line a
+         creator has to see. It is the brand green in both themes; it was not inside the old parchment card (AU.2.2),
+         where the mint was 1.5:1 and a chosen tile looked like the others. */
       .tile.picked {
-        border-color: var(--cp-primary);
+        border-color: var(--cp-primary-text);
         background: var(--cp-primary-soft);
       }
       .tile.picked .mark {

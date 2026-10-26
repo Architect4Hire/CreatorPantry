@@ -475,7 +475,7 @@ describe('QuickRecipeComponent', () => {
       await nameAndStart();
 
       expect(text()).toContain('Step 3 of 3');
-      expect(text()).toContain('Generated draft');
+      expect(text()).toContain('Drafted by AI');
       expect(text()).toContain('Miso Butter Corn');
       expect(text()).toContain('4 ears corn');
       expect(text()).toContain('Char the corn.');

@@ -3,9 +3,23 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, Subject, of } from 'rxjs';
 
-import { RecipeSearchPage, RecipeSearchQuery, RecipeSummary } from '../../models/recipe.models';
+import { VisibilityService } from '../../core/visibility.service';
+import { RecipeHeroAsset, RecipeSearchPage, RecipeSearchQuery, RecipeSummary } from '../../models/recipe.models';
+import { DamAssetContentOutcome, DamAssetService } from '../../services/dam-asset.service';
 import { RecipeSearchOutcome, RecipeService } from '../../services/recipe.service';
 import { RecipeLibraryComponent } from './recipe-library.component';
+
+/** A hero picture as the list publishes one: an asset, the version to show, and the asset's newest. */
+function hero(overrides: Partial<RecipeHeroAsset> = {}): RecipeHeroAsset {
+  return {
+    mediaAssetId: 'a1',
+    title: 'Chili in a blue bowl',
+    altText: 'A bowl of chili topped with coriander',
+    versionNumber: 1,
+    currentVersionNumber: 1,
+    ...overrides,
+  };
+}
 
 function summary(id: string, title: string, overrides: Partial<RecipeSummary> = {}): RecipeSummary {
   return {
@@ -20,6 +34,7 @@ function summary(id: string, title: string, overrides: Partial<RecipeSummary> = 
     latestVersionNumber: 1,
     latestVersionReadiness: 'Draft',
     hasUnmatchedIngredients: false,
+    heroAsset: null,
     ...overrides,
   };
 }
@@ -44,7 +59,16 @@ function delay(ms: number): Promise<void> {
 
 describe('RecipeLibraryComponent', () => {
   let searchSpy: jasmine.Spy<(slug: string, query: RecipeSearchQuery) => Observable<RecipeSearchOutcome>>;
+  /** The authorised render route, stubbed: the card never holds a storage address, so there is nothing else to fake. */
+  let contentSpy: jasmine.Spy;
+  let versionContentSpy: jasmine.Spy;
   let harness: RouterTestingHarness;
+
+  beforeEach(() => {
+    const picture = of<DamAssetContentOutcome>({ status: 'found', bytes: new Blob(['bytes']) });
+    contentSpy = jasmine.createSpy('content').and.returnValue(picture);
+    versionContentSpy = jasmine.createSpy('versionContent').and.returnValue(picture);
+  });
 
   /** Every query the component has issued, in order — what the filter and paging tests assert against. */
   function queries(): RecipeSearchQuery[] {
@@ -108,6 +132,9 @@ describe('RecipeLibraryComponent', () => {
       providers: [
         provideRouter([{ path: ':workspaceSlug/recipes', component: RecipeLibraryComponent }]),
         { provide: RecipeService, useValue: { searchRecipes: searchSpy } },
+        { provide: DamAssetService, useValue: { content: contentSpy, versionContent: versionContentSpy } },
+        // Every card counts as near the screen, so a spec does not have to scroll a viewport.
+        { provide: VisibilityService, useValue: { whenNearViewport: () => of(undefined) } },
       ],
     }).compileComponents();
 
@@ -163,11 +190,111 @@ describe('RecipeLibraryComponent', () => {
 
     expect(root().querySelectorAll('ul[cpCardGrid] > li').length).toBe(2);
 
-    // The list response carries no picture, so nothing is projected and the panel stands in for one.
+    // Neither of these recipes has a hero, so nothing is projected and the panel stands in for one.
     const card = cards()[0];
     expect(card.querySelector('.picture')?.children.length).toBe(0);
     expect(card.querySelector('.panel')?.getAttribute('aria-hidden')).toBe('true');
     expect(getComputedStyle(card.querySelector('.panel')!).display).not.toBe('none');
+  });
+
+  it("shows a recipe's own hero photograph, read through the authorised route", async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'Chili', { heroAsset: hero() })])));
+    await create();
+    await settle();
+
+    const card = cards()[0];
+    const picture = card.querySelector('cp-dam-asset-thumbnail');
+    expect(picture).toBeTruthy();
+    expect(picture?.hasAttribute('cpMediaCardPicture')).toBeTrue();
+
+    // The bytes are asked of the render route by asset and rendition — never an address on the card.
+    expect(contentSpy).toHaveBeenCalledWith('sams-kitchen', 'a1', 'thumbnail');
+    expect(card.querySelector('img')?.getAttribute('alt')).toBe('A bowl of chili topped with coriander');
+
+    // With a picture projected, the drawn panel goes.
+    expect(getComputedStyle(card.querySelector('.panel')!).display).toBe('none');
+  });
+
+  it('names a picture by its own title when nobody has described it, and never by the recipe', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'Chili', { heroAsset: hero({ altText: null }) })])));
+    await create();
+    await settle();
+
+    const alt = cards()[0].querySelector('img')?.getAttribute('alt') ?? '';
+    expect(alt).toContain('Chili in a blue bowl');
+    expect(alt).toContain('No description has been written for it');
+  });
+
+  it("asks for the version the recipe's picture is held at, not whichever is current", async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(
+        found(page([summary('r1', 'Chili', { heroAsset: hero({ versionNumber: 2, currentVersionNumber: 5 }) })])),
+      );
+    await create();
+    await settle();
+
+    expect(versionContentSpy).toHaveBeenCalledWith('sams-kitchen', 'a1', 2, 'thumbnail');
+    expect(contentSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the panel for a recipe whose picture the server will not name', async () => {
+    // Null covers a recipe with no hero, one whose picture has left the library, and one naming an asset this
+    // workspace cannot read. The card cannot act on any of them, so all three draw the same.
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'Chili', { heroAsset: null })])));
+    await create();
+    await settle();
+
+    expect(cards()[0].querySelector('cp-dam-asset-thumbnail')).toBeNull();
+    expect(contentSpy).not.toHaveBeenCalled();
+    expect(getComputedStyle(cards()[0].querySelector('.panel')!).display).not.toBe('none');
+    expect(text()).toContain('Chili');
+  });
+
+  it('labels editorial states in words rather than in the wire names', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(found(page([summary('r1', 'Chili', { status: 'InDevelopment' })])));
+    await create();
+
+    expect(text()).toContain('In development');
+    expect(text()).toContain('Ready for review');
+    expect(text()).not.toContain('InDevelopment');
+    expect(text()).not.toContain('ReadyForReview');
+  });
+
+  it('says a state once rather than in the pill and the version badge both', async () => {
+    searchSpy = jasmine
+      .createSpy('searchRecipes')
+      .and.returnValue(
+        found(
+          page([
+            summary('r1', 'Chili', { status: 'Draft', latestVersionNumber: 4, latestVersionReadiness: 'Draft' }),
+            // Approved over a draft version is not a repetition: there the two differ and both matter.
+            summary('r2', 'Gnocchi', { status: 'Approved', latestVersionNumber: 2, latestVersionReadiness: 'Draft' }),
+          ]),
+        ),
+      );
+    await create();
+
+    const [draft, approved] = cards().map((card) => card.querySelector('.badges')?.textContent ?? '');
+    expect(draft).toContain('v4');
+    expect(draft.match(/Draft/g)?.length).toBe(1);
+    expect(approved).toContain('Approved');
+    expect(approved).toContain('v2 Draft');
+  });
+
+  it('draws card-shaped skeletons while the first page is in flight', async () => {
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(new Subject<RecipeSearchOutcome>());
+    await create();
+
+    expect(root().querySelector('cp-skeleton')?.getAttribute('data-shape')).toBe('card');
   });
 
   it("shows a recipe's description when it has one, and nothing in its place when it has none", async () => {

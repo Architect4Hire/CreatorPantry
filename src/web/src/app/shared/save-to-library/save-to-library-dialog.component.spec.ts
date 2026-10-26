@@ -43,6 +43,7 @@ function recipe(id: string, title: string): RecipeSummary {
     latestVersionNumber: 1,
     latestVersionReadiness: null,
     hasUnmatchedIngredients: false,
+    heroAsset: null,
   };
 }
 
@@ -236,7 +237,7 @@ describe('SaveToLibraryDialogComponent', () => {
     });
 
     expect(field<HTMLTextAreaElement>('alt-text').value).toBe('');
-    expect(text()).not.toContain('Generated');
+    expect(root().querySelector('cp-generated-label')).toBeNull();
 
     button('Save to library').click();
     await settle();
@@ -247,7 +248,7 @@ describe('SaveToLibraryDialogComponent', () => {
     await create((each) => each.suggestion.set('A round loaf on a linen cloth.'));
 
     expect(field<HTMLTextAreaElement>('alt-text').value).toBe('A round loaf on a linen cloth.');
-    expect(root().querySelector('.generated')?.textContent).toContain('Generated');
+    expect(root().querySelector('.generated cp-generated-label')?.textContent).toContain('Drafted by AI');
     expect(root().querySelector('.generated')?.textContent).toContain('not by you');
     expect(field<HTMLTextAreaElement>('alt-text').readOnly).toBeFalse();
 

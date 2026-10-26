@@ -175,9 +175,9 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 
 - Angular components do not inject `HttpClient`; typed API services own HTTP.
 - `src/web/projects/creator-pantry-ui` is the only reusable UI library. Import its public API as `@creator-pantry/ui`; never deep-import `src/lib` files.
-- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpDrawerComponent`, `CpLightboxComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, `CpComboboxComponent`, `CpFormSectionComponent`,
-  `CpFieldRowComponent`, `CpChoiceGroupComponent`, `CpNoticeComponent`, `CpPageHeadComponent`, `CpBackLinkComponent`,
-  `CpCardGridComponent`, `CpBoardComponent`, `CpBoardColumnComponent`, `CpMediaCardComponent`, `CpTopicCardComponent`, `CpFactsComponent`, `CpFactComponent`,
+- The implemented public API currently exports `CpThemeService`, `CpButtonComponent`, `CpCardComponent`, `CpBadgeComponent`, `CpFieldComponent`, `CpProgressComponent`, `CpDialogComponent`, `CpDrawerComponent`, `CpLightboxComponent`, `CpQuickActionComponent`, `CpStatusPillComponent`, `CpListShellComponent`, `CpSkeletonComponent`, `CpEnterDirective`, `CpTabsComponent`, `CpTabPanelComponent`, `CpToolbarComponent`, `CpEmptyStateComponent`, `CpIllustrationComponent`, `CpUploaderComponent`, `CpDiffLegendComponent`, `CpToastRegionComponent`, `CpAnchorNavComponent`, `CpCheckboxComponent`, `CpComboboxComponent`, `CpFormSectionComponent`,
+  `CpFieldRowComponent`, `CpChoiceGroupComponent`, `CpNoticeComponent`, `CpGeneratedLabelComponent`, `CpGeneratedComponent`, `CpPageHeadComponent`, `CpBackLinkComponent`,
+  `CpCardGridComponent`, `CpBoardComponent`, `CpBoardColumnComponent`, `CpMediaCardComponent`, `CpOptionCardComponent`, `CpStatTileComponent`, `CpTopicCardComponent`, `CpFactsComponent`, `CpFactComponent`,
   `CpSearchFieldComponent`, `CpSelectFieldComponent`, `CpChipGroupComponent`, `CpChipComponent`, `CpStepperComponent`, and `CpValidationSummaryComponent`.
 - Import `tokens.css`, `themes.css`, and `global.css` once, in that order, from `@creator-pantry/ui/styles/`.
 - `src/web/DESIGN-SYSTEM.md`, the library styles, and the showcase are the visual source of truth. Do not invent a separate visual reference.

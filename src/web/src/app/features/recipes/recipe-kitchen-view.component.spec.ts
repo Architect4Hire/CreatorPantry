@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { Observable, of } from 'rxjs';
 
 import { PrintService } from '../../core/print.service';
 import { ScreenWakeService } from '../../core/screen-wake.service';
@@ -10,7 +11,10 @@ import { MeasurementUnit } from '../../models/reference.models';
 import { RecipeDetail } from '../../models/recipe.models';
 import { RecipeDetailOutcome, RecipeService } from '../../services/recipe.service';
 import { ListUnitsOutcome, ReferenceService } from '../../services/reference.service';
-import { RecipeKitchenViewComponent, formatKitchenMinutes } from './recipe-kitchen-view.component';
+import { DamAssetContentOutcome, DamAssetDetailOutcome, DamAssetService } from '../../services/dam-asset.service';
+import { assetDetail, mediaLink } from './recipe-media.testing';
+import { RecipeKitchenViewComponent } from './recipe-kitchen-view.component';
+import { formatKitchenMinutes } from './recipe-head';
 
 const FAHRENHEIT: MeasurementUnit = {
   id: 'u-f',
@@ -178,7 +182,22 @@ class StubScreenWakeService {
   }
 }
 
+/** The lead picture's asset and bytes. Asked for only when the recipe has a lead picture. */
+class StubDamAssetService {
+  readonly calls: string[] = [];
+
+  detail(workspaceSlug: string, assetId: string): Observable<DamAssetDetailOutcome> {
+    this.calls.push(`detail ${workspaceSlug} ${assetId}`);
+    return of({ status: 'found', asset: assetDetail({ id: assetId, altText: 'Cornbread in a cast-iron skillet' }) });
+  }
+
+  content(): Observable<DamAssetContentOutcome> {
+    return of({ status: 'found', bytes: new Blob(['picture'], { type: 'image/png' }) });
+  }
+}
+
 describe('RecipeKitchenViewComponent', () => {
+  let assets: StubDamAssetService;
   let recipes: StubRecipeService;
   let reference: StubReferenceService;
   let printer: StubPrintService;
@@ -190,6 +209,7 @@ describe('RecipeKitchenViewComponent', () => {
     reference = new StubReferenceService();
     printer = new StubPrintService();
     screenWake = new StubScreenWakeService();
+    assets = new StubDamAssetService();
 
     TestBed.configureTestingModule({
       providers: [
@@ -203,6 +223,7 @@ describe('RecipeKitchenViewComponent', () => {
         { provide: ReferenceService, useValue: reference },
         { provide: PrintService, useValue: printer },
         { provide: ScreenWakeService, useValue: screenWake },
+        { provide: DamAssetService, useValue: assets },
       ],
     });
   });
@@ -482,6 +503,47 @@ describe('RecipeKitchenViewComponent', () => {
     const root = await open();
 
     expect(root.querySelector('cp-page-head a[cpBackLink]')?.getAttribute('href')).toBe('/cozy-fall/recipes/r1');
+  });
+
+  it("puts the recipes section's icon in the head's tile", async () => {
+    expect((await open()).querySelector('cp-page-head .icon cp-shell-nav-icon')).not.toBeNull();
+  });
+
+  it("keeps the section's icon in the head of a recipe that is not there", async () => {
+    recipes.outcomes = [{ status: 'not_found' }];
+
+    expect((await open()).querySelector('cp-page-head .icon cp-shell-nav-icon')).not.toBeNull();
+  });
+
+  it("shows the recipe's lead picture in the head, described by the alt text the creator wrote", async () => {
+    recipes.outcomes = [{ status: 'found', recipe: { ...CORNBREAD, assetLinks: [mediaLink({ role: 'Hero', mediaAssetId: 'a9' })] } }];
+
+    const root = await open();
+    const picture = root.querySelector<HTMLImageElement>('cp-page-head .media img');
+
+    expect(assets.calls).toEqual(['detail cozy-fall a9']);
+    expect(picture?.getAttribute('src')).toMatch(/^blob:/);
+    expect(picture?.alt).toBe('Cornbread in a cast-iron skillet');
+  });
+
+  it('gives a recipe with no lead picture no picture, and asks for none', async () => {
+    recipes.outcomes = [{ status: 'found', recipe: { ...CORNBREAD, assetLinks: [mediaLink({ role: 'Gallery' })] } }];
+
+    const root = await open();
+
+    expect(root.querySelector('cp-page-head .media')!.children.length).toBe(0);
+    expect(assets.calls).toEqual([]);
+  });
+
+  it('draws the page that is coming while it loads, and says so once, offscreen', async () => {
+    recipes.getRecipeDetail = () => new Promise<RecipeDetailOutcome>(() => undefined);
+
+    const root = await open();
+
+    expect(root.querySelectorAll('.loading[aria-busy="true"] cp-skeleton').length).toBe(3);
+    const status = root.querySelector('[role="status"]');
+    expect(status?.textContent?.trim()).toBe('Loading recipe…');
+    expect(status?.classList).toContain('cp-sr-only');
   });
 });
 

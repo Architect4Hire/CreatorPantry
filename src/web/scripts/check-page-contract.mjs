@@ -46,7 +46,14 @@ export const RULES = {
   board: 'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
+  'stat-tile': 'A figure read at a glance is `cp-stat-tile`: the count and what it counts as one sentence, a line of context and a link (DESIGN-SYSTEM.md, "Meters and figures").',
+  'option-card': "One choice among several, compared side by side, is `cp-option-card` in a `ul[cpCardGrid]`: its key facts as tags, the rest behind its disclosure, and its one button. A value a Save submits is `cp-choice-group` (DESIGN-SYSTEM.md, \"Choosing between options\").",
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
+  illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
+  generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
+  skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
+  enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
+  tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
   'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
   'public-frame': "A public page frames each section from the public tokens: width `--cp-public-width`, `-narrow` or `-wide` (or `--cp-measure-prose`), gutter `--cp-public-gutter`. A section's `:host` sets no padding, margin or width, and a measure inside a section is a token, never a literal length. Only the hero sizes its own parts.",
@@ -58,6 +65,11 @@ export const RULES = {
  * Granting one costs a line here that a reviewer reads.
  */
 export const EXEMPTIONS = [
+  {
+    file: 'src/app/shell/app-shell.component.html',
+    rule: 'tone',
+    reason: "The page frame is where a route's tone is set, from its `data: { tone }`, and the one place it may be (AU.2.1).",
+  },
   {
     file: 'src/app/shell/app-shell.component.css',
     rule: 'drawer',
@@ -101,7 +113,12 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/features/ai/recipe-first-draft-review.component.css',
     rule: 'card-grid',
-    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has no across layout; give it one and this goes.",
+    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has had an `across` layout since AU.4.3, for figures with no control; whether these can move to it is AU.5.1's to settle.",
+  },
+  {
+    file: 'src/app/features/ai/recipe-concept-studio.component.css',
+    rule: 'option-card',
+    reason: 'The concept cards this rule was written against (AU.3.2). AU.5.1 rebuilds them as `cp-option-card`; this line goes when it does. Until then it excuses the whole file from this rule, so a new option card drawn here is excused too.',
   },
 ];
 
@@ -109,13 +126,16 @@ const FRAME_PROPERTIES = /(?:^|[;{\s])((?:padding|margin)(?:-[a-z-]+)?|max-width
 
 /** Class names a feature stylesheet may not style, by the rule that owns them. */
 const OWNED_CLASSES = {
-  'page-head': ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb'],
+  'page-head': ['page-head', 'page-header', 'page-title', 'back', 'breadcrumb', 'page-icon', 'head-icon', 'title-icon', 'head-media', 'page-media', 'title-media', 'masthead', 'title-row', 'head-picture', 'hero-image'],
   'card-grid': ['grid', 'card-grid', 'cards'],
   facts: ['facts', 'fact'],
   'toolbar-field': ['search-field', 'select-field'],
   board: ['board', 'board-column', 'lane', 'lanes', 'kanban'],
   stepper: ['step-list', 'steps', 'stepper'],
   chip: ['chip', 'chips'],
+  'stat-tile': ['stat', 'stats', 'stat-tile', 'stat-tiles', 'kpi', 'kpis', 'figure-tile', 'figure-tiles'],
+  'option-card': ['option-card', 'option-cards', 'concept-card', 'concept-title', 'concept-dietary', 'variant-card'],
+  illustration: ['illustration', 'illustrations', 'empty-art', 'empty-illustration', 'spot-art', 'no-picture', 'picture-panel', 'picture-placeholder'],
   utilities: ['cp-muted', 'cp-actions', 'cp-disclosure', 'muted', 'actions'],
 };
 
@@ -145,9 +165,21 @@ export function frameViolations(css) {
   return found;
 }
 
+/**
+ * `enter` (AU.3.4): the entrance belongs to `cpEnter` — the three entrance tokens, the `cp-enter` keyframes it
+ * animates, and the `data-cp-enter` it marks an arriving element with. Read over the whole sheet rather than
+ * rule by rule, because a `@keyframes` block's own name is not an innermost rule. It does not claim every
+ * fade-and-rise: a tab panel's switch and the public hero's collage are motion about something else.
+ */
+const ENTRANCE = /--cp-(?:duration-enter|enter-distance|enter-stagger)|data-cp-enter|cp-enter(?![\w-])/g;
+
 /** Everything a feature stylesheet redraws that the library or the shell owns. */
 export function stylesheetViolations(css) {
   const found = [];
+  const sheet = blankComments(css);
+  for (const m of sheet.matchAll(ENTRANCE)) {
+    found.push({ rule: 'enter', line: lineAt(sheet, m.index), what: `animates an entrance of its own with ${m[0]}` });
+  }
   for (const rule of cssRules(css)) {
     for (const [id, names] of Object.entries(OWNED_CLASSES)) {
       for (const name of names) {
@@ -155,19 +187,50 @@ export function stylesheetViolations(css) {
       }
     }
     if (/\[type=["']?search["']?\]/.test(rule.selector)) found.push({ rule: 'toolbar-field', line: rule.line, what: 'styles input[type=search]' });
+    // The head lays out what is projected into it; a feature that styles its own [cpPageHead…] slot redraws the head.
+    for (const m of rule.selector.matchAll(/\[(cpPageHead\w+)\]/g)) found.push({ rule: 'page-head', line: rule.line, what: `styles [${m[1]}]` });
     const at = (index) => lineAt(rule.text, rule.bodyAt + index);
     for (const m of rule.body.matchAll(/repeat\(\s*auto-(?:fill|fit)/g)) found.push({ rule: 'card-grid', line: at(m.index), what: 'lays out an auto-filling grid' });
     for (const m of rule.body.matchAll(/position\s*:\s*fixed/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'sets position: fixed' });
     for (const m of rule.body.matchAll(/translateX\(/g)) found.push({ rule: 'drawer', line: at(m.index), what: 'slides with translateX' });
+    // `skeleton`: a placeholder of a feature's own, by its name (`.skeleton`, `.skeleton-row`, `.shimmer`), by the
+    // library's skeleton tokens or sweep, or by a keyframe that moves a background — a shimmer whatever it is called.
+    for (const m of rule.selector.matchAll(/\.((?:skeleton|shimmer)[\w-]*)/g)) found.push({ rule: 'skeleton', line: rule.line, what: `styles .${m[1]}` });
+    for (const m of rule.body.matchAll(/--cp-skeleton-[\w-]+|cp-skeleton-sweep/g)) found.push({ rule: 'skeleton', line: at(m.index), what: `draws with ${m[0]}` });
+    if (/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) && /background-position\s*:/.test(rule.body)) {
+      found.push({ rule: 'skeleton', line: rule.line, what: 'animates a background-position shimmer' });
+    }
+    // `tone`: the route owns a tool's tone (AU.2.1). A part reads --cp-tone*; a feature never sets it.
+    if (/\[data-cp-tone/.test(rule.selector)) found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
+    for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g)) found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });
+    // The panel tokens are cp-media-card's (AU.2.6): a feature reading them is drawing a no-picture panel of its own.
+    for (const m of rule.body.matchAll(/var\(\s*--cp-tone-panel/g)) found.push({ rule: 'illustration', line: at(m.index), what: 'draws a no-picture panel from --cp-tone-panel' });
   }
   return found;
 }
 
 /** What any template under the shell may not hold. */
+/** A feature's own folder, where a template draws no picture of its own. */
+const FEATURE = /[\\/]src[\\/]app[\\/]features[\\/]/;
+
+/**
+ * `illustration`, for a feature's template: an inline `<svg>` is a drawing the feature made for itself, which is
+ * `cp-illustration`'s to draw (AU.2.4). Comments are left out; a picture of the creator's is an `<img>`, not this.
+ */
+export function featureTemplateViolations(html) {
+  const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
+  return [...markup.matchAll(/<svg[\s>]/g)].map((m) => ({ rule: 'illustration', line: lineAt(markup, m.index), what: 'draws an inline <svg>' }));
+}
+
 export function templateViolations(html) {
   const found = [];
   const markup = html.replace(/<!--[\s\S]*?-->/g, (comment) => comment.replace(/[^\n]/g, ' '));
   for (const m of markup.matchAll(/<h1[\s>]/g)) found.push({ rule: 'one-h1', line: lineAt(markup, m.index), what: 'renders an <h1>' });
+  for (const m of markup.matchAll(/data-cp-tone/g)) found.push({ rule: 'tone', line: lineAt(markup, m.index), what: 'sets data-cp-tone' });
+  for (const m of markup.matchAll(/data-cp-enter/g)) found.push({ rule: 'enter', line: lineAt(markup, m.index), what: 'sets data-cp-enter' });
+  for (const m of markup.matchAll(/\[style\.(--cp-tone[\w-]*)|(--cp-tone[\w-]*)\s*:/g)) {
+    found.push({ rule: 'tone', line: lineAt(markup, m.index), what: `declares ${m[1] ?? m[2]} in a style` });
+  }
   for (const m of markup.matchAll(/type=["']search["']/g)) {
     // A search with a visible label and a hint is a form field, and `cp-field` draws that; the toolbar's
     // search has neither and is `cp-search-field`. What neither excuses is a search box no library part drew.
@@ -177,8 +240,16 @@ export function templateViolations(html) {
       found.push({ rule: 'toolbar-field', line: lineAt(markup, m.index), what: 'has a search input outside cp-search-field and cp-field' });
     }
   }
+  // `generated` (AU.3.1): an element whose whole text is a label for generated output is a hand-drawn label.
+  // A sentence that mentions one is prose, and a record's kind bound from code ({{ kindLabel() }}) is not text here.
+  for (const m of markup.matchAll(GENERATED_LABEL)) {
+    found.push({ rule: 'generated', line: lineAt(markup, m.index), what: `writes its own "${m[1]}" label` });
+  }
   return found;
 }
+
+/** The words a feature used to mark generated output before `cp-generated-label`, and the ones it says now. */
+const GENERATED_LABEL = />\s*(Drafted by AI|Made by AI|Read by AI|Written by AI|Written for you|AI[ -]generated|AI[ -]suggested|AI draft|Generated(?: draft)?)\s*</gi;
 
 /** What a routed page's own template must and must not hold. */
 export function pageTemplateViolations(html) {
@@ -272,6 +343,27 @@ export function inlineParts(source) {
 }
 
 /**
+ * `tone`, for a component's own code: a feature that sets a tone from TypeScript — a `host` binding,
+ * `setAttribute`, `Renderer2`, `style.setProperty` — rather than from its route. Comments and the inline
+ * template and styles are left out: the first say nothing, and the other two are read by their own rules.
+ */
+export function scriptViolations(source) {
+  const found = [];
+  const inline = inlineParts(source);
+  let code = source.replace(/\/\*[\s\S]*?\*\/|(^|[^:'"`])\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, ' '));
+  for (const part of [inline.template, inline.styles]) {
+    if (part) code = code.replace(part.text, part.text.replace(/[^\n]/g, ' '));
+  }
+  for (const m of code.matchAll(/data-cp-tone|setProperty\(\s*['"`](--cp-tone[\w-]*)/g)) {
+    found.push({ rule: 'tone', line: lineAt(code, m.index), what: m[1] ? `sets ${m[1]} from code` : 'sets data-cp-tone from code' });
+  }
+  for (const m of code.matchAll(/data-cp-enter/g)) {
+    found.push({ rule: 'enter', line: lineAt(code, m.index), what: 'sets data-cp-enter from code' });
+  }
+  return found;
+}
+
+/**
  * Sorts what was found by the exemption list: what still stands, and which exemptions excuse nothing any
  * more. An exemption covers one rule in one file and nothing wider.
  */
@@ -324,12 +416,16 @@ function run() {
 
   const files = filesUnder(appDir).filter((file) => !OUTSIDE_SHELL.test(file) && !file.endsWith('.spec.ts'));
   for (const file of files) {
+    // A feature's own templates also may not draw: the shell's nav icons are chrome and sit outside features/.
+    const feature = FEATURE.test(file);
+    const markup = (html) => [...templateViolations(html), ...(feature ? featureTemplateViolations(html) : [])];
     if (file.endsWith('.css')) report(file, 0, stylesheetViolations(read(file)));
-    else if (file.endsWith('.html')) report(file, 0, templateViolations(read(file)));
+    else if (file.endsWith('.html')) report(file, 0, markup(read(file)));
     else if (file.endsWith('.ts')) {
       const inline = inlineParts(read(file));
       if (inline.styles) report(file, inline.styles.line - 1, stylesheetViolations(inline.styles.text));
-      if (inline.template) report(file, inline.template.line - 1, templateViolations(inline.template.text));
+      if (inline.template) report(file, inline.template.line - 1, markup(inline.template.text));
+      report(file, 0, scriptViolations(read(file)));
     }
   }
 

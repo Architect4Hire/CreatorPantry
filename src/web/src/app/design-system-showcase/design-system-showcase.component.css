@@ -190,12 +190,6 @@ code {
 }
 
 /* Stands in for a photograph in the media-card example; a real picture is the consuming feature's to load. */
-.showcase-picture {
-  aspect-ratio: 4 / 3;
-  border-radius: var(--cp-radius-md);
-  background: linear-gradient(135deg, var(--cp-orange-soft), var(--cp-pink-soft));
-}
-
 /* Fields in a drawer stack with the same gap a form section gives them. */
 .drawer-form {
   display: grid;
@@ -222,9 +216,112 @@ code {
   gap: var(--cp-space-5);
 }
 
+.tone-list {
+  display: grid;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tone-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.tone-fill,
+.tone-soft {
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-md);
+  font-weight: 600;
+}
+
+.tone-fill {
+  min-width: 11rem;
+  background: var(--cp-tone);
+  color: var(--cp-tone-on);
+}
+
+.tone-soft {
+  background: var(--cp-tone-soft);
+  color: var(--cp-tone-text);
+}
+
+.tone-text {
+  color: var(--cp-tone-text);
+  font-weight: 600;
+}
+
+.tone-skeleton {
+  display: grid;
+  gap: var(--cp-space-2);
+  max-width: 24rem;
+}
+
+.tone-skeleton span {
+  height: 0.875rem;
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-skeleton-base);
+}
+
+.tone-skeleton span:last-child {
+  width: 60%;
+  background: var(--cp-skeleton-shine);
+}
+
 .focus-tint {
   display: inline-flex;
   padding: var(--cp-space-4);
   border-radius: var(--cp-radius-md);
   background: var(--cp-pink-soft);
+}
+
+.skeleton-demo {
+  display: grid;
+  gap: var(--cp-space-5);
+  max-width: 48rem;
+}
+
+.illustration-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-tone-text);
+}
+
+.illustration-row code {
+  min-width: 4rem;
+  color: var(--cp-text-muted);
+}
+
+.illustration-row figure {
+  display: grid;
+  justify-items: center;
+  gap: var(--cp-space-1);
+  margin: 0;
+  --cp-illustration-size: 4.5rem;
+}
+
+.illustration-row figcaption {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-xs);
+}
+
+.page-head-demo {
+  padding: var(--cp-space-6);
+  border: 1px solid var(--cp-card-edge);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-bg);
+}
+
+.showcase-generated-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

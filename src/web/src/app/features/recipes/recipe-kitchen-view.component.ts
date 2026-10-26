@@ -17,6 +17,7 @@ import {
   CpEmptyStateComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 import { injectRouteTitle } from '../../core/route-title';
 
@@ -26,6 +27,8 @@ import { ScreenWakeService } from '../../core/screen-wake.service';
 import { RecipeDetail } from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
 import { ReferenceService } from '../../services/reference.service';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
+import { RecipeHeroPicture, formatKitchenMinutes, recipeFacts } from './recipe-head';
 
 type LoadState =
   | { readonly status: 'loading' }
@@ -60,16 +63,6 @@ export interface KitchenStepGroup {
   readonly id: string;
   readonly title: string | null;
   readonly steps: readonly KitchenStep[];
-}
-
-/** Words a count of minutes the way a cook says it: `45 min`, `1 hr`, `1 hr 20 min`. */
-export function formatKitchenMinutes(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-
-  if (hours === 0) return `${rest} min`;
-
-  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`;
 }
 
 function bySortOrder<T extends { readonly sortOrder: number }>(items: readonly T[]): T[] {
@@ -110,7 +103,10 @@ function bySortOrder<T extends { readonly sortOrder: number }>(items: readonly T
     CpEmptyStateComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
+    ShellNavIconComponent,
   ],
+  providers: [RecipeHeroPicture],
   templateUrl: './recipe-kitchen-view.component.html',
   styleUrl: './recipe-kitchen-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -133,6 +129,9 @@ export class RecipeKitchenViewComponent {
   private readonly loadStateSignal = signal<LoadState>({ status: 'loading' });
   readonly loadState = this.loadStateSignal.asReadonly();
 
+  /** The recipe's lead picture, for the head's picture slot. */
+  protected readonly hero = inject(RecipeHeroPicture);
+
   /** Temperature unit abbreviations by id, or null when the units could not be read. */
   private readonly temperatureUnits = signal<ReadonlyMap<string, string> | null>(null);
 
@@ -154,21 +153,10 @@ export class RecipeKitchenViewComponent {
     return state.status === 'ready' ? state.recipe : null;
   });
 
-  /** The yield, serving count and times, in the order a cook checks them before starting. */
+  /** The yield, serving count and times, as stored: see {@link recipeFacts}. */
   readonly facts = computed(() => {
     const recipe = this.recipe();
-    if (recipe === null) return [];
-
-    const facts: { readonly label: string; readonly value: string }[] = [];
-    if (recipe.yieldText) facts.push({ label: 'Makes', value: recipe.yieldText });
-    if (recipe.servingCount !== null) facts.push({ label: 'Serves', value: `${recipe.servingCount}` });
-    if (recipe.prepTimeMinutes !== null) facts.push({ label: 'Prep', value: formatKitchenMinutes(recipe.prepTimeMinutes) });
-    if (recipe.cookTimeMinutes !== null) facts.push({ label: 'Cook', value: formatKitchenMinutes(recipe.cookTimeMinutes) });
-    if (recipe.restTimeMinutes !== null) facts.push({ label: 'Rest', value: formatKitchenMinutes(recipe.restTimeMinutes) });
-    // The stored total, never a sum of the three above — the same rule the recipe itself keeps.
-    if (recipe.totalTimeMinutes !== null) facts.push({ label: 'Total', value: formatKitchenMinutes(recipe.totalTimeMinutes) });
-
-    return facts;
+    return recipe === null ? [] : recipeFacts(recipe);
   });
 
   /** Groups with nothing in them are dropped: a heading over no lines is noise at a counter. */
@@ -319,6 +307,8 @@ export class RecipeKitchenViewComponent {
     }
 
     this.loadStateSignal.set({ status: 'ready', recipe: outcome.recipe });
+    // On screen only: the picture is not part of the printout (cp-page-head leaves it off paper).
+    this.hero.show(this.workspaceSlug, outcome.recipe.assetLinks);
 
     // The tab's title is what a browser offers as the file name when a print is saved as a PDF.
     this.titleService.setTitle(`${outcome.recipe.title} · ${APP_NAME}`);

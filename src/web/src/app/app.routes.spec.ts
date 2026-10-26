@@ -119,6 +119,29 @@ describe('app routes', () => {
     ]);
   });
 
+  // The shell drops a tone that is not one of the four rather than reaching the DOM with it, so a misspelt tone
+  // would vanish quietly. This reads the real table, lazy children and all, and holds it to D1 exactly (AU.2.1).
+  it('tones the five creative tools on their parent routes, and nothing else', async () => {
+    async function tonesUnder(table: Routes, prefix: string): Promise<Record<string, unknown>> {
+      const found: Record<string, unknown> = {};
+      for (const route of table) {
+        const path = [prefix, route.path ?? '(matcher)'].filter(Boolean).join('/');
+        if (route.data?.['tone'] !== undefined) found[path] = route.data['tone'];
+        const children = route.children ?? (route.loadChildren ? await (route.loadChildren as () => Promise<Routes>)() : undefined);
+        if (Array.isArray(children)) Object.assign(found, await tonesUnder(children, path));
+      }
+      return found;
+    }
+
+    expect(await tonesUnder(routes, '')).toEqual({
+      ':workspaceSlug/workflows/content-pipeline': 'orange',
+      ':workspaceSlug/workflows/long-form': 'orange',
+      ':workspaceSlug/ai-recipe-studio': 'purple',
+      ':workspaceSlug/image-studio': 'pink',
+      ':workspaceSlug/social-studio': 'blue',
+    });
+  });
+
   it("redirects an empty section path to 'dashboard'", () => {
     const workspaceRoute = routes.find((route) => route.path === ':workspaceSlug');
     const indexRedirect = workspaceRoute?.children?.find((route) => route.path === '');

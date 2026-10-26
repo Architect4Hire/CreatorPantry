@@ -100,9 +100,8 @@
       of 2px, on <code>:focus-visible</code> in <code>global.css</code>. The ring is opaque, because a ring
       mixed with <code>transparent</code> takes
       the lightness of whatever is under it and measured 1.66:1 on the light page. Tab along the row in both
-      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and on the
-      parchment a <code>cp-card</code> becomes in the dark theme, where the card re-declares the token because
-      the dark theme's mint reads 1.13:1 on it.
+      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and inside a
+      <code>cp-card</code>, which is a dark sheet in the dark theme and reads the page's own ring.
     </p>
     <div class="focus-row">
       <button cpButton variant="secondary">On the page</button>
@@ -112,7 +111,7 @@
     <p class="section-note">
       A focused primary button is green fill, 2px of page, green ring. The ring is the same colour as the fill
       it haloes; the page showing between them is what separates the two, at 5.05:1 in the light theme and
-      9.97:1 in the dark. Inside the card it is the other way round — there the ring does the separating.
+      8.70:1 in the dark. Inside a card it is the card showing between them, at 5.35:1 and 7.67:1.
     </p>
     <cp-card>
       <div class="focus-row">
@@ -130,6 +129,31 @@
         </cp-field>
       </div>
     </cp-card>
+  </section>
+
+  <section aria-labelledby="tones-heading">
+    <h2 id="tones-heading">Tool tones</h2>
+    <p class="section-note">
+      A route sets <code>data-cp-tone</code> on the page frame and every part under it draws with
+      <code>--cp-tone</code>, <code>--cp-tone-soft</code>, <code>--cp-tone-text</code> and
+      <code>--cp-tone-on</code>. No tone is the primary. The tone marks the tool, never the primary action or a
+      status. Switch themes: every text here holds 4.5:1.
+    </p>
+    <ul class="tone-list">
+      @for (tone of tones; track tone.name) {
+        <li class="tone-row" [attr.data-cp-tone]="tone.name">
+          <span class="tone-fill">{{ tone.tool }}</span>
+          <span class="tone-soft">On its tint</span>
+          <span class="tone-text">As text</span>
+          <code>{{ tone.name ?? 'none' }}</code>
+        </li>
+      }
+    </ul>
+    <p class="section-note">A skeleton's resting block and its shine, shown still.</p>
+    <div class="tone-skeleton" aria-hidden="true">
+      <span></span>
+      <span></span>
+    </div>
   </section>
 
   <section aria-labelledby="dialog-heading">
@@ -254,13 +278,20 @@
 
   <section aria-labelledby="list-shell-heading">
     <h2 id="list-shell-heading">List shell</h2>
-    <p class="section-note">Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.</p>
+    <p class="section-note">
+      Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.
+      Loading draws skeletons in the shape that is coming, as rows or as a library of cards, and says
+      "Loading…" to a screen reader only. Until the list is ready its footer is said, not shown.
+    </p>
     <div class="button-extras">
       @for (state of listShellStates; track state) {
         <button cpButton [variant]="listShellState() === state ? 'primary' : 'secondary'" size="sm" (click)="listShellState.set(state)">{{ state }}</button>
       }
+      @for (layout of listShellLayouts; track layout) {
+        <button cpButton [variant]="listShellLayout() === layout ? 'primary' : 'secondary'" size="sm" (click)="listShellLayout.set(layout)">loading as {{ layout }}</button>
+      }
     </div>
-    <cp-list-shell heading="Recent recipes" [state]="listShellState()" errorMessage="Couldn't load recipes. Check your connection and try again.">
+    <cp-list-shell heading="Recent recipes" [state]="listShellState()" [loadingLayout]="listShellLayout()" errorMessage="Couldn't load recipes. Check your connection and try again.">
       <div cpListShellActions>
         <button cpButton variant="text" size="sm">View all →</button>
       </div>
@@ -276,6 +307,60 @@
         <button cpButton variant="ghost" size="sm">Next</button>
       </div>
     </cp-list-shell>
+  </section>
+
+  <section aria-labelledby="skeleton-heading">
+    <h2 id="skeleton-heading">Skeleton</h2>
+    <p class="section-note">
+      The shape of what is loading: <code>line</code>, <code>block</code>, <code>circle</code> and
+      <code>card</code>. Hidden from assistive technology — the region that is loading says so once. Still under
+      reduced motion.
+    </p>
+    <div class="skeleton-demo">
+      <cp-skeleton shape="circle" [count]="3" />
+      <cp-skeleton shape="line" [count]="4" />
+      <cp-skeleton shape="block" />
+      <cp-skeleton shape="card" [count]="3" />
+    </div>
+  </section>
+
+  <section aria-labelledby="enter-heading">
+    <h2 id="enter-heading">Entrance motion</h2>
+    <p class="section-note">
+      <code>cpEnter</code>: content fades in and rises <code>--cp-enter-distance</code> over
+      <code>--cp-duration-enter</code> the first time it renders, and a group lands
+      <code>--cp-enter-stagger</code> apart in the order it was built. The library applies it where it is always
+      right — a list shell's ready content, a generated result, a group of options — and a page applies none of
+      its own. It happens once: the list below does not arrive again when a filter reloads it. Under
+      <code>prefers-reduced-motion</code> nothing moves and nothing waits, and the whole thing is off for print.
+      Replay re-creates all three, the way the app does when the content next arrives.
+    </p>
+    <div class="button-extras">
+      <button cpButton variant="secondary" size="sm" type="button" (click)="replayEntrance()">Replay the entrance</button>
+    </div>
+    @for (run of entranceRuns(); track run) {
+      <div class="showcase-stack entrance-demo">
+        <cp-list-shell heading="Recent recipes">
+          <table class="demo-table">
+            <thead><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead>
+            <tbody>
+              <tr><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td><td>Sep 16</td></tr>
+              <tr><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td><td>Sep 14</td></tr>
+            </tbody>
+          </table>
+        </cp-list-shell>
+        <cp-generated provenance="gpt-4o · 25 Oct, 08:30">
+          <p>Sweet corn at its peak needs almost nothing: miso butter, a hot pan, and lime at the end.</p>
+        </cp-generated>
+        <ul cpCardGrid minColumn="16rem" aria-label="Example concepts arriving">
+          @for (concept of concepts; track concept.id) {
+            <li>
+              <cp-option-card [heading]="concept.heading" [facts]="concept.facts" [summary]="concept.summary" chooseLabel="Choose this concept" />
+            </li>
+          }
+        </ul>
+      </div>
+    }
   </section>
 
   <section aria-labelledby="tabs-heading">
@@ -349,23 +434,58 @@
 
   <section aria-labelledby="empty-state-heading">
     <h2 id="empty-state-heading">Empty state</h2>
-    <p class="section-note">First-use and no-results variants — action order is DOM order.</p>
+    <p class="section-note">
+      First-use and no-results variants — action order is DOM order. With an <code>illustration</code> a first use
+      is the roomy layout and takes the page's tone (the pink one is inside an Image Studio tone); no-results stays
+      compact. Without one it is the older glyph in a disc.
+    </p>
     <div class="card-row">
       <cp-card [flush]="true">
-        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use">
+        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use" illustration="recipe">
           <div cpEmptyStateActions>
             <button cpButton>＋ Create recipe</button>
           </div>
         </cp-empty-state>
       </cp-card>
+      <div data-cp-tone="pink">
+        <cp-card [flush]="true">
+          <cp-empty-state title="No pictures yet" description="Pictures you make or keep land here, newest first." variant="first-use" illustration="picture">
+            <div cpEmptyStateActions>
+              <button cpButton>Make a picture</button>
+            </div>
+          </cp-empty-state>
+        </cp-card>
+      </div>
       <cp-card [flush]="true">
-        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" icon="⌕">
+        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" illustration="search">
           <div cpEmptyStateActions>
             <button cpButton variant="secondary">Clear filters</button>
           </div>
         </cp-empty-state>
       </cp-card>
+      <cp-card [flush]="true">
+        <cp-empty-state title="No notes yet" description="The older glyph, for a page not yet drawn." variant="first-use" icon="✎" />
+      </cp-card>
     </div>
+  </section>
+
+  <section aria-labelledby="illustration-heading">
+    <h2 id="illustration-heading">Illustrations</h2>
+    <p class="section-note">
+      The drawn set, for empty states and cards with no picture: line art in <code>currentColor</code>, so each takes
+      the tone it sits in. Decorative — the words beside one say what it shows.
+    </p>
+    @for (tone of tones; track tone.name) {
+      <div class="illustration-row" [attr.data-cp-tone]="tone.name">
+        <code>{{ tone.name ?? 'none' }}</code>
+        @for (name of illustrationNames; track name) {
+          <figure>
+            <cp-illustration [name]="name" />
+            <figcaption>{{ name }}</figcaption>
+          </figure>
+        }
+      </div>
+    }
   </section>
 
   <section aria-labelledby="uploader-heading">
@@ -527,6 +647,31 @@
         <cp-page-head heading="Workspace settings" />
       </cp-card>
     </div>
+    <p class="section-note">
+      Which tool (D3): the page projects its section's nav icon into <code>[cpPageHeadIcon]</code> and the head
+      draws it on a tile of the route's tone, over a rule in the same colour. Untoned pages keep the hairline. A
+      detail page may project its record's own picture into <code>[cpPageHeadMedia]</code> — beside the title
+      where the head is wide, above it where it is narrow.
+    </p>
+    <div class="showcase-stack">
+      @for (head of tonedHeads; track head.heading) {
+        <div class="page-head-demo" [attr.data-cp-tone]="head.tone">
+          <cp-page-head [heading]="head.heading" [lede]="head.lede">
+            <cp-shell-nav-icon cpPageHeadIcon [name]="head.icon" />
+            <button cpButton cpPageHeadActions type="button">{{ head.action }}</button>
+          </cp-page-head>
+        </div>
+      }
+      <div class="page-head-demo">
+        <cp-page-head heading="Sesame noodle stir-fry" lede="Weeknight noodles with charred greens, done in one pan.">
+          <a cpBackLink cpPageHeadBreadcrumb href="#page-head-heading">Recipes</a>
+          <img cpPageHeadMedia src="images/food/photo-1-480.jpg" alt="" />
+          <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
+          <cp-status-pill cpPageHeadBadges tone="neutral">Draft</cp-status-pill>
+          <button cpButton cpPageHeadActions type="button">Save</button>
+        </cp-page-head>
+      </div>
+    </div>
   </section>
 
   <section aria-labelledby="card-grid-heading">
@@ -542,6 +687,24 @@
       <li><cp-card>A title long enough to wrap onto a second line inside its card</cp-card></li>
       <li><cp-card>Weeknight ramen</cp-card></li>
       <li><cp-card>Lemon tart</cp-card></li>
+    </ul>
+    <p class="section-note">
+      <code>flow="masonry"</code> lets each card keep its own height and packs the columns, for a set of
+      topics that are each as long as they need to be rather than a shelf of like things. The eye reads down
+      a column before it reads across; the order the Tab key and a screen reader follow is unchanged.
+    </p>
+    <ul cpCardGrid flow="masonry" aria-label="Example cards, packed">
+      <li>
+        <cp-card>
+          A card with rather more in it than the others, so that a row would have to be as tall as this one
+          and the short cards beside it would each stand in a gap of their own.
+        </cp-card>
+      </li>
+      <li><cp-card>Short</cp-card></li>
+      <li><cp-card>Also short</cp-card></li>
+      <li><cp-card>A middling card, two lines of it or thereabouts, which is the usual case.</cp-card></li>
+      <li><cp-card>Short again</cp-card></li>
+      <li><cp-card>Last</cp-card></li>
     </ul>
   </section>
 
@@ -581,15 +744,16 @@
     <h2 id="media-card-heading">Media card</h2>
     <p class="section-note">
       One thing in a library, shown by its picture. The picture is projected — the feature that owns it
-      authorises and loads it — and a tinted panel with a glyph stands in when there is none, so a row of
-      cards stays even. The title is the link; the card is not one. An action that does not open the thing — a
+      authorises and loads it — and a drawn panel stands in when there is none, so a row of cards stays even:
+      a faint gingham and the kind's illustration, named or mapped from the older glyph. Hover or focus a title
+      and its picture leans in. The title is the link; the card is not one. An action that does not open the thing — a
       preview — goes last, in the actions slot.
     </p>
     <ul cpCardGrid aria-label="Example media cards">
       <li>
-        <cp-media-card description="Overhead, on the oak board.">
-          <div cpMediaCardPicture class="showcase-picture" role="img" aria-label="A stand-in for a photograph"></div>
-          <a cpMediaCardTitle href="#media-card-heading">Soda bread hero</a>
+        <cp-media-card description="Shot close, against the window.">
+          <img cpMediaCardPicture src="images/food/photo-1-480.jpg" alt="Noodles lifted from a bowl on a fork" />
+          <a cpMediaCardTitle href="#media-card-heading">Noodle twirl hero</a>
           <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
           <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
           <dl cpFacts layout="inline">
@@ -599,10 +763,35 @@
         </cp-media-card>
       </li>
       <li>
-        <cp-media-card glyph="❝" description="No picture: the panel keeps the card's shape.">
+        <cp-media-card illustration="recipe" description="Nutty, chewy, and done in one pan.">
+          <a cpMediaCardTitle href="#media-card-heading">Brown butter blondies</a>
+          <cp-status-pill cpMediaCardBadges tone="warning">Ingredients need review</cp-status-pill>
+          <dl cpFacts layout="inline">
+            <div cpFact label="Updated">12 Oct 2026</div>
+          </dl>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card glyph="❝" description="Write a warm, unhurried caption for an autumn bake…">
           <a cpMediaCardTitle href="#media-card-heading">Cosy autumn caption, long enough to wrap onto a second line</a>
           <cp-badge cpMediaCardBadges>Prompt</cp-badge>
           <button cpMediaCardActions cpButton variant="secondary" size="sm" type="button">Preview</button>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card description="Low light, wooden blocks behind.">
+          <img cpMediaCardPicture src="images/food/photo-10-480.jpg" alt="A burger with a fried egg beside two pepper mills" />
+          <a cpMediaCardTitle href="#media-card-heading">Brunch burger</a>
+          <cp-badge cpMediaCardBadges>Original</cp-badge>
+          <dl cpFacts layout="inline">
+            <div cpFact label="File">JPEG · 3.1 MB</div>
+          </dl>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card glyph="◆">
+          <a cpMediaCardTitle href="#media-card-heading">Sunday supper voice</a>
+          <cp-badge cpMediaCardBadges>Brand example</cp-badge>
         </cp-media-card>
       </li>
       <li>
@@ -611,6 +800,93 @@
         </cp-media-card>
       </li>
     </ul>
+    <p class="section-note">On a toned page the panel takes the tool's tint and its drawing the tool's colour.</p>
+    <ul cpCardGrid data-cp-tone="pink" aria-label="Example media cards on a toned page">
+      <li>
+        <cp-media-card description="Overhead, in the pan it baked in.">
+          <img cpMediaCardPicture src="images/food/photo-11-480.jpg" alt="A fillet of fish with dill, tomatoes and lemon in a dark pan" />
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 2</a>
+          <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card illustration="picture" description="Still generating.">
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 3</a>
+          <cp-status-pill cpMediaCardBadges tone="progress">Generating</cp-status-pill>
+        </cp-media-card>
+      </li>
+      <li>
+        <cp-media-card illustration="post">
+          <a cpMediaCardTitle href="#media-card-heading">Baked fish carousel</a>
+          <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
+        </cp-media-card>
+      </li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="option-card-heading">
+    <h2 id="option-card-heading">Option card</h2>
+    <p class="section-note">
+      One choice among several, compared side by side: the name, up to three key facts as tags, a sentence, the
+      rest behind a disclosure — a fourth fact moves there rather than being dropped — and the one button that
+      chooses it. Choosing is an action the feature handles, not a form value; the chosen card shows an edge, a ✓
+      and the word, and its button stays focusable. A field's answer in a form is <code>cp-choice-group</code>.
+    </p>
+    <ul cpCardGrid minColumn="18rem" aria-label="Example concepts">
+      @for (concept of concepts; track concept.id) {
+        <li>
+          <cp-option-card
+            [heading]="concept.heading"
+            [facts]="concept.facts"
+            [summary]="concept.summary"
+            chooseLabel="Choose this concept"
+            [selected]="chosenConcept() === concept.id"
+            (chosen)="chosenConcept.set(concept.id)"
+          >
+            @if (concept.id === 'miso') {
+              <ul cpOptionCardDetail>
+                <li>Assumes a grill or a very hot pan.</li>
+                <li>Assumes white miso; red is saltier.</li>
+              </ul>
+            }
+          </cp-option-card>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <section aria-labelledby="stat-tile-heading">
+    <h2 id="stat-tile-heading">Figure tile and featured card</h2>
+    <p class="section-note">
+      A figure is never a bare number: the count and what it counts are one sentence, with an optional line of
+      context and a link to where it is dealt with. The featured card is the one topic on a page that matters
+      most — the tool's tint, edged in its colour — and a page has at most one. Each tone is shown here once.
+    </p>
+    @for (tone of tones; track tone.tool) {
+      <div class="showcase-stack showcase-figure-row" [attr.data-cp-tone]="tone.name">
+        <p class="cp-muted">{{ tone.tool }}</p>
+        <ul cpCardGrid minColumn="12rem" [attr.aria-label]="'Figures on ' + tone.tool">
+          <li>
+            <cp-stat-tile value="12" label="recipes waiting for review" context="Across three projects.">
+              <a cpStatTileLink href="#stat-tile-heading">Review the 12 recipes</a>
+            </cp-stat-tile>
+          </li>
+          <li><cp-stat-tile value="1,284" label="AI credits left this month" context="Resets on 1 November." /></li>
+          <li>
+            <cp-stat-tile value="4" label="posts scheduled this week">
+              <a cpStatTileLink href="#stat-tile-heading">Open My Week</a>
+            </cp-stat-tile>
+          </li>
+        </ul>
+        <cp-topic-card heading="Due today" [headingLevel]="3" featured>
+          <p>Brown butter blondies goes to Instagram at 6pm. The caption is drafted and waiting for you.</p>
+          <div class="cp-actions">
+            <button cpButton type="button" size="sm">Review the caption</button>
+            <a href="#stat-tile-heading">See the whole day</a>
+          </div>
+        </cp-topic-card>
+      </div>
+    }
   </section>
 
   <section aria-labelledby="topic-card-heading">
@@ -618,9 +894,17 @@
     <p class="section-note">
       One topic on a page about a single thing: a heading that names its region, a body held to the reading
       measure, and the actions last. <code>wide</code> lifts the measure for a table. The facts list is a real
-      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above.
+      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above, and
+      <code>across</code> for a strip of short figures read first, as under a recipe's head.
     </p>
     <div class="showcase-stack">
+      <dl cpFacts layout="across">
+        <div cpFact label="Makes">One 10-inch skillet</div>
+        <div cpFact label="Serves">8</div>
+        <div cpFact label="Prep">15 min</div>
+        <div cpFact label="Cook">25 min</div>
+        <div cpFact label="Total">1 hr 30 min</div>
+      </dl>
       <cp-topic-card heading="About this picture" [headingLevel]="3">
         <dl cpFacts>
           <div cpFact label="Description" prose>{{ topicCardNotes }}</div>
@@ -765,6 +1049,35 @@
         This recipe changed elsewhere since you loaded it.
         <button cpButton variant="secondary" size="sm" type="button">Reload latest</button>
       </cp-notice>
+    </div>
+  </section>
+
+  <section aria-labelledby="generated-heading">
+    <h2 id="generated-heading">Generated content</h2>
+    <p class="section-note">
+      What a model made says so in words — "Drafted by AI", "Made by AI" or "Read by AI", picked by
+      <code>kind</code> — beside a glyph, never by a colour. The edge is dashed and neutral: a draft is not
+      finished, and no tone means "made by AI". <code>cp-generated</code> is a surface of its own, named by its label,
+      with the creator's decisions last; <code>cp-generated-label</code> is the label alone, for output that already
+      sits in a card or under a field.
+    </p>
+    <div class="showcase-stack">
+      <cp-generated provenance="gpt-4o · 25 Oct, 08:30">
+        <p>Brown butter blondies with toasted pecans and a little flaky salt on top, baked in one pan.</p>
+        <button cpGeneratedActions cpButton size="sm" type="button">Accept</button>
+        <button cpGeneratedActions cpButton variant="secondary" size="sm" type="button">Edit</button>
+        <button cpGeneratedActions cpButton variant="text" size="sm" type="button">Discard</button>
+      </cp-generated>
+      <div data-cp-tone="pink" class="showcase-stack">
+        <cp-generated kind="picture" provenance="Venice, flux-dev">
+          <p>On Image Studio's pink page the surface stays neutral.</p>
+        </cp-generated>
+      </div>
+      <ul class="showcase-generated-labels" aria-label="Generated labels">
+        <li><cp-generated-label /></li>
+        <li><cp-generated-label kind="picture" provenance="Venice, flux-dev" /></li>
+        <li><cp-generated-label kind="reading" /></li>
+      </ul>
     </div>
   </section>
 

@@ -17,11 +17,6 @@ cp-page-head {
   font-size: var(--cp-font-size-sm);
 }
 
-/* Each topic card fills its grid cell, so a row of cards ends level. */
-.topics > li {
-  display: grid;
-}
-
 .count strong {
   font-size: var(--cp-font-size-lg);
 }
@@ -62,4 +57,10 @@ cp-page-head {
   margin: 0;
   padding-left: var(--cp-space-5);
   font-size: var(--cp-font-size-sm);
+}
+
+/* While it loads: the figures, the featured card and the topics as silhouettes, a page apart as they will be. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
 }

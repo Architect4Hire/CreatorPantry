@@ -13,11 +13,11 @@ import {
   untracked,
 } from '@angular/core';
 import {
-  CpBadgeComponent,
   CpButtonComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -90,11 +90,11 @@ interface WriteProblem {
   standalone: true,
   imports: [
     AiAllowanceNoticeComponent,
-    CpBadgeComponent,
     CpButtonComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
   ],

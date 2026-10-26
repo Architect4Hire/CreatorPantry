@@ -6,9 +6,11 @@ import {
   absent,
   decodeCreatedRecipe,
   decodeRecipeDetail,
+  decodeRecipeSearchPage,
   encodeCreateRecipeRequest,
   encodeDuplicateRecipeRequest,
   encodeUpdateRecipeRequest,
+  recipeHeroPicture,
   submitted,
 } from './recipe.models';
 
@@ -302,5 +304,118 @@ describe('encodeDuplicateRecipeRequest', () => {
     const body = encodeDuplicateRecipeRequest({ title: 'Copy', sourceVersionNumber: 1 });
 
     expect(Object.keys(body).sort()).toEqual(['sourceVersionNumber', 'title']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// decodeRecipeSearchPage — the library list, and the hero picture it carries (AU.5.1).
+// ---------------------------------------------------------------------------
+
+describe('decodeRecipeSearchPage', () => {
+  /** One row as the route sends it, before any hero is added to it. */
+  function wireSummary(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id: 'r1',
+      title: 'Olive oil cake',
+      description: null,
+      status: 'Draft',
+      cuisineId: null,
+      courseId: null,
+      createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-18T16:04:00Z',
+      latestVersionNumber: 1,
+      latestVersionReadiness: 'Draft',
+      hasUnmatchedIngredients: false,
+      ...overrides,
+    };
+  }
+
+  function wireHero(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      mediaAssetId: 'a1',
+      title: 'Cake on a rack',
+      altText: 'An olive oil cake cooling on a wire rack',
+      versionNumber: 2,
+      currentVersionNumber: 5,
+      ...overrides,
+    };
+  }
+
+  function page(items: Record<string, unknown>[]): Record<string, unknown> {
+    return { items, nextCursor: null, totalCount: items.length };
+  }
+
+  function firstRow(items: Record<string, unknown>[]) {
+    const decoded = decodeRecipeSearchPage(page(items));
+    if (decoded === null) throw new Error('expected the page to decode');
+
+    return decoded.items[0];
+  }
+
+  it('decodes a hero picture, both version numbers included', () => {
+    expect(firstRow([wireSummary({ heroAsset: wireHero() })]).heroAsset).toEqual({
+      mediaAssetId: 'a1',
+      title: 'Cake on a rack',
+      altText: 'An olive oil cake cooling on a wire rack',
+      versionNumber: 2,
+      currentVersionNumber: 5,
+    });
+  });
+
+  it('reads an explicit null as no picture', () => {
+    expect(firstRow([wireSummary({ heroAsset: null })]).heroAsset).toBeNull();
+  });
+
+  /** A server that predates the field omits it. A library must not go blank over that. */
+  it('reads an absent field as no picture', () => {
+    expect(firstRow([wireSummary()]).heroAsset).toBeNull();
+  });
+
+  it('keeps a picture with no alt text, because nobody may have written any', () => {
+    expect(firstRow([wireSummary({ heroAsset: wireHero({ altText: null }) })]).heroAsset?.altText).toBeNull();
+  });
+
+  /**
+   * The one field in this file whose failure to decode does not fail its row: a recipe stays in the library
+   * and shows the drawn panel, which is exactly what it would show for a deleted picture anyway.
+   */
+  it('keeps the recipe and drops the picture when the hero cannot be read', () => {
+    for (const broken of [
+      wireHero({ mediaAssetId: '' }),
+      wireHero({ mediaAssetId: 7 }),
+      wireHero({ title: null }),
+      wireHero({ versionNumber: '2' }),
+      wireHero({ currentVersionNumber: null }),
+      wireHero({ altText: 42 }),
+      'not an object',
+    ]) {
+      const row = firstRow([wireSummary({ heroAsset: broken })]);
+
+      expect(row.title).toBe('Olive oil cake');
+      expect(row.heroAsset).toBeNull();
+    }
+  });
+
+  /** Unlike the hero, an unreadable row still fails the page rather than silently shortening it. */
+  it('fails the page when a row itself cannot be read', () => {
+    expect(decodeRecipeSearchPage(page([wireSummary({ status: 'Imaginary' })]))).toBeNull();
+  });
+});
+
+describe('recipeHeroPicture', () => {
+  /**
+   * The thumbnail is told which copy is current; which copy to show is passed to it separately, so this
+   * mapping deliberately drops the pinned number rather than putting it where "current" belongs.
+   */
+  it('maps a hero to what the shared thumbnail needs, keeping the current version as the current one', () => {
+    expect(
+      recipeHeroPicture({
+        mediaAssetId: 'a1',
+        title: 'Cake on a rack',
+        altText: null,
+        versionNumber: 2,
+        currentVersionNumber: 5,
+      }),
+    ).toEqual({ id: 'a1', title: 'Cake on a rack', altText: null, currentVersionNumber: 5 });
   });
 });

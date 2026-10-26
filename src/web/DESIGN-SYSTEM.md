@@ -2,12 +2,12 @@
 
 ## Direction
 
-CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. Its audience writes for the web, so the product should feel like the kind of food blog they run, with a working tool underneath: an editorial voice where they read, productivity-tool density where they work. Fredoka gives every heading the same friendly, rounded display voice as the wordmark, set large and confident the way a food blog sets its headlines; DM Sans keeps controls, labels and data highly legible. The surfaces are paper and warm ink — an off-white page, white sheets with hairline edges, layered soft shadows — and the [logo](public/images/logo.png) and the food photography bring the colour, never flattened into a muted corporate palette. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
+CreatorPantry is a focused production workspace for food bloggers and content creators—not a recipe index. Its audience writes for the web, so the product should feel like the kind of food blog they run, with a working tool underneath: an editorial voice where they read, productivity-tool density where they work. Fredoka gives every heading the same friendly, rounded display voice as the wordmark, set large and confident the way a food blog sets its headlines; DM Sans keeps controls, labels and data highly legible. The surfaces are paper and warm ink — an off-white page, white sheets with hairline edges, layered soft shadows — and the [logo](public/images/logo.png) and the food photography bring the colour, never flattened into a muted corporate palette. In the dark theme the paper becomes charcoal — neutral greys from a `#202020` page, never tinted — so on a dark page too the only colour is the accents' and the photographs'. Evergreen (drawn from the mixing bowl in the mark) is the action color. Pink, orange, purple, and blue—each saturated enough to read as fresh tomato, carrot, eggplant, and blueberry rather than a desaturated tint—distinguish tools and states without competing with primary actions.
 
 ## Layers
 
-1. Primitive tokens define scale: spacing, type, radii, motion, z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a form control's edge and fill; the edge holds 3:1 against both, WCAG 1.4.11, and a spec checks it), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), and three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating).
+1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, and a skeleton's sweep, `--cp-duration-skeleton`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a control's edge and a field's fill; the edge — of a field, a select, a checkbox's box, a radio's mark, a secondary button — holds 3:1 against the fill and every surface, WCAG 1.4.11, and specs check it as a token and as each control paints it), `--cp-card-edge` (the edge of a sheet — card, dialog, lightbox — a hairline in light and a stronger line in dark, where the sheet's fill barely stands off the page), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's two colours (`--cp-skeleton-base`, `--cp-skeleton-shine`).
 3. Angular primitives implement interaction and accessibility.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
@@ -116,11 +116,21 @@ A page has one `h1`, and `CpPageHeadComponent` prints it; the shell prints none.
   - Where the page it sits under is itself the record that could not be found — the kitchen view of a recipe that is gone — the link goes one further up, to the nearest page that exists.
 - **The title is the route's name, or the record's.** A page about one record prints that record's own title; every other page prints its route's `title` through `injectRouteTitle()`, so the tab and the page cannot disagree. A page whose state changes what it is — not found, removed — changes the head's `heading` rather than printing a second heading somewhere else.
 - **Focus goes to the title when the page replaces what was being acted on.** `focusHeading()`; the ring shows on `:focus`, because script focus after a pointer click is not keyboard focus to a browser.
+- **On paper a head is its words.** Under `@media print` the head leaves off the record's picture and the tool's tile and gives the title back the full width, so a page that prints — the kitchen view — prints as it did before either existed.
 - **A page head carries `--cp-space-6` beneath it.** A page laid out as a grid, whose gap is already that space, zeroes the margin.
 
 ### A grid of cards
 
 A library is a list, and `CpCardGridComponent` lays that list out: `cpCardGrid` on the page's own `<ul>`, one `<li>` per card. It fits as many columns as the frame allows and drops to one at a narrow width or high zoom, because the floor is `min(16rem, 100%)` and never wider than its container. It fills rather than fits, so a library with two things in it shows two card-sized cards. Raise `minColumn` for cards that need more room to be read; do not set a column count.
+
+`flow="masonry"` lets each card keep its own height. A grid's rows are as tall as the tallest card in them,
+which is right for a library of like things — a row of pictures, a row of figures — and wrong for a set of
+topics that are each as long as they need to be, where it strands a short card in a gap. Masonry lays the same
+list out in as many columns as fit and lets each card end where it ends. It is columns, so the eye reads down
+one before it reads across, while the DOM order — which the Tab key and a screen reader follow — is unchanged.
+Use it where the cards are independent of one another and their order is a ranking rather than a sequence read
+in turn: the dashboard's topics are the one place today. A library of cards stays a grid, because a creator
+scanning a shelf of pictures reads along the rows.
 
 ### A board: a library in columns
 
@@ -137,16 +147,47 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 
 ### A card for one thing in a library
 
-`CpMediaCardComponent` is one thing shown by its picture. The picture is the feature's own component, projected, because the feature authorises and loads it; where there is none a tinted panel holds the same 4:3 shape with a glyph, so a row of cards stays even. The title is the link and the card is not: one link named by the title is what a screen reader should find. Facts go inline under the badges, and an action that does not open the thing goes last.
+`CpMediaCardComponent` is one thing shown by its picture. The picture is the feature's own component, projected, because the feature authorises and loads it; where there is none a drawn panel holds the same 4:3 shape, so a row of cards stays even. Hovering or focusing the title leans the picture in a little inside its rounded frame — the card answers its link without becoming one — and under reduced motion it stays still. The title is the link and the card is not: one link named by the title is what a screen reader should find. Facts go inline under the badges, and an action that does not open the thing goes last.
 
 What goes in each slot is the same on every library, so a creator who has read one card can read them all:
 
-- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel, with a glyph for the kind of thing: `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example. Use the glyph the library's first-use empty state uses. A card never borrows a picture from something related to stand in for its own.
+- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel (AU.2.6): a faint gingham on `--cp-tone-panel` with the kind's `cp-illustration` at 5rem in `--cp-tone-panel-ink` — the tool's tint and colour on a toned page, the neutral subtle surface and muted ink on an untoned one, never the action colour. Name the drawing with `illustration` (`picture`, `recipe`, `prompt`, `brand`, or any other in the set). The four glyphs a library passed before the set existed still work and draw theirs — `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example — and any other glyph shows as text; a library moves from its glyph to the name when its own empty state is drawn. The panel is decoration, hidden from a screen reader. A card never borrows a picture from something related to stand in for its own.
 - **Title** — the thing's own name, as the link to its page. Nothing else on the card is a link to that page.
 - **Description** — the creator's own words about it, or the start of it: a recipe's description, the opening of a prompt. One run of plain text; line breaks are kept where the whole thing is shown, not here. End it with an ellipsis only when the text really is cut. A thing with no words of its own has no description, not a placeholder.
 - **Badges** — what state it is in, then what kind of thing it is. State is a `cp-status-pill`, because a state has a tone and a glyph (Draft, Approved, "Ingredients need review", "Text ready"); kind is a `cp-badge` (channel, document type, source). State comes first. A fact with a number or a date in it is not a badge.
 - **Facts** — what is measured or dated: file and size, version, tags, when it was updated. `dl[cpFacts]` with `layout="inline"`, a handful at most, and a fact with nothing to say is left out rather than shown empty. Tags are one fact, comma-separated.
 - **Actions** — `[cpMediaCardActions]`, for the rare thing that can be done from the list without opening the card: the Prompt Library's Preview. Small, secondary, and named for its card (`aria-label="Preview Chili hero"`) since every card has one. Editing, deleting and anything that needs the whole record belong on the thing's own page.
+
+### Choosing between options
+
+`CpOptionCardComponent` is one choice among several that the creator compares before picking one — a studio's
+concepts, a post's variants (AU.3.2, APP-007). The cards sit in `ul[cpCardGrid]` (raise `minColumn` to about
+`18rem`) and are read across, not down:
+
+- **The name**, in a real heading at `headingLevel`; the card is an `article` named by it.
+- **Up to three key facts as tags**, which the feature picks for comparing ("Time · 30 min", "Skill ·
+  Weeknight"). Each is a term-and-value pair, so it is read as one. A fourth fact or more moves into the disclosure
+  rather than being dropped: nothing on an option is cut without a way to read it.
+- **One sentence** about it, then whatever must always be seen — a caution about this option goes in the default
+  slot and is never put behind the disclosure.
+- **The rest on request**, in a native `<details>` (`[cpOptionCardDetail]`, its summary `detailLabel` named with the
+  option's name too): the
+  assumptions, the full ingredient list. A list of sentences is a list there, not a comma-joined line.
+- **One button** that says what choosing does (`chooseLabel`, "Choose this concept"), named with the option's
+  name as well so a grid of them never offers three identical buttons. It emits `chosen`; what happens is the
+  feature's.
+
+The chosen card says so three ways: a 2px edge in the action colour (`--cp-primary-text`, a picked choice tile's
+edge colour), a ✓, and "Chosen" beside the name. Its button then reads "Chosen" at full strength — not faded like an
+unavailable button — stays focusable with `aria-disabled`, and does nothing, so focus is not moved at the moment
+the creator acted; the feature says what happens next in its own place. Which card is chosen is the feature's
+state, one at a time. It takes no tone: selection is a state, not the tool.
+
+**An option card or a choice group.** If picking it is a value a Save submits, it is a field, and a field's tiles
+are `CpChoiceGroupComponent`: short options, arrow keys between them, its label and error owned by the
+`cp-field` or `cp-form-section` around it. If picking it is an action that happens now — start a draft from this
+concept, take this variant — it is an option card. An option card is never a form control: it has no value, no
+radio and no arrow keys between cards.
 
 ### A card for one topic on a detail page
 
@@ -154,7 +195,7 @@ What goes in each slot is the same on every library, so a creator who has read o
 
 ### Facts
 
-Term-and-value pairs are a `<dl>` with `cpFacts`, one `<div cpFact label="…">` per pair. `stacked` on a page about the thing, where a value may run to a paragraph; `inline` on a card, where there are a few short ones. A value that is the creator's own words takes `prose` and keeps its line breaks.
+Term-and-value pairs are a `<dl>` with `cpFacts`, one `<div cpFact label="…">` per pair. `stacked` on a page about the thing, where a value may run to a paragraph; `inline` on a card, where there are a few short ones; `across` for a strip of a few short figures a page is read by first — a recipe's yield and times under its head — each a small term over a bold value, side by side and wrapping. A value that is the creator's own words takes `prose` and keeps its line breaks.
 
 ### Search and filters in a toolbar
 
@@ -279,9 +320,9 @@ journeys move onto it.
 
 A page that is none of the three — the recipe editor, the kitchen view, a studio that is one long form — still takes the frame and the page head, and owes nothing more to these shapes:
 
-- **The recipe editor** is one form under one Save, so its head carries what acts on the whole recipe: the breadcrumb to Recipes, the recipe's name, and in the action slot the "Unsaved changes" and "Total time will be recalculated" notes, Print, Kitchen view, Archive and Save. Everything under the head is the form, and "Tabs, anchor navs, and one Save" governs it.
+- **The recipe editor** is one form under one Save, so its head carries what acts on the whole recipe: the breadcrumb to Recipes, the recipes icon, the recipe's lead picture (its Hero link, described by the asset's stored alt text), the recipe's name, and in the action slot the "Unsaved changes" and "Total time will be recalculated" notes, Print, Kitchen view, Archive and Save. Under the head is a `dl[cpFacts]` `across` strip of the yield and times **as saved** — it moves when a saved recipe arrives (a save, a restore, an apply), never on a keystroke, and Total is the stored total. Everything under that is the form, and "Tabs, anchor navs, and one Save" governs it.
 - **A studio that is one form** (Image Studio, the recipe concept studio's brief) keeps that form in one `cp-card` with its legend and sections, as "The shape of a form" has it. Its results — a chosen concept, what the model flagged — are topic cards under the list they belong to.
-- **The kitchen view** is a page to cook from and to print. Its head is the recipe's name and description; the way back and the controls are for the screen only. On paper the head is the title and the description at the sizes the page has always printed them, which is the one place a feature stylesheet reaches into `cp-page-head` (under `@media print`, with `::ng-deep`), because a printed recipe sets its own type.
+- **The kitchen view** is a page to cook from and to print. Its head is the recipe's name and description, with the recipes icon and the lead picture as the editor has them; the way back, the controls, the icon and the picture are for the screen only. On paper the head is the title and the description at the sizes the page has always printed them, which is the one place a feature stylesheet reaches into `cp-page-head` (under `@media print`, with `::ng-deep`), because a printed recipe sets its own type.
 - **A long draft to review** (the first-draft review) keeps its own sections with a sticky anchor nav: each section's heading is a jump target that has to clear the nav, and each holds cards of its own, so the sections are not topic cards.
 
 ### Inline, a drawer or a dialog
@@ -327,6 +368,148 @@ What a drawer does, so a feature does not have to:
 
 `CpDialogComponent` and `CpLightboxComponent` share the focus return, the Tab trap and the scroll lock (`modal-surface.ts`, internal to the library). Each stays where it is in the DOM and does not make the page inert. They are two components: a drawer is not a dialog variant, and neither takes an input that turns it into the other.
 
+### Warmth inside the app
+
+The app takes the landing page's accents, imagery, hierarchy and finish, and leaves its marketing behind: no
+scroll reveal, no hero collage, no colour-blocked bands, no decorative photography. It stays a tool that scans
+fast. The owner settled five questions on 2026-10-25 (`docs/prompts/creatorpantry-app-ux-uplift-scrub-prompts.md`,
+D1–D5). Each part named here is built by the AU prompt in brackets, and until it is built no page draws the look
+by hand.
+
+**A tool has one tone (D1).** Five creative tools wear a fruit accent, and nothing else does:
+
+| Tool | Tone |
+| --- | --- |
+| AI Recipe Studio | purple |
+| Image Studio | pink |
+| Social Studio | blue |
+| Long-form, Content Pipeline | orange |
+| Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week, the dashboard | none: evergreen |
+| Workflows hub, a guided run, Quick Recipe, Workspace settings, AI allowance | none: evergreen (not named by D1; untoned by default) |
+
+- **The route owns it.** A route declares `data: { tone }` — on a section's parent route, so every page below it
+  inherits the tone — and the shell's page frame sets `data-cp-tone` inside `<main>`, the deepest route that
+  names one winning, as with `pageWidth`. A feature stylesheet or template neither sets `data-cp-tone` nor
+  declares a `--cp-tone*`; the page contract's `tone` rule fails one that does.
+- **A drawer keeps the tone of the page that opened it.** `cp-drawer` moves its panel to `<body>` while open,
+  outside the frame, so the panel copies the nearest `data-cp-tone` above it as it goes. A dialog and a lightbox
+  stay where they are and inherit it. The nav and the top bar sit outside the frame and never take a tone.
+- **Parts draw with four tokens.** These are `--cp-tone` (a fill or an edge), `--cp-tone-soft` (a tint),
+  `--cp-tone-text` (the tone as text) and `--cp-tone-on` (text or a glyph on a `--cp-tone` fill). With no tone set
+  they are the primary's four, so on the page a part written against them looks as it did on an untoned page.
+  Two pairs are the exception, neutral rather than the primary's when no tone is set, because evergreen there would
+  put the action colour where no action is: the rule under a page head (`--cp-tone-rule`) and a media card's
+  no-picture panel and its drawing (`--cp-tone-panel`, `--cp-tone-panel-ink`).
+- **Sparingly.** The tone marks where you are: the head's icon tile and hairline (D3), a toned flow's progress and
+  stepper, an illustration (D5) and the panel a card without a picture draws it on (AU.2.6). It is never the primary action — Save, Generate and Continue stay evergreen,
+  the action colour on every page — and never the nav, body text, a field, or a section's background. The one
+  exception to the last is the single featured card a page may have (AU.3.3), whose surface is
+  `--cp-tone-soft` mixed four parts to one with the sheet.
+- **At most one featured card per page.** `featured` on `cp-card` (or `cp-topic-card`) marks the one topic that
+  matters most there — the dashboard's most urgent, say — with the tool's tint (the primary's on an untoned page)
+  and an edge in the tool's colour. Two of them feature nothing, so a page never has a second, and a list never
+  features its items. Hold its actions to primary, secondary and text buttons: a ghost button's edge is lost on the
+  tint. Under forced colours the tint goes, so its edge doubles. The tint is mixed with the sheet because the pure tint put an evergreen link at 4.41:1 on
+  light pink; mixed, ink, muted ink and evergreen all clear 4.5:1 on it in every tone and both themes, which
+  `design-system.spec.ts` measures.
+- **A tone is not a status.** The accents still colour badges and status pills, where a word and a glyph carry
+  the state, so the Direction's "tools and states" stands. The tone is the accent picked for a tool's identity,
+  and nothing reads as success, warning or "made by AI" because of it.
+- **One tool, one tone, everywhere it appears.** A dashboard link into Image Studio is pink there too.
+- **Measured.** In both themes, `--cp-tone-text` clears 4.5:1 on `--cp-bg`, every surface, `--cp-field-bg` and its
+  own soft tint (4.53:1 at worst, primary on the raised surface in light). `--cp-tone-on` clears 4.5:1 on
+  `--cp-tone` (5.01:1 at worst). Orange's text in the light theme is a step darker than its fill (`--cp-orange-text`):
+  the carrot itself is 4.25:1 on the raised surface. `design-system.spec.ts` measures every pair.
+
+**A dark card is a charcoal sheet (D2)** (AU.2.2). The dark theme is charcoal — neutral greys from a `#202020`
+page — and a `cp-card` in it is `--cp-surface` (`#2a2a2a`) edged in `--cp-card-edge`: a sheet raised off the
+page, sharing its fill and edge with `cp-dialog` and `cp-lightbox`, not a light island on it. It re-declares no
+token, so everything inside reads the page's own colours at the page's own ratios: error text 5.63:1 (it was
+1.97:1 on parchment), ink on the danger tint 10.57:1 (1.17:1), the accents as text 5.49–6.96:1 (1.60–2.02:1), and
+any tone's text 7.67:1 untoned. The fill stands 1.14:1 off the page, so the edge (1.93:1) draws the sheet; the
+dark shadow adds little. `design-system.spec.ts`, "inside a card", measures every pair inside an untoned frame
+and each toned one, in both themes.
+
+**The page head says which tool (D3)** (AU.2.5). A page projects its section's own nav icon into
+`[cpPageHeadIcon]`, and the head draws it on a 3rem tile of `--cp-tone` in `--cp-tone-on`, beside the title. It is
+a slot, not a name, because the nav's icons are the shell's and the library names no section; the tile is
+`aria-hidden`, and the heading stays the name. The rule under the head is `--cp-tone-rule`: a 2px line in the tool's
+colour on a toned page, and the neutral hairline on an untoned one — not evergreen, which would put the action
+colour under a title where no action is. A detail page may project its record's own `<img>` into
+`[cpPageHeadMedia]` — never a URL, so the feature authorises and loads its own bytes — framed at 4:3, beside the
+title once the head is 34rem wide (a container query on the head, not the window) and above it below that. The
+title keeps `--cp-font-size-title` and stays the one `h1`. The display size and the brush underline stay the public
+hero's (Content hierarchy, above). The media slot holds the thing itself or nothing, never a stand-in or a
+decoration: the picture, or one wrapper around it, and never a control. Its `alt` is the feature's to give — the
+asset's stored alt text, describing what is visible, never a filename or the recipe's name dressed up as a
+description; `alt=""` only where the title beside it already says everything the picture shows. The icon slot holds
+a decorative, non-focusable icon, because the tile around it is hidden from assistive technology.
+
+**Content arrives once, gently (D4)** (AU.3.4). The first time a route's content or a result renders, it fades
+in and rises `--cp-enter-distance` over `--cp-duration-enter`. Several things arriving together land
+`--cp-enter-stagger` apart, in the order they were built — a group of option cards, each its own arrival; not the
+rows inside one list, which rise as the one block the shell marks. The library applies it where it is always
+right — a list shell's ready content, a generated result arriving, a group of options — and pages do not apply
+it themselves. It does not replay on a filter change, a save or a re-render.
+There is no scroll reveal, and under `prefers-reduced-motion` nothing moves and nothing waits. `global.css` zeroes
+durations but not delays, so the entrance clears its stagger delay there too; otherwise a list item would sit
+invisible for its turn.
+
+`CpEnterDirective` (`[cpEnter]`) is how that is done. It marks an arriving element `data-cp-enter`, and
+`global.css` holds the `cp-enter` keyframes keyed on that attribute, because a directive carries no styles of
+its own. The marking is the only thing that hides anything: nothing in the sheet touches an element the
+directive has not marked, so a sheet that never loaded, a page without script and an entrance that has finished
+all leave content that was never hidden — the same way round as `LandingRevealDirective`, and the reason neither
+is written as CSS that hides and script that reveals. Everything created in one change-detection pass is one
+arrival and lands in creation order, capped at five steps, so a group of cards staggers without a page counting
+them. It animates once: a CSS animation declares the once, the input is read in `ngOnInit` and never again, and
+the attribute comes off when the animation ends, so a later DOM move cannot restart it. Hiding an element mid-arrival
+cancels its animation without ending it, so a cancelled animation clears the mark too, or a `[hidden]` tab panel
+would arrive again when it was shown. Focus arriving ends it early: `global.css`'s `:focus-within` stops the
+animation in the same style recalculation, synchronously, and the directive's `focusin` then clears the mark on
+the change detection that follows — two mechanisms because a signal written in a handler is a frame late, and
+`cp-list-shell`'s ready region is focusable, so a creator tabbing into a list that has just landed must not find
+the focus ring on something transparent. Print turns it off outright: paper renders the whole document at once and need not run an animation,
+and the animation fills backwards. `[cpEnter]="false"` writes nothing at all, which is how the list shell arrives
+on its first ready and not on a reload — once per shell, so a shell reused for another record's list does not
+arrive again either. Of the three, only the list shell is on a page today: `cp-generated` and `cp-option-card`
+are built and placed by AU.4.1 onwards, and the entrance switches on with them.
+
+The page contract's `enter` rule guards the three entrance tokens, the `cp-enter` keyframes and
+`data-cp-enter` — the parts a feature would reach for to rebuild this. It does not claim every fade-and-rise:
+a tab panel's switch and the public hero's collage are motion about something else. Nor does it forbid
+`[cpEnter]` in a feature template, so that a later document can hand pages the entrance without a check being
+loosened to let them through.
+
+**An empty state is drawn (D5)** (AU.2.4). `cp-illustration` holds a small set of line drawings — `recipe` (a
+recipe card and a bowl), `picture` (a plated dish under steam), `post` (a phone and a speech bubble), `article` (a
+page and a pen), `calendar`, `board`, `prompt` (a quote card), `brand` (a chef's hat), `search` and `sparkle` —
+drawn for this library as inline SVG in `currentColor`, on a faint wash of the same colour, so each takes the tone
+it sits in and both themes. They are `aria-hidden`: the title and sentence beside one say everything it shows.
+They are not stock, not traced, not generated by a model, and no drawing of food carries a claim. Give
+`cp-empty-state` an `illustration` and a first-use state becomes the roomy layout — the drawing at 7rem in
+`--cp-tone-text`, the title at `--cp-font-size-xl`, the sentence at `--cp-font-size-md`, then its one action — while
+a no-results state stays compact with a small `search`. Without one it keeps the older glyph in a disc, so a page
+changes only when its own prompt draws it. The page contract fails a feature stylesheet that draws its own.
+
+**Loading looks like what is coming** (AU.2.3, AU.7). `cp-skeleton` draws the shape about to arrive — `line`
+(a block of them varies in width and ends short, so it reads as text, not a table), `block`, `circle`, or
+`card`, a `cp-media-card` silhouette that lays a `count` of itself out as a card grid — on `--cp-skeleton-base`,
+with `--cp-skeleton-shine` sweeping across it by `background-position` over `--cp-duration-skeleton`. Under
+reduced motion it is the plain base colour and does not move. Its host is `aria-hidden`; the region that is
+loading carries `aria-busy` and one visually hidden status sentence, so a screen reader hears that it is
+loading exactly once. `cp-list-shell` does all of this itself: while loading it draws `loadingLayout` (`rows`, the
+default, or `cards` — which a library of media cards passes, or its skeleton will not match the grid that replaces
+it). Its status region is always in the page, outside the busy body, and only its words change, because a live
+region that is inserted with its text, or held inside a busy subtree, may not be read. While the list is empty
+its pagination footer is offscreen, so a result summary there is still announced but no longer repeats the empty
+state above it; it is not hidden while loading, so a pager fetching the next page keeps the creator's focus.
+`cp-toolbar`'s `loading` marks the toolbar busy and says nothing, because the list under it is what announces. A skeleton sits on the page or a sheet (`--cp-bg`,
+`--cp-surface`), where it reads; on the subtle and raised surfaces it all but vanishes. The target is that no
+page shows a visible "Loading…" sentence, except a pager button saying "Loading more…" while it fetches; about
+thirty feature sentences and two "Loading…" button labels still do, and AU.7 removes them. The page head's
+title is never a loading sentence: it is the route's title, or a skeleton line where the record's title will be.
+
 ### What the build checks
 
 Before anything else about a new page, say which of the three shapes it is — a library, a detail page or a flow. A page that is none of them is a question to raise, not a fourth shape to draw.
@@ -337,14 +520,20 @@ Before anything else about a new page, say which of the three shapes it is — a
 | --- | --- | --- |
 | `frame` | a routed page's `:host` sets `padding`, `margin`, `width`, `max-width` or their logical forms | the shell's frame, and `data: { pageWidth }` on the route |
 | `one-h1` | any template renders an `<h1>` | `cp-page-head`, which prints the one `h1` |
-| `page-head` | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back` or `.breadcrumb` | `cp-page-head` and `a[cpBackLink]` |
+| `page-head` | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back`, `.breadcrumb`, or an icon tile or head picture of its own (`.page-icon`, `.head-icon`, `.title-icon`, `.head-media`, `.page-media`, `.title-media`) | `cp-page-head` and `a[cpBackLink]` |
 | `card-grid` | a stylesheet styles `.grid`, `.card-grid` or `.cards`, or lays out a `repeat(auto-fill, …)` or `repeat(auto-fit, …)` grid | `ul[cpCardGrid]`; `cp-field-row` for short fields; `dl[cpFacts]` for terms and values |
 | `facts` | a stylesheet styles `.facts` or `.fact` | `dl[cpFacts]` of `div[cpFact]` |
 | `toolbar-field` | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field` | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label |
 | `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
+| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's `.concept-card`, `.concept-title` or `.concept-dietary` (exempt until AU.5.1 adopts the card) | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
+| `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
+| `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
+| `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
+| `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
+| `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
 | `public-frame` | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged | the `--cp-public-*` tokens ("The public page") |
@@ -352,7 +541,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 
-A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, which goes when `dl[cpFacts]` has an across layout.
+A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, each with an edit control of its own, which AU.5.1 weighs against `dl[cpFacts]`'s `across` layout.
 
 ## Confirmations
 
@@ -373,8 +562,9 @@ Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color a
 outline-offset: 2px }` in `global.css`. It was a 38% (light) and 42% (dark) mix of the action colour with
 `transparent` until it was measured: a translucent ring takes the lightness of whatever is under it, so it came
 to 1.66–1.74:1 on every light surface and 2.40–2.71:1 on every dark one, where WCAG 2.2 1.4.11 asks for 3:1.
-Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 9.97:1 on the dark page, and 4.41:1
-at its worst, on a soft fruit tint. `design-system.spec.ts` holds every surface in both themes at 3:1.
+Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 8.70:1 on the dark charcoal page,
+and 4.24:1 at its worst, on the light danger tint. `design-system.spec.ts` holds every surface in both themes at
+3:1. (The 2.40–2.71:1 above was measured on the green-black dark theme that charcoal replaced in AU.2.2.)
 
 **The colour is always the token.** A component may set its own width or offset — several do, at 2px or with a
 negative offset, where the global 3px at +2px would be clipped or would collide with a neighbour — but none
@@ -386,32 +576,35 @@ Three things follow, and they are decisions rather than oversights:
 
 - **The 2px gap is what separates the ring from the control it rings, not the ring's colour.** A focused primary
   button is green fill, 2px of page, green ring — the ring is 1:1 against the fill it haloes. The page showing
-  between them is 5.05:1 (light) and 9.97:1 (dark) against both, which is what makes the indicator findable. A
+  between them is 5.05:1 (light) and 8.70:1 (dark) against both, which is what makes the indicator findable. A
   single colour that cleared 3:1 against the surfaces *and* against the primary fill would have to be near-black
   in the light theme, and in the dark theme does not exist: clearing 3:1 against `#48d593` needs a luminance at
-  or under 0.15 and clearing it against `#071512` needs 0.145 or over.
-- **`cp-card` re-declares the ring in the dark theme**, next to the neutrals and `--cp-primary-text` it already
-  re-declares, because the card is parchment there. The mint that is 9.97:1 on the dark page is 1.13–1.25:1 on
-  that parchment, so a focused control inside a card would have had no visible ring at all. The card's ring is
-  `--cp-primary-text`, 5.04:1 at worst on its surfaces — and 4.01:1 against a primary button's mint fill, so
-  this is the one place where the ring itself, rather than the gap, does the separating. It is the only
-  re-declaration of the token, and it is one because the card is the only thing that re-declares its surfaces.
+  or under 0.137 and clearing it against the charcoal page `#202020` needs 0.143 or over.
+- **Nothing re-declares the ring, a card included.** Until AU.2.2 a dark `cp-card` was parchment, where the mint
+  ring was 1.26–1.63:1 (1.45:1 on its fill), so the card re-declared `--cp-focus`, `--cp-primary-text` and later
+  `--cp-primary-soft` to stay usable; inside it the ring itself did the separating from a primary button, at
+  4.01:1. A dark card is now a charcoal sheet that re-declares nothing. The page's ring is 7.67:1 on it, 7.05:1 on
+  its subtle surface and 9.20:1 on a field, and the 2px gap separates ring from button there as it does
+  everywhere else.
+- **Primary as text on a soft fill is `--cp-primary-text`**, never the raw `--cp-primary`: a badge, a status pill,
+  a pressed chip, a notice's glyph and a picked choice tile's edge all say so. The two are one colour in both
+  themes today. The rule stands because a soft fill is where a surface that re-declared its palette would break
+  first — the parchment card put a picked answer at 1.35:1 (AU.0) — and `--cp-primary-text` is the token such a
+  surface re-declares.
 - **A refused field keeps the ordinary ring**, rather than turning it red. `cp-field` draws its ring as a
   `box-shadow` inside a transparent outline, so it is the one indicator the token alone does not reach, and for
-  an invalid control it drew a 28% danger tint: 1.62:1 on a white field, 1.60:1 on a dark one and 1.26:1 on a
-  card's parchment — the worst ring in the system, on the one field the form had just refused. Solid
-  `--cp-danger` is 6.54:1 on a white field but 2.22:1 on that parchment, for the same reason the mint is, so
-  the ring says where the keyboard is and the error goes on being said three other ways that do not depend on
-  it: the `--cp-danger` border, the `!` glyph, and the message in `role="alert"`.
+  an invalid control it drew a 28% danger tint: 1.62:1 on a white field and 1.60:1 on a dark one — the worst
+  ring in the system, on the one field the form had just refused. Solid `--cp-danger` was ruled out while a dark
+  card was parchment (2.22:1 on it), and the ring says where the keyboard is regardless: the error goes on
+  being said three other ways that do not depend on it, the `--cp-danger` border, the `!` glyph, and the
+  message in `role="alert"`.
 
 Nothing in the library draws a focus ring over a photograph: `cp-lightbox` puts its close control on a
 `--cp-surface` panel rather than on the scrim, and `cp-media-card` rings the card outside the picture. A new
-component that wants a ring on an image is a question to raise, because no single colour answers it. Nor does
-any ring land on a soft accent tint inside a dark card, which would be the system's remaining gap — the card
-leaves the accent tokens alone, and the card's ring on the dark `--cp-primary-soft` would be 1.61:1 — because
-every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) rings itself at a positive offset, so
-the ring lands on the surface the control sits on rather than on its own fill. A component that would ring
-*inside* a tinted area is the second question to raise.
+component that wants a ring on an image is a question to raise, because no single colour answers it. A ring on
+a soft tint reads, in a card or out of one: 4.24:1 at worst in the light theme (the danger tint; 4.41:1 on the
+pink, the worst fruit tint) and 6.33:1 in the dark (the danger tint). Every control drawn on a tint (`cp-chip` when pressed, `cp-quick-action`) still rings itself at a
+positive offset, so the ring lands on the surface the control sits on rather than on its own fill.
 
 ## Meters and figures
 
@@ -420,6 +613,18 @@ A meter reads as an amount when the question is "how much have I got" and as a p
 Its `tone` colours the fill and does nothing else — it adds no glyph, changes no text and changes no ARIA. That is deliberate: a bar that only changed colour would be status by colour alone. Pair a toned meter with a `CpStatusPillComponent` naming the state in a word, and the meter's colour becomes the quieter half of something already said.
 
 A figure is bold `--cp-font-sans`, not the display face: metrics are read, not declaimed. Put the reading measure on a wrapper free to shrink rather than on the track, where a `max-width` becomes the meter's floor instead of its ceiling.
+
+**A figure on its own is `CpStatTileComponent`** (AU.3.3, APP-008): the number at `--cp-font-size-2xl` with what it
+counts in words beside it, as one sentence ("12 recipes waiting for review"), never a bare number. Under it an
+optional sentence of `context`, and an optional link (`[cpStatTileLink]`, the feature's own `<a>`, named by what it
+opens) at the foot, so a row of tiles lines its links up. The figure is the server's count as the feature formats
+it: the tile adds no precision, no unit and no arithmetic, and a page derives none (the dashboard rule). There is
+no trend arrow and no delta; a comparison appears only when the server sends one, and then as words in `context`.
+A figure that could not be read keeps its tile and label, leaves `value` empty and says so in a `cp-notice` in the
+default slot. Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
+the tile, not the window: `--cp-font-size-2xl` is its ceiling, and a narrow tile sets it smaller, so a four-digit
+count never runs out of its column. A feature draws no tile of its own: the page contract's `stat-tile` rule fails
+a `.stat`, `.kpi` or `.figure-tile` in a feature stylesheet.
 
 Toolbar arrow-key navigation (`CpToolbarComponent`) yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in its search slot keeps its own caret and value behavior.
 
@@ -523,6 +728,38 @@ no buttons in it), and `.cp-disclosure` for a `<details>` whose summary would ot
 target. A feature stylesheet neither restyles one nor keeps a private `.muted` or `.actions` beside it; the
 build fails on either.
 
+### Generated content
+
+What a model made says so in words, wherever it is on screen and until the creator accepts it or replaces it
+with their own (AU.3.1). `CpGeneratedLabelComponent` is the mark: a ✦, hidden from a screen reader, and the
+words, which come from `kind` and are never passed in — "Drafted by AI" for words, "Made by AI" for a picture,
+"Read by AI" for a reading of something the creator supplied. Before it the product said this four ways
+("Written for you", "Written by AI", "AI generated", "Generated", "AI suggested"); one fact gets one sentence.
+Two vocabularies held in TypeScript still say "Written for you" — Brand setup's origin pill and a prompt's source
+— and move when their own pages do.
+
+- **The label alone** goes where generated output already has an edge of its own: a post's card head, a
+  long-form section's marks, under the alt-text field. A box around a card would be a box in a box.
+- **`CpGeneratedComponent`** is the surface, for output that has none: the label first, the output, then the
+  creator's decisions in `[cpGeneratedActions]` — accept, edit, discard — always last and taking no room when
+  there are none. It is a group named by its label, so a screen reader hears "Drafted by AI" before the content.
+- **Neutral, never a tone.** The label's edge and the surface's are a dashed `--cp-border-control`: the edge a
+  creator already reads as "you can change this", dashed because a draft is not finished. Purple would put a
+  second tone on four toned tools and make a tone mean "made by AI", which "Warmth inside the app" rules out.
+  A record whose *kind* is AI-made — a DAM asset, a prompt's source — keeps its `cp-badge`: that is what the
+  thing is, not a draft awaiting a decision.
+- **Provenance is the feature's text.** What made it and when, composed from what the server returned
+  ("Venice, flux-dev", "gpt-4o · 25 Oct, 08:30"), and left out rather than guessed when it returned none. Never a
+  prompt body, which is the creator's material, and never a token count or cost, which live on the allowance
+  screen.
+- **The words claim origin, not quality.** "Drafted by AI" says who wrote it, not that it is right, safe or
+  checked. Any caution is a sentence of the feature's beside the label — "look that it shows the dish as
+  written", "check it and change anything that is wrong" — and a reading always comes with one telling the
+  creator to check it against the original, because "read" can sound like "verified". The words live in
+  `CP_GENERATED_LABELS` and nowhere else, so a change to them is made there once.
+- **Presentation only.** Neither part saves, accepts or discards anything, or decides when it shows. The feature
+  takes the label away the moment the creator's own words replace the model's.
+
 ### Fitting a form into the width it has
 
 Two CSS traps cost real time here, both worth recognising rather than rediscovering.
@@ -585,6 +822,9 @@ the cap rather than letting a pick disappear.
 A single-answer group has no deselect — a radio cannot be unticked by clicking it — so a question that must be
 answerable with *no answer* gives that its own option. The brand questionnaire's "Not sure yet" is one, and it
 stands for the empty answer rather than being stored as a choice.
+
+A choice group is a form's answer. Comparing rich alternatives where choosing *does* something — a studio's
+concepts — is `CpOptionCardComponent` instead ("Choosing between options").
 
 ### Tabs, anchor navs, and one Save
 

@@ -16,7 +16,7 @@ import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { DamAssetDetail, DamAssetPicture } from '../../models/dam-asset.models';
 import { DamAssetService } from '../../services/dam-asset.service';
-import { DamAssetThumbnailComponent } from './dam-asset-thumbnail.component';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 
 type LinkedAssetState =
   | { readonly status: 'loading' }

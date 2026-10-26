@@ -47,7 +47,7 @@ import { WorkspaceMembershipService } from '../../services/workspace-membership.
 import { fileSizeText, imageFormatText } from '../content-pipeline/content-pipeline-image-presentation';
 import { DamAssetEditComponent } from './dam-asset-edit.component';
 import { DamAssetLogUseComponent } from './dam-asset-log-use.component';
-import { DamAssetThumbnailComponent } from './dam-asset-thumbnail.component';
+import { DamAssetThumbnailComponent } from '../../shared/asset-thumbnail/dam-asset-thumbnail.component';
 import { DamAssetUsageHistoryComponent } from './dam-asset-usage-history.component';
 import { DamAssetVersionUploadComponent } from './dam-asset-version-upload.component';
 

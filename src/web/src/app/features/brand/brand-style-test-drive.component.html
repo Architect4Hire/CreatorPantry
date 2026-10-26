@@ -96,7 +96,7 @@
       <!-- Wide: two samples side by side need the card's whole width. -->
       <cp-topic-card heading="Both versions" headingId="cp-style-test-drive-result-heading" wide>
         <p class="generated">
-          <cp-badge tone="purple">Written by AI</cp-badge>
+          <cp-generated-label />
           Samples about “{{ result.subject }}”, from version {{ result.guideVersionNumber }} of your guide.
           @if (!result.guideVersionWasActive) {
             This is not the version this workspace writes with yet.

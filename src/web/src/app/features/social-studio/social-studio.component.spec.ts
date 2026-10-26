@@ -561,7 +561,7 @@ describe('SocialStudioComponent', () => {
       expect(root().querySelector<HTMLInputElement>('#cp-social-title')!.value).toBe('Olive oil cake');
       expect(root().querySelector<HTMLTextAreaElement>('#cp-social-brief')!.value).toBe('Warm, with coffee.');
       expect(root().querySelectorAll('cp-channel-post-review').length).toBe(2);
-      expect(text()).toContain('Written for you');
+      expect(text()).toContain('Drafted by AI');
       expect(server.creates.length).toBe(0);
     });
 

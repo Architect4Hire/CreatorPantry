@@ -31,7 +31,7 @@ let nextId = 0;
   standalone: true,
   imports: [CpCardComponent],
   host: { '[class.cp-topic-card--wide]': 'wide()' },
-  template: `<cp-card>
+  template: `<cp-card [featured]="featured()">
     <section [attr.aria-labelledby]="resolvedHeadingId()">
       @if (headingLevel() === 3) {
         <h3 #title class="heading" tabindex="-1" [id]="resolvedHeadingId()">{{ heading() }}</h3>
@@ -90,6 +90,8 @@ export class CpTopicCardComponent {
   readonly headingLevel = input<CpTopicCardHeadingLevel>(2);
   /** Lifts the reading measure, for a table or a preview. A bare `wide` attribute is enough. */
   readonly wide = input(false, { transform: booleanAttribute });
+  /** The one topic on the page that matters most: `cp-card`'s `featured`. At most one per page. */
+  readonly featured = input(false, { transform: booleanAttribute });
   /** The heading's id, for a page that labels something else by it. Generated when empty. */
   readonly headingId = input('');
 

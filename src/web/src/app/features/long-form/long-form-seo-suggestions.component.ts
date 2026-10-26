@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import {
-  CpBadgeComponent,
   CpButtonComponent,
   CpFactComponent,
   CpFactsComponent,
   CpFormSectionComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
 } from '@creator-pantry/ui';
 
@@ -38,7 +38,7 @@ type SeoState =
 @Component({
   selector: 'cp-long-form-seo-suggestions',
   standalone: true,
-  imports: [CpBadgeComponent, CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpGeneratedLabelComponent, CpNoticeComponent],
   templateUrl: './long-form-seo-suggestions.component.html',
   styleUrl: './long-form-seo-suggestions.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

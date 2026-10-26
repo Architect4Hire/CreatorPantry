@@ -69,6 +69,7 @@ export class FakeRecipeLibrary {
           latestVersionNumber: versions.length === 0 ? null : versions.length,
           latestVersionReadiness: versions.length === 0 ? null : 'Draft',
           hasUnmatchedIngredients: false,
+          heroAsset: null,
         };
       });
 

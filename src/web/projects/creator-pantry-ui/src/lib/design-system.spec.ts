@@ -1,11 +1,16 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
+import { CpBadgeComponent } from './components/badge.component';
 import { CpButtonComponent } from './components/button.component';
 import { CpCardComponent } from './components/card.component';
+import { CpCheckboxComponent } from './components/checkbox.component';
+import { CpChoiceGroupComponent } from './components/choice-group.component';
 import { CpFieldComponent } from './components/field.component';
+import { CpNoticeComponent } from './components/notice.component';
 import { CpProgressComponent } from './components/progress.component';
+import { CpSearchFieldComponent } from './components/toolbar-field.component';
 import { CpThemeService } from './theme.service';
 
 type Channels = readonly [number, number, number];
@@ -85,6 +90,59 @@ function readTokens(theme: 'light' | 'dark', names: string[]): Record<string, st
 })
 class RefusedFieldHostComponent {}
 
+/** Every surface a piece of text or a control can sit on. */
+const SURFACES = ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg'];
+
+/** The controls that draw their own edge, once on the page and once in a card. */
+@Component({
+  standalone: true,
+  imports: [NgTemplateOutlet, CpCardComponent, CpCheckboxComponent, CpChoiceGroupComponent, CpButtonComponent, CpSearchFieldComponent],
+  template: `
+    <ng-template #controls let-id="id">
+      <cp-checkbox label="Keep screen awake" [inputId]="id + '-check'" />
+      <cp-choice-group label="Measurements" [idPrefix]="id + '-'" [options]="[{ value: 'metric', label: 'Metric' }]" [value]="[]" />
+      <button cpButton variant="secondary" type="button">Print</button>
+      <cp-search-field label="Search recipes"><input type="search" /></cp-search-field>
+    </ng-template>
+    <div class="on-page"><ng-container *ngTemplateOutlet="controls; context: { id: 'page' }" /></div>
+    <cp-card><ng-container *ngTemplateOutlet="controls; context: { id: 'card' }" /></cp-card>
+  `,
+})
+class DrawnControlsHostComponent {}
+
+/** What sits on the soft fill inside a card: a picked answer with its hint, a success notice and a success badge. */
+@Component({
+  standalone: true,
+  imports: [CpCardComponent, CpChoiceGroupComponent, CpNoticeComponent, CpBadgeComponent],
+  template: `
+    <cp-card>
+      <cp-choice-group
+        label="Measurements"
+        idPrefix="soft-"
+        [options]="[{ value: 'us', label: 'US customary', hint: 'Cups, tablespoons, ounces and pounds' }, { value: 'metric', label: 'Metric' }]"
+        [value]="['us']"
+      />
+      <cp-notice tone="success">Saved.</cp-notice>
+      <cp-badge tone="success">Ready</cp-badge>
+    </cp-card>
+  `,
+})
+class SoftFillInCardHostComponent {}
+
+/** What a featured card carries (AU.3.3): ink, muted ink, and an evergreen link or text button. */
+@Component({
+  standalone: true,
+  imports: [CpCardComponent],
+  template: `
+    <cp-card featured>
+      <p class="ink" style="color: var(--cp-text)">Due today</p>
+      <p class="muted" style="color: var(--cp-text-muted)">At 6pm</p>
+      <a class="link" href="#" style="color: var(--cp-primary-text)">See the whole day</a>
+    </cp-card>
+  `,
+})
+class FeaturedCardHostComponent {}
+
 describe('CreatorPantry UI library', () => {
   it('applies the configured button variant and size', async () => {
     await TestBed.configureTestingModule({ imports: [CpButtonComponent] }).compileComponents();
@@ -134,31 +192,73 @@ describe('CreatorPantry design tokens', () => {
   });
 
   for (const theme of ['light', 'dark'] as const) {
-    it(`meets WCAG AA (4.5:1) for text-on-accent pairs in the ${theme} theme`, () => {
-      const tokens = readTokens(theme, [
-        '--cp-primary', '--cp-primary-soft', '--cp-pink', '--cp-pink-soft',
-        '--cp-orange', '--cp-orange-soft', '--cp-blue', '--cp-blue-soft',
-        '--cp-danger', '--cp-ink-on-accent', '--cp-text-faint', '--cp-bg',
-        '--cp-text-muted', '--cp-surface-subtle',
-      ]);
-
-      expect(contrastRatio(tokens['--cp-primary'], tokens['--cp-primary-soft'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-pink'], tokens['--cp-pink-soft'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-orange'], tokens['--cp-orange-soft'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-blue'], tokens['--cp-blue-soft'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-ink-on-accent'], tokens['--cp-danger'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-text-faint'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-surface-subtle'])).toBeGreaterThanOrEqual(4.5);
+    // Every ink on every surface it can sit on: the page, a sheet, the two tinted surfaces and a field. AU.2.2's
+    // review found faint text at 3.80:1 on the dark raised surface because only two of these pairs were measured.
+    it(`reads every ink at 4.5:1 on every surface in the ${theme} theme`, () => {
+      const inks = ['--cp-text', '--cp-text-muted', '--cp-text-faint', '--cp-primary-text', '--cp-pink-text', '--cp-orange-text', '--cp-purple-text', '--cp-blue-text', '--cp-danger'];
+      const tokens = readTokens(theme, [...inks, ...SURFACES]);
+      for (const ink of inks) {
+        for (const surface of SURFACES) {
+          expect(contrastRatio(tokens[ink], tokens[surface])).withContext(`${ink} ${tokens[ink]} on ${surface} ${tokens[surface]}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
     });
 
-    // WCAG 1.4.11: a field's boundary is what tells a creator where to type, so it holds 3:1 against the field
-    // it edges and against the surface that field sits on.
-    it(`edges a form control at 3:1 or better in the ${theme} theme`, () => {
-      const tokens = readTokens(theme, ['--cp-border-control', '--cp-field-bg', '--cp-surface', '--cp-bg']);
+    it(`meets WCAG AA (4.5:1) for text-on-accent pairs in the ${theme} theme`, () => {
+      const tokens = readTokens(theme, [
+        '--cp-primary', '--cp-primary-soft', '--cp-primary-ink', '--cp-pink', '--cp-pink-soft', '--cp-orange', '--cp-orange-soft',
+        '--cp-purple', '--cp-purple-soft', '--cp-blue', '--cp-blue-soft', '--cp-danger', '--cp-danger-soft',
+        '--cp-ink-on-accent', '--cp-text',
+      ]);
+      const holds = (fg: string, bg: string) =>
+        expect(contrastRatio(tokens[fg], tokens[bg])).withContext(`${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
 
-      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-field-bg'])).toBeGreaterThanOrEqual(3);
-      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(3);
-      expect(contrastRatio(tokens['--cp-border-control'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
+      for (const accent of ['primary', 'pink', 'orange', 'purple', 'blue']) holds(`--cp-${accent}`, `--cp-${accent}-soft`);
+      for (const accent of ['pink', 'orange', 'purple', 'blue', 'danger']) holds('--cp-ink-on-accent', `--cp-${accent}`);
+      holds('--cp-primary-ink', '--cp-primary');
+      holds('--cp-danger', '--cp-danger-soft');
+      holds('--cp-text', '--cp-danger-soft');
+    });
+
+    // WCAG 1.4.11: a control's boundary is what tells a creator where to type or pick, so --cp-border-control
+    // holds 3:1 against every surface a control can sit on and against a field's own fill.
+    it(`edges a control at 3:1 or better on every surface in the ${theme} theme`, () => {
+      const tokens = readTokens(theme, ['--cp-border-control', ...SURFACES]);
+      for (const surface of SURFACES) {
+        expect(contrastRatio(tokens['--cp-border-control'], tokens[surface]))
+          .withContext(`--cp-border-control ${tokens['--cp-border-control']} on ${surface} ${tokens[surface]}`)
+          .toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    // And as the controls actually paint it, on the page and inside a card: a checkbox's box, a radio's mark, a
+    // secondary button and a toolbar's search box were each edged in a hairline at 1.2–1.8:1 until AU.2.2.
+    it(`paints every drawn control's edge at 3:1 on the page and in a card in the ${theme} theme`, async () => {
+      await TestBed.configureTestingModule({ imports: [DrawnControlsHostComponent] }).compileComponents();
+      const page = document.createElement('div');
+      page.setAttribute('data-cp-theme', theme);
+      page.style.background = 'var(--cp-bg)';
+      document.body.appendChild(page);
+      const fixture = TestBed.createComponent(DrawnControlsHostComponent);
+      page.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+
+      for (const backdrop of [page, fixture.nativeElement.querySelector('cp-card') as HTMLElement]) {
+        const under = getComputedStyle(backdrop).backgroundColor;
+        const scope = backdrop === page ? fixture.nativeElement.querySelector('.on-page')! : backdrop;
+        const edges: Record<string, Element> = {
+          'checkbox box': scope.querySelector('cp-checkbox .box')!,
+          'radio mark': scope.querySelector('cp-choice-group .mark')!,
+          'secondary button': scope.querySelector('button[cpButton]')!,
+          'search box': scope.querySelector('cp-search-field input')!,
+        };
+        for (const [control, element] of Object.entries(edges)) {
+          const edge = getComputedStyle(element).borderTopColor;
+          expect(contrastRatio(edge, under)).withContext(`${control} ${edge} on ${under} (${backdrop === page ? 'page' : 'card'})`).toBeGreaterThanOrEqual(3);
+        }
+      }
+
+      page.remove();
     });
 
     // WCAG 1.4.11 again, and for the same reason: the ring is the only thing that says which control the
@@ -221,50 +321,217 @@ describe('CreatorPantry design tokens', () => {
       });
     }
 
-    // The card re-colours its neutrals to parchment in the dark theme and leaves the brand tokens alone, so the
-    // bright mint that reads on the dark page is about 1.45:1 on it. Text buttons, tabs and the nav use this
-    // token, which the card re-declares.
-    it("reads at 4.5:1 on the parchment card in the dark theme", async () => {
+  });
+
+  // Inside a card (AU.2.2). The dark card was parchment and re-declared its own ink, ring and fills; every accent,
+  // the danger text and the tone tokens failed on it (AU.0, AU.1). It now re-declares nothing, so everything is
+  // measured against the card as the browser paints it, inside an untoned frame and inside each toned one, the
+  // way a page holds it. A colour moved on either side — a card that turns light again, a token that drifts —
+  // fails here.
+  describe('inside a card', () => {
+    const accents = ['--cp-pink-text', '--cp-orange-text', '--cp-purple-text', '--cp-blue-text'];
+    for (const theme of ['light', 'dark'] as const) {
+      for (const tone of [null, 'purple', 'pink', 'blue', 'orange'] as const) {
+        it(`reads at the page's ratios ${tone ? `in a ${tone} tool` : 'on an untoned page'} in the ${theme} theme`, async () => {
+          await TestBed.configureTestingModule({ imports: [CpCardComponent] }).compileComponents();
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+          const fixture = TestBed.createComponent(CpCardComponent);
+          frame.appendChild(fixture.nativeElement);
+          fixture.detectChanges();
+
+          const card = getComputedStyle(fixture.nativeElement as HTMLElement);
+          const read = (name: string) => card.getPropertyValue(name).trim();
+          const fill = card.backgroundColor;
+          const holds = (fg: string, bg: string, floor: number, what: string) =>
+            expect(contrastRatio(fg, bg)).withContext(`${what}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(floor);
+
+          // The tone, whichever it is: as text on everything in a card, and its ink on its own fill.
+          for (const under of [fill, read('--cp-surface-subtle'), read('--cp-surface-raised'), read('--cp-field-bg'), read('--cp-tone-soft')]) {
+            holds(read('--cp-tone-text'), under, 4.5, '--cp-tone-text');
+          }
+          holds(read('--cp-tone-on'), read('--cp-tone'), 4.5, '--cp-tone-on on --cp-tone');
+
+          if (!tone) {
+            for (const ink of ['--cp-text', '--cp-text-muted', '--cp-text-faint', '--cp-primary-text', ...accents]) holds(read(ink), fill, 4.5, ink);
+            holds(read('--cp-text-muted'), read('--cp-surface-subtle'), 4.5, '--cp-text-muted on subtle');
+            for (const under of [fill, read('--cp-surface-subtle'), read('--cp-field-bg')]) {
+              expect(ringContrast(read('--cp-focus'), under)).withContext(`ring on ${under}`).toBeGreaterThanOrEqual(3);
+            }
+            holds(read('--cp-border-control'), read('--cp-field-bg'), 3, 'field edge on its fill');
+            holds(read('--cp-border-control'), fill, 3, 'field edge on the card');
+            // A field's error, and the banner and summary that sit on the danger tint.
+            holds(read('--cp-danger'), fill, 4.5, 'error text');
+            holds(read('--cp-text'), read('--cp-danger-soft'), 4.5, 'ink on the danger tint');
+            holds(read('--cp-danger'), read('--cp-danger-soft'), 4.5, 'danger on the danger tint');
+          }
+
+          page.remove();
+        });
+      }
+    }
+
+    // The dark card is a charcoal sheet, so it is told from the page by its edge, not its fill (1.14:1).
+    it('edges a dark card off the page, and stays a dark sheet', async () => {
       await TestBed.configureTestingModule({ imports: [CpCardComponent] }).compileComponents();
       const page = document.createElement('div');
       page.setAttribute('data-cp-theme', 'dark');
       document.body.appendChild(page);
-
       const fixture = TestBed.createComponent(CpCardComponent);
       page.appendChild(fixture.nativeElement);
       fixture.detectChanges();
 
-      const computed = getComputedStyle(fixture.nativeElement as HTMLElement);
-      const text = computed.getPropertyValue('--cp-primary-text').trim();
-      const surface = computed.getPropertyValue('--cp-surface').trim();
-      expect(contrastRatio(text, surface)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(text, computed.getPropertyValue('--cp-surface-subtle').trim())).toBeGreaterThanOrEqual(4.5);
+      const card = getComputedStyle(fixture.nativeElement as HTMLElement);
+      const pageBg = getComputedStyle(page).getPropertyValue('--cp-bg').trim();
+      expect(contrastRatio(card.borderTopColor, pageBg)).toBeGreaterThanOrEqual(1.5);
+      expect(contrastRatio(card.backgroundColor, pageBg)).toBeLessThan(1.5);
 
       page.remove();
     });
   });
 
-  // The same parchment, and the ring has the same problem the text did: the mint that is 9.97:1 on the dark
-  // page is 1.13:1 on this card, so the card re-declares --cp-focus as well. Measured here rather than in the
-  // per-theme test above because the surfaces only exist inside the card's own scope.
-  it('draws a focus ring at 3:1 or better on the parchment card in the dark theme', async () => {
-    await TestBed.configureTestingModule({ imports: [CpCardComponent] }).compileComponents();
-    const page = document.createElement('div');
-    page.setAttribute('data-cp-theme', 'dark');
-    document.body.appendChild(page);
+  // A tool's tone (AU.1, D1) is read where the route sets it, so it is measured that way: a toned element inside a
+  // themed one. No tone is the primary, and has to hold to the same pairs as the four that replace it.
+  describe('tool tones', () => {
+    const surfaces = ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg'];
+    for (const theme of ['light', 'dark'] as const) {
+      for (const tone of [null, 'purple', 'pink', 'blue', 'orange'] as const) {
+        it(`${tone ?? 'no tone'} reads at 4.5:1 as text and under its own ink in the ${theme} theme`, () => {
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+          const computed = getComputedStyle(frame);
+          const read = (name: string) => computed.getPropertyValue(name).trim();
 
-    const fixture = TestBed.createComponent(CpCardComponent);
-    page.appendChild(fixture.nativeElement);
-    fixture.detectChanges();
+          for (const under of [...surfaces, '--cp-tone-soft']) {
+            expect(contrastRatio(read('--cp-tone-text'), read(under)))
+              .withContext(`--cp-tone-text ${read('--cp-tone-text')} on ${under} ${read(under)}`)
+              .toBeGreaterThanOrEqual(4.5);
+          }
+          expect(contrastRatio(read('--cp-tone-on'), read('--cp-tone')))
+            .withContext(`--cp-tone-on ${read('--cp-tone-on')} on --cp-tone ${read('--cp-tone')}`)
+            .toBeGreaterThanOrEqual(4.5);
 
-    const computed = getComputedStyle(fixture.nativeElement as HTMLElement);
-    const ring = computed.getPropertyValue('--cp-focus').trim();
-    for (const surface of ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg']) {
-      expect(ringContrast(ring, computed.getPropertyValue(surface).trim()))
-        .withContext(`${ring} on ${surface} (${computed.getPropertyValue(surface).trim()})`)
-        .toBeGreaterThanOrEqual(3);
+          page.remove();
+        });
+
+        // A media card's panel (AU.2.6): the tool's tint on a toned page and the neutral subtle surface on an untoned
+        // one, never the primary's, which would put the action colour on a card that has no picture.
+        it(`gives ${tone ?? 'no tone'} a picture panel whose drawing stands off it in the ${theme} theme`, () => {
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+          const computed = getComputedStyle(frame);
+          const read = (name: string) => computed.getPropertyValue(name).trim();
+
+          expect(read('--cp-tone-panel')).toBe(read(tone ? '--cp-tone-soft' : '--cp-surface-subtle'));
+          expect(read('--cp-tone-panel-ink')).toBe(read(tone ? '--cp-tone-text' : '--cp-text-muted'));
+          if (!tone) expect(read('--cp-tone-panel')).not.toBe(read('--cp-primary-soft'));
+          // Decorative, so 3:1 (a graphic's bar) rather than text's, and met with room to spare.
+          expect(contrastRatio(read('--cp-tone-panel-ink'), read('--cp-tone-panel')))
+            .withContext(`--cp-tone-panel-ink ${read('--cp-tone-panel-ink')} on --cp-tone-panel ${read('--cp-tone-panel')}`)
+            .toBeGreaterThanOrEqual(3);
+
+          page.remove();
+        });
+      }
+
+      // Decorative, so not held to a text ratio, but a skeleton nobody can see is a blank page with extra steps.
+      it(`draws a skeleton that stands off the page and the sheet in the ${theme} theme`, () => {
+        const tokens = readTokens(theme, ['--cp-skeleton-base', '--cp-bg', '--cp-surface']);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(1.15);
+        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(1.15);
+      });
     }
+  });
 
-    page.remove();
+  // The featured card's fill is the tool's tint mixed with the sheet (AU.3.3). On the pure tint an evergreen link was
+  // 4.41:1 on light pink, so every tone is measured as painted, in both themes.
+  describe('the featured card', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const tone of [null, 'purple', 'pink', 'blue', 'orange'] as const) {
+        it(`carries ink, muted ink and an evergreen link at 4.5:1 ${tone ? `in a ${tone} tool` : 'untoned'} in the ${theme} theme`, async () => {
+          await TestBed.configureTestingModule({ imports: [FeaturedCardHostComponent] }).compileComponents();
+          const page = document.createElement('div');
+          page.setAttribute('data-cp-theme', theme);
+          const frame = document.createElement('div');
+          if (tone) frame.setAttribute('data-cp-tone', tone);
+          page.appendChild(frame);
+          document.body.appendChild(page);
+
+          const fixture = TestBed.createComponent(FeaturedCardHostComponent);
+          frame.appendChild(fixture.nativeElement);
+          fixture.detectChanges();
+          const root = fixture.nativeElement as HTMLElement;
+          const card = root.querySelector('cp-card')!;
+          const fill = getComputedStyle(card).backgroundColor;
+
+          for (const part of ['ink', 'muted', 'link']) {
+            const text = getComputedStyle(root.querySelector(`.${part}`)!).color;
+            expect(contrastRatio(text, fill)).withContext(`${part}: ${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+          }
+          // Tinted, not the plain sheet, and edged in the tool's colour: one that looked like every other card would
+          // feature nothing. Probes resolve the tokens to the same form the card's computed colours are in.
+          const probe = document.createElement('span');
+          probe.style.backgroundColor = 'var(--cp-surface)';
+          probe.style.color = 'var(--cp-tone)';
+          frame.appendChild(probe);
+          expect(fill).not.toBe(getComputedStyle(probe).backgroundColor);
+          expect(getComputedStyle(card).borderTopColor).toBe(getComputedStyle(probe).color);
+
+          page.remove();
+        });
+      }
+    }
+  });
+
+  // A picked answer inside the old parchment card was 1.35:1 in the dark theme (AU.0: Workspace settings and
+  // Long-form). Measured as painted, on the parts themselves, in both themes, so a fill or a text colour moved on
+  // either side fails here.
+  describe('the soft fill inside a card', () => {
+    for (const theme of ['light', 'dark'] as const) {
+      it(`carries its text at 4.5:1 in the ${theme} theme`, async () => {
+        await TestBed.configureTestingModule({ imports: [SoftFillInCardHostComponent] }).compileComponents();
+        const page = document.createElement('div');
+        page.setAttribute('data-cp-theme', theme);
+        document.body.appendChild(page);
+
+        const fixture = TestBed.createComponent(SoftFillInCardHostComponent);
+        page.appendChild(fixture.nativeElement);
+        fixture.detectChanges();
+        const root = fixture.nativeElement as HTMLElement;
+        const pair = (text: Element, fill: Element): [string, string] => [
+          getComputedStyle(text).color,
+          getComputedStyle(fill).backgroundColor,
+        ];
+
+        const tile = root.querySelector('#soft-us')!.closest('label')!;
+        const pairs: Record<string, [string, string]> = {
+          'picked answer': pair(tile.querySelector('.label')!, tile),
+          'picked answer hint': pair(tile.querySelector('.hint')!, tile),
+          'success notice': pair(root.querySelector('cp-notice .body')!, root.querySelector('cp-notice')!),
+          'success badge': pair(root.querySelector('cp-badge')!, root.querySelector('cp-badge')!),
+        };
+        for (const [part, [text, fill]] of Object.entries(pairs)) {
+          expect(contrastRatio(text, fill)).withContext(`${part}: ${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
+        }
+        // The picked edge is what tells the chosen tile from the others, so it clears 3:1 against the card.
+        expect(contrastRatio(getComputedStyle(tile).borderTopColor, getComputedStyle(root.querySelector('cp-card')!).backgroundColor))
+          .withContext('picked edge on the card')
+          .toBeGreaterThanOrEqual(3);
+
+        page.remove();
+      });
+    }
   });
 });

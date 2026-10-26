@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import {
-  CpBadgeComponent,
   CpButtonComponent,
   CpFieldComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -88,7 +88,7 @@ const STATUS_TONES: Readonly<Record<string, CpStatusPillTone>> = {
 @Component({
   selector: 'cp-channel-post-review',
   standalone: true,
-  imports: [CpBadgeComponent, CpButtonComponent, CpFieldComponent, CpNoticeComponent, CpStatusPillComponent],
+  imports: [CpButtonComponent, CpFieldComponent, CpGeneratedLabelComponent, CpNoticeComponent, CpStatusPillComponent],
   templateUrl: './channel-post-review.component.html',
   styleUrl: './channel-post-review.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

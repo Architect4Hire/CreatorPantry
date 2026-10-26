@@ -9,6 +9,8 @@
 // are PascalCase member names on the wire, never integers. Decoding is a membership check against
 // the literal union below, not a number lookup.
 
+import type { DamAssetPicture } from './dam-asset.models';
+
 /**
  * Mirrors RecipeStatus: where a recipe sits in the editorial machine (TESTRUN-005).
  *
@@ -800,6 +802,26 @@ export function decodeRecipeDetail(value: unknown): RecipeDetail | null {
 
 export type RecipeSearchSort = 'RecentlyUpdated' | 'Title';
 
+/**
+ * Mirrors RecipeHeroAssetServiceModel: the recipe's lead picture, as much as a card needs to show it.
+ *
+ * An asset id and two version numbers, never an address — the bytes are read through the DAM render routes,
+ * which authorise the caller again. `versionNumber` is the version to show (the pin when the recipe's use of
+ * the asset is pinned, the current one otherwise) and `currentVersionNumber` is the asset's newest, which is
+ * how `DamAssetThumbnailComponent` tells a pinned older copy from the current one.
+ *
+ * `altText` is what the creator wrote about the picture, or null when nobody has. Null means "nobody has
+ * described it" and is never filled in from the recipe's title: that would be describing pixels nothing has
+ * looked at (.claude/rules/media.md).
+ */
+export interface RecipeHeroAsset {
+  readonly mediaAssetId: string;
+  readonly title: string;
+  readonly altText: string | null;
+  readonly versionNumber: number;
+  readonly currentVersionNumber: number;
+}
+
 /** Mirrors RecipeSummaryServiceModel. No author: the API deliberately publishes no membership id. */
 export interface RecipeSummary {
   readonly id: string;
@@ -814,6 +836,20 @@ export interface RecipeSummary {
   readonly latestVersionReadiness: RecipeVersionReadiness | null;
   /** Ingredient lines unresolved against the shared vocabulary. Never a dietary or allergen finding. */
   readonly hasUnmatchedIngredients: boolean;
+  /**
+   * The recipe's lead picture, or null when there is none to show.
+   *
+   * Null covers every way there can be nothing — no hero link, a picture deleted from the library, an asset
+   * this workspace does not hold — because the server answers all of them alike and a card can act on none of
+   * them. A null is never an error: the card shows `cp-media-card`'s drawn panel instead.
+   *
+   * Null rather than a refusal when the field is missing altogether, following `utilizationCount` on
+   * `DamAssetSummary`: it was added after the route shipped, and a library that went blank over one absent
+   * field would be the worse failure. The same goes for a picture this client cannot decode — the one field
+   * in this file whose decoding failure does not fail its row, because there is already a correct way to
+   * render "no picture" and no way to render half a recipe.
+   */
+  readonly heroAsset: RecipeHeroAsset | null;
 }
 
 /** Mirrors RecipeSearchPageServiceModel. `totalCount` is null when the caller declined it. */
@@ -837,9 +873,16 @@ function decodeRecipeSummary(value: unknown): RecipeSummary | null {
     latestVersionNumber,
     latestVersionReadiness: rawReadiness,
     hasUnmatchedIngredients,
+    heroAsset: rawHero,
   } = value;
 
   const status = decodeEnum<RecipeStatus>(RECIPE_STATUS_VALUES, rawStatus);
+
+  // A picture this client cannot read is no picture, not a lost recipe. Unlike every other field here, an
+  // undecodable hero does not fail the row: the card already has a panel for "there is nothing to show", the
+  // server says null for a deleted or unreadable asset anyway, and a creator losing a recipe from their
+  // library over its photograph would be the worse failure by far.
+  const hero = isRecord(rawHero) ? decodeRecipeHeroAsset(rawHero) : null;
 
   // Null is a legal readiness — a recipe with no versions — so it is distinguished from a value the
   // server sent that this client does not understand, which is a decode failure.
@@ -874,6 +917,40 @@ function decodeRecipeSummary(value: unknown): RecipeSummary | null {
     latestVersionNumber,
     latestVersionReadiness: readiness,
     hasUnmatchedIngredients,
+    heroAsset: hero,
+  };
+}
+
+/** A hero picture, or null when what the server sent is not one this client can show. */
+function decodeRecipeHeroAsset(value: Record<string, unknown>): RecipeHeroAsset | null {
+  const { mediaAssetId, title, altText, versionNumber, currentVersionNumber } = value;
+
+  if (
+    typeof mediaAssetId !== 'string' ||
+    mediaAssetId === '' ||
+    typeof title !== 'string' ||
+    !isStringOrNull(altText) ||
+    typeof versionNumber !== 'number' ||
+    typeof currentVersionNumber !== 'number'
+  ) {
+    return null;
+  }
+
+  return { mediaAssetId, title, altText, versionNumber, currentVersionNumber };
+}
+
+/**
+ * A hero picture as the shared thumbnail wants it.
+ *
+ * The thumbnail is told the asset and which copy is current, and the version to show is passed to it
+ * separately — it treats "the current one" as no version at all, which is the route built for showing it.
+ */
+export function recipeHeroPicture(hero: RecipeHeroAsset): DamAssetPicture {
+  return {
+    id: hero.mediaAssetId,
+    title: hero.title,
+    altText: hero.altText,
+    currentVersionNumber: hero.currentVersionNumber,
   };
 }
 

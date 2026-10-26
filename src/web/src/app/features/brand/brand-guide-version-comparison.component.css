@@ -152,7 +152,7 @@
 
 .row[data-kind='added'] .row-glyph {
   background: var(--cp-primary-soft);
-  color: var(--cp-primary);
+  color: var(--cp-primary-text);
 }
 
 .row[data-kind='removed'] .row-glyph {

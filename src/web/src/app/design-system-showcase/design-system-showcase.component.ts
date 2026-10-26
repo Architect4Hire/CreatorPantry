@@ -29,10 +29,20 @@ import {
   CpFieldComponent,
   CpFieldRowComponent,
   CpFormSectionComponent,
+  CpGeneratedComponent,
+  CpGeneratedLabelComponent,
+  CpIllustrationComponent,
+  CpIllustrationName,
+  CP_ILLUSTRATION_NAMES,
   CpListShellComponent,
+  CpListShellLoadingLayout,
   CpListShellState,
   CpMediaCardComponent,
+  CpSkeletonComponent,
+  CpStatTileComponent,
   CpNoticeComponent,
+  CpOptionCardComponent,
+  CpOptionFact,
   CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
@@ -63,6 +73,7 @@ import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '..
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
 import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
 import { BrandVisualReference, BrandVisualStyleLine } from '../models/brand-visual-style-control.models';
+import { ShellNavIcon, ShellNavIconComponent } from '../shared/nav-icon/shell-nav-icon.component';
 
 type QuickActionTone = Exclude<CpTone, 'neutral'>;
 
@@ -90,10 +101,16 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpFieldComponent,
     CpFieldRowComponent,
     CpFormSectionComponent,
+    CpGeneratedComponent,
+    CpGeneratedLabelComponent,
     CpProgressComponent,
     CpQuickActionComponent,
     CpStatusPillComponent,
     CpListShellComponent,
+    CpSkeletonComponent,
+    CpStatTileComponent,
+    CpIllustrationComponent,
+    ShellNavIconComponent,
     CpTabsComponent,
     CpTabPanelComponent,
     CpToolbarComponent,
@@ -105,6 +122,7 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpChipGroupComponent,
     CpChoiceGroupComponent,
     CpNoticeComponent,
+    CpOptionCardComponent,
     CpComboboxComponent,
     CpDiffLegendComponent,
     CpToastRegionComponent,
@@ -118,6 +136,41 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DesignSystemShowcaseComponent {
+  /** The option-card example: three concepts, one chosen at a time, the way a studio offers them. */
+  protected readonly concepts: readonly { id: string; heading: string; summary: string; facts: readonly CpOptionFact[] }[] = [
+    {
+      id: 'miso',
+      heading: 'Smoky miso corn',
+      summary: 'Charred corn brushed with miso butter, finished with lime and chives.',
+      facts: [
+        { label: 'Time', value: '30 min' },
+        { label: 'Skill', value: 'Weeknight' },
+        { label: 'Serves', value: '4' },
+      ],
+    },
+    {
+      id: 'salad',
+      heading: 'Charred corn salad',
+      summary: 'Corn off the cob with tomatoes, feta and a sharp dressing.',
+      facts: [
+        { label: 'Time', value: '20 min' },
+        { label: 'Skill', value: 'Beginner' },
+        { label: 'Serves', value: '6' },
+        { label: 'Dietary notes', value: 'Vegetarian as written — descriptive only, not a guarantee.' },
+      ],
+    },
+    {
+      id: 'chowder',
+      heading: 'Sweet corn chowder',
+      summary: 'A slow pot of corn, potato and smoked paprika.',
+      facts: [
+        { label: 'Time', value: '1 hr 10 min' },
+        { label: 'Skill', value: 'Comfortable' },
+      ],
+    },
+  ];
+  protected readonly chosenConcept = signal('miso');
+
   /**
    * The validation example: the same engine a real form uses. A blank title is an error that shows once the
    * creator leaves the field or tries to save; a very large batch is a warning that shows as they type.
@@ -259,9 +312,23 @@ export class DesignSystemShowcaseComponent {
     this.drawerOpen.set(null);
   }
 
+  // --- Entrance motion ---
+  /** The run on screen, as a list of one, so the three parts can be taken away and built again (AU.3.4). */
+  readonly entranceRuns = signal<readonly number[]>([0]);
+  private entranceRun = 0;
+
+  replayEntrance(): void {
+    // Emptied in this change detection and filled in the next, so the parts are genuinely built again and
+    // `track` never sees one key re-created, which is what NG0956 warns about.
+    this.entranceRuns.set([]);
+    queueMicrotask(() => this.entranceRuns.set([++this.entranceRun]));
+  }
+
   // --- List shell ---
   readonly listShellState = signal<CpListShellState>('ready');
   readonly listShellStates: CpListShellState[] = ['loading', 'error', 'empty', 'ready'];
+  readonly listShellLayout = signal<CpListShellLoadingLayout>('rows');
+  readonly listShellLayouts: CpListShellLoadingLayout[] = ['rows', 'cards'];
 
   // --- Tabs ---
   readonly tabs = [
@@ -321,6 +388,27 @@ export class DesignSystemShowcaseComponent {
   onUploaderRemove(id: string): void {
     this.uploadItems.update((items) => items.filter((item) => item.id !== id));
   }
+
+  /** The drawn set (AU.2.4), every one of it. */
+  readonly illustrationNames: readonly CpIllustrationName[] = CP_ILLUSTRATION_NAMES;
+
+  /** One head per tool tone (AU.2.5, D3), each with its section's nav icon. */
+  readonly tonedHeads: readonly { tone: 'purple' | 'pink' | 'blue' | 'orange' | null; icon: ShellNavIcon; heading: string; lede: string; action: string }[] = [
+    { tone: null, icon: 'recipes', heading: 'Recipes', lede: 'Every recipe in this workspace. Search and filter to find one.', action: 'New recipe' },
+    { tone: 'purple', icon: 'ai', heading: 'AI Recipe Studio', lede: 'Describe what you are after and get a handful of distinct recipe pitches back.', action: 'Get concepts' },
+    { tone: 'pink', icon: 'image', heading: 'Image Studio', lede: 'Describe a shot, get the words for it, and turn them into pictures.', action: 'Make pictures' },
+    { tone: 'blue', icon: 'social', heading: 'Social Studio', lede: 'Write posts for something you already have.', action: 'Write posts' },
+    { tone: 'orange', icon: 'workflows', heading: 'Long-form', lede: 'From what a piece is about to an article you have accepted, one step at a time.', action: 'Continue' },
+  ];
+
+  /** Every tool tone (AU.1, D1), and no tone, which is the primary. */
+  readonly tones: readonly { name: 'purple' | 'pink' | 'blue' | 'orange' | null; tool: string }[] = [
+    { name: null, tool: 'Recipes' },
+    { name: 'purple', tool: 'AI Recipe Studio' },
+    { name: 'pink', tool: 'Image Studio' },
+    { name: 'blue', tool: 'Social Studio' },
+    { name: 'orange', tool: 'Long-form' },
+  ];
 
   // --- Toast region ---
   /** The showcase's own anchor-nav sample, with one destination marked so the aria-current treatment is visible. */

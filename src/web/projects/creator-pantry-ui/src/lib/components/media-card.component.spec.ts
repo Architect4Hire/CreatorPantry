@@ -1,12 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { CpIllustrationName } from './illustration.component';
 import { CpMediaCardComponent, CpMediaCardHeadingLevel } from './media-card.component';
 
 @Component({
   imports: [CpMediaCardComponent],
   template: `<div style="width: 320px">
-    <cp-media-card [description]="description()" [glyph]="glyph()" [headingLevel]="level()">
+    <cp-media-card [description]="description()" [glyph]="glyph()" [illustration]="illustration()" [headingLevel]="level()">
       @if (picture()) {
         <img cpMediaCardPicture alt="A loaf on a board" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
       }
@@ -25,11 +26,32 @@ class HostComponent {
   readonly title = signal('Soda bread hero');
   readonly description = signal('');
   readonly glyph = signal('▣');
+  readonly illustration = signal<CpIllustrationName | undefined>(undefined);
   readonly level = signal<CpMediaCardHeadingLevel>(3);
   readonly picture = signal(false);
   readonly badge = signal(false);
   readonly action = signal(false);
 }
+
+/** A row of a grid: one card with a picture and one without, as a library mixes them. */
+@Component({
+  imports: [CpMediaCardComponent],
+  template: `<ul style="display: grid; grid-template-columns: repeat(2, 240px); gap: 16px; list-style: none; padding: 0">
+    <li>
+      <cp-media-card description="Overhead.">
+        <!-- A bare picture with no shape of its own: the card gives it the panel's. -->
+        <img cpMediaCardPicture alt="A loaf on a board" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
+        <a cpMediaCardTitle href="/pictures/1">Soda bread hero</a>
+      </cp-media-card>
+    </li>
+    <li>
+      <cp-media-card glyph="⌘" description="Overhead.">
+        <a cpMediaCardTitle href="/recipes/1">Soda bread</a>
+      </cp-media-card>
+    </li>
+  </ul>`,
+})
+class RowHostComponent {}
 
 let fixture: ComponentFixture<HostComponent>;
 let host: HostComponent;
@@ -72,18 +94,100 @@ describe('CpMediaCardComponent', () => {
     expect(el.querySelector('h2')).toBeNull();
   });
 
-  it('stands a tinted panel in for a missing picture, and keeps it from a screen reader', () => {
+  it('stands a drawn panel in for a missing picture, and keeps it from a screen reader', () => {
     mount();
     const panel = el.querySelector('.panel')!;
     expect(shown('.panel')).toBeTrue();
     expect(shown('.picture')).toBeFalse();
-    expect(panel.textContent).toBe('▣');
+    // The default glyph is a picture, and draws one.
+    expect(panel.querySelector('cp-illustration')?.getAttribute('data-name')).toBe('picture');
+    expect(panel.textContent?.trim()).toBe('');
     expect(panel.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('lets the consumer choose the glyph', () => {
-    mount((h) => h.glyph.set('❝'));
-    expect(el.querySelector('.panel')?.textContent).toBe('❝');
+  it('draws the illustration each documented glyph stood for', () => {
+    mount();
+    const pairs: [string, CpIllustrationName][] = [['▣', 'picture'], ['⌘', 'recipe'], ['❝', 'prompt'], ['◆', 'brand']];
+    for (const [glyph, name] of pairs) {
+      host.glyph.set(glyph);
+      fixture.detectChanges();
+      expect(el.querySelector('.panel cp-illustration')?.getAttribute('data-name')).withContext(glyph).toBe(name);
+    }
+  });
+
+  it('shows any other glyph as text, as it always did', () => {
+    mount((h) => h.glyph.set('✿'));
+    expect(el.querySelector('.panel cp-illustration')).toBeNull();
+    expect(el.querySelector('.panel')?.textContent?.trim()).toBe('✿');
+  });
+
+  it('draws the named illustration over whatever the glyph maps to', () => {
+    mount((h) => {
+      h.glyph.set('❝');
+      h.illustration.set('post');
+    });
+    expect(el.querySelectorAll('.panel cp-illustration').length).toBe(1);
+    expect(el.querySelector('.panel cp-illustration')?.getAttribute('data-name')).toBe('post');
+  });
+
+  it('paints the panel from the panel tokens, so a toned page tints it and an untoned one does not', () => {
+    for (const tone of [null, 'pink'] as const) {
+      mount();
+      const frame = el.firstElementChild as HTMLElement;
+      if (tone) frame.setAttribute('data-cp-tone', tone);
+      const probe = document.createElement('span');
+      probe.style.backgroundColor = 'var(--cp-tone-panel)';
+      probe.style.color = 'var(--cp-tone-panel-ink)';
+      frame.appendChild(probe);
+
+      const panel = getComputedStyle(el.querySelector('.panel')!);
+      expect(panel.backgroundColor).withContext(`${tone}`).toBe(getComputedStyle(probe).backgroundColor);
+      expect(panel.color).withContext(`${tone}`).toBe(getComputedStyle(probe).color);
+      // The gingham: two stripes, drawn on top of the fill rather than replacing it.
+      expect(panel.backgroundImage.match(/linear-gradient/g)?.length).toBe(2);
+      el.remove();
+    }
+  });
+
+  it('leans the picture in while its title is hovered or focused, inside its rounded frame', () => {
+    mount((h) => h.picture.set(true));
+    const picture = el.querySelector('.picture img') as HTMLImageElement;
+    // Settle at once, so the computed transform is the end state rather than the first frame of a transition.
+    picture.style.transition = 'none';
+    expect(getComputedStyle(picture).transform).toBe('none');
+    expect(getComputedStyle(el.querySelector('.picture')!).overflow).toBe('hidden');
+
+    (el.querySelector('.title a') as HTMLAnchorElement).focus();
+    expect(getComputedStyle(picture).transform).toMatch(/^matrix\(1\.04, 0, 0, 1\.04/);
+  });
+
+  it('keeps the picture still under reduced motion', () => {
+    // A test cannot switch the media query, so this reads the rule the component ships under it.
+    mount((h) => h.picture.set(true));
+    const reduced = Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules))
+      .filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule && rule.conditionText.includes('prefers-reduced-motion'))
+      .flatMap((rule) => Array.from(rule.cssRules) as CSSStyleRule[])
+      .filter((rule) => rule.selectorText?.includes('.title a:focus') && rule.selectorText.includes('.picture'));
+    expect(reduced.length).toBe(1);
+    expect(reduced[0].style.transform).toBe('none');
+  });
+
+  it('keeps a card with a picture and one without the same height, and their pictures the same shape', () => {
+    const row = TestBed.createComponent(RowHostComponent);
+    el = row.nativeElement;
+    document.body.appendChild(el);
+    row.detectChanges();
+
+    const [withPicture, without] = Array.from(el.querySelectorAll('cp-media-card')).map((card) => card.getBoundingClientRect());
+    expect(withPicture.height).toBe(without.height);
+    const picture = el.querySelector('.picture')!.getBoundingClientRect();
+    const panel = el.querySelectorAll('.panel')[1].getBoundingClientRect();
+    expect(Math.abs(picture.height - panel.height)).toBeLessThan(1);
+    // The picture fills its frame, with no baseline gap under it.
+    const img = el.querySelector('.picture img')!.getBoundingClientRect();
+    expect(Math.abs(img.height - picture.height)).toBeLessThan(1);
+    expect(getComputedStyle(el.querySelector('.picture img')!).objectFit).toBe('cover');
   });
 
   it('shows the projected picture instead of the panel', () => {

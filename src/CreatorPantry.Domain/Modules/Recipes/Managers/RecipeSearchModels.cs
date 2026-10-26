@@ -259,6 +259,10 @@ public sealed record RecipeSearchCriteria(
 /// Whether any ingredient line is unresolved against the vocabulary. Present on every row, not only when
 /// filtered on, because a creator cannot act on a filter whose result they cannot see.
 /// </param>
+/// <param name="HeroAsset">
+/// The recipe's lead picture, or <c>null</c> when it has none to show. Projected in the same statement as the
+/// row — see <see cref="RecipeHeroAssetRecord"/> for what "none" covers.
+/// </param>
 public sealed record RecipeSummaryRecord(
     Guid Id,
     string Title,
@@ -273,6 +277,7 @@ public sealed record RecipeSummaryRecord(
     int? LatestVersionNumber,
     RecipeVersionReadiness? LatestVersionReadiness,
     bool HasUnmatchedIngredients,
+    RecipeHeroAssetRecord? HeroAsset,
     RecipeSearchSort Sort) : IReferenceRow
 {
     /// <inheritdoc />
@@ -289,3 +294,55 @@ public sealed record RecipeSummaryRecord(
     /// </remarks>
     public string TieBreaker => Id.ToString("D");
 }
+
+/// <summary>
+/// One recipe's lead picture, as the library's own statement reads it: which asset, which version of it, and
+/// what a creator has said it shows.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Projected, never loaded per row.</strong> It is one more <c>OUTER APPLY</c> beside the two
+/// latest-version ones, served by <c>UX_RecipeAssetLinks_Workspace_Recipe_Hero</c> — the filtered unique index
+/// that makes "at most one hero" a fact about the database rather than a tie this query has to break. Reading
+/// it per card would be a query per row on a page of a hundred.
+/// </para>
+/// <para>
+/// <strong>Nothing a client could turn into bytes.</strong> No object key, no URL, no container path: issuing
+/// access to the pixels is the media seam's decision, made per request with a short lifetime (media.md), and a
+/// durable address smuggled into a library read would outlive the authorization that justified it.
+/// </para>
+/// <para>
+/// <strong>Every member is nullable, and that is not laziness.</strong> A missing hero is the absence of a
+/// whole row, which a subquery may answer either as <c>null</c> or — depending on how the provider composes the
+/// apply — as a row of defaults. <see cref="MediaAssetId"/> is the discriminator Business reads, so the two
+/// answers mean the same thing and neither can publish <c>Guid.Empty</c> as an asset id.
+/// </para>
+/// </remarks>
+/// <param name="MediaAssetId">
+/// The asset, or <c>null</c> when there is no hero to show. Null covers four cases that answer alike, because a
+/// card can act on none of them: the recipe has no <c>Hero</c> link; the asset has been soft-deleted from the
+/// library; the link names an asset this workspace does not hold, which the global query filter makes invisible
+/// rather than refused (tenancy.md); and the row simply was not there. Never a 404, never an error — a recipe
+/// whose photograph is gone is still a recipe.
+/// </param>
+/// <param name="Title">The creator's own name for the picture. Used to name it where no alt text was written.</param>
+/// <param name="AltText">
+/// What a creator has said the picture shows, or <c>null</c> when nobody has written any. Authored, never
+/// inferred: a caller may treat null as "nobody has described it" and must never fill it in from the recipe's
+/// title, which would be describing pixels nothing has looked at (media.md).
+/// </param>
+/// <param name="PinnedVersionNumber">
+/// The version the recipe's use of the asset is pinned to, or <c>null</c> when it follows whichever is
+/// current. The column as the link holds it: resolving the pin against the current version is a rule, and
+/// rules are Business's (backend.md).
+/// </param>
+/// <param name="CurrentVersionNumber">
+/// The asset's newest version, so the caller can both resolve an unpinned use and tell a pinned older copy
+/// from the current one. A number, never an address.
+/// </param>
+public sealed record RecipeHeroAssetRecord(
+    Guid? MediaAssetId,
+    string? Title,
+    string? AltText,
+    int? PinnedVersionNumber,
+    int? CurrentVersionNumber);
