@@ -100,6 +100,22 @@ export class RecipeInstructionsSectionComponent {
   }
 
   /**
+   * Adds a blank step and takes the creator to it: scrolled into view, its text field focused. The click was a
+   * request to write the next step, and leaving focus on the button would mean finding the step and clicking
+   * into it as well. See the ingredient editor's `addRow`.
+   */
+  addStep(groupKey?: string): void {
+    const stepKey = this.form.addInstructionStep(groupKey);
+    this.revealAndFocus(`step-text-${stepKey}`);
+  }
+
+  /** Adds a phase and focuses its heading field, which is the first thing a new phase needs. */
+  addGroup(): void {
+    const groupKey = this.form.addInstructionGroup();
+    this.revealAndFocus(`group-title-${groupKey}`);
+  }
+
+  /**
    * Puts this step's duration field on show, and moves focus into it.
    *
    * Focus moves because the click was a request to type a number — leaving it on a button that has just
@@ -114,6 +130,22 @@ export class RecipeInstructionsSectionComponent {
 
     afterNextRender(
       () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-duration-${stepKey}"]`)?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Once the render that creates it has run, brings the step or group holding this control into view and
+   * focuses the control. The whole step rather than only the field, so its Remove is on screen too; `nearest`,
+   * so a step already in view does not jump.
+   */
+  private revealAndFocus(controlId: string): void {
+    afterNextRender(
+      () => {
+        const control = this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="${controlId}"]`);
+        control?.closest('li, section')?.scrollIntoView({ block: 'nearest' });
+        control?.focus({ preventScroll: true });
+      },
       { injector: this.injector },
     );
   }

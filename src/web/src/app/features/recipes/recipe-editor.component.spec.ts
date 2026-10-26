@@ -4154,21 +4154,49 @@ describe('RecipeEditorComponent', () => {
       expect(getComputedStyle(toolbar()).position).toBe('static');
     });
 
-    it('offers one "Add step" at a time: the toolbar one for a single list, one beneath each phase once there are phases', async () => {
+    it('offers one "Add step" at a time: the toolbar one while empty, then one beneath the last step of each phase', async () => {
       const recipeService = recipeServiceSpy();
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       selectEditTab(harness, 'Instructions');
+      const root = harness.routeNativeElement!;
       const addSteps = () =>
-        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add step');
+        Array.from(root.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add step');
 
       expect(addSteps().length).withContext('before anything is added').toBe(1);
+      expect(root.querySelector('.toolbar')!.contains(addSteps()[0])).toBeTrue();
+
       clickButton(harness, 'Add step');
-      expect(addSteps().length).withContext('a single list: still just the toolbar one').toBe(1);
-      expect(harness.routeNativeElement!.querySelector('.toolbar')!.contains(addSteps()[0])).toBeTrue();
+      clickButton(harness, 'Add step');
+      expect(addSteps().length).withContext('a single list: just the one').toBe(1);
+      expect(root.querySelector('.toolbar')!.contains(addSteps()[0])).withContext('no longer in the toolbar').toBeFalse();
+      const steps = root.querySelectorAll('.step');
+      expect(steps.length).toBe(2);
+      expect(steps[steps.length - 1].compareDocumentPosition(addSteps()[0]) & Node.DOCUMENT_POSITION_FOLLOWING)
+        .withContext('beneath the last step')
+        .toBeTruthy();
 
       clickButton(harness, 'Add instruction group');
       expect(addSteps().length).withContext('two phases: one beneath each').toBe(2);
       expect(addSteps().every((button) => !harness.routeNativeElement!.querySelector('.toolbar')!.contains(button))).toBeTrue();
+    });
+
+    // A long method used to mean scrolling back to the top for every new step, then down again to write it.
+    it('takes the creator to the step it adds, and to the heading of a phase it adds', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+
+      for (let count = 0; count < 3; count += 1) {
+        clickButton(harness, 'Add step');
+        await harness.fixture.whenStable();
+      }
+      const steps = component.form.instructionGroups()[0].steps;
+      expect(steps.length).toBe(3);
+      expect(document.activeElement?.id).withContext('the newest step, not the button').toBe(`step-text-${steps[2].key}`);
+
+      clickButton(harness, 'Add instruction group');
+      await harness.fixture.whenStable();
+      expect(document.activeElement?.id).toBe(`group-title-${component.form.instructionGroups().at(-1)!.key}`);
     });
 
     it('opens the duration after the step text and its note, at the foot of the step, and nothing above it moves', async () => {
