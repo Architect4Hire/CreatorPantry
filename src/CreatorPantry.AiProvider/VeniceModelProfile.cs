@@ -80,6 +80,15 @@ public sealed class VeniceModelProfile
             yield return "a quality or size is longer than a picture's provenance can record";
         }
 
+        // A blank one would drop out of an image rate key and charge another row's rate, or be sent to Venice
+        // as an empty quality and fail every request; one holding the key separator would run into the next
+        // part (AP.2.4, AiImageRateKeys). Neither is a value a model offers.
+        if (Resolutions.Concat(Qualities).Concat(AspectRatios).Any(value =>
+            string.IsNullOrWhiteSpace(value) || value.Contains(AiImageRateKeys.Separator)))
+        {
+            yield return $"a resolution, quality or aspect ratio is blank or holds '{AiImageRateKeys.Separator}'";
+        }
+
         switch (Sizing)
         {
             case VeniceSizing.Resolution:
@@ -137,6 +146,37 @@ public sealed class VeniceModelProfile
                 break;
         }
     }
+
+    /// <summary>
+    /// Every resolution tier and quality a request to this model may carry, as the pair an image rate is keyed
+    /// by (AP.2.4); null for a part this model's requests do not carry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the statement of what the deployment can ask for, which is why it is what the rate table is
+    /// checked against rather than the configured model alone. Empty for a profile <see cref="Problems"/> has
+    /// already refused.
+    /// </para>
+    /// <para>
+    /// <strong>Aspect ratio and pixel size are not in it, on the provider's own evidence rather than an
+    /// assumption.</strong> Venice's catalogue prices a model one of three ways, and which one tells you what
+    /// varies the price: <c>pricing.quality</c> per tier for a model like <c>gpt-image-2-5-flare</c>,
+    /// <c>pricing.resolutions</c> for one like <c>qwen-image-2-1-turbo</c>, and a single
+    /// <c>pricing.generation</c> for the aspect-ratio and pixel-sized models, which therefore cost the same
+    /// figure at every ratio and at every size up to their own maximum. A model that began pricing by pixel
+    /// count would be a new sizing shape here, not a cheaper row.
+    /// </para>
+    /// </remarks>
+    public IEnumerable<(string? Resolution, string? Quality)> RequestableSizes() =>
+        Sizing switch
+        {
+            VeniceSizing.Resolution when Qualities.Count > 0 =>
+                Resolutions.SelectMany(resolution =>
+                    Qualities.Select(quality => ((string?)resolution, (string?)quality))),
+            VeniceSizing.Resolution => Resolutions.Select(resolution => ((string?)resolution, (string?)null)),
+            VeniceSizing.AspectRatio or VeniceSizing.Pixels => [(null, null)],
+            _ => [],
+        };
 
     /// <summary>
     /// The fields to send for <paramref name="options"/>, or the reason they cannot be: a value the model does

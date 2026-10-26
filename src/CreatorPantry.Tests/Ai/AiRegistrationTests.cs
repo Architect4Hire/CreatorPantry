@@ -200,6 +200,152 @@ public sealed class AiRegistrationTests
         Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A picture this deployment can request but has no rate for is never made for nothing (AP.2.4). The
+    /// alternative is a creator refused at admission for a reason nothing in the product explains, so the
+    /// missing row is named here instead — in every environment, because the model table is configuration a
+    /// developer changes too.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_requestable_picture_with_no_credit_rate_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:tiered-model:Sizing"] = "Resolution",
+                ["Venice:Models:tiered-model:Resolutions:0"] = "1K",
+                ["Venice:Models:tiered-model:DefaultResolution"] = "1K",
+                ["Venice:Models:tiered-model:Qualities:0"] = "medium",
+                ["Venice:Models:tiered-model:Qualities:1"] = "high",
+                ["Venice:Models:tiered-model:DefaultQuality"] = "medium",
+                ["Venice:Models:tiered-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:tiered-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:tiered-model:PromptCharacterLimit"] = "10000",
+
+                // Only the quality this host would send by default, so the one it can also be asked for is the
+                // gap. A profile is the statement that the model may be requested, which is why the check
+                // reads every profile rather than the configured model alone.
+                ["Ai:Quota:ImageRates:tiered-model/1K/medium"] = "50",
+                ["Ai:Cost:Images:tiered-model/1K/medium"] = "0.04",
+            }));
+
+        Assert.Contains(
+            "tiered-model/1K/high is missing from Ai:Quota:ImageRates and Ai:Cost:Images",
+            failure.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("tiered-model/1K/medium", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A rate or price of nought passes a presence check and would charge nothing for a picture the provider
+    /// bills for — an omission found on an invoice rather than at startup. Refused by name, and the message
+    /// says which table is wrong rather than calling it missing.
+    /// </summary>
+    [Theory]
+    [InlineData("0", "Development")]
+    [InlineData("-10", "Production")]
+    public void A_requestable_picture_rated_at_nought_or_below_refuses_to_start(
+        string configured, string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: ImagesConnectionString,
+            settings: new() { ["Ai:Quota:ImageRates:image-model-test"] = configured }));
+
+        Assert.Contains(
+            "image-model-test is not above nought in Ai:Quota:ImageRates",
+            failure.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("missing from", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A model whose name holds the key separator cannot carry a rate: every key it spells runs into the next
+    /// part and reads another tier and quality's row. Said as what it is rather than as a missing rate.
+    /// </summary>
+    [Fact]
+    public void A_model_whose_name_cannot_carry_a_rate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:vendor/model:Sizing"] = "AspectRatio",
+                ["Venice:Models:vendor/model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:vendor/model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:vendor/model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains("vendor/model holds '/'", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A blank or separator-bearing quality in a profile is refused as a profile that cannot be used (AP.2.3's
+    /// check, for AP.2.4's reason): a blank one drops out of a rate key and reads the coarser row, and reaches
+    /// Venice as an empty field; one holding the separator runs into the next part of the key.
+    /// </summary>
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("med/ium")]
+    public void A_profile_offering_a_blank_or_unkeyable_value_refuses_to_start(string quality)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:blank-model:Sizing"] = "Resolution",
+                ["Venice:Models:blank-model:Resolutions:0"] = "1K",
+                ["Venice:Models:blank-model:DefaultResolution"] = "1K",
+                ["Venice:Models:blank-model:Qualities:0"] = quality,
+                ["Venice:Models:blank-model:DefaultQuality"] = quality,
+                ["Venice:Models:blank-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:blank-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:blank-model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains(
+            "blank-model: a resolution, quality or aspect ratio is blank",
+            failure.Message,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A rate with no list price behind it is refused too, and the message names only the table that is short:
+    /// credits charged for a picture whose provider cost reads null is the cost report nobody can audit.
+    /// </summary>
+    [Fact]
+    public void A_rated_picture_with_no_list_price_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:rated-model:Sizing"] = "AspectRatio",
+                ["Venice:Models:rated-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:rated-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:rated-model:PromptCharacterLimit"] = "10000",
+                ["Ai:Quota:ImageRates:rated-model"] = "50",
+            }));
+
+        Assert.Contains("rated-model is missing from Ai:Cost:Images", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ai:Quota:ImageRates", failure.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A profile that contradicts itself is refused by name, whichever model is configured.</summary>
     [Fact]
     public void A_sizing_profile_that_cannot_be_used_refuses_to_start()
@@ -257,6 +403,11 @@ public sealed class AiRegistrationTests
         ["Venice:Models:image-model-test:AspectRatios:0"] = "1:1",
         ["Venice:Models:image-model-test:DefaultAspectRatio"] = "1:1",
         ["Venice:Models:image-model-test:PromptCharacterLimit"] = "10000",
+
+        // And its rate and price (AP.2.4): a profiled model is one this deployment can request, and a picture
+        // it can request has to be rated. Sized by aspect ratio, so one row covers it.
+        ["Ai:Quota:ImageRates:image-model-test"] = "10",
+        ["Ai:Cost:Images:image-model-test"] = "0.008",
     };
 
     private const string AzureChat =

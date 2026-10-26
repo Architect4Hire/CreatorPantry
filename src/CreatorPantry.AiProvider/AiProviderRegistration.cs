@@ -90,6 +90,7 @@ public static class AiProviderRegistration
         {
             var images = ImagesConnection(builder);
             var profiles = ImageModelProfiles(builder, images.Model);
+            RequireImageRates(builder, profiles);
 
             // Venice.ai, over plain HTTP (B-15 as amended for Venice): Azure.AI.Inference, which serves chat
             // and embeddings, has no image route, and Venice's own needs no SDK. A named client, so the key
@@ -364,6 +365,99 @@ public static class AiProviderRegistration
         }
 
         return profiles;
+    }
+
+    /// <summary>
+    /// Refuses to start when a picture this deployment can request has no credit rate or no price (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A picture with no rate is refused at admission rather than charged nothing (PRICE-001,
+    /// <c>ai-pricing.md</c> B-49), so the cost of the gap is a creator told their image cannot be made, for a
+    /// reason nothing in the product explains. That is worth finding here.
+    /// </para>
+    /// <para>
+    /// <strong>The profiles are what it checks against, not the configured model.</strong> A profile is this
+    /// deployment's statement that it may send to that model — <c>ImageGenerationOptions.ModelId</c> can name
+    /// any profiled one, and AP.3.1's quality classes will — so a profile added without its rate is the mistake
+    /// to stop on. Every environment, like the profile check above and for the same reason: the model table is
+    /// configuration a developer changes too, and a refusal met on the machine that made it needs no
+    /// explaining.
+    /// </para>
+    /// <para>
+    /// Presence only. That each rate is its price × 1,250 is <c>ImageRateTableTests</c>', on the same division
+    /// as the text tables: the margin is a figure the owner may tune in configuration, and a host that would
+    /// not start over it could not be tuned at all. Rates for models with no profile are left alone — a
+    /// deployment may carry a table wider than the models it points at, as <c>Ai:Cost:Models</c> already does —
+    /// and a mistyped key is caught anyway, because the row it was meant to be goes missing.
+    /// </para>
+    /// </remarks>
+    private static void RequireImageRates(
+        IHostApplicationBuilder builder, IReadOnlyDictionary<string, VeniceModelProfile> profiles)
+    {
+        var quota = builder.Configuration.GetSection(AiQuotaOptions.SectionName).Get<AiQuotaOptions>()
+            ?? new AiQuotaOptions();
+        var cost = builder.Configuration.GetSection(AiCostOptions.SectionName).Get<AiCostOptions>()
+            ?? new AiCostOptions();
+
+        // A model whose name holds the key separator cannot be rated at all: every key it spells runs into the
+        // next part and would read another row's rate. Said on its own, because "missing" would be misleading.
+        var unkeyable = profiles.Keys.Where(model => model.Contains(AiImageRateKeys.Separator)).ToList();
+
+        if (unkeyable.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"A sizing profile names a model that cannot carry an image rate — {string.Join(", ", unkeyable)} "
+                + $"holds '{AiImageRateKeys.Separator}', which separates a rate key's parts, so its rate would be "
+                + "read as another tier and quality's. Configure the model under a name without it.");
+        }
+
+        var faults = profiles
+            .SelectMany(profile => profile.Value.RequestableSizes()
+                .Select(size => (Model: profile.Key, size.Resolution, size.Quality)))
+            .Select(request => (
+                Key: AiImageRateKeys.Key(request.Model, request.Resolution, request.Quality),
+                Faults: new[]
+                    {
+                        Fault($"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.ImageRates)}",
+                            quota.ImageRates, request),
+                        Fault($"{AiCostOptions.SectionName}:{nameof(AiCostOptions.Images)}", cost.Images, request),
+                    }
+                    .Where(fault => fault is not null)
+                    .Select(fault => fault!.Value)
+                    .ToList()))
+            .Where(check => check.Faults.Count > 0)
+            .Select(check => $"{check.Key} is {Joined(check.Faults)}")
+            .ToList();
+
+        if (faults.Count == 0)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            "A picture this deployment can request has no credit rate or no price — "
+            + string.Join("; ", faults)
+            + ". Add each from the model's own model_spec.pricing in Venice's GET /models?type=image, the rate at "
+            + "the pinned credit unit (credits = list $ per picture x 1,250) and the price at list. An image with "
+            + "no rate is refused at admission, never made for nothing.");
+
+        // A row of nought is as wrong as an absent one and worse to find later: it would reserve nothing and
+        // charge nothing for a picture the provider bills for. A negative row would pay a creator to generate.
+        static (string Wrong, string Section)? Fault(
+            string section,
+            Dictionary<string, decimal> table,
+            (string Model, string? Resolution, string? Quality) request) =>
+            AiImageRateKeys.TryFind(table, request.Model, request.Resolution, request.Quality, out var figure)
+                ? figure > 0m ? null : ("not above nought in", section)
+                : ("missing from", section);
+
+        // "missing from A and B" where both tables are short the same way, "missing from A and not above nought
+        // in B" where they are not.
+        static string Joined(List<(string Wrong, string Section)> faults) =>
+            faults.Count == 2 && faults[0].Wrong == faults[1].Wrong
+                ? $"{faults[0].Wrong} {faults[0].Section} and {faults[1].Section}"
+                : string.Join(" and ", faults.Select(fault => $"{fault.Wrong} {fault.Section}"));
     }
 
     private static void RequireDevelopment(IHostApplicationBuilder builder, string connectionName)

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 
 namespace CreatorPantry.Domain.Modules.AiUsage.Managers;
@@ -112,6 +113,27 @@ public sealed class AiQuotaOptions
     /// </remarks>
     public Dictionary<string, AiQuotaModelRate> ModelRates { get; } =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Credits per image, by model, resolution tier and quality (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Keyed by <see cref="AiImageRateKeys"/>: <c>gpt-image-2-5-flare/4K/high</c> where the model is priced by
+    /// quality at a tier, <c>qwen-image-2-1-turbo/2K</c> where it is priced by tier alone,
+    /// <c>seedream-v5-lite</c> where one price covers every picture. Each figure is the model's own list price
+    /// at the pinned unit of <c>ai-pricing.md</c> B-49 — credits = list $ per picture × 1,250 — and its match
+    /// under <c>Ai:Cost:Images</c> is the list price itself.
+    /// </para>
+    /// <para>
+    /// <strong>Unlike <see cref="TaskEstimates"/> there is no default below this.</strong> A completion's cost
+    /// is not known until it has been written, so an unrated model settles at an estimate; a picture's cost is
+    /// known before it is made, so a missing rate is a gap in configuration rather than an unknown, and
+    /// admission refuses the request. <c>AiProviderRegistration.RequireImageRates</c> refuses to start a host
+    /// that could reach that refusal, in every environment.
+    /// </para>
+    /// </remarks>
+    public Dictionary<string, decimal> ImageRates { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// How many tokens one credit represents, for a period denominated in

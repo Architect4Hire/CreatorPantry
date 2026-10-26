@@ -139,15 +139,19 @@ Limits rule in the same change if it has to; until then the two read as in tensi
   = list $ per picture × 1,250. A $0.07 picture is 87.5 credits.
 - **The 1.25 is the margin over provider list cost**, so a credit spent is always more than its provider cost.
 - **Every rate is configuration**, validated at startup: text in `Ai:Quota:ModelRates` and `Ai:Cost:Models`
-  (both exist, both empty today), pictures in `Ai:Quota:ImageRates` and the matching `Ai:Cost` prices, which
-  AP.2.4 adds. No price is a C# literal.
+  (AP.2.1), pictures in `Ai:Quota:ImageRates` and `Ai:Cost:Images` (AP.2.4). No price is a C# literal.
 - **A missing rate is never free.** Text with no rate keeps settling at `DefaultTaskEstimate`; a picture with no
   rate is refused at admission (AP.2.4).
 
-**Consequences:** today both text rate dictionaries are empty in every `appsettings*.json`, so every call
-settles at the flat 10-credit estimate and cost reports read null. AP.2.1 fills them.
-`AiQuotaOptions.TokensPerCredit` (1,000) is a different thing — the bridge for a period denominated in tokens
-rather than credits — and is not a price; a credit-denominated period never reads it.
+**Consequences:** *this paragraph first said both text rate dictionaries were empty, so every call settled at
+the flat 10-credit estimate with its cost reading null. Filled the same day it was recorded: AP.2.1 wrote the
+text tables and AP.2.4 the picture ones, into the API's and the Worker's `appsettings.json` alike, so the two
+agree about what one call costs.* Startup now refuses a deployed host whose chat model has no rate or price
+(AP.2.1), and any host — in every environment — that can request a picture it has no rate for (AP.2.4). A text
+call on a model nobody rated still settles at the flat estimate with a null cost, which is the original state
+narrowed to one case rather than removed. `AiQuotaOptions.TokensPerCredit` (1,000) is a different thing — the
+bridge for a period denominated in tokens rather than credits — and is not a price; a credit-denominated period
+never reads it.
 **Rules:** `ai.md`, `aspire.md`.
 
 ### B-50 Packs do not expire

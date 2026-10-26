@@ -13,6 +13,16 @@ namespace CreatorPantry.Domain.Modules.Ai.Gateways;
 public interface IAiCostEstimator
 {
     decimal? Estimate(string modelName, int? inputTokens, int? outputTokens);
+
+    /// <summary>
+    /// What one image is believed to have cost, or null when this deployment has no price for it (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// Priced before it is made rather than after, because a provider prices the model, the resolution tier and
+    /// the quality rather than the output. The credits charged for the same picture are
+    /// <c>AiImageQuotaConverter</c>'s; this is the provider cost behind them.
+    /// </remarks>
+    decimal? EstimateImage(string modelName, string? resolution, string? quality);
 }
 
 /// <summary>Prices per million tokens, by model name, from configuration.</summary>
@@ -22,6 +32,17 @@ public sealed class AiCostOptions
 
     /// <summary>Model name to price. A model absent from here has no estimate, which is honest.</summary>
     public Dictionary<string, AiModelPrice> Models { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// List price in currency units per image, keyed by <see cref="AiImageRateKeys"/> (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// The same rows as <c>Ai:Quota:ImageRates</c>, at list price rather than at the pinned credit unit: each
+    /// rate there is its price here × 1,250 (<c>ai-pricing.md</c> B-49), and <c>ImageRateTableTests</c> holds
+    /// the two together. Startup requires both, so a picture this deployment can request is never charged
+    /// credits whose provider cost nobody can see.
+    /// </remarks>
+    public Dictionary<string, decimal> Images { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <param name="InputPerMillionTokens">Currency units per million input tokens.</param>
@@ -41,6 +62,10 @@ public sealed class ConfiguredAiCostEstimator(
     private const decimal TokensPerPriceUnit = 1_000_000m;
 
     private readonly ConcurrentDictionary<string, bool> _unpriced = new(StringComparer.OrdinalIgnoreCase);
+
+    // Its own, so an image key can never suppress a model's warning or the reverse: the two namespaces are
+    // configured apart and a picture's key is request-influenced where a model name is not.
+    private readonly ConcurrentDictionary<string, bool> _unpricedImages = new(StringComparer.OrdinalIgnoreCase);
 
     public decimal? Estimate(string modelName, int? inputTokens, int? outputTokens)
     {
@@ -70,5 +95,29 @@ public sealed class ConfiguredAiCostEstimator(
         // Six places, matching the column. A single short call costs a fraction of a cent, and rounding it to
         // currency precision would record every one of them as nothing.
         return Math.Round(input + output, 6, MidpointRounding.AwayFromZero);
+    }
+
+    public decimal? EstimateImage(string modelName, string? resolution, string? quality)
+    {
+        // Figure, not TryFind: a price of nought is a picture nobody priced, not one the provider gives away.
+        if (AiImageRateKeys.Figure(options.Images, modelName, resolution, quality) is { } price)
+        {
+            return Math.Round(price, 6, MidpointRounding.AwayFromZero);
+        }
+
+        // Said once per key, as an unpriced model is. Unlike a completion this cannot be reached by a repointed
+        // deployment — startup refuses a host that can request an unpriced picture — so it means a request for
+        // something no sizing profile offers, and the admission that reads AiImageRateKeys has refused it.
+        var key = AiImageRateKeys.Key(modelName, resolution, quality);
+
+        if (key.Length > 0 && _unpricedImages.TryAdd(key, true))
+        {
+            logger?.LogWarning(
+                "Image {ImageRateKey} has no price under Ai:Cost:Images, so its cost reads null; "
+                + "Ai:Quota:ImageRates will have refused the request rather than charging nothing for it.",
+                key);
+        }
+
+        return null;
     }
 }
