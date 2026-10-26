@@ -61,6 +61,38 @@ public sealed class PlansEndpointTests
         Assert.Equal(50, catalogue.Rates.ImageStandard);
     }
 
+    /// <summary>
+    /// The trial's lifetime picture cap travels on the trial alone (B-52), under the name the landing page
+    /// decodes, and a paid plan says null rather than leaving the field out.
+    /// </summary>
+    [Fact]
+    public async Task A_trial_states_its_picture_cap_and_a_paid_plan_states_none()
+    {
+        await using var host = await SqliteApiHost.StartAsync(configureServices: services =>
+        {
+            Catalogue(published: true)(services);
+            services.PostConfigure<BillingOptions>(billing => billing.Plans.Add(new PlanOption
+            {
+                Key = "trial",
+                Name = "Trial",
+                Credits = 1000,
+                ExampleMix = "20 recipe drafts",
+                DailyImageCap = 5,
+                TrialDays = 14,
+                TrialImageCap = 10,
+            }));
+        });
+        var client = host.Factory.CreateClient();
+
+        var body = await client.GetStringAsync(Route, TestContext.Current.CancellationToken);
+        using var document = System.Text.Json.JsonDocument.Parse(body);
+        var plans = document.RootElement.GetProperty("plans").EnumerateArray().ToDictionary(
+            plan => plan.GetProperty("key").GetString()!);
+
+        Assert.Equal(10, plans["trial"].GetProperty("trialImageCap").GetInt32());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, plans["creator"].GetProperty("trialImageCap").ValueKind);
+    }
+
     /// <summary>The same answer for every caller is what lets a shared cache hold it.</summary>
     [Fact]
     public async Task The_catalogue_may_be_cached_publicly()

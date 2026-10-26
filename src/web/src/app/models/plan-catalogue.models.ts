@@ -29,6 +29,8 @@ export interface Plan {
   readonly recommended: boolean;
   /** Days a trial lasts; null on a paid plan. */
   readonly trialDays: number | null;
+  /** Pictures the whole trial may make, beside its daily cap; null on a paid plan. The trial's gate (B-52). */
+  readonly trialImageCap: number | null;
 }
 
 /**
@@ -101,6 +103,7 @@ export function decodePlan(value: unknown): Plan | null {
   const dailyImageCap = numberAt(value, 'dailyImageCap');
   const qualityClasses = value['qualityClasses'];
   const trialDays = optionalNumberAt(value, 'trialDays');
+  const trialImageCap = optionalNumberAt(value, 'trialImageCap');
 
   if (
     key === null ||
@@ -113,6 +116,7 @@ export function decodePlan(value: unknown): Plan | null {
     credits === null ||
     dailyImageCap === null ||
     trialDays === undefined ||
+    trialImageCap === undefined ||
     !Array.isArray(qualityClasses)
   ) {
     return null;
@@ -131,6 +135,7 @@ export function decodePlan(value: unknown): Plan | null {
     qualityClasses: qualityClasses.filter((entry): entry is string => typeof entry === 'string'),
     recommended: value['recommended'] === true,
     trialDays,
+    trialImageCap,
   };
 }
 

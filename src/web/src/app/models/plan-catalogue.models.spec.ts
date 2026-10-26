@@ -16,6 +16,7 @@ describe('plan catalogue models', () => {
     qualityClasses: ['draft', 'standard'],
     recommended: true,
     trialDays: null,
+    trialImageCap: null,
   };
 
   it('decodes a plan as the server sends it', () => {
@@ -41,6 +42,19 @@ describe('plan catalogue models', () => {
   /** "14" becoming "no trial" would have the card say the opposite of the catalogue. Refuse it instead. */
   it('refuses a trial length that is there but is not a number', () => {
     expect(decodePlan({ ...plan, trialDays: '14' })).toBeNull();
+  });
+
+  it('reads a trial’s picture cap, and a paid plan or an older server as having none', () => {
+    expect(decodePlan({ ...plan, trialDays: 14, trialImageCap: 10 })?.trialImageCap).toBe(10);
+    expect(decodePlan(plan)?.trialImageCap).toBeNull();
+    const { trialImageCap, ...olderServer } = plan;
+    expect(trialImageCap).toBeNull();
+    expect(decodePlan(olderServer)?.trialImageCap).toBeNull();
+  });
+
+  /** "10" becoming "no cap" would have the trial card promise unbounded pictures. Refuse it instead. */
+  it('refuses a trial picture cap that is there but is not a number', () => {
+    expect(decodePlan({ ...plan, trialDays: 14, trialImageCap: '10' })).toBeNull();
   });
 
   it('decodes the catalogue, keeping the server’s order', () => {

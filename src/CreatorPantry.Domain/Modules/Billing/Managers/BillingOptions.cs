@@ -99,6 +99,17 @@ public sealed class PlanOption
 
     /// <summary>Set only on a trial plan: how many days it lasts. Null on a paid plan.</summary>
     public int? TrialDays { get; set; }
+
+    /// <summary>
+    /// Set only on a trial plan: how many pictures the whole trial may generate, beside its daily cap. The trial
+    /// gate the owner chose instead of a card on file (<c>ai-pricing.md</c> B-52). Null on a paid plan.
+    /// </summary>
+    /// <remarks>
+    /// Published so the page states the figure admission will enforce, and read from here by AP.7.1 rather than
+    /// from a second copy. Until AP.7.1 ships nothing counts against it, which is one more reason
+    /// <see cref="BillingOptions.PublishPlans"/> stays off outside development.
+    /// </remarks>
+    public int? TrialImageCap { get; set; }
 }
 
 /// <summary>

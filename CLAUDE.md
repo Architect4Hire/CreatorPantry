@@ -41,7 +41,8 @@ AI generates drafts, proposals, structured commands, and derivatives. It does no
 - Consumer recipe indexing or marketplace features.
 - Nutrition, allergen, food-safety, or medical guarantees.
 - Autonomous publishing with no creator-approved policy.
-- Billing, plans, or metering.
+- Billing, plans, or metering beyond `docs/architecture-decisions/ai-pricing.md` (B-44), which brought prepaid
+  plans, credit packs and Stripe billing into scope on 2026-10-24.
 - Native mobile applications.
 - Provider-specific fields in core entities.
 - A public third-party developer platform.

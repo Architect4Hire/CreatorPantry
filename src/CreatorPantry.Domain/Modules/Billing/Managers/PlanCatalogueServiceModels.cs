@@ -37,6 +37,7 @@ public sealed record CreditRatesServiceModel(
 /// One plan. <paramref name="AnnualSaving"/> is worked out here rather than in the browser, so the figure a
 /// visitor is shown is the one the catalogue stands behind.
 /// </summary>
+/// <param name="TrialImageCap">Pictures the whole trial may generate; null on a paid plan (B-52).</param>
 public sealed record PlanServiceModel(
     string Key,
     string Name,
@@ -49,7 +50,8 @@ public sealed record PlanServiceModel(
     int DailyImageCap,
     IReadOnlyList<string> QualityClasses,
     bool Recommended,
-    int? TrialDays);
+    int? TrialDays,
+    int? TrialImageCap);
 
 /// <summary>
 /// A prepaid credit pack. It carries no expiry because a pack does not have one: the credits are bought, and

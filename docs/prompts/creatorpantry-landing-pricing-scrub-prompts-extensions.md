@@ -6,7 +6,7 @@ noticeably bolder and more alive, in its existing style. For use with Claude Cod
 `.claude/` toolkit. Intended path in the repo: `docs/prompts/creatorpantry-landing-pricing-scrub-prompts.md`.
 
 This document follows `docs/prompts/creatorpantry-landing-page-scrub-prompts.md` (L.1–L.9, all done) and
-depends on `docs/prompts/creatorpantry-ai-pricing-scrub-prompts.md` (AP.*) for the plan catalogue. It does
+depends on `docs/prompts/1.creatorpantry-ai-pricing-scrub-prompts.md` (AP.*) for the plan catalogue. It does
 not redefine anything in `CLAUDE.md`, `.claude/rules/` or `src/web/DESIGN-SYSTEM.md`.
 
 ## Reusable SCRUB skeleton

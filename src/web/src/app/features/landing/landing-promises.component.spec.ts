@@ -20,6 +20,7 @@ const plan = {
   qualityClasses: ['draft'],
   recommended: true,
   trialDays: null,
+  trialImageCap: null,
 };
 
 const published: PlanCatalogue = {

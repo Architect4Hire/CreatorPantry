@@ -62,6 +62,21 @@ public sealed class PlanCatalogueTests
         ("Billing:Rates:ImageHigh", "90"),
     ];
 
+    /// <summary>A third plan: the trial, free, with its length and its lifetime picture cap (B-48, B-52).</summary>
+    private static (string, string?)[] WithTrial(bool publish = true) =>
+    [
+        .. TwoPlans(publish),
+        ("Billing:Plans:2:Key", "trial"),
+        ("Billing:Plans:2:Name", "Trial"),
+        ("Billing:Plans:2:MonthlyPrice", "0"),
+        ("Billing:Plans:2:AnnualMonthlyPrice", "0"),
+        ("Billing:Plans:2:Credits", "1000"),
+        ("Billing:Plans:2:ExampleMix", "20 recipe drafts"),
+        ("Billing:Plans:2:DailyImageCap", "5"),
+        ("Billing:Plans:2:TrialDays", "14"),
+        ("Billing:Plans:2:TrialImageCap", "10"),
+    ];
+
     private static PlanCatalogueServiceModel Read(params (string, string?)[] settings) =>
         Host(settings).GetRequiredService<IPlanCatalogueFacade>().Published();
 
@@ -127,6 +142,21 @@ public sealed class PlanCatalogueTests
         Assert.Equal(0, rates.TextDraft);
     }
 
+    /// <summary>
+    /// The trial's gate is a lifetime picture cap rather than a card on file (B-52), so the catalogue states it
+    /// on the trial and on no other plan, and the page can say the figure admission will hold it to.
+    /// </summary>
+    [Fact]
+    public void A_published_trial_states_how_many_pictures_it_may_make_in_all()
+    {
+        var plans = Read(WithTrial()).Plans;
+
+        var trial = plans.Single(plan => plan.Key == "trial");
+        Assert.Equal(14, trial.TrialDays);
+        Assert.Equal(10, trial.TrialImageCap);
+        Assert.All(plans.Where(plan => plan.Key != "trial"), plan => Assert.Null(plan.TrialImageCap));
+    }
+
     [Fact]
     public void The_recommended_plan_is_the_one_the_catalogue_flags()
     {
@@ -156,7 +186,19 @@ public sealed class PlanCatalogueTests
         },
         {
             "a trial lasts no days",
-            [.. TwoPlans(), ("Billing:Plans:1:TrialDays", "0")]
+            [.. WithTrial(), ("Billing:Plans:2:TrialDays", "0")]
+        },
+        {
+            "a paid plan has a trial picture cap",
+            [.. TwoPlans(), ("Billing:Plans:1:TrialImageCap", "10")]
+        },
+        {
+            "a trial picture cap is nought",
+            [.. WithTrial(), ("Billing:Plans:2:TrialImageCap", "0")]
+        },
+        {
+            "a published trial has no picture cap",
+            [.. WithTrial(), ("Billing:Plans:2:TrialImageCap", null)]
         },
         {
             "a pack has no credits",

@@ -18,7 +18,7 @@ changes.
 | **Not built** | Needs a named prompt first. | No |
 
 Paths are abbreviated: `web/` is `src/web/src/app/`, `dom/` is `src/CreatorPantry.Domain/`, `AP` is
-`docs/prompts/creatorpantry-ai-pricing-scrub-prompts.md`.
+`docs/prompts/1.creatorpantry-ai-pricing-scrub-prompts.md`.
 
 ## Three things the copy has to respect
 
@@ -216,7 +216,7 @@ the development configuration, but the page reads none of them.
 
 **Per plan card:** `{plan.name}` · `{plan.monthlyPrice}` a month, or `{plan.annualMonthlyPrice}` billed
 yearly (`{plan.annualSaving}` saved) · `{plan.credits}` AI credits a month · "about `{plan.exampleMix}`" ·
-up to `{plan.dailyImageCap}` pictures a day · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
+up to `{plan.dailyImageCap}` pictures a day (on the trial, "`{plan.trialImageCap}` in all" too) · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
 No picture quality, on a card or in the comparison table (section 6).
 
 "Recommended for most food bloggers" appears on the plan the catalogue flags (`{plan.recommended}`).
@@ -299,7 +299,7 @@ prompt, and LP.9's rule stands: anything undecided is left out.
 | 10 | Do packs expire? | No. A pack is credits you have bought, so they keep until you spend them. | **Decided** (owner, 2026-10-24) |
 | 11 | Can I cancel any time? | **Not built** (AP.6.2, downgrade timing still open). Omitted. | — |
 | 12 | Who owns what AI makes for me? | You do, as far as the law allows. Your recipes, pictures and drafts are yours, and so is what CreatorPantry generates for you. We only use them to run the service for you. The Terms of Service say exactly how. | Draft ToS §5 (`docs/legal/terms-of-service.md`). Renders only once the reviewed Terms are published, and links to them |
-| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); renders after AP.7.1. What a trial may generate is still open (AP.7.1: card on file, or a 10-picture cap) |
+| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); renders after AP.7.1. **Decided** what a trial may generate: up to `{trial.trialImageCap}` pictures in all, no card on file (`ai-pricing.md` B-52); enforced by AP.7.1 |
 
 Seven answers render today (0–6). 7–10 and 13 render with pricing, and 12 with the published Terms. LP.9 asks
 for 8 to 10 answers; the page reaches that once pricing is on, so LP.9 picks the ten that are live.
@@ -371,7 +371,8 @@ does not go live without all three (LP.6).
   they exist as pages.
 - **Google Fonts.** The Privacy Policy has to disclose that visitors' IP addresses go to Google for fonts,
   unless the fonts are self-hosted (LP.11 can do that as part of the performance pass).
-- **Cancellation and refunds.** Downgrade timing (AP.6.2) and a refund policy are undecided, so FAQ 11 and the
-  matching ToS clauses stay bracketed. Pack expiry is no longer among the open questions: packs do not expire
+- **Cancellation and refunds.** Downgrades and cancellations take effect at period end (`ai-pricing.md` B-54),
+  but a refund policy is undecided, so FAQ 11 and the matching ToS clauses stay bracketed. Pack expiry is no longer among the open questions: packs do not expire
   (owner, 2026-10-24).
-- **What a trial may generate.** Card on file, or a cap of 10 trial pictures (AP.7.1).
+- ~~**What a trial may generate.**~~ Decided 2026-10-26: a lifetime cap of 10 trial pictures, no card on file
+  (`ai-pricing.md` B-52). The pricing card and comparison table state it from the catalogue; AP.7.1 enforces it.

@@ -24,6 +24,7 @@ const published: PlanCatalogue = {
       qualityClasses: ['draft', 'standard', 'high'],
       recommended: true,
       trialDays: null,
+      trialImageCap: null,
     },
   ],
   packs: [],

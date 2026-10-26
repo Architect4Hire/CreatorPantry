@@ -47,6 +47,14 @@ public static class BillingServiceCollectionExtensions
                 billing => billing.Plans.All(plan => plan.TrialDays is null or > 0),
                 "A plan under Billing:Plans has a trial of nought days; leave TrialDays unset on a paid plan.")
             .Validate(
+                // A picture cap on a plan with no trial would publish a limit on a paid plan nobody decided.
+                billing => billing.Plans.All(plan => plan.TrialImageCap is null || (plan.TrialDays is not null && plan.TrialImageCap > 0)),
+                "A plan under Billing:Plans has a TrialImageCap but no trial, or a cap of nought; set it on a trial plan only.")
+            .Validate(
+                // The trial gate is the cap (B-52); a published trial without one would promise unbounded pictures.
+                billing => !billing.PublishPlans || billing.Plans.All(plan => plan.TrialDays is null || plan.TrialImageCap is not null),
+                "A published trial plan under Billing:Plans has no TrialImageCap; the trial's picture cap is its gate.")
+            .Validate(
                 billing => billing.Packs.All(pack => !string.IsNullOrWhiteSpace(pack.Key) && pack.Credits > 0 && pack.Price >= 0),
                 "Every pack under Billing:Packs needs a key, credits above nought and a price that is not negative.")
             .Validate(

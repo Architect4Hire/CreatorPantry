@@ -23,6 +23,7 @@ const plan = {
   qualityClasses: ['draft'],
   recommended: true,
   trialDays: null,
+  trialImageCap: null,
 };
 
 describe('PlanCatalogueService', () => {

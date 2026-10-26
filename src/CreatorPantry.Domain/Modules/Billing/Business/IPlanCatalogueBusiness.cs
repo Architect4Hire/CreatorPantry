@@ -61,6 +61,7 @@ internal sealed class PlanCatalogueBusiness(IOptions<BillingOptions> options) : 
             plan.DailyImageCap,
             [.. plan.QualityClasses],
             plan.Recommended,
-            plan.TrialDays);
+            plan.TrialDays,
+            plan.TrialImageCap);
     }
 }

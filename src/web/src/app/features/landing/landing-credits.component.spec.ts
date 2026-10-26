@@ -20,6 +20,7 @@ const plan = (key: string, name: string, credits: number, trialDays: number | nu
   qualityClasses: ['draft', 'standard'],
   recommended: false,
   trialDays,
+  trialImageCap: trialDays === null ? null : 10,
 });
 
 /** The trial first, as the catalogue publishes it cheapest-first, so the specs prove it is skipped. */

@@ -99,7 +99,13 @@ export class LandingPricingComponent {
   protected readonly comparisonColumns: readonly PlanComparisonColumn[] = [
     { label: 'Price', valueOf: (plan) => this.formatMoney(this.priceOf(plan)) },
     { label: 'Credits a month', valueOf: (plan) => this.formatCredits(plan.credits) },
-    { label: 'Pictures a day', valueOf: (plan) => plan.dailyImageCap.toLocaleString() },
+    {
+      label: 'Pictures a day',
+      valueOf: (plan) =>
+        plan.trialImageCap === null
+          ? plan.dailyImageCap.toLocaleString()
+          : `${plan.dailyImageCap.toLocaleString()} (${plan.trialImageCap.toLocaleString()} in all)`,
+    },
     { label: 'Free trial', valueOf: (plan) => (plan.trialDays === null ? 'No' : `${plan.trialDays} days`) },
   ];
 
@@ -147,8 +153,17 @@ export class LandingPricingComponent {
     return [
       `${this.formatCredits(plan.credits)} AI credits a month`,
       `About ${plan.exampleMix}`,
-      `Up to ${plan.dailyImageCap.toLocaleString()} pictures a day`,
+      this.picturesOf(plan),
     ];
+  }
+
+  /**
+   * The daily cap, and on a trial the cap on the whole trial beside it (B-52). Both are the catalogue's; the
+   * trial's is said in the same sentence because a reader weighing a trial needs the smaller of the two.
+   */
+  private picturesOf(plan: Plan): string {
+    const daily = `Up to ${plan.dailyImageCap.toLocaleString()} pictures a day`;
+    return plan.trialImageCap === null ? daily : `${daily}, ${plan.trialImageCap.toLocaleString()} in all`;
   }
 
   protected periodChanged(value: readonly string[]): void {

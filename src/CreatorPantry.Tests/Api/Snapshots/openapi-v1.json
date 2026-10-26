@@ -39088,7 +39088,8 @@
           "dailyImageCap",
           "qualityClasses",
           "recommended",
-          "trialDays"
+          "trialDays",
+          "trialImageCap"
         ],
         "type": "object",
         "properties": {
@@ -39159,6 +39160,15 @@
             "type": "boolean"
           },
           "trialDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "trialImageCap": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",

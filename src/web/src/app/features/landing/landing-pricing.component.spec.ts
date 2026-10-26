@@ -22,11 +22,12 @@ const creator = {
   qualityClasses: ['draft', 'standard', 'high'],
   recommended: true,
   trialDays: null,
+  trialImageCap: null,
 };
 
 const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
 
-const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14 };
+const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5 };
 
 describe('LandingPricingComponent', () => {
   let fixture: ComponentFixture<LandingPricingComponent>;
@@ -149,6 +150,16 @@ describe('LandingPricingComponent', () => {
     expect(text()).toContain('14 days, no card needed to look around');
   });
 
+  /** The trial's gate is a cap on the whole trial (B-52); a reader weighing it needs that beside the daily one. */
+  it('says how many pictures a trial makes in all, and says it on the trial alone', async () => {
+    await create(published);
+    const cards = Array.from(host.querySelectorAll('cp-card')).map((card) => card.textContent ?? '');
+
+    expect(cards[0]).toContain('Up to 5 pictures a day, 10 in all');
+    expect(cards[1]).toContain('Up to 25 pictures a day');
+    expect(cards[1]).not.toContain('in all');
+  });
+
   it('sends each plan’s call to action to sign-up carrying that plan', async () => {
     await create(published);
     const links = Array.from(host.querySelectorAll<HTMLAnchorElement>('cp-card a[href]'));
@@ -206,6 +217,16 @@ describe('LandingPricingComponent', () => {
     expect(host.querySelector('.includes')?.textContent).toContain('50 recipe drafts');
     // The short figure the table does carry for the same plan.
     expect(Array.from(table.querySelectorAll('tbody td')).map((td) => td.textContent?.trim())).toContain('25');
+  });
+
+  it('puts the trial’s cap on the whole trial beside its daily cap in the table', async () => {
+    await create(published);
+    host.querySelector<HTMLButtonElement>('.comparison button')!.click();
+    fixture.detectChanges();
+
+    const cells = Array.from(host.querySelectorAll('table tbody td')).map((td) => td.textContent?.trim());
+
+    expect(cells).toContain('5 (10 in all)');
   });
 
   /**
