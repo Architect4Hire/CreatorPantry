@@ -2,8 +2,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * What the two toolbar fields share: a label that is announced and not shown, wrapped around the consumer's
- * own native control so the two are associated without an id, and the control drawn at the size and in the
- * colours every other control in a toolbar has.
+ * own native control so the two are associated without an id, and the control at the 40px every other control
+ * in a toolbar has. How it is drawn — edge, fill, focus, a select's caret — is `native-control.css`, the same
+ * sheet `cp-field` uses, so a filter in a toolbar looks like the select in a form.
  *
  * The label is hidden here rather than with the global `.cp-sr-only`, so the component does not depend on a
  * stylesheet its consumer may not have loaded.
@@ -26,20 +27,17 @@ const SHARED_STYLES = `
     white-space: nowrap;
     border: 0;
   }
-  /* The field holds one native control and nothing else, so a descendant selector costs nothing here. */
+  /* The field holds one native control and nothing else, so a descendant selector costs nothing here. Longhand
+     padding, so a select's caret room from native-control.css is never undone by load order. */
   :host ::ng-deep :is(input, select) {
     /* 40px, the minimum target. */
     min-height: 2.5rem;
-    padding: 0 var(--cp-space-3);
-    border: 1px solid var(--cp-border-control);
-    border-radius: var(--cp-radius-md);
-    background: var(--cp-surface);
-    color: var(--cp-text);
+    padding-block: 0;
+    padding-inline-start: var(--cp-space-3);
     font: inherit;
   }
-  :host ::ng-deep :is(input, select):focus-visible {
-    outline: 2px solid var(--cp-focus);
-    outline-offset: 2px;
+  :host ::ng-deep input {
+    padding-inline-end: var(--cp-space-3);
   }
 `;
 
@@ -55,6 +53,7 @@ const SHARED_STYLES = `
   selector: 'cp-search-field',
   standalone: true,
   template: TEMPLATE,
+  styleUrl: './native-control.css',
   styles: [
     SHARED_STYLES,
     `
@@ -83,6 +82,7 @@ export class CpSearchFieldComponent {
   selector: 'cp-select-field',
   standalone: true,
   template: TEMPLATE,
+  styleUrl: './native-control.css',
   styles: [
     SHARED_STYLES,
     `

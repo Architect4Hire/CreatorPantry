@@ -97,6 +97,14 @@ describe('CpSearchFieldComponent and CpSelectFieldComponent', () => {
     expect(select().getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
   });
 
+  // It used to keep the browser's own select — a small native arrow, a different fill — beside forms whose
+  // selects draw their caret, so the same choice looked like two different controls.
+  it('draw the select as a form field draws one: its own caret, not the browser arrow', () => {
+    mount();
+    expect(getComputedStyle(select()).appearance).toBe('none');
+    expect(parseFloat(getComputedStyle(select()).paddingInlineEnd)).withContext('room for the caret').toBeGreaterThanOrEqual(40);
+  });
+
   it('do not let a long option or the search box hold the toolbar wider than a 320px page', () => {
     mount((h) => h.width.set('320px'));
     expect(select().getBoundingClientRect().width).toBeLessThanOrEqual(320);

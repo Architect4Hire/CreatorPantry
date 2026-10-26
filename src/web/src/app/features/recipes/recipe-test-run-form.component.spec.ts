@@ -294,6 +294,22 @@ describe('RecipeTestRunFormComponent', () => {
     expect(element.textContent).toContain('Nothing adds the three above together.');
   });
 
+  // An example used to be a hint under its field, a line of small print on almost every one. It is a placeholder
+  // now, as in the recipe editor; a hint is left only where it says something an example cannot.
+  it('gives examples as placeholders, and keeps hints for what an example cannot say', async () => {
+    const element = await render();
+
+    for (const suffix of ['actualYieldText', 'environmentNotes', 'equipmentNotes', 'actualPrepTimeMinutes']) {
+      const field = control<HTMLInputElement | HTMLTextAreaElement>(element, suffix);
+      expect(field.placeholder).withContext(suffix).toMatch(/^e\.g\. /);
+      expect(field.getAttribute('aria-describedby') ?? '').withContext(suffix).not.toContain('-hint');
+    }
+    for (const suffix of ['testedAt', 'outcome', 'rating']) {
+      expect(control(element, suffix).getAttribute('aria-describedby') ?? '').withContext(suffix).not.toContain('-hint');
+    }
+    expect(control(element, 'actualTotalTimeMinutes').getAttribute('aria-describedby')).toContain('-hint');
+  });
+
   it('builds its sections from the design system rather than its own markup', async () => {
     const element = await render();
 

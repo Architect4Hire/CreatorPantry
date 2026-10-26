@@ -11,7 +11,8 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
   selector: 'cp-field',
   standalone: true,
   templateUrl: './field.component.html',
-  styleUrl: './field.component.css',
+  // The shared drawing first, so this component's own sizing reads after it.
+  styleUrls: ['./native-control.css', './field.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpFieldComponent {

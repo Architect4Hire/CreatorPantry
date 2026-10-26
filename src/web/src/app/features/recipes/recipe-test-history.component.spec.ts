@@ -543,9 +543,10 @@ describe('RecipeTestHistoryComponent', () => {
   it('gives every filter control a name', async () => {
     const element = await render();
 
-    for (const label of Array.from(element.querySelectorAll('.typed label.field'))) {
-      expect(label.querySelector('.label')?.textContent?.trim().length).toBeGreaterThan(0);
-      expect(label.querySelector('input')).not.toBeNull();
+    const typed = Array.from(element.querySelectorAll<HTMLInputElement>('.typed input'));
+    expect(typed.length).toBe(3);
+    for (const input of typed) {
+      expect(input.labels?.[0]?.textContent?.trim().length).withContext(input.id).toBeGreaterThan(0);
     }
 
     expect(element.querySelector('cp-select-field .label')?.textContent).toContain('outstanding problems');
