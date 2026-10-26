@@ -458,9 +458,9 @@ export class RecipeTestRunFormComponent {
       case 'unavailable':
         return 'The unit list could not be read. Everything else on this form still saves.';
       default:
-        // The contract, said once, rather than a rule enforced twice: the server refuses a unit with no
-        // amount, and this is why.
-        return 'Needs an amount to measure.';
+        // Nothing while the list is there to pick from, as the recipe editor's yield unit says nothing: a unit
+        // with no amount is still refused by the server, and that refusal lands on this field.
+        return '';
     }
   });
 

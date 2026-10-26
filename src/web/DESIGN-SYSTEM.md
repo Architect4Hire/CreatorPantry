@@ -202,7 +202,7 @@ Term-and-value pairs are a `<dl>` with `cpFacts`, one `<div cpFact label="…">`
 
 ### Search and filters in a toolbar
 
-A library's toolbar holds `cp-search-field` and `cp-select-field`, each around the page's own native control. Their labels are announced and not shown: the placeholder, the first option and the toolbar's place on the page already say what each is, and four visible labels above a row of four small controls is noise. That is a property of a toolbar, not a licence — a field in a form still shows its label through `CpFieldComponent`.
+A library's toolbar holds `cp-search-field` and `cp-select-field`, each around the page's own native control. Their labels are announced and not shown: the placeholder, the first option and the toolbar's place on the page already say what each is, and four visible labels above a row of four small controls is noise. That is a property of a toolbar, not a licence — a field in a form still shows its label through `CpFieldComponent`. The control itself is drawn the same in both places — edge, fill, focus ring and a select's drawn caret come from one library sheet, `native-control.css`, that `cp-field` and both toolbar fields load — so only the size differs: 40px in a toolbar, a form field's own height in a form.
 
 ### The steps of a flow
 

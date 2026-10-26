@@ -19,8 +19,11 @@
       intro="When you cooked it, and how it went overall."
       [sectionId]="idPrefix + '-section-test'"
     >
-      <cp-field label="Tested on" [forId]="idPrefix + '-testedAt'" [required]="true" [error]="fieldError('testedAt')"
-        hint="When you cooked it, not when you are writing this up.">
+      <!--
+        No hints in this section: the intro already says it is when you cooked it, and each select's options say
+        what its answers are ("Not stated", "Not rated", "3 of 5"). A date or a select takes no placeholder.
+      -->
+      <cp-field label="Tested on" [forId]="idPrefix + '-testedAt'" [required]="true" [error]="fieldError('testedAt')">
         <input
           [id]="idPrefix + '-testedAt'"
           type="datetime-local"
@@ -32,8 +35,7 @@
         />
       </cp-field>
 
-      <cp-field label="Outcome" [forId]="idPrefix + '-outcome'" [error]="fieldError('outcome')"
-        hint="Your verdict. “Not stated” is an answer — nothing reads it as a pass.">
+      <cp-field label="Outcome" [forId]="idPrefix + '-outcome'" [error]="fieldError('outcome')">
         <select
           [id]="idPrefix + '-outcome'"
           name="outcome"
@@ -47,8 +49,7 @@
         </select>
       </cp-field>
 
-      <cp-field label="Rating" [forId]="idPrefix + '-rating'" [error]="fieldError('rating')"
-        hint="Out of five, if you scored it.">
+      <cp-field label="Rating" [forId]="idPrefix + '-rating'" [error]="fieldError('rating')">
         <select
           [id]="idPrefix + '-rating'"
           name="rating"
@@ -70,10 +71,12 @@
       [sectionId]="idPrefix + '-section-yield'"
     >
       <cp-field label="In your own words" [forId]="idPrefix + '-actualYieldText'"
-        [error]="fieldError('actualYieldText')" hint="“Got 10, not 12.”">
+        [error]="fieldError('actualYieldText')">
+        <!-- Examples as placeholders, the recipe editor's way: they show in the empty box and go once it is filled. -->
         <input
           [id]="idPrefix + '-actualYieldText'"
           type="text"
+          placeholder="e.g. Got 10, not 12"
           name="actualYieldText"
           [maxlength]="yieldTextMaxLength"
           [ngModel]="actualYieldText()"
@@ -93,6 +96,7 @@
             step="any"
             min="0"
             name="actualYieldQuantity"
+            placeholder="e.g. 10"
             [ngModel]="actualYieldQuantity()"
             (ngModelChange)="actualYieldQuantity.set($event)"
             [attr.aria-invalid]="fieldError('actualYieldQuantity') ? 'true' : null"
@@ -136,10 +140,11 @@
     >
       <!-- Two textareas, stacked. Prose never shares a row, however short it happens to be. -->
       <cp-field label="Environment" [forId]="idPrefix + '-environmentNotes'"
-        [error]="fieldError('environmentNotes')" hint="Oven, altitude, weather — whatever mattered.">
+        [error]="fieldError('environmentNotes')">
         <textarea
           [id]="idPrefix + '-environmentNotes'"
           name="environmentNotes"
+          placeholder="e.g. Oven runs hot, high altitude, a humid day"
           rows="3"
           [maxlength]="environmentNotesMaxLength"
           [ngModel]="environmentNotes()"
@@ -148,11 +153,11 @@
         ></textarea>
       </cp-field>
 
-      <cp-field label="Equipment" [forId]="idPrefix + '-equipmentNotes'" [error]="fieldError('equipmentNotes')"
-        hint="What you actually used, where it differed from the recipe.">
+      <cp-field label="Equipment" [forId]="idPrefix + '-equipmentNotes'" [error]="fieldError('equipmentNotes')">
         <textarea
           [id]="idPrefix + '-equipmentNotes'"
           name="equipmentNotes"
+          placeholder="e.g. A glass dish instead of the metal pan"
           rows="3"
           [maxlength]="equipmentNotesMaxLength"
           [ngModel]="equipmentNotes()"
@@ -177,6 +182,7 @@
             min="0"
             step="1"
             name="actualPrepTimeMinutes"
+            placeholder="e.g. 15 min"
             [ngModel]="actualPrepTimeMinutes()"
             (ngModelChange)="actualPrepTimeMinutes.set($event)"
             [attr.aria-invalid]="fieldError('actualPrepTimeMinutes') ? 'true' : null"
@@ -192,6 +198,7 @@
             min="0"
             step="1"
             name="actualCookTimeMinutes"
+            placeholder="e.g. 30 min"
             [ngModel]="actualCookTimeMinutes()"
             (ngModelChange)="actualCookTimeMinutes.set($event)"
             [attr.aria-invalid]="fieldError('actualCookTimeMinutes') ? 'true' : null"
@@ -207,6 +214,7 @@
             min="0"
             step="1"
             name="actualRestTimeMinutes"
+            placeholder="e.g. 10 min"
             [ngModel]="actualRestTimeMinutes()"
             (ngModelChange)="actualRestTimeMinutes.set($event)"
             [attr.aria-invalid]="fieldError('actualRestTimeMinutes') ? 'true' : null"
@@ -228,6 +236,7 @@
           min="0"
           step="1"
           name="actualTotalTimeMinutes"
+          placeholder="e.g. 50 min"
           [ngModel]="actualTotalTimeMinutes()"
           (ngModelChange)="actualTotalTimeMinutes.set($event)"
           [attr.aria-invalid]="fieldError('actualTotalTimeMinutes') ? 'true' : null"
@@ -244,6 +253,7 @@
         <textarea
           [id]="idPrefix + '-summaryNotes'"
           name="summaryNotes"
+          placeholder="e.g. Good crumb, a little too sweet. Would make again."
           rows="4"
           [maxlength]="summaryNotesMaxLength"
           [ngModel]="summaryNotes()"
@@ -306,6 +316,7 @@
               <textarea
                 [id]="idPrefix + '-observations-text-' + row.key"
                 [name]="'observation-text-' + row.key"
+                placeholder="e.g. The dough was still sticky after the first rise"
                 rows="3"
                 [maxlength]="observationTextMaxLength"
                 [ngModel]="row.text"
@@ -398,6 +409,7 @@
                 type="text"
                 required
                 [name]="'issue-title-' + row.key"
+                placeholder="e.g. The bake time is too short"
                 [maxlength]="issueTitleMaxLength"
                 [ngModel]="row.title"
                 (ngModelChange)="updateIssue(row.key, { title: $event })"
@@ -410,6 +422,7 @@
               <textarea
                 [id]="idPrefix + '-issues-description-' + row.key"
                 [name]="'issue-description-' + row.key"
+                placeholder="e.g. At 25 minutes the middle was still wet; it needed about 35"
                 rows="3"
                 [maxlength]="issueDescriptionMaxLength"
                 [ngModel]="row.description"
@@ -420,8 +433,7 @@
 
             @if (observationLinkOptions().length > 0) {
               <cp-field label="Came from" [forId]="idPrefix + '-issues-observationIndex-' + row.key"
-                [error]="rowFieldError('issues', row.key, 'observationIndex')"
-                hint="One of your notes above, if this came from one.">
+                [error]="rowFieldError('issues', row.key, 'observationIndex')">
                 <select
                   [id]="idPrefix + '-issues-observationIndex-' + row.key"
                   [name]="'issue-observation-' + row.key"

@@ -5,7 +5,10 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, input } from '@
   template: `<div class="cp-toolbar" role="toolbar" aria-orientation="horizontal" [attr.aria-label]="ariaLabel()" [attr.aria-disabled]="disabled() ? true : null" [class.cp-toolbar--disabled]="disabled()" [attr.aria-busy]="loading() ? true : null" (keydown)="onKeydown($event)"><div class="group"><ng-content select="[cpToolbarSearch]" /></div><div class="group"><ng-content select="[cpToolbarFilters]" /></div><div class="group"><ng-content select="[cpToolbarActions]" /></div><details class="overflow"><summary><span class="chevron" aria-hidden="true">⋯</span>More actions</summary><div class="overflow-content"><ng-content select="[cpToolbarOverflow]" /></div></details></div>`,
   styles: [`
     :host { display:block; }
-    .cp-toolbar { display:flex; flex-wrap:wrap; gap:var(--cp-space-3); align-items:center; }
+    /* flex-end, not center: a group whose fields show their label (cp-field in the search slot) is taller than
+       a chip or a select, and centring it set its controls half a label higher than theirs. On the bottom edge,
+       every control in a line sits on the same line. */
+    .cp-toolbar { display:flex; flex-wrap:wrap; gap:var(--cp-space-3); align-items:flex-end; }
     .cp-toolbar--disabled { opacity:.6; pointer-events:none; }
     /* max-width so a group is never wider than the toolbar: without it a select with one long option sizes
        its group to that option and pushes the page sideways at 320px, where max-width:100% on the select
