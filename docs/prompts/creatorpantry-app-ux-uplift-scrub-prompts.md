@@ -1399,7 +1399,7 @@ is 476/476. The full showcase run was 6224/6245 with 1 skipped and 20 reds, all 
 
 *Those files then passed alone, 270/270. The affected features and the showcase pass alone, 840/840.*
 
-## AU.6.1 Pictures and the Content Board
+## AU.6.1 Pictures and the Content Board - done
 
 ```text
 SCOPE: Pictures (DAM): 'cards' skeletons, the AU.2.6 panel for assets still processing, illustrated "picture"
@@ -1414,6 +1414,91 @@ RESTRICTION: No change to upload, moves, ordering or the keyboard move control. 
 UTILIZATION: design-review.
 BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped. The owner approved both pages from a written sketch, with the AU.0 captures
+as the "before". No "after" screenshots were taken: the capture account's credentials were not in the environment.*
+
+*The 550px picture page had a different cause from the one this prompt gave:*
+
+- *The versions table has been in its own scroll region since before AU.0.*
+- *The cause was its last header, a `.cp-sr-only` "Download". It is absolutely positioned, and no ancestor was
+  positioned, so the region did not clip it. It sat at the hidden column's place, about x=550, and widened the page.*
+- *The region is now `position: relative`.*
+- *The usage history's table and `cp-list-shell`'s own region had the same latent bug, and are fixed the same way.*
+- *Specs measure the page in a 375px box. Each spec fails with the fix removed (423px and 872px) and passes with it.*
+- *`cp-enter` moves a list by `translate`, which also contains positioned descendants. A width spec must therefore
+  measure after the entrance ends, or it passes either way.*
+
+*Library:*
+
+- *`cp-list-shell` gained `[cpListShellLoading]`:*
+  - *a projected loading layout drawn in place of its skeleton;*
+  - *the same single "Loading…" and busy body;*
+  - *hidden from a screen reader by the shell itself.*
+- *`cp-media-card` treats a projected picture marked `data-cp-picture-pending` as not there yet:*
+  - *the panel shows in the same grid cell;*
+  - *the pending element stays laid out, at opacity 0, so a loader watching for the card to near the screen still
+    has a box to watch.*
+
+*Pictures:*
+
+- *`cards` skeletons.*
+- *The shared thumbnail is marked pending, and draws a skeleton, until its bytes arrive. A card therefore shows the
+  `picture` panel rather than a grey box.*
+- *A picture that can't be shown or loaded is still a notice on the card. A fault is not hidden under the panel.*
+- *The thumbnail gained `announce`. On the library's cards, the recipe library's cards and the picker's tiles it is
+  silent, because the list around them already said "Loading…" once; before, there was one status per card. Standing
+  alone (the picture page, a linked asset, the recipe media dialog) it says "Loading this picture…" in a region that
+  exists before it has words.*
+- *The list response carries no processing status, and a missing thumbnail is answered with the original. So
+  "still processing" is, honestly, "still on its way". No backend field was added.*
+- *First use is drawn (`picture`), with "Upload a picture" for anyone who may upload. Its sentence holds for every
+  role. No results is drawn (`search`).*
+- *An AI-made picture is `cp-generated-label kind="picture"` ("Made by AI"), on the card and in the picture page's
+  head, in place of the purple "AI generated" badge. This reverses AU.3.1's "kept on purpose", as this prompt asked.
+  The showcase's page-head and media-card examples follow.*
+- *The search placeholder is "Search pictures", as the other libraries' are. Its label is "Search pictures by title or
+  description", so the placeholder begins the accessible name (SC 2.5.3). The old name, "Search the library", did not
+  contain the old placeholder.*
+
+*Content Board:*
+
+- *While it loads, the board is the board arriving:*
+  - *its four columns under their real names;*
+  - *no count, because no number is claimed before the server sends one;*
+  - *skeleton cards 3, 2, 1, 2, each a `cp-card` of `cp-skeleton` lines.*
+- *First use is drawn (`board`), and no results is drawn (`search`).*
+- *An empty column keeps its quiet muted line, which was already there. A spec now holds it to a line, not an
+  empty state.*
+- *A spec asserts that no card is featured.*
+- *DESIGN-SYSTEM.md's board section says all three.*
+- *Moves, ordering, upload and the Move control are untouched.*
+
+*`design-review` found no blocker. Taken:*
+
+- *a lone picture had lost its loading announcement, now `announce`;*
+- *the loading slot's `aria-hidden` was only a convention, and is now the shell's;*
+- *the first-use sentence assumed the reader could upload.*
+
+*Left:*
+
+- *a ~4px overflow of the thumbnail's skeleton, clipped by its own frame;*
+- *the rule file's ambiguous "still under reduced motion" for `cp-skeleton`, which is older than this prompt.*
+
+*Also fixed, because it stopped `npm test` before the showcase ran: `cp-generated`'s entrance spec read the previous
+test's element without mounting its own, so it passed or failed by Karma's random order.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), and so does the safety copy. The
+library is 481/481. The full showcase run was 6205/6251 with 46 reds, all in known order-dependent families:*
+
+- *the content card and its schedule drawer;*
+- *landing;*
+- *My Week's moves;*
+- *brand defaults' drawer;*
+- *the recipe editor's scroll.*
+
+*Those files then passed alone, 650/651. The one red was the recipe editor's section-nav spec, which then passed
+238/238 in its own file. The changed features, the thumbnail's consumers and the showcase pass alone, 638/638.*
 
 ## AU.6.2 My Day and My Week
 

@@ -39,11 +39,12 @@ function picture(): Observable<DamAssetContentOutcome> {
 @Component({
   standalone: true,
   imports: [DamAssetThumbnailComponent],
-  template: `<cp-dam-asset-thumbnail [workspaceSlug]="slug()" [asset]="asset()" />`,
+  template: `<cp-dam-asset-thumbnail [workspaceSlug]="slug()" [asset]="asset()" [announce]="announce()" />`,
 })
 class HostComponent {
   readonly slug = signal('cozy-fall');
   readonly asset = signal(asset('a1'));
+  readonly announce = signal(true);
 }
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -115,7 +116,7 @@ describe('DamAssetThumbnailComponent', () => {
 
     expect(watched).toBe(1);
     expect(contentSpy).not.toHaveBeenCalled();
-    expect(root().querySelector('[role="status"]')).toBeNull();
+    expect(root().querySelector('[role="status"]')?.textContent?.trim()).toBe('');
 
     near.next();
     await settle();
@@ -124,17 +125,53 @@ describe('DamAssetThumbnailComponent', () => {
     expect(img()).toBeTruthy();
   });
 
-  it('says it is loading, then shows the picture through an object URL it made', async () => {
+  // AU.6.1: on its way it is marked pending — which a media card turns into its panel — and draws a skeleton.
+  // Standing alone it says so, in a region that was there before it had anything to say.
+  it('is marked pending with a skeleton while on its way, says so alone, then shows the picture through an object URL it made', async () => {
     const pending = new Subject<DamAssetContentOutcome>();
     contentSpy = jasmine.createSpy('content').and.returnValue(pending);
     await create();
 
-    expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading this picture');
+    const thumb = root().querySelector('cp-dam-asset-thumbnail') as HTMLElement;
+    const status = thumb.querySelector('[role="status"]') as HTMLElement;
+    expect(thumb.hasAttribute('data-cp-picture-pending')).toBeTrue();
+    expect(thumb.querySelector('cp-skeleton')?.getAttribute('aria-hidden')).toBe('true');
+    expect(status.textContent?.trim()).toBe('Loading this picture…');
 
     pending.next({ status: 'found', bytes: new Blob(['x'], { type: 'image/png' }) });
     await settle();
 
     expect(img()?.getAttribute('src')).toBe('blob:test/1');
+    expect(thumb.hasAttribute('data-cp-picture-pending')).toBeFalse();
+    expect(thumb.querySelector('cp-skeleton')).toBeNull();
+    expect(thumb.querySelector('[role="status"]')).toBe(status);
+    expect(status.textContent?.trim()).toBe('');
+  });
+
+  it('says nothing on a grid’s card, where the list around it already said it is loading', async () => {
+    contentSpy = jasmine.createSpy('content').and.returnValue(new Subject<DamAssetContentOutcome>());
+    await create();
+    fixture.componentInstance.announce.set(false);
+    await settle();
+
+    const thumb = root().querySelector('cp-dam-asset-thumbnail') as HTMLElement;
+    expect(thumb.hasAttribute('data-cp-picture-pending')).toBeTrue();
+    expect(thumb.querySelector('[role="status"]')).toBeNull();
+  });
+
+  it('is marked pending before its card nears the screen, and not once a picture cannot be shown', async () => {
+    contentSpy = jasmine.createSpy('content').and.returnValue(of({ status: 'gone' } as DamAssetContentOutcome));
+    await create({ visible: false });
+
+    const thumb = root().querySelector('cp-dam-asset-thumbnail') as HTMLElement;
+    expect(thumb.hasAttribute('data-cp-picture-pending')).toBeTrue();
+
+    near.next();
+    await settle();
+
+    // A fault is said on the card, not hidden under a panel that would read as "no picture".
+    expect(thumb.hasAttribute('data-cp-picture-pending')).toBeFalse();
+    expect(root().textContent).toContain("can't be shown");
   });
 
   it('never points an image at the gateway or at storage — only at a handle inside this browser', async () => {

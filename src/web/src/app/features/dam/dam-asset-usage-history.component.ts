@@ -132,8 +132,10 @@ interface PageRequest {
         margin: 0;
       }
       /* Five columns do not fit a narrow screen, so the table scrolls inside its own region rather than
-         pushing the page sideways. Focusable, so the scrolling is reachable by keyboard. */
+         pushing the page sideways. Focusable, so the scrolling is reachable by keyboard. Positioned, so
+         anything visually hidden in the table is clipped with it rather than widening the page (AU.6.1). */
       .scroll {
+        position: relative;
         overflow-x: auto;
       }
       .scroll:focus-visible,

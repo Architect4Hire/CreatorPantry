@@ -57,13 +57,27 @@
     }
   </div>
 
+  <!-- The board as it will arrive: its columns by name, with skeleton cards. Hidden from a screen reader, as a
+       skeleton is; the shell says "Loading…" once, and the columns are named when they are real. -->
+  <div cpListShellLoading aria-hidden="true">
+    <div cpBoard>
+      @for (column of loadingColumns; track column.column) {
+        <cp-board-column [heading]="columnLabels[column.column]" [headingLevel]="3">
+          @for (card of column.cards; track $index) {
+            <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+          }
+        </cp-board-column>
+      }
+    </div>
+  </div>
+
   <div cpListShellEmpty>
     @if (hasActiveFilters()) {
       <cp-empty-state
         title="No cards match these filters"
         description="Try a different channel or day, or clear the filters to see the whole board."
         variant="no-results"
-        icon="⌕"
+        illustration="search"
       >
         <div cpEmptyStateActions>
           <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
@@ -74,7 +88,7 @@
         title="Nothing planned yet"
         description="A card is one piece of work you mean to do. Add one here, or finish a Content Pipeline run and put it on the board from its last step."
         variant="first-use"
-        icon="▥"
+        illustration="board"
       >
         <div cpEmptyStateActions>
           <button cpButton variant="primary" type="button" (click)="openCreate()">New card</button>

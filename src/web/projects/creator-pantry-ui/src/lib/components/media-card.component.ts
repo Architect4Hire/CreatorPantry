@@ -31,6 +31,12 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
  * glyph is shown as text. The panel is decoration and is hidden from a screen reader; the title already says
  * what the card is. It is never a picture borrowed from something related.
  *
+ * **A picture on its way shows the panel too.** A projected element marked `data-cp-picture-pending` is a picture
+ * the feature has not got yet — not near the screen, or still being fetched. It keeps its place in the layout,
+ * because a loader watching for the card to near the screen needs a box to watch, but it is not seen: the panel
+ * is, in the same frame, until the feature takes the mark off (AU.6.1). The feature announces nothing per card;
+ * the list that is loading already has.
+ *
  * **The picture leans in.** Hovering or focusing the title scales the projected picture a little inside its
  * rounded frame, so the card answers the link without the card becoming one. Under reduced motion it stays put.
  *
@@ -105,6 +111,7 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
       /* The panel's 4:3, so a card with a picture and one without stand the same height whatever the consumer
          projects. The frame clips the picture's lean, so the zoom stays inside the rounded corners. */
       .picture {
+        grid-area: 1 / 1;
         aspect-ratio: 4 / 3;
         overflow: hidden;
         border-radius: var(--cp-radius-md);
@@ -127,6 +134,7 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
       /* A gingham drawn from the panel's own ink at 4%: faint on every tint, and in the tool's colour on a toned
          page because it is the drawing's colour. Where the squares cross they double, as a cloth's do. */
       .panel {
+        grid-area: 1 / 1;
         display: grid;
         place-items: center;
         aspect-ratio: 4 / 3;
@@ -185,11 +193,17 @@ export type CpMediaCardHeadingLevel = 2 | 3 | 4;
       /* The panel stands in for a picture; with one projected it goes, and with none the empty slot does.
          Last on purpose: :not(:has(> *)) adds no specificity, so only order puts these above the rules that
          give each element its display. */
-      .picture:has(> *) + .panel,
+      .picture:has(> :not([data-cp-picture-pending])) + .panel,
       .picture:not(:has(> *)),
       .badges:not(:has(> *)),
       .actions:not(:has(> *)) {
         display: none;
+      }
+      /* A picture on its way stays laid out, under the panel and unseen, so its loader can tell when it nears the
+         screen; the panel stands in until the mark comes off. */
+      .picture:has(> [data-cp-picture-pending]) {
+        opacity: 0;
+        pointer-events: none;
       }
     `,
   ],

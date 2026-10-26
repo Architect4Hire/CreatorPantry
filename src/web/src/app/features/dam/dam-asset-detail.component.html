@@ -4,7 +4,11 @@
   <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
   <ng-container ngProjectAs="[cpPageHeadBadges]">
     @if (asset(); as shown) {
-      <cp-badge [tone]="shown.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel() }}</cp-badge>
+      @if (shown.kind === 'AiGenerated') {
+        <cp-generated-label kind="picture" />
+      } @else {
+        <cp-badge>{{ kindLabel() }}</cp-badge>
+      }
       @if (channelName(); as name) {
         <cp-badge tone="blue">{{ name }}</cp-badge>
       }

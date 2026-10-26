@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { NEVER } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { ContentChannel } from '../../models/brand-profile.models';
@@ -158,11 +159,50 @@ describe('ContentBoardComponent', () => {
       expect(cardEl('a').querySelector('.title')!.tagName).toBe('H4');
     });
 
+    // AU.6.1: loading looks like the board arriving — its columns by name, with skeleton cards in each.
+    it('draws its four columns with skeleton cards while it loads, said once and hidden from a screen reader', async () => {
+      spyOn(server, 'list').and.returnValue(NEVER);
+      await mount();
+
+      const loading = root().querySelector('[cpListShellLoading]') as HTMLElement;
+      expect(loading.getAttribute('aria-hidden')).toBe('true');
+      expect(loading.closest('[aria-busy="true"]')).toBeTruthy();
+
+      const skeletonColumns = Array.from(loading.querySelectorAll('cp-board-column'));
+      expect(skeletonColumns.map((each) => each.querySelector('.heading')!.textContent)).toEqual([
+        'To do',
+        'In process',
+        'Ready for review',
+        'Approved',
+      ]);
+      expect(skeletonColumns.map((each) => each.querySelectorAll('cp-card cp-skeleton').length)).toEqual([3, 2, 1, 2]);
+      // No count is claimed before the server has given one.
+      expect(loading.querySelector('.count')).toBeNull();
+
+      // The shell's own skeleton is replaced, and "Loading…" is said by the shell alone.
+      expect(root().querySelectorAll('cp-skeleton').length).toBe(8);
+      const statuses = Array.from(root().querySelectorAll('cp-list-shell [role="status"]')).filter((each) =>
+        each.textContent?.includes('Loading'),
+      );
+      expect(statuses.length).toBe(1);
+      expect(root().querySelector('.title a')).toBeNull();
+    });
+
+    it('has no featured card: every card on a board is one of many', async () => {
+      await mount();
+
+      expect(root().querySelectorAll('cp-card').length).toBeGreaterThan(0);
+      expect(root().querySelector('cp-card.cp-card--featured')).toBeNull();
+    });
+
     it('says why an empty column is empty, and keeps it there to be dropped onto', async () => {
       await mount();
 
       const empty = column('Ready for review');
       expect(empty.textContent).toContain('Nothing here yet.');
+      // A quiet line, not an empty state: the board as a whole has one of those, a column does not.
+      expect(empty.querySelector('cp-empty-state')).toBeNull();
+      expect(empty.querySelector('.cp-muted')!.textContent!.trim()).toBe('Nothing here yet.');
       expect(empty.querySelector('.count [aria-hidden="true"]')!.textContent).toBe('0');
       expect(empty.querySelector('ul')).not.toBeNull();
     });
@@ -191,6 +231,7 @@ describe('ContentBoardComponent', () => {
 
       expect(text()).toContain('Nothing planned yet');
       expect(columns().length).toBe(0);
+      expect(root().querySelector('cp-empty-state cp-illustration')).toBeTruthy();
       expect(button('New card', root().querySelector('cp-empty-state')!)).toBeTruthy();
     });
 
@@ -295,6 +336,7 @@ describe('ContentBoardComponent', () => {
       await mount(`/${SLUG}/content-board?channel=blog`);
 
       expect(text()).toContain('No cards match these filters');
+      expect(root().querySelector('cp-empty-state cp-illustration')).toBeTruthy();
       button('Clear filters', root().querySelector('cp-empty-state')!).click();
       await settle();
       expect(titles('To do')).toEqual(['Soda bread', 'Ramen']);

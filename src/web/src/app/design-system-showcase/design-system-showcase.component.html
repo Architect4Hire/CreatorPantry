@@ -634,7 +634,7 @@
       <cp-card>
         <cp-page-head heading="Soda bread hero">
           <a cpBackLink cpPageHeadBreadcrumb href="#page-head-heading">DAM</a>
-          <cp-badge cpPageHeadBadges tone="purple">AI generated</cp-badge>
+          <cp-generated-label cpPageHeadBadges kind="picture" />
           <cp-badge cpPageHeadBadges tone="blue">Instagram</cp-badge>
         </cp-page-head>
       </cp-card>
@@ -738,6 +738,24 @@
         </ul>
       </cp-board-column>
     </div>
+    <p class="section-note">
+      While it loads, a board is the board arriving: its list shell takes the page's own
+      <code>[cpListShellLoading]</code> — the columns by name, no count, a few skeleton cards each, all
+      <code>aria-hidden</code> — and still says "Loading…" once. No card on a board is featured.
+    </p>
+    <cp-list-shell heading="Cards" state="loading">
+      <div cpListShellLoading aria-hidden="true">
+        <div cpBoard>
+          @for (column of boardSkeleton; track column.heading) {
+            <cp-board-column [heading]="column.heading" [headingLevel]="3">
+              @for (card of column.cards; track $index) {
+                <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+              }
+            </cp-board-column>
+          }
+        </div>
+      </div>
+    </cp-list-shell>
   </section>
 
   <section aria-labelledby="media-card-heading">
@@ -745,7 +763,8 @@
     <p class="section-note">
       One thing in a library, shown by its picture. The picture is projected — the feature that owns it
       authorises and loads it — and a drawn panel stands in when there is none, so a row of cards stays even:
-      a faint gingham and the kind's illustration, named or mapped from the older glyph. Hover or focus a title
+      a faint gingham and the kind's illustration, named or mapped from the older glyph. A picture still on its
+      way — its element marked <code>data-cp-picture-pending</code> — shows the panel too. Hover or focus a title
       and its picture leans in. The title is the link; the card is not one. An action that does not open the thing — a
       preview — goes last, in the actions slot.
     </p>
@@ -754,7 +773,7 @@
         <cp-media-card description="Shot close, against the window.">
           <img cpMediaCardPicture src="images/food/photo-1-480.jpg" alt="Noodles lifted from a bowl on a fork" />
           <a cpMediaCardTitle href="#media-card-heading">Noodle twirl hero</a>
-          <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
+          <cp-generated-label cpMediaCardBadges kind="picture" />
           <cp-badge cpMediaCardBadges tone="blue">Instagram</cp-badge>
           <dl cpFacts layout="inline">
             <div cpFact label="File">JPEG · 2.4 MB</div>
@@ -795,6 +814,14 @@
         </cp-media-card>
       </li>
       <li>
+        <cp-media-card illustration="picture" description="Its picture is still on its way.">
+          <!-- A feature's loader, not near the screen yet or still fetching: laid out, unseen, under the panel. -->
+          <span cpMediaCardPicture data-cp-picture-pending></span>
+          <a cpMediaCardTitle href="#media-card-heading">Lemon tart, overhead</a>
+          <cp-badge cpMediaCardBadges>Uploaded</cp-badge>
+        </cp-media-card>
+      </li>
+      <li>
         <cp-media-card>
           <a cpMediaCardTitle href="#media-card-heading">Title only</a>
         </cp-media-card>
@@ -806,7 +833,7 @@
         <cp-media-card description="Overhead, in the pan it baked in.">
           <img cpMediaCardPicture src="images/food/photo-11-480.jpg" alt="A fillet of fish with dill, tomatoes and lemon in a dark pan" />
           <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 2</a>
-          <cp-badge cpMediaCardBadges tone="purple">AI generated</cp-badge>
+          <cp-generated-label cpMediaCardBadges kind="picture" />
         </cp-media-card>
       </li>
       <li>

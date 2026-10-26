@@ -94,8 +94,11 @@ h3 {
 }
 
 /* Six columns do not fit a narrow screen, so the table scrolls inside its own region rather than pushing the
-   page sideways. Focusable, so the scrolling is reachable by keyboard. */
+   page sideways. Focusable, so the scrolling is reachable by keyboard. Positioned, so the visually hidden
+   "Download" header is clipped with the table: unpositioned, it escaped the region and held a 375px page at 550
+   (AU.0). */
 .scroll {
+  position: relative;
   overflow-x: auto;
 }
 

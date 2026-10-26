@@ -329,7 +329,10 @@ describe('DamAssetDetailComponent', () => {
 
     const head = root().querySelector('cp-page-head') as HTMLElement;
     expect(head.querySelector('h1')?.textContent).toBe('Soda bread hero');
-    expect(head.textContent).toContain('AI generated');
+    // The product's one mark for what a model made, not a purple badge of the page's own (AU.6.1).
+    expect(head.querySelector('cp-generated-label')?.textContent).toContain('Made by AI');
+    expect(head.querySelector('cp-badge[tone="purple"]')).toBeNull();
+    expect(head.textContent).not.toContain('AI generated');
     expect(head.textContent).toContain('Instagram');
     expect(head.textContent).toContain('Wednesday');
   });
@@ -1204,5 +1207,32 @@ describe('DamAssetDetailComponent', () => {
     const region = versions.querySelector('[role="region"]') as HTMLElement;
     expect(region.tabIndex).toBe(0);
     expect(region.getAttribute('aria-labelledby')).toBe('dam-versions-heading');
+  });
+
+  // AU.0: at 375px the page was 550px wide. The table scrolled in its region, but the visually hidden "Download"
+  // header is absolutely positioned and the region was not, so it escaped and widened the page.
+  it('never makes the page wider than a phone, whatever the versions table needs', async () => {
+    detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
+    await create();
+
+    // As global.css draws it; showcase specs load no global stylesheet.
+    const style = document.createElement('style');
+    style.textContent =
+      '.cp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}';
+    const phone = document.createElement('div');
+    phone.style.cssText = 'position: relative; width: 375px; overflow: auto';
+    phone.appendChild(harness.fixture.nativeElement);
+    document.head.appendChild(style);
+    document.body.appendChild(phone);
+
+    try {
+      const table = section('dam-versions-heading').querySelector('table') as HTMLElement;
+      // The table really is wider than the phone; it is the region that keeps it.
+      expect(table.scrollWidth).toBeGreaterThan(375);
+      expect(phone.scrollWidth).toBeLessThanOrEqual(375);
+    } finally {
+      phone.remove();
+      style.remove();
+    }
   });
 });

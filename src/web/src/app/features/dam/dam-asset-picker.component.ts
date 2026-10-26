@@ -107,7 +107,8 @@ const SEARCH_ID = 'cp-dam-picker-search';
           <ul cpCardGrid minColumn="9.5rem" aria-label="Library pictures">
             @for (asset of items(); track asset.id) {
               <li class="tile">
-                <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="asset" />
+                <!-- A grid: the picker says once that the library is loading, so its tiles stay quiet. -->
+                <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="asset" [announce]="false" />
                 <p class="tile-title">{{ asset.title }}</p>
                 <p class="tile-facts">{{ versionCountText(asset) }}</p>
                 <button

@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { VisibilityService } from '../../core/visibility.service';
 import { DamAssetPicture, damThumbnailAltText } from '../../models/dam-asset.models';
@@ -42,20 +42,27 @@ type PictureState = 'waiting' | 'loading' | 'ready' | 'gone' | 'unavailable';
  * **It owns its object URL and revokes it**, on replacement and on destroy, so leaving the library — or moving
  * to another workspace — does not leave that workspace's pictures alive in the tab.
  *
+ * **Until the bytes are here it is marked pending** (`data-cp-picture-pending`) and draws a skeleton, saying
+ * "Loading this picture…" only where it stands alone (`announce`). In a
+ * `cp-media-card` the mark is what tells the card to show its own panel instead (AU.6.1), so a library of
+ * pictures on their way reads as the same designed panel a card with no picture has, not as grey boxes.
+ *
  * **One picture failing is that card's problem.** Its states are its own, with its own retry, so a missing or
  * unreadable picture never fails the grid.
  */
 @Component({
   selector: 'cp-dam-asset-thumbnail',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
+  host: { '[attr.data-cp-picture-pending]': 'pending() ? "" : null' },
   template: `
+    <!-- Always present when it speaks at all: a live region inserted with its words may not be read. -->
+    @if (announce()) {
+      <p class="cp-sr-only" role="status">{{ state() === 'loading' ? 'Loading this picture…' : '' }}</p>
+    }
     @switch (state()) {
       @case ('ready') {
         <img [src]="objectUrl()" [alt]="altText()" />
-      }
-      @case ('loading') {
-        <p class="placeholder" role="status">Loading this picture…</p>
       }
       @case ('gone') {
         <cp-notice tone="warning" role="status">This picture can't be shown.</cp-notice>
@@ -69,8 +76,9 @@ type PictureState = 'waiting' | 'loading' | 'ready' | 'gone' | 'unavailable';
         </cp-notice>
       }
       @default {
-        <!-- Not near the screen yet. Nothing is announced: a card nobody has reached has nothing to report. -->
-        <span class="placeholder" aria-hidden="true"></span>
+        <!-- Not near the screen yet, or on its way. Said above when this picture stands alone; in a grid the list
+             around it has already said what is loading, and twenty-five cards saying it each would bury that. -->
+        <cp-skeleton shape="block" pictureAspect="4 / 3" />
       }
     }
   `,
@@ -96,10 +104,8 @@ type PictureState = 'waiting' | 'loading' | 'ready' | 'gone' | 'unavailable';
         object-fit: contain;
         border-radius: var(--cp-radius-sm);
       }
-      .placeholder {
-        margin: 0;
-        color: var(--cp-text-muted);
-        font-size: var(--cp-font-size-sm);
+      cp-skeleton {
+        width: 100%;
       }
     `,
   ],
@@ -129,8 +135,15 @@ export class DamAssetThumbnailComponent {
    */
   readonly rendition = input<PictureRendition>('thumbnail');
 
+  /**
+   * Whether this picture says it is loading. True for a picture that stands alone — a page's preview, a picker's
+   * choice — where nothing else would; false on a library's cards, whose list already said so once (AU.6.1).
+   */
+  readonly announce = input(true);
+
   protected readonly state = signal<PictureState>('waiting');
   protected readonly objectUrl = signal<string | null>(null);
+  protected readonly pending = computed(() => this.state() === 'waiting' || this.state() === 'loading');
 
   protected readonly altText = computed(() => damThumbnailAltText(this.asset()));
   protected readonly retryLabel = computed(() => `Try loading the picture for ${this.asset().title} again`);
