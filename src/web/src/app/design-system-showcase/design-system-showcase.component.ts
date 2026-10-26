@@ -73,7 +73,7 @@ import { BrandGuideChannelRule, BrandGuideChoice, BrandGuideSelection } from '..
 import { BrandGuideControlComponent } from '../shared/brand-guide-control/brand-guide-control.component';
 import { BrandVisualStyleControlComponent } from '../shared/brand-visual-style-control/brand-visual-style-control.component';
 import { BrandVisualReference, BrandVisualStyleLine } from '../models/brand-visual-style-control.models';
-import { ShellNavIcon, ShellNavIconComponent } from '../shell/shell-nav-icon.component';
+import { ShellNavIcon, ShellNavIconComponent } from '../shared/nav-icon/shell-nav-icon.component';
 
 type QuickActionTone = Exclude<CpTone, 'neutral'>;
 

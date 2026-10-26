@@ -113,7 +113,7 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/features/ai/recipe-first-draft-review.component.css',
     rule: 'card-grid',
-    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has no across layout; give it one and this goes.",
+    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has had an `across` layout since AU.4.3, for figures with no control; whether these can move to it is AU.5.1's to settle.",
   },
   {
     file: 'src/app/features/ai/recipe-concept-studio.component.css',

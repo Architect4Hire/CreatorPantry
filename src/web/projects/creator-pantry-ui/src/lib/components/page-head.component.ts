@@ -148,6 +148,19 @@ import { ChangeDetectionStrategy, Component, ElementRef, input, viewChild } from
         }
       }
 
+      /* On paper a head is its words. The picture is there to recognise the record on screen and the tile to say
+         which tool this is; neither is the page's content, and a printout that gained either would change what
+         a page has always printed. The title goes back to the full width the picture took a column of. */
+      @media print {
+        .media,
+        .icon {
+          display: none;
+        }
+        .masthead:has(.media > *) {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
       .breadcrumb {
         margin-bottom: var(--cp-space-1);
       }

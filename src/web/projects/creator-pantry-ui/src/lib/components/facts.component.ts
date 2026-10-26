@@ -1,7 +1,7 @@
 import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /** How a fact's term sits against its value. */
-export type CpFactsLayout = 'stacked' | 'inline';
+export type CpFactsLayout = 'stacked' | 'inline' | 'across';
 
 /**
  * A list of facts about one thing: what kind of file, how many versions, when it was added.
@@ -9,7 +9,9 @@ export type CpFactsLayout = 'stacked' | 'inline';
  * **Why a component.** Nineteen feature stylesheets declared a `.facts`. This is DAM's two, which are the two
  * there are: `stacked` on a page about the thing, where a small muted term sits over its value and a value
  * may run to a paragraph; and `inline` on a card in a list, where term and value share a line and there are
- * only ever a few short ones.
+ * only ever a few short ones. A third, `across` (AU.4.3), is a page's strip of a few short figures read before
+ * anything else — a recipe's yield and times under its head — each a small term over its value, side by side
+ * and wrapping onto another line rather than one fact to a line.
  *
  * **A real description list.** An attribute on the consumer's own `<dl>`, with `cpFact` on each `<div>`
  * inside it, because a `<dl>` may hold only `<div>`, `<dt>` and `<dd>` — a custom element between the list
@@ -32,12 +34,17 @@ export type CpFactsLayout = 'stacked' | 'inline';
         gap: var(--cp-space-1);
         font-size: var(--cp-font-size-sm);
       }
+      :host([data-layout='across']) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--cp-space-3) var(--cp-space-8);
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpFactsComponent {
-  /** `stacked` for a page about the thing; `inline` for a card in a list. */
+  /** `stacked` for a page about the thing; `inline` for a card in a list; `across` for a strip of short figures. */
   readonly layout = input<CpFactsLayout>('stacked');
 }
 
@@ -75,6 +82,10 @@ export class CpFactsComponent {
       }
       :host-context(dl[data-layout='inline']) dt {
         font-size: inherit;
+      }
+      /* Across, a fact is read at a glance: the term stays small and over its value, and the value is bold. */
+      :host-context(dl[data-layout='across']) dd {
+        font-weight: 600;
       }
     `,
   ],

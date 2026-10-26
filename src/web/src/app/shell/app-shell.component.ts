@@ -16,7 +16,7 @@ import { QuickCaptureLink, quickCaptureLinkFrom } from '../shared/quick-capture/
 import { QuickCaptureService } from '../shared/quick-capture/quick-capture.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 import { CpLogoComponent } from '../shared/logo/logo.component';
-import { ShellNavIcon, ShellNavIconComponent } from './shell-nav-icon.component';
+import { ShellNavIcon, ShellNavIconComponent } from '../shared/nav-icon/shell-nav-icon.component';
 
 /**
  * The width a routed page asks the shell's frame for, through `data: { pageWidth }` beside its `title`.

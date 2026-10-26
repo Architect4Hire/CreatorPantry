@@ -116,6 +116,7 @@ A page has one `h1`, and `CpPageHeadComponent` prints it; the shell prints none.
   - Where the page it sits under is itself the record that could not be found — the kitchen view of a recipe that is gone — the link goes one further up, to the nearest page that exists.
 - **The title is the route's name, or the record's.** A page about one record prints that record's own title; every other page prints its route's `title` through `injectRouteTitle()`, so the tab and the page cannot disagree. A page whose state changes what it is — not found, removed — changes the head's `heading` rather than printing a second heading somewhere else.
 - **Focus goes to the title when the page replaces what was being acted on.** `focusHeading()`; the ring shows on `:focus`, because script focus after a pointer click is not keyboard focus to a browser.
+- **On paper a head is its words.** Under `@media print` the head leaves off the record's picture and the tool's tile and gives the title back the full width, so a page that prints — the kitchen view — prints as it did before either existed.
 - **A page head carries `--cp-space-6` beneath it.** A page laid out as a grid, whose gap is already that space, zeroes the margin.
 
 ### A grid of cards
@@ -194,7 +195,7 @@ radio and no arrow keys between cards.
 
 ### Facts
 
-Term-and-value pairs are a `<dl>` with `cpFacts`, one `<div cpFact label="…">` per pair. `stacked` on a page about the thing, where a value may run to a paragraph; `inline` on a card, where there are a few short ones. A value that is the creator's own words takes `prose` and keeps its line breaks.
+Term-and-value pairs are a `<dl>` with `cpFacts`, one `<div cpFact label="…">` per pair. `stacked` on a page about the thing, where a value may run to a paragraph; `inline` on a card, where there are a few short ones; `across` for a strip of a few short figures a page is read by first — a recipe's yield and times under its head — each a small term over a bold value, side by side and wrapping. A value that is the creator's own words takes `prose` and keeps its line breaks.
 
 ### Search and filters in a toolbar
 
@@ -319,9 +320,9 @@ journeys move onto it.
 
 A page that is none of the three — the recipe editor, the kitchen view, a studio that is one long form — still takes the frame and the page head, and owes nothing more to these shapes:
 
-- **The recipe editor** is one form under one Save, so its head carries what acts on the whole recipe: the breadcrumb to Recipes, the recipe's name, and in the action slot the "Unsaved changes" and "Total time will be recalculated" notes, Print, Kitchen view, Archive and Save. Everything under the head is the form, and "Tabs, anchor navs, and one Save" governs it.
+- **The recipe editor** is one form under one Save, so its head carries what acts on the whole recipe: the breadcrumb to Recipes, the recipes icon, the recipe's lead picture (its Hero link, described by the asset's stored alt text), the recipe's name, and in the action slot the "Unsaved changes" and "Total time will be recalculated" notes, Print, Kitchen view, Archive and Save. Under the head is a `dl[cpFacts]` `across` strip of the yield and times **as saved** — it moves when a saved recipe arrives (a save, a restore, an apply), never on a keystroke, and Total is the stored total. Everything under that is the form, and "Tabs, anchor navs, and one Save" governs it.
 - **A studio that is one form** (Image Studio, the recipe concept studio's brief) keeps that form in one `cp-card` with its legend and sections, as "The shape of a form" has it. Its results — a chosen concept, what the model flagged — are topic cards under the list they belong to.
-- **The kitchen view** is a page to cook from and to print. Its head is the recipe's name and description; the way back and the controls are for the screen only. On paper the head is the title and the description at the sizes the page has always printed them, which is the one place a feature stylesheet reaches into `cp-page-head` (under `@media print`, with `::ng-deep`), because a printed recipe sets its own type.
+- **The kitchen view** is a page to cook from and to print. Its head is the recipe's name and description, with the recipes icon and the lead picture as the editor has them; the way back, the controls, the icon and the picture are for the screen only. On paper the head is the title and the description at the sizes the page has always printed them, which is the one place a feature stylesheet reaches into `cp-page-head` (under `@media print`, with `::ng-deep`), because a printed recipe sets its own type.
 - **A long draft to review** (the first-draft review) keeps its own sections with a sticky anchor nav: each section's heading is a jump target that has to clear the nav, and each holds cards of its own, so the sections are not topic cards.
 
 ### Inline, a drawer or a dialog
@@ -540,7 +541,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 
-A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, which goes when `dl[cpFacts]` has an across layout.
+A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, each with an edit control of its own, which AU.5.1 weighs against `dl[cpFacts]`'s `across` layout.
 
 ## Confirmations
 

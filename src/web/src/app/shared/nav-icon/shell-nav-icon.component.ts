@@ -21,8 +21,9 @@ export type ShellNavIcon =
  * active state with the label beside it. Decorative: the link's text names it, so the consumer hides this from
  * assistive technology.
  *
- * Shell chrome rather than a library part: the icons name this product's sections, which the domain-neutral
- * library must not know about.
+ * An application part rather than a library one: the icons name this product's sections, which the
+ * domain-neutral library must not know about. It is in `shared/` because a page projects its section's icon into
+ * `cp-page-head`'s `[cpPageHeadIcon]` tile (AU.2.5), the same drawing the sidebar shows beside that section.
  */
 @Component({
   selector: 'cp-shell-nav-icon',

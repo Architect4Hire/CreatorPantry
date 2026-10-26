@@ -1024,7 +1024,7 @@ BEHAVIOR: Show the query change, the ServiceModel diff and the card in both them
 implement; run dotnet build, npm run build and npm test; report what AU.8 must run for this prompt.
 ```
 
-## AU.4.3 Recipe detail as the editorial face of the app
+## AU.4.3 Recipe detail as the editorial face of the app - done
 
 ```text
 SCOPE: Give the recipe detail page (and the kitchen view's on-screen head, not its print layout) the AU.2.5
@@ -1048,6 +1048,61 @@ BEHAVIOR: Show the layout; wait for approval; implement with specs; run npm run 
 src/web.
 ```
 
+*Delivery note (2026-10-26): shipped. The "recipe detail page" is the editor at `/recipes/:id`; there is no other.
+The owner approved the layout as a written sketch and settled three questions:*
+
+- *The editor's three form tabs stay. Merging Ingredients and Instructions into one side-by-side tab was offered
+  and declined, so side by side stays where it already was, in the kitchen view. The AU.0 navigation tiers at
+  375px are unchanged.*
+- *With no stored alt text, the picture's alt is the libraries' own sentence ("Picture titled “…”. No
+  description has been written for it."), not `alt=""`.*
+- *The picture and the icon tile come off paper by a print rule in `cp-page-head`, not by widening the kitchen
+  view's `::ng-deep` print rule. The kitchen stylesheet's print block and all four of its exemptions are
+  untouched.*
+
+*What shipped:*
+
+- *Both pages: the recipes nav icon in `[cpPageHeadIcon]`, in every state. Also, the Hero picture in
+  `[cpPageHeadMedia]` as the page's own `<img>`: the first `Hero` link by order, the asset read for its title
+  and alt text, then its `web` copy (or the pinned version's) as an object URL that is revoked when it changes
+  or the page goes (`RecipeHeroPicture`, `features/recipes/recipe-head.ts`). A skeleton holds the slot while
+  it loads. A gone or unreadable picture leaves the slot empty.*
+- *The editor: a `dl[cpFacts]` strip under the head, filled from `recipeFacts()`, which the kitchen view now
+  shares. It shows Makes (the yield text verbatim), Serves (its own fact), Prep, Cook, Rest and the stored
+  Total. It is as saved: it moves when a saved recipe arrives (a save, a restore, an apply, a media or status
+  change), never on a keystroke.*
+- *Skeletons on both pages while the recipe loads, and one visually hidden status sentence that is always in
+  the page.*
+- *Library: `dl[cpFacts]` has a third layout, `across` (facts side by side, a small term over a bold value,
+  wrapping). Neither `stacked` nor `inline` made a strip, and decision 4 puts the look in the library. Also,
+  `cp-page-head` leaves the picture and the tile off paper and gives the title back the full width. Docs,
+  showcase and the design-system rule are updated.*
+- *`shell-nav-icon.component.ts` moved to `src/app/shared/nav-icon/` (AU.5.1 had it; this prompt projected it
+  first). The nav's own rendering is unchanged.*
+
+*Print proof: the kitchen view under print media was rendered for Matzo Ball Soup (which has a Hero) as
+shipped, and again with the nodes this prompt adds taken out of the DOM, leaving the markup it had before. The
+two were pixel-identical. On paper the picture and the tile are `display: none` and the masthead is one column.*
+
+*`design-review` raised these:*
+
+- *Fixed: the loading status line was a live region created already holding its text. It is now always in the
+  page.*
+- *Fixed: the strip's comment and DESIGN-SYSTEM.md disagreed about when it moves.*
+- *Fixed: a re-export left behind for one spec.*
+- *Left for the owner, as AU.2.5 recorded: at 375px the picture is 341×255px above the title, and the head of a
+  recipe with one ends about 250px lower than one without.*
+- *Left for the owner: "Makes" over a yield that is itself a serving sentence ("Serves 6"). The kitchen view
+  already showed it so.*
+- *Left for the owner: the kitchen view keeps its exempt `.facts`, so the same figures have two
+  implementations until its print is reworked.*
+- *Passed to AU.5.1: the first-draft review's across-reading values and `across`.*
+
+*`npm run build` passes. The library is 471/471 and the page contract holds. The showcase was 6168/6168
+before the review fixes. After them, one run had 10 reds, all in the known intermittent families (landing
+credits, pricing and collage, and the editor's step-layout spec), and the editor and landing specs then
+passed alone (415/415). Two `CpMediaCardComponent` focus specs failed once in an earlier run and passed alone.*
+
 ## AU.5.1 AI Recipe Studio
 
 ```text
@@ -1059,9 +1114,10 @@ The route wears the purple tone and its page head the studio's icon. From AU.0: 
 whole sentences with ", " (suggestedIngredients, dietaryNotes, assumptions in
 recipe-concept-studio.component.html), which prints "components., Dietary goals". Show a list of sentences
 as a list, and keep comma-joining for lists of words. From AU.2.5: the page head's icon is a [cpPageHeadIcon]
-slot that takes the nav's own cp-shell-nav-icon. Before the first studio projects it, move
-shell-nav-icon.component.ts from src/app/shell/ to src/app/shared/ (two import paths, no change to how the nav
-renders) so features do not depend on the shell; AU.5.2–AU.5.4 then do the same with their own icons.
+slot that takes the nav's own cp-shell-nav-icon, which AU.4.3 moved to src/app/shared/nav-icon/ so features do
+not depend on the shell; import it from there, as AU.5.2–AU.5.4 do with their own icons. From AU.4.3:
+dl[cpFacts] now has an `across` layout. Settle whether recipe-first-draft-review's .draft-fields-grid (short
+values, each with its own edit control) moves to it, and drop its card-grid exemption if it does.
 CONSTRAINT: APP-006, APP-007; ai.md (proposals, not applied); recipes.md "Safety and claims" (dietary notes
 stay labelled descriptive, never a guarantee); the AU.3.1 audit's leftovers for features/ai.
 RESTRICTION: No change to prompts, generation, what is saved or the order of steps. The "descriptive only, not

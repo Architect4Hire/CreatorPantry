@@ -207,6 +207,26 @@ describe('CpPageHeadComponent — tone, icon and picture', () => {
     expect(Math.abs(picture.width - frame.clientWidth)).toBeLessThanOrEqual(1);
     expect(Math.abs(picture.height - frame.clientHeight)).toBeLessThanOrEqual(1);
   });
+
+  it('leaves the picture and the tile off paper, and gives the title back the full width', () => {
+    // A test cannot switch to print media, so this reads the rules the component ships under it.
+    mount((h) => {
+      h.media.set(true);
+      h.icon.set(true);
+    });
+    const printed = Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules))
+      .filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule && rule.conditionText === 'print')
+      .flatMap((rule) => Array.from(rule.cssRules) as CSSStyleRule[]);
+
+    const hidden = printed.filter((rule) => rule.style.display === 'none');
+    expect(hidden.some((rule) => /(^|,\s*)\.media\[/.test(rule.selectorText))).withContext('the picture').toBeTrue();
+    expect(hidden.some((rule) => /(^|,\s*)\.icon\[/.test(rule.selectorText))).withContext('the tile').toBeTrue();
+
+    const masthead = printed.filter((rule) => rule.selectorText?.startsWith('.masthead'));
+    expect(masthead.length).toBe(1);
+    expect(masthead[0].style.gridTemplateColumns).toMatch(/^minmax\(0(px)?, 1fr\)$/);
+  });
 });
 
 describe('CpBackLinkComponent', () => {

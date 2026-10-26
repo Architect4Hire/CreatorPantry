@@ -1,7 +1,7 @@
 import { By } from '@angular/platform-browser';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ApplicationRef, Component, DestroyRef, signal } from '@angular/core';
+import { ApplicationRef, Component, DestroyRef, Provider, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -21,6 +21,9 @@ import {
   RecipeIngredient,
 } from '../../models/recipe.models';
 import { RecipeService } from '../../services/recipe.service';
+import { DamAssetContentOutcome, DamAssetDetailOutcome, DamAssetService } from '../../services/dam-asset.service';
+import { assetDetail, mediaLink } from './recipe-media.testing';
+import { Observable, of } from 'rxjs';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 
 /**
@@ -188,6 +191,7 @@ async function createHarness(
   confirm: ReturnType<typeof confirmServiceStub> = confirmServiceStub(),
   role: WorkspaceRole | null = 'Editor',
   gatewayUrl: string | null = null,
+  extraProviders: Provider[] = [],
 ) {
   confirmService = confirm;
 
@@ -222,6 +226,7 @@ async function createHarness(
       ]),
       { provide: RecipeService, useValue: recipeService },
       { provide: WorkspaceMembershipService, useValue: membershipServiceStub(role) },
+      ...extraProviders,
     ],
   }).compileComponents();
 
@@ -6382,6 +6387,126 @@ describe('RecipeEditorComponent', () => {
 
       expect(recipeService.getRecipeDetail).toHaveBeenCalledTimes(2);
       expect(component.savedAssetLinks()).toEqual(LINKED.assetLinks);
+    });
+  });
+
+  describe('the page head and the facts under it (AU.4.3)', () => {
+    /** The lead picture's asset and bytes, asked for only when the recipe has a lead picture. */
+    class StubDamAssetService {
+      readonly calls: string[] = [];
+
+      detail(workspaceSlug: string, assetId: string): Observable<DamAssetDetailOutcome> {
+        this.calls.push(`detail ${workspaceSlug} ${assetId}`);
+        return of({ status: 'found', asset: assetDetail({ id: assetId, altText: 'A bowl of chili with sour cream' }) });
+      }
+
+      content(): Observable<DamAssetContentOutcome> {
+        return of({ status: 'found', bytes: new Blob(['picture'], { type: 'image/png' }) });
+      }
+    }
+
+    const TIMED: RecipeDetail = {
+      ...RECIPE_DETAIL,
+      yieldText: 'A big pot',
+      servingCount: 8,
+      prepTimeMinutes: 20,
+      cookTimeMinutes: 120,
+      // Not the sum of the two above, on purpose: the stored total is what is shown.
+      totalTimeMinutes: 180,
+    };
+
+    function factsOf(root: HTMLElement): string[] {
+      return Array.from(root.querySelectorAll('dl[cpFacts] > div')).map((fact) =>
+        `${fact.querySelector('dt')?.textContent?.trim()}: ${fact.querySelector('dd')?.textContent?.trim()}`,
+      );
+    }
+
+    async function open(recipe: RecipeDetail, assets = new StubDamAssetService()) {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe });
+      const opened = await createHarness('/cozy-fall/recipes/r1', recipeService, undefined, 'Editor', null, [
+        { provide: DamAssetService, useValue: assets },
+      ]);
+
+      return { ...opened, recipeService, assets, root: opened.harness.routeNativeElement! };
+    }
+
+    it('sets the yield and times under the head as stored, in one strip, the serving count a fact of its own', async () => {
+      const { root } = await open(TIMED);
+
+      const strip = root.querySelector('cp-page-head + dl[cpFacts]');
+      expect(strip?.getAttribute('data-layout')).toBe('across');
+      expect(factsOf(root)).toEqual(['Makes: A big pot', 'Serves: 8', 'Prep: 20 min', 'Cook: 2 hr', 'Total: 3 hr']);
+    });
+
+    it('has no strip for a recipe that records none of them', async () => {
+      expect((await open(RECIPE_DETAIL)).root.querySelector('dl[cpFacts]')).toBeNull();
+    });
+
+    it('has no strip for a recipe being created', async () => {
+      const { harness } = await createHarness('/cozy-fall/recipes/new', recipeServiceSpy());
+      expect(harness.routeNativeElement!.querySelector('dl[cpFacts]')).toBeNull();
+    });
+
+    it('says what the recipe is until a save says otherwise, not what the form is about to make it', async () => {
+      const { root, harness, component, recipeService } = await open(TIMED);
+
+      component.form.yieldText.set('Two big pots');
+      component.form.prepTimeMinutes.set(45);
+      harness.detectChanges();
+      expect(factsOf(root)).toContain('Makes: A big pot');
+      expect(factsOf(root)).toContain('Prep: 20 min');
+
+      recipeService.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: { ...TIMED, yieldText: 'Two big pots', prepTimeMinutes: 45, totalTimeMinutes: 165, concurrencyToken: 'AAAAAAAAB9I=' },
+      });
+      await component.save();
+      harness.detectChanges();
+
+      expect(factsOf(root)).toEqual(['Makes: Two big pots', 'Serves: 8', 'Prep: 45 min', 'Cook: 2 hr', 'Total: 2 hr 45 min']);
+    });
+
+    it("puts the recipes section's icon in the head's tile", async () => {
+      expect((await open(RECIPE_DETAIL)).root.querySelector('cp-page-head .icon cp-shell-nav-icon')).not.toBeNull();
+    });
+
+    it("keeps the section's icon in the head of a recipe that is not there", async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.resolveTo({ status: 'not_found' });
+      const { harness } = await createHarness('/cozy-fall/recipes/missing', recipeService);
+      expect(harness.routeNativeElement!.querySelector('cp-page-head .icon cp-shell-nav-icon')).not.toBeNull();
+    });
+
+    it("shows the recipe's lead picture in the head, described by the alt text the creator wrote", async () => {
+      const { root, assets } = await open({
+        ...RECIPE_DETAIL,
+        assetLinks: [mediaLink({ id: 'g', role: 'Gallery', mediaAssetId: 'a1' }), mediaLink({ id: 'h', role: 'Hero', mediaAssetId: 'a7' })],
+      });
+
+      const picture = root.querySelector<HTMLImageElement>('cp-page-head .media img');
+      // The Media tab reads every linked asset for its own rows; the head reads the lead picture's.
+      expect(assets.calls).toContain('detail cozy-fall a7');
+      expect(picture?.getAttribute('src')).toMatch(/^blob:/);
+      expect(picture?.alt).toBe('A bowl of chili with sour cream');
+    });
+
+    it('gives a recipe with no lead picture no picture, whatever else it links', async () => {
+      const { root } = await open({ ...RECIPE_DETAIL, assetLinks: [mediaLink({ role: 'Gallery' })] });
+
+      expect(root.querySelector('cp-page-head .media')!.children.length).toBe(0);
+    });
+
+    it('draws the page that is coming while it loads, and says so once, offscreen', async () => {
+      const recipeService = recipeServiceSpy();
+      recipeService.getRecipeDetail.and.returnValue(new Promise(() => undefined));
+      const { harness } = await createHarness('/cozy-fall/recipes/r1', recipeService);
+      const root = harness.routeNativeElement!;
+
+      expect(root.querySelectorAll('.loading[aria-busy="true"] cp-skeleton').length).toBe(3);
+      const status = root.querySelector('[role="status"]');
+      expect(status?.textContent?.trim()).toBe('Loading recipe…');
+      expect(status?.classList).toContain('cp-sr-only');
     });
   });
 });

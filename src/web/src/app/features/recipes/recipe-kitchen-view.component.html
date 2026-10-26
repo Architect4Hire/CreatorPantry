@@ -1,10 +1,23 @@
+<!-- Always in the page, so the words are announced when they change: a live region created already holding
+     its text may never be read. -->
+<p class="cp-sr-only" role="status">{{ loadState().status === 'loading' ? 'Loading recipe…' : '' }}</p>
+
 @switch (loadState().status) {
   @case ('loading') {
     <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
     <cp-page-head [heading]="pageTitle">
       <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes', recipeId]">Edit recipe</a>
+      <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
     </cp-page-head>
-    <p class="status" role="status">Loading recipe…</p>
+    <!-- The shape of the page that is coming (APP-003): the facts line, then the ingredients beside the method.
+         The silhouettes are aria-hidden, so the one thing said is the status line above, outside the busy region. -->
+    <div class="loading" aria-busy="true">
+      <cp-skeleton class="loading-facts" shape="line" />
+      <div class="layout">
+        <cp-skeleton shape="line" [count]="8" />
+        <cp-skeleton shape="line" [count]="12" />
+      </div>
+    </div>
   }
   @case ('not_found') {
     <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
@@ -12,6 +25,7 @@
          the nearest page that exists. -->
     <cp-page-head [heading]="pageTitle">
       <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+      <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
     </cp-page-head>
     <cp-empty-state title="Recipe not found" description="It may have been removed, or the link is incorrect." icon="⚠">
       <div cpEmptyStateActions>
@@ -23,6 +37,7 @@
     <!-- No title of its own in this state, so the page's one h1 is the route's name. -->
     <cp-page-head [heading]="pageTitle">
       <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes', recipeId]">Edit recipe</a>
+      <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
     </cp-page-head>
     <cp-empty-state title="Couldn't load this recipe" description="Check your connection and try again." icon="⚠">
       <div cpEmptyStateActions>
@@ -34,9 +49,18 @@
     @if (loadState(); as state) {
       @if (state.status === 'ready') {
         <!-- The head is the recipe's name and, on paper, nothing else: the way back and the controls are for
-             using the page, and the kitchen stylesheet takes them off the print. -->
+             using the page, and the kitchen stylesheet takes them off the print. The picture and the section's
+             tile are for the screen too, and cp-page-head leaves those off paper itself. -->
         <cp-page-head class="kitchen-head" [heading]="state.recipe.title" [lede]="state.recipe.description ?? ''">
           <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes', recipeId]">Edit recipe</a>
+          <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
+          <!-- The recipe's lead picture, or nothing: one that cannot be shown leaves the slot empty. -->
+          @let picture = hero.state();
+          @if (picture.status === 'ready') {
+            <img cpPageHeadMedia [src]="picture.url" [alt]="picture.alt" />
+          } @else if (picture.status === 'loading') {
+            <cp-skeleton cpPageHeadMedia shape="block" />
+          }
           <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
           <ng-container ngProjectAs="[cpPageHeadActions]">
             <!-- A propped-up phone locks itself inside one step. Off until asked for, and not remembered. -->

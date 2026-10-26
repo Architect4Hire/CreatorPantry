@@ -894,9 +894,17 @@
     <p class="section-note">
       One topic on a page about a single thing: a heading that names its region, a body held to the reading
       measure, and the actions last. <code>wide</code> lifts the measure for a table. The facts list is a real
-      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above.
+      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above, and
+      <code>across</code> for a strip of short figures read first, as under a recipe's head.
     </p>
     <div class="showcase-stack">
+      <dl cpFacts layout="across">
+        <div cpFact label="Makes">One 10-inch skillet</div>
+        <div cpFact label="Serves">8</div>
+        <div cpFact label="Prep">15 min</div>
+        <div cpFact label="Cook">25 min</div>
+        <div cpFact label="Total">1 hr 30 min</div>
+      </dl>
       <cp-topic-card heading="About this picture" [headingLevel]="3">
         <dl cpFacts>
           <div cpFact label="Description" prose>{{ topicCardNotes }}</div>
