@@ -12,10 +12,18 @@ function valueOf(event: Event): number {
   return Number((event.target as HTMLInputElement).value);
 }
 
-/** One line of the menu: what the page calls the action, and which rate the catalogue prices it with. */
+/**
+ * One line of the menu: what the page calls the action, which rate the catalogue prices it with, and whether
+ * that rate is a typical figure ("about") or what the action is charged.
+ */
 export interface CreditMenuLine {
   readonly label: string;
   readonly rateOf: (rates: CreditRates) => number;
+  /**
+   * Writing settles at the tokens the model reported (AP.2.1), so its figure is typical and says "about". A
+   * picture is charged its rate per picture, so it does not.
+   */
+  readonly typical: boolean;
 }
 
 /** Where the estimator's sliders start and stop. Round numbers a creator can aim at, not a computed range. */
@@ -77,9 +85,9 @@ export class LandingCreditsComponent {
    * a menu pricing a draft and a high-quality one would be pricing pictures nobody can make.
    */
   protected readonly menu: readonly CreditMenuLine[] = [
-    { label: 'A text draft', rateOf: (rates) => rates.textDraft },
-    { label: 'A long-form section', rateOf: (rates) => rates.longFormSection },
-    { label: 'A picture', rateOf: (rates) => rates.imageStandard },
+    { label: 'A recipe draft or post', rateOf: (rates) => rates.textDraft, typical: true },
+    { label: 'A long-form section', rateOf: (rates) => rates.longFormSection, typical: true },
+    { label: 'A picture', rateOf: (rates) => rates.imageStandard, typical: false },
   ];
 
   protected readonly picturesAMonth = signal<number>(PICTURES_PER_MONTH.start);

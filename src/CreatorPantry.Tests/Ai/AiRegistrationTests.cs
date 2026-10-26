@@ -1,5 +1,6 @@
 using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Tests.AiUsage;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -200,11 +201,138 @@ public sealed class AiRegistrationTests
         Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Outside development the chat model must be rated and priced (AP.2.1), so the shared fixture deployment
+    /// carries both unless a case says otherwise. The figures are arbitrary; only their presence is read here.
+    /// </summary>
+    private static readonly Dictionary<string, string?> RatedFixtureModel = new()
+    {
+        ["Ai:Quota:ModelRates:phi-4-mini-instruct-generic-gpu:CreditsPerMillionInputTokens"] = "1",
+        ["Ai:Quota:ModelRates:phi-4-mini-instruct-generic-gpu:CreditsPerMillionOutputTokens"] = "1",
+        ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:InputPerMillionTokens"] = "0.001",
+        ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:OutputPerMillionTokens"] = "0.001",
+    };
+
+    private const string AzureChat =
+        "Endpoint=https://example.openai.azure.com/openai/deployments/{0};Key=chat-test-key;DeploymentId={0}";
+
+    /// <summary>
+    /// An unrated chat model starts and settles every call at the flat estimate, with its cost unknown. Outside
+    /// development that is found at startup, by name, rather than on an invoice.
+    /// </summary>
+    [Fact]
+    public void Unrated_chat_model_outside_development_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-9-unpriced"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production));
+
+        Assert.Contains("'gpt-9-unpriced'", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Quota:ModelRates", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Cost:Models", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("chat-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A rate with no price, or a price with no rate, is half a configuration, and is named as such.</summary>
+    [Fact]
+    public void A_chat_model_rated_but_not_priced_names_the_missing_half()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            // A model the shipped tables do not hold: the host also reads the output folder's appsettings.json.
+            chat: string.Format(AzureChat, "gpt-test-rated-only"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new()
+            {
+                ["Ai:Quota:ModelRates:gpt-test-rated-only:CreditsPerMillionInputTokens"] = "250",
+                ["Ai:Quota:ModelRates:gpt-test-rated-only:CreditsPerMillionOutputTokens"] = "1562.5",
+            }));
+
+        Assert.Contains("Ai:Cost:Models", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ai:Quota:ModelRates", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The deployed configuration as shipped: the API's own rate table rates the model the Azure deployment
+    /// runs, under its plain name and under a dated deployment name alike.
+    /// </summary>
+    [Theory]
+    [InlineData("gpt-5.4-nano")]
+    [InlineData("gpt-4o-mini-2024-07-18")]
+    public void The_shipped_rate_table_lets_a_rated_deployment_start(string deployment)
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, deployment),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: ModelRateTableTests.ShippedRateSettings());
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
+    /// <summary>A deployment named for its role rather than its model says which model it runs.</summary>
+    [Fact]
+    public void The_declared_model_is_checked_instead_of_the_deployment_name()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "chat"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Gateway:ModelName"] = "gpt-5.4-nano" });
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
+    /// <summary>
+    /// The deployment is read from whichever of DeploymentId, Deployment or Model the connection string uses —
+    /// Aspire's own parser refuses a string with more than one. A string naming none cannot be checked, and says
+    /// how to fix that.
+    /// </summary>
+    [Theory]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;DeploymentId=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;Deployment=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;Model=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k", "names no deployment")]
+    public void The_chat_deployment_is_read_from_the_connection_string(string chat, string? refusal)
+    {
+        IHost Build() => BuildHost(
+            chat: chat,
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: ModelRateTableTests.ShippedRateSettings());
+
+        if (refusal is null)
+        {
+            using var host = Build();
+            Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+            return;
+        }
+
+        var failure = Assert.Throws<InvalidOperationException>(() => Build());
+        Assert.Contains(refusal, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Gateway:ModelName", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Development may try a model before anyone has priced it; its calls settle at the estimate.</summary>
+    [Fact]
+    public void Unrated_chat_model_in_development_still_starts()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "gpt-9-unpriced"),
+            embeddings: FoundryLocalConnectionString,
+            rateFixtureModel: false);
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
     private static IHost BuildHost(
         string? chat,
         string? embeddings,
         string environment = "Development",
-        string? images = null)
+        string? images = null,
+        Dictionary<string, string?>? settings = null,
+        bool rateFixtureModel = true)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -219,6 +347,12 @@ public sealed class AiRegistrationTests
             [$"ConnectionStrings:{AiModelConnections.Images}"] = images,
         });
 
+        if (rateFixtureModel)
+        {
+            builder.Configuration.AddInMemoryCollection(RatedFixtureModel);
+        }
+
+        builder.Configuration.AddInMemoryCollection(settings ?? []);
         builder.AddCreatorPantryAi();
 
         return builder.Build();

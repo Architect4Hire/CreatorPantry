@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Managers.Ai;
+
 namespace CreatorPantry.Domain.Modules.AiUsage.Managers;
 
 /// <summary>
@@ -57,7 +59,9 @@ public static class AiQuotaUnitConverter
             return (inputTokens ?? 0) + (outputTokens ?? 0);
         }
 
-        if (string.IsNullOrEmpty(modelName) || !options.ModelRates.TryGetValue(modelName, out var rate))
+        // The reported id, not the configured one: Azure names the dated snapshot and Foundry Local appends a
+        // catalogue version, and AiModelRateKeys finds the model's rate under either.
+        if (!AiModelRateKeys.TryFind(options.ModelRates, modelName, out var rate))
         {
             return null;
         }

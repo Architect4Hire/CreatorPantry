@@ -87,8 +87,8 @@ describe('LandingCreditsComponent', () => {
     ]);
 
     expect(lines).toEqual([
-      ['A text draft', '10 credits'],
-      ['A long-form section', '10 credits'],
+      ['A recipe draft or post', 'about 10 credits'],
+      ['A long-form section', 'about 10 credits'],
       // One kind of picture: there is no quality to choose, so the draft and high rates are never shown.
       ['A picture', '50 credits'],
     ]);

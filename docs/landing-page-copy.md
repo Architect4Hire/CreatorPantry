@@ -241,8 +241,10 @@ motion.
 whichever model does the job. Your credits belong to you, not to a workspace, and they're shared across every
 workspace you work in.
 
-**Menu board:** a text draft `{rates.textDraft}` · a long-form section `{rates.longFormSection}` · a picture
-`{rates.imageStandard}`. One picture line, because there is one kind of picture (section 6).
+**Menu board:** a recipe draft or post "about `{rates.textDraft}`" · a long-form section "about
+`{rates.longFormSection}`" · a picture `{rates.imageStandard}`. One picture line, because there is one kind of
+picture (section 6). Writing says "about" because it settles at the tokens the model reported (AP.2.1); a
+picture is charged its rate. Owner, 2026-10-26: a recipe draft is about 5 credits, a long-form section stays 10.
 
 **Estimator:** "Pictures a month" and "AI writing a month" sliders. "Your **estimate** fits `{plan.name}`, with
 about `{headroom}` credits to spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack,

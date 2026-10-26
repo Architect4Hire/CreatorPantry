@@ -1,6 +1,8 @@
 using System.Data.Common;
 using System.Net.Http.Headers;
 using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Domain.Modules.Ai.Gateways;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +60,7 @@ public static class AiProviderRegistration
             // Microsoft.Extensions.AI trace sources and meters, so AI calls correlate with the rest of the
             // request without a ServiceDefaults change.
             builder.AddAzureChatCompletionsClient(AiModelConnections.Chat).AddChatClient();
+            RequireChatRate(builder);
         }
         else
         {
@@ -154,6 +157,88 @@ public static class AiProviderRegistration
                 : throw new InvalidOperationException(
                     $"ConnectionStrings:{AiModelConnections.Images} names no {name.ToLowerInvariant()}. It "
                     + "takes the form 'Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>'.");
+    }
+
+    /// <summary>
+    /// Outside development, refuses to start when the chat model has no credit rate or no price (AP.2.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An unrated model does not fail a call: it settles every call at the flat per-call estimate and reports
+    /// its cost as null, which in a deployed environment means creators are charged a guess and nobody can see
+    /// what the provider bill is. That is found here, not on an invoice.
+    /// </para>
+    /// <para>
+    /// The model is the one the deployment declares — <c>Ai:Gateway:ModelName</c> when it is set, otherwise the
+    /// chat deployment's own name, which Azure deployments are usually given — because a host knows no more
+    /// than that before its first call. It is looked up the way settlement looks up a reported id
+    /// (<see cref="AiModelRateKeys"/>), so a dated deployment name finds its model's rate. Embeddings are not
+    /// checked: no embedding call is metered against the allowance yet, so a rule for them would guard
+    /// nothing. Development is exempt so a new model can be tried before it is priced.
+    /// </para>
+    /// </remarks>
+    private static void RequireChatRate(IHostApplicationBuilder builder)
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            return;
+        }
+
+        var declared = builder.Configuration[$"{AiGatewayOptions.SectionName}:{nameof(AiGatewayOptions.ModelName)}"];
+        var model = string.IsNullOrWhiteSpace(declared) || declared == new AiGatewayOptions().ModelName
+            ? ChatDeployment(builder)
+            : declared;
+
+        if (model.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"ConnectionStrings:{AiModelConnections.Chat} names no deployment (DeploymentId, Deployment or Model) "
+                + "and Ai:Gateway:ModelName is not set, so the chat model's credit rate cannot be checked. Set "
+                + "Ai:Gateway:ModelName to the model the chat deployment runs.");
+        }
+
+        var missing = new[]
+            {
+                $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.ModelRates)}",
+                $"{AiCostOptions.SectionName}:{nameof(AiCostOptions.Models)}",
+            }
+            .Where(section => !Rates(builder, section).Overlaps(AiModelRateKeys.Candidates(model)))
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"The chat model '{model}' has no entry under {string.Join(" or ", missing)}. Add one at the pinned "
+            + "credit unit (credits = list $ x 1,250), or set Ai:Gateway:ModelName to the model the chat "
+            + "deployment runs if its deployment name is not the model's.");
+    }
+
+    private static HashSet<string> Rates(IHostApplicationBuilder builder, string section) =>
+        builder.Configuration.GetSection(section).GetChildren()
+            .Select(child => child.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The deployment named in the chat connection string; empty when it names none.</summary>
+    /// <remarks>Never quotes the string, which may hold a key.</remarks>
+    private static string ChatDeployment(IHostApplicationBuilder builder)
+    {
+        var connection = new DbConnectionStringBuilder
+        {
+            ConnectionString = builder.Configuration.GetConnectionString(AiModelConnections.Chat),
+        };
+
+        foreach (var part in new[] { "DeploymentId", "Deployment", "Model" })
+        {
+            if (connection.TryGetValue(part, out var value) && value is string name && !string.IsNullOrWhiteSpace(name))
+            {
+                return name.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 
     private static void RequireDevelopment(IHostApplicationBuilder builder, string connectionName)

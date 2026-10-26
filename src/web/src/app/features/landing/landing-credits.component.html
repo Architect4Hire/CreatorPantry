@@ -10,7 +10,7 @@
           <li>
             <span class="item">{{ line.label }}</span>
             <span class="dots" aria-hidden="true"></span>
-            <span class="cost">{{ formatCredits(line.rateOf(rates)) }} credits</span>
+            <span class="cost">{{ line.typical ? 'about ' : '' }}{{ formatCredits(line.rateOf(rates)) }} credits</span>
           </li>
         }
       </ul>
@@ -34,7 +34,7 @@
       </cp-field>
       <p class="slider-value">{{ formatCredits(picturesAMonth()) }} pictures</p>
 
-      <cp-field label="AI writing a month" forId="landing-credits-writing" hint="Drafts and posts, each priced as a text draft.">
+      <cp-field label="AI writing a month" forId="landing-credits-writing" hint="Recipe drafts and posts, each priced as a recipe draft.">
         <input
           id="landing-credits-writing"
           type="range"
