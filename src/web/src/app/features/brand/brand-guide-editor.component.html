@@ -35,7 +35,14 @@
 
 @switch (loadState().status) {
   @case ('loading') {
-    <p class="loading">Loading this guide…</p>
+    <!-- The guide's form as it will arrive. The status at the top already says it is loading, once. -->
+    <cp-card>
+      <div class="loading" aria-busy="true">
+        <cp-skeleton shape="line" />
+        <cp-skeleton shape="line" [count]="4" />
+        <cp-skeleton shape="line" [count]="4" />
+      </div>
+    </cp-card>
   }
   @case ('not_found') {
     <cp-notice tone="error" role="alert">This guide could not be found.</cp-notice>

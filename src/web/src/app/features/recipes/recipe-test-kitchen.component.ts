@@ -16,6 +16,7 @@ import {
   CpCardComponent,
   CpFactComponent,
   CpFactsComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -84,6 +85,7 @@ let nextInstance = 0;
     CpCardComponent,
     CpFactComponent,
     CpFactsComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     RecipeTestHistoryComponent,
     RecipeTestIssuesComponent,

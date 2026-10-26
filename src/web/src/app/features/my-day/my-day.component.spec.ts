@@ -182,10 +182,12 @@ describe('MyDayComponent', () => {
     const after = day({ waiting: [task({ id: 'held', title: 'Hear back', status: 'Waiting' })] });
     await mount(found(before), found(after));
 
-    // "Draft" is up next; once it is done nothing is, and focus lands on the heading that now says so.
+    // "Draft" is up next; once it is done nothing is, and focus lands on the same card's heading, which now says so.
     await press(named('Mark “Draft” done'));
 
-    expect(document.activeElement?.textContent?.trim()).toBe('Nothing to do next');
+    expect(document.activeElement?.id).toBe('my-day-heading-lead');
+    expect(document.activeElement?.textContent?.trim()).toBe('Up next');
+    expect(document.activeElement!.closest('cp-topic-card')!.querySelector('cp-empty-state h3')!.textContent).toBe('Nothing to do next');
   });
 
   // ---- Move ----
@@ -264,13 +266,96 @@ describe('MyDayComponent', () => {
     const suggestion = task({ id: 'idea', title: 'Pitch the cookbook', scheduledDate: null });
     await mount(found(day({ suggested: [{ task: suggestion, reason: 'Next in your backlog.' }] })));
 
-    expect(headings()).toEqual(['Nothing planned for today', 'If you have time']);
+    expect(headings()).toEqual(['Up next', 'If you have time']);
+    expect(root().textContent).toContain('Nothing planned for today');
     expect(root().textContent).toContain('Suggestion');
     expect(move).not.toHaveBeenCalled();
 
     await press(named('Plan for today: Pitch the cookbook'));
     expect(move).toHaveBeenCalledWith(SLUG, suggestion, { status: 'Backlog', scheduledDate: TODAY });
     expect(outcome()).toContain('Planned “Pitch the cookbook” for today.');
+  });
+
+  // ---- While the day is read (AU.7) ----
+
+  it('draws the day arriving while it is read, said once from a status that is always there', async () => {
+    await mount(found(fullDay()));
+    const status = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('');
+
+    // Another workspace: the page reads afresh, and this read never answers.
+    today.and.returnValue(new Promise<TodayOutcome>(() => undefined));
+    await harness.navigateByUrl('/other-kitchen/my-day');
+    await settle();
+
+    const shown = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(shown.textContent).toBe('Reading your day…');
+    const busy = root().querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+    // Nothing is featured before the day says what matters most.
+    expect(root().querySelector('.cp-card--featured')).toBeNull();
+  });
+
+  // ---- The featured card and the drawn empty day (AU.6.2) ----
+
+  const lead = () => root().querySelector<HTMLElement>('#my-day-heading-lead')!.closest('cp-topic-card')!;
+
+  it('features what to do next, whether the creator chose a top three or the day put one task first', async () => {
+    await mount(found(fullDay({ topThree: ['plan-2', 'going'] })), found(fullDay()));
+
+    expect(lead().querySelector('.cp-card--featured')).withContext('top three').toBeTruthy();
+    expect(root().querySelectorAll('.cp-card--featured').length).toBe(1);
+
+    captures.notifyCaptured(task({ id: 'new' }));
+    await settle();
+
+    expect(headings()[0]).toBe('Up next');
+    expect(lead().querySelector('.cp-card--featured')).withContext('up next').toBeTruthy();
+    expect(root().querySelectorAll('.cp-card--featured').length).toBe(1);
+  });
+
+  it('draws an empty day in the lead card’s place, roomy and inviting, and features nothing', async () => {
+    await mount(found(day()));
+
+    const empty = lead().querySelector('cp-empty-state')!;
+    expect(headings()).toEqual(['Up next']);
+    expect(empty.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('calendar');
+    expect(empty.getAttribute('data-variant')).toBe('first-use');
+    expect(empty.querySelector('h3')!.textContent).toBe('Nothing planned for today');
+    expect(empty.textContent).toContain('There’s nothing on today’s list. Add a task, or look ahead at your week.');
+    expect(empty.querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/my-week`);
+    expect(root().querySelector('.cp-card--featured')).toBeNull();
+  });
+
+  it('keeps a day whose work is all done compact, since the Done card follows it', async () => {
+    await mount(found(day({ completedToday: [task({ id: 'done', status: 'Done' })] })));
+
+    const empty = lead().querySelector('cp-empty-state')!;
+    expect(headings()).toEqual(['Up next', 'Done today']);
+    expect(empty.getAttribute('data-variant')).toBe('no-results');
+    expect(empty.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('calendar');
+    expect(empty.querySelector('h3')!.textContent).toBe('That’s everything for today');
+  });
+
+  it('keeps a day whose work is all waiting compact, since the Waiting card follows it', async () => {
+    await mount(found(day({ waiting: [task({ id: 'held', status: 'Waiting' })] })));
+
+    const empty = lead().querySelector('cp-empty-state')!;
+    expect(headings()).toEqual(['Up next', 'Waiting']);
+    expect(empty.getAttribute('data-variant')).toBe('no-results');
+    expect(empty.querySelector('h3')!.textContent).toBe('Nothing to do next');
+    expect(empty.textContent).toContain('Everything left is waiting on something else.');
+  });
+
+  it('offers a Viewer’s empty day no invitation to add', async () => {
+    await mount(found(day()));
+    memberships.set(membership('Viewer'));
+    await settle();
+
+    const empty = lead().querySelector('cp-empty-state')!;
+    expect(empty.textContent).toContain('There’s nothing on today’s list.');
+    expect(empty.textContent).not.toContain('Add a task');
   });
 
   it('does not offer suggestions on a day that still has work in it', async () => {

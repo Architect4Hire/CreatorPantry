@@ -1,5 +1,12 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
-import { CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent, CpStatusPillTone } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpFieldComponent,
+  CpFormSectionComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+  CpStatusPillTone,
+} from '@creator-pantry/ui';
 
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 import { BrandSourceDocumentDetail } from '../../../models/brand-source-document.models';
@@ -64,7 +71,7 @@ interface Editor {
 @Component({
   selector: 'cp-brand-setup-review-text-step',
   standalone: true,
-  imports: [BrandSetupExampleComponent, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [BrandSetupExampleComponent, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './brand-setup-review-text-step.component.html',
   styleUrl: './brand-setup-review-text-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

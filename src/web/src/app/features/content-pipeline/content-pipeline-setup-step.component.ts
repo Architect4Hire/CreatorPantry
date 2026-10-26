@@ -18,6 +18,7 @@ import {
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ContentChannel } from '../../models/brand-profile.models';
@@ -74,6 +75,7 @@ type ChannelsState =
   selector: 'cp-content-pipeline-setup-step',
   standalone: true,
   imports: [
+    CpSkeletonComponent,
     FormsModule,
     CpButtonComponent,
     CpChoiceGroupComponent,

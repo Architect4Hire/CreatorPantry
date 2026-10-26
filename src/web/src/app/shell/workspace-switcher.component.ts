@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CpDialogComponent } from '@creator-pantry/ui';
+import { CpDialogComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { CreateWorkspaceFormComponent } from './create-workspace-form.component';
 import { MyWorkspaceMembership } from '../models/auth.models';
@@ -17,10 +17,13 @@ const CREATE_OPTION_VALUE = '__create__';
 @Component({
   selector: 'cp-workspace-switcher',
   standalone: true,
-  imports: [CpDialogComponent, CreateWorkspaceFormComponent],
+  imports: [CpDialogComponent, CpSkeletonComponent, CreateWorkspaceFormComponent],
   template: `
+    <!-- Always present, outside the busy line (AU.7): the one place the switcher says it is still loading. -->
+    <span class="cp-sr-only" role="status">{{ isLoading() ? 'Loading workspaces…' : '' }}</span>
     @if (isLoading()) {
-      <span class="status" role="status">Loading workspaces…</span>
+      <!-- The switcher as it will arrive: one line its width. -->
+      <div class="loading" aria-busy="true"><cp-skeleton shape="line" /></div>
     } @else if (isError()) {
       <span class="status status--error">Workspaces unavailable</span>
     } @else if (memberships().length > 0) {
@@ -53,6 +56,8 @@ const CREATE_OPTION_VALUE = '__create__';
     :host{display:block}
     .status{color:var(--cp-text-muted);font-size:var(--cp-font-size-sm)}
     .status--error{color:var(--cp-danger)}
+    .loading{display:flex;align-items:center;min-height:2.5rem;max-width:12rem}
+    .loading cp-skeleton{flex:1}
     .switcher select{min-height:2.5rem;padding:0 var(--cp-space-3);border:1px solid var(--cp-border);border-radius:var(--cp-radius-md);background:var(--cp-surface);color:var(--cp-text);font:600 var(--cp-font-size-sm)/1.2 var(--cp-font-sans)}
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,

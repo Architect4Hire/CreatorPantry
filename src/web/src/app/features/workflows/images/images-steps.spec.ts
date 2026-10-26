@@ -483,5 +483,24 @@ describe('"Create food images" step screens (13A.19)', () => {
       await settle(fixture);
       expect(button(fixture, 'Use “Galette, first slice” as the lead picture')).not.toBeNull();
     });
+
+    // AU.7: the recipe arriving is drawn as lines and said once, from a status that is always there.
+    it('draws lines while the recipe is read, says it once, and empties the status once it is', async () => {
+      getRecipeDetail.and.returnValue(new Promise(() => undefined));
+      const held = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
+      const root = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
+      const statuses = (fixture: ComponentFixture<unknown>) =>
+        Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
+
+      expect(statuses(held)).toEqual(['Reading your recipe…']);
+      expect(root(held).querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes('Reading your recipe…'))).toBeFalse();
+      held.destroy();
+
+      getRecipeDetail.and.resolveTo({ status: 'found', recipe: recipe() });
+      const read = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
+      expect(statuses(read)).toEqual(['']);
+      expect(root(read).querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
+    });
   });
 });

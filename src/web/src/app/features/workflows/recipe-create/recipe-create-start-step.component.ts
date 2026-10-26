@@ -15,6 +15,7 @@ import {
   CpChoiceOption,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
@@ -67,6 +68,7 @@ type Stage =
     CpChoiceGroupComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     RecipeConceptStudioComponent,
     RecipeEditorComponent,
     RecipeFirstDraftReviewComponent,

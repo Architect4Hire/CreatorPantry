@@ -4,9 +4,22 @@
 />
 
 <div class="hub">
+  <!-- Always present, and outside every busy region, so each part still on its way is said once (APP-003). -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ loadingWords() }}</p>
+
   @switch (phase()) {
     @case ('loading') {
-      <cp-card><p class="plain" role="status">Loading your workflows…</p></cp-card>
+      <!-- The page as it will arrive: a card of work in progress, then the goals to choose from. -->
+      <div class="loading" aria-busy="true">
+        <ul cpCardGrid minColumn="22rem">
+          <li><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card></li>
+        </ul>
+        <ul cpCardGrid minColumn="18rem">
+          @for (place of goalPlaces; track place) {
+            <li><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card></li>
+          }
+        </ul>
+      </div>
     }
     @case ('unavailable') {
       <cp-card>
@@ -26,13 +39,18 @@
           A picture-and-posts run kept on this device couldn’t be read, so it was set aside. Anything already in your
           workspace is safe.
         </cp-notice>
-      } @else if (checking()) {
-        <p class="plain cp-muted" role="status">Checking what you have in progress…</p>
+      }
+
+      <!-- Where the work in progress will be, while it is still being read. -->
+      @if (checking() && !workInProgressShown()) {
+        <ul cpCardGrid minColumn="22rem" class="topics" aria-busy="true" aria-hidden="true">
+          <li><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card></li>
+        </ul>
       }
 
       <!-- Returning: what was under way and what needs a look come first. Each card is only here when it has something
            to say, or something it couldn't read. -->
-      @if (!firstUse() && (continueRows().length > 0 || continueDegraded() || attentionRows().length > 0 || attentionDegraded())) {
+      @if (workInProgressShown()) {
         <ul cpCardGrid minColumn="22rem" aria-label="Your work in progress" class="topics">
           @if (continueRows().length > 0 || continueDegraded()) {
             <li>
@@ -73,7 +91,7 @@
                 @if (continueHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
                     <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('mine')">
-                      {{ loadingMore() === 'mine' ? 'Loading…' : 'Show more' }}
+                      {{ loadingMore() === 'mine' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>
                 }
@@ -110,6 +128,10 @@
                           @if (row.detail) {
                             <span class="cp-muted">{{ row.detail }}</span>
                           }
+                          <!-- Three runs of one workflow with one reason read alike; when each was last saved does not. -->
+                          @if (row.when) {
+                            <span class="cp-muted">Last saved {{ row.when }}</span>
+                          }
                         </span>
                         <a cpButton variant="secondary" size="sm" [routerLink]="row.link" [attr.aria-label]="row.actionLabel">{{ row.action }}</a>
                       </li>
@@ -125,7 +147,7 @@
                 @if (attentionHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
                     <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('attention')">
-                      {{ loadingMore() === 'attention' ? 'Loading…' : 'Show more' }}
+                      {{ loadingMore() === 'attention' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>
                 }
@@ -138,7 +160,13 @@
       <section class="goals" aria-labelledby="hub-goals-heading">
         <h2 #goalsHeading id="hub-goals-heading" tabindex="-1">What do you want to accomplish?</h2>
         @if (firstUse()) {
-          <p class="plain">Nothing in progress yet. Pick something below to begin — each one takes you through it a step at a time.</p>
+          <!-- Compact, as the dashboard's "Nothing under way": the goals right below it are the first thing to do. -->
+          <cp-empty-state
+            variant="no-results"
+            illustration="board"
+            title="Nothing in progress yet"
+            description="Pick something below to begin. Each one takes you through it a step at a time."
+          />
         }
 
         <div class="search">
@@ -163,12 +191,10 @@
               {{ retrying().has('definitions') ? 'Trying again…' : 'Try again' }}
             </button>
           </cp-notice>
-        } @else if (definitions().state === 'loading') {
-          <p class="plain cp-muted" role="status">Loading what you can do…</p>
         }
 
         @if (shownGoals().length === 0) {
-          <cp-empty-state variant="no-results" title="Try another word" description="Or clear the search to see everything you can do.">
+          <cp-empty-state variant="no-results" illustration="search" title="Try another word" description="Or clear the search to see everything you can do.">
             <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="setQuery('')">Clear search</button>
           </cp-empty-state>
         } @else {
@@ -226,6 +252,12 @@
                 </cp-topic-card>
               </li>
             }
+            <!-- The workspace's own workflows, still on their way, after the journeys that need no reading. -->
+            @if (definitions().state === 'loading') {
+              @for (place of goalPlaces; track place) {
+                <li class="goal-loading" aria-hidden="true"><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card></li>
+              }
+            }
           </ul>
         }
       </section>
@@ -265,7 +297,7 @@
                 @if (outcomesHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
                     <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('completed')">
-                      {{ loadingMore() === 'completed' ? 'Loading…' : 'Show more' }}
+                      {{ loadingMore() === 'completed' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>
                 }

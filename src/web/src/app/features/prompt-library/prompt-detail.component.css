@@ -13,6 +13,17 @@ cp-page-head {
   margin: 0;
 }
 
+/* The page while it loads: its cards, at the page's own spacing. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+/* One line where the Use in Image Studio button will be. */
+.checking {
+  max-width: 12rem;
+}
+
 .hint,
 .note {
   margin: 0;

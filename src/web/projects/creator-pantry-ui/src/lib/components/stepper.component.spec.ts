@@ -25,7 +25,7 @@ const rows = (): HTMLElement[] => Array.from(el.querySelectorAll<HTMLElement>('l
 
 describe('CpStepperComponent', () => {
   beforeEach(() => {
-    document.documentElement.style.setProperty('--cp-primary', 'rgb(1, 2, 3)');
+    document.documentElement.style.setProperty('--cp-tone', 'rgb(1, 2, 3)');
 
     fixture = TestBed.createComponent(HostComponent);
     el = fixture.nativeElement;
@@ -35,7 +35,7 @@ describe('CpStepperComponent', () => {
   });
 
   afterEach(() => {
-    document.documentElement.style.removeProperty('--cp-primary');
+    document.documentElement.style.removeProperty('--cp-tone');
     el.remove();
   });
 
@@ -74,6 +74,15 @@ describe('CpStepperComponent', () => {
     expect(current.borderTopColor).toBe('rgb(1, 2, 3)');
     expect(current.fontWeight).toBe('700');
     expect(getComputedStyle(rows()[3]).fontWeight).not.toBe('700');
+  });
+
+  it("draws the current row and the done glyph in the tool's tone, so a toned flow's steps take its colour", () => {
+    // What a route's data-cp-tone does to the frame: it redeclares the tone tokens for everything inside it.
+    el.style.setProperty('--cp-tone', 'rgb(4, 5, 6)');
+    el.style.setProperty('--cp-tone-text', 'rgb(7, 8, 9)');
+
+    expect(getComputedStyle(rows()[2]).borderTopColor).toBe('rgb(4, 5, 6)');
+    expect(getComputedStyle(rows()[0].querySelector('.glyph')!).color).toBe('rgb(7, 8, 9)');
   });
 
   it('is a read-out: no row is a link, a button or a tab stop', () => {

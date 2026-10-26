@@ -15,9 +15,12 @@ class StubService {
   saveOutcome: SaveAiFeaturesOutcome | null = null;
   readonly saves: { slug: string; enabled: readonly string[] }[] = [];
   reads = 0;
+  /** Set to leave the read unanswered, so the card stays loading. */
+  hold = false;
 
   get(): Promise<AiFeaturesOutcome> {
     this.reads += 1;
+    if (this.hold) return new Promise(() => undefined);
     return Promise.resolve(this.getOutcome);
   }
 
@@ -64,6 +67,25 @@ describe('WorkspaceAiFeaturesComponent', () => {
       imports: [WorkspaceAiFeaturesComponent],
       providers: [{ provide: AiFeaturesService, useValue: service }],
     });
+  });
+
+  it('draws its form arriving while the features are read, said once from a region that is always there (AU.6.4)', async () => {
+    service.hold = true;
+
+    const host = await render();
+
+    const status = host.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading your AI features…');
+    const busy = host.querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-skeleton').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('form')).toBeNull();
+  });
+
+  it('empties that status once the features are read', async () => {
+    const host = await render();
+
+    expect(host.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
   });
 
   it('shows each feature under its area, checked when it is on, with nothing to save', async () => {

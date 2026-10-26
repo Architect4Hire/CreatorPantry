@@ -192,6 +192,7 @@ describe('SocialStudioRecentComponent', () => {
     await render();
 
     expect(el.textContent).toContain('Nothing has posts yet');
+    expect(el.querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('post');
     expect(el.querySelector('ul')).toBeNull();
   });
 

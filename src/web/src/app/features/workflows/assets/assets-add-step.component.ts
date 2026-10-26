@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { keeperReferencesOf } from '../../../models/creative-context.models';
@@ -91,12 +91,16 @@ const WAYS: readonly CpChoiceOption[] = [
     DamLinkedAssetComponent,
     SaveToLibraryDialogComponent,
     AssetsWaitingPictureComponent,
+    CpSkeletonComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ chosen().status === 'loading' ? 'Reading your picture…' : '' }}</p>
     @switch (chosen().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your picture…</p>
+        <!-- The picture arriving, in its own shape. -->
+        <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
       }
       @case ('gone') {
         <cp-notice tone="warning" role="status">
@@ -171,9 +175,12 @@ const WAYS: readonly CpChoiceOption[] = [
           <cp-dam-asset-picker [workspaceSlug]="workspaceSlug()" [active]="true" (chosen)="onPicked($event)" />
         }
         @case ('waiting') {
+          <!-- Always present while this way in is open (APP-003): the one place it says it is still looking. -->
+          <p class="cp-sr-only" role="status">{{ waiting().status === 'loading' ? 'Looking through your recent work…' : '' }}</p>
           @switch (waiting().status) {
             @case ('loading') {
-              <p class="cp-muted" role="status">Looking through your recent work…</p>
+              <!-- The recent work arriving, as a few rows. -->
+              <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
             }
             @case ('unavailable') {
               <cp-notice tone="error" role="alert">

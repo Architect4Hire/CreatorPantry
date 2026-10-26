@@ -40672,6 +40672,47 @@
           }
         }
       },
+      "RecipeHeroAsset": {
+        "required": [
+          "mediaAssetId",
+          "title",
+          "altText",
+          "versionNumber",
+          "currentVersionNumber"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaAssetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "altText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "versionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "currentVersionNumber": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RecipeIngredient": {
         "required": [
           "id",
@@ -41823,6 +41864,16 @@
           },
           "hasUnmatchedIngredients": {
             "type": "boolean"
+          },
+          "heroAsset": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecipeHeroAsset"
+              }
+            ]
           }
         }
       },

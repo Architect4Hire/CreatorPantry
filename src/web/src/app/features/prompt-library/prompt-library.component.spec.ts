@@ -181,6 +181,9 @@ describe('PromptLibraryComponent', () => {
 
     expect(root().querySelector('[role="status"][aria-live]')).toBeTruthy();
     expect(text()).toContain('Loading');
+
+    // A grid of media cards arrives as card silhouettes, not lines of text (AU.6.3).
+    expect(root().querySelector('cp-list-shell cp-skeleton')?.getAttribute('data-shape')).toBe('card');
   });
 
   it('asks for the first page of the workspace in the route, with no cursor', async () => {
@@ -201,7 +204,10 @@ describe('PromptLibraryComponent', () => {
     expect(first).toContain('Preview of p1');
     expect(first).toContain('Instagram');
     expect(first).toContain('Hero shot');
-    expect(first).toContain('Written for you');
+    // A model had a hand in it, so it carries the one mark for that rather than a purple badge (AU.6.3).
+    expect(rows()[0].querySelector('.badges cp-generated-label')?.textContent).toContain('Drafted by AI');
+    expect(first).not.toContain('Written for you');
+    expect(rows()[0].querySelector('cp-badge[data-tone="purple"], cp-badge[tone="purple"]')).toBeNull();
     expect(first).toContain('Oct 8, 2026');
 
     const second = rows()[1].textContent ?? '';
@@ -210,6 +216,7 @@ describe('PromptLibraryComponent', () => {
     expect(second).toContain('Vine');
     expect(second).toContain('Pin graphic');
     expect(second).toContain('Written by you');
+    expect(rows()[1].querySelector('cp-generated-label')).toBeNull();
   });
 
   it('marks a preview as continuing only when the prompt is longer than what the row holds', async () => {
@@ -232,8 +239,11 @@ describe('PromptLibraryComponent', () => {
     expect(rows()[0].querySelector('.panel cp-illustration')?.getAttribute('data-name')).toBe('prompt');
     expect(getComputedStyle(rows()[0].querySelector('.panel')!).display).not.toBe('none');
 
-    // Everything a row showed has a slot: three badges, the saved date as a fact, and Preview as the action.
-    expect(rows()[0].querySelectorAll('.badges cp-badge').length).toBe(3);
+    // Everything a row showed has a slot: channel and kind as badges with the generated mark beside them, the saved
+    // date as a fact, and Preview as the action.
+    expect(rows()[0].querySelectorAll('.badges cp-badge').length).toBe(2);
+    expect(rows()[0].querySelectorAll('.badges cp-generated-label').length).toBe(1);
+    expect(rows()[1].querySelectorAll('.badges cp-badge').length).toBe(3);
     expect(rows()[0].querySelector('dl[cpFacts] dt')?.textContent).toBe('Saved');
     expect(rows()[0].querySelector('.actions button')?.textContent?.trim()).toBe('Preview');
   });
@@ -268,7 +278,13 @@ describe('PromptLibraryComponent', () => {
     await create();
 
     expect(text()).toContain('No prompts saved yet');
+    expect(text()).toContain('Prompts you save from Image Studio are kept here, newest first.');
     expect(hasButton('Clear filters')).toBeFalse();
+
+    // Drawn, and roomy (AU.6.3).
+    const empty = root().querySelector('cp-empty-state')!;
+    expect(empty.querySelector('cp-illustration')?.getAttribute('data-name')).toBe('prompt');
+    expect(empty.getAttribute('data-variant')).toBe('first-use');
   });
 
   it('shows a no-results empty state when filters match nothing, with a way to clear them', async () => {
@@ -276,6 +292,7 @@ describe('PromptLibraryComponent', () => {
     await create(`/${SLUG}/prompt-library?search=zzz`);
 
     expect(text()).toContain('No prompts match these filters');
+    expect(root().querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('search');
 
     searchSpy.and.returnValue(found(TWO));
     button('Clear filters').click();

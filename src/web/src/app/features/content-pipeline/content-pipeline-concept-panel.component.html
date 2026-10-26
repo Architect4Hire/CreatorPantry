@@ -51,19 +51,24 @@
   </cp-notice>
 }
 
+<!-- Always here, so "Asking…" is heard when it is set rather than arriving with its region. -->
+<p class="cp-sr-only" role="status">{{ tracker.phase().kind === 'submitting' ? 'Asking…' : '' }}</p>
+
 @switch (tracker.phase().kind) {
   @case ('idle') {
-    <p>
-      We can plan a few looks for this, using the channel, the scene and the words you gave on the step before.
-    </p>
-    <div class="cp-actions">
-      <button cpButton type="button" variant="primary" [disabled]="!canAsk()" (click)="ask()">
+    <!-- Where the looks will be, before there are any: a first use, drawn (AU.5.4). -->
+    <cp-empty-state
+      illustration="picture"
+      title="No looks yet"
+      description="We can plan a few looks for this, using the channel, the scene and the words you gave on the step before."
+    >
+      <button cpEmptyStateActions cpButton type="button" variant="primary" [disabled]="!canAsk()" (click)="ask()">
         Plan some looks
       </button>
-    </div>
+    </cp-empty-state>
   }
   @case ('submitting') {
-    <p class="cp-muted" role="status">Asking…</p>
+    <ng-container *ngTemplateOutlet="planning" />
   }
   @case ('not_enabled') {
     <cp-notice tone="warning" role="note">
@@ -133,6 +138,10 @@
     }
 
     @if (phase.kind === 'watching') {
+      <!-- The shape of the looks coming, until the page stops checking: then there is nothing on its way to draw. -->
+      @if (!tracker.stopped()) {
+        <ng-container *ngTemplateOutlet="planning" />
+      }
       <div class="cp-actions">
         @if (tracker.stopped()) {
           <!-- The loop gave up on its own. Asking again is reading, not generating: it spends nothing. -->
@@ -159,56 +168,67 @@
     </cp-notice>
   }
 
-  <ul class="looks">
-    @for (concept of conceptList(); track concept.conceptId || concept.changeId) {
-      <li>
-        <h4>{{ concept.label }}</h4>
-        @if (concept.mood) {
-          <p><span class="field">Mood</span> {{ concept.mood }}</p>
-        }
-        @if (concept.palette) {
-          <p><span class="field">Colours</span> {{ concept.palette }}</p>
-        }
-        @if (concept.rationale) {
-          <p><span class="field">Why</span> {{ concept.rationale }}</p>
-        }
-        @if (concept.channelFit) {
-          <p><span class="field">For this channel</span> {{ concept.channelFit }}</p>
-        }
-        <!-- Every shot in full rather than only the two lines the choice hint carries. Styling in particular is
-             where a garnish nobody wrote down would appear, and a creator cannot judge that unless they see it
-             (.claude/rules/recipes.md). -->
-        <ul class="shots">
-          @for (shot of concept.shots; track shot.kind) {
-            <li>
-              <h5>{{ shotLabels[shot.kind] }}</h5>
-              @if (shot.framing) {
-                <p><span class="field">Framing</span> {{ shot.framing }}</p>
-              }
-              @if (shot.lighting) {
-                <p><span class="field">Light</span> {{ shot.lighting }}</p>
-              }
-              @if (shot.surface) {
-                <p><span class="field">Surface</span> {{ shot.surface }}</p>
-              }
-              @if (shot.styling) {
-                <p><span class="field">Styling</span> {{ shot.styling }}</p>
-              }
-              @if (shot.props.length > 0) {
-                <p><span class="field">Props</span> {{ shot.props.join(', ') }}</p>
-              }
-            </li>
+  <!-- What a model planned, in the one surface for AI output, round the set of looks (AU.3.1, AU.5.2). Choosing
+       a shot is the creator's answer, so it sits after the surface rather than in it. -->
+  <cp-generated>
+    <ul class="looks">
+      @for (concept of conceptList(); track concept.conceptId || concept.changeId) {
+        <li>
+          <h4>{{ concept.label }}</h4>
+          @if (concept.mood) {
+            <p><span class="field">Mood</span> {{ concept.mood }}</p>
           }
-        </ul>
+          @if (concept.palette) {
+            <p><span class="field">Colours</span> {{ concept.palette }}</p>
+          }
+          @if (concept.rationale) {
+            <p><span class="field">Why</span> {{ concept.rationale }}</p>
+          }
+          @if (concept.channelFit) {
+            <p><span class="field">For this channel</span> {{ concept.channelFit }}</p>
+          }
+          <!-- Every shot in full rather than only the two lines the choice hint carries. Styling in particular is
+               where a garnish nobody wrote down would appear, and a creator cannot judge that unless they see it
+               (.claude/rules/recipes.md). -->
+          <ul class="shots">
+            @for (shot of concept.shots; track shot.kind) {
+              <li>
+                <h5>{{ shotLabels[shot.kind] }}</h5>
+                @if (shot.framing) {
+                  <p><span class="field">Framing</span> {{ shot.framing }}</p>
+                }
+                @if (shot.lighting) {
+                  <p><span class="field">Light</span> {{ shot.lighting }}</p>
+                }
+                @if (shot.surface) {
+                  <p><span class="field">Surface</span> {{ shot.surface }}</p>
+                }
+                @if (shot.styling) {
+                  <p><span class="field">Styling</span> {{ shot.styling }}</p>
+                }
+                @if (shot.props.length > 0) {
+                  <p><span class="field">Props</span> {{ shot.props.join(', ') }}</p>
+                }
+              </li>
+            }
+          </ul>
 
-        @for (warning of concept.warnings; track warning.message) {
-          <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
-            {{ warning.message }}
-          </cp-notice>
-        }
-      </li>
+          @for (warning of concept.warnings; track warning.message) {
+            <cp-notice [tone]="warning.kind === 'SafetyCaution' ? 'warning' : 'neutral'" role="note">
+              {{ warning.message }}
+            </cp-notice>
+          }
+        </li>
+      }
+    </ul>
+    @if (shotChoices().length > 0) {
+      <div cpGeneratedActions class="cp-actions">
+        <button cpButton type="button" variant="text" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
+          Plan different looks
+        </button>
+      </div>
     }
-  </ul>
+  </cp-generated>
 
   @if (shotChoices().length === 0) {
     <cp-notice role="note">No shots came back to choose from. Plan some looks again.</cp-notice>
@@ -226,10 +246,13 @@
       [value]="pickValue()"
       (valueChange)="pick($event)"
     />
-    <div class="cp-actions">
-      <button cpButton type="button" variant="text" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
-        Plan different looks
-      </button>
-    </div>
   }
 }
+
+<!-- Two looks' worth, each a heading and a few lines, while they are planned. Said by the status line above. -->
+<ng-template #planning>
+  <div class="planning" aria-busy="true" data-testid="looks-loading">
+    <cp-skeleton shape="block" />
+    <cp-skeleton shape="block" />
+  </div>
+</ng-template>

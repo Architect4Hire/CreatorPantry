@@ -87,6 +87,20 @@ describe('DamAssetUsageHistoryComponent', () => {
 
     expect(spy).toHaveBeenCalledOnceWith('cozy-fall', 'a1', null);
     expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading where this has been used');
+
+    // Said once, offscreen; what shows is rows arriving (AU.7).
+    expect(root().querySelector('[role="status"]')?.classList).toContain('cp-sr-only');
+    const busy = root().querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('empties the loading status once the history is read', async () => {
+    spy = jasmine.createSpy('utilization').and.returnValue(found(page([use('u1')])));
+    await create();
+
+    expect(root().querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(root().querySelector('cp-skeleton')).toBeNull();
   });
 
   it('lists each use with its date, weekday, platform, campaign and notes', async () => {

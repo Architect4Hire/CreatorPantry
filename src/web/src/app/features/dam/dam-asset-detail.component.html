@@ -4,7 +4,11 @@
   <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
   <ng-container ngProjectAs="[cpPageHeadBadges]">
     @if (asset(); as shown) {
-      <cp-badge [tone]="shown.kind === 'AiGenerated' ? 'purple' : 'neutral'">{{ kindLabel() }}</cp-badge>
+      @if (shown.kind === 'AiGenerated') {
+        <cp-generated-label kind="picture" />
+      } @else {
+        <cp-badge>{{ kindLabel() }}</cp-badge>
+      }
       @if (channelName(); as name) {
         <cp-badge tone="blue">{{ name }}</cp-badge>
       }
@@ -15,9 +19,18 @@
   </ng-container>
 </cp-page-head>
 
+<!-- Always present, and outside the busy cards (APP-003): one place the page says it is still loading. -->
+<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading this picture…' : '' }}</p>
+
 @switch (state().status) {
   @case ('loading') {
-    <cp-card><p class="plain" role="status">Loading this picture…</p></cp-card>
+    <!-- The page as it will arrive: the picture, then what is known about it (AU.7). -->
+    <div class="loading" aria-busy="true">
+      <cp-card>
+        <div class="loading-picture"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
+      </cp-card>
+      <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+    </div>
   }
   @case ('not_found') {
     <cp-card>

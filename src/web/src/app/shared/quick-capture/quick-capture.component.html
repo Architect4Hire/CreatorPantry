@@ -40,19 +40,22 @@
     </button>
 
     <div id="cp-quick-capture-details" class="details" [hidden]="!expanded()">
-      <!-- Rendered with the details, so what loads, or could not, is announced as it happens. -->
+      <!-- Rendered with the details, so what loads, or could not, is announced as it happens. While the calendar and
+           labels are read it says so to a screen reader only, and the lines below stand where the news will be (AU.7). -->
       <div role="status" aria-live="polite">
-        @if (loadingDetails()) {
-          <cp-notice tone="neutral">Loading your calendar and labels…</cp-notice>
-        } @else if (dates().status === 'no_time_zone') {
+        <span class="cp-sr-only">{{ loadingDetails() ? 'Loading your calendar and labels…' : '' }}</span>
+        @if (dates().status === 'no_time_zone' && !loadingDetails()) {
           <cp-notice tone="neutral">Today and the weeks need the workspace’s time zone, which is set in brand settings. You can still pick a day.</cp-notice>
-        } @else if (dates().status === 'unavailable') {
+        } @else if (dates().status === 'unavailable' && !loadingDetails()) {
           <cp-notice tone="warning">
             Today and the weeks couldn’t be worked out just now. You can still pick a day, or
             <button cpButton type="button" variant="text" size="sm" (click)="retryDetails()">try again</button>.
           </cp-notice>
         }
       </div>
+      @if (loadingDetails()) {
+        <div class="loading-details" aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
+      }
 
       <cp-choice-group
         label="When"
@@ -102,7 +105,7 @@
             <cp-combobox
               inputId="cp-quick-capture-label"
               mode="restricted"
-              [placeholder]="tagsState().status === 'found' ? 'Start typing a label…' : 'Loading labels…'"
+              placeholder="Start typing a label…"
               [disabled]="tagsState().status !== 'found'"
               [options]="tagOptions()"
               [value]="labelText()"

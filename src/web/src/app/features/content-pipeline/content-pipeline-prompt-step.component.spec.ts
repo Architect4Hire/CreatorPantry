@@ -87,9 +87,10 @@ describe('ContentPipelinePromptStepComponent', () => {
   it('lays the work out as named sections, the brief first, in the order it happens', async () => {
     await mount();
 
-    const headings = Array.from(el.querySelectorAll('cp-form-section h3, cp-form-section h2')).map((heading) =>
-      heading.textContent?.trim(),
-    );
+    // The sections' own headings: an empty state's title inside one is a heading of that section, not another.
+    const headings = Array.from(el.querySelectorAll('cp-form-section h3, cp-form-section h2'))
+      .filter((heading) => heading.closest('cp-empty-state') === null)
+      .map((heading) => heading.textContent?.trim());
 
     expect(headings).toEqual(['The brief', 'The look', 'Extras', 'The prompt']);
   });

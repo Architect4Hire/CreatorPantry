@@ -29,7 +29,10 @@ const MOST = 24;
  * to global.css, whose clamp only shortens the sweep to one instant pass: still a sweep, just one nobody sees.
  *
  * `card` with a `count` lays its cards out as `ul[cpCardGrid]` does — as many columns as fit — so a library's
- * skeleton is the grid that will replace it.
+ * skeleton is the grid that will replace it. Its picture is 4:3, a media card's, unless `pictureAspect` says the
+ * pictures coming are another shape — a run of generated pictures, drawn at the shape of the ones already made. A
+ * `block` given a `pictureAspect` is a picture of that shape too, rather than a panel 8rem tall, for a consumer whose
+ * own tile frames the picture.
  */
 @Component({
   selector: 'cp-skeleton',
@@ -37,6 +40,8 @@ const MOST = 24;
   host: {
     'aria-hidden': 'true',
     '[attr.data-shape]': 'shape()',
+    '[style.--cp-skeleton-picture-aspect]': 'pictureAspect()',
+    '[attr.data-aspect]': 'pictureAspect() ? "" : null',
   },
   template: `
     @for (item of items(); track $index) {
@@ -100,6 +105,10 @@ const MOST = 24;
         height: 8rem;
         border-radius: var(--cp-radius-md);
       }
+      :host([data-aspect]) .block {
+        height: auto;
+        aspect-ratio: var(--cp-skeleton-picture-aspect);
+      }
       .circle {
         width: 2.5rem;
         height: 2.5rem;
@@ -115,7 +124,7 @@ const MOST = 24;
         background: var(--cp-surface);
       }
       .picture {
-        aspect-ratio: 4 / 3;
+        aspect-ratio: var(--cp-skeleton-picture-aspect, 4 / 3);
         margin-bottom: var(--cp-space-2);
         border-radius: var(--cp-radius-md);
       }
@@ -152,6 +161,8 @@ export class CpSkeletonComponent {
   readonly shape = input<CpSkeletonShape>('line');
   /** How many of it, from one to a page's worth. A block of lines varies in width and ends short. */
   readonly count = input(1);
+  /** A `card`'s picture, or a `block`, as a CSS ratio ("1 / 1", "1024 / 768"); null keeps 4:3 and 8rem. */
+  readonly pictureAspect = input<string | null>(null);
 
   protected readonly cardLines = CARD_LINES;
 

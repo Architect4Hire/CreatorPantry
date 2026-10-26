@@ -152,9 +152,12 @@
       <p class="banner banner--success" role="status">{{ notice() }}</p>
     }
 
+    <!-- Present for as long as a test is open, so its words change as it is read (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ openState().status === 'loading' ? 'Opening this test…' : '' }}</p>
     @switch (openState().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Opening this test…</p>
+        <!-- The test as it will arrive: what happened, then what to change, as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
       }
 
       @case ('not_found') {

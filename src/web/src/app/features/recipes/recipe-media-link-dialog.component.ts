@@ -22,6 +22,7 @@ import {
   CpDialogComponent,
   CpFieldComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -94,6 +95,7 @@ const IDS = {
     CpDialogComponent,
     CpFieldComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     DamAssetPickerComponent,
     DamAssetThumbnailComponent,
   ],

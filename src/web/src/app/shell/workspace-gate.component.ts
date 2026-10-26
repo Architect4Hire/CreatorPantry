@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CpButtonComponent, CpEmptyStateComponent, CpPageHeadComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpCardComponent, CpEmptyStateComponent, CpPageHeadComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../core/route-title';
 import { CreateWorkspaceFormComponent } from './create-workspace-form.component';
@@ -15,13 +15,16 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
 @Component({
   selector: 'cp-workspace-gate',
   standalone: true,
-  imports: [CpPageHeadComponent, CpEmptyStateComponent, CpButtonComponent, CreateWorkspaceFormComponent],
+  imports: [CpPageHeadComponent, CpCardComponent, CpEmptyStateComponent, CpButtonComponent, CpSkeletonComponent, CreateWorkspaceFormComponent],
   template: `
     <cp-page-head [heading]="pageTitle" />
     @let state = memberships.state();
+    <!-- Always present, and outside the busy card (AU.7): one place the page says what it is waiting on. -->
+    <p class="cp-sr-only" role="status">{{ statusWords() }}</p>
     @switch (state.status) {
       @case ('loading') {
-        <p class="status" role="status">Loading your workspaces…</p>
+        <!-- The page as it will arrive: a card. -->
+        <cp-card><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div></cp-card>
       }
       @case ('error') {
         <cp-empty-state title="Couldn't load your workspaces" description="Check your connection and try again." icon="⚠">
@@ -41,14 +44,14 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
             <cp-create-workspace-form cpEmptyStateActions (created)="onCreated($event)" />
           </cp-empty-state>
         } @else {
-          <p class="status" role="status">Taking you to your workspace…</p>
+          <!-- On the way to the dashboard: the same card, until the route changes. -->
+          <cp-card><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div></cp-card>
         }
       }
     }
   `,
   styles: [`
     :host { display: block; }
-    .status { margin: 0; color: var(--cp-text-muted); font-size: var(--cp-font-size-sm); }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -68,6 +71,14 @@ export class WorkspaceGateComponent {
    * their new workspace only reachable from the switcher.
    */
   protected readonly firstUse = signal(false);
+
+  /** What the page is waiting on, said once: the workspaces, or the trip into the first of them. */
+  protected readonly statusWords = computed(() => {
+    const status = this.memberships.state().status;
+    if (status === 'loading') return 'Loading your workspaces…';
+
+    return status === 'ready' && !this.firstUse() ? 'Taking you to your workspace…' : '';
+  });
 
   private destroyed = false;
 

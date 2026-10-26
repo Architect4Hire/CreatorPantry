@@ -106,8 +106,14 @@ class StubGuideService {
     return Promise.resolve(this.read);
   }
 
+  /** Set to leave the history read unanswered, so the page stays loading. */
+  holdVersions = false;
+  /** Set to leave only the read of older versions unanswered, so the list stays loading them. */
+  holdOlder = false;
+
   listVersions(_slug: string, _guideId: string, cursor: string | null = null): Promise<BrandStyleGuideVersionsOutcome> {
     this.versionCalls.push(cursor);
+    if (this.holdVersions || (cursor !== null && this.holdOlder)) return new Promise(() => undefined);
 
     return Promise.resolve(this.pages?.shift() ?? this.versions);
   }
@@ -314,6 +320,27 @@ describe('BrandGuideHistoryComponent', () => {
     expect(service.versionCalls).toEqual([null, 'c1']);
     expect(versionRows()).toHaveSize(3);
     expect(maybeButton('Load older versions')).toBeNull();
+  });
+
+  it('draws older versions arriving at the end of the list, and the button keeps its words (AU.7)', async () => {
+    service.pages = [{ status: 'ok', page: { items: [row(3), row(2)], nextCursor: 'c1' } }];
+    await create();
+    const status = () =>
+      Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) => each.textContent?.includes('older versions…'));
+    expect(status()).toBeUndefined();
+
+    service.holdOlder = true;
+    button('Load older versions').click();
+    await settle();
+
+    const loadOlder = button('Load older versions');
+    expect(loadOlder.textContent!.trim()).toBe('Load older versions');
+    expect(loadOlder.getAttribute('aria-busy')).toBe('true');
+    expect(status()?.textContent).toBe('Loading older versions…');
+    const arriving = root().querySelector('.older-loading[aria-busy="true"]')!;
+    expect(arriving.querySelector('cp-skeleton')).not.toBeNull();
+    expect(root().querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(versionRows()).toHaveSize(2);
   });
 
   it('stops offering a page it cannot load and says the history is incomplete', async () => {
@@ -625,6 +652,16 @@ describe('BrandGuideHistoryComponent', () => {
 
     expect(region).not.toBeNull();
     expect(region?.textContent).toContain('Comparing version 2 with version 3.');
+  });
+
+  it('says "Loading…" once while the history is read: the list shell says it, the page does not repeat it', async () => {
+    service.holdVersions = true;
+    await create();
+
+    expect(root().querySelector('cp-list-shell cp-skeleton')).not.toBeNull();
+    const loading = Array.from(root().querySelectorAll('[role="status"]')).filter((each) => each.textContent?.includes('Loading'));
+    expect(loading.length).toBe(1);
+    expect(root().querySelector('p.status[role="status"]')!.textContent).toBe('');
   });
 
   it('announces that a comparison is ready', async () => {

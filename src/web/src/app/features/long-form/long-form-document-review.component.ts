@@ -22,6 +22,7 @@ import {
   CpFormSectionComponent,
   CpGeneratedLabelComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -138,6 +139,7 @@ interface FramingDraft {
     CpFormSectionComponent,
     CpGeneratedLabelComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     LongFormSeoSuggestionsComponent,
   ],

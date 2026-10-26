@@ -7,11 +7,16 @@
 @if (!host) {
   <cp-page-head [heading]="pageTitle" [lede]="state() === 'accepted' ? '' : lede">
     <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'ai-recipe-studio']">AI Recipe Studio</a>
+    <cp-shell-nav-icon cpPageHeadIcon name="ai" />
   </cp-page-head>
 } @else if (state() !== 'accepted') {
   <!-- Hosted, the step's card is the head: the one sentence the page rests on is said here instead. -->
   <p class="cp-muted">{{ lede }}</p>
 }
+
+<!-- Always in the page, so the words are announced when they change: a live region created already holding its
+     text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
+<p class="cp-sr-only draft-loading-status" role="status">{{ state() === 'loading' ? 'Looking for your draft…' : '' }}</p>
 
 <div class="draft-review">
 
@@ -20,6 +25,7 @@
       variant="first-use"
       title="No draft to review"
       description="Open this page from a draft request to review what came back."
+      illustration="recipe"
     />
   } @else if (state() === 'discarded') {
     <div class="draft-notice" role="status">
@@ -32,14 +38,26 @@
       </button>
     </div>
   } @else if (state() === 'gone') {
-    <p class="draft-notice" role="alert">We couldn't find that draft request.</p>
+    <p class="cp-sr-only" role="alert">We couldn't find that draft request.</p>
+    <cp-empty-state
+      variant="no-results"
+      title="We couldn't find that draft request"
+      description="It has gone, or it belongs to a workspace you can't see. Nothing was changed."
+      illustration="search"
+    />
     @if (host) {
       <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">Back to your ideas</button>
     }
   } @else if (state() === 'forbidden') {
     <p class="draft-notice" role="alert">This draft can't be read with your role in this workspace.</p>
   } @else if (state() === 'loading') {
-    <p class="draft-notice" role="status">Looking for your draft…</p>
+    <!-- The shape of what is coming (APP-003): the request's status line, then the draft's parts. Said by the
+         status line above the page, outside this busy region. -->
+    <div class="draft-loading" aria-busy="true">
+      <cp-skeleton shape="line" />
+      <cp-skeleton shape="block" />
+      <cp-skeleton shape="line" [count]="6" />
+    </div>
     <!--
       The watch controls belong here too, not only once a status has arrived. A request whose very first poll
       never lands would otherwise sit on "Looking for your draft…" for good, with nothing to press.
@@ -61,6 +79,10 @@
     }
 
     @if (state() === 'proposed') {
+      <!-- The whole page below is the draft, and it has an edge of its own in every card, so the mark alone,
+           at the top, before the first part of it (APP-006). The detail is "How this was made", at the end. -->
+      <cp-generated-label class="draft-generated" [provenance]="provenance()" />
+
       <cp-anchor-nav
         class="draft-nav"
         [items]="sections()"
@@ -332,12 +354,14 @@
       <section class="draft-section" aria-labelledby="cp-draft-provenance">
         <h3 id="cp-draft-provenance" tabindex="-1">How this was made</h3>
         @if (op.proposal; as proposal) {
+          <!-- A strip of short values with no control beside any of them, which is what `across` is for (AU.4.3).
+               The yield and timing above keep their grid: each of those values opens an editor in place. -->
           <cp-card>
-            <dl class="draft-fields draft-fields-grid">
-              <div class="draft-field"><dt>Model</dt><dd>{{ proposal.modelName }}</dd></div>
-              <div class="draft-field"><dt>Provider</dt><dd>{{ proposal.providerName }}</dd></div>
-              <div class="draft-field"><dt>Prompt</dt><dd>{{ proposal.promptTemplateId }} {{ proposal.promptTemplateVersion }}</dd></div>
-              <div class="draft-field"><dt>Answer shape</dt><dd>{{ proposal.outputSchemaVersion }}</dd></div>
+            <dl cpFacts layout="across">
+              <div cpFact label="Model">{{ proposal.modelName }}</div>
+              <div cpFact label="Provider">{{ proposal.providerName }}</div>
+              <div cpFact label="Prompt">{{ proposal.promptTemplateId }} {{ proposal.promptTemplateVersion }}</div>
+              <div cpFact label="Answer shape">{{ proposal.outputSchemaVersion }}</div>
             </dl>
           </cp-card>
         }

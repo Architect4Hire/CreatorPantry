@@ -3,6 +3,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -21,6 +23,10 @@ import {
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpProgressComponent,
+  CpSkeletonComponent,
+  CpStep,
+  CpStepperComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -46,6 +52,7 @@ import {
 } from '../../shared/channel-posts/channel-post-run.component';
 import { CreativeContextSaveNoticeComponent } from '../../shared/creative-context-save-notice/creative-context-save-notice.component';
 import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
 import { WORKFLOW_RUN_PARAM, workflowRunFrom } from '../../shared/workflow-shell/workflow-return';
 import { WorkflowReturnNoticeComponent } from '../../shared/workflow-shell/workflow-return-notice.component';
@@ -62,12 +69,51 @@ import { SocialStudioRecentComponent } from './social-studio-recent.component';
  */
 type Phase = 'loading' | 'unavailable' | 'not_found' | 'context_not_found' | 'context_unavailable' | 'ready';
 
-/** The run's sentences, said for a page where what the posts are about is above them rather than a step back. */
+/**
+ * The studio's steps, in order (AU.5.3). The names and help are the "Create social posts" workflow's (13A.20), so
+ * writing posts reads the same wherever it is started. The order is not quite: the picture comes before the posts
+ * here, as it always has on this page, because what is known about the picture is part of what the posts are
+ * written from — moving it after them would change what the posts can say.
+ */
+const STUDIO_STEPS: readonly { readonly part: SocialStudioPart; readonly label: string; readonly help: string }[] = [
+  {
+    part: 'about',
+    label: 'Choose what it’s about',
+    help: 'A recipe, or a few lines of your own. A themed day is optional.',
+  },
+  {
+    part: 'picture',
+    label: 'Pick a picture to go with them',
+    help: 'Choose one from your library, if you like. The posts can only say what is known about what it shows.',
+  },
+  {
+    part: 'write',
+    label: 'Write and choose your posts',
+    help: 'Each channel gets its own post, kept within its length. Edit any of them, then keep the ones you like.',
+  },
+];
+
+/** The step card's heading, which takes focus when the step changes. */
+const STEP_HEADING_ID = 'cp-social-step-heading';
+
+/** The address's name for the step on screen, so a refresh or a shared link opens the same step. */
+const STEP_PARAM = 'step';
+
+/** The step a `?step=` names, or null for none or one this page does not know. */
+function stepFrom(value: string | null): SocialStudioPart | null {
+  return STUDIO_STEPS.some((step) => step.part === value) ? (value as SocialStudioPart) : null;
+}
+
+function stepIndexOf(part: SocialStudioPart): number {
+  return Math.max(0, STUDIO_STEPS.findIndex((step) => step.part === part));
+}
+
+/** The run's sentences on the studio's own page, where what the posts are about is a step or two back (AU.5.3). */
 export const SOCIAL_STUDIO_POST_WORDING: ChannelPostRunWording = {
   chooseIntro:
-    'Pick where these words are going. Your usual channels are already ticked; add or drop any of them. Each channel gets its own post, written to that channel’s own length, about what you chose above.',
+    'Pick where these words are going. Your usual channels are already ticked; add or drop any of them. Each channel gets its own post, written to that channel’s own length, about what you chose in the steps before this one.',
   noWork:
-    'There is nothing to write about yet. Link a recipe, choose a picture or write a few lines above, and the channels will be offered here.',
+    'There is nothing to write about yet. Go back to the first step to link a recipe or write a few lines, and the channels will be offered here.',
   forbidden:
     'You have view-only access to this workspace, so you can read and copy these posts but not write, edit or decide on them. Ask an Owner or Editor for those.',
   reviewHeading: 'Read them through',
@@ -120,8 +166,8 @@ function memoryFiling(): CreativeContextFilingStore {
  *
  * **What makes it a different screen from the Content Pipeline's posts step** is how a creator gets here. The
  * pipeline reaches posts after an idea, a prompt and pictures; this is the way to write posts for a recipe, a
- * picture in the library, or a few typed lines, without running any of that. One page: what the posts are
- * about, then the posts.
+ * picture in the library, or a few typed lines, without running any of that. It goes one step at a time, as the
+ * "Create social posts" workflow does (AU.5.3): what the posts are about, a picture, then the posts.
  *
  * **The posts are {@link ChannelPostRunComponent}'s**, shared with the pipeline, so choosing channels, the
  * limit reading, the generated marker and reviewing each channel exist once. What is this page's own is saying
@@ -164,12 +210,16 @@ function memoryFiling(): CreativeContextFilingStore {
     CpFormSectionComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpProgressComponent,
+    CpSkeletonComponent,
+    CpStepperComponent,
     CpTopicCardComponent,
     ChannelPostRunComponent,
     CreativeContextSaveNoticeComponent,
     DamAssetPickerComponent,
     DayNotesNoticeComponent,
     RecipePickerComponent,
+    ShellNavIconComponent,
     SocialStudioRecentComponent,
     WorkflowReturnNoticeComponent,
   ],
@@ -190,21 +240,61 @@ export class SocialStudioComponent {
   private readonly weeklyThemes = inject(WeeklyThemesService);
   private readonly usage = inject(AiUsageService);
   private readonly confirm = inject(ConfirmService);
+  private readonly injector = inject(Injector);
   /** Set when a guided step shows one part of the studio (13A.20); null on the studio's own page. */
   protected readonly hosted = inject(SocialStudioHost, { optional: true });
 
-  /** Which part shows: every part on the studio's page, one in a step. */
-  protected readonly shows = (part: SocialStudioPart): boolean => this.hosted === null || this.hosted.part === part;
+  /** The step on screen on the studio's own page, from `?step=`; a guided step names its part instead. */
+  protected readonly step = signal<SocialStudioPart>(
+    this.hosted ? this.hosted.part : (stepFrom(this.route.snapshot.queryParamMap.get(STEP_PARAM)) ?? 'about'),
+  );
+  /** The furthest step reached on this visit, which is what the stepper calls done. */
+  private readonly furthest = signal(stepIndexOf(this.step()));
+  /** True when the address named a step. Otherwise the studio opens where the work stands, once it is read. */
+  private readonly stepNamed = !this.hosted && stepFrom(this.route.snapshot.queryParamMap.get(STEP_PARAM)) !== null;
+
+  /** The one part on screen: the guided step's, or the studio's own step. */
+  protected readonly currentPart = computed<SocialStudioPart>(() => (this.hosted ? this.hosted.part : this.step()));
+
+  /** Which part shows. One at a time, wherever the studio is. */
+  protected readonly shows = (part: SocialStudioPart): boolean => this.currentPart() === part;
+
+  protected readonly stepHeadingId = STEP_HEADING_ID;
+  protected readonly stepIndex = computed(() => stepIndexOf(this.step()));
+  protected readonly currentStep = computed(() => STUDIO_STEPS[this.stepIndex()]);
+  protected readonly isFirst = computed(() => this.stepIndex() === 0);
+  protected readonly isLast = computed(() => this.stepIndex() === STUDIO_STEPS.length - 1);
+  protected readonly progressText = computed(() => `Step ${this.stepIndex() + 1} of ${STUDIO_STEPS.length}`);
+  protected readonly percent = computed(() => Math.round(((this.stepIndex() + 1) / STUDIO_STEPS.length) * 100));
+
+  /** The steps as `cp-stepper` takes them: it owns the word and the glyph for each state. */
+  protected readonly stepperSteps = computed<readonly CpStep[]>(() =>
+    STUDIO_STEPS.map((step, index) => ({
+      id: step.part,
+      label: step.label,
+      status: index === this.stepIndex() ? 'current' : index < this.furthest() ? 'done' : 'upcoming',
+    })),
+  );
 
   /** The guided run that sent the creator here, from `?workflowRun=` (13A.20); never on a hosted part. */
   protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
 
-  /** Said once above the sections, on the studio's own page. Hosted, the step's card carries the shell's legend. */
-  protected readonly legendText =
-    'Give the posts one thing to be about — a recipe, a picture or a few lines. Everything else is optional.';
+  /**
+   * Said once above the step's sections, on the studio's own page — never on each field, where one optional field
+   * among unmarked ones makes the rest read as required. Hosted, the step's card carries the shell's legend.
+   */
+  protected readonly legend = computed(() => {
+    if (this.hosted) return '';
 
-  /** The page head, for moving focus to the title when the work on screen has just been replaced. */
-  private readonly head = viewChild<CpPageHeadComponent>('head');
+    switch (this.currentPart()) {
+      case 'about':
+        return 'Give the posts one thing to be about — a recipe or a few lines. Everything else is optional.';
+      case 'picture':
+        return 'Optional. Posts can be written without a picture.';
+      default:
+        return '';
+    }
+  });
 
   protected readonly wording = this.hosted ? HOSTED_POST_WORDING : SOCIAL_STUDIO_POST_WORDING;
   protected readonly limits = CONTENT_PIPELINE_LIMITS;
@@ -465,6 +555,22 @@ export class SocialStudioComponent {
       untracked(() => void this.open(owner, contextId));
     });
 
+    // Work opened by its address with no step named opens on its posts: a piece of work that already exists has
+    // something to be about, and what a creator comes back to it for is what was written. Said, so nobody wonders
+    // where the first steps went.
+    effect(() => {
+      if (this.hosted || this.stepNamed || !this.loaded() || this.routeContextId() === null) return;
+
+      untracked(() => {
+        if (this.step() === 'write') return;
+
+        this.step.set('write');
+        this.furthest.update((value) => Math.max(value, stepIndexOf('write')));
+        this.showAddress();
+        this.announcement.set(`Picked up where you left off: ${this.stepSentence()}`);
+      });
+    });
+
     // Work with no context gets one on its first answer; its address then becomes the one that finds it again.
     effect(() => {
       const contextId = this.creativeContextId();
@@ -513,6 +619,56 @@ export class SocialStudioComponent {
       .finally(() => (this.pendingLeave = null));
 
     return this.pendingLeave;
+  }
+
+  /** Back a step. Nothing is lost: every answer is kept as it is made, and unsaved post words on this device. */
+  protected back(): void {
+    if (!this.isFirst()) this.goTo(STUDIO_STEPS[this.stepIndex() - 1].part);
+  }
+
+  /** On a step. Nothing is required to move on — the posts step says what it still needs. */
+  protected continue(): void {
+    if (!this.isLast()) this.goTo(STUDIO_STEPS[this.stepIndex() + 1].part);
+  }
+
+  /**
+   * Show one step: say so in the address, so a refresh opens it again, and move focus to its heading, so a keyboard
+   * or screen-reader user arrives on the new step rather than where the button was. The heading is `tabindex="-1"`
+   * for exactly this and never enters the tab order. Only `?step=` changes, so the route is not left and the
+   * leaving guard is not asked: words being edited in a post are in the run's kept state, not in its panel.
+   */
+  private goTo(part: SocialStudioPart): void {
+    this.step.set(part);
+    this.furthest.update((value) => Math.max(value, stepIndexOf(part)));
+    this.showAddress();
+    // Focus reads the step's name; its place in the flow is said here, where the polite region will be heard.
+    this.announcement.set(this.stepSentence());
+    this.focusStep();
+  }
+
+  private focusStep(): void {
+    afterNextRender(() => document.getElementById(STEP_HEADING_ID)?.focus(), { injector: this.injector });
+  }
+
+  /** "Step 2 of 3: Pick a picture to go with them." */
+  private stepSentence(): string {
+    return `${this.progressText()}: ${this.currentStep().label}.`;
+  }
+
+  /**
+   * Change the address without navigating: the work's own address, or the studio's for work with none, and the
+   * step. The first step names itself only on work that has an address, so a refresh there stays on it rather
+   * than opening the posts.
+   */
+  private showAddress(): void {
+    const contextId = this.routeContextId() ?? this.filedContextId;
+    const commands =
+      contextId === null ? this.startLink() : ['/', this.workspaceSlug(), ...HANDOFF_ROUTES.socialStudio(contextId)];
+    const queryParams: Record<string, string> =
+      this.step() !== 'about' || contextId !== null ? { [STEP_PARAM]: this.step() } : {};
+    if (this.workflowRun) queryParams[WORKFLOW_RUN_PARAM] = this.workflowRun;
+
+    this.location.replaceState(this.router.serializeUrl(this.router.createUrlTree(commands, { queryParams })));
   }
 
   protected retryMemberships(): void {
@@ -653,17 +809,18 @@ export class SocialStudioComponent {
     this.routeContextId.set(null);
     this.filedContextId = null;
     this.session.begin(this.workspaceSlug(), memoryFiling());
-    this.location.replaceState(this.router.serializeUrl(this.router.createUrlTree(this.startLink())));
     this.runState.set(emptyChannelPostRunState());
     this.applyDayNotes.set(true);
     this.namedRecipe.set(null);
     this.pictureAction.set({ status: 'idle' });
     this.loaded.set(true);
+    this.step.set('about');
+    this.furthest.set(0);
+    this.showAddress();
     this.epoch.update((value) => value + 1);
     this.announcement.set('Started something new. Nothing is filled in.');
-    // The button that was pressed is gone with the work it left, so focus goes to the page's title rather
-    // than being dropped on the document.
-    this.head()?.focusHeading();
+    // Back on the first step, so focus goes to its heading rather than being dropped on the document.
+    this.focusStep();
   }
 
   /** Every route node from this one up to the root, so the slug can be found wherever it was declared. */
@@ -750,11 +907,7 @@ export class SocialStudioComponent {
       this.hosted.filed(contextId);
       return;
     }
-    this.location.replaceState(
-      this.router.serializeUrl(
-        this.router.createUrlTree(['/', this.workspaceSlug(), ...HANDOFF_ROUTES.socialStudio(contextId)]),
-      ),
-    );
+    this.showAddress();
   }
 
   /** Keep, for the piece of work on screen, the request being waited on and the words nobody has saved. */

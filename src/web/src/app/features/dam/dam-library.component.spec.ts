@@ -210,6 +210,21 @@ describe('DamLibraryComponent', () => {
 
     expect(root().querySelector('[role="status"][aria-live]')).toBeTruthy();
     expect(text()).toContain('Loading');
+    // AU.6.1: the shape of a library of cards, not a sentence.
+    expect(root().querySelector('cp-list-shell cp-skeleton')?.getAttribute('data-shape')).toBe('card');
+  });
+
+  // AU.6.1: a card whose picture is still on its way shows the card's own panel, drawn as a picture.
+  it('marks a picture still on its way as pending, so its card shows the picture panel, and says nothing per card', async () => {
+    contentSpy = jasmine.createSpy('content').and.returnValue(new Subject<DamAssetContentOutcome>());
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
+    await create();
+
+    for (const card of cards()) {
+      expect(card.querySelector('cp-dam-asset-thumbnail')?.hasAttribute('data-cp-picture-pending')).toBeTrue();
+      expect(card.querySelector('cp-media-card .panel cp-illustration')).toBeTruthy();
+      expect(card.querySelector('[role="status"]')).toBeNull();
+    }
   });
 
   it('asks for the first page of the workspace in the route, with no cursor', async () => {
@@ -226,8 +241,10 @@ describe('DamLibraryComponent', () => {
     const first = cards()[0].textContent ?? '';
     expect(first).toContain('Soda bread hero');
     expect(first).toContain('Overhead, on linen.');
-    // Generated work is identified as generated.
-    expect(first).toContain('AI generated');
+    // Generated work carries the product's one mark for it, not a badge of the page's own (AU.6.1).
+    expect(cards()[0].querySelector('cp-generated-label')?.textContent).toContain('Made by AI');
+    expect(cards()[0].querySelector('cp-badge[tone="purple"]')).toBeNull();
+    expect(first).not.toContain('AI generated');
     expect(first).toContain('Instagram');
     expect(first).toContain('Wednesday');
     expect(first).toContain('JPEG · 1600 × 1200 · 205 KB');
@@ -247,6 +264,7 @@ describe('DamLibraryComponent', () => {
     expect(second.textContent).toContain('Not used yet');
     expect(second.textContent).not.toContain('File');
     expect(second.querySelectorAll('cp-badge').length).toBe(1);
+    expect(second.querySelector('cp-generated-label')).toBeNull();
   });
 
   it('says nothing about usage when the server did not send a count', async () => {
@@ -336,6 +354,20 @@ describe('DamLibraryComponent', () => {
 
     expect(text()).toContain('No pictures in the library yet');
     expect(hasButton('Clear filters')).toBeFalse();
+
+    // AU.6.1: drawn, and inviting the first picture from someone who may add one.
+    const empty = root().querySelector('cp-empty-state') as HTMLElement;
+    expect(empty.querySelector('cp-illustration')).toBeTruthy();
+    expect(Array.from(empty.querySelectorAll('button')).map((each) => each.textContent?.trim())).toEqual(['Upload a picture']);
+  });
+
+  it('offers no upload from the empty library to a Viewer', async () => {
+    role = 'Viewer';
+    searchSpy = jasmine.createSpy('search').and.returnValue(found(page([])));
+    await create();
+
+    expect(text()).toContain('No pictures in the library yet');
+    expect(root().querySelector('cp-empty-state button')).toBeNull();
   });
 
   it('shows a no-results empty state when filters match nothing, with a way to clear them', async () => {
@@ -343,6 +375,7 @@ describe('DamLibraryComponent', () => {
     await create(`/${SLUG}/dam?search=zzz&day=Sunday`);
 
     expect(text()).toContain('No pictures match these filters');
+    expect(root().querySelector('cp-empty-state cp-illustration')).toBeTruthy();
 
     searchSpy.and.returnValue(found(TWO));
     button('Clear filters').click();
@@ -640,7 +673,9 @@ describe('DamLibraryComponent', () => {
     await create();
 
     expect(root().querySelector('h1')?.textContent).toContain('Pictures');
-    expect(searchInput().closest('label')?.textContent).toContain('Search the library');
+    expect(searchInput().closest('label')?.textContent).toContain('Search pictures by title or description');
+    // AU.0 found the placeholder clipped; it is short now, and the start of the announced name (SC 2.5.3).
+    expect(searchInput().placeholder).toBe('Search pictures');
     expect(select('channel').closest('label')?.textContent).toContain('Filter by channel');
     expect(select('day').closest('label')?.textContent).toContain('Filter by day');
     expect(select('sort').closest('label')?.textContent).toContain('Sort the library');

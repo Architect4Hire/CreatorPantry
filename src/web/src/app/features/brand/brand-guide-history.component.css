@@ -174,3 +174,9 @@ cp-notice {
     gap: var(--cp-space-2);
   }
 }
+
+/* Older versions arriving at the end of the list, where they will land, at a row's own inset. */
+.older-loading {
+  padding: var(--cp-space-3) var(--cp-space-2);
+  border-top: 1px solid var(--cp-border);
+}

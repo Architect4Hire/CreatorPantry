@@ -8,6 +8,7 @@ import {
   CpFactsComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ContentChannel } from '../../models/brand-profile.models';
@@ -44,6 +45,7 @@ type GuideState =
   selector: 'cp-content-pipeline-brand-defaults',
   standalone: true,
   imports: [
+    CpSkeletonComponent,
     RouterLink,
     CpBadgeComponent,
     CpButtonComponent,

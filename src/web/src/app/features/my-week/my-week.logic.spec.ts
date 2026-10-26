@@ -86,7 +86,8 @@ describe('My Week filters', () => {
 
   it('keeps each list’s own empty words where the filters had nothing to hide', () => {
     const friday = columnsFor(fullWeek(), 'compact', { ...NO_FILTERS, query: 'galette' })[1].sections[4];
-    expect(friday.empty).toBe('Nothing planned for Fri 15 Oct.');
+    expect(friday.heading).toBe('Fri 15 Oct');
+    expect(friday.empty).toBe('Nothing planned.');
   });
 
   it('knows a week the server sent nothing for from one the filters emptied', () => {

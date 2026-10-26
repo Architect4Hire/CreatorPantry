@@ -85,6 +85,27 @@ describe('AiAdvisoryResultsComponent', () => {
     expect(root.querySelector('.advisory-item-summary')?.textContent).toContain('soured milk');
   });
 
+  it('marks its items as drafted by AI, once round the list, naming the model and never the prompt', () => {
+    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]));
+
+    const generated = root.querySelector('cp-list-shell cp-generated')!;
+    expect(generated.querySelector('.advisory-items')).not.toBeNull();
+    const label = generated.querySelector('cp-generated-label')!;
+    expect(label.textContent).toContain('Drafted by AI');
+    expect(label.textContent).toContain('test-model (test-provider)');
+    expect(label.textContent).not.toContain('recipe.substitution');
+    expect(root.querySelectorAll('cp-generated-label').length).toBe(1);
+  });
+
+  it('discloses how it was generated as a list of facts', () => {
+    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]));
+
+    const facts = root.querySelector('details.advisory-provenance dl[cpFacts]')!;
+    const terms = Array.from(facts.querySelectorAll('dt')).map((dt) => dt.textContent?.trim());
+    expect(terms).toEqual(['Made by', 'Instructions used', 'Read from recipe version', 'Reference']);
+    expect(facts.textContent).toContain('sha256:abc');
+  });
+
   it('humanises only the fields declared as enum-valued', () => {
     render(
       operation([

@@ -81,7 +81,21 @@ describe('RecipePublishPanelComponent', () => {
 
       expect(text()).toContain('Checking what can be exported');
       expect(links().length).toBe(0);
+
+      // Said once, offscreen; what shows is the panel arriving, not a sentence (AU.7).
+      const status = Array.from(el().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+        each.textContent?.includes('Checking what can be exported…'),
+      );
+      expect(status).withContext('the loading status').toBeTruthy();
+      const busy = el().querySelector('[aria-busy="true"]')!;
+      expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+      expect(busy.textContent!.trim()).toBe('');
+
       await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(status!.textContent).toBe('');
+      expect(el().querySelector('cp-skeleton')).toBeNull();
     });
 
     it('shows the source version, readiness and both accepted revisions when ready', async () => {

@@ -5,3 +5,8 @@
 .posts > li {
   min-width: 0;
 }
+
+.loading {
+  display: grid;
+  gap: var(--cp-space-4);
+}

@@ -10,7 +10,16 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { CpButtonComponent, CpFormSectionComponent, CpGeneratedLabelComponent, CpNoticeComponent, CpProgressComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  CpButtonComponent,
+  CpEmptyStateComponent,
+  CpFormSectionComponent,
+  CpGeneratedComponent,
+  CpNoticeComponent,
+  CpProgressComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
 import {
@@ -163,9 +172,11 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
   selector: 'cp-generated-image-run',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     CpButtonComponent,
+    CpEmptyStateComponent,
     CpFormSectionComponent,
-    CpGeneratedLabelComponent,
+    CpGeneratedComponent,
     CpNoticeComponent,
     CpProgressComponent,
     CpStatusPillComponent,
@@ -370,6 +381,32 @@ export class GeneratedImageRunComponent {
   protected readonly stagedImages = computed<readonly StagedImage[]>(() => this.detail()?.images ?? []);
 
   protected readonly hasPictures = computed(() => this.stagedImages().length > 0);
+
+  /**
+   * How many pictures the run is still making, each drawn as a skeleton tile until it lands: the whole count while
+   * the ask is on its way, then whatever the run has not staged yet. None once the run has stopped working, or once
+   * this page has stopped checking on it: a skeleton says something is on its way here, and nothing is being
+   * watched for.
+   */
+  protected readonly pendingCount = computed(() => {
+    if (this.tracker.stopped()) return 0;
+
+    const phase = this.tracker.phase();
+    if (phase.kind === 'submitting') return this.count();
+    if (phase.kind !== 'watching') return 0;
+
+    const asked = this.detail()?.variantCount ?? this.count();
+    return Math.max(0, asked - this.stagedImages().length);
+  });
+
+  /**
+   * The shape a picture still coming is drawn at: the first made picture's. Square before any is made — no size is
+   * asked for, so each model's own default applies, and square is the usual one.
+   */
+  protected readonly pendingAspect = computed(() => {
+    const first = this.stagedImages()[0];
+    return first && first.width > 0 && first.height > 0 ? `${first.width} / ${first.height}` : '1 / 1';
+  });
 
   protected readonly keeperCount = computed(() => this.keepers().length);
 

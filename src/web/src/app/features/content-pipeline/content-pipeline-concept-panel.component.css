@@ -3,6 +3,11 @@
   gap: var(--cp-space-4);
 }
 
+.planning {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
 .looks {
   display: grid;
   /* minmax(0, …) so one long line cannot hold the column wider than the card (DESIGN-SYSTEM.md). */

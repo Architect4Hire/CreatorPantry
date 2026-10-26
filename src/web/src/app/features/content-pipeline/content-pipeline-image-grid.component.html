@@ -30,7 +30,7 @@
               @if (tile.assetLink; as target) {
                 <a
                   [routerLink]="target"
-                  [attr.aria-label]="'Open picture ' + tile.position + ' of ' + tile.total + ' in your library'"
+                  [attr.aria-label]="'Open it: picture ' + tile.position + ' of ' + tile.total + ' in your library'"
                 >
                   Open it
                 </a>
@@ -50,7 +50,7 @@
                 type="button"
                 variant="secondary"
                 size="sm"
-                [attr.aria-label]="'Try saving picture ' + tile.position + ' of ' + tile.total + ' again'"
+                [attr.aria-label]="'Try again: save picture ' + tile.position + ' of ' + tile.total"
                 (click)="saveRequested.emit(tile.image.id)"
               >
                 Try again
@@ -69,7 +69,7 @@
               variant="primary"
               size="sm"
               [disabled]="!tile.canAct"
-              [attr.aria-label]="'Save picture ' + tile.position + ' of ' + tile.total + ' to your library'"
+              [attr.aria-label]="'Save to library: picture ' + tile.position + ' of ' + tile.total"
               (click)="saveRequested.emit(tile.image.id)"
             >
               Save to library
@@ -90,7 +90,7 @@
           type="button"
           variant="ghost"
           size="sm"
-          [attr.aria-label]="'View picture ' + tile.position + ' of ' + tile.total + ' larger'"
+          [attr.aria-label]="'View larger: picture ' + tile.position + ' of ' + tile.total"
           (click)="opened.emit(tile.image.id)"
         >
           View larger
@@ -121,6 +121,15 @@
           </button>
         }
       </div>
+    </li>
+  }
+  <!-- The pictures still on their way, as the tiles that will replace them (APP-003): the same frame, a picture
+       of the shape the made ones are, and the lines under it. aria-hidden like every skeleton: the run's own
+       status and progress above say how many are made. -->
+  @for (slot of pendingSlots(); track $index) {
+    <li class="pending" aria-hidden="true">
+      <cp-skeleton shape="block" [pictureAspect]="pendingAspect()" />
+      <cp-skeleton shape="line" [count]="2" />
     </li>
   }
 </ul>

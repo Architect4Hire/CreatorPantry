@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { StagedImage } from '../../models/generated-image.models';
 import { PictureRendition } from '../../models/picture-rendition.models';
@@ -39,8 +39,10 @@ type PictureState = 'loading' | 'ready' | 'gone' | 'unavailable';
 @Component({
   selector: 'cp-content-pipeline-staged-image',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   template: `
+    <!-- Always present (APP-003, AU.7): the one status this picture keeps while its bytes are read. -->
+    <p class="cp-sr-only" role="status">{{ state() === 'loading' ? 'Loading this picture…' : '' }}</p>
     @switch (state()) {
       @case ('ready') {
         <img
@@ -51,7 +53,8 @@ type PictureState = 'loading' | 'ready' | 'gone' | 'unavailable';
         />
       }
       @case ('loading') {
-        <p class="placeholder" role="status">Loading this picture…</p>
+        <!-- The picture's own shape, from the size the server gave, so nothing moves when it arrives. -->
+        <div class="arriving" aria-busy="true"><cp-skeleton shape="block" [pictureAspect]="aspect()" /></div>
       }
       @case ('gone') {
         <cp-notice tone="warning" role="status">This picture is not there any more.</cp-notice>
@@ -80,10 +83,8 @@ type PictureState = 'loading' | 'ready' | 'gone' | 'unavailable';
         height: auto;
         border-radius: var(--cp-radius-sm);
       }
-      .placeholder {
-        margin: 0;
-        color: var(--cp-text-muted);
-        font-size: var(--cp-font-size-sm);
+      .arriving {
+        width: 100%;
       }
     `,
   ],
@@ -107,6 +108,12 @@ export class ContentPipelineStagedImageComponent {
    * creator its full size.
    */
   readonly rendition = input<PictureRendition>('web');
+
+  /** The picture's shape while its bytes are on their way: the server's own size, 4:3 when it gave none. */
+  protected readonly aspect = computed(() => {
+    const { width, height } = this.image();
+    return width && height ? `${width} / ${height}` : '4 / 3';
+  });
 
   protected readonly state = signal<PictureState>('loading');
   protected readonly objectUrl = signal<string | null>(null);

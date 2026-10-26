@@ -169,6 +169,43 @@ function buttons<T>(fixture: ComponentFixture<T>): string[] {
 describe('"Test and approve" step screens (13A.16)', () => {
   beforeEach(() => configure());
 
+  // AU.7: what a step is waiting for arrives as its shape, and is said once from a region that is always there.
+  describe('while a step reads what it needs', () => {
+    const steps: readonly [string, Type<unknown>, string, Record<string, unknown>][] = [
+      ['Fill in the basics', RecipeTestBasicsStepComponent, 'Checking your recipe…', {}],
+      ['Cook it and note what happened', RecipeTestCookStepComponent, 'Reading your recipe…', {}],
+      ['Sort out what went wrong', RecipeTestFixStepComponent, 'Reading your recipe…', {}],
+      ['Send it for review, and approve it', RecipeTestReadinessStepComponent, 'Reading your recipe…', { mode: 'approve' }],
+    ];
+    // The step's own status is the first thing in its template; a panel it opens comes after it.
+    const status = (host: HTMLElement) => host.querySelector('p.cp-sr-only[role="status"]')!;
+    /** The busy lines drawn beside the status: the step's own, not a child panel's. */
+    const busyBeside = (own: Element) =>
+      Array.from(own.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton')) ?? null;
+
+    for (const [name, type, sentence, extra] of steps) {
+      it(`${name}: draws lines while it reads, and says "${sentence}" offscreen`, async () => {
+        recipes.getRecipeDetail.and.returnValue(new Promise(() => undefined));
+        getReadiness.and.returnValue(new Promise(() => undefined));
+        const fixture = await render(type, { run: testRun(), workspaceSlug: SLUG, ...extra });
+
+        expect(status(root(fixture)).textContent).toBe(sentence);
+        const busy = busyBeside(status(root(fixture)))!;
+        expect(busy).toBeTruthy();
+        expect(busy.textContent!.trim()).toBe('');
+        // Not a visible sentence beside the lines.
+        expect(Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+      });
+
+      it(`${name}: keeps that status, emptied, once it has read`, async () => {
+        const fixture = await render(type, { run: testRun(), workspaceSlug: SLUG, ...extra });
+
+        expect(status(root(fixture)).textContent).toBe('');
+        expect(busyBeside(status(root(fixture)))).toBeNull();
+      });
+    }
+  });
+
   describe('Fill in the basics', () => {
     it('says everything a test needs is here, with no form, when the server finds nothing missing', async () => {
       const fixture = await render(RecipeTestBasicsStepComponent, { run: testRun(), workspaceSlug: SLUG });

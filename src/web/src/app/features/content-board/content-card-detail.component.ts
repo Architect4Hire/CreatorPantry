@@ -12,11 +12,13 @@ import {
   CpFactsComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { injectRouteTitle } from '../../core/route-title';
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
   CONTENT_BOARD_COLUMN_LABELS,
@@ -93,6 +95,7 @@ const DELETE_PROBLEMS = {
     CpFactsComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
     ContentCardEditDrawerComponent,
@@ -140,12 +143,14 @@ export class ContentCardDetailComponent {
         return 'Card deleted';
       case 'not_found':
         return 'Card not found';
-      case 'error':
-        return 'Card';
+      // While it loads, the route's own title: the title slot never holds a loading sentence (AU.7).
       default:
-        return 'Loading card…';
+        return this.routeTitle;
     }
   });
+
+  /** The route's own title, as the DAM's picture page reads its own: so the two cannot drift. */
+  private readonly routeTitle = injectRouteTitle('Card');
 
   protected readonly boardLink = computed(() => ['/', this.workspaceSlug(), 'content-board']);
   protected readonly columnLabel = computed(() => {

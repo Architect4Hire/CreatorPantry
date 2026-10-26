@@ -144,6 +144,8 @@ describe('CpGeneratedComponent', () => {
 
   // AU.3.4: what a model made arrives as it is made, so the surface it arrives on carries the entrance.
   it('arrives, fading and lifting in, when the result renders', () => {
+    // Its own mount: reading the last test's element made this pass or fail by the random order.
+    mount();
     const surface = el.querySelector('cp-generated') as HTMLElement;
 
     expect(surface.hasAttribute('data-cp-enter')).toBeTrue();

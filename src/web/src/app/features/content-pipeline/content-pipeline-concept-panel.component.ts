@@ -9,7 +9,16 @@ import {
   model,
   output,
 } from '@angular/core';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpNoticeComponent } from '@creator-pantry/ui';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpEmptyStateComponent,
+  CpGeneratedComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 
 import { AiOperationStatusComponent } from '../ai/ai-operation-status.component';
 import { AiOperationTracker } from '../ai/ai-operation-tracker';
@@ -60,9 +69,13 @@ const PICK_SEPARATOR = '|';
   selector: 'cp-content-pipeline-concept-panel',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     CpButtonComponent,
     CpChoiceGroupComponent,
+    CpEmptyStateComponent,
+    CpGeneratedComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     AiOperationStatusComponent,
     AiAllowanceNoticeComponent,
     DayNotesNoticeComponent,

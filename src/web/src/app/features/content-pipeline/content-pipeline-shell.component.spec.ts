@@ -7,6 +7,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { WORKFLOW_SHELL_NARROW_QUERY } from '../../shared/workflow-shell/workflow-shell.component';
 import { WorkspaceRole } from '../../models/auth.models';
 import {
   ContentPipelineDraft,
@@ -142,8 +143,18 @@ async function create(
     brand?: BrandProfileOutcome;
     /** Pictures the work names as keepers, which is where a keeper lives since AF.4.3. */
     keepers?: readonly string[];
+    /** A window as narrow as the one a workflow run folds its steps at. */
+    narrow?: boolean;
   } = {},
 ): Promise<void> {
+  if (options.narrow) {
+    const real = window.matchMedia.bind(window);
+    spyOn(window, 'matchMedia').and.callFake((query: string) =>
+      query === WORKFLOW_SHELL_NARROW_QUERY
+        ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList)
+        : real(query),
+    );
+  }
   localStorage.clear();
   seedQueries = [];
   brandReads = [];
@@ -323,6 +334,11 @@ function button(label: string): HTMLButtonElement | null {
   );
 }
 
+/** Continue is never disabled (AU.5.4): a step that is not ready holds it with `aria-disabled` instead. */
+function held(label: string): boolean {
+  return button(label)!.getAttribute('aria-disabled') === 'true';
+}
+
 async function click(label: string): Promise<void> {
   button(label)!.click();
   await settle();
@@ -475,7 +491,58 @@ describe('ContentPipelineShellComponent', () => {
     expect(heading.textContent?.trim()).toBe('What it is about');
     // A destination for focus when the step changes, never a tab stop.
     expect(heading.tabIndex).toBe(-1);
-    expect(card.querySelector('.actions')?.textContent).toContain('Continue');
+    expect(card.querySelector('.footer')?.textContent).toContain('Continue');
+  });
+
+  it("lays out the step's moves as a workflow run does: Back and Continue, then Save and exit, then More options", async () => {
+    await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
+
+    const footer = root().querySelector('cp-topic-card .footer') as HTMLElement;
+    const rowOf = (label: string): string | undefined =>
+      Array.from(footer.querySelectorAll('button')).find((each) => each.textContent?.trim() === label)?.closest('.cp-actions')?.className;
+
+    expect(rowOf('Back')).toContain('primary-row');
+    expect(rowOf('Continue')).toContain('primary-row');
+    expect(rowOf('Save and exit')).toContain('secondary-row');
+    // Folded away: throwing the run out is not part of doing the step.
+    const more = footer.querySelector('details.more') as HTMLDetailsElement;
+    expect(more.querySelector('summary')?.textContent).toContain('More options');
+    expect(more.open).toBeFalse();
+    expect(more.textContent).toContain('Start over');
+    // What stands in the way sits above the buttons it is about.
+    const needed = footer.querySelector('[data-testid="needed"]') as HTMLElement;
+    expect(needed.compareDocumentPosition(button('Continue')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps Continue focusable when the step is not ready, and says what is missing when it is pressed', async () => {
+    await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
+
+    const continueButton = button('Continue')!;
+    expect(continueButton.disabled).toBeFalse();
+    expect(continueButton.getAttribute('aria-disabled')).toBe('true');
+    continueButton.focus();
+
+    await click('Continue');
+
+    expect(router.url).withContext('it stays on the step').toBe(`${RUN}/picture`);
+    expect(document.activeElement).toBe(button('Continue'));
+    expect(root().querySelector('[aria-live="polite"]')?.textContent).toContain('Pick an idea to carry on');
+  });
+
+  it("draws the flow's progress in the tool's tone, with the stepper", async () => {
+    await create();
+
+    expect(root().querySelector('cp-progress')?.getAttribute('data-tone')).toBe('tool');
+  });
+
+  it('folds the steps into a disclosure on a narrow screen, as a workflow run does', async () => {
+    await create({ narrow: true });
+
+    const fold = root().querySelector<HTMLDetailsElement>('details.steps-disclosure')!;
+    expect(fold).not.toBeNull();
+    expect(fold.open).toBeFalse();
+    expect(fold.querySelector('summary')?.textContent).toContain('Step 1 of 4: all steps');
+    expect(root().querySelector('nav[aria-label="Pipeline progress"]')).toBeNull();
   });
 
   it('shows each step in the list with a word as well as a glyph, never colour alone', async () => {
@@ -536,6 +603,8 @@ describe('ContentPipelineShellComponent', () => {
     expect(text()).toContain('Pick up where you left off');
     expect(text()).toContain('Plan the picture');
     expect(server.gets.length).withContext('offered from this device, without asking the server').toBe(0);
+    // The page's one featured card: before the first step it is all there is.
+    expect(root().querySelectorAll('cp-card.cp-card--featured').length).toBe(1);
 
     await click('Continue');
 
@@ -561,7 +630,7 @@ describe('ContentPipelineShellComponent', () => {
   it('carries on from the setup step, which asks nothing required', async () => {
     await create();
 
-    expect(button('Continue')!.disabled).toBeFalse();
+    expect(held('Continue')).toBeFalse();
     await click('Continue');
 
     expect(router.url).toBe(`${PIPELINE}/picture`);
@@ -573,7 +642,7 @@ describe('ContentPipelineShellComponent', () => {
   it('will not carry on from planning the picture until there is an idea, a choice of brief and a prompt', async () => {
     await create({ run: filledDraft({ furthestStep: 'picture' }), url: `${RUN}/picture` });
 
-    expect(button('Continue')!.disabled).toBeTrue();
+    expect(held('Continue')).toBeTrue();
     expect(text()).toContain('Pick an idea to carry on');
     // The looks and the prompt are planned from the idea, so they are not offered before there is one.
     expect(root().querySelector('cp-content-pipeline-prompt-step')).toBeNull();
@@ -582,7 +651,7 @@ describe('ContentPipelineShellComponent', () => {
     await click('Pick this idea');
 
     // The run has a description too, so picking is not the whole answer: which to work from is asked.
-    expect(button('Continue')!.disabled).toBeTrue();
+    expect(held('Continue')).toBeTrue();
     expect(text()).toContain('Choose what to work from to carry on');
 
     await chooseBrief(0);
@@ -590,7 +659,7 @@ describe('ContentPipelineShellComponent', () => {
     // The idea is settled, so the looks and the prompt appear on the same step — and the prompt is what is
     // still owed.
     expect(root().querySelector('cp-content-pipeline-prompt-step')).not.toBeNull();
-    expect(button('Continue')!.disabled).toBeTrue();
+    expect(held('Continue')).toBeTrue();
     expect(text()).toContain('Write the prompt, or have one written, to carry on');
   });
 
@@ -876,7 +945,7 @@ describe('ContentPipelineShellComponent', () => {
 
     expect(text()).toContain('Make the pictures');
     expect(text()).not.toContain('coming soon');
-    expect(button('Continue')?.disabled).withContext('nothing kept yet').toBeTrue();
+    expect(held('Continue')).withContext('nothing kept yet').toBeTrue();
     expect(text()).toContain('Keep at least one picture to carry on.');
   });
 
@@ -888,7 +957,7 @@ describe('ContentPipelineShellComponent', () => {
       url: `${RUN}/images`,
     });
 
-    expect(button('Continue')?.disabled).toBeFalse();
+    expect(held('Continue')).toBeFalse();
   });
 
   it('shows the step legend once, in the shell, rather than on each field', async () => {
@@ -1317,6 +1386,11 @@ describe('ContentPipelineShellComponent', () => {
     await create({ run: filledDraft({ furthestStep: 'picture' }), memberships: 'loading', url: `${RUN}/picture` });
 
     expect(text()).toContain('Loading your pipeline');
+    // The shape of what is coming, not a sentence in a card: skeletons, busy, with the sentence said once.
+    const loading = root().querySelector('[data-testid="pipeline-loading"]') as HTMLElement;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.querySelectorAll('cp-skeleton').length).toBeGreaterThan(0);
+    expect(loading.textContent?.trim()).toBe('');
     expect(router.url).toBe(`${RUN}/picture`);
     expect(server.gets.length).toBe(0);
   });

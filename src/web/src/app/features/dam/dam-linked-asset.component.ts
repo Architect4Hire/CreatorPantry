@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { DamAssetDetail, DamAssetPicture } from '../../models/dam-asset.models';
 import { DamAssetService } from '../../services/dam-asset.service';
@@ -39,9 +39,11 @@ type LinkedAssetState =
 @Component({
   selector: 'cp-dam-linked-asset',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, DamAssetThumbnailComponent, RouterLink],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, DamAssetThumbnailComponent, RouterLink],
   template: `
     @let current = state();
+    <!-- Always present (APP-003, AU.7): what the reference is, while it is read. The thumbnail says its own bytes. -->
+    <p class="cp-sr-only" role="status">{{ current.status === 'loading' ? 'Loading this picture…' : '' }}</p>
     <div class="picture">
       @if (current.status === 'found') {
         <cp-dam-asset-thumbnail
@@ -50,7 +52,8 @@ type LinkedAssetState =
           [versionNumber]="versionNumber()"
         />
       } @else if (current.status === 'loading') {
-        <p class="placeholder" role="status">Loading this picture…</p>
+        <!-- The picture's shape, 4:3, as the thumbnail that replaces it draws its own. -->
+        <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
       } @else {
         <p class="placeholder">{{ current.status === 'gone' ? 'No picture to show' : 'Not loaded' }}</p>
       }

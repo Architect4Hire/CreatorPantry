@@ -110,11 +110,14 @@ async function create(
     /** Large by default so autosave never fires on its own: tests flush explicitly and none depends on a sleep. */
     autosaveMs?: number;
     guard?: boolean;
+    /** Leave the session read unanswered, so the shell stays loading. */
+    hold?: boolean;
   } = {},
 ): Promise<void> {
   stored = { ...(options.sessions ?? {}) };
   counter = 0;
   get = jasmine.createSpy('get').and.callFake((slug: string) => {
+    if (options.hold) return new Promise<BrandSetupSessionReadOutcome>(() => undefined);
     const found = stored[slug];
     return Promise.resolve<BrandSetupSessionReadOutcome>(found ? { status: 'found', session: found } : { status: 'none' });
   });
@@ -315,6 +318,29 @@ describe('BrandSetupShellComponent', () => {
       // The earlier steps' answers are handed to it and handed back untouched.
       expect(written['examples']).toEqual({ items: [{ documentId: 'd1', kind: 'sounds-like-me' }] });
       expect(router.url).toBe(`/${SLUG}/brand/setup/edit`);
+    });
+  });
+
+  // AU.6.3: the flow arriving, not a sentence saying it is coming.
+  describe('while it loads', () => {
+    it('draws the flow’s shape, its progress beside the step’s card, and says so once offscreen', async () => {
+      await create({ hold: true });
+
+      const status = root().querySelector<HTMLElement>('p.loading-status[role="status"]')!;
+      expect(status.classList).toContain('cp-sr-only');
+      expect(status.textContent).toBe('Loading your setup…');
+      const busy = root().querySelector<HTMLElement>('.layout[aria-busy="true"]')!;
+      expect(busy.querySelectorAll('.progress cp-skeleton').length).toBe(2);
+      expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(1);
+      expect(busy.textContent!.trim()).toBe('');
+      expect(root().querySelectorAll('h1').length).toBe(1);
+    });
+
+    it('empties the loading status once the setup is read', async () => {
+      await create();
+
+      expect(root().querySelector('p.loading-status[role="status"]')!.textContent).toBe('');
+      expect(root().querySelector('.layout[aria-busy="true"]')).toBeNull();
     });
   });
 

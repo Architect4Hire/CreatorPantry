@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { RecipeMoveOffer, roleAllows } from '../../../models/recipe-readiness.models';
 import { RecipeDetail, RecipeStatus } from '../../../models/recipe.models';
@@ -64,12 +64,14 @@ function movesLeft(offers: readonly RecipeMoveOffer[], from: RecipeStatus): numb
 @Component({
   selector: 'cp-recipe-test-readiness-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, RecipeReadinessComponent],
+  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, RecipeReadinessComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ loaded().status === 'loading' ? 'Reading your recipe…' : '' }}</p>
     @switch (loaded().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your recipe…</p>
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('missing') {
         <cp-notice tone="warning" role="status">{{ noRecipe }}</cp-notice>

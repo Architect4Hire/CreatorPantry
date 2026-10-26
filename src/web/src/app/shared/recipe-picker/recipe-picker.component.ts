@@ -6,9 +6,11 @@ import {
   CpButtonComponent,
   CpComboboxComponent,
   CpComboboxOption,
+  CpEmptyStateComponent,
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { DamKeepRecipe } from '../../models/dam-asset.models';
@@ -92,9 +94,11 @@ const FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved'
     RouterLink,
     CpButtonComponent,
     CpComboboxComponent,
+    CpEmptyStateComponent,
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './recipe-picker.component.html',
   styleUrl: './recipe-picker.component.css',

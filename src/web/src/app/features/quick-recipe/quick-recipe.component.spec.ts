@@ -138,6 +138,8 @@ function imageRun(status: GeneratedImageOperationDetail['status'], failureCatego
 
 interface Scenario {
   role?: WorkspaceRole;
+  /** The memberships as read; ready with this workspace in it unless given. */
+  memberships?: MyMembershipsState;
   url?: string;
   draftOutcome?: AiRequestOutcome;
   draftWatch?: () => Observable<AiWatchOperationOutcome>;
@@ -193,10 +195,12 @@ async function create(scenario: Scenario = {}): Promise<void> {
       {
         provide: WorkspaceMembershipService,
         useValue: {
-          state: signal<MyMembershipsState>({
-            status: 'ready',
-            memberships: [member('w1', SLUG, scenario.role ?? 'Editor'), member('w2', OTHER_SLUG, 'Editor')],
-          }),
+          state: signal<MyMembershipsState>(
+            scenario.memberships ?? {
+              status: 'ready',
+              memberships: [member('w1', SLUG, scenario.role ?? 'Editor'), member('w2', OTHER_SLUG, 'Editor')],
+            },
+          ),
           ensureLoaded: () => Promise.resolve(),
           load: () => Promise.resolve(),
         },
@@ -323,6 +327,35 @@ async function nameAndStart(name = 'Miso butter corn'): Promise<void> {
 }
 
 describe('QuickRecipeComponent', () => {
+  // AU.6.3: the flow arriving, not a sentence saying it is coming.
+  describe('while it loads', () => {
+    const loading = () => root().querySelector<HTMLElement>('p.loading-status[role="status"]')!;
+
+    it('draws the flow’s shape, its progress beside the step’s card, and says so once offscreen', async () => {
+      await create({ memberships: { status: 'loading' } });
+
+      expect(loading().classList).toContain('cp-sr-only');
+      expect(loading().textContent).toBe('Loading Quick Recipe…');
+
+      const busy = root().querySelector<HTMLElement>('.layout[aria-busy="true"]')!;
+      expect(busy.querySelectorAll('.progress cp-skeleton').length).toBe(2);
+      expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(1);
+      expect(busy.textContent!.trim()).toBe('');
+      expect(root().querySelector('form')).toBeNull();
+      // The one h1 is the page's own title in every state.
+      expect(root().querySelector('h1')?.textContent).toContain('Quick Recipe');
+    });
+
+    it('opens on step 1 once ready, with nothing left of the loading shape', async () => {
+      await create();
+
+      expect(loading().textContent).toBe('');
+      expect(root().querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
+      // Step 1 is the first use: no drawn empty state stands in front of its one field.
+      expect(root().querySelector('cp-empty-state')).toBeNull();
+    });
+  });
+
   describe('naming the dish', () => {
     it('opens on the name, as step 1 of 3, with one heading and a way back to Workflows', async () => {
       await create();

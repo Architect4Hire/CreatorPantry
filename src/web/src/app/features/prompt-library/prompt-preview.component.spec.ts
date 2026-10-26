@@ -145,10 +145,16 @@ describe('PromptPreviewComponent', () => {
 
     expect(getSpy).toHaveBeenCalledOnceWith('cozy-fall', 'p1');
     expect(dialog()?.querySelector('[role="status"]')?.textContent).toContain('Loading the prompt');
+    // Lines of words arriving, said once offscreen (AU.6.3).
+    expect(dialog()?.querySelector('[role="status"]')?.classList).toContain('cp-sr-only');
+    expect(dialog()?.querySelectorAll('[aria-busy="true"] cp-skeleton').length).toBe(1);
     expect(button('Copy prompt').disabled).toBeTrue();
 
     pending.next({ status: 'found', prompt: detail('p1', 'The whole prompt,\nwith its second line.') });
     await settle();
+
+    expect(dialog()?.querySelector('cp-skeleton')).toBeNull();
+    expect(dialog()?.querySelector('[role="status"]')?.textContent?.trim()).toBe('');
 
     expect(dialog()?.querySelector('.prompt-text')?.textContent).toBe('The whole prompt,\nwith its second line.');
     expect(button('Copy prompt').disabled).toBeFalse();

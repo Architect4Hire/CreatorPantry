@@ -96,6 +96,8 @@ interface Options {
   readonly sources?: Record<string, unknown> | null;
   readonly pollMs?: number;
   readonly maxPolls?: number;
+  /** Leave every document read unanswered, so the step stays checking its examples. */
+  readonly hold?: boolean;
 }
 
 /** `reads[id]` is a queue: each read takes the next one, and the last repeats. */
@@ -106,6 +108,7 @@ async function mount(setup: (() => void) | null, options: Options = {}): Promise
 
   docs = {
     get: jasmine.createSpy('get').and.callFake(async (_s: string, id: string) => {
+      if (options.hold) await new Promise(() => undefined);
       const d = details[id];
       if (!d || d === 'missing') return { status: 'not_found' };
       if (d === 'down') return { status: 'unavailable' };
@@ -174,6 +177,24 @@ async function type(selector: string, value: string): Promise<void> {
 }
 
 describe('BrandSetupReviewTextStepComponent', () => {
+  // AU.6.3: the examples arriving as rows, not a sentence saying they are coming.
+  it('draws its examples arriving while they are checked, and says so once offscreen', async () => {
+    await mount(null, { hold: true });
+
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Checking your examples'))!;
+    expect(status.classList).toContain('cp-sr-only');
+    const busy = el.querySelector('[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('keeps that status once the examples are checked, with nothing in it', async () => {
+    await mount(null);
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(el.querySelector('[aria-busy="true"] cp-skeleton')).toBeNull();
+  });
+
   it('has nothing to check when no written examples were added, and says so', async () => {
     await mount(null, { sources: { items: [] } });
     expect(text()).toContain('Nothing to check here');
@@ -357,7 +378,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
 
     expect(exts['retry']).toHaveBeenCalledOnceWith('sams-kitchen', 'a', 1, 'f1', jasmine.any(String));
     expect(exts['get'].calls.count()).toBeGreaterThan(callsBefore + 1);
-    expect(el.querySelector('.cp-sr-only[role="status"]')?.textContent).toContain('Reading Doc a again.');
+    expect(el.querySelector('.cp-sr-only[role="status"][aria-atomic]')?.textContent).toContain('Reading Doc a again.');
     expect(text()).toContain('We read this from your file');
     expect(last().canContinue).toBeFalse();
   });
@@ -461,7 +482,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
     expect(button('Leave this one out')?.getAttribute('aria-label')).toBe('Leave Doc a out');
     expect(el.querySelector('details.cp-disclosure .full-text')?.getAttribute('aria-label')).toBe('All the text of Doc a');
     expect(el.querySelector('.full-text')?.getAttribute('tabindex')).toBe('0');
-    const live = el.querySelector('.cp-sr-only[role="status"]');
+    const live = el.querySelector('.cp-sr-only[role="status"][aria-atomic]');
     expect(live?.getAttribute('aria-live')).toBe('polite');
     await click('Looks right');
     expect(live?.textContent).toContain('marked as looking right');

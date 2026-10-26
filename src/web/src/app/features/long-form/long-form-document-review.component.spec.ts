@@ -788,6 +788,7 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(key).toBeTruthy();
     expect(text(card(2))).toContain('Being written');
     expect(text(card(2))).toContain('Writing this section now');
+    expect(card(2).querySelector('[data-testid="section-writing"] cp-skeleton')).not.toBeNull();
     expect(announcement()).toBe('“Three tips” is being written.');
 
     // The button that was pressed is gone, so focus is on the section and not dropped to the page.

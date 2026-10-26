@@ -109,9 +109,11 @@ function conversionPayload(overrides: Record<string, unknown> = {}): Record<stri
 interface Harness {
   readonly fixture: ComponentFixture<RecipeUnitConversionComponent>;
   readonly http: HttpTestingController;
+  /** The catalogue's read, when `holdCatalogue` left it unanswered. */
+  readonly catalogue?: ReturnType<HttpTestingController['expectOne']>;
 }
 
-async function createFixture(options: { catalogueFails?: boolean } = {}): Promise<Harness> {
+async function createFixture(options: { catalogueFails?: boolean; holdCatalogue?: boolean } = {}): Promise<Harness> {
   await TestBed.configureTestingModule({
     imports: [RecipeUnitConversionComponent],
     providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -131,6 +133,10 @@ async function createFixture(options: { catalogueFails?: boolean } = {}): Promis
   fixture.detectChanges();
 
   const catalogue = http.expectOne((request) => request.url === UNITS_URL);
+  if (options.holdCatalogue) {
+    fixture.detectChanges();
+    return { fixture, http, catalogue };
+  }
   if (options.catalogueFails) {
     catalogue.flush({}, { status: 500, statusText: 'Server Error' });
   } else {
@@ -164,6 +170,29 @@ function optionTexts(fixture: ComponentFixture<RecipeUnitConversionComponent>, s
 
 describe('RecipeUnitConversionComponent', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
+
+  // ---- While the catalogue loads (AU.7) ----
+
+  it('draws the form arriving while the unit catalogue is read, and says so once from a region that is always there', async () => {
+    const { fixture, catalogue } = await createFixture({ holdCatalogue: true });
+    const host = fixture.nativeElement as HTMLElement;
+
+    const status = host.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading the unit catalogue…');
+    const busy = host.querySelector('.conversion-loading[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('.conversion-form')).toBeNull();
+
+    catalogue!.flush({ items: CATALOGUE, nextCursor: null });
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+
+    expect(host.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(host.querySelector('.conversion-loading')).toBeNull();
+    expect(host.querySelector('.conversion-form')).not.toBeNull();
+  });
 
   it('says up front that converting alone changes nothing, and where recording is possible', async () => {
     const { fixture } = await createFixture();
@@ -485,7 +514,7 @@ describe('RecipeUnitConversionComponent', () => {
 
     // The announcement is a persistent region whose text changes, not the card itself: a live region
     // inserted already holding its content is not reliably announced.
-    const region: HTMLElement = harness.fixture.nativeElement.querySelector('[role="status"][aria-live="polite"]');
+    const region: HTMLElement = harness.fixture.nativeElement.querySelector('.conversion-announcement[role="status"][aria-live="polite"]');
     expect(region.getAttribute('aria-live')).toBe('polite');
     expect(region.textContent?.trim().length).toBeGreaterThan(0);
     expect(harness.fixture.nativeElement.querySelector('.result-card').getAttribute('role')).toBeNull();

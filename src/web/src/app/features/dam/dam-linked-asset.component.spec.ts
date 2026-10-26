@@ -86,11 +86,18 @@ describe('DamLinkedAssetComponent', () => {
 
     expect(root().querySelector('[role="status"]')?.textContent).toContain('Loading this picture');
     expect(host.resolved).toEqual([]);
+    // Said once, offscreen; what shows is the picture's shape (AU.7).
+    const status = root().querySelector('[role="status"]')!;
+    expect(status.classList).toContain('cp-sr-only');
+    expect(root().querySelector('.picture [aria-busy="true"] cp-skeleton[data-shape="block"]')).not.toBeNull();
 
     pending.next({ status: 'found', asset: assetDetail() });
     await settle();
 
     expect(root().querySelector('a')).not.toBeNull();
+    // The same region, kept and emptied.
+    expect(status.isConnected).toBeTrue();
+    expect(status.textContent).toBe('');
   });
 
   it('shows the current picture by default and one kept version when asked', async () => {

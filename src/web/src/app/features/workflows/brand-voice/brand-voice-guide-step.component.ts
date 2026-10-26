@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { BrandStyleGuideDetail } from '../../../models/brand-style-guide.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
@@ -20,12 +20,15 @@ export type BrandVoiceGuideStepMode = 'review' | 'try';
 @Component({
   selector: 'cp-brand-voice-guide-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ loaded().status === 'loading' ? 'Reading your guide…' : '' }}</p>
     @switch (loaded().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your guide…</p>
+        <!-- The guide arriving, as a few lines. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
       }
       @case ('missing') {
         <cp-notice tone="warning" role="status">{{ noGuide }}</cp-notice>

@@ -239,9 +239,12 @@ class StubReferenceService {
   profiles: ListDescribedReferenceEntriesOutcome = { status: 'found', entries: PROFILES };
   allergenCalls = 0;
   profileCalls = 0;
+  /** Set to leave the allergen list unanswered, so the panel stays loading its lists. */
+  holdLists = false;
 
   listAllergens(): Promise<ListDescribedReferenceEntriesOutcome> {
     this.allergenCalls += 1;
+    if (this.holdLists) return new Promise(() => undefined);
     return Promise.resolve(this.allergens);
   }
 
@@ -316,6 +319,29 @@ describe('RecipeDietaryAllergenComponent', () => {
   });
 
   // ---- The selection ----------------------------------------------------
+
+  it('draws the lists arriving while they are read, said once from a region that is always there (AU.7)', async () => {
+    reference.holdLists = true;
+    const element = await render();
+
+    const status = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find(
+      (each) => each.textContent === PANEL_COPY.listsLoading,
+    );
+    expect(status).withContext('the lists’ status').toBeTruthy();
+    const busy = element.querySelector('.measure[aria-busy="true"]')!;
+    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
+    expect(busy.textContent!.trim()).toBe('');
+    expect(element.querySelector('label.tile')).toBeNull();
+  });
+
+  it('keeps that status, emptied, once the lists are read', async () => {
+    const element = await render();
+
+    const statuses = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]'));
+    expect(statuses.length).toBeGreaterThan(1);
+    expect(statuses.some((each) => each.textContent?.includes(PANEL_COPY.listsLoading))).toBeFalse();
+    expect(element.querySelector('cp-skeleton')).toBeNull();
+  });
 
   it('offers each allergen and dietary pattern with the description that says what it covers', async () => {
     const element = await render();

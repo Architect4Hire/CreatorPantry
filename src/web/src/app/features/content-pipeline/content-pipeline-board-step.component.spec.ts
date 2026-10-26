@@ -256,6 +256,9 @@ describe('ContentPipelineBoardStepComponent', () => {
     expect(reads).toEqual([]);
     expect(button()).toBeNull();
     expect(text()).toContain('Checking your board…');
+    // Drawn as what is coming, and said once: the sentence is offscreen, the skeleton is what shows.
+    expect(el.querySelector('[data-testid="board-loading"]')?.getAttribute('aria-busy')).toBe('true');
+    expect(el.querySelector('[data-testid="board-loading"] cp-skeleton')).not.toBeNull();
     expect(text()).not.toContain('Soda bread');
   });
 });

@@ -16,6 +16,7 @@ import {
   CpCardComponent,
   CpDialogComponent,
   CpFieldComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -121,6 +122,7 @@ let nextInstance = 0;
     CpCardComponent,
     CpDialogComponent,
     CpFieldComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-readiness.component.html',

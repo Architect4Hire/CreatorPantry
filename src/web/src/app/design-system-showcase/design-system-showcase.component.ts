@@ -329,6 +329,13 @@ export class DesignSystemShowcaseComponent {
   readonly listShellStates: CpListShellState[] = ['loading', 'error', 'empty', 'ready'];
   readonly listShellLayout = signal<CpListShellLoadingLayout>('rows');
   readonly listShellLayouts: CpListShellLoadingLayout[] = ['rows', 'cards'];
+  /** A board's loading layout: its columns by name, with skeleton cards in uneven numbers (AU.6.1). */
+  readonly boardSkeleton = [
+    { heading: 'To do', cards: [1, 2, 3] },
+    { heading: 'In process', cards: [1, 2] },
+    { heading: 'Ready for review', cards: [1] },
+    { heading: 'Approved', cards: [1, 2] },
+  ];
 
   // --- Tabs ---
   readonly tabs = [

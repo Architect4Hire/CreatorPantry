@@ -84,12 +84,30 @@
     }
   </div>
 
+  <!-- The board as it will arrive in this view: its columns by name, with skeletons. Hidden from a screen reader, as a
+       skeleton is; the shell says "Loading…" once, and the columns are named when they are real. -->
+  <div cpListShellLoading aria-hidden="true">
+    <div cpBoard>
+      @for (column of loadingColumns(); track column.heading) {
+        <cp-board-column [heading]="column.heading" [headingLevel]="3">
+          @for (item of column.items; track $index) {
+            @if (column.kind === 'days') {
+              <div class="section"><cp-skeleton shape="line" [count]="2" /></div>
+            } @else {
+              <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+            }
+          }
+        </cp-board-column>
+      }
+    </div>
+  </div>
+
   <div cpListShellEmpty>
     @if (state().status === 'no_time_zone') {
       <cp-empty-state
         title="Your week needs a time zone"
         description="A week starts and ends at midnight where your workspace is, so My Week needs the workspace’s time zone before it can show anything. Nothing is guessed in the meantime."
-        icon="◷"
+        illustration="calendar"
       >
         <div cpEmptyStateActions>
           <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Set the time zone in Brand settings</a>
@@ -100,7 +118,7 @@
         title="No tasks match these filters"
         description="Try other words or another label, or clear the filters to see the whole week."
         variant="no-results"
-        icon="⌕"
+        illustration="search"
       >
         <div cpEmptyStateActions>
           <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
@@ -110,7 +128,7 @@
       <cp-empty-state
         title="Nothing planned for this week"
         [description]="canAct() ? 'Add a task from the top of the page, or look at another week.' : 'Look at another week from the toolbar.'"
-        icon="▥"
+        illustration="calendar"
       />
     }
   </div>
@@ -145,7 +163,10 @@
                     <span class="marker">· {{ section.marker }}</span>
                   }
                 </h4>
-                <p class="section-totals">{{ totalsWords(section.totals) }}</p>
+                <!-- A part with nothing in it says so once, in the quiet line below, not here as well. -->
+                @if (section.totals.taskCount > 0) {
+                  <p class="section-totals">{{ totalsWords(section.totals) }}</p>
+                }
               </div>
               <ng-container *ngTemplateOutlet="list; context: { $implicit: section, level: 5, name: section.heading }" />
             </section>

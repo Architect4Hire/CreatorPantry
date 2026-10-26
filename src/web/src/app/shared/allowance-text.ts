@@ -17,11 +17,21 @@ export function allowanceIsCountable(unit: string): boolean {
  * the bug that follows from each surface hardcoding "credits" and only one of them reading the unit.
  */
 export function formatAllowanceAmount(value: number, unit: string): string | null {
+  const figure = allowanceFigure(value, unit);
+
+  return figure === null ? null : `${figure.value} ${figure.noun}`;
+}
+
+/**
+ * The same amount in two parts, for a figure shown on its own (`cp-stat-tile`, AU.6.4): the number as it is
+ * written, and the noun it counts. Formatting only, exactly as {@link formatAllowanceAmount} words it.
+ */
+export function allowanceFigure(value: number, unit: string): { readonly value: string; readonly noun: string } | null {
   if (!allowanceIsCountable(unit)) return null;
 
   const rounded = Math.round(value * 100) / 100;
 
-  return `${rounded.toLocaleString()} AI ${rounded === 1 ? 'credit' : 'credits'}`;
+  return { value: rounded.toLocaleString(), noun: `AI ${rounded === 1 ? 'credit' : 'credits'}` };
 }
 
 /**

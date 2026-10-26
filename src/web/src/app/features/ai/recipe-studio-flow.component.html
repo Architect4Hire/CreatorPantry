@@ -1,0 +1,48 @@
+<cp-page-head
+  [heading]="pageTitle"
+  lede="Describe what you're after, compare a few distinct recipe pitches, and review a first draft of the one you choose. Nothing here writes a recipe until you keep the draft."
+>
+  <cp-shell-nav-icon cpPageHeadIcon name="ai" />
+</cp-page-head>
+
+<!-- Always in the page, so it is announced when its words change. -->
+<p class="cp-sr-only" role="status">{{ announcement() }}</p>
+
+<!--
+  A flow, as the "Create a recipe" workflow and the Image Studio are (AU.5.2): the progress and the steps beside one
+  wide card headed by the step's name, holding that step's screen and Back / Continue.
+-->
+<div class="layout">
+  <div class="progress">
+    <cp-progress label="AI Recipe Studio progress" tone="tool" [value]="percent()" [valueText]="progressText()" />
+    <nav aria-label="AI Recipe Studio progress">
+      <cp-stepper label="AI Recipe Studio steps" [steps]="stepperSteps()" />
+    </nav>
+  </div>
+
+  <!-- The heading takes focus when the step changes. -->
+  <cp-topic-card [heading]="currentStep().label" [headingId]="stepHeadingId" wide>
+    <details class="help cp-disclosure">
+      <summary>Need help with this step?</summary>
+      <p class="cp-muted">{{ currentStep().help }}</p>
+    </details>
+
+    <!-- One ideas screen for the first two steps, so going back to the brief finds it as it was left. -->
+    @if (step() === 'draft') {
+      <cp-recipe-first-draft-review />
+    } @else {
+      <cp-recipe-concept-studio />
+    }
+
+    <div cpTopicCardActions class="cp-actions">
+      @if (!isFirst()) {
+        <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+      }
+      <!-- Moving on is each screen's own action — asking, then drafting. Continue returns to what was already
+           asked for. -->
+      @if (canContinue()) {
+        <button cpButton type="button" variant="primary" (click)="continue()">Continue</button>
+      }
+    </div>
+  </cp-topic-card>
+</div>

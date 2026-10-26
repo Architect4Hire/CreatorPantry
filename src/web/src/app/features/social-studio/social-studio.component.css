@@ -16,6 +16,38 @@
   gap: var(--cp-space-8);
 }
 
+/* The flow's frame, as the Content Pipeline's: the steps beside the step's card when there is room for both. */
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.help p {
+  margin: 0;
+}
+
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
 .refusal {
   display: grid;
   justify-items: start;
@@ -26,6 +58,15 @@
 .legend,
 .saved {
   margin: 0;
+}
+
+/* Takes no room while it has nothing to say: it is there to be heard when it does. */
+.picture-status {
+  margin: 0;
+}
+
+.picture-status:empty {
+  display: none;
 }
 
 a {

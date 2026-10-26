@@ -37,8 +37,14 @@
 
 /* The chip itself is a `cp-status-pill`, which owns its tone, its glyph and its shape; this only keeps it
    from being stretched by the header's flex row. */
-.panel-unsaved {
+.panel-unsaved,
+.panel-generated {
   flex: none;
+}
+
+/* Where the actions will be, while what the creator may do is still being read. */
+.actions-arriving {
+  max-width: 16rem;
 }
 
 .panel-notice,
@@ -331,22 +337,9 @@
   font-weight: 700;
 }
 
+/* The facts' own stacked layout, a step below the summary that opens it. */
 .provenance-list {
-  display: grid;
-  grid-template-columns: minmax(8rem, auto) 1fr;
-  gap: var(--cp-space-1) var(--cp-space-3);
-  margin: var(--cp-space-2) 0 0;
-}
-
-.provenance-list dt {
-  font-weight: 700;
-  color: var(--cp-text);
-}
-
-.provenance-list dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
+  margin-top: var(--cp-space-2);
 }
 
 /* A literal stack, not a token: the design system has no monospace family, and this is the one place a
@@ -354,15 +347,4 @@
 .provenance-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--cp-font-size-xs);
-}
-
-/* Narrow layouts: the provenance grid is the only thing here with a fixed shape. */
-@container cp-ai-proposal (max-width: 30rem) {
-  .provenance-list {
-    grid-template-columns: 1fr;
-  }
-
-  .provenance-list dd {
-    margin-block-end: var(--cp-space-1);
-  }
 }

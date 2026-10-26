@@ -26,9 +26,12 @@
 
   @if (reference(); as link) {
     <div class="linked">
+      <!-- Always present, outside the busy lines (AU.7): the linked recipe arriving is said once. -->
+      <p class="cp-sr-only" role="status">{{ linked().status === 'loading' ? 'Reading the linked recipe…' : '' }}</p>
       @switch (linked().status) {
         @case ('loading') {
-          <p class="cp-muted" role="status">Reading the linked recipe…</p>
+          <!-- The linked recipe's summary as it will arrive. -->
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
         }
         @case ('unavailable') {
           <cp-notice tone="warning" role="status">
@@ -97,10 +100,15 @@
       }
     </div>
   } @else if (libraryEmpty()) {
-    <p class="cp-muted">
-      You have no recipes yet, so there is nothing to link.
-      <a [routerLink]="libraryLink()">Go to your recipes</a>
-    </p>
+    <!-- Compact: a part of a form with nothing in it yet, not the page's first use. -->
+    <cp-empty-state
+      variant="no-results"
+      illustration="recipe"
+      title="No recipes to link yet"
+      description="Linking one is optional. Once a recipe is in your library, it can be linked here."
+    >
+      <a cpEmptyStateActions [routerLink]="libraryLink()">Go to your recipes</a>
+    </cp-empty-state>
   } @else {
     @if (search().status === 'unavailable') {
       <cp-notice tone="error" role="alert">

@@ -89,6 +89,8 @@ public sealed class RecipeSearchEndpointTests : IAsyncLifetime
             [
                 "id", "title", "description", "status", "cuisineId", "courseId", "createdAt", "updatedAt",
                 "latestVersionNumber", "latestVersionReadiness", "hasUnmatchedIngredients",
+                // AU.4.2: the recipe's Hero picture, by asset id and version only — nothing that names who added it.
+                "heroAsset",
             ],
             item.EnumerateObject().Select(property => property.Name));
     }

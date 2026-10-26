@@ -18,8 +18,10 @@ import {
   CpCardComponent,
   CpFactComponent,
   CpFactsComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -115,8 +117,10 @@ interface Fact {
     CpCardComponent,
     CpFactComponent,
     CpFactsComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpTopicCardComponent,
     DamAssetEditComponent,
     DamAssetLogUseComponent,

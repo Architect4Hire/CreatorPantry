@@ -20,6 +20,7 @@ import {
   CpFieldComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -106,6 +107,7 @@ const FIELD_IDS: Readonly<Record<DamMetadataField, string>> = {
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './dam-asset-edit.component.html',
   styleUrl: './dam-asset-edit.component.css',

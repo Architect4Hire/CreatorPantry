@@ -6,6 +6,7 @@ import {
   CpFactComponent,
   CpFactsComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
@@ -65,6 +66,7 @@ const CANCEL_PROBLEMS = {
     CpFactComponent,
     CpFactsComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     CpTopicCardComponent,
     ContentCardScheduleDrawerComponent,
@@ -76,9 +78,13 @@ const CANCEL_PROBLEMS = {
 
       <cp-notice role="status" tone="success" [quiet]="notice() === ''">{{ notice() }}</cp-notice>
 
+      <!-- Always present, and outside the busy lines (APP-003, AU.7): this card's one loading status. -->
+      <p class="cp-sr-only" role="status">{{ state() === 'loading' ? 'Reading what has been scheduled…' : '' }}</p>
+
       @switch (state()) {
         @case ('loading') {
-          <p class="plain" role="status">Reading what has been scheduled…</p>
+          <!-- What has been scheduled, arriving as a few lines. -->
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
         }
         @case ('error') {
           <cp-notice tone="warning" role="status">

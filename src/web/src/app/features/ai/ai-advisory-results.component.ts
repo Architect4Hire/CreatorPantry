@@ -1,5 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CpEmptyStateComponent, CpListShellComponent, CpListShellState } from '@creator-pantry/ui';
+import {
+  CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpGeneratedComponent,
+  CpListShellComponent,
+  CpListShellState,
+} from '@creator-pantry/ui';
 
 import { AiProposalStatus, AiProposalWarning, AiWarningKind } from '../../models/ai-proposal.models';
 import { AiOperationStatusComponent, AiStatusConnection } from './ai-operation-status.component';
@@ -57,7 +64,14 @@ export interface AiAdvisoryItem {
 @Component({
   selector: 'cp-ai-advisory-results',
   standalone: true,
-  imports: [AiOperationStatusComponent, CpEmptyStateComponent, CpListShellComponent],
+  imports: [
+    AiOperationStatusComponent,
+    CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpGeneratedComponent,
+    CpListShellComponent,
+  ],
   templateUrl: './ai-advisory-results.component.html',
   styleUrl: './ai-advisory-results.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

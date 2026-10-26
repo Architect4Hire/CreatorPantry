@@ -399,6 +399,45 @@ describe('ContentPipelineConceptPanelComponent', () => {
     expect(options().every((input) => input.type === 'radio')).toBeTrue();
   });
 
+  it('starts as a drawn first use, with the one action that plans looks', async () => {
+    await mount();
+
+    const empty = el.querySelector('cp-empty-state') as HTMLElement;
+    expect(empty.getAttribute('data-illustrated')).toBe('');
+    expect(empty.querySelector('cp-illustration')).not.toBeNull();
+    expect(empty.textContent).toContain('No looks yet');
+    expect(empty.querySelector('button')?.textContent?.trim()).toBe('Plan some looks');
+  });
+
+  it('draws the looks coming while they are planned, and stops drawing them once the page stops checking', async () => {
+    await mount();
+    await click('Plan some looks');
+
+    const loading = el.querySelector('[data-testid="looks-loading"]') as HTMLElement;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.querySelectorAll('cp-skeleton').length).toBe(2);
+    expect(el.querySelector('cp-empty-state')).toBeNull();
+
+    await click('Stop checking');
+
+    expect(el.querySelector('[data-testid="looks-loading"]')).toBeNull();
+  });
+
+  it('holds the looks in the surface for AI output, with planning again as its action, and the pick after it', async () => {
+    await mount();
+    await click('Plan some looks');
+    await answerWatch(TWO_LOOKS);
+
+    const surface = el.querySelector('cp-generated') as HTMLElement;
+    expect(surface.textContent).toContain('Drafted by AI');
+    expect(surface.querySelector('ul.looks')).not.toBeNull();
+    expect(surface.querySelector('[cpGeneratedActions]')?.textContent).toContain('Plan different looks');
+    // The creator's answer is theirs, not the model's: outside the surface, after it.
+    expect(surface.querySelector('cp-choice-group')).toBeNull();
+    expect(surface.compareDocumentPosition(el.querySelector('cp-choice-group')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(el.querySelector('[data-testid="looks-loading"]')).toBeNull();
+  });
+
   it('records the look and the shot together, because one without the other is refused', async () => {
     await mount();
     await click('Plan some looks');

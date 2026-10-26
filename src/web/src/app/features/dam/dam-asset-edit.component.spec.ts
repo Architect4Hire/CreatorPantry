@@ -172,14 +172,15 @@ describe('DamAssetEditComponent', () => {
     return patchSpy.calls.mostRecent().args[2];
   }
 
-  async function create(options: { tags?: WorkspaceTagsOutcome; asset?: DamAssetDetail } = {}): Promise<void> {
+  async function create(options: { tags?: WorkspaceTagsOutcome | 'pending'; asset?: DamAssetDetail } = {}): Promise<void> {
     patchSpy = jasmine.createSpy('patchMetadata').and.callFake(() =>
       Promise.resolve<DamAssetPatchOutcome>({ status: 'updated', asset: asset({ concurrencyToken: 'token-2' }) }),
     );
     detailSpy = jasmine.createSpy('detail');
-    tagsSpy = jasmine
-      .createSpy('list')
-      .and.resolveTo(options.tags ?? ({ status: 'found', tags: VOCABULARY } as WorkspaceTagsOutcome));
+    tagsSpy =
+      options.tags === 'pending'
+        ? jasmine.createSpy('list').and.returnValue(new Promise<WorkspaceTagsOutcome>(() => undefined))
+        : jasmine.createSpy('list').and.resolveTo(options.tags ?? ({ status: 'found', tags: VOCABULARY } as WorkspaceTagsOutcome));
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(true);
 
     await TestBed.configureTestingModule({
@@ -201,6 +202,25 @@ describe('DamAssetEditComponent', () => {
   }
 
   // ---- Opening ----
+
+  // AU.7: the tag picker's place arrives as a line, said once from a status that is always there.
+  it('draws a line where the tag picker will be while the workspace’s tags are read', async () => {
+    await create({ tags: 'pending' });
+
+    const status = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+      each.textContent?.includes('Loading your tags'),
+    );
+    expect(status).toBeTruthy();
+    expect(root().querySelector('.tags-loading[aria-busy="true"] cp-skeleton')).not.toBeNull();
+  });
+
+  it('keeps that status, emptied, once the tags are read', async () => {
+    await create();
+
+    const statuses = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]'));
+    expect(statuses.some((each) => each.textContent?.includes('Loading your tags'))).toBeFalse();
+    expect(root().querySelector('.tags-loading')).toBeNull();
+  });
 
   it('renders nothing and reads nothing while closed', async () => {
     await create();

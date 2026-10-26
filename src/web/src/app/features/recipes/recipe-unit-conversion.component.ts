@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CpButtonComponent, CpFieldComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFieldComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import {
   MIDPOINT_ROUNDING_LABELS,
@@ -132,7 +132,7 @@ let nextInstance = 0;
 @Component({
   selector: 'cp-recipe-unit-conversion',
   standalone: true,
-  imports: [FormsModule, CpButtonComponent, CpFieldComponent],
+  imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpSkeletonComponent],
   templateUrl: './recipe-unit-conversion.component.html',
   styleUrl: './recipe-unit-conversion.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

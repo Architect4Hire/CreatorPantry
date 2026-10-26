@@ -8,6 +8,11 @@
   gap: var(--cp-space-2);
 }
 
+/* At its own width, as at the head of a cp-generated. */
+.made {
+  justify-self: start;
+}
+
 .status {
   display: flex;
   flex-wrap: wrap;

@@ -1,5 +1,7 @@
+<!-- Always here, so the sentence is heard when it is set; the skeleton is the idea coming. -->
+<p class="cp-sr-only" role="status">{{ state().status === 'generating' ? 'Putting an idea together…' : '' }}</p>
 @if (state().status === 'generating') {
-  <p class="cp-muted" role="status">Putting an idea together…</p>
+  <div aria-busy="true" data-testid="idea-loading"><cp-skeleton shape="block" /></div>
 }
 
 @if (state().status === 'unavailable') {
@@ -68,8 +70,11 @@
         </button>
       </div>
     }
+    <!-- What the creator just asked for, said where it is shown; the always-present status beside it is what a
+         screen reader hears, because a region that arrives with its words may not be read (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ readingName() ? 'Reading the name you typed…' : '' }}</p>
     @if (readingName()) {
-      <p class="cp-muted" role="status">Reading the name you typed…</p>
+      <p class="cp-muted" aria-hidden="true">Reading the name you typed…</p>
     }
     @if (nameUnread()) {
       <cp-notice role="status">
@@ -83,9 +88,8 @@
       <cp-notice role="note">{{ warning.message }}</cp-notice>
     }
 
-    @if (vocabulary().status === 'loading') {
-      <p class="cp-muted" role="status">Loading the cooking vocabulary…</p>
-    }
+    <!-- Said, not drawn: the fields it fills are already on screen, held until it arrives. -->
+    <p class="cp-sr-only" role="status">{{ vocabulary().status === 'loading' ? 'Loading the cooking vocabulary…' : '' }}</p>
     @if (vocabulary().status === 'unavailable') {
       <cp-notice tone="warning" role="status">
         The cooking vocabulary could not be loaded, so you cannot state these right now. You can still ask for an

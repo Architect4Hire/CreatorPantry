@@ -1,10 +1,20 @@
-<cp-page-head [heading]="pageTitle" />
+<cp-page-head
+  [heading]="pageTitle"
+  lede="What everyone in this workspace works with: how new recipe drafts are measured, which kinds of AI help it can ask for, and the themes of its week."
+/>
 
 <section class="workspace-settings" aria-label="Workspace settings">
+  <!-- Always present, and outside the busy form (APP-003): one place the page says it is still loading. -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your workspace settings…' : '' }}</p>
+
   @switch (load().status) {
     @case ('loading') {
+      <!-- The form as it will arrive: its part's heading and a few lines. -->
       <cp-card>
-        <p class="state" role="status">Loading your workspace settings…</p>
+        <div class="loading" aria-busy="true">
+          <cp-skeleton shape="line" />
+          <cp-skeleton shape="line" [count]="3" />
+        </div>
       </cp-card>
     }
     @case ('not_found') {

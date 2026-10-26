@@ -5,9 +5,11 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpCardGridComponent,
+  CpEmptyStateComponent,
   CpFactComponent,
   CpFactsComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -85,15 +87,22 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
     CpButtonComponent,
     CpCardComponent,
     CpCardGridComponent,
+    CpEmptyStateComponent,
     CpFactComponent,
     CpFactsComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   template: `
+    <!-- Always in the page, so it is announced when its words change; the skeleton under it is aria-hidden. -->
+    <p class="cp-sr-only" role="status">{{ state().status === 'loading' ? 'Looking for posts you have written…' : '' }}</p>
+
     @switch (state().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Looking for posts you have written…</p>
+        <div aria-busy="true">
+          <cp-skeleton shape="card" [count]="3" />
+        </div>
       }
       @case ('unavailable') {
         <cp-notice tone="warning" role="status">
@@ -110,9 +119,11 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
         }
 
         @if (sets().length === 0) {
-          <p class="cp-muted">
-            {{ more() ? 'None of your most recent work has posts yet.' : 'Nothing has posts yet. The first set you write will be listed here.' }}
-          </p>
+          <cp-empty-state
+            title="No posts yet"
+            [description]="more() ? 'None of your most recent work has posts yet.' : 'Nothing has posts yet. The first set you write will be listed here.'"
+            illustration="post"
+          />
         } @else {
           <ul cpCardGrid minColumn="18rem" aria-label="Recent sets of posts">
             @for (set of sets(); track set.contextId) {

@@ -182,9 +182,12 @@
           </ul>
         }
 
+        <!-- Always present, and outside the busy line (APP-003, AU.7): the tags' one loading status. -->
+        <p class="cp-sr-only" role="status">{{ tagPhase() === 'loading' ? 'Loading your tags…' : '' }}</p>
         @switch (tagPhase()) {
           @case ('loading') {
-            <p class="plain cp-muted" role="status">Loading your tags…</p>
+            <!-- Where the tag picker will be. -->
+            <div class="tags-loading" aria-busy="true"><cp-skeleton shape="line" /></div>
           }
           @case ('unavailable') {
             <cp-notice tone="warning" role="status">

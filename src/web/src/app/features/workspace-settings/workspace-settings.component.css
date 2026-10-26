@@ -12,6 +12,13 @@
   margin: 0 0 var(--cp-space-3);
 }
 
+/* The form while it loads, held to the measure its fields will take. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-4);
+  max-width: var(--cp-measure-field);
+}
+
 .current {
   margin: 0;
 }

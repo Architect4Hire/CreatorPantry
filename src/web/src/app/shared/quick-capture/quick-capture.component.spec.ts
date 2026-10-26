@@ -393,6 +393,31 @@ describe('QuickCaptureComponent', () => {
     expect(document.activeElement?.id).toBe('cp-quick-capture-day');
   });
 
+  // AU.7: what is on its way is said once, offscreen, and lines stand where the news will be.
+  it('draws the calendar and labels arriving, said once from the details’ own status region', async () => {
+    await create();
+    planningDates.and.returnValue(new Promise<PlanningDatesOutcome>(() => undefined));
+    await openDialog();
+    await expand();
+
+    const region = $('#cp-quick-capture-details [role="status"]')!;
+    expect(region.querySelector('.cp-sr-only')!.textContent).toBe('Loading your calendar and labels…');
+    expect(region.querySelector('cp-notice')).toBeNull();
+    expect($('#cp-quick-capture-details .loading-details[aria-busy="true"] cp-skeleton')).not.toBeNull();
+    // The label box keeps its usual words: whether it can be typed into yet is its disabled state, as before.
+    expect($<HTMLInputElement>('#cp-quick-capture-label')!.placeholder).toBe('Start typing a label…');
+  });
+
+  it('empties that status once the calendar and labels are read', async () => {
+    await create();
+    await openDialog();
+    await expand();
+
+    expect($('#cp-quick-capture-details [role="status"] .cp-sr-only')!.textContent).toBe('');
+    expect($('#cp-quick-capture-details cp-skeleton')).toBeNull();
+    expect($<HTMLInputElement>('#cp-quick-capture-label')!.disabled).toBeFalse();
+  });
+
   it('announces that the calendar could not be read, offers to try again, and still offers a day', async () => {
     await create();
     planningDates.and.resolveTo({ status: 'unavailable' });

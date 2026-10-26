@@ -838,6 +838,7 @@ describe('ChannelPostRunComponent', () => {
       await settle();
 
       expect(text()).toContain('No posts have been written for this yet.');
+      expect(el.querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('post');
       expect(el.querySelector('input[type="checkbox"]')).toBeNull();
     });
   });

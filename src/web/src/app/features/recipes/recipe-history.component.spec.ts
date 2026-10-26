@@ -176,8 +176,15 @@ class StubRecipeService {
   /** Held open so a test can assert what happens while a comparison is in flight. */
   pendingCompare: ((outcome: RecipeVersionComparisonOutcome) => void) | null = null;
 
+  /** Set to leave the read of older versions unanswered, so the list stays loading them. */
+  holdOlder = false;
+  /** Set to leave the first read unanswered, so the history stays loading. */
+  holdFirst = false;
+
   getVersionHistory(_slug: string, _recipeId: string, cursor?: string): Promise<RecipeVersionHistoryOutcome> {
     this.historyCalls.push(cursor);
+    if (cursor !== undefined && this.holdOlder) return new Promise(() => undefined);
+    if (cursor === undefined && this.holdFirst) return new Promise(() => undefined);
 
     const answer = this.nextHistory ?? this.history;
     this.nextHistory = null;
@@ -577,6 +584,47 @@ describe('RecipeHistoryComponent', () => {
     expect(service.historyCalls).toEqual([undefined, 'cursor-1']);
     expect(rows(element).length).toBe(3);
     expect(element.querySelector('.older')).toBeNull();
+  });
+
+  it('says "Loading…" once while the history is read: the list shell says it and draws rows, the page does not (AU.7)', async () => {
+    service.holdFirst = true;
+    const element = await render();
+
+    expect(element.querySelector('cp-list-shell cp-skeleton')).not.toBeNull();
+    const loading = Array.from(element.querySelectorAll('[role="status"]')).filter((each) => each.textContent?.includes('Loading'));
+    expect(loading.length).toBe(1);
+    expect(element.querySelector('p.status[role="status"]')!.textContent!.trim()).toBe('');
+  });
+
+  it('draws older versions arriving at the end of the list, and the button keeps its words (AU.7)', async () => {
+    service.history = { status: 'found', page: { items: [entry(3), entry(2)], nextCursor: 'cursor-1' } };
+    const element = await render();
+    const status = () =>
+      Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) => each.textContent?.includes('older versions…'));
+
+    service.holdOlder = true;
+    buttonWith(element, 'Load older versions')!.click();
+    await settle();
+
+    const loadOlder = buttonWith(element, 'Load older versions')!;
+    expect(loadOlder.textContent!.trim()).toBe('Load older versions');
+    expect(loadOlder.getAttribute('aria-busy')).toBe('true');
+    expect(status()?.textContent).toBe('Loading older versions…');
+    const arriving = element.querySelector('.older-loading[aria-busy="true"]')!;
+    expect(arriving.querySelector('cp-skeleton')).not.toBeNull();
+    // At the end of the list, where they will land.
+    expect(element.querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rows(element).length).toBe(2);
+  });
+
+  it('keeps the older versions’ status, emptied, when nothing is being read', async () => {
+    service.history = { status: 'found', page: { items: [entry(3), entry(2)], nextCursor: 'cursor-1' } };
+    const element = await render();
+
+    const statuses = Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]'));
+    expect(statuses.some((each) => each.textContent?.includes('older versions…'))).toBeFalse();
+    expect(element.querySelector('.older-loading')).toBeNull();
+    expect(buttonWith(element, 'Load older versions')!.getAttribute('aria-busy')).toBeNull();
   });
 
   it('stops offering older versions when the cursor is no longer accepted', async () => {

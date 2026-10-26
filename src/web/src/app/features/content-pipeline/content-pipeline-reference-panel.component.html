@@ -57,7 +57,7 @@
           </div>
           <p class="chosen-name">Picture {{ mine.position }} from this run</p>
         } @else {
-          <p class="chosen-name">A generated picture</p>
+          <p class="chosen-name">A picture you made with AI</p>
         }
       }
 
@@ -96,7 +96,8 @@
           }
         }
         @case ('loading') {
-          <p class="cp-muted" role="status">Loading this run's pictures…</p>
+          <span class="cp-sr-only" role="status">Loading this run's pictures…</span>
+          <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="1 / 1" [count]="3" /></div>
         }
         @case ('unavailable') {
           <cp-notice tone="error" role="alert">
@@ -257,47 +258,49 @@
 }
 
 @if (reading(); as result) {
-  @if (result.observations.length > 0) {
-    <p class="heading" role="heading" [attr.aria-level]="headingLevel()">What the picture shows</p>
-    <!-- Confidence is a word on every row, never a hue or a bar: a reading nobody is sure of must not look
-         like one they are (.claude/rules/ai.md). -->
-    <ul class="observations">
-      @for (observation of result.observations; track observation.aspect) {
-        <li>
-          <span class="aspect">{{ aspectLabels[observation.aspect] }}</span>
-          <span class="text">{{ observation.text }}</span>
-          <span class="confidence">{{ confidenceLabels[observation.confidence] }}</span>
-        </li>
-      }
-    </ul>
-  } @else {
-    <!-- "No observations came back", not "nothing could be read with any confidence" — the second asserts a
-         judgement about the photograph that the server never made. -->
-    <cp-notice role="note">No observations came back for this picture.</cp-notice>
-  }
+  <!-- What a model read from the creator's picture, marked as a reading and held in the one surface for AI output
+       (AU.3.1), with what can be done with it last. A reading is always paired with "check it against the picture":
+       the label claims where it came from, never that it is right (DESIGN-SYSTEM.md, "Generated content"). -->
+  <cp-generated kind="reading">
+    <p class="cp-muted">Read from your picture. Check each part against the picture itself before you rely on it.</p>
 
-  <!-- Before anything is taken from it: a reading shapes a prompt only on the button below, and this is the
-       way to say "not this one" first. -->
-  <div class="cp-actions">
-    <button cpButton type="button" variant="text" size="sm" (click)="discardReading()">Discard this reading</button>
-  </div>
-
-  @if (result.prompt) {
-    <p class="heading" role="heading" [attr.aria-level]="headingLevel()">Wording drawn from it</p>
-    <p class="cp-muted">
-      Drawn from the readings above, including any we were unsure of. Check it against the picture before you
-      use it.
-    </p>
-    <p class="drawn">{{ result.prompt }}</p>
-
-    @if (result.avoid.length > 0) {
-      <p class="cp-muted">Avoid: {{ result.avoid.join(', ') }}</p>
+    @if (result.observations.length > 0) {
+      <p class="heading" role="heading" [attr.aria-level]="headingLevel()">What the picture shows</p>
+      <!-- Confidence is a word on every row, never a hue or a bar: a reading nobody is sure of must not look
+           like one they are (.claude/rules/ai.md). -->
+      <ul class="observations">
+        @for (observation of result.observations; track observation.aspect) {
+          <li>
+            <span class="aspect">{{ aspectLabels[observation.aspect] }}</span>
+            <span class="text">{{ observation.text }}</span>
+            <span class="confidence">{{ confidenceLabels[observation.confidence] }}</span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <!-- "No observations came back", not "nothing could be read with any confidence" — the second asserts a
+           judgement about the photograph that the server never made. -->
+      <cp-notice role="note">No observations came back for this picture.</cp-notice>
     }
 
-    <div class="cp-actions">
-      <button cpButton type="button" variant="secondary" (click)="useAsPrompt()">
-        Use this as my prompt
-      </button>
+    @if (result.prompt) {
+      <p class="heading" role="heading" [attr.aria-level]="headingLevel()">Wording drawn from it</p>
+      <p class="cp-muted">Drawn from the readings above, including any we were unsure of.</p>
+      <p class="drawn">{{ result.prompt }}</p>
+
+      @if (result.avoid.length > 0) {
+        <p class="cp-muted">Avoid: {{ result.avoid.join(', ') }}</p>
+      }
+    }
+
+    <!-- Nothing is taken from the reading until one of these: using its wording, or saying "not this one". -->
+    <div cpGeneratedActions class="cp-actions">
+      @if (result.prompt) {
+        <button cpButton type="button" variant="secondary" (click)="useAsPrompt()">
+          Use this as my prompt
+        </button>
+      }
+      <button cpButton type="button" variant="text" size="sm" (click)="discardReading()">Discard this reading</button>
     </div>
-  }
+  </cp-generated>
 }

@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { CONTENT_BOARD_COLUMN_LABELS, PipelineBoardCard } from '../../models/content-board.models';
 import { keeperReferencesOf } from '../../models/creative-context.models';
@@ -52,7 +52,7 @@ const PROBLEMS = {
 @Component({
   selector: 'cp-content-pipeline-board-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './content-pipeline-board-step.component.html',
   styleUrl: './content-pipeline-board-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

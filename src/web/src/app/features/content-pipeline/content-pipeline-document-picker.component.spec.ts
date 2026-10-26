@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Observable, of } from 'rxjs';
+import { NEVER, Observable, of } from 'rxjs';
 
 import { BrandLibraryRow } from '../../models/brand-source-document.models';
 import { ContentPipelineDocumentRef } from '../../models/content-pipeline.models';
@@ -62,6 +62,8 @@ let rows: readonly BrandLibraryRow[];
 let libraryOutcome: BrandLibraryOutcome;
 let uploads: { file: File; signal?: AbortSignal }[];
 let uploadResolve: (outcome: BrandSourceAddOutcome) => void;
+/** Set to leave the library's read unanswered, so the picker stays looking. */
+let holdLibrary: boolean;
 
 async function settle(): Promise<void> {
   fixture.detectChanges();
@@ -109,6 +111,7 @@ describe('ContentPipelineDocumentPickerComponent', () => {
     rows = [libraryRow()];
     libraryOutcome = { status: 'ok', page: { items: rows, nextCursor: null } };
     uploads = [];
+    holdLibrary = false;
 
     TestBed.configureTestingModule({
       providers: [
@@ -116,11 +119,13 @@ describe('ContentPipelineDocumentPickerComponent', () => {
           provide: BrandSourceDocumentService,
           useValue: {
             searchLibrary: (): Observable<BrandLibraryOutcome> =>
-              of(
-                libraryOutcome.status === 'ok'
-                  ? { status: 'ok', page: { items: rows, nextCursor: libraryOutcome.page.nextCursor } }
-                  : libraryOutcome,
-              ),
+              holdLibrary
+                ? NEVER
+                : of(
+                    libraryOutcome.status === 'ok'
+                      ? { status: 'ok', page: { items: rows, nextCursor: libraryOutcome.page.nextCursor } }
+                      : libraryOutcome,
+                  ),
             upload: (_slug: string, file: File, _description: unknown, _key: string, signal?: AbortSignal) => {
               uploads.push({ file, signal });
               return new Promise<BrandSourceAddOutcome>((resolve) => {
@@ -181,6 +186,27 @@ describe('ContentPipelineDocumentPickerComponent', () => {
 
     expect(optionInputs()[0].disabled).toBeFalse();
     expect(el.textContent).not.toContain('not an image');
+  });
+
+  // AU.7: the library arriving as lines, said once from a status that is always there.
+  it('draws the library arriving while it is read, and empties its status once it is', async () => {
+    holdLibrary = true;
+    await mount();
+    const status = el.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('');
+
+    await click('Choose from my library');
+
+    expect(status.textContent).toBe('Looking in your library…');
+    expect(el.querySelector('.arriving[aria-busy="true"] cp-skeleton')).not.toBeNull();
+  });
+
+  it('says nothing is on its way once the library has been read', async () => {
+    await mount();
+    await click('Choose from my library');
+
+    expect(el.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(el.querySelector('cp-skeleton')).toBeNull();
   });
 
   it('says a library it could not read could not be read, with a way to try again', async () => {

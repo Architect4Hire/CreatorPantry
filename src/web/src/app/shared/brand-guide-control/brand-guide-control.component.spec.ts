@@ -279,6 +279,31 @@ describe('BrandGuideControlComponent', () => {
       expect(host.querySelector('section')?.getAttribute('aria-busy')).toBe('true');
       expect(text(host)).toContain('Checking your brand voice');
       expect(text(host)).not.toContain('Using your brand voice');
+
+      // Said once, offscreen and outside the busy section; what shows is the summary arriving (AU.7).
+      const status = host.querySelector(':scope > p.cp-sr-only[role="status"]')!;
+      expect(status.textContent).toBe('Checking your brand voice…');
+      expect(host.querySelector('section[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(host.querySelector('section .summary')).toBeNull();
+    });
+
+    it('draws the channel’s rules arriving, said once from a status the card keeps (AU.7)', async () => {
+      const host = await render({ rulesStatus: 'loading' });
+      const rules = host.querySelector('.rules')!;
+
+      expect(rules.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('Loading how this will sound…');
+      expect(rules.querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(text(rules as HTMLElement)).not.toContain('Loading…');
+
+      const ready = await render();
+      expect(ready.querySelector('.rules p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    });
+
+    it('empties that status once the guide is read', async () => {
+      const host = await render();
+
+      expect(host.querySelector(':scope > p.cp-sr-only[role="status"]')!.textContent).toBe('');
+      expect(host.querySelector('section > cp-skeleton')).toBeNull();
     });
 
     it('offers a retry on error and keeps the creator reassured', async () => {

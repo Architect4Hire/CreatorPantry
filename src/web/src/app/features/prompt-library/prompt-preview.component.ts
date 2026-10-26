@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output, si
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { BehaviorSubject, combineLatest, of, switchMap, tap } from 'rxjs';
-import { CpButtonComponent, CpDrawerComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpDrawerComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { ClipboardService } from '../../core/clipboard.service';
 import { PromptDetail, PromptSummary, promptTitle } from '../../models/prompt-library.models';
@@ -38,7 +38,7 @@ type PreviewState =
 @Component({
   selector: 'cp-prompt-preview',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpDrawerComponent, CpNoticeComponent],
+  imports: [RouterLink, CpButtonComponent, CpDrawerComponent, CpNoticeComponent, CpSkeletonComponent],
   template: `
     <cp-drawer
       [open]="summary() !== null"
@@ -47,9 +47,12 @@ type PreviewState =
       closeLabel="Close preview"
       (closeRequested)="closed.emit()"
     >
+      <!-- Always present, and outside the busy lines (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
+      <p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading the prompt…' : '' }}</p>
       @switch (state().status) {
         @case ('loading') {
-          <p class="plain" role="status">Loading the prompt…</p>
+          <!-- The prompt as it will arrive: a few lines of words. -->
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="5" /></div>
         }
         @case ('not_found') {
           <cp-notice tone="error" role="alert">We couldn't find this prompt.</cp-notice>

@@ -23,6 +23,12 @@
 }
 
 /* Holds the picture's place while the bytes arrive, so the caption does not jump when they do. */
+/* The picture on its way, in the square it will take. */
+.pending {
+  flex: 0 0 auto;
+  width: 10rem;
+}
+
 .missing {
   display: flex;
   flex: 0 0 auto;

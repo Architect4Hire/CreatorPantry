@@ -1,7 +1,14 @@
 <cp-card>
+  <!-- Always present, and outside the busy lines (APP-003): one place this card says it is still loading. -->
+  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your AI features…' : '' }}</p>
+
   @switch (load().status) {
     @case ('loading') {
-      <p class="state" role="status">Loading your AI features…</p>
+      <!-- The card's form as it will arrive: its heading and the features to choose from. -->
+      <div class="loading" aria-busy="true">
+        <cp-skeleton shape="line" />
+        <cp-skeleton shape="line" [count]="4" />
+      </div>
     }
     @case ('not_found') {
       <p class="state" role="alert">We couldn't find this workspace.</p>

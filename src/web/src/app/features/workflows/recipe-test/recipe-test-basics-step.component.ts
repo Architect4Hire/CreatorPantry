@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
-import { CpButtonComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { RecipeReadiness } from '../../../models/recipe-readiness.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
@@ -33,13 +33,15 @@ type Checked =
 @Component({
   selector: 'cp-recipe-test-basics-step',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, CpStatusPillComponent, RecipeEditorComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, CpStatusPillComponent, RecipeEditorComponent],
   providers: [RecipeEditorHost],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ checked().status === 'loading' ? 'Checking your recipe…' : '' }}</p>
     @switch (checked().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Checking your recipe…</p>
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('missing') {
         <cp-notice tone="warning" role="status">{{ noRecipe }}</cp-notice>

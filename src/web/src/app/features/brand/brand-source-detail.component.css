@@ -13,6 +13,12 @@ cp-page-head {
   margin: 0;
 }
 
+/* The page while it loads: its cards, at the page's own spacing. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
 .state {
   max-width: var(--cp-measure-prose);
   margin: 0;

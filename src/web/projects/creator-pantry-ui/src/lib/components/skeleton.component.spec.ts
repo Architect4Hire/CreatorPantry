@@ -5,11 +5,12 @@ import { CpSkeletonComponent, CpSkeletonShape } from './skeleton.component';
 
 @Component({
   imports: [CpSkeletonComponent],
-  template: `<cp-skeleton [shape]="shape()" [count]="count()" />`,
+  template: `<cp-skeleton [shape]="shape()" [count]="count()" [pictureAspect]="pictureAspect()" />`,
 })
 class HostComponent {
   readonly shape = signal<CpSkeletonShape>('line');
   readonly count = signal(1);
+  readonly pictureAspect = signal<string | null>(null);
 }
 
 let fixture: ComponentFixture<HostComponent>;
@@ -23,6 +24,28 @@ function mount(shape: CpSkeletonShape, count = 1): HTMLElement {
 }
 
 describe('CpSkeletonComponent', () => {
+  it('draws a block as a picture of the shape it is told, and 8rem tall when told none', () => {
+    const host = mount('block');
+    const block = host.querySelector<HTMLElement>('.bone.block')!;
+    expect(block.getBoundingClientRect().height).toBeCloseTo(128, 0);
+
+    fixture.componentInstance.pictureAspect.set('2 / 1');
+    fixture.detectChanges();
+    const box = block.getBoundingClientRect();
+    expect(box.width / box.height).toBeCloseTo(2, 1);
+  });
+
+  it("draws a card's picture at 4:3 unless told the shape of the pictures coming", () => {
+    const host = mount('card');
+    const picture = host.querySelector<HTMLElement>('.bone.picture')!;
+    const ratio = (): number => picture.getBoundingClientRect().width / picture.getBoundingClientRect().height;
+    expect(ratio()).toBeCloseTo(4 / 3, 1);
+
+    fixture.componentInstance.pictureAspect.set('1 / 1');
+    fixture.detectChanges();
+    expect(ratio()).toBeCloseTo(1, 1);
+  });
+
   it('is hidden from assistive technology and holds nothing focusable', () => {
     const host = mount('card', 3);
     expect(host.getAttribute('aria-hidden')).toBe('true');

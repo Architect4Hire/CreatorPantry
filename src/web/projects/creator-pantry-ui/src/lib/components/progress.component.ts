@@ -4,13 +4,16 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
  * How full the track reads. Presentation only — the tone carries no meaning the consumer's own text does not
  * already say, because a bar that changed colour and nothing else would be status by colour alone (WCAG 2.2
  * AA, 1.4.1). Pair it with a `cp-status-pill`, whose glyph and words are the real carrier.
- */
-/**
+ *
  * `success` and `default` deliberately paint the same green: a healthy meter and an untoned one look alike,
  * and the pair exists so a consumer can say which it means rather than leaving the reader to infer it from
  * an absence. Naming the intent is the point; a fourth colour would not be.
+ *
+ * `tool` is a flow's own progress — how far through the Content Pipeline, say — and fills with the tool's tone
+ * (`--cp-tone`, the primary's on an untoned page), as its stepper does. It says where you are, never a state, so a
+ * meter whose fill could mean something (an allowance, a length against a limit) keeps one of the others.
  */
-export type CpProgressTone = 'default' | 'success' | 'warning' | 'error';
+export type CpProgressTone = 'default' | 'success' | 'warning' | 'error' | 'tool';
 
 @Component({
   selector: 'cp-progress',
@@ -41,6 +44,7 @@ export type CpProgressTone = 'default' | 'success' | 'warning' | 'error';
        should reach for. A missing intent belongs in both themes; this is not one. */
     :host{--cp-progress-fill:var(--cp-primary)}
     :host([data-tone='success']){--cp-progress-fill:var(--cp-primary)}
+    :host([data-tone='tool']){--cp-progress-fill:var(--cp-tone)}
     :host([data-tone='warning']){--cp-progress-fill:var(--cp-orange)}
     :host([data-tone='error']){--cp-progress-fill:var(--cp-danger)}`,
   ],

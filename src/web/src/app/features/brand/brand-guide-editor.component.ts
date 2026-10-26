@@ -28,6 +28,7 @@ import {
   CpNoticeComponent,
   CpNoticeTone,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -157,6 +158,7 @@ export const BRAND_GUIDE_AUTOSAVE_DELAY_MS = new InjectionToken<number>('brand g
     CpFieldComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     CpBackLinkComponent,
   ],

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, input, signal } from '@angular/core';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { RecipeVersionComparison, RecipeVersionHistoryEntry } from '../../../models/recipe-version.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
@@ -25,12 +25,14 @@ type Compared =
 @Component({
   selector: 'cp-recipe-improve-compare-step',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, RecipeVersionComparisonComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, RecipeVersionComparisonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
+    <p class="cp-sr-only" role="status">{{ compared().status === 'loading' ? 'Comparing your recipe with how it was…' : '' }}</p>
     @switch (compared().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Comparing your recipe with how it was…</p>
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('unavailable') {
         <cp-notice tone="error" role="alert">

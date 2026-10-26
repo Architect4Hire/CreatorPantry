@@ -275,7 +275,7 @@ function dialog(): SaveToLibraryDialogComponent | null {
 
 /** Save one keeper the way a creator does: press its button, then let the form answer. */
 async function save(position: number, asset: DamCreatedAsset, total = 2): Promise<void> {
-  labelled('button', `Save picture ${position} of ${total} to your library`)!.click();
+  labelled('button', `Save to library: picture ${position} of ${total}`)!.click();
   await settle();
 
   dialog()!.saved.emit(asset);
@@ -315,7 +315,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       await mount(['img-1'], ['Staged'], { extra: [picture(9, { id: 'img-9' })] });
 
       expect(rows().length).toBe(1);
-      expect(labelled('button', 'Save picture 1 of 1 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
     });
 
     it('says there is nothing to file when nothing was kept, with the way back', async () => {
@@ -338,7 +338,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
     it('opens the form for the picture pressed, with the work’s title and the prompt that made it', async () => {
       await mount();
 
-      labelled('button', 'Save picture 2 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 2 of 2')!.click();
       await settle();
 
       expect(dialog()?.open()).toBeTrue();
@@ -355,7 +355,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       await save(1, createdAsset());
 
       expect(rows()[0].textContent).toContain('In your library as “Soda bread hero”.');
-      expect(labelled('a', 'Open picture 1 of 2 in your library')?.getAttribute('href')).toBe(`/${SLUG}/dam/a1`);
+      expect(labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href')).toBe(`/${SLUG}/dam/a1`);
       expect(references()).toContain({ kind: 'DamAsset', purpose: 'Keeper', id: 'a1' });
       expect(host.announcements).toContain('Saved to your library as “Soda bread hero”.');
       expect(text()).toContain('1 of 2 in your library.');
@@ -370,14 +370,14 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       expect(text()).toContain('All 2 pictures are in your library.');
       expect(text()).toContain('Everything you kept from this run is in your library.');
       expect(el.querySelector(`a[href="/${SLUG}/dam"]`)).not.toBeNull();
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
-      expect(labelled('button', 'Save picture 2 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 2 of 2')).toBeNull();
     });
 
     it('says a save is running on the picture it is running for', async () => {
       await mount();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.progress.emit({ state: 'saving' });
       await settle();
@@ -391,7 +391,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
     it('leaves the other keepers saveable, and saves them', async () => {
       await mount();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.progress.emit({ state: 'failed', problem: 'Nothing was saved.' });
       await settle();
@@ -411,14 +411,14 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
     it('offers the one that failed another go, with nothing lost', async () => {
       await mount();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.progress.emit({ state: 'failed', problem: 'Nothing was saved.' });
       await settle();
       dialog()!.closed.emit();
       await settle();
 
-      labelled('button', 'Try saving picture 1 of 2 again')!.click();
+      labelled('button', 'Try again: save picture 1 of 2')!.click();
       await settle();
 
       expect(dialog()?.open()).toBeTrue();
@@ -447,8 +447,8 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       await settle();
 
       expect(rows()[0].textContent).toContain('In your library');
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).withContext('already saved').toBeNull();
-      expect(labelled('button', 'Save picture 2 of 2 to your library')).withContext('still to do').not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).withContext('already saved').toBeNull();
+      expect(labelled('button', 'Save to library: picture 2 of 2')).withContext('still to do').not.toBeNull();
       expect(text()).toContain('1 of 2 in your library.');
     });
 
@@ -500,8 +500,8 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       await mount(['img-1', 'img-2'], ['Rejected', 'Staged']);
 
       expect(rows()[0].textContent).toContain('was declined, so it cannot be saved');
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
-      expect(labelled('button', 'Save picture 2 of 2 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 2 of 2')).not.toBeNull();
     });
 
     it('says an expired picture was held too long, rather than forgetting it was chosen', async () => {
@@ -536,7 +536,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
 
       expect(el.querySelector('[role="alert"]')).toBeNull();
       expect(rows().length).toBe(1);
-      expect(labelled('button', 'Save picture 1 of 1 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
     });
   });
 
@@ -554,7 +554,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       expect(text()).toContain('has not named one');
       expect(text()).toContain('Your pictures save either way.');
       expect(dialog()?.prompt()).toBeNull();
-      expect(labelled('button', 'Save picture 1 of 1 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
     });
 
     it('is not kept when the generation that wrote it cannot be read, and says so', async () => {
@@ -563,7 +563,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
 
       expect(text()).toContain('what wrote it could not be read');
       expect(dialog()?.prompt()).toBeNull();
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).not.toBeNull();
     });
   });
 
@@ -582,7 +582,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
     await settle();
 
     expect(rows().length).withContext('the cue is not a keeper').toBe(1);
-    expect(labelled('button', 'Save picture 1 of 1 to your library')).not.toBeNull();
+    expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
 
     await save(1, createdAsset(), 1);
 
@@ -617,6 +617,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       expect(rows()).toEqual([]);
       expect(text()).not.toContain('Workspace A’s picture');
       expect(text()).toContain('Loading the pictures you kept…');
+      expect(el.querySelector('[data-testid="kept-loading"] cp-skeleton')).not.toBeNull();
     });
   });
 });

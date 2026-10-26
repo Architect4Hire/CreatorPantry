@@ -717,7 +717,7 @@ recommended: the edge is neutral, not purple.*
     with a check-it-against-the-picture sentence. Its "A generated picture" name may also need a look.*
 - *generated-image-run (AU.5.2): the label shows only when the server named a provider. A run with none shows no
   "Made by AI" at all; this was true before.*
-- *Brand and Prompt Library (AU.6.3):*
+- *Brand and Prompt Library (AU.6.3), both since done there:*
   - *Brand setup's origin pill says "Written for you" from a TypeScript vocabulary that the rule cannot see.*
   - *A prompt's source is labelled "Written for you" in a purple kind badge (`prompt-library.models.ts`).*
   - *prompt-detail's card heading "What was written for you" now sits above "Drafted by AI".*
@@ -783,7 +783,7 @@ and an option in a grid is an item, as a media card's title is.
 The showcase is 6085/6086. The one red is RecipeEditorComponent's section-nav scroll spec, the same intermittent
 one as in AU.2.6, and it passed on a rerun of that file with the showcase spec.*
 
-## AU.3.3 Figure tile and featured card
+## AU.3.3 Figure tile and featured card - done
 
 ```text
 SCOPE: Add CpStatTileComponent: a figure, its label, an optional sentence of context and an optional link,
@@ -998,7 +998,7 @@ exemptions, none added), safety copy passes, the library is 469/469 (+4 masonry 
 6097/6097 (+21: nine on the dashboard, twelve in a new `dashboard-presentation.spec.ts`). No intermittents in
 this session's runs.*
 
-## AU.4.2 Recipe library shows each recipe's picture
+## AU.4.2 Recipe library shows each recipe's picture - done
 
 ```text
 SCOPE: Add an optional heroAsset to the recipe list's ServiceModel (the media asset id and version of the
@@ -1103,7 +1103,7 @@ before the review fixes. After them, one run had 10 reds, all in the known inter
 credits, pricing and collage, and the editor's step-layout spec), and the editor and landing specs then
 passed alone (415/415). Two `CpMediaCardComponent` focus specs failed once in an earlier run and passed alone.*
 
-## AU.5.1 AI Recipe Studio
+## AU.5.1 AI Recipe Studio - done
 
 ```text
 SCOPE: Present the studio's concepts as cp-option-card in a comparison grid: the dish name as the title, time
@@ -1127,7 +1127,70 @@ BEHAVIOR: Show the concept grid against the tour capture; wait for approval; imp
 build and npm test from src/web.
 ```
 
-## AU.5.2 Image Studio
+*Delivery note (2026-10-26): shipped. The owner approved the concept grid from a written sketch against the tour
+capture, and chose to keep dietary notes out of the tags (option A).*
+
+*The concept studio:*
+
+- *Each concept is a `cp-option-card` in `ul[cpCardGrid]`, inside `cp-generated` in the list shell's ready content.*
+  - *Time budget and skill fit are the tags.*
+  - *Dietary notes are always shown, as a `dl[cpFacts]`. Its term is "Dietary notes — descriptive only, not a
+    guarantee", so the caveat is the page's own words, and the model's sentences are a list under it. A tag holds one
+    string, so a list of sentences there would have needed a library change.*
+  - *A concept's own warnings are `cp-notice`s, always shown.*
+  - *The rationale, the suggested ingredients (still comma-joined: they are words) and the assumptions (now a list:
+    they are sentences) are behind the disclosure. Its summary reads "…and what it assumes" when there are any.*
+- *"What the model flagged" is a section with an `h3` and one `cp-notice` per flag, after the list shell. It shows
+  even when no concepts came back, since a flag is often why.*
+- *"Try a new brief" is the surface's `[cpGeneratedActions]`.*
+- *Provenance is "model (provider)". It is left out in a guided step, as 13A.19 does for pictures.*
+- *Page head: `cp-shell-nav-icon name="ai"` from `shared/nav-icon/`. The purple tone was already on the route.*
+- *Loading sentences became `cp-skeleton` with one always-present offscreen status line, which also says "Asking
+  for concepts…" while a brief is sent.*
+- *Empty states are illustrated, and a first-use state ("Your concepts will appear here") stands where the concepts
+  will land.*
+- *The option-card exemption is gone.*
+
+*The first-draft review:*
+
+- *The page head icon, a skeleton, and illustrated idle and gone states.*
+- *A `cp-generated-label` before the anchor nav.*
+- *"How this was made" is `dl[cpFacts] layout="across"`.*
+- ***Settled:** yield and timing keep `.draft-fields-grid` and its exemption. Each value opens an editor in place,
+  and `across` sizes a fact to its content and wraps, so an opening editor would reflow its neighbours. The reason in
+  the script and in DESIGN-SYSTEM.md now says so.*
+
+*The rest of the AU.3.1 leftovers for features/ai:*
+
+- *`ai-proposal-panel`:*
+  - *`cp-generated-label` in its header.*
+  - *Provenance as `dl[cpFacts]`, still in its disclosure.*
+  - *A skeleton under an always-present status line.*
+  - *An illustrated gone state.*
+- *`ai-advisory-results`: `cp-generated` round the items, and provenance as `dl[cpFacts]`.*
+
+*The reviews:*
+
+- *ai-safety-reviewer found nothing blocking. Taken: the disclosure names the assumptions, and a spec pins the caveat
+  outside the model's sentences.*
+- *Left for the owner:*
+  - *A concept with no dietary notes says nothing about diet. It did before.*
+  - *The panel and the advisory list name the model in a guided step too. They have no host to ask.*
+- *design-review:*
+  - *Fixed: the panel's loading line was a live region created already holding its text (blocking).*
+  - *Fixed: "submitting" was not announced.*
+  - *Fixed: a leftover class.*
+- *Left for the owner:*
+  - *`cp-generated` round a grid of option cards, and round the advisory list's bordered items, against "Generated
+    content"'s box-in-a-box rule. Settled in AU.5.2: the owner kept the surface, and the rule now says a set of
+    edged items takes it once, round the set.*
+  - *`cp-empty-state` always prints an `h3`, which skips a level under the draft review's `h1`. It needs a heading
+    level input in the library.*
+
+*`npm run build` passes. The page contract holds (28 self-tests), safety copy holds, the library is 471/471 and the
+showcase is 6191/6191.*
+
+## AU.5.2 Image Studio - done
 
 ```text
 SCOPE: Pink tone and icon. Results as a picture-led grid in cp-generated, each with "View larger" into
@@ -1140,7 +1203,96 @@ UTILIZATION: design-review; playwright-cli screenshots standalone and hosted in 
 BEHAVIOR: Show both modes; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.5.3 Social Studio
+*Delivery note (2026-10-26): shipped, with a scope change the owner asked for part-way. The owner approved the
+results sketch, and chose to keep `cp-generated` round a set of edged items and write that into the rule. Then
+they asked that the Image Studio, and also the AI Recipe Studio, take the workflows' UX. Both are now flows on
+their own pages. That overrides this prompt's "anchor nav and form sections unchanged in structure".*
+
+*No screenshots of either mode were taken. The capture account's credentials were not in the environment, and a
+run with pictures in it would have spent real Venice credits. The "before" is the AU.0 capture of both pages.*
+
+*The pictures (`generated-image-run`, shared by the Image Studio, Content Pipeline step 4 and a workflow's Images
+step):*
+
+- *The grid sits in `cp-generated kind="picture"`.*
+  - *The mark moved off the run's status line, so it now shows when the server named no provider. That fixes the
+    AU.3.1 leftover.*
+  - *The model is named only on the studio's own page.*
+  - *"Tidy away the rest" is the surface's action.*
+  - *There is no surface round skeletons alone.*
+- *Each picture still coming is a skeleton tile in the same grid, framed like a real tile.*
+  - *Its picture takes the shape of the first one made, or square before any is made. No size is asked for, so
+    each model's own default applies.*
+  - *None are drawn once the page stops checking.*
+- *A first-use "No pictures yet" (`picture`) stands where the grid will be.*
+- *The lightbox caption carries `cp-generated-label`.*
+- *"Asking for your pictures…" is an always-mounted offscreen status.*
+- *Library: `cp-skeleton` takes `pictureAspect`, for a card's picture or a block. DESIGN-SYSTEM.md says so, and
+  "Generated content" has the new rule about sets.*
+- *`cp-recipe-picker`'s empty library is a compact illustrated state (`recipe`), in every studio that uses it. The
+  empty-state paragraph now allows a compact state to draw what is missing.*
+- *Label in Name (WCAG 2.5.3, found by `design-review`, and older than this prompt): every picture control's
+  accessible name now begins with its visible words. This covers the grid, the lightbox's downloads and the
+  library step.*
+
+*The Image Studio is a flow:*
+
+- *Its steps are "Choose what the picture is for", "Plan the picture" and "Make pictures and keep the best". These
+  are the same parts and names as the "Create food images" workflow's first three steps, which host the same
+  component.*
+- *The frame is the Content Pipeline's: `cp-progress` over `cp-stepper` beside one wide `cp-topic-card`. The card
+  holds Back, Continue and Start over, and its heading takes focus on a step change.*
+- *Each step change is announced. The step is kept in `?step=`.*
+- *Work opened with no step lands where it stands: on Make with a run kept, on Plan with a prompt written. It says
+  "Picked up where you left off".*
+- *The page head has the `image` icon and a skeleton loading state.*
+- *The workflow step's link no longer promises "every part of it on one page".*
+
+*The AI Recipe Studio is a flow (`RecipeStudioFlowComponent`):*
+
+- *Its steps are "Describe what you're after", "Choose a concept" and "Review the first draft".*
+- *It hosts the concept studio and the first-draft review through `RecipeStudioHost`, as "Start your recipe" does.
+  The host gained a `part` signal, `contextId`, `showMaker` and `briefRestarted`. Their defaults are the
+  workflow's, which is unchanged.*
+- *One ideas screen spans steps 1–2, so Back finds the brief as typed.*
+- *Asking moves to step 2 and drafting to step 3. Continue is offered only where something was asked for.*
+- *Back from the review, or leaving the page, asks first when rewrites would be lost. This is
+  `recipeStudioFlowCanDeactivateGuard`, which replaces the review's own guard.*
+- *The place is kept in `?step=&request=&draft=`. The old `/draft` addresses open step 3 and move to the studio's
+  address.*
+- *The routes load the import inline, so the page contract checks the flow as a routed page (31).*
+
+*`design-review` ran twice:*
+
+- *Fixed:*
+  - *Label in Name.*
+  - *Skeletons after "Stop checking".*
+  - *A mark round placeholders.*
+  - *Three live regions created already holding their text.*
+  - *The skeleton tile's frame.*
+  - *The empty-state rule.*
+  - *Step changes and the resume, which were silent.*
+  - *Doubled "nothing writes a recipe" copy.*
+  - *Dead `tabindex` targets from the anchor nav.*
+- *Not taken, because they match the Content Pipeline reference:*
+  - *A breadcrumb. Both studios are top-level pages.*
+  - *Start over in the actions row.*
+  - *The stepper stacking above the card at 375px.*
+  - *Matching progress and nav names.*
+- *Left for the owner:*
+  - *Inside a step card, `cp-form-section` and `cp-list-shell` still print `h2`, flat under the card's `h2`. Neither
+    has a heading-level input. The same holds in the Content Pipeline and brand setup.*
+  - *The concept studio and the first-draft review keep their own-page mode. Specs cover it, but no route loads
+    it now.*
+  - *A tile's "Saving picture N of M…" status is still created holding its text.*
+  - *Social Studio's workflow step still links "to see every part of it on one page". AU.5.3 settles it.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), safety copy holds, and the library
+is 473/473. The showcase is 6217/6218. The one red is the recipe editor's step-layout spec, the known intermittent
+one, which passed in a rerun of its file. An earlier full run had 40 reds in the known families (landing, content card,
+editor) plus My Week's moving specs; all of them passed alone (464/464).*
+
+## AU.5.3 Social Studio - done
 
 ```text
 SCOPE: Blue tone and icon. Channel posts in cp-generated with the channel named in words and a short preview
@@ -1154,7 +1306,7 @@ UTILIZATION: design-review.
 BEHAVIOR: Show the layout; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.5.4 Content Pipeline and Long-form
+## AU.5.4 Content Pipeline and Long-form - done
 
 ```text
 SCOPE: Orange tone on both flows. Each step's card takes cp-generated for generated output, skeletons for its
@@ -1170,7 +1322,84 @@ BEHAVIOR: Show one step of each flow before/after; wait for approval; implement 
 and npm test from src/web.
 ```
 
-## AU.6.1 Pictures and the Content Board
+*Delivery note (2026-10-26): shipped. The owner asked for both flows to be reworked using the workflow run's UI, and
+approved doing both in this prompt rather than splitting Long-form out. "The workflow UI" is read as how the run
+shell (`WorkflowShellComponent`) looks and behaves. Both journeys keep their own shells, steps, saving and addresses:
+moving them onto server-side runs would change steps and saving, which this prompt rules out.*
+
+*The library:*
+
+- *`cp-progress` takes `tone="tool"`, a flow's own progress filled with `--cp-tone`. A meter that could mean
+  something keeps its own fill. That covers an allowance, or a length against a limit.*
+- *`cp-stepper`'s current row and done glyph draw with the tone tokens. They are the primary's on an untoned page,
+  so workflow runs and Brand setup look as they did.*
+- *The Image Studio, Social Studio and AI Recipe Studio progress bars take `tone="tool"` too, to match their steppers.*
+- *The showcase has a toned flow example. README and DESIGN-SYSTEM.md say so.*
+
+*Both flows take the run's frame:*
+
+- *The footer is ruled off from the step. It holds what the step still needs, the save status (pipeline only), Back
+  and Continue, then Save and exit (`ghost`). Start over (pipeline) or Start a new piece (Long-form) is folded under
+  "More options".*
+- *Continue is never disabled. It is secondary with `aria-disabled` until the step is ready. Pressed early, it stays
+  put and announces what is missing.*
+- *The stepper folds into "Step N of 4: all steps" at the run's width. `injectFlowNarrow()` is in
+  `shared/workflow-shell/flow-narrow.ts`.*
+- *Loading is a skeleton of the frame under one status sentence.*
+- *The resume card is `featured`.*
+
+*The Content Pipeline:*
+
+- *The prompt panel's "written for you" notice is now `cp-generated-label`, with "From the look you picked" or
+  "From your reference photograph" as provenance.*
+- *"The prompt we wrote" sits in `cp-generated`, with "Use this wording instead" as its action. The private
+  `.generated` box is gone.*
+- *The reference reading is `cp-generated kind="reading"` and says to check each part against the picture.
+  Discard and "Use this as my prompt" are its actions. "A generated picture" is now "A picture you made with AI".*
+- *The looks:*
+  - *They start as an illustrated "No looks yet" (`picture`).*
+  - *Two skeleton blocks show while they are planned.*
+  - *They sit in `cp-generated`, with "Plan different looks" as its action.*
+  - *The shot choice stays outside the surface.*
+- *Skeletons replace the loading lines in the brand defaults, channels, idea, kept pictures, board and the run's
+  pictures.*
+- *The idea is deliberately not labelled. No model makes it.*
+
+*Long-form:*
+
+- *The plan's "No plan yet" is illustrated (`article`).*
+- *Skeleton sections show while the plan loads or is being planned, and while the piece loads.*
+- *Skeleton lines show under "Writing this section now…".*
+
+*`design-review` ran once:*
+
+- *Fixed:*
+  - *A Long-form Continue that could be pressed silently. Both shells now always announce a reason.*
+  - *The stacked JSDoc on `cp-progress`.*
+  - *DESIGN-SYSTEM.md's footer wording ("the save status where the flow keeps one").*
+- *Not taken, because each was already true before this prompt and is not a regression:*
+  - *Status sentences created already holding their loading text. Same as the Image Studio.*
+  - *The pipeline's save status inside the keyed step block.*
+  - *Sub-heads at h4/h5 under the cards' h2. This is the AU.5.2 owner note.*
+  - *"Plan some looks" using `disabled`.*
+- *Wrong: it reported that the run shell's narrow signal does not follow resizes. It does
+  (`workflow-shell.component.ts`).*
+
+*Left for the owner:*
+
+- *On an orange flow the tool's tone and a warning share orange. The glyph and words carry the warning, so it is not
+  a WCAG failure. A pressed-again Continue with the same reason is not re-announced.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), safety copy holds, and the library
+is 476/476. The full showcase run was 6224/6245 with 1 skipped and 20 reds, all in known order-dependent families:*
+
+- *landing;*
+- *My Week's moving specs;*
+- *brand defaults, which met a "Discard unsaved changes?" dialog left open by another spec.*
+
+*Those files then passed alone, 270/270. The affected features and the showcase pass alone, 840/840.*
+
+## AU.6.1 Pictures and the Content Board - done
 
 ```text
 SCOPE: Pictures (DAM): 'cards' skeletons, the AU.2.6 panel for assets still processing, illustrated "picture"
@@ -1186,7 +1415,92 @@ UTILIZATION: design-review.
 BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.6.2 My Day and My Week
+*Delivery note (2026-10-26): shipped. The owner approved both pages from a written sketch, with the AU.0 captures
+as the "before". No "after" screenshots were taken: the capture account's credentials were not in the environment.*
+
+*The 550px picture page had a different cause from the one this prompt gave:*
+
+- *The versions table has been in its own scroll region since before AU.0.*
+- *The cause was its last header, a `.cp-sr-only` "Download". It is absolutely positioned, and no ancestor was
+  positioned, so the region did not clip it. It sat at the hidden column's place, about x=550, and widened the page.*
+- *The region is now `position: relative`.*
+- *The usage history's table and `cp-list-shell`'s own region had the same latent bug, and are fixed the same way.*
+- *Specs measure the page in a 375px box. Each spec fails with the fix removed (423px and 872px) and passes with it.*
+- *`cp-enter` moves a list by `translate`, which also contains positioned descendants. A width spec must therefore
+  measure after the entrance ends, or it passes either way.*
+
+*Library:*
+
+- *`cp-list-shell` gained `[cpListShellLoading]`:*
+  - *a projected loading layout drawn in place of its skeleton;*
+  - *the same single "Loading…" and busy body;*
+  - *hidden from a screen reader by the shell itself.*
+- *`cp-media-card` treats a projected picture marked `data-cp-picture-pending` as not there yet:*
+  - *the panel shows in the same grid cell;*
+  - *the pending element stays laid out, at opacity 0, so a loader watching for the card to near the screen still
+    has a box to watch.*
+
+*Pictures:*
+
+- *`cards` skeletons.*
+- *The shared thumbnail is marked pending, and draws a skeleton, until its bytes arrive. A card therefore shows the
+  `picture` panel rather than a grey box.*
+- *A picture that can't be shown or loaded is still a notice on the card. A fault is not hidden under the panel.*
+- *The thumbnail gained `announce`. On the library's cards, the recipe library's cards and the picker's tiles it is
+  silent, because the list around them already said "Loading…" once; before, there was one status per card. Standing
+  alone (the picture page, a linked asset, the recipe media dialog) it says "Loading this picture…" in a region that
+  exists before it has words.*
+- *The list response carries no processing status, and a missing thumbnail is answered with the original. So
+  "still processing" is, honestly, "still on its way". No backend field was added.*
+- *First use is drawn (`picture`), with "Upload a picture" for anyone who may upload. Its sentence holds for every
+  role. No results is drawn (`search`).*
+- *An AI-made picture is `cp-generated-label kind="picture"` ("Made by AI"), on the card and in the picture page's
+  head, in place of the purple "AI generated" badge. This reverses AU.3.1's "kept on purpose", as this prompt asked.
+  The showcase's page-head and media-card examples follow.*
+- *The search placeholder is "Search pictures", as the other libraries' are. Its label is "Search pictures by title or
+  description", so the placeholder begins the accessible name (SC 2.5.3). The old name, "Search the library", did not
+  contain the old placeholder.*
+
+*Content Board:*
+
+- *While it loads, the board is the board arriving:*
+  - *its four columns under their real names;*
+  - *no count, because no number is claimed before the server sends one;*
+  - *skeleton cards 3, 2, 1, 2, each a `cp-card` of `cp-skeleton` lines.*
+- *First use is drawn (`board`), and no results is drawn (`search`).*
+- *An empty column keeps its quiet muted line, which was already there. A spec now holds it to a line, not an
+  empty state.*
+- *A spec asserts that no card is featured.*
+- *DESIGN-SYSTEM.md's board section says all three.*
+- *Moves, ordering, upload and the Move control are untouched.*
+
+*`design-review` found no blocker. Taken:*
+
+- *a lone picture had lost its loading announcement, now `announce`;*
+- *the loading slot's `aria-hidden` was only a convention, and is now the shell's;*
+- *the first-use sentence assumed the reader could upload.*
+
+*Left:*
+
+- *a ~4px overflow of the thumbnail's skeleton, clipped by its own frame;*
+- *the rule file's ambiguous "still under reduced motion" for `cp-skeleton`, which is older than this prompt.*
+
+*Also fixed, because it stopped `npm test` before the showcase ran: `cp-generated`'s entrance spec read the previous
+test's element without mounting its own, so it passed or failed by Karma's random order.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), and so does the safety copy. The
+library is 481/481. The full showcase run was 6205/6251 with 46 reds, all in known order-dependent families:*
+
+- *the content card and its schedule drawer;*
+- *landing;*
+- *My Week's moves;*
+- *brand defaults' drawer;*
+- *the recipe editor's scroll.*
+
+*Those files then passed alone, 650/651. The one red was the recipe editor's section-nav spec, which then passed
+238/238 in its own file. The changed features, the thumbnail's consumers and the showcase pass alone, 638/638.*
+
+## AU.6.2 My Day and My Week - done
 
 ```text
 SCOPE: My Day gains an illustrated "calendar" empty state (it has none) and today's top three as the featured
@@ -1198,7 +1512,63 @@ UTILIZATION: design-review.
 BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.6.3 Brand, Prompt Library, Workflows and Quick Recipe
+*Delivery note (2026-10-26): shipped. The owner approved both pages from a written sketch, with the AU.0 captures
+as the "before". No "after" screenshots were taken.*
+
+*My Day:*
+
+- *The lead card is `featured`, the page's one featured card, whether it is "Your top three" or "Up next". Either
+  one is what to do next. The owner chose to feature both.*
+- *With nothing next, the card in that place is headed "Up next", keeps `my-day-heading-lead` so focus still lands
+  there, and is not featured. It holds a `cp-empty-state` drawn as `calendar`:*
+  - *a roomy `first-use` for an empty day;*
+  - *a compact `no-results` when the day's work is all done or all waiting, because that card follows it.*
+- *The old headings and sentences are now the empty state's title and description. A Viewer's version drops
+  "Add a task".*
+- *Focus after the last task leaves now lands on "Up next" rather than on a heading that said "Nothing to do next";
+  that title is the next thing read. `design-review` noted this, and the approved design allows it.*
+- *"Reading your day…" is left for AU.7's sweep.*
+
+*My Week:*
+
+- *While it loads, the board is the board arriving in the current view, as the Content Board does (AU.6.1):*
+  - *its columns by name;*
+  - *no count;*
+  - *compact's This week holds a skeleton row per day;*
+  - *the Days view's columns are Monday to Sunday with no dates, because a planning week always runs Monday to
+    Sunday (13A.26) and the dates are the server's.*
+- *A free day already had a line, but compact said it twice: "Nothing planned" as its totals, then "Nothing
+  planned for Mon 19 Oct." A part with no tasks now drops its totals line, and a free day's line is "Nothing
+  planned." because its heading already names the day.*
+- *The three empty states are drawn: `calendar` for an empty week, `search` for no results, `calendar` for the
+  time zone. They replace the ▥, ⌕ and ◷ glyphs. This was not in the literal scope, but APP-004 is this prompt's
+  constraint and the owner approved it.*
+- *Drag, the Move control, filters, counts and quick capture are untouched.*
+
+*`design-review` found no blocker. Taken:*
+
+- *`no-results` with a drawing other than `search` was already the dashboard's practice, but DESIGN-SYSTEM.md
+  and `cp-empty-state`'s comment still said "no-results uses search". Both now say what the code does.*
+- *My Day's lead card is documented as an example of the featured card and the drawn quiet topic.*
+
+*Left:*
+
+- *Adding "Nothing else is up next" to the Done message.*
+- *Typing the loading columns' skeleton list as a count. It is the same `Array.from` pattern the Content Board
+  uses.*
+
+*`npm run build` passes. The page contract holds (31 routed pages), and so does the safety copy. The library is
+481/481. My Day and My Week pass alone, 154/154. The full showcase run was 6243/6260 with 1 skipped and 17 reds, all
+in known order-dependent families:*
+
+- *the content card's drawer;*
+- *brand defaults;*
+- *landing;*
+- *the recipe editor's step layout.*
+
+*Those files then passed alone, 444/444.*
+
+## AU.6.3 Brand, Prompt Library, Workflows and Quick Recipe - done
 
 ```text
 SCOPE: Each page adopts the parts it is missing: skeletons in place of its loading sentences (Brand library and
@@ -1214,7 +1584,120 @@ UTILIZATION: design-review.
 BEHAVIOR: Show each page; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.6.4 AI allowance and Workspace settings
+*Delivery note (2026-10-26): shipped in three parts, as the restriction allows, from a written audit per page that
+the owner approved. Brand alone passed 25 files, so its setup flow split out as planned:*
+
+- *AU.6.3a: Prompt Library, Workflows and Quick Recipe.*
+- *AU.6.3b: Brand's library, settings, guide editor, history and example pages.*
+- *AU.6.3c: Brand setup.*
+
+*No "after" screenshots were taken.*
+
+*Throughout, busy labels on buttons ("Loading more…", "Saving…", "Trying again…") are left for AU.7. They say what
+a pressed control is doing, not that a page is loading. Each replaced sentence follows the dashboard's pattern:*
+
+- *a skeleton in the layout's shape, in an `aria-busy` region;*
+- *one visually hidden status, always present and outside that region, so it is read when its words arrive.*
+
+*Prompt Library:*
+
+- *The library loads as `cards`.*
+- *First use is drawn (`prompt`): "Prompts you save from Image Studio are kept here, newest first." No results is
+  drawn (`search`).*
+- *The AU.3.1 leftover:*
+  - *a card, and the detail page's head, showed a purple badge for every source;*
+  - *every source but Manual now shows `cp-generated-label` instead, because a model had a hand in each of them;*
+  - *Manual keeps a neutral "Written by you" badge;*
+  - *"Where it came from" keeps the source's own words.*
+- *The detail page loads as two skeleton cards. Its access check is one skeleton line where the button will be.*
+- *The preview drawer loads as skeleton lines.*
+
+*Workflows:*
+
+- *While loading, the hub draws a work-in-progress card above three goal cards.*
+- *While the runs are read, one skeleton card holds the work-in-progress place.*
+- *While the workspace's own workflows are read, three skeleton goal cards follow the two journeys that need no
+  reading. They are `aria-hidden` list items.*
+- *One status says every part still on its way, joined when there are two.*
+- *First use is the compact `board` drawing, "Nothing in progress yet", as the dashboard's "Nothing under way".
+  No results is drawn (`search`).*
+- *From AU.0, three unnamed runs each had the accessible name "Continue “Create a recipe”". Run links are now named
+  like the dashboard's `runName`:*
+  - *the creator's title, or, when the title is only the goal, the goal and the step the run is on;*
+  - *then "last saved" or "finished", and when.*
+  - *For example, "Continue Create a recipe — Check your ingredients, last saved Oct 15, 2026, 7:15 AM", in the
+    browser's own date format.*
+- *Needs attention's rows now say when each was last saved, so three alike are three rows.*
+- *The run summary names no record a run is about, so nothing is made up beyond the step.*
+- *A deviation from the approved sketch: the visible title of an unnamed run is unchanged. Each row already says
+  "Next: <step>" and "Last saved", so the sketch's `goal — step` line would have said the step twice.
+  `design-review` noted that a finished run has only a date to tell it apart. That is left, because a finished run
+  has no step left to show.*
+
+*Quick Recipe:*
+
+- *"Loading…" is the flow's own shape: the progress skeleton beside the step card's.*
+- *No first-use drawing. Step 1 is the first use, and its field is the first thing to do.*
+
+*`design-review` found no blocker. Taken:*
+
+- *The status said only one of two parts still loading, and the discarded-run notice silenced it while its skeleton
+  still showed. It now says each part under the same condition that draws its skeleton.*
+
+*Left:*
+
+- *"Read by AI" for a prompt from a reference photo. It stays "Drafted by AI": the output is words the creator uses,
+  as AU.3.1 decided for alt text read from a picture.*
+- *A shorter date in the run names.*
+
+*`npm run build` passes. The page contract holds (31 routed pages), and so does the safety copy. The full run was
+green: library 481/481, showcase 6271/6271. The hub's specs, re-run after the review's fix, pass 35/35.*
+
+*AU.6.3b, Brand pages:*
+
+- *The library loads as `cards`.*
+- *First use is drawn (`brand`, the chef's hat) and keeps "Upload example". No results is drawn (`search`).*
+- *The cards already drew `brand`, because `◆` maps to it.*
+- *Settings and the guide editor load as a skeleton form card: a legend line, then parts at the form's own
+  spacing.*
+- *The guide editor already had an always-present hidden status saying "Loading this guide…". The visible copy of
+  that sentence is gone.*
+- *History already drew skeleton rows through its list shell, which says "Loading…". The page's own hidden status
+  also said "Loading version history…", a second announcement, so it now says nothing while loading.*
+- *An example's page loads as three skeleton cards. Its Versions and "Where it’s used" cards, and its text, each
+  draw skeleton lines while they are read.*
+
+*AU.6.3c, Brand setup:*
+
+- *The shell loads in the flow's shape, as Quick Recipe does.*
+- *Three steps' "Looking up / Checking your examples…" are skeleton rows.*
+- *The AU.3.1 leftover:*
+  - *a drafted part that nobody has changed now carries `cp-generated-label`, not a "Written for you" pill;*
+  - *its sentence is "Change anything that does not sound like you.";*
+  - *"drafted" left the pill and tone vocabularies;*
+  - *once the creator edits the part, it is "Changed by you" with a pill again.*
+- *DESIGN-SYSTEM.md's "Generated content" no longer lists either vocabulary as outstanding.*
+
+*`design-review` found no blocker in either. Taken:*
+
+- *Every status replacing a sentence inside a card or a step is now always present, and its words change. Before,
+  each was inserted with its text, as the old sentences had been.*
+- *The comments no longer claim a status "is read when its words arrive", which a page that opens loading cannot
+  promise.*
+- *Specs that took the first hidden status in a step now name the step's own announcement region.*
+
+*Left:*
+
+- *Three polite statuses can be live at once on an example's page (its text, versions and usage), one per card.*
+- *The history page's body is a bare list shell, and its empty state still draws the older glyph. Both are older
+  than this prompt.*
+- *A drafted guide part's view still carries unused tone and pill values.*
+
+*`npm run build` passes. The page contract holds (31 routed pages), and so does the safety copy. The full run
+before the review's last fixes was green: library 481/481, showcase 6285/6285. After those fixes, which touched
+only Brand, every Brand spec passes alone, 559/559.*
+
+## AU.6.4 AI allowance and Workspace settings - done
 
 ```text
 SCOPE: AI allowance: the allowance and its use as cp-stat-tile figures over the existing breakdown lists,
@@ -1228,7 +1711,61 @@ UTILIZATION: design-review.
 BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.7 Loading sentence sweep and its rule
+*Delivery note (2026-10-26): shipped. The owner approved both pages from a written sketch, with the tiles first and
+the state card second. No "after" screenshots were taken.*
+
+*AI allowance — three `cp-stat-tile`s in a `ul[cpCardGrid]`, ahead of the "Your allowance" card:*
+
+- *The tiles are the server's `remaining` (held at 0, as the headline always was), `consumed` and `allowance`,
+  e.g. "640 AI credits left", "300 AI credits used this month", "1,000 AI credits in your allowance this month".*
+- *A new `allowanceFigure` in `shared/allowance-text.ts` gives the number and its noun separately.
+  `formatAllowanceAmount` now uses it, so both word the same amount alike.*
+- *The carry-over sentence moved to the allowance tile's context.*
+- *`remaining` also nets off what running requests hold, so the three need not add up. From `design-review`: the
+  "left" tile now says how much is set aside, from the server's own `reserved`, when there is any.*
+- *A degraded read keeps its tiles and says "The last figures we had." on "left".*
+- *There are no tiles on error, or for a unit the product describes rather than counts. DESIGN-SYSTEM.md "Meters
+  and figures" now says so.*
+- *The card keeps its pill, meter and explanation. Its headline shows only when there are no tiles.*
+- *The tiles' floor is 15rem, the dashboard's, so a seven-digit figure keeps its line.*
+- *Loading draws skeleton tiles, a card and lists under the page's existing status.*
+- *An empty breakdown stays one quiet line.*
+- *The `ai-usage` card-grid exemption is unchanged.*
+
+*Workspace settings:*
+
+- *A lede: "What everyone in this workspace works with: how new recipe drafts are measured, which kinds of AI
+  help it can ask for, and the themes of its week."*
+- *The page, and the AI features card, each load as a skeleton form with an always-present hidden status.*
+
+*Themed days:*
+
+- *First use is drawn (`calendar`).*
+- *The week loads as a skeleton form card.*
+- *A theme's "Already made" history loads as skeleton lines.*
+- *An empty history and a day with no theme stay quiet lines: they are parts of a form.*
+
+*`design-review` found no blocker. Taken:*
+
+- *what is set aside;*
+- *the degraded cue;*
+- *the 15rem floor;*
+- *the doc line;*
+- *the history comment, which no longer claims the opposite of what the markup does.*
+
+*Left:*
+
+- *`usedPercent` is computed in the client, `(consumed + reserved) / allowance`, which is arithmetic this
+  prompt's restriction would not allow. It predates this prompt; the server should send it.*
+- *`cp-stat-tile` sizes its figure from its host, padding included. It is safe at the 15rem used here, but a
+  12rem tile could break a seven-digit number. That belongs to the library.*
+- *The loading lists are bare lines rather than list-shell silhouettes.*
+
+*`npm run build` passes. The page contract holds (31 routed pages), and so does the safety copy. The full run before
+the review's fixes was green: library 481/481, showcase 6302/6302. After the fixes, the AI allowance and settings
+specs pass alone, 81/81.*
+
+## AU.7 Loading sentence sweep and its rule - done
 
 ```text
 SCOPE: Find every remaining visible loading sentence in src/app (grep for "Loading" in templates and inline
@@ -1249,6 +1786,92 @@ UTILIZATION: design-review; test-gap-analyzer on loading states.
 BEHAVIOR: Present the list of sites and what replaces each; wait for approval; implement with the rule and its
 tests; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped. The owner approved the list of sites and asked for both parts at once:*
+
+- *AU.7a, every "Loading…";*
+- *AU.7b, the same sentence under other verbs.*
+
+*No "after" screenshots were taken.*
+
+*The rule, `loading` in check-page-contract.mjs (`loadingViolations`), with self-tests:*
+
+- *It fails a template (or inline template) under the shell or `shared/` whose visible text, or a string in an
+  interpolation or binding, begins with one of these verbs and ends in "…":*
+  - *Loading, Reading, Checking, Finding, Looking, Counting, Opening, Fetching, Comparing;*
+  - *"Picking up", "Taking you".*
+- *It is fine at any depth inside a `.cp-sr-only` element, as the class name, not as part of another class name.*
+- *As a button's own label:*
+  - *only a bare "Loading…" fails;*
+  - *"Loading more…" is the pager's word;*
+  - *"Checking…" on Check again, and "Loading the latest…" on the conflict button, say what the creator pressed.*
+- *"Loading more…" outside its button fails.*
+- *Text bound from code is not seen. A sentence about the creator's own action ("Saving…", "Asking…", "Writing this
+  one again…") is not one.*
+- *DESIGN-SYSTEM.md's page-contract table has the row.*
+- *Two exemptions, each an AI reading the creator has just asked for rather than something already theirs:*
+  - *channel-post-picture's "Reading the picture…";*
+  - *the idea step's "Reading the name you typed…".*
+
+*67 sites. Each became a skeleton in the shape of what was coming, inside `aria-busy`, with one always-present
+visually hidden status whose words show only while it loads:*
+
+- *Shell: the workspace switcher and gate.*
+- *Shared: quick capture, the workflow shell (the flow's shape), save to library, the channel post picture, the brand
+  voice and visual style controls, and the recipe picker.*
+- *DAM: the picture page, edit, picker, usage history and linked picture. Pictures are drawn as picture-shaped
+  blocks, and the staged image takes the server's own proportions.*
+- *Content Board: the card page and its publishing panel.*
+- *Content Pipeline: the document picker.*
+- *My Day.*
+- *The AI panel's access check.*
+- *Recipes: unit catalogue (×2), allergen lists, nutrition mapping, picture versions, export, readiness and test
+  kitchen.*
+- *Workflow steps: about 30, with the "Reading your recipe…" family among them.*
+
+*Also:*
+
+- *Pager buttons that said "Loading…" now say "Loading more…": the hub (×3), themed days, the choose step and the
+  picture picker.*
+- *Both "Load older versions" buttons keep their words. They gain `aria-busy`, and skeleton rows appear at the end
+  of the list.*
+- *Page titles while loading:*
+  - *the content card's `h1` is the route's title, read from the route, rather than "Loading card…";*
+  - *the picture page's route title is now "Picture", not "Asset".*
+- *Kept: the unit fields' "Loading the unit list…" hints, which are a working field's own state and bound from code.*
+
+*Five forks did the sites in parallel, each in its own files. `design-review` and `test-gap-analyzer` then read the
+whole change. Taken:*
+
+- *Brand setup's create step drew its rows' "Looking it up…" pills beside the skeleton. The rows now wait for it.*
+- *The two exempt AI readings keep their visible line. A status that is always present carries the words to a
+  screen reader.*
+- *Recipe history said "Loading version history…" and its list shell said "Loading…". It now says nothing of its
+  own, as the brand guide's does.*
+- *The prompt page's access status is always present.*
+- *The content card reads its title from the route.*
+- *The rule:*
+  - *it saw a status's span, or a button's span, as visible;*
+  - *it missed a sentence holding an apostrophe or an interpolation;*
+  - *it took `not-cp-sr-only` for the class.*
+  - *Each case has a self-test now.*
+- *Specs now check the sentence itself: brand settings, the prompt page's access check, and recipe history's first
+  load.*
+
+*Left:*
+
+- *Exemptions are per file. A future loading sentence in either exempt file would pass.*
+- *Several areas have a page status and a card status that can both speak.*
+- *A handful of statuses are created with their words inside a block that the loading state opens, such as an
+  example's versions card. A screen reader may not announce those.*
+- *Both "Load older versions" buttons are still `disabled` while loading, which drops focus, as they did before.*
+- *The showcase's `.skeleton-demo` class.*
+- *`features/workflows/publish/` is ignored by `.gitignore`'s `publish/` (a .NET rule) and imported by nothing. It
+  looks like a stale copy of `publishworkflow/`. Its edits are untracked, and the owner should remove it or
+  un-ignore it.*
+
+*`npm run build` passes. The page contract holds (31 routed pages, 12 exemptions; self-tests 30/30), and so does the
+safety copy. The full run is green: library 481/481, showcase 6383/6383.*
 
 ## AU.8 Full verification, backend suite and re-capture
 
@@ -1276,3 +1899,66 @@ playwright-cli for the walk and screenshots.
 BEHAVIOR: Run everything, fix in-scope findings, re-run what a fix touched, and report proof for each item:
 suite totals, the snapshot diff, the scorecard before/after, and screenshots attached.
 ```
+
+*Progress note (2026-10-26): items 1–4 and 7 are done. Items 5 and 6 wait on the capture account. CAPTURE_EMAIL
+and CAPTURE_PASSWORD are not in this environment, and both the capture and a signed-in walk sign in as a real
+account.*
+
+*1. The backend suite ran once, with `aspire run` live and output redirected under the repository (`artifacts/au8`,
+which is ignored; a redirect under %TEMP% reds SafetyAnalyzerPurityTests on its path). It ran 11,891 tests in 17m
+18s: 11,881 passed, 6 skipped (the opt-in `Ai.Live.*`) and 4 failed:*
+
+- *`OpenApiContractTests.V1_document_matches_the_reviewed_snapshot`. Expected: the snapshot had not yet been
+  regenerated for AU.4.2.*
+- *`RecipeSearchEndpointTests.A_summary_carries_no_ownership_or_authorship_detail` (AU.4.2's own). It pins the exact
+  summary property set "so a field added later is a decision someone makes". `heroAsset` is that decision, so it
+  joins the list with a line saying why. The assertions on `workspaceId`, `membership` and `rowVersion` are
+  unchanged.*
+- *`RecipeSearchRepositoryTests.A_hero_whose_asset_has_been_deleted_carries_no_hero_picture` (AU.4.2's own). It
+  tombstoned an asset with `DeletedAt` and no `DeletedByMembershipId`, which `CK_MediaAssets_Deleted_Complete`
+  refuses, and only SQL Server enforces. The helper now sets both, as the other tests do.*
+- *`AiUsageReconciliationConcurrencyTests.A_losing_pass_still_posts_the_rest_of_its_batch`. Known and predating this
+  document: a SQL Server deadlock in `AiUsageReconciler` (recorded 2026-10-14, still unfixed). It failed alone too.
+  Reported, not fixed.*
+
+*After the fixes, OpenApiContractTests pass 35/35, RecipeSearchEndpointTests 17/17 and RecipeSearchRepositoryTests
+46/46.*
+
+*2. The snapshot was regenerated with `UPDATE_OPENAPI_SNAPSHOT=1`, and its diff is 51 insertions and nothing else:*
+
+- *a new `RecipeHeroAsset` schema, between `RecipeFieldChange` and `RecipeIngredient`:*
+  - *`mediaAssetId` (uuid), `title`, `altText` (null or string), `versionNumber` and `currentVersionNumber`;*
+  - *all five are in its `required` list.*
+- *`RecipeSummary.properties` gains `heroAsset` as its last property, `oneOf: [null, RecipeHeroAsset]`.*
+- *`RecipeSummary.required` is unchanged. That is what makes it additive, and it is exactly the shape
+  `api-contract-checker` predicted before the run.*
+
+*`workspace-isolation-auditor` found no blocker:*
+
+- *the hero join reads `RecipeAssetLinks` and `MediaAssets` through both workspace filters, with no
+  IgnoreQueryFilters;*
+- *a cross-workspace link cannot be stored, because of the composite foreign key;*
+- *a deleted asset gives null;*
+- *the picture loads through the workspace-scoped DAM content route.*
+
+*Left: its two-workspace test cannot fail on the join's filter, because the foreign key makes the crossing state
+unbuildable. `api-contract-checker` also noted an AU.4.2 behaviour change for the release notes: the first picture
+saved against a recipe now takes the Hero role rather than Gallery, and the existing media detail response shows
+that role.*
+
+*3. Every failure this document caused is fixed and re-run. The one that predates it is reported above.*
+
+*4. `npm ci`, `npm run build` and `npm test` ran in a clean copy of `src/web` (`artifacts/au8-web`). `aspire run`'s
+dev server holds `src/web/node_modules` open, and `npm ci` there would have deleted it under the running app. All
+three passed: 901 packages, the page contract, safety copy, library 481/481 and showcase 6383/6383.*
+
+*7. AU.4.2, the one "built" prompt, is marked done now that its backend tests pass. AU.3.3 and AU.5.3 were shipped
+(commits aa8ba80 and aa7aa93) but never marked; they are marked done here.*
+
+*Still to do:*
+
+- *5: the capture, the before/after pairs and the rescored rubric.*
+- *6: the playwright walk.*
+- *The nav check. Its markup is unchanged since AU.0; only the page frame around the outlet gained `data-cp-tone`.*
+- *The landing page check. Its feature files are unchanged since AU.0, so any difference comes from the approved
+  AU.1/AU.2.2 tokens. AU.0 never captured it, so there is no "before" picture to compare against.*

@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { NEVER, of } from 'rxjs';
 
 import { CreativeContextPicture } from '../../models/creative-context.models';
 import { DamAssetService } from '../../services/dam-asset.service';
@@ -76,7 +76,8 @@ async function create(): Promise<void> {
         useValue: {
           preview: (slug: string, id: string, rendition?: string) => {
             previews.push({ slug, id, rendition });
-            return of(previewOutcome);
+            // 'pending': the bytes never arrive, so the picture stays on its way.
+            return previewOutcome === 'pending' ? NEVER : of(previewOutcome);
           },
         },
       },
@@ -135,6 +136,23 @@ describe('ChannelPostPictureComponent', () => {
     await settle();
 
     expect(versionReads).toEqual([{ assetId: 'asset-1', versionNumber: 3 }]);
+  });
+
+  // AU.7: the picture's own square while its bytes are read, said once offscreen.
+  it('draws the picture arriving as its square, and says so once from a status that stays', async () => {
+    previewOutcome = 'pending';
+    await create();
+
+    const status = el.querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading the picture…');
+    expect(el.querySelector('.pending[aria-busy="true"] cp-skeleton')?.getAttribute('data-shape')).toBe('block');
+    expect(el.querySelector('.missing')).toBeNull();
+  });
+
+  it('empties that status once the picture is shown', async () => {
+    expect(el.querySelector('img')).not.toBeNull();
+    expect(el.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(el.querySelector('cp-skeleton')).toBeNull();
   });
 
   it('says so when the bytes cannot be read, and still shows what is known about the picture', async () => {

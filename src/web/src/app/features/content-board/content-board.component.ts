@@ -16,6 +16,7 @@ import {
   CpBoardColumnComponent,
   CpBoardComponent,
   CpButtonComponent,
+  CpCardComponent,
   CpEmptyStateComponent,
   CpFieldComponent,
   CpListShellComponent,
@@ -23,12 +24,14 @@ import {
   CpNoticeComponent,
   CpPageHeadComponent,
   CpSelectFieldComponent,
+  CpSkeletonComponent,
   CpToolbarComponent,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
 import { ContentChannel } from '../../models/brand-profile.models';
 import {
+  CONTENT_BOARD_COLUMNS,
   CONTENT_BOARD_COLUMN_LABELS,
   CONTENT_BOARD_DAYS,
   ContentBoardColumn,
@@ -48,6 +51,9 @@ type ChannelPhase = 'loading' | 'ready' | 'unavailable';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COULD_NOT_LOAD = "Couldn't load your content board. Check your connection and try again.";
+
+/** How many skeleton cards each column draws while the board loads, in column order. */
+const SKELETON_CARDS: readonly number[] = [3, 2, 1, 2];
 
 /**
  * The content board (`:workspaceSlug/content-board`): the workspace's planned work in four columns
@@ -82,12 +88,14 @@ const COULD_NOT_LOAD = "Couldn't load your content board. Check your connection 
     CpBoardColumnComponent,
     CpBoardComponent,
     CpButtonComponent,
+    CpCardComponent,
     CpEmptyStateComponent,
     CpFieldComponent,
     CpListShellComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
     CpSelectFieldComponent,
+    CpSkeletonComponent,
     CpToolbarComponent,
     ContentBoardCardComponent,
     ContentCardCreateDialogComponent,
@@ -122,6 +130,14 @@ export class ContentBoardComponent {
   protected readonly movingCard = signal<ContentCard | null>(null);
 
   protected readonly columnLabels = CONTENT_BOARD_COLUMN_LABELS;
+  /**
+   * The board while it loads (AU.6.1): its four columns by name, holding skeleton cards in uneven numbers so it
+   * reads as work in columns rather than a table. Drawn, not counted: no number here is a claim about the board.
+   */
+  protected readonly loadingColumns = CONTENT_BOARD_COLUMNS.map((column, index) => ({
+    column,
+    cards: Array.from({ length: SKELETON_CARDS[index % SKELETON_CARDS.length] }),
+  }));
   protected readonly days = CONTENT_BOARD_DAYS;
   protected readonly cardNouns: readonly [string, string] = ['card', 'cards'];
   protected readonly errorMessage = COULD_NOT_LOAD;

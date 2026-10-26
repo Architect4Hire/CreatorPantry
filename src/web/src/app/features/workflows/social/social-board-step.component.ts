@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpFactComponent, CpFactsComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { CONTENT_BOARD_COLUMN_LABELS, ContentCard } from '../../../models/content-board.models';
@@ -46,9 +53,20 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
 @Component({
   selector: 'cp-social-board-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpFactComponent, CpFactsComponent, CpNoticeComponent],
+  imports: [
+    RouterLink,
+    CpButtonComponent,
+    CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpNoticeComponent,
+    CpSkeletonComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always in the page, so it is announced when its words change; the skeleton under it is aria-hidden. -->
+    <p class="cp-sr-only" role="status">{{ card() === null && read().status === 'loading' ? 'Reading your posts…' : '' }}</p>
+
     @if (card(); as onBoard) {
       <cp-notice tone="success" role="status">
         On your board as “{{ onBoard.title }}”, in {{ columnLabel(onBoard) }}. Nothing is scheduled or posted yet.
@@ -62,12 +80,18 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
     } @else {
       @switch (read().status) {
         @case ('loading') {
-          <p class="cp-muted" role="status">Reading your posts…</p>
+          <!-- The shape of what is coming: a sentence and the card's three facts (APP-003). -->
+          <div class="loading" aria-busy="true">
+            <cp-skeleton shape="line" />
+            <cp-skeleton shape="line" [count]="3" />
+          </div>
         }
         @case ('no-work') {
-          <cp-notice role="note">
-            There is nothing to put on the board yet. Go back to the first step to say what the posts are about.
-          </cp-notice>
+          <cp-empty-state
+            title="Nothing for the board yet"
+            description="There is nothing to put on the board yet. Go back to the first step to say what the posts are about."
+            illustration="board"
+          />
         }
         @case ('unavailable') {
           <cp-notice tone="error" role="alert">
@@ -109,6 +133,11 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
 
     .plain {
       margin: 0;
+    }
+
+    .loading {
+      display: grid;
+      gap: var(--cp-space-3);
     }
   `,
 })

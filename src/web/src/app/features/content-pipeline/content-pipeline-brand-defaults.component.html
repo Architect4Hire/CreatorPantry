@@ -2,8 +2,10 @@
   heading="From your brand"
   intro="Where the posts go, how many pictures to try and the look are read from your brand, so you are not asked each time. Change any of it for this run only."
 >
+  <!-- Always here, so the sentence is heard when it is set; the skeleton is the shape of the facts coming. -->
+  <p class="cp-sr-only" role="status">{{ brandStatus() === 'loading' ? 'Loading your brand…' : '' }}</p>
   @if (brandStatus() === 'loading') {
-    <p class="cp-muted" role="status">Loading your brand…</p>
+    <div aria-busy="true" data-testid="brand-loading"><cp-skeleton shape="line" [count]="3" /></div>
   }
   @if (brandStatus() === 'unavailable') {
     <cp-notice tone="warning" role="status">
@@ -51,7 +53,8 @@
       <div cpFact label="The look">
         @switch (guide().status) {
           @case ('loading') {
-            <span class="cp-muted" role="status">Loading your style guide…</span>
+            <span class="cp-sr-only">Loading your style guide…</span>
+            <cp-skeleton shape="line" />
           }
           @case ('unavailable') {
             Your style guide could not be loaded just now. If one is active, the looks are still planned from it.

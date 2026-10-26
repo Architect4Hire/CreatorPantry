@@ -13,7 +13,7 @@
 
 .conversion-intro,
 .conversion-empty,
-.conversion-status,
+.conversion-loading,
 .conversion-blocked {
   margin: 0 0 var(--cp-space-3);
   font-size: var(--cp-font-size-sm);

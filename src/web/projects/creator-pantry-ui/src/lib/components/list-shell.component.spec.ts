@@ -10,6 +10,7 @@ import { CpListShellComponent, CpListShellLoadingLayout, CpListShellState } from
     <cp-list-shell [heading]="heading" [state]="state" [loadingLayout]="loadingLayout" [errorMessage]="errorMessage" [emptyMessage]="emptyMessage">
       @if (showActions) { <span cpListShellActions>Bulk actions</span> }
       @if (showEmpty) { <div cpListShellEmpty>Nothing here yet, custom copy.</div> }
+      @if (showLoading) { <div cpListShellLoading class="own-loading">Four columns arriving</div> }
       @if (showPagination) { <span cpListShellPagination>Page 1 of 3</span> }
       <table><tbody><tr><td>Row content</td></tr></tbody></table>
     </cp-list-shell>
@@ -23,6 +24,7 @@ class HostComponent {
   emptyMessage = 'No results.';
   showActions = false;
   showEmpty = false;
+  showLoading = false;
   showPagination = false;
 }
 
@@ -133,6 +135,63 @@ describe('CpListShellComponent', () => {
       expect(skeleton.getAttribute('data-shape')).toBe('card');
       expect(skeleton.querySelectorAll('.card').length).toBe(6);
     });
+
+    // AU.6.1: a board is neither rows nor cards, so it draws its own columns — under the shell's one status.
+    it('draws a projected loading layout in place of its own skeleton, still busy and still saying it once', async () => {
+      const fixture = await createFixture();
+      fixture.componentInstance.state = 'loading';
+      fixture.componentInstance.showLoading = true;
+      fixture.detectChanges();
+
+      const host = fixture.nativeElement as HTMLElement;
+      const own = host.querySelector('.own-loading') as HTMLElement;
+      expect(own).toBeTruthy();
+      expect(own.closest('[aria-busy="true"]')).toBeTruthy();
+      // Hidden by the shell itself, as its own skeleton is, whether or not the feature remembered to.
+      expect(own.closest('[aria-hidden="true"]')).toBeTruthy();
+      expect(host.querySelector('cp-skeleton')).toBeNull();
+      expect(host.querySelectorAll('[role="status"]').length).toBe(1);
+    });
+
+    it('shows neither the projected loading layout nor its wrapper once the list is ready', async () => {
+      const fixture = await createFixture();
+      fixture.componentInstance.showLoading = true;
+      fixture.detectChanges();
+
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.querySelector('.own-loading')).toBeNull();
+      expect(host.querySelector('.loading-slot')).toBeNull();
+      expect(host.querySelector('table')).toBeTruthy();
+    });
+  });
+
+  // AU.0: a table header hidden for sight but not for a screen reader is absolutely positioned. In a scroll region
+  // nobody positioned, it escapes the region and widens whatever is — the picture page was 550px at 375.
+  it('clips what is visually hidden inside its wide content rather than letting it widen the page', async () => {
+    @Component({
+      standalone: true,
+      imports: [CpListShellComponent],
+      template: `<div class="frame" style="position: relative; width: 300px; overflow: auto">
+        <cp-list-shell heading="Versions">
+          <table style="width: 900px"><thead><tr><th>One</th><th><span class="cp-sr-only">Download</span></th></tr></thead></table>
+        </cp-list-shell>
+      </div>`,
+    })
+    class WideHostComponent {}
+
+    await TestBed.configureTestingModule({ imports: [WideHostComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(WideHostComponent);
+    fixture.detectChanges();
+    document.body.appendChild(fixture.nativeElement);
+
+    // Measured once the list has landed: its entrance moves it by `translate`, which also contains what is
+    // positioned inside it, and would hide the escape this checks for.
+    const scroll = (fixture.nativeElement as HTMLElement).querySelector('.scroll') as HTMLElement;
+    scroll.getAnimations().forEach((animation) => animation.cancel());
+
+    const frame = (fixture.nativeElement as HTMLElement).querySelector('.frame') as HTMLElement;
+    expect(frame.scrollWidth).toBeLessThanOrEqual(300);
+    fixture.nativeElement.remove();
   });
 
   // AU.0 found "No recipes yet." twice on an empty library: the empty state, and the feature's result summary in

@@ -79,9 +79,11 @@ describe('BrandSourceTextComponent', () => {
 
   async function create(
     read: BrandSourceExtractionReadOutcome,
-    options: { isCurrentVersion?: boolean; isArchived?: boolean; write?: BrandSourceExtractionWriteOutcome[] } = {},
+    options: { isCurrentVersion?: boolean; isArchived?: boolean; write?: BrandSourceExtractionWriteOutcome[]; pending?: boolean } = {},
   ): Promise<void> {
-    getSpy = jasmine.createSpy('get').and.resolveTo(read);
+    getSpy = options.pending
+      ? jasmine.createSpy('get').and.returnValue(new Promise<BrandSourceExtractionReadOutcome>(() => undefined))
+      : jasmine.createSpy('get').and.resolveTo(read);
     const writes = options.write ?? [];
     retrySpy = jasmine.createSpy('retry');
     correctSpy = jasmine.createSpy('correct');
@@ -135,6 +137,23 @@ describe('BrandSourceTextComponent', () => {
 
     expect(text()).toContain('Text ready');
     expect(root().querySelector('.text')?.textContent).toContain('The text as read.');
+  });
+
+  it('draws the text arriving while it is read, and says so once from a region that is always there', async () => {
+    await create({ status: 'ok', extraction: extraction() }, { pending: true });
+
+    const status = root().querySelector('[role="status"][aria-live]')!;
+    expect(status.classList).toContain('cp-sr-only');
+    expect(status.textContent).toBe('Reading the text…');
+    expect(root().querySelector('.reading[aria-busy="true"] cp-skeleton')).not.toBeNull();
+    expect(root().querySelector('.reading')!.textContent!.trim()).toBe('');
+  });
+
+  it('empties the loading status once the text is read', async () => {
+    await create({ status: 'ok', extraction: extraction() });
+
+    expect(root().querySelector('[role="status"][aria-live]')!.textContent).toBe('');
+    expect(root().querySelector('cp-skeleton')).toBeNull();
   });
 
   it('says plainly when a version holds no text, rather than showing an empty box', async () => {

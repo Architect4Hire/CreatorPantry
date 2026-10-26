@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { Subject, map, merge, switchMap, tap } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { DamAssetUtilization, damCalendarDateText } from '../../models/dam-asset.models';
 import { DamAssetService, DamAssetUtilizationOutcome } from '../../services/dam-asset.service';
@@ -45,11 +45,15 @@ interface PageRequest {
 @Component({
   selector: 'cp-dam-asset-usage-history',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   template: `
+    <!-- Always present, and outside the busy rows (APP-003, AU.7): this history's one loading status. -->
+    <p class="cp-sr-only" role="status">{{ phase() === 'loading' ? 'Loading where this has been used…' : '' }}</p>
+
     @switch (phase()) {
       @case ('loading') {
-        <p class="plain" role="status">Loading where this has been used…</p>
+        <!-- The history as it will arrive: a few rows. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
       }
       @case ('error') {
         <cp-notice tone="error" role="alert">
@@ -132,8 +136,10 @@ interface PageRequest {
         margin: 0;
       }
       /* Five columns do not fit a narrow screen, so the table scrolls inside its own region rather than
-         pushing the page sideways. Focusable, so the scrolling is reachable by keyboard. */
+         pushing the page sideways. Focusable, so the scrolling is reachable by keyboard. Positioned, so
+         anything visually hidden in the table is clipped with it rather than widening the page (AU.6.1). */
       .scroll {
+        position: relative;
         overflow-x: auto;
       }
       .scroll:focus-visible,

@@ -17,6 +17,7 @@ import {
   CpEmptyStateComponent,
   CpListShellComponent,
   CpListShellState,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -100,6 +101,7 @@ const DUPLICATE_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Own
     CpButtonComponent,
     CpEmptyStateComponent,
     CpListShellComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     RecipeDuplicateComponent,
     RecipeRestoreComponent,
@@ -273,7 +275,9 @@ export class RecipeHistoryComponent implements OnInit {
    * answer landed.
    */
   readonly statusMessage = computed(() => {
-    if (this.loadState().status === 'loading') return 'Loading version history…';
+    // Nothing while the history loads: the list shell draws its rows and says "Loading…" itself, once (AU.7, as
+    // the brand guide's history does).
+    if (this.loadState().status === 'loading') return '';
 
     switch (this.comparisonState().status) {
       case 'loading':

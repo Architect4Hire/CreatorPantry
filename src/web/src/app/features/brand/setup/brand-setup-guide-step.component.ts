@@ -5,6 +5,7 @@ import {
   CpButtonComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
@@ -57,6 +58,7 @@ const ANCHOR = 'cp-guide-';
     CpButtonComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpStatusPillComponent,
   ],
@@ -99,8 +101,11 @@ export class BrandSetupGuideStepComponent implements OnInit {
         section: held,
         anchorId: ANCHOR + definition.id,
         written: isWritten(held),
-        tone: TONES[marker],
-        pill: PILLS[marker],
+        // What a model drafted and nobody has changed carries the product's one mark for it (AU.6.3); every
+        // other part says where its words came from in a pill.
+        generated: marker === 'drafted',
+        tone: marker === 'drafted' ? 'neutral' : TONES[marker],
+        pill: marker === 'drafted' ? '' : PILLS[marker],
         marker: MARKERS[marker],
         citation: this.citationFor(held),
       };
@@ -220,22 +225,22 @@ function markerOf(section: GuideSection): Marker {
   return 'yours';
 }
 
-const PILLS: Readonly<Record<Marker, string>> = {
-  drafted: 'Written for you',
+/** A drafted part takes `cp-generated-label` instead of a pill, so it has no words or tone here. */
+const PILLS: Readonly<Record<Exclude<Marker, 'drafted'>, string>> = {
   changed: 'Changed by you',
   composed: 'From your answers',
   yours: 'Your words',
 };
 
-const TONES: Readonly<Record<Marker, CpStatusPillTone>> = {
-  drafted: 'progress',
+const TONES: Readonly<Record<Exclude<Marker, 'drafted'>, CpStatusPillTone>> = {
   changed: 'success',
   composed: 'neutral',
   yours: 'success',
 };
 
 const MARKERS: Readonly<Record<Marker, string>> = {
-  drafted: 'Written for you. Change anything that does not sound like you.',
+  // The label beside it already says a model drafted it; this says what to do about that.
+  drafted: 'Change anything that does not sound like you.',
   changed: 'You rewrote this, so it stays exactly as you left it.',
   composed: 'Said back from what you told us earlier. Change it and it becomes yours.',
   yours: 'Your own words.',

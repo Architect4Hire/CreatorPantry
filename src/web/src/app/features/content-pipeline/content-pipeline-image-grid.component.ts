@@ -5,6 +5,7 @@ import {
   CpCardGridComponent,
   CpCheckboxComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -71,6 +72,7 @@ interface Tile {
     CpButtonComponent,
     CpCheckboxComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     ContentPipelineStagedImageComponent,
   ],
@@ -94,6 +96,10 @@ export class ContentPipelineImageGridComponent {
    * picture with nothing saved included.
    */
   readonly saves = input<ReadonlyMap<string, StagedImageSave> | null>(null);
+  /** Pictures the run is still making: each is a skeleton tile after the ones made, until it lands. */
+  readonly pending = input(0);
+  /** The shape those tiles are drawn at, as a CSS ratio: the made pictures', or square before any is made. */
+  readonly pendingAspect = input('1 / 1');
 
   readonly keepToggled = output<{ readonly id: string; readonly keep: boolean }>();
   readonly declineRequested = output<string>();
@@ -130,6 +136,9 @@ export class ContentPipelineImageGridComponent {
       };
     });
   });
+
+  /** One entry per picture still coming. */
+  protected readonly pendingSlots = computed(() => Array.from({ length: Math.max(0, Math.floor(this.pending())) }));
 
   /** Where the creator's own library lives, for a saved picture whose asset could not be named. */
   protected readonly libraryLink = computed(() => ['/', this.workspaceSlug(), 'dam']);

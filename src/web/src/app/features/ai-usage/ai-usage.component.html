@@ -12,9 +12,20 @@
 
   @switch (summaryState()) {
     @case ('loading') {
-      <cp-card>
-        <p class="loading">Loading your allowance…</p>
-      </cp-card>
+      <!-- The page as it will arrive: the figures, the allowance's card, then the two lists. The status above
+           says it is loading, once; these are hidden from a screen reader, as a skeleton is. -->
+      <div class="loading" aria-busy="true">
+        <ul cpCardGrid minColumn="15rem">
+          @for (place of tilePlaces; track place) {
+            <li><cp-card><cp-skeleton shape="line" [count]="2" /></cp-card></li>
+          }
+        </ul>
+        <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+        <div class="breakdowns">
+          <cp-skeleton shape="line" [count]="4" />
+          <cp-skeleton shape="line" [count]="4" />
+        </div>
+      </div>
     }
 
     @case ('error') {
@@ -41,14 +52,27 @@
     }
 
     @default {
+      <!-- The figures at a glance (APP-008), each the server's own number. Absent for a unit this product
+           describes rather than counts: the card's headline says it in words instead. -->
+      @if (tiles(); as figures) {
+        <!-- 15rem, the dashboard's floor: a six- or seven-digit figure keeps its line at every width. -->
+        <ul cpCardGrid minColumn="15rem" aria-label="Your allowance in figures">
+          @for (tile of figures; track tile.id) {
+            <li><cp-stat-tile [value]="tile.value" [label]="tile.label" [context]="tile.context" /></li>
+          }
+        </ul>
+      }
+
       <cp-topic-card heading="Your allowance">
           <p class="status">
             <!-- The state in words with a glyph beside it. The meter's colour repeats this; it never carries it alone. -->
             <cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill>
           </p>
 
-          <!-- The headline is what is left, not a percentage and not a token count. -->
-          <p class="headline">{{ headline() }}</p>
+          <!-- What is left, not a percentage and not a token count. Only when there are no figures above to say it. -->
+          @if (tiles() === null) {
+            <p class="headline">{{ headline() }}</p>
+          }
 
           @if (figures(); as period) {
             <cp-progress
@@ -60,11 +84,8 @@
             />
           }
 
+          <!-- What carried over is said with the allowance figure it is part of, in that tile's context. -->
           <p class="explanation">{{ explanation() }}</p>
-
-          @if (carriedOverLine(); as carried) {
-            <p class="explanation">{{ carried }}</p>
-          }
 
           @if (state().status === 'degraded') {
             <div cpTopicCardActions class="cp-actions">

@@ -180,8 +180,12 @@ describe('RecipePickerComponent', () => {
       TestBed.overrideProvider(RecipeService, { useValue: library });
       await mount();
 
-      expect(el.textContent).toContain('You have no recipes yet');
-      expect(el.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/recipes`);
+      expect(el.textContent).toContain('No recipes to link yet');
+      // Drawn, and compact: a part of a form with nothing in it, not the page's first use (AU.5.2).
+      const empty = el.querySelector('cp-empty-state')!;
+      expect(empty.getAttribute('data-variant')).toBe('no-results');
+      expect(empty.querySelector('cp-illustration')).not.toBeNull();
+      expect(empty.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/recipes`);
       expect(el.querySelector('input[role="combobox"]')).toBeNull();
     });
 
@@ -324,6 +328,25 @@ describe('RecipePickerComponent', () => {
 
       expect(el.textContent).toContain('no longer available');
       expect(el.textContent).not.toContain('Their soda bread');
+    });
+
+    // AU.7: the linked recipe's summary arriving as lines, said once from a status the card keeps.
+    it('draws the linked recipe arriving while it is read, and says so once offscreen', async () => {
+      spyOn(library, 'getVersionHistory').and.returnValue(new Promise(() => undefined));
+      spyOn(library, 'getRecipeDetail').and.returnValue(new Promise(() => undefined));
+      await mount({ linked: { recipeId: 'r-soda', recipeVersionId: 'v-soda-2' } });
+
+      const status = el.querySelector('.linked p.cp-sr-only[role="status"]')!;
+      expect(status.textContent).toBe('Reading the linked recipe…');
+      expect(el.querySelector('.linked [aria-busy="true"] cp-skeleton')).not.toBeNull();
+    });
+
+    it('empties that status once the linked recipe is read', async () => {
+      await mount({ linked: { recipeId: 'r-soda', recipeVersionId: 'v-soda-2' } });
+
+      expect(el.querySelector('.linked p.cp-sr-only[role="status"]')!.textContent).toBe('');
+      expect(el.querySelector('.linked cp-skeleton')).toBeNull();
+      expect(el.textContent).toContain('Soda bread');
     });
 
     it('says it is still linked when it could not be read, and reads it on a retry', async () => {

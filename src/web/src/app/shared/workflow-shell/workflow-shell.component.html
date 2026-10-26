@@ -1,12 +1,19 @@
 <div class="shell">
   <!-- Always in the DOM, so the first thing said into it is heard: step changes, saves, refusals. -->
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+  <!-- Always present, and outside the busy layout (AU.7): one place the shell says the run is still loading. -->
+  <p class="cp-sr-only loading-status" role="status">{{ phase() === 'loading' ? 'Loading your run…' : '' }}</p>
 
   @switch (phase()) {
     @case ('loading') {
-      <cp-card>
-        <p class="plain" role="status">Loading your run…</p>
-      </cp-card>
+      <!-- The flow as it will arrive: its progress and steps beside the step's card. -->
+      <div class="layout" aria-busy="true">
+        <div class="progress">
+          <cp-skeleton shape="line" />
+          <cp-skeleton shape="line" [count]="4" />
+        </div>
+        <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      </div>
     }
     @case ('unavailable') {
       <cp-card>

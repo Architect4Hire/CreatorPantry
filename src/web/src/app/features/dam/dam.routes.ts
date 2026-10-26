@@ -10,5 +10,5 @@ import { damAssetDetailCanDeactivateGuard } from './dam-asset-detail.guard';
  */
 export const DAM_ROUTES: Routes = [
   { path: '', pathMatch: 'full', loadComponent: () => import('./dam-library.component').then((m) => m.DamLibraryComponent), data: { title: 'Pictures' } },
-  { path: ':assetId', loadComponent: () => import('./dam-asset-detail.component').then((m) => m.DamAssetDetailComponent), canDeactivate: [damAssetDetailCanDeactivateGuard], data: { title: 'Asset' } },
+  { path: ':assetId', loadComponent: () => import('./dam-asset-detail.component').then((m) => m.DamAssetDetailComponent), canDeactivate: [damAssetDetailCanDeactivateGuard], data: { title: 'Picture' } },
 ];

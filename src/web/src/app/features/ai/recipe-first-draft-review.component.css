@@ -24,6 +24,17 @@
   max-width: 62rem;
 }
 
+/* The mark sits at its own width at the head of the draft, as it does at the head of a `cp-generated`. */
+.draft-generated {
+  justify-self: start;
+}
+
+.draft-loading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-4);
+}
+
 /* The shell's page title is this page's heading; nothing here draws a second one. */
 .draft-notice {
   margin: 0;

@@ -13,6 +13,7 @@ import {
   CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 import { injectRouteTitle } from '../../core/route-title';
@@ -83,6 +84,7 @@ type ReuseAccess = 'checking' | 'unknown' | 'view_only' | 'allowed';
     CpGeneratedLabelComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
     CpTopicCardComponent,
   ],
   templateUrl: './prompt-detail.component.html',

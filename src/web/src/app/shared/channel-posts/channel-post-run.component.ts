@@ -15,8 +15,10 @@ import {
   CpCardGridComponent,
   CpChoiceGroupComponent,
   CpChoiceOption,
+  CpEmptyStateComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { AiOperationTracker } from '../../features/ai/ai-operation-tracker';
@@ -129,8 +131,10 @@ interface ChannelCard {
     ChannelPostReviewComponent,
     CpButtonComponent,
     CpChoiceGroupComponent,
+    CpEmptyStateComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './channel-post-run.component.html',
   styleUrl: './channel-post-run.component.css',

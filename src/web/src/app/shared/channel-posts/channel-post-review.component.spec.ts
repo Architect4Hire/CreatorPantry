@@ -195,6 +195,87 @@ describe('ChannelPostReviewComponent', () => {
     expect(el.querySelector('.count')?.getAttribute('aria-live')).toBe('polite');
   });
 
+  /** AU.5.3: how the post sits against the channel's limit, drawn as well as said. */
+  it('draws the length against the channel’s limit as a labelled bar named for the channel', async () => {
+    const bar = el.querySelector('cp-progress [role="progressbar"]');
+
+    expect(bar?.getAttribute('aria-label')).toBe('Instagram length');
+    expect(bar?.getAttribute('aria-valuenow')).toBe('2');
+    expect(bar?.getAttribute('aria-valuetext')).toBe('46 of 2200 characters');
+    // The figure is printed once, by the bar, rather than again beside the pill.
+    expect(text().split('46 of 2200 characters').length - 1).toBe(1);
+  });
+
+  it('holds the bar at full for a post over the limit, and leaves the figure to say by how much', async () => {
+    host.channel.set(
+      channel({ latest: revision({ body: 'x'.repeat(312), characterCount: 312, characterLimit: 280, limitStatus: 'Over' }) }),
+    );
+    await settle();
+
+    const progress = el.querySelector('cp-progress');
+    expect(progress?.getAttribute('data-tone')).toBe('warning');
+    expect(progress?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(progress?.textContent).toContain('312 of 280 — 32 over');
+  });
+
+  it('takes the server’s word on the limit, so the bar, the figure and the pill never disagree', async () => {
+    // The server counts the way the channel counts, so it may call a post over that the figures alone would not.
+    host.channel.set(
+      channel({ latest: revision({ characterCount: 280, characterLimit: 280, limitStatus: 'Over' }) }),
+    );
+    await settle();
+
+    const progress = el.querySelector('cp-progress');
+    expect(hasPill('Longer than this channel allows')).toBeTrue();
+    expect(progress?.getAttribute('data-tone')).toBe('warning');
+    expect(progress?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(progress?.textContent).toContain('280 of 280 characters');
+    expect(text()).withContext('no "— N over" it cannot back').not.toContain('over');
+  });
+
+  it('draws no bar for a channel with no limit, and says the count once', async () => {
+    host.channel.set(channel({ latest: revision({ characterCount: 46, characterLimit: null, limitStatus: 'Within' }) }));
+    await settle();
+
+    expect(el.querySelector('cp-progress')).toBeNull();
+    expect(el.querySelector('.count')?.textContent?.trim()).toBe('46 characters');
+  });
+
+  it('puts words a model wrote on the generated surface, named for the channel, with the decisions inside it', async () => {
+    const surface = el.querySelector('cp-generated');
+
+    expect(surface).not.toBeNull();
+    expect(surface?.textContent).toContain('Drafted by AI');
+    expect(surface?.textContent).toContain('Written for Instagram');
+    expect(surface?.querySelector('.body-read')?.textContent).toContain('Olive oil cake, still warm.');
+    for (const label of ['Accept', 'Edit', 'Not this one']) {
+      expect(Array.from(surface!.querySelectorAll('button')).some((node) => node.textContent?.trim() === label))
+        .withContext(label)
+        .toBeTrue();
+    }
+    // Writing it again is a request for new words, not a decision about these, so it stays outside.
+    expect(Array.from(surface!.querySelectorAll('button')).some((node) => node.textContent?.trim() === 'Write it again')).toBeFalse();
+  });
+
+  it('takes the generated surface away while the creator types their own words, and after they are accepted', async () => {
+    host.busy.set({ ...IDLE_CHANNEL_POST_BUSY, editing: 'My own words.' });
+    await settle();
+    expect(el.querySelector('cp-generated')).toBeNull();
+
+    host.busy.set(IDLE_CHANNEL_POST_BUSY);
+    host.channel.set(channel({ status: 'Accepted', accepted: revision(), isCurrent: true }));
+    await settle();
+    expect(el.querySelector('cp-generated')).toBeNull();
+    expect(button('Edit')).not.toBeNull();
+  });
+
+  it('never says a post went out: accepting keeps it, and nothing here publishes', async () => {
+    host.channel.set(channel({ status: 'Accepted', accepted: revision(), isCurrent: true }));
+    await settle();
+
+    expect(text()).not.toMatch(/\b(published|posted|scheduled|live)\b/i);
+  });
+
   // ---- the states ------------------------------------------------------------------------------------
 
   it('offers accept, edit, turn down, write again and copy on words awaiting a decision', async () => {

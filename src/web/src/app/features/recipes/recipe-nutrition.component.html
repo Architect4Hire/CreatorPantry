@@ -410,10 +410,13 @@
     [attr.aria-label]="copy.regionLabel + ': ' + row.displayText"
     [hidden]="mappingState(row.lineId) === null"
   >
+      <!-- Always in the region, so its words change as the mapping is read rather than arriving with it (AU.7). -->
+      <p class="cp-sr-only" role="status">{{ mappingState(row.lineId)?.status === 'loading' ? copy.mappingLoading : '' }}</p>
       @if (mappingState(row.lineId); as state) {
         @switch (state.status) {
           @case ('loading') {
-            <p class="cp-muted" role="status">{{ copy.mappingLoading }}</p>
+            <!-- The mapping as it will arrive: its state, then a few lines of what it says. -->
+            <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
           }
           @case ('not_found') {
             <p class="line-note">{{ copy.mappingNone }}</p>

@@ -169,6 +169,53 @@ test('skeleton: a feature draws no placeholder or shimmer of its own', () => {
   assert.deepEqual(stylesheetViolations('.placeholder { background: var(--cp-surface-subtle); } .bone-in { margin: 0; }'), []);
 });
 
+test('loading: no visible sentence stands in for something on its way (AU.7)', () => {
+  const visible = [
+    '<p class="cp-muted" role="status">Loading your tags…</p>',
+    '<cp-card><p class="plain" role="status">Reading your day…</p></cp-card>',
+    '<p role="status">Checking this recipe…</p>',
+    '<span>Finding your recipes…</span>',
+    '<p class="cp-muted">Picking up where you left off…</p>',
+    // A string in an interpolation or a binding is on screen too.
+    '<p class="placeholder">{{ ready() ? "" : "Loading the library…" }}</p>',
+    `<input [placeholder]="found ? 'Start typing…' : 'Loading labels…'" />`,
+    // An apostrophe or an interpolation inside the sentence does not hide it.
+    "<p class=\"cp-muted\">Loading the cook's notes…</p>",
+    '<p>Loading {{ count() }} recipes…</p>',
+    `<p>{{ x ? "Loading what you've made…" : '' }}</p>`,
+    // A class that only ends in the hidden-status name is not it.
+    '<p class="not-cp-sr-only" role="status">Loading the plan…</p>',
+  ];
+  for (const html of visible) assert.deepEqual(rules(templateViolations(html)), ['loading'], html);
+
+  // A bare "Loading…" on a button, and "Loading more…" anywhere but its button.
+  assert.deepEqual(rules(templateViolations(`<button cpButton type="button">{{ busy() ? 'Loading…' : 'Load older versions' }}</button>`)), ['loading']);
+  assert.deepEqual(rules(templateViolations('<p class="cp-muted">Loading more…</p>')), ['loading']);
+  assert.equal(templateViolations('<div>\n  <p>Reading your board…</p>\n</div>')[0].line, 2);
+});
+
+test('loading: the one hidden status, a pager saying "Loading more…" and a button saying what it is doing are fine', () => {
+  const fine = [
+    `<p class="cp-sr-only" role="status" aria-live="polite">{{ loading() ? 'Loading your week…' : '' }}</p>`,
+    '<span class="cp-sr-only loading-status" role="status">Reading the text…</span>',
+    `<button cpButton type="button">{{ loadingMore() ? 'Loading more…' : 'Load more' }}</button>`,
+    `<a cpButton variant="secondary">{{ reloading() ? 'Loading the latest…' : 'Load the latest' }}</a>`,
+    `<button cpButton type="button" [attr.aria-busy]="retrying()">{{ retrying() ? 'Checking…' : 'Check again' }}</button>`,
+    // What the creator has just done is not something on its way.
+    '<p class="cp-muted" role="status">Saving your words…</p><p role="status">Asking for your posts…</p>',
+    // A sentence that is not a stand-in, a sentence bound from code, and a comment.
+    '<p>Reading it uses a little of your AI allowance.</p><p>{{ copy.listsLoading }}</p><!-- <p>Loading…</p> -->',
+    // Inside a closed element and back out again: the status is the sr-only one, not its sibling's.
+    `<p class="cp-muted">Ready.</p><p class="cp-sr-only" role="status">{{ x ? 'Loading the plan…' : '' }}</p>`,
+    // At any depth inside the hidden status, or inside the button: a span within either is still theirs.
+    `<p class="cp-sr-only" role="status"><span>{{ x ? 'Loading the plan…' : '' }}</span></p>`,
+    '<div class="cp-sr-only"><p role="status">Loading the plan…</p></div>',
+    '<button cpButton type="button"><span>Loading more…</span></button>',
+    `<p class="loading-status cp-sr-only" role="status">{{ x ? "Loading what you've made…" : '' }}</p>`,
+  ];
+  for (const html of fine) assert.deepEqual(templateViolations(html), [], html);
+});
+
 test('drawer: a feature positions nothing against the viewport', () => {
   assert.deepEqual(rules(stylesheetViolations('.panel { position: fixed; transform: translateX(100%); }')), ['drawer', 'drawer']);
   assert.deepEqual(stylesheetViolations('.bar { position: sticky; top: 0; }'), []);

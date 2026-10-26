@@ -83,13 +83,93 @@ describe('AiUsageComponent', () => {
     expect(host.textContent).toContain("Sam's Kitchen");
   });
 
-  /** The headline is what a creator has, not how far through they are. */
+  /** The lead is what a creator has, not how far through they are: its own figure, first (AU.6.4). */
   it('leads with an amount rather than a percentage', async () => {
     const host = await render();
-    const headline = host.querySelector('.headline');
+    const first = host.querySelector('cp-stat-tile');
 
-    expect(headline?.textContent?.trim()).toBe('640 AI credits left');
-    expect(headline?.textContent).not.toContain('%');
+    expect(first?.textContent?.replace(/\s+/g, ' ').trim()).toContain('640 AI credits left');
+    expect(first?.textContent).not.toContain('%');
+    // Said once: the card below no longer repeats it as a headline.
+    expect(host.querySelector('.headline')).toBeNull();
+  });
+
+  // ---- The figures (AU.6.4, APP-008) ----
+
+  const tileTexts = (host: HTMLElement) =>
+    Array.from(host.querySelectorAll('cp-stat-tile')).map((tile) => tile.textContent!.replace(/\s+/g, ' ').trim());
+
+  it('reads the allowance as three figures, each the server’s own number', async () => {
+    const host = await render({ ...payload(), period: { ...payload().period, allowance: 1000, consumed: 300, reserved: 60, remaining: 640 } });
+
+    const tiles = tileTexts(host);
+    expect(tiles.length).toBe(3);
+    expect(tiles[0]).toContain('640 AI credits left');
+    // `consumed` as sent, not the allowance less what is left: 60 are held for a request still running.
+    expect(tiles[1]).toContain('300 AI credits used this month');
+    expect(tiles[2]).toContain('1,000 AI credits in your allowance this month');
+    // So the three not adding up is said, from the server's own figure, rather than left to look like an error.
+    expect(tiles[0]).toContain('60 AI credits set aside for requests still running.');
+
+    // The tiles come first, then the card that says the state in words.
+    const grid = host.querySelector('ul[cpCardGrid]')!;
+    const card = host.querySelector('cp-topic-card')!;
+    expect(grid.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('says nothing is set aside when nothing is running', async () => {
+    const host = await render();
+
+    expect(tileTexts(host)[0]).not.toContain('set aside');
+  });
+
+  it('keeps the last figures when a check fails, and says beside them that they are the last ones', async () => {
+    const host = await render();
+
+    void TestBed.inject(AiUsageService).refresh();
+    http.expectOne(URL).error(new ProgressEvent('network'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(tileTexts(host).length).toBe(3);
+    expect(tileTexts(host)[0]).toContain('640 AI credits left');
+    expect(tileTexts(host)[0]).toContain('The last figures we had.');
+  });
+
+  it('says one credit in the singular', async () => {
+    const host = await render({ ...payload(), period: { ...payload().period, allowance: 1000, consumed: 999, remaining: 1 } });
+
+    expect(tileTexts(host)[0]).toContain('1 AI credit left');
+    expect(tileTexts(host)[0]).not.toContain('credits left');
+  });
+
+  it('holds what is left at nothing when a period has run over, as the headline always has', async () => {
+    const host = await render({ ...payload(), period: { ...payload().period, remaining: -20, consumed: 1020 } });
+
+    expect(tileTexts(host)[0]).toContain('0 AI credits left');
+  });
+
+  it('draws no figures when the allowance could not be read at all', async () => {
+    const host = await render(payload(), true);
+
+    expect(host.querySelector('cp-stat-tile')).toBeNull();
+  });
+
+  it('draws the page arriving while the allowance is read, said once from the region that is always there', async () => {
+    fixture = TestBed.createComponent(AiUsageComponent);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('Loading your AI allowance.');
+    const busy = host.querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('ul[cpCardGrid] cp-card cp-skeleton').length).toBe(3);
+    expect(busy.textContent!.trim()).toBe('');
+    expect(host.querySelector('cp-stat-tile')).toBeNull();
+
+    http.expectOne(URL).flush(payload());
+    await TestBed.inject(AiUsageService).ensureLoaded();
+    fixture.detectChanges();
+    expect(host.querySelector('.loading')).toBeNull();
   });
 
   /** The meter announces the same words the sighted reader sees. */
@@ -157,7 +237,9 @@ describe('AiUsageComponent', () => {
       period: { ...payload().period, carriedOver: 400 },
     };
 
-    expect((await render(carried)).textContent).toContain('400 AI credits carried over');
+    // Beside the allowance figure it is part of (AU.6.4).
+    const withCarry = await render(carried);
+    expect(tileTexts(withCarry)[2]).toContain('Includes 400 AI credits carried over from last time.');
     expect((await render(payload())).textContent).not.toContain('carried over');
   });
 
@@ -217,7 +299,7 @@ describe('AiUsageComponent', () => {
     const card = host.querySelector('cp-topic-card') as HTMLElement;
     expect(card.querySelector('h2')?.textContent?.trim()).toBe('Your allowance');
     expect(card.querySelector('cp-status-pill')).toBeTruthy();
-    expect(card.querySelector('.headline')).toBeTruthy();
+    expect(card.querySelector('cp-progress')).toBeTruthy();
   });
 
   /**
@@ -235,6 +317,8 @@ describe('AiUsageComponent', () => {
     expect(host.querySelector('.headline')?.textContent?.trim()).toBe('Allowance remaining');
     expect(host.textContent).not.toContain('150,000');
     expect(host.textContent).not.toContain('1,000,000');
+    // No figures to quote, so no tiles: the card's words are the whole answer (AU.6.4).
+    expect(host.querySelector('cp-stat-tile')).toBeNull();
   });
 
   /** A repeated failure has to announce, or the live region's content is unchanged and nobody is told. */
@@ -254,7 +338,7 @@ describe('AiUsageComponent', () => {
   /** Rows a screen reader can navigate, rather than one run-on sentence. */
   it('renders each breakdown as a list', async () => {
     const host = await render();
-    const lists = host.querySelectorAll('ul[role="list"]');
+    const lists = host.querySelectorAll('.breakdowns ul[role="list"]');
 
     expect(lists.length).toBe(2);
     expect(lists[0].querySelectorAll('li').length).toBe(2);

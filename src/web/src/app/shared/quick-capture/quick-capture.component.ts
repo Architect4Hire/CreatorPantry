@@ -20,6 +20,7 @@ import {
   CpDialogComponent,
   CpFieldComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -89,6 +90,7 @@ const PRIORITY_OPTIONS: readonly CpChoiceOption[] = [
     CpDialogComponent,
     CpFieldComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
   ],
   templateUrl: './quick-capture.component.html',
   styleUrl: './quick-capture.component.css',

@@ -67,7 +67,13 @@
   }
 </cp-toolbar>
 
-<cp-list-shell heading="Brand library" [state]="listShellState()" [errorMessage]="errorMessage()" emptyMessage="No examples yet.">
+<cp-list-shell
+  heading="Brand library"
+  [state]="listShellState()"
+  loadingLayout="cards"
+  [errorMessage]="errorMessage()"
+  emptyMessage="No examples yet."
+>
   <div cpListShellActions>
     @if (phase() === 'error' || degradedMessage()) {
       <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
@@ -80,7 +86,7 @@
         title="No examples match these filters"
         description="Try a different search, or clear the filters to see your whole library."
         variant="no-results"
-        icon="⌕"
+        illustration="search"
       >
         <div cpEmptyStateActions>
           <button cpButton variant="secondary" type="button" (click)="clearFilters()">Clear filters</button>
@@ -91,7 +97,7 @@
         title="No examples yet"
         description="Add a piece of your own writing, a style guide, or an image that looks like your brand. The library learns your voice from what you put here."
         variant="first-use"
-        icon="◆"
+        illustration="brand"
       >
         <div cpEmptyStateActions>
           <button cpButton type="button" (click)="openUpload()">Upload example</button>

@@ -3,7 +3,8 @@
 }
 
 .hub,
-.goals {
+.goals,
+.loading {
   display: grid;
   gap: var(--cp-space-6);
 }

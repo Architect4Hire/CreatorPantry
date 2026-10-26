@@ -14,6 +14,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RecipeStudioHost } from './recipe-studio-host';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import {
@@ -24,9 +25,13 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpFieldComponent,
+  CpGeneratedLabelComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
@@ -149,10 +154,15 @@ interface EditTarget {
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpFieldComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     RouterLink,
     CpBackLinkComponent,
+    ShellNavIconComponent,
   ],
   templateUrl: './recipe-first-draft-review.component.html',
   styleUrl: './recipe-first-draft-review.component.css',
@@ -195,6 +205,16 @@ export class RecipeFirstDraftReviewComponent {
 
   private readonly operationSignal = signal<AiProposalStatus | null>(null);
   readonly operation = this.operationSignal.asReadonly();
+
+  /**
+   * What made the draft, for the "Drafted by AI" line: the model and the service it ran on, never the prompt.
+   * Left out in a guided step, as the studio leaves it out there; "How this was made" still says it in full. The
+   * studio's own flow hosts this page too, and names the model, because it is the studio's page.
+   */
+  protected readonly provenance = computed(() => {
+    const proposal = this.operation()?.proposal;
+    return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
+  });
 
   private readonly watchProblem = signal<'not_found' | 'forbidden' | null>(null);
   private readonly consecutiveFailures = signal(0);

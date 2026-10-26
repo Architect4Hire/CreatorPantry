@@ -3,10 +3,9 @@
   gap: var(--cp-space-5);
 }
 
-.placeholder {
-  margin: 0;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-sm);
+/* The version field while its versions are read, held to the measure the field will take. */
+.versions-loading {
+  max-width: var(--cp-measure-field);
 }
 
 .chosen {

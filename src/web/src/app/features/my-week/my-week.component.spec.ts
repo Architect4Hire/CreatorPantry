@@ -119,6 +119,82 @@ describe('MyWeekComponent', () => {
     expect(chip('Days').getAttribute('aria-pressed')).toBe('true');
   });
 
+  // ---- While it loads, and a free day (AU.6.2) ----
+
+  /** Goes to a week whose answer never comes, so the board stays loading. */
+  async function loadForever(url: string): Promise<HTMLElement> {
+    weekSpy.and.returnValue(new Promise<WeekOutcome>(() => undefined));
+    await navigate(url);
+
+    return root().querySelector<HTMLElement>('[cpListShellLoading]')!;
+  }
+
+  const loadingHeadings = (loading: HTMLElement) =>
+    [...loading.querySelectorAll('cp-board-column .heading')].map((heading) => heading.textContent!.trim());
+
+  it('draws the compact board arriving while the week loads: its columns by name, a skeleton row per day, no count', async () => {
+    await mount(`/${SLUG}/my-week`, found());
+    const loading = await loadForever(`/${SLUG}/my-week?week=2038-10-18`);
+
+    expect(loading.getAttribute('aria-hidden')).toBe('true');
+    expect(loading.closest('[aria-busy="true"]')).toBeTruthy();
+    expect(loadingHeadings(loading)).toEqual(['Backlog', 'This week', 'In progress', 'Waiting', 'Done']);
+
+    const thisWeek = loading.querySelectorAll('cp-board-column')[1];
+    expect(thisWeek.querySelectorAll('.section cp-skeleton').length).toBe(7);
+    expect(loading.querySelector('.count')).toBeNull();
+
+    // The shell's own skeleton is replaced, and "Loading…" is said by the shell alone.
+    expect(root().querySelectorAll('cp-list-shell cp-skeleton').length).toBe(2 + 7 + 3);
+    const statuses = [...root().querySelectorAll('cp-list-shell [role="status"]')].filter((each) => each.textContent?.includes('Loading'));
+    expect(statuses.length).toBe(1);
+    expect(root().querySelector('li[data-task-id]')).toBeNull();
+  });
+
+  it('names the Days view’s loading columns by weekday alone, claiming no date before the server sends one', async () => {
+    await mount(`/${SLUG}/my-week?view=days`, found());
+    const loading = await loadForever(`/${SLUG}/my-week?view=days&week=2038-10-18`);
+
+    expect(loadingHeadings(loading)).toEqual([
+      'Backlog',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+      'In progress',
+      'Waiting',
+      'Done',
+    ]);
+    expect(loading.querySelectorAll('cp-board-column cp-card cp-skeleton').length).toBe(11 + 1);
+  });
+
+  it('gives a free day one quiet line under its heading, and no totals saying the same again', async () => {
+    await mount(`/${SLUG}/my-week`, found());
+
+    const friday = root().querySelector('#my-week-section-day-2038-10-15')!.closest('section')!;
+    expect(friday.querySelector('.empty')!.textContent!.trim()).toBe('Nothing planned.');
+    expect(friday.querySelector('.section-totals')).toBeNull();
+    expect(friday.querySelector('cp-empty-state')).toBeNull();
+
+    // A day with work in it keeps its totals.
+    const thursday = root().querySelector('#my-week-section-day-2038-10-14')!.closest('section')!;
+    expect(thursday.querySelector('.section-totals')).not.toBeNull();
+    expect(thursday.querySelector('.empty')).toBeNull();
+  });
+
+  it('gives a free day’s own column the same quiet line in the Days view', async () => {
+    await mount(`/${SLUG}/my-week?view=days`, found());
+
+    const friday = root().querySelector('#my-week-column-day-2038-10-15')!;
+    expect(friday.querySelector('.heading')!.textContent!.trim()).toBe('Fri 15 Oct');
+    expect(friday.querySelector('.empty')!.textContent!.trim()).toBe('Nothing planned.');
+    // Still somewhere to drop a task.
+    expect(friday.querySelector('ul[cdkDropList]')).not.toBeNull();
+  });
+
   // ---- Weeks ----
 
   it('moves between weeks by real links, reading the week each names', async () => {
@@ -224,6 +300,9 @@ describe('MyWeekComponent', () => {
     await mount(`/${SLUG}/my-week?q=nothing-like-this`, found());
 
     expect(text()).toContain('No tasks match these filters');
+    const empty = root().querySelector('cp-empty-state')!;
+    expect(empty.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('search');
+    expect(empty.getAttribute('data-variant')).toBe('no-results');
   });
 
   it('lets a label in the address hide nothing while the labels cannot be read, and keeps it for later', async () => {
@@ -256,6 +335,7 @@ describe('MyWeekComponent', () => {
 
     expect(text()).toContain('Your week needs a time zone');
     expect(link('Set the time zone in Brand settings')!.getAttribute('href')).toBe(`/${SLUG}/brand`);
+    expect(root().querySelector('cp-empty-state cp-illustration')!.getAttribute('data-name')).toBe('calendar');
   });
 
   it('says it could not read the week, and reads it again when asked', async () => {
@@ -274,6 +354,11 @@ describe('MyWeekComponent', () => {
 
     expect(text()).toContain('Nothing planned for this week');
     expect([...root().querySelectorAll('button')].filter((b) => b.textContent!.includes('Add a task')).length).toBe(1);
+
+    // Drawn, and roomy: an empty week invites the first task (AU.6.2).
+    const empty = root().querySelector('cp-empty-state')!;
+    expect(empty.querySelector('cp-illustration')!.getAttribute('data-name')).toBe('calendar');
+    expect(empty.getAttribute('data-variant')).toBe('first-use');
   });
 
   it('shows a Viewer the week with no Add a task', async () => {

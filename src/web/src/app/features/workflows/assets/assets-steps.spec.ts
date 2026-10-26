@@ -1,7 +1,7 @@
 import { Component, Type, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { NEVER, of } from 'rxjs';
 
 import { CreativeContext, CreativeContextReference } from '../../../models/creative-context.models';
 import { DamAssetDetail, DamAssetSummary, DamAssetVersion, DamCreatedAsset } from '../../../models/dam-asset.models';
@@ -513,6 +513,61 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       const fixture = await render(AssetsUseStepComponent, { run: organizeRun([]), workspaceSlug: SLUG });
 
       expect(text(fixture)).toContain('Go back to the first step to add or choose one.');
+    });
+  });
+
+  // AU.7: what is on its way is drawn in its own shape and said once, from a status that is always there.
+  describe('while something is read', () => {
+    const root = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
+    const statuses = (fixture: ComponentFixture<unknown>) =>
+      Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
+    const shown = (fixture: ComponentFixture<unknown>, sentence: string) =>
+      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence));
+
+    it('draws the picture arriving, in its own shape, while the add step reads it', async () => {
+      detail.and.returnValue(NEVER);
+      const fixture = await render(AssetsAddStepComponent, { run: withPicture(), workspaceSlug: SLUG });
+
+      expect(statuses(fixture)).toContain('Reading your picture…');
+      expect(root(fixture).querySelector('[aria-busy="true"] cp-skeleton[data-shape="block"]')).not.toBeNull();
+      expect(shown(fixture, 'Reading your picture…')).toBeFalse();
+    });
+
+    it('empties that status once the picture is read', async () => {
+      const fixture = await render(AssetsAddStepComponent, { run: withPicture(), workspaceSlug: SLUG });
+
+      expect(statuses(fixture)).toEqual(['']);
+      expect(root(fixture).querySelector('cp-skeleton')).toBeNull();
+    });
+
+    it('draws recent work arriving while it is looked through, and empties the status once it is', async () => {
+      list.and.returnValue(NEVER);
+      const fixture = await render(AssetsAddStepComponent, { run: organizeRun([]), workspaceSlug: SLUG });
+      await chooseWay(fixture, 'waiting');
+
+      expect(statuses(fixture)).toContain('Looking through your recent work…');
+      expect(root(fixture).querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
+      expect(shown(fixture, 'Looking through your recent work…')).toBeFalse();
+      fixture.destroy();
+
+      list.and.returnValue(of({ status: 'found', page: { items: [], nextCursor: null } }));
+      const read = await render(AssetsAddStepComponent, { run: organizeRun([]), workspaceSlug: SLUG });
+      await chooseWay(read, 'waiting');
+      expect(statuses(read).every((each) => each === '')).toBeTrue();
+    });
+
+    it('draws the picture arriving while the describing step reads it, and empties the status once it is', async () => {
+      detail.and.returnValue(NEVER);
+      const fixture = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+
+      expect(statuses(fixture)).toEqual(['Reading your picture…']);
+      expect(root(fixture).querySelector('[aria-busy="true"] cp-skeleton[data-shape="block"]')).not.toBeNull();
+      expect(shown(fixture, 'Reading your picture…')).toBeFalse();
+      fixture.destroy();
+
+      detail.and.callFake((_slug: string, id: string) => of({ status: 'found', asset: asset({ id }) }));
+      const read = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+      expect(statuses(read)).toEqual(['']);
     });
   });
 });

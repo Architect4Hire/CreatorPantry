@@ -10,6 +10,7 @@ import {
   CpBoardColumnComponent,
   CpBoardComponent,
   CpButtonComponent,
+  CpCardComponent,
   CpChipComponent,
   CpChipGroupComponent,
   CpEmptyStateComponent,
@@ -21,6 +22,7 @@ import {
   CpPageHeadComponent,
   CpSearchFieldComponent,
   CpSelectFieldComponent,
+  CpSkeletonComponent,
   CpToolbarComponent,
 } from '@creator-pantry/ui';
 
@@ -74,6 +76,18 @@ interface Query {
 /** How long typing in the search box pauses before the filter is applied. */
 const SEARCH_PAUSE_MS = 250;
 
+/** A planning week runs Monday to Sunday everywhere (13A.26), so a day can be named before its date is known. */
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+interface LoadingColumn {
+  readonly heading: string;
+  /** Skeleton cards, or — for compact's This week — a skeleton row per day. */
+  readonly kind: 'cards' | 'days';
+  readonly items: readonly unknown[];
+}
+
+const skeletons = (count: number): readonly unknown[] => Array.from({ length: count });
+
 /**
  * My Week (`:workspaceSlug/my-week`, 13A.33): one person's week as a board.
  *
@@ -82,7 +96,8 @@ const SEARCH_PAUSE_MS = 250;
  * week's days, In progress, Waiting, Done — and never the content board's, whose cards a task here does not move.
  *
  * **Two densities.** Compact keeps the seven days as sections of one "This week" column, five columns in all; Days
- * gives each day a column of its own. Either way the board wraps rather than scrolling sideways.
+ * gives each day a column of its own. Either way the board wraps rather than scrolling sideways, and while it loads it
+ * is that view's board arriving: its columns by name, skeletons in them, no count (AU.6.2).
  *
  * **Every number is the server's.** Each list's totals come from the week route; a filter narrows only the cards
  * already loaded and says so ("2 of 5 shown"), and no capacity is judged, because nobody has said how many hours
@@ -112,6 +127,7 @@ const SEARCH_PAUSE_MS = 250;
     CpBoardColumnComponent,
     CpBoardComponent,
     CpButtonComponent,
+    CpCardComponent,
     CpChipComponent,
     CpChipGroupComponent,
     CpEmptyStateComponent,
@@ -122,6 +138,7 @@ const SEARCH_PAUSE_MS = 250;
     CpPageHeadComponent,
     CpSearchFieldComponent,
     CpSelectFieldComponent,
+    CpSkeletonComponent,
     CpToolbarComponent,
     MyWeekCardComponent,
     MyWeekMoveDialogComponent,
@@ -192,6 +209,20 @@ export class MyWeekComponent {
   protected readonly columns = computed(() => {
     const week = this.week();
     return week ? columnsFor(week, this.view(), this.filters()) : [];
+  });
+
+  /**
+   * The board while it loads (AU.6.2): the view's own columns by name, with no count, because none is claimed before
+   * the server sends one. Compact's This week holds a skeleton row per day; the Days view names its day columns by
+   * weekday alone, because the dates are the server's.
+   */
+  protected readonly loadingColumns = computed<readonly LoadingColumn[]>(() => {
+    const status: readonly LoadingColumn[] = ['In progress', 'Waiting', 'Done'].map((heading) => ({ heading, kind: 'cards', items: skeletons(1) }));
+    const backlog: LoadingColumn = { heading: 'Backlog', kind: 'cards', items: skeletons(2) };
+
+    return this.view() === 'days'
+      ? [backlog, ...WEEKDAYS.map((heading): LoadingColumn => ({ heading, kind: 'cards', items: skeletons(1) })), ...status]
+      : [backlog, { heading: 'This week', kind: 'days', items: skeletons(WEEKDAYS.length) }, ...status];
   });
 
   /** Whether the server sent no task at all for this week, filters aside. */

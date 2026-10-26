@@ -5,18 +5,6 @@
 
     <p class="marks">
       <cp-status-pill [tone]="statusTone()">{{ statusWord() }}</cp-status-pill>
-
-      <!-- The generated marker, said as well as shown: these are words a model wrote and nobody has taken
-           yet. It goes the moment the creator's own words replace them. -->
-      @if (isGenerated()) {
-        <cp-generated-label />
-      }
-
-      <!-- Glyph, tone and the figure written out, so the limit never depends on telling two colours apart. -->
-      @if (limit().text) {
-        <cp-status-pill [tone]="limit().tone">{{ limit().word }}</cp-status-pill>
-        <span class="count" [attr.aria-live]="isEditing() ? 'polite' : null">{{ limit().text }} characters</span>
-      }
     </p>
   </header>
 
@@ -45,11 +33,20 @@
       ></textarea>
     </cp-field>
 
+    <ng-container [ngTemplateOutlet]="length" />
+
     <p class="cp-muted">
       Not saved yet. These words are kept on this device until you save them, so you can come back to them.
     </p>
+  } @else if (isGenerated()) {
+    <!-- Words a model wrote and nobody has taken yet, on the surface that says so, with the decisions about them
+         last inside it. The surface goes the moment the creator's own words replace them. -->
+    <cp-generated [provenance]="'Written for ' + channelName()">
+      <ng-container [ngTemplateOutlet]="words" />
+      <ng-container ngProjectAs="[cpGeneratedActions]" [ngTemplateOutlet]="decisions" />
+    </cp-generated>
   } @else {
-    <p class="body-read">{{ bodyText() }}</p>
+    <ng-container [ngTemplateOutlet]="words" />
   }
 
   @if (channel().accepted; as accepted) {
@@ -89,37 +86,8 @@
         Put it back
       </button>
     } @else if (canWrite()) {
-      @if (canAccept()) {
-        <button
-          cpButton
-          type="button"
-          variant="primary"
-          size="sm"
-          [disabled]="working()"
-          (click)="emit({ kind: 'accept' })"
-        >
-          Accept
-        </button>
-      }
-      @if (canReaffirm()) {
-        <button
-          cpButton
-          type="button"
-          variant="primary"
-          size="sm"
-          [disabled]="working()"
-          (click)="emit({ kind: 'reaffirm' })"
-        >
-          It still stands
-        </button>
-      }
-      <button cpButton type="button" variant="secondary" size="sm" [disabled]="working()" (click)="emit({ kind: 'edit' })">
-        Edit
-      </button>
-      @if (canAccept()) {
-        <button cpButton type="button" variant="text" size="sm" [disabled]="working()" (click)="emit({ kind: 'reject' })">
-          Not this one
-        </button>
+      @if (!isGenerated()) {
+        <ng-container [ngTemplateOutlet]="decisions" />
       }
       <button
         cpButton
@@ -150,3 +118,79 @@
     </button>
   </div>
 </article>
+
+<!-- The words as they stand, and how they sit against the channel's length. -->
+<ng-template #words>
+  <p class="body-read">{{ bodyText() }}</p>
+  <ng-container [ngTemplateOutlet]="length" />
+</ng-template>
+
+<!--
+  The length, as the channel's own profile sets it — the limit is the server's figure and never this page's text.
+  A word and a glyph in the pill, the figure written out beside the bar: never a colour alone. The bar stops at
+  full; the figure says by how much it is over, and the words are never trimmed.
+-->
+<ng-template #length>
+  @if (limit().text) {
+    <div class="length">
+      @if (limit().limited) {
+        <cp-progress
+          [label]="channelName() + ' length'"
+          [value]="limit().percent"
+          [valueText]="limit().text"
+          [tone]="limit().over ? 'warning' : 'default'"
+        />
+      }
+      <p class="marks">
+        <cp-status-pill [tone]="limit().tone">{{ limit().word }}</cp-status-pill>
+        <!-- Printed here only where there is no bar to print the figure. While typing it is also the live region,
+             heard but not shown twice beside a bar. -->
+        @if (!limit().limited || isEditing()) {
+          <span
+            class="count"
+            [class.cp-sr-only]="limit().limited"
+            [attr.aria-live]="isEditing() ? 'polite' : null"
+          >{{ limit().text }}</span>
+        }
+      </p>
+    </div>
+  }
+</ng-template>
+
+<!-- What the creator may decide about the words on screen. Inside the generated surface while they are a model's. -->
+<ng-template #decisions>
+  @if (canWrite()) {
+    @if (canAccept()) {
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        size="sm"
+        [disabled]="working()"
+        (click)="emit({ kind: 'accept' })"
+      >
+        Accept
+      </button>
+    }
+    @if (canReaffirm()) {
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        size="sm"
+        [disabled]="working()"
+        (click)="emit({ kind: 'reaffirm' })"
+      >
+        It still stands
+      </button>
+    }
+    <button cpButton type="button" variant="secondary" size="sm" [disabled]="working()" (click)="emit({ kind: 'edit' })">
+      Edit
+    </button>
+    @if (canAccept()) {
+      <button cpButton type="button" variant="text" size="sm" [disabled]="working()" (click)="emit({ kind: 'reject' })">
+        Not this one
+      </button>
+    }
+  }
+</ng-template>

@@ -23,13 +23,16 @@
       }
 
       <div class="preview">
+        <!-- Always present, outside the busy picture (AU.7): the picture arriving is said once. -->
+        <p class="cp-sr-only" role="status">{{ previewState() === 'loading' ? 'Loading the picture…' : '' }}</p>
         @switch (previewState()) {
           @case ('ready') {
             <!-- Empty alt: the creator is here to describe this picture, and nothing has described it yet. -->
             <img [src]="previewUrl()" alt="" />
           }
           @case ('loading') {
-            <p class="cp-muted" role="status">Loading the picture…</p>
+            <!-- The picture as it will arrive. -->
+            <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
           }
           @case ('gone') {
             <cp-notice tone="warning" role="status">The picture can't be shown here.</cp-notice>
@@ -101,9 +104,12 @@
           </ul>
         }
 
+        <!-- Always present, outside the busy line (AU.7): the tags arriving are said once. -->
+        <p class="cp-sr-only" role="status">{{ tagPhase() === 'loading' ? 'Loading your tags…' : '' }}</p>
         @switch (tagPhase()) {
           @case ('loading') {
-            <p class="cp-muted" role="status">Loading your tags…</p>
+            <!-- Where the tag picker will be. -->
+            <div aria-busy="true"><cp-skeleton shape="line" /></div>
           }
           @case ('unavailable') {
             <cp-notice tone="warning" role="status">

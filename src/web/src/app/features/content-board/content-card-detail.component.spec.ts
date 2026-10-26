@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
-import { of } from 'rxjs';
+import { NEVER, of } from 'rxjs';
 
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { PublishingService } from '../../services/publishing.service';
@@ -297,6 +297,26 @@ describe('ContentCardDetailComponent', () => {
     expect(root().querySelector('a[cpBackLink]')).not.toBeNull();
   });
 
+  // AU.7: the page arriving, said once; the title slot holds the route's title, never a loading sentence.
+  it('draws the card arriving while it is read, under the route’s own title', async () => {
+    spyOn(server, 'detail').and.returnValue(NEVER);
+    await mount();
+
+    expect(root().querySelector('h1')!.textContent).toBe('Card');
+    const status = root().querySelector('p.cp-sr-only[role="status"]')!;
+    expect(status.textContent).toBe('Loading the card…');
+    const busy = root().querySelector('.loading[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(2);
+    expect(busy.textContent!.trim()).toBe('');
+  });
+
+  it('empties that status once the card is read', async () => {
+    await mount();
+
+    expect(root().querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
+    expect(root().querySelector('.loading')).toBeNull();
+  });
+
   it('says the card could not be loaded, and reads it again on request', async () => {
     server.offline = true;
     await mount();
@@ -461,7 +481,7 @@ describe('ContentCardDetailComponent', () => {
       expect(server.removes[0].key).not.toBe('');
       expect(root().querySelector('h1')!.textContent).toBe('Card deleted');
       expect(text()).toContain('Nothing it pointed at was removed.');
-      expect(root().querySelector('[role="status"] a')!.getAttribute('href')).toBe(`/${SLUG}/content-board`);
+      expect(root().querySelector('cp-notice[role="status"] a')!.getAttribute('href')).toBe(`/${SLUG}/content-board`);
     });
 
     it('does not delete a card that changed since it was read, and shows what changed', async () => {

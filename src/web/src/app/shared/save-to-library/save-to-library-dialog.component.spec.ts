@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Observable, of } from 'rxjs';
+import { NEVER, Observable, of } from 'rxjs';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
 import { DamCreatedAsset, DamKeepPrompt, DamKeepRecipe } from '../../models/dam-asset.models';
@@ -212,6 +212,30 @@ describe('SaveToLibraryDialogComponent', () => {
   }
 
   // ---- Opening ----
+
+  // AU.7: the picture and the tags arrive as their own shapes, each said once offscreen.
+  it('draws the picture and the tags arriving while they are read, and says each once from a status that stays', async () => {
+    await create(() => {
+      previewSpy.and.returnValue(NEVER);
+      tagsSpy.and.returnValue(new Promise<WorkspaceTagsOutcome>(() => undefined));
+    });
+
+    const statuses = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent);
+    expect(statuses).toContain('Loading the picture…');
+    expect(statuses).toContain('Loading your tags…');
+    expect(root().querySelector('.preview [aria-busy="true"] cp-skeleton')?.getAttribute('data-shape')).toBe('block');
+    expect(root().querySelectorAll('[aria-busy="true"] cp-skeleton').length).toBe(2);
+    expect(root().querySelector('.preview [aria-busy="true"]')!.textContent!.trim()).toBe('');
+  });
+
+  it('empties those statuses once the picture and the tags are read', async () => {
+    await create();
+
+    const statuses = Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent);
+    expect(statuses.length).toBe(2);
+    expect(statuses.every((each) => each === '')).toBeTrue();
+    expect(root().querySelector('cp-skeleton')).toBeNull();
+  });
 
   it('opens as a named modal dialog showing the picture, with the title from the context and no alt text', async () => {
     await create();

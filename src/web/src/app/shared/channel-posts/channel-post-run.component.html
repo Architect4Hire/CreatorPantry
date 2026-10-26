@@ -1,7 +1,13 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
+<!-- Always in the page, so it is announced when its words change; the skeleton under it is aria-hidden. -->
+<p class="cp-sr-only" role="status">{{ loading() ? 'Loading your posts…' : '' }}</p>
+
 @if (loading()) {
-  <p class="cp-muted" role="status">Loading your posts…</p>
+  <!-- The shape of what is coming: a post card or two (APP-003). -->
+  <div class="loading" aria-busy="true">
+    <cp-skeleton shape="card" [count]="2" />
+  </div>
 } @else {
   <!-- Above the chooser, because what the posts go with decides what they can say about it. A picture nobody
        has read says so, and offers to have it read before any post is written (AF.6.6). -->
@@ -147,6 +153,10 @@
       Your posts couldn't be read just now. Nothing has been lost — try again in a moment.
     </cp-notice>
   } @else if (!canWrite()) {
-    <p class="cp-muted">No posts have been written for this yet.</p>
+    <cp-empty-state
+      title="No posts yet"
+      description="No posts have been written for this yet. When an Owner or Editor writes some, they are here to read and copy."
+      illustration="post"
+    />
   }
 }

@@ -81,8 +81,11 @@
   </cp-form-section>
 
   <cp-form-section heading="Your examples">
+    <!-- Always present, so its words change rather than arrive with it (AU.6.3). -->
+    <p class="cp-sr-only" role="status">{{ library() === 'loading' && entries().length === 0 ? 'Checking your examples…' : '' }}</p>
     @if (library() === 'loading' && entries().length === 0) {
-      <p class="cp-muted" role="status">Checking your examples…</p>
+      <!-- The examples arriving as rows. -->
+      <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
     }
     @if (library() === 'degraded') {
       <cp-notice role="status">We couldn't check your earlier examples just now. They're still saved, and you can keep going.</cp-notice>

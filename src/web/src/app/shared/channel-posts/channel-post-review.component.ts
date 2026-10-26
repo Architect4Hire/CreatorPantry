@@ -1,9 +1,11 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import {
   CpButtonComponent,
   CpFieldComponent,
-  CpGeneratedLabelComponent,
+  CpGeneratedComponent,
   CpNoticeComponent,
+  CpProgressComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -65,6 +67,54 @@ const STATUS_TONES: Readonly<Record<string, CpStatusPillTone>> = {
   NeedsReview: 'stale',
 };
 
+/** How a post's length reads: the figure, how far along the channel's limit it is, and the pill that says so. */
+interface ChannelPostLimitReading {
+  /** "46 of 2200 characters", "312 of 280 — 32 over", or empty when nobody measured it. */
+  readonly text: string;
+  /** True when the channel has a limit to measure against, which is when a bar is drawn. */
+  readonly limited: boolean;
+  /** How far along the limit, held to 0–100: the figure, not the bar, says by how much a post is over. */
+  readonly percent: number;
+  readonly over: boolean;
+  readonly tone: CpStatusPillTone;
+  readonly word: string;
+  readonly measured: boolean;
+}
+
+const NOT_MEASURED: ChannelPostLimitReading = {
+  text: '',
+  limited: false,
+  percent: 0,
+  over: false,
+  tone: 'neutral',
+  word: '',
+  measured: false,
+};
+
+/**
+ * The figure and the bar for a count against a limit the channel's profile set, or against none.
+ *
+ * `over` is the verdict the pill states — the server's for a saved revision, the live count's while typing — so
+ * the figure, the bar and the pill can never say different things. A server that calls a post over with a figure
+ * that does not show it (it counts the way the channel counts) gets a full bar and no "— N over" it cannot back.
+ */
+function lengthOf(
+  count: number,
+  limit: number | null,
+  over: boolean,
+): Pick<ChannelPostLimitReading, 'text' | 'limited' | 'percent' | 'over'> {
+  if (limit === null || limit <= 0) return { text: channelPostCountText(count, null), limited: false, percent: 0, over };
+
+  const by = count - limit;
+
+  return {
+    text: over && by > 0 ? `${count} of ${limit} — ${by} over` : `${count} of ${limit} characters`,
+    limited: true,
+    percent: over ? 100 : Math.min(100, Math.round((count / limit) * 100)),
+    over,
+  };
+}
+
 /**
  * One channel's post, reviewed on its own (AF.6.5).
  *
@@ -77,18 +127,29 @@ const STATUS_TONES: Readonly<Record<string, CpStatusPillTone>> = {
  * an unsaved edit survives a failed save, a neighbour's regeneration and leaving the step, because the words
  * live in the caller's kept state rather than in this component.
  *
- * **Nothing appears accepted on its own.** A generated body arrives awaiting a decision and says so, in a
- * badge as well as a pill; the badge goes when the creator's own words replace it, because they are then not
- * generated content any more.
+ * **Nothing appears accepted on its own.** A generated body arrives awaiting a decision and says so: it sits on
+ * `cp-generated`, named for the channel it was written for, with the decisions about it last inside it, and a
+ * pill says it is waiting. The surface goes when the creator's own words replace the model's — or while they are
+ * typing their own — because they are then not generated content any more (APP-006).
  *
- * **The limit is never a colour alone.** The pill carries a glyph per tone and the figure is written out —
- * "312 of 280 — 32 over" — so the same fact reaches a creator who cannot tell the two pills apart. An
- * over-limit body is shown as written and never trimmed.
+ * **The limit is never a colour alone.** The length is a `cp-progress` bar against the limit the channel's profile
+ * set, which the server measured (content.md: channel constraints live in channel profiles, not page text); a pill
+ * with a glyph per tone says whether it fits, and the figure is written out — "312 of 280 — 32 over" — so the same
+ * fact reaches a creator who cannot tell two colours apart. The bar stops at full, and an over-limit body is shown
+ * as written and never trimmed.
  */
 @Component({
   selector: 'cp-channel-post-review',
   standalone: true,
-  imports: [CpButtonComponent, CpFieldComponent, CpGeneratedLabelComponent, CpNoticeComponent, CpStatusPillComponent],
+  imports: [
+    NgTemplateOutlet,
+    CpButtonComponent,
+    CpFieldComponent,
+    CpGeneratedComponent,
+    CpNoticeComponent,
+    CpProgressComponent,
+    CpStatusPillComponent,
+  ],
   templateUrl: './channel-post-review.component.html',
   styleUrl: './channel-post-review.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -131,7 +192,7 @@ export class ChannelPostReviewComponent {
    * with, and it says so — the server counts the way the channel counts, so the two can differ and the
    * server's figure replaces this one on save. Otherwise it is the server's own measurement.
    */
-  protected readonly limit = computed(() => {
+  protected readonly limit = computed<ChannelPostLimitReading>(() => {
     const showing = this.showing();
     const editing = this.busy().editing;
 
@@ -140,22 +201,21 @@ export class ChannelPostReviewComponent {
       const over = showing.characterLimit !== null && count > showing.characterLimit;
 
       return {
-        text: channelPostCountText(count, showing.characterLimit),
-        tone: (over ? 'warning' : 'neutral') satisfies CpStatusPillTone as CpStatusPillTone,
+        ...lengthOf(count, showing.characterLimit, over),
+        tone: over ? 'warning' : 'neutral',
         word: over ? 'Over the limit as you type' : 'As you type',
         measured: false,
       };
     }
 
-    if (showing.limitStatus === 'NotChecked' || showing.characterCount === null) {
-      return { text: '', tone: 'neutral' as CpStatusPillTone, word: '', measured: false };
-    }
+    if (showing.limitStatus === 'NotChecked' || showing.characterCount === null) return NOT_MEASURED;
 
     const over = showing.limitStatus === 'Over';
 
     return {
-      text: channelPostCountText(showing.characterCount, showing.characterLimit),
-      tone: (over ? 'warning' : 'success') satisfies CpStatusPillTone as CpStatusPillTone,
+      // The server's verdict, not this page's arithmetic: it counts the way the channel counts.
+      ...lengthOf(showing.characterCount, showing.characterLimit, over),
+      tone: over ? 'warning' : 'success',
       word: over ? 'Longer than this channel allows' : 'Fits this channel',
       measured: true,
     };

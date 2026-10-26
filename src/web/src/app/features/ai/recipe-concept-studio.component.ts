@@ -9,12 +9,18 @@ import {
   CpCardComponent,
   CpCardGridComponent,
   CpEmptyStateComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpFieldComponent,
   CpFormSectionComponent,
+  CpGeneratedComponent,
   CpListShellComponent,
   CpListShellState,
   CpNoticeComponent,
+  CpOptionCardComponent,
+  CpOptionFact,
   CpPageHeadComponent,
+  CpSkeletonComponent,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
@@ -44,6 +50,7 @@ import {
 } from '../../shared/use-this-in/handoff-destinations';
 import { HandoffSeed, UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
 import { AiOperationStatusComponent, AiStatusConnection, isRetryableAiOutcome } from './ai-operation-status.component';
 
 /** Requesting concepts writes an operation, so it carries the same bar as the recipe-diff proposal panel. */
@@ -69,6 +76,16 @@ export type ConceptStudioState =
   | 'expired'
   | 'gone'
   | 'forbidden';
+
+/** One concept as its option card shows it. */
+interface ConceptView {
+  readonly concept: RecipeConcept;
+  readonly facts: readonly CpOptionFact[];
+  /** Whether the card's disclosure has anything behind it. */
+  readonly hasDetail: boolean;
+  /** The disclosure's summary line, which names the assumptions when there are any. */
+  readonly detailLabel: string;
+}
 
 type StudioRefusalKind = 'request' | 'unavailable' | 'forbidden';
 
@@ -134,11 +151,17 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpButtonComponent,
     CpCardComponent,
     CpEmptyStateComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpFieldComponent,
     CpFormSectionComponent,
+    CpGeneratedComponent,
     CpListShellComponent,
     CpNoticeComponent,
+    CpOptionCardComponent,
+    CpSkeletonComponent,
     DayNotesNoticeComponent,
+    ShellNavIconComponent,
     UseThisInComponent,
     CpTopicCardComponent,
   ],
@@ -166,7 +189,7 @@ export class RecipeConceptStudioComponent {
   private readonly creativeContexts = inject(CreativeContextService);
 
   /** The work named in the address (`ai-recipe-studio/context/:contextId`), or null for ideas that are for none. */
-  private readonly routeContextId = this.host ? null : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
+  private readonly routeContextId = this.host ? this.host.contextId : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
 
   /**
    * What is known about that work: nothing asked for, still being read, read, or not this workspace's to read.
@@ -478,6 +501,51 @@ export class RecipeConceptStudioComponent {
   readonly conceptCards = computed<readonly RecipeConcept[]>(() =>
     conceptsFromProposal(this.operation()?.proposal ?? null),
   );
+
+  /**
+   * Each concept as its option card reads it: time budget and skill fit as the tags it is compared by, and
+   * whether anything is left for the disclosure. Dietary notes are not a tag: they are sentences, and they carry
+   * their caveat, so the card shows them as a list beside it, always open.
+   */
+  readonly conceptViews = computed<readonly ConceptView[]>(() =>
+    this.conceptCards().map((concept) => {
+      const facts: CpOptionFact[] = [];
+      if (concept.timeBudgetNote) facts.push({ label: 'Time budget', value: concept.timeBudgetNote });
+      if (concept.skillLevelFit) facts.push({ label: 'Skill fit', value: concept.skillLevelFit });
+      const hasDetail =
+        !!concept.distinctnessRationale || concept.suggestedIngredients.length > 0 || concept.assumptions.length > 0;
+      // Said on the closed disclosure when assumptions are behind it, so a premise the concept rests on is
+      // never somewhere a creator has no reason to look.
+      const detailLabel =
+        concept.assumptions.length > 0 ? 'More about this concept, and what it assumes' : 'More about this concept';
+      return { concept, facts, hasDetail, detailLabel };
+    }),
+  );
+
+  /**
+   * What made the concepts, for the "Drafted by AI" line: the model and the service it ran on, never the prompt.
+   * Left out in a guided step, as the picture runs leave theirs out (13A.19): the concepts are still marked as
+   * generated, and what made them stays recorded on the server.
+   */
+  readonly provenance = computed(() => {
+    const proposal = this.operation()?.proposal;
+    return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
+  });
+
+  /** The workflow's sentence above the brief; the studio's own flow says it in its page lede instead. */
+  protected readonly showsHostedIntro = computed(() => this.host?.part() === 'both');
+  /** Whether the brief shows: everywhere but the concepts step of the studio's own flow. */
+  protected readonly showsBrief = computed(() => (this.host?.part() ?? 'both') !== 'concepts');
+  /** Whether what came back shows: everywhere but the brief step of the studio's own flow. */
+  protected readonly showsConcepts = computed(() => (this.host?.part() ?? 'both') !== 'brief');
+
+  /** The one sentence said while a skeleton stands in for what is coming; empty otherwise. */
+  readonly loadingSentence = computed(() => {
+    if (this.state() === 'submitting') return 'Asking for concepts…';
+    if (this.state() === 'loading') return 'Looking for your request…';
+    if (this.work().status === 'loading') return 'Reading the work these ideas are for…';
+    return '';
+  });
 
   readonly generalWarnings = computed(() => generalConceptWarnings(this.operation()?.proposal ?? null));
 
@@ -810,6 +878,7 @@ export class RecipeConceptStudioComponent {
     if (this.host) {
       const requestId = this.requestIdSignal();
       if (requestId !== null) this.host.conceptsRequested(requestId);
+      else this.host.briefRestarted();
       return;
     }
 

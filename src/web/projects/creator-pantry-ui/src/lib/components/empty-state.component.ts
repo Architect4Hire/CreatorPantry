@@ -44,7 +44,7 @@ export class CpEmptyStateComponent {
   readonly description = input('');
   /** The older text glyph, kept for pages not yet drawn; an `illustration` wins over it. */
   readonly icon = input('✦');
-  /** One of the drawn set; a `no-results` state uses `search`. */
+  /** One of the drawn set. A filter that matched nothing uses `search`; a compact quiet topic draws what it is about. */
   readonly illustration = input<CpIllustrationName | null>(null);
   readonly variant = input<'first-use' | 'no-results'>('first-use');
 }

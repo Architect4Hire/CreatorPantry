@@ -141,6 +141,9 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 - **The card in a column** is a `cp-card` holding an `article`: the title as the link at the heading level below the column's, state as `cp-status-pill` then kind as `cp-badge`, measured and dated values as `dl[cpFacts]` with `layout="inline"`, and its actions last in `.cp-actions`. A card whose state *is* the column it sits in — My Week's, where Waiting is the column and not a property of the card — carries no pill for it; a pill that repeats the heading above it is noise. It is not a `cp-media-card`, whose picture panel is for a library shown by its pictures.
 - **Moving is the feature's, and has two paths.** A pointer drag, with whatever the feature uses for it, and a control on every card that does the same thing from the keyboard: it names the column and the place. The second is the complete path and the first is a shortcut for it; a move that can only be dragged is a defect (SC 2.5.7). Every move is announced in a polite live region, in words: what moved, where to, and whether it was kept.
 - **A column that is empty says why,** in a sentence the feature projects: nothing here yet, or nothing matches the filters. The heading and a count of zero stay.
+- **Loading is the board arriving.** The page projects `[cpListShellLoading]` into its list shell: the same `[cpBoard]` with every column under its real name, no count (no number is claimed before the server gives one), and a few skeleton cards in each — uneven, so it reads as work in columns rather than a table. Each is a `cp-card` holding `cp-skeleton` lines. The shell hides the projection from a screen reader (the page may mark it too); it says "Loading…" once and keeps the body busy, and the columns are named to a screen reader when they are real. A board with more than one view draws the view it is in, and a column named after something the server decides is named without it: My Week's Days view loads as Monday to Sunday, not dated, and compact's This week holds a skeleton row per day.
+- **An empty board is drawn; an empty column is a quiet line.** The first use is `cp-empty-state` with the `board` drawing and the first action (My Week's, a week of tasks, is `calendar`), and a filter that matches nothing is the compact `search` one. A column with nothing in it keeps its heading, its count of zero and its list to drop onto, with one muted sentence saying why — "Nothing here yet.", or that nothing here matches the filters — never an empty state of its own. A named part of a column, such as one of My Week's days, does the same, and says it once: the line, with no totals line above it that says the same thing again.
+- **No card is featured.** Every card on a board is one of many in its column, so none takes `featured`; the one featured card a page may have belongs on a page of topics, not in a column.
 - **The order and the rules are the server's.** A board shows the order it was given and asks for a move; it does not decide which moves are allowed or where a card ends up. When the answer is "no" the card goes back and the page says so.
 
 `ContentBoardComponent` is the reference.
@@ -151,10 +154,10 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 
 What goes in each slot is the same on every library, so a creator who has read one card can read them all:
 
-- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel (AU.2.6): a faint gingham on `--cp-tone-panel` with the kind's `cp-illustration` at 5rem in `--cp-tone-panel-ink` — the tool's tint and colour on a toned page, the neutral subtle surface and muted ink on an untoned one, never the action colour. Name the drawing with `illustration` (`picture`, `recipe`, `prompt`, `brand`, or any other in the set). The four glyphs a library passed before the set existed still work and draw theirs — `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example — and any other glyph shows as text; a library moves from its glyph to the name when its own empty state is drawn. The panel is decoration, hidden from a screen reader. A card never borrows a picture from something related to stand in for its own.
+- **Picture** — the thing itself, when the list response carries one and the feature can load it by id. Where there is none the card takes the panel (AU.2.6): a faint gingham on `--cp-tone-panel` with the kind's `cp-illustration` at 5rem in `--cp-tone-panel-ink` — the tool's tint and colour on a toned page, the neutral subtle surface and muted ink on an untoned one, never the action colour. Name the drawing with `illustration` (`picture`, `recipe`, `prompt`, `brand`, or any other in the set). The four glyphs a library passed before the set existed still work and draw theirs — `▣` a picture, `⌘` a recipe, `❝` a prompt, `◆` a brand example — and any other glyph shows as text; a library moves from its glyph to the name when its own empty state is drawn. The panel is decoration, hidden from a screen reader. A card never borrows a picture from something related to stand in for its own. A picture still on its way shows the panel too (AU.6.1): the feature marks its projected element `data-cp-picture-pending` until the bytes are in hand, and the card keeps that element laid out but unseen under the panel — a loader watching for the card to near the screen needs a box to watch — so a library of pictures arriving reads as designed panels rather than grey boxes. The card announces nothing per picture; the list loading around it already has, so DAM's thumbnail takes `[announce]="false"` on a card and says "Loading this picture…" only where a picture stands alone. A picture that cannot be shown is a fault, said on the card with a notice, and is never hidden under the panel.
 - **Title** — the thing's own name, as the link to its page. Nothing else on the card is a link to that page.
 - **Description** — the creator's own words about it, or the start of it: a recipe's description, the opening of a prompt. One run of plain text; line breaks are kept where the whole thing is shown, not here. End it with an ellipsis only when the text really is cut. A thing with no words of its own has no description, not a placeholder.
-- **Badges** — what state it is in, then what kind of thing it is. State is a `cp-status-pill`, because a state has a tone and a glyph (Draft, Approved, "Ingredients need review", "Text ready"); kind is a `cp-badge` (channel, document type, source). State comes first. A fact with a number or a date in it is not a badge.
+- **Badges** — what state it is in, then what kind of thing it is. State is a `cp-status-pill`, because a state has a tone and a glyph (Draft, Approved, "Ingredients need review", "Text ready"); kind is a `cp-badge` (channel, document type, source). State comes first. What a model made takes `cp-generated-label` in the badges slot in place of a kind badge ("Made by AI" for a picture), never a purple badge of the page's own; Pictures does this, on the card and in the picture page's head. A fact with a number or a date in it is not a badge.
 - **Facts** — what is measured or dated: file and size, version, tags, when it was updated. `dl[cpFacts]` with `layout="inline"`, a handful at most, and a fact with nothing to say is left out rather than shown empty. Tags are one fact, comma-separated.
 - **Actions** — `[cpMediaCardActions]`, for the rare thing that can be done from the list without opening the card: the Prompt Library's Preview. Small, secondary, and named for its card (`aria-label="Preview Chili hero"`) since every card has one. Editing, deleting and anything that needs the whole record belong on the thing's own page.
 
@@ -191,7 +194,7 @@ radio and no arrow keys between cards.
 
 ### A card for one topic on a detail page
 
-`CpTopicCardComponent` is a `cp-card` with a heading that names its region, a body held to `--cp-measure-prose`, and its actions underneath. The heading can take focus by script and is never a tab stop (`focusHeading()`), for a card that has just replaced the one the creator was working in. A card stretches to the frame; a paragraph that did too would be unreadable, so the measure is the default and `wide` is the exception, for a table or a preview. Its heading is a step below the page title, at `--cp-font-size-xl`.
+`CpTopicCardComponent` is a `cp-card` with a heading that names its region, a body held to `--cp-measure-prose`, and its actions underneath. The heading can take focus by script and is never a tab stop (`focusHeading()`), for a card that has just replaced the one the creator was working in. A card stretches to the frame; a paragraph that did too would be unreadable, so the measure is the default and `wide` is the exception, for a table or a preview. A table wider than a phone scrolls inside its own focusable `role="region"`, and that region is `position: relative`: a column header hidden for sight (`.cp-sr-only`) is absolutely positioned, and in a region nobody positioned it escapes the scroll and widens the page — AU.0's picture page was 550px at a 375px viewport for exactly this. `cp-list-shell`'s own region does the same. Its heading is a step below the page title, at `--cp-font-size-xl`.
 
 ### Facts
 
@@ -203,7 +206,7 @@ A library's toolbar holds `cp-search-field` and `cp-select-field`, each around t
 
 ### The steps of a flow
 
-`CpStepperComponent` lists a flow's steps in order and says where the creator is. Each row is the step's name with its state under it in a word — "Not started", "You are here", "Done", "Skipped" — beside a glyph (○ ● ✓ ↷), and the current row is bordered, filled and carries `aria-current="step"`. The word is what a screen reader hears; the glyph is hidden from it.
+`CpStepperComponent` lists a flow's steps in order and says where the creator is. Each row is the step's name with its state under it in a word — "Not started", "You are here", "Done", "Skipped" — beside a glyph (○ ● ✓ ↷), and the current row is bordered, filled and carries `aria-current="step"`. The word is what a screen reader hears; the glyph is hidden from it. The border, the fill and the done glyph are the tool's tone, so a toned flow's steps take its colour; the flow's own `cp-progress` matches with `tone="tool"`, which a meter that is not the flow's progress never takes.
 
 It is a read-out. A row is not a link and takes no click: a flow moves by its own Back and Continue, which know what has to be saved and what the step still needs, and a stepper that let the creator jump would have to know that too. Use it for a flow whose steps are taken in order. Do not use it as tabs, as page navigation, or as a progress bar — `cp-progress` is the bar, and the two sit together. The consumer owns the `<nav>` it sits in and whether it folds away when the page is narrow.
 
@@ -299,11 +302,13 @@ A flow takes the creator through a piece of work in order, keeping what they ent
 1. `cp-page-head` — the flow's name, a lede saying what it makes and that it can be left and picked up, and the breadcrumb to the page it sits under. No action: a flow's actions belong to its steps.
 2. A polite live region that is always in the DOM, for what a step change or a save just did.
 3. Beside each other where there is room, stacked where there is not: the progress, and the step.
-   - **The progress** is the flow's own `cp-progress` over a `cp-stepper` in the flow's own `<nav>`. The stepper says where the creator is; it is not how they move. A flow may fold the stepper into a disclosure at a narrow width, as Brand setup does.
-   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. It holds the help disclosure, the legend, the step's `CpFormSectionComponent` sections, the save status, and Back / Continue last. When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
+   - **The progress** is the flow's own `cp-progress` (`tone="tool"`) over a `cp-stepper` in the flow's own `<nav>`. The stepper says where the creator is; it is not how they move. A flow may fold the stepper into a disclosure at a narrow width ("Step 2 of 4: all steps"), as Brand setup and a workflow run do; `injectFlowNarrow()` (`src/app/shared/workflow-shell/flow-narrow.ts`) is the run's width.
+   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. It holds the help disclosure, the legend, the step's `CpFormSectionComponent` sections, then a footer ruled off from them, as a workflow run's is: what the step still needs, the save status where the flow keeps one, Back and Continue in the first row, Save and exit (`ghost`) in the second, and anything that throws work away — Start over, Start a new piece — folded under "More options". When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
+   - **Continue is never disabled** in a workflow run, the Content Pipeline or Long-form. It is `primary` when the step is ready and `secondary` with `aria-disabled="true"` when it is not; pressed early it stays put, keeps its focus and announces what the step still needs. A disabled button would drop focus and say nothing.
+   - **Loading is drawn, not said.** The flow's own loading state is the frame in `cp-skeleton`s — a line and a block where the steps go, a card of lines and a block where the step goes — `aria-busy`, under one always-present status sentence. A step's own reads do the same, and where a step can start with nothing yet made (the looks, a plan) it is an illustrated first-use `cp-empty-state` with the one action that makes it.
 4. **The legend is the shell's.** One sentence per step about what is optional, printed by the shell above the step's sections from the step's own definition, so no step can forget it and none marks a field optional.
 5. **What stands in the way is said above the buttons it is about** — "Pick an idea to carry on" — not after them.
-6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
+6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over, `featured` because it is the only thing on the page; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
 7. A flow keeps its steps, their order, what is saved as the creator goes and how it resumes. The shape changes what is drawn, never when something is written.
 
 **A guided workflow run is drawn by the shared shell, not by its journey.** `WorkflowShellComponent`
@@ -316,7 +321,8 @@ registering what it holds and a `flush()` the shell calls before every move; a s
 page where it is done. The hosting page prints the `cp-page-head` from the shell's `described` output, with
 `workflowLede()` as the lede, because a routed page owns its one heading. `WorkflowRunPageComponent`
 (`/:ws/workflows/runs/:runId`) is the reference. The two flows above predate it and keep their own shells until their
-journeys move onto it.
+journeys move onto it; the Content Pipeline and Long-form draw the run's footer and fold (AU.5.4), so the three read
+alike while their steps, saving and addresses stay their own.
 
 A page that is none of the three — the recipe editor, the kitchen view, a studio that is one long form — still takes the frame and the page head, and owes nothing more to these shapes:
 
@@ -406,7 +412,7 @@ by hand.
   exception to the last is the single featured card a page may have (AU.3.3), whose surface is
   `--cp-tone-soft` mixed four parts to one with the sheet.
 - **At most one featured card per page.** `featured` on `cp-card` (or `cp-topic-card`) marks the one topic that
-  matters most there — the dashboard's most urgent, say — with the tool's tint (the primary's on an untoned page)
+  matters most there — the dashboard's most urgent, say, or My Day's top three or "Up next" — with the tool's tint (the primary's on an untoned page)
   and an edge in the tool's colour. Two of them feature nothing, so a page never has a second, and a list never
   features its items. Hold its actions to primary, secondary and text buttons: a ghost button's edge is lost on the
   tint. Under forced colours the tint goes, so its edge doubles. The tint is mixed with the sheet because the pure tint put an evergreen link at 4.41:1 on
@@ -489,18 +495,26 @@ it sits in and both themes. They are `aria-hidden`: the title and sentence besid
 They are not stock, not traced, not generated by a model, and no drawing of food carries a claim. Give
 `cp-empty-state` an `illustration` and a first-use state becomes the roomy layout — the drawing at 7rem in
 `--cp-tone-text`, the title at `--cp-font-size-xl`, the sentence at `--cp-font-size-md`, then its one action — while
-a no-results state stays compact with a small `search`. Without one it keeps the older glyph in a disc, so a page
+a no-results state stays compact with a small `search`. A part of a form with nothing in it yet — a recipe picker
+over an empty library (AU.5.2) — is compact too, but draws what is missing (`recipe`) rather than a search: nothing
+was searched for. So is a topic with nothing in it on a page of topics, drawn as what that topic is about (the
+dashboard's quiet topics). My Day's lead card shows both sizes (AU.6.2). Under its own "Up next", an empty day is
+the roomy `calendar` with "Open My Week". A day whose work is all done or all waiting is the compact `calendar`,
+because the Done or Waiting card follows it. The card keeps its heading id, so focus that was in it has somewhere
+to land, and it is not featured: nothing to do next is not what matters most. Without one it keeps the older glyph in a disc, so a page
 changes only when its own prompt draws it. The page contract fails a feature stylesheet that draws its own.
 
 **Loading looks like what is coming** (AU.2.3, AU.7). `cp-skeleton` draws the shape about to arrive — `line`
 (a block of them varies in width and ends short, so it reads as text, not a table), `block`, `circle`, or
-`card`, a `cp-media-card` silhouette that lays a `count` of itself out as a card grid — on `--cp-skeleton-base`,
+`card`, a `cp-media-card` silhouette that lays a `count` of itself out as a card grid, its picture 4:3 unless
+`pictureAspect` names the shape of the pictures coming (a run of generated ones, AU.5.2) — on `--cp-skeleton-base`,
 with `--cp-skeleton-shine` sweeping across it by `background-position` over `--cp-duration-skeleton`. Under
 reduced motion it is the plain base colour and does not move. Its host is `aria-hidden`; the region that is
 loading carries `aria-busy` and one visually hidden status sentence, so a screen reader hears that it is
 loading exactly once. `cp-list-shell` does all of this itself: while loading it draws `loadingLayout` (`rows`, the
 default, or `cards` — which a library of media cards passes, or its skeleton will not match the grid that replaces
-it). Its status region is always in the page, outside the busy body, and only its words change, because a live
+it). A list that is neither — a board's named columns — projects its own `[cpListShellLoading]`, which the shell draws
+in place of its skeleton, hidden from a screen reader, under the same status and `aria-busy` (AU.6.1). Its status region is always in the page, outside the busy body, and only its words change, because a live
 region that is inserted with its text, or held inside a busy subtree, may not be read. While the list is empty
 its pagination footer is offscreen, so a result summary there is still announced but no longer repeats the empty
 state above it; it is not hidden while loading, so a pager fetching the next page keeps the creator's focus.
@@ -527,12 +541,13 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
 | `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
 | `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
-| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's `.concept-card`, `.concept-title` or `.concept-dietary` (exempt until AU.5.1 adopts the card) | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
+| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's old `.concept-card`, `.concept-title` or `.concept-dietary` | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
 | `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
 | `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
 | `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
+| `loading` | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
 | `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
@@ -541,7 +556,7 @@ Before anything else about a new page, say which of the three shapes it is — a
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 
-A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's across-reading values, each with an edit control of its own, which AU.5.1 weighs against `dl[cpFacts]`'s `across` layout.
+A rule is never loosened to let a file through. The file is fixed, or it is listed in `EXEMPTIONS` at the top of the script with the rule it is excused from and the reason, so granting one costs a line a reviewer reads; an exemption that no longer excuses anything fails the run too. The standing ones are the shell's own fixed chrome, the kitchen view's print and across-the-kitchen rules, the recipe's method steps (which are not a flow's), two pairs of panels set side by side, and the first-draft review's yield and timing values, each with an editor that opens in place — which AU.5.1 kept off `dl[cpFacts]`'s `across` layout, because a strip sized to its content would reflow round an editor opening in it.
 
 ## Confirmations
 
@@ -621,7 +636,9 @@ opens) at the foot, so a row of tiles lines its links up. The figure is the serv
 it: the tile adds no precision, no unit and no arithmetic, and a page derives none (the dashboard rule). There is
 no trend arrow and no delta; a comparison appears only when the server sends one, and then as words in `context`.
 A figure that could not be read keeps its tile and label, leaves `value` empty and says so in a `cp-notice` in the
-default slot. Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
+default slot. A page whose figures all come from one answer that could not be read draws no tiles at all, and says
+so once where the figures would be — the AI allowance page's error card — and a figure the product describes rather
+than counts (an allowance in a unit other than credits) has no tile, because there is no number to show (AU.6.4). Tiles sit in `ul[cpCardGrid]`; the number is ink on a toned page too, never the tone. It is sized by
 the tile, not the window: `--cp-font-size-2xl` is its ceiling, and a narrow tile sets it smaller, so a four-digit
 count never runs out of its column. A feature draws no tile of its own: the page contract's `stat-tile` rule fails
 a `.stat`, `.kpi` or `.figure-tile` in a feature stylesheet.
@@ -735,14 +752,20 @@ with their own (AU.3.1). `CpGeneratedLabelComponent` is the mark: a ✦, hidden 
 words, which come from `kind` and are never passed in — "Drafted by AI" for words, "Made by AI" for a picture,
 "Read by AI" for a reading of something the creator supplied. Before it the product said this four ways
 ("Written for you", "Written by AI", "AI generated", "Generated", "AI suggested"); one fact gets one sentence.
-Two vocabularies held in TypeScript still say "Written for you" — Brand setup's origin pill and a prompt's source
-— and move when their own pages do.
+The two vocabularies held in TypeScript that said "Written for you" moved with their pages (AU.6.3). Brand setup
+marks a drafted part with the label, not a pill. A saved prompt carries the label on its card and in its head,
+and its source's own words, "Written for you" among them, are left only in "Where it came from", which is a fact
+about the record, not the mark.
 
 - **The label alone** goes where generated output already has an edge of its own: a post's card head, a
   long-form section's marks, under the alt-text field. A box around a card would be a box in a box.
 - **`CpGeneratedComponent`** is the surface, for output that has none: the label first, the output, then the
   creator's decisions in `[cpGeneratedActions]` — accept, edit, discard — always last and taking no room when
   there are none. It is a group named by its label, so a screen reader hears "Drafted by AI" before the content.
+- **A set of edged items takes the surface once, round the set** (AU.5.2): a grid of concepts or of pictures, each
+  a card or a tile. The set has no edge of its own, and what the creator does with the set as a whole — try
+  another brief, tidy away the rest — belongs in its `[cpGeneratedActions]`. One mark for the set, never one per
+  item; a single edged item keeps the label alone.
 - **Neutral, never a tone.** The label's edge and the surface's are a dashed `--cp-border-control`: the edge a
   creator already reads as "you can change this", dashed because a draft is not finished. Purple would put a
   second tone on four toned tools and make a tone mean "made by AI", which "Warmth inside the app" rules out.

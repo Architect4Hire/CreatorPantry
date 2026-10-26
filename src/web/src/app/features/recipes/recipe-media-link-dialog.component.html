@@ -72,10 +72,13 @@
           />
         </div>
 
+        <!-- Always present, so its words change as the versions are read rather than arriving with them (AU.7). -->
+        <p class="cp-sr-only" role="status">{{ keepsVersion() && versions().status === 'loading' ? 'Loading this picture’s versions…' : '' }}</p>
         @if (keepsVersion()) {
           @switch (versions().status) {
             @case ('loading') {
-              <p class="placeholder" role="status">Loading this picture’s versions…</p>
+              <!-- The version field as it will arrive: its label and its box. -->
+              <div class="versions-loading" aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
             }
             @case ('unavailable') {
               <cp-notice tone="error" role="alert">

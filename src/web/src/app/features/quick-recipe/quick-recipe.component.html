@@ -7,10 +7,19 @@
 
 <div class="quick">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+  <!-- Always present, and outside the busy layout (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
+  <p class="cp-sr-only loading-status" role="status" aria-live="polite">{{ phase() === 'loading' ? 'Loading Quick Recipe…' : '' }}</p>
 
   @switch (phase()) {
     @case ('loading') {
-      <cp-card><p class="plain" role="status">Loading…</p></cp-card>
+      <!-- The flow as it will arrive: its progress and three steps beside the step's card. -->
+      <div class="layout" aria-busy="true">
+        <div class="progress">
+          <cp-skeleton shape="line" />
+          <cp-skeleton shape="line" [count]="3" />
+        </div>
+        <cp-card><cp-skeleton shape="line" [count]="4" /></cp-card>
+      </div>
     }
     @case ('unavailable') {
       <cp-card>

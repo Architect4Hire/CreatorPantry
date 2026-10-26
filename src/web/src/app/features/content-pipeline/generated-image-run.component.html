@@ -3,6 +3,10 @@
   [intro]="wording().makeIntro"
   [sectionId]="sectionIdPrefix() + '-make'"
 >
+  <!-- Always in the page, so the words are announced when they change: a live region created already holding its
+       text may never be read. What is coming is drawn below, in the grid the pictures will land in. -->
+  <p class="cp-sr-only" role="status">{{ tracker.phase().kind === 'submitting' ? 'Asking for your pictures…' : '' }}</p>
+
   @if (sendText() === '') {
     <cp-notice tone="warning" role="status">{{ wording().noPrompt }}</cp-notice>
   } @else {
@@ -25,9 +29,6 @@
   }
 
   @switch (tracker.phase().kind) {
-    @case ('submitting') {
-      <p class="cp-muted" role="status">Asking for your pictures…</p>
-    }
     @case ('forbidden') {
       <cp-notice tone="error" role="alert">{{ wording().forbidden }}</cp-notice>
     }
@@ -74,12 +75,6 @@
     @if (failureSentence(); as sentence) {
       <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
     }
-
-    @if (provenance(); as made) {
-      <!-- Said with the label, not in muted text: that these pictures were generated is something a creator
-           should not have to look for (12.10l). -->
-      <cp-generated-label kind="picture" [provenance]="showMaker() ? made : ''" />
-    }
   }
 
   <div class="cp-actions">
@@ -114,51 +109,82 @@
   }
 </cp-form-section>
 
-@if (hasPictures()) {
+<!-- From the moment a run is asked for: the pictures made so far, and a skeleton tile for each still coming, in
+     the one grid they will all end up in, so nothing moves when a picture lands. -->
+@if (hasPictures() || pendingCount() > 0) {
   <cp-form-section
     [heading]="wording().chooseHeading"
     [intro]="wording().chooseIntro"
     [sectionId]="sectionIdPrefix() + '-choose'"
   >
-    <cp-notice role="note">
-      {{ wording().keepNote }}
-      @if (retentionText(); as deadline) {
-        These pictures stop being available after {{ deadline }}, {{ wording().expiryRemedy }}
-      }
-    </cp-notice>
-
-    <cp-content-pipeline-image-grid
-      [workspaceSlug]="workspaceSlug()"
-      [images]="stagedImages()"
-      [keepers]="keepers()"
-      [busy]="working()"
-      [saves]="saves()"
-      (keepToggled)="onKeepToggled($event)"
-      (declineRequested)="decline($event)"
-      (saveRequested)="requestSave($event)"
-      (opened)="onOpened($event)"
-    />
-
-    @if (report(); as sentence) {
-      <cp-notice role="status">{{ sentence }}</cp-notice>
+    @if (hasPictures()) {
+      <cp-notice role="note">
+        {{ wording().keepNote }}
+        @if (retentionText(); as deadline) {
+          These pictures stop being available after {{ deadline }}, {{ wording().expiryRemedy }}
+        }
+      </cp-notice>
     }
 
-    <p class="cp-muted">{{ chosenText() }}</p>
+    @if (hasPictures()) {
+      <!-- The set of tiles takes the surface once, round the set (DESIGN-SYSTEM.md, "Generated content"): that
+           these pictures were made by a model is something a creator should not have to look for (12.10l), whether
+           or not the server named what made them. Not before the first one lands: a mark round skeletons alone
+           would name output that does not exist yet. -->
+      <cp-generated kind="picture" [provenance]="showMaker() ? provenance() : ''">
+        <ng-container [ngTemplateOutlet]="grid" />
 
-    <div class="cp-actions">
-      <button cpButton type="button" variant="secondary" [disabled]="!canTidyUp()" (click)="tidyUp()">
-        {{ tidyLabel() }}
-      </button>
-    </div>
+        <div cpGeneratedActions>
+          <button cpButton type="button" variant="secondary" [disabled]="!canTidyUp()" (click)="tidyUp()">
+            {{ tidyLabel() }}
+          </button>
+        </div>
+      </cp-generated>
+    } @else {
+      <ng-container [ngTemplateOutlet]="grid" />
+    }
 
-    @if (nonKeepers().length === 0 && (keeperCount() > 0 || savedCount() > 0)) {
-      <p class="cp-muted">Nothing left to tidy away.</p>
+    @if (hasPictures()) {
+      @if (report(); as sentence) {
+        <cp-notice role="status">{{ sentence }}</cp-notice>
+      }
+
+      <p class="cp-muted">{{ chosenText() }}</p>
+
+      @if (nonKeepers().length === 0 && (keeperCount() > 0 || savedCount() > 0)) {
+        <p class="cp-muted">Nothing left to tidy away.</p>
+      }
     }
   </cp-form-section>
+} @else {
+  <!-- Where the pictures will land, before any have been asked for: a first use, not a blank. -->
+  <cp-empty-state
+    class="no-pictures"
+    title="No pictures yet"
+    description="Make the pictures and they appear here, side by side, to look at larger and to keep or decline."
+    illustration="picture"
+  />
 }
+
+<ng-template #grid>
+  <cp-content-pipeline-image-grid
+    [workspaceSlug]="workspaceSlug()"
+    [images]="stagedImages()"
+    [keepers]="keepers()"
+    [busy]="working()"
+    [saves]="saves()"
+    [pending]="pendingCount()"
+    [pendingAspect]="pendingAspect()"
+    (keepToggled)="onKeepToggled($event)"
+    (declineRequested)="decline($event)"
+    (saveRequested)="requestSave($event)"
+    (opened)="onOpened($event)"
+  />
+</ng-template>
 
 <cp-content-pipeline-image-lightbox
   [workspaceSlug]="workspaceSlug()"
+  [provenance]="showMaker() ? provenance() : ''"
   [images]="stagedImages()"
   [openAt]="lightboxId()"
   [keepers]="keepers()"

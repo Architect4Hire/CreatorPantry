@@ -795,7 +795,9 @@ public sealed class RecipeSearchRepositoryTests(SqlServerRecipeFixture fixture)
         var asset = SeededMediaAsset.For(owner, at: Now);
         asset.CurrentVersionNumber = versions;
         asset.AltText = "A cake, cooling on a rack";
+        // A tombstone says who as well as when (CK_MediaAssets_Deleted_Complete), or SQL Server refuses it.
         asset.DeletedAt = deleted ? Now : null;
+        asset.DeletedByMembershipId = deleted ? Guid.NewGuid() : null;
 
         db.MediaAssets.Add(asset);
         for (var number = 1; number <= versions; number++)

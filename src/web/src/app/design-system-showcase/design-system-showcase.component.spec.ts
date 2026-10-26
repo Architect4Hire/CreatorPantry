@@ -263,9 +263,12 @@ describe('DesignSystemShowcaseComponent', () => {
     const section = fixture.nativeElement.querySelector('section[aria-labelledby="media-card-heading"]') as HTMLElement;
     const [untoned, toned] = [...section.querySelectorAll('ul[cpCardGrid]')] as HTMLElement[];
     const drawings = (grid: HTMLElement) =>
-      [...grid.querySelectorAll('cp-media-card')].map((card) => card.querySelector('[cpMediaCardPicture]') ? 'photo' : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'));
+      [...grid.querySelectorAll('cp-media-card')].map((card) =>
+        card.querySelector('[cpMediaCardPicture]:not([data-cp-picture-pending])') ? 'photo' : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'),
+      );
 
-    expect(drawings(untoned)).toEqual(['photo', 'recipe', 'prompt', 'photo', 'brand', 'picture']);
+    // A picture still on its way shows the panel (AU.6.1).
+    expect(drawings(untoned)).toEqual(['photo', 'recipe', 'prompt', 'photo', 'brand', 'picture', 'picture']);
     expect(toned.getAttribute('data-cp-tone')).toBe('pink');
     expect(drawings(toned)).toEqual(['photo', 'picture', 'post']);
   });

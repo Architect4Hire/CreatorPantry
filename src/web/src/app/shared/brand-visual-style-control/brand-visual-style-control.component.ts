@@ -15,6 +15,7 @@ import {
   CpButtonComponent,
   CpCheckboxComponent,
   CpFieldComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -55,7 +56,7 @@ let nextId = 0;
 @Component({
   selector: 'cp-brand-visual-style-control',
   standalone: true,
-  imports: [CpButtonComponent, CpCheckboxComponent, CpFieldComponent, CpStatusPillComponent],
+  imports: [CpButtonComponent, CpCheckboxComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent],
   templateUrl: './brand-visual-style-control.component.html',
   styleUrl: './brand-visual-style-control.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

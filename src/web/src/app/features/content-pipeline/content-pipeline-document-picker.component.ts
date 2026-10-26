@@ -1,7 +1,16 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpFieldComponent, CpNoticeComponent, CpUploadItem, CpUploaderComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpFieldComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+  CpUploadItem,
+  CpUploaderComponent,
+} from '@creator-pantry/ui';
 
 import { ContentPipelineDocumentRef } from '../../models/content-pipeline.models';
 import {
@@ -59,6 +68,7 @@ function isImage(row: BrandLibraryRow): boolean {
     CpChoiceGroupComponent,
     CpFieldComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpUploaderComponent,
   ],
   templateUrl: './content-pipeline-document-picker.component.html',

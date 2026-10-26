@@ -7,12 +7,25 @@
 
 <div class="pipeline">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+  <!-- Always here, so the loading sentence is heard when it is set rather than arriving with its region. -->
+  <p class="cp-sr-only" role="status">{{ phase() === 'loading' ? 'Loading your pipeline…' : '' }}</p>
 
   @switch (phase()) {
     @case ('loading') {
-      <cp-card>
-        <p class="state" role="status">Loading your pipeline…</p>
-      </cp-card>
+      <!-- The shape of the flow that is coming (APP-003): the steps beside the step's card. -->
+      <div class="layout" aria-busy="true" data-testid="pipeline-loading">
+        <div class="progress">
+          <cp-skeleton shape="line" />
+          <cp-skeleton shape="block" />
+        </div>
+        <cp-card>
+          <div class="loading">
+            <cp-skeleton shape="line" [count]="2" />
+            <cp-skeleton shape="block" />
+            <cp-skeleton shape="line" [count]="4" />
+          </div>
+        </cp-card>
+      </div>
     }
     @case ('unavailable') {
       <cp-card>
@@ -61,7 +74,8 @@
       </cp-card>
     }
     @case ('resumable') {
-      <cp-topic-card heading="Pick up where you left off" headingId="resume-heading">
+      <!-- The page's one featured card: before the first step, it is the only thing on it (AU.5.4). -->
+      <cp-topic-card heading="Pick up where you left off" headingId="resume-heading" featured>
         <p class="plain">
           You were on <strong>{{ resumeStep().label }}</strong>. {{ keptText() }}
         </p>
@@ -76,10 +90,18 @@
   @if (phase() === 'editing' && currentIndex() !== null) {
     <div class="layout">
       <div class="progress">
-        <cp-progress label="Pipeline progress" [value]="percent()" [valueText]="progressText()" />
-        <nav aria-label="Pipeline progress">
-          <cp-stepper label="Pipeline steps" [steps]="stepperSteps()" />
-        </nav>
+        <cp-progress label="Pipeline progress" tone="tool" [value]="percent()" [valueText]="progressText()" />
+        <!-- Folded where the steps would push the step itself below the fold, as a workflow run's are. -->
+        @if (narrow()) {
+          <details class="steps-disclosure cp-disclosure">
+            <summary>{{ progressText() }}: all steps</summary>
+            <cp-stepper label="Pipeline steps" [steps]="stepperSteps()" />
+          </details>
+        } @else {
+          <nav aria-label="Pipeline progress">
+            <cp-stepper label="Pipeline steps" [steps]="stepperSteps()" />
+          </nav>
+        }
       </div>
 
       <div class="step-slot">
@@ -195,33 +217,49 @@
               }
             }
 
-            <cp-creative-context-save-notice [session]="session" />
+            <!-- The workflow run's footer (WorkflowShellComponent): what is kept, what stands in the way, then the
+                 moves — Back and Continue, Save and exit under them, and Start over folded away. -->
+            <div class="footer">
+              <cp-creative-context-save-notice [session]="session" />
 
-            <p class="saved cp-muted" role="status">{{ savedText() }}</p>
+              <!-- What the step still needs, said above the buttons it is about. -->
+              @if (needed(); as missing) {
+                <p class="needed cp-muted" data-testid="needed">{{ missing }}</p>
+              }
 
-            <!-- What the step still needs, said above the buttons it is about. -->
-            @if (step.slug === 'picture') {
-              @if (pictureProblem(); as needed) {
-                <p class="cp-muted">{{ needed }}</p>
-              }
-            }
-            @if (step.slug === 'images' && !canContinue()) {
-              <p class="cp-muted">Keep at least one picture to carry on.</p>
-            }
+              <p class="save-status" role="status">{{ savedText() }}</p>
 
-            <div cpTopicCardActions class="cp-actions">
-              @if (!isFirst()) {
-                <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
-              }
-              <!-- Offered on a step that is not built too: it asks nothing, and the step after it may well
-                   be finished (AF.4.3). The last step has nowhere to continue to, which `canContinue` says. -->
-              @if (!isLast()) {
-                <button cpButton type="button" variant="primary" [disabled]="!canContinue()" (click)="continue()">
-                  Continue
-                </button>
-              }
-              <button cpButton type="button" variant="text" (click)="saveAndExit()">Save and exit</button>
-              <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
+              <div class="cp-actions primary-row">
+                @if (!isFirst()) {
+                  <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+                }
+                <!-- Offered on a step that is not built too: it asks nothing, and the step after it may well
+                     be finished (AF.4.3). The last step has nowhere to continue to. Never disabled, as a
+                     workflow run's is not: pressed early it stays put and says what is still needed. -->
+                @if (!isLast()) {
+                  <button
+                    cpButton
+                    type="button"
+                    [variant]="canContinue() ? 'primary' : 'secondary'"
+                    [attr.aria-disabled]="canContinue() ? null : 'true'"
+                    (click)="continue()"
+                  >
+                    Continue
+                  </button>
+                }
+              </div>
+
+              <div class="cp-actions secondary-row">
+                <button cpButton type="button" variant="ghost" (click)="saveAndExit()">Save and exit</button>
+              </div>
+
+              <!-- Collapsed until asked for: starting over is not part of doing the step. -->
+              <details class="more cp-disclosure">
+                <summary>More options</summary>
+                <div class="cp-actions more-actions">
+                  <button cpButton type="button" variant="text" (click)="startOver()">Start over</button>
+                </div>
+              </details>
             </div>
           </cp-topic-card>
         }

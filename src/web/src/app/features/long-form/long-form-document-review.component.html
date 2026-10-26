@@ -4,9 +4,16 @@
      with the region that would have announced it. -->
 <p class="cp-sr-only" role="status" aria-live="polite" data-testid="announcement">{{ announcement() }}</p>
 
+<!-- Always here, so the sentence is heard when it is set; the skeleton is what shows. -->
+<p class="cp-sr-only" role="status">{{ load() === 'loading' ? 'Loading your piece…' : '' }}</p>
+
 @switch (load()) {
   @case ('loading') {
-    <p class="cp-muted" role="status">Loading your piece…</p>
+    <!-- The piece coming: its state line, then a few sections. -->
+    <div class="loading" aria-busy="true" data-testid="document-loading">
+      <cp-skeleton shape="line" />
+      <cp-skeleton shape="block" [count]="3" />
+    </div>
   }
   @case ('not_found') {
     <cp-notice tone="error" role="alert">This draft is no longer here.</cp-notice>
@@ -252,6 +259,8 @@
 
           @if (card.waiting) {
             <p class="cp-muted" role="status">Writing this section now…</p>
+            <!-- The shape of the words coming, under the sentence that says so. -->
+            <div aria-busy="true" data-testid="section-writing"><cp-skeleton shape="line" [count]="3" /></div>
           }
 
           @if (card.warnings.length > 0 && card.draft === null) {

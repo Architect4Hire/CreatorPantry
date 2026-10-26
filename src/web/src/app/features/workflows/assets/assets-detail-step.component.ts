@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { ContentChannel } from '../../../models/brand-profile.models';
@@ -51,12 +51,16 @@ type Read =
     CpNoticeComponent,
     DamAssetEditComponent,
     DamAssetLineageComponent,
+    CpSkeletonComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ read().status === 'loading' ? 'Reading your picture…' : '' }}</p>
     @switch (read().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Reading your picture…</p>
+        <!-- The picture arriving, in its own shape. -->
+        <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
       }
       @case ('no-picture') {
         <cp-notice role="note">

@@ -270,11 +270,20 @@ describe('WorkflowShellComponent', () => {
     fixture.autoDetectChanges();
     await fixture.whenStable();
 
-    expect(text()).toContain('Loading your run…');
+    // Said once, offscreen; what shows is the flow arriving, not a sentence (AU.7).
+    const status = el().querySelector('p.loading-status[role="status"]')!;
+    expect(status.classList).toContain('cp-sr-only');
+    expect(status.textContent).toBe('Loading your run…');
+    const busy = el().querySelector('.layout[aria-busy="true"]')!;
+    expect(busy.querySelectorAll('.progress cp-skeleton').length).toBe(2);
+    expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(1);
+    expect(busy.textContent!.trim()).toBe('');
 
     answer({ status: 'found', run: fresh() });
     await settle();
     expect(text()).toContain('Start your recipe');
+    expect(el().querySelector('p.loading-status[role="status"]')!.textContent).toBe('');
+    expect(el().querySelector('.layout[aria-busy="true"]')).toBeNull();
     expect(fixture.componentInstance.described).toEqual({ definitionKey: 'recipe.create', goal: 'Create a recipe', expectedOutcome: 'A saved recipe you can keep improving.' });
   });
 

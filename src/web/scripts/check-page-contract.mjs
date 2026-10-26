@@ -52,6 +52,7 @@ export const RULES = {
   illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
   generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
   skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
+  loading: "Something on its way is drawn as the shape that is coming (`cp-skeleton`, or `cp-list-shell`'s `loadingLayout`) and said once, in a visually hidden status that is always present (`.cp-sr-only`, role=\"status\"). No visible \"Loading…\", \"Reading your…\" or \"Checking…\" sentence stands in for it. A pager button may say \"Loading more…\"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).",
   enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
@@ -113,12 +114,17 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/features/ai/recipe-first-draft-review.component.css',
     rule: 'card-grid',
-    reason: "`.draft-fields-grid` reads a draft's short values across, each with its own edit control from a shared template. `dl[cpFacts]` has had an `across` layout since AU.4.3, for figures with no control; whether these can move to it is AU.5.1's to settle.",
+    reason: "`.draft-fields-grid` holds a draft's yield and timing, each value with an editor that opens in place. Settled in AU.5.1: `dl[cpFacts] layout=\"across\"` sizes each fact to its content and wraps, so an editor opening in one would reflow its neighbours under the creator's hand, and its bold value would bolden \"Not suggested\" and the Edit control. The draft's provenance, which has no control, moved to `across`.",
   },
   {
-    file: 'src/app/features/ai/recipe-concept-studio.component.css',
-    rule: 'option-card',
-    reason: 'The concept cards this rule was written against (AU.3.2). AU.5.1 rebuilds them as `cp-option-card`; this line goes when it does. Until then it excuses the whole file from this rule, so a new option card drawn here is excused too.',
+    file: 'src/app/shared/channel-posts/channel-post-picture.component.html',
+    rule: 'loading',
+    reason: "\"Reading the picture…\" is an AI reading of the picture that the creator has just asked for and is spending allowance on, not something already theirs on its way. It reports an action, as \"Asking for your posts…\" does (AU.7).",
+  },
+  {
+    file: 'src/app/features/content-pipeline/content-pipeline-idea-step.component.html',
+    rule: 'loading',
+    reason: "\"Reading the name you typed…\" is an AI reading of the dish name the creator has just asked for, not something already theirs on its way. It reports an action (AU.7).",
   },
 ];
 
@@ -244,6 +250,69 @@ export function templateViolations(html) {
   // A sentence that mentions one is prose, and a record's kind bound from code ({{ kindLabel() }}) is not text here.
   for (const m of markup.matchAll(GENERATED_LABEL)) {
     found.push({ rule: 'generated', line: lineAt(markup, m.index), what: `writes its own "${m[1]}" label` });
+  }
+  found.push(...loadingViolations(markup));
+  return found;
+}
+
+/**
+ * The words a sentence starts with when it stands in for something on its way (AU.7). A sentence about what the
+ * creator has just done — "Saving…", "Asking…", "Writing this one again…" — reports an action, and is not one.
+ */
+const LOADING_VERB = '(?:Loading|Reading|Checking|Finding|Looking|Counting|Opening|Fetching|Comparing|Picking up|Taking you)\\b';
+/**
+ * Where such a sentence can be on screen: a text node (which may hold an apostrophe or an interpolation), or a
+ * string in single or double quotes (an interpolation's or a binding's), each read whole.
+ */
+const LOADING_SENTENCES = [
+  new RegExp(`>(\\s*(${LOADING_VERB}[^<]*?…)\\s*)<`, 'g'),
+  new RegExp(`'(${LOADING_VERB}[^'\\n]*…)'`, 'g'),
+  new RegExp(`"(${LOADING_VERB}[^"\\n]*…)"`, 'g'),
+];
+const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+/** The hidden-status class, as a whole class name: not `not-cp-sr-only`. */
+const SR_ONLY = /\bclass=["'](?:[^"']*\s)?cp-sr-only(?=[\s"'])/;
+
+/** Every element a position in a template sits inside, outermost first, each with its tag and attributes. */
+function enclosingElements(markup, index) {
+  const open = [];
+  for (const m of markup.slice(0, index).matchAll(/<(\/?)([a-zA-Z][\w-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)(\/?)>/g)) {
+    const [, closing, tag, attributes, selfClosing] = m;
+    if (closing) {
+      const at = open.map((element) => element.tag).lastIndexOf(tag);
+      if (at >= 0) open.splice(at);
+    } else if (!selfClosing && !VOID_ELEMENTS.has(tag.toLowerCase())) {
+      open.push({ tag, attributes });
+    }
+  }
+  return open;
+}
+
+/**
+ * `loading` (AU.7, APP-003): a sentence saying something is on its way, where the reader can see it. Inside a
+ * `.cp-sr-only` element it is the one hidden status a loading area keeps, and is fine. As a button's own label it
+ * is about what the button is doing: only a bare "Loading…" fails there, because "Loading more…" is the pager's
+ * word and "Checking…" on a Check again button is the creator's own action. Text bound from code is not seen here.
+ */
+export function loadingViolations(markup) {
+  const found = [];
+  const candidates = LOADING_SENTENCES.flatMap((pattern) =>
+    [...markup.matchAll(pattern)].map((m) => {
+      const sentence = m.length > 2 ? m[2] : m[1];
+      return { sentence: sentence.trim(), at: m.index + m[0].indexOf(sentence) };
+    }),
+  );
+  for (const { sentence, at } of candidates) {
+    // Inside the hidden status at any depth (a span within it included), it is the one status, and fine.
+    const around = enclosingElements(markup, at);
+    if (around.some((element) => SR_ONLY.test(element.attributes))) continue;
+    const isButton = around.some((element) => element.tag === 'button' || /\scpButton(?=[\s>=]|$)/.test(element.attributes));
+    if (isButton && sentence !== 'Loading…') continue;
+    if (!isButton && sentence === 'Loading more…') {
+      found.push({ rule: 'loading', line: lineAt(markup, at), what: 'says "Loading more…" outside the button that loads it' });
+      continue;
+    }
+    found.push({ rule: 'loading', line: lineAt(markup, at), what: `shows "${sentence}" in place of what is coming` });
   }
   return found;
 }

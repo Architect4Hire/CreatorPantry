@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnInit, inject, input, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { BrandSourceDocumentService } from '../../../services/brand-source-document.service';
@@ -20,12 +20,15 @@ type Counted =
 @Component({
   selector: 'cp-brand-voice-examples-step',
   standalone: true,
-  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, BrandLibraryUploadComponent],
+  imports: [RouterLink, CpButtonComponent, CpNoticeComponent, BrandLibraryUploadComponent, CpSkeletonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
+    <p class="cp-sr-only" role="status">{{ counted().status === 'loading' ? 'Counting your examples…' : '' }}</p>
     @switch (counted().status) {
       @case ('loading') {
-        <p class="cp-muted" role="status">Counting your examples…</p>
+        <!-- The count arriving, as a line or two. -->
+        <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
       }
       @case ('unavailable') {
         <cp-notice tone="error" role="alert">

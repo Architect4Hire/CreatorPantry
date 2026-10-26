@@ -11,6 +11,9 @@ import { CpMediaCardComponent, CpMediaCardHeadingLevel } from './media-card.comp
       @if (picture()) {
         <img cpMediaCardPicture alt="A loaf on a board" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
       }
+      @if (pending() !== null) {
+        <span cpMediaCardPicture class="loader" [attr.data-cp-picture-pending]="pending() ? '' : null">picture</span>
+      }
       <a cpMediaCardTitle href="/pictures/1">{{ title() }}</a>
       @if (badge()) {
         <span cpMediaCardBadges class="badge">AI generated</span>
@@ -29,6 +32,8 @@ class HostComponent {
   readonly illustration = signal<CpIllustrationName | undefined>(undefined);
   readonly level = signal<CpMediaCardHeadingLevel>(3);
   readonly picture = signal(false);
+  /** A projected loader: null for none, true while its picture is on the way, false once it has it. */
+  readonly pending = signal<boolean | null>(null);
   readonly badge = signal(false);
   readonly action = signal(false);
 }
@@ -71,6 +76,34 @@ const shown = (selector: string): boolean => getComputedStyle(el.querySelector(s
 
 describe('CpMediaCardComponent', () => {
   afterEach(() => el?.remove());
+
+  // AU.6.1: a picture still on its way is the panel, not a grey box — and stays laid out for its loader to watch.
+  describe('a picture on its way', () => {
+    it('shows the panel in the picture’s frame, with the pending picture laid out under it and unseen', () => {
+      mount((h) => h.pending.set(true));
+
+      expect(shown('.panel')).toBeTrue();
+      expect(shown('.picture')).toBeTrue();
+      expect(getComputedStyle(el.querySelector('.picture')!).opacity).toBe('0');
+
+      const frame = el.querySelector('.picture')!.getBoundingClientRect();
+      const panel = el.querySelector('.panel')!.getBoundingClientRect();
+      expect(frame.width).toBeGreaterThan(0);
+      expect(frame.top).toBe(panel.top);
+      expect(frame.height).toBe(panel.height);
+      // The title still sits under one frame, not under two.
+      expect(el.querySelector('.title')!.getBoundingClientRect().top).toBeGreaterThanOrEqual(panel.bottom);
+    });
+
+    it('gives the frame back to the picture once the mark comes off', () => {
+      mount((h) => h.pending.set(true));
+      host.pending.set(false);
+      fixture.detectChanges();
+
+      expect(shown('.panel')).toBeFalse();
+      expect(getComputedStyle(el.querySelector('.picture')!).opacity).toBe('1');
+    });
+  });
 
   it('is one article in a card, titled by a heading that holds the consumer’s own link', () => {
     mount();
