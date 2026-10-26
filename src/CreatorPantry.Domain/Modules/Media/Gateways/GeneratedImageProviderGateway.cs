@@ -64,8 +64,13 @@ public enum GeneratedImageProviderOutcome
 }
 
 /// <param name="Bytes">Present exactly when the outcome is <see cref="GeneratedImageProviderOutcome.Generated"/>.</param>
+/// <param name="QualitySent">The quality the provider was asked for, when its model takes one (AP.2.3).</param>
+/// <param name="SizeSent">The size the provider was asked for, in the model's own terms.</param>
 public sealed record GeneratedImageResult(
-    GeneratedImageProviderOutcome Outcome, ReadOnlyMemory<byte> Bytes = default);
+    GeneratedImageProviderOutcome Outcome,
+    ReadOnlyMemory<byte> Bytes = default,
+    string? QualitySent = null,
+    string? SizeSent = null);
 
 /// <summary>
 /// The boundary to the image deployment, in terms of the application's own types.
@@ -220,8 +225,16 @@ public sealed class GeneratedImageProviderGateway(
             data.Data.Length,
             clock.ElapsedMilliseconds);
 
-        return new GeneratedImageResult(GeneratedImageProviderOutcome.Generated, data.Data);
+        // What the generator says it asked for, under provider-neutral keys; absent from a generator that does
+        // not say, and trimmed to the column like the provider's other identifiers.
+        return new GeneratedImageResult(
+            GeneratedImageProviderOutcome.Generated,
+            data.Data,
+            Bounded(ImageGenerationSettings.Read(data.AdditionalProperties, ImageGenerationSettings.QualitySent), MediaPolicy.GenerationQualityMaxLength),
+            Bounded(ImageGenerationSettings.Read(data.AdditionalProperties, ImageGenerationSettings.SizeSent), MediaPolicy.GenerationSizeMaxLength));
     }
+
+    private static string? Bounded(string? value, int maxLength) => value is { Length: > 0 } && value.Length <= maxLength ? value : null;
 
     /// <summary>
     /// Turns a provider failure into an outcome, from the shapes this module is allowed to name.

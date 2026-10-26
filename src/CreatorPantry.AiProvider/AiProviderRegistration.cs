@@ -89,6 +89,7 @@ public static class AiProviderRegistration
         if (IsConfigured(builder, AiModelConnections.Images))
         {
             var images = ImagesConnection(builder);
+            var profiles = ImageModelProfiles(builder, images.Model);
 
             // Venice.ai, over plain HTTP (B-15 as amended for Venice): Azure.AI.Inference, which serves chat
             // and embeddings, has no image route, and Venice's own needs no SDK. A named client, so the key
@@ -114,7 +115,7 @@ public static class AiProviderRegistration
                 .RemoveAllResilienceHandlers()
                 .AddTypedClient<IImageGenerator>((client, services) =>
                     new VeniceImageGenerator(
-                            client, images.Model, services.GetRequiredService<ILogger<VeniceImageGenerator>>())
+                            client, images.Model, profiles, services.GetRequiredService<ILogger<VeniceImageGenerator>>())
                         .AsBuilder()
                         .UseOpenTelemetry(services.GetRequiredService<ILoggerFactory>())
                         .Build(services));
@@ -326,6 +327,43 @@ public static class AiProviderRegistration
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Every configured Venice model's sizing profile, checked, and refused when the configured model has none
+    /// (AP.2.3).
+    /// </summary>
+    /// <remarks>
+    /// The same rule as a half-made images connection string: a host with no image provider starts, but one
+    /// pointed at a model it cannot size correctly does not. Guessing a model's dialect would send a field it
+    /// rejects — a 400 on every picture — or leave its dearest default quality in force. Every environment,
+    /// because the model is configuration a developer changes too.
+    /// </remarks>
+    private static IReadOnlyDictionary<string, VeniceModelProfile> ImageModelProfiles(
+        IHostApplicationBuilder builder, string configuredModel)
+    {
+        var profiles = new Dictionary<string, VeniceModelProfile>(StringComparer.OrdinalIgnoreCase);
+        builder.Configuration.GetSection(VeniceModelProfile.SectionName).Bind(profiles);
+
+        var problems = profiles
+            .SelectMany(profile => profile.Value.Problems().Select(problem => $"{profile.Key}: {problem}"))
+            .ToList();
+
+        if (problems.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"{VeniceModelProfile.SectionName} has a profile that cannot be used — {string.Join("; ", problems)}.");
+        }
+
+        if (!profiles.ContainsKey(configuredModel))
+        {
+            throw new InvalidOperationException(
+                $"The configured image model '{configuredModel}' has no sizing profile under "
+                + $"{VeniceModelProfile.SectionName}. Add one from the model's constraints in Venice's "
+                + "GET /models?type=image, so its size and quality are stated rather than left to its defaults.");
+        }
+
+        return profiles;
     }
 
     private static void RequireDevelopment(IHostApplicationBuilder builder, string connectionName)

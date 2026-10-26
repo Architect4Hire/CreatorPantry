@@ -146,7 +146,12 @@ Sources, both read 2026-10-10: the `POST /image/generate` reference at
 - **Observed and unexplained:** all 15 stored pictures are 1024×768, and 4:3 is not among the configured
   model's listed aspect ratios. The spike measured the files; it did not establish which model made them.
 
-**Decision on the provider side: keep requesting `png`, and send no size.**
+**Decision on the provider side: keep requesting `png`, and send no size.** *Amended 2026-10-26 by AP.2.3: a
+size and quality are now always sent, in each model's own dialect, from a per-model profile — see the AP.2.3
+amendment to B-15 in `baseline.md`. PNG stands. A reading of the same sources that day found 44 image models
+(17 resolution-tier, 20 aspect-ratio, 7 pixel-sized), and `gpt-image-2-5-flare` priced by quality at each tier:
+low/medium/high $0.03/$0.04/$0.07 at 1K, $0.04/$0.05/$0.15 at 2K, $0.05/$0.07/$0.23 at 4K. Venice's generic
+schema now states a 7,500-character prompt and `additionalProperties: false`.*
 
 - The stored original is the creator's picture and the source of every rendition, so it should be lossless.
 - PNG is the one format the managed codec can read. Asking for `webp` would make a smaller original that can

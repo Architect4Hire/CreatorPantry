@@ -368,7 +368,8 @@ Venice.ai. Where the bullets above name Azure OpenAI, `AzureOpenAIImageGenerator
   (10,000 characters) clears the longest prompt this application composes; several cheaper Venice models
   stop at 1,500–7,500 and would refuse long prompts.
 - **The request is fixed**: PNG, no watermark, safe mode on, no size. No size because Venice's models
-  disagree on how one is expressed and reject each other's fields.
+  disagree on how one is expressed and reject each other's fields. *Superseded for size and quality by the
+  AP.2.3 amendment below; PNG, no watermark and safe mode stand.*
 - **A flagged picture is a refusal.** With safe mode on Venice answers 200 with a blurred image and a header;
   that is reported as `provider-refused` rather than staged.
 - **This client opts out of the ServiceDefaults resilience handler.** Its ten-second attempt timeout is
@@ -376,6 +377,38 @@ Venice.ai. Where the bullets above name Azure OpenAI, `AzureOpenAIImageGenerator
   operation-level requeue are the only bounds.
 - **Failure mapping is unchanged**, and now needs no translation: a non-success status is thrown as
   `HttpRequestException` with the status and none of Venice's text. 402 (no balance) is `provider-refused`.
+
+*Amended 2026-10-26 by AI-pricing prompt AP.2.3 (`ai-pricing.md` B-45, PRICE-003): size and quality are now
+always sent.* Leaving them out left each model's default in force, and `gpt-image-2-5-flare`'s default quality is
+its dearest ($0.07 at 1K, against $0.04 at medium).
+
+- **One sizing profile per model**, in configuration (`Venice:Models:<id>`, identical in the API and Worker,
+  held together by `VeniceProfileTableTests`), from the model's own `model_spec.constraints` in Venice's
+  `GET /models?type=image`. A profile names how the model is sized — `Resolution` (tier and aspect ratio, plus
+  quality when the model lists qualities), `AspectRatio`, or `Pixels` (width and height on its divisor, at most
+  1,280) — its allowed values, this deployment's defaults, and its prompt character limit.
+- **A request carries its own kind's fields and no other's**, because Venice rejects a field a model does not
+  take (its schema is `additionalProperties: false`). The configured model sends `quality: medium`,
+  `resolution: 1K`, `aspect_ratio: 1:1` — the 1:1 every picture already had. Shipped profiles:
+  `gpt-image-2-5-flare`, `qwen-image-2-1-turbo`, `seedream-v5-lite`, `z-image-turbo` — one of each kind, and
+  the AP.3.3 draft candidates.
+- **Nothing is guessed.** A configured model with no profile, or a profile that contradicts itself, refuses to
+  start in every environment (a host with no image provider still starts). A per-request model with no
+  profile, a value the profile does not offer, or a prompt over the model's limit is refused before anything is
+  sent, as a 400-shaped `HttpRequestException` the Media gateway already maps to `provider-refused` — terminal,
+  never retried, nothing spent. A prompt is never cut.
+- **The prompt limit is the model's own**: 10,000 for `gpt-image-2-5-flare` (owner, 2026-10-26), although
+  Venice's generic request schema states 1–7,500. Media composes at most 8,023 characters (a 4,000-character
+  prompt, the avoid heading and a 4,000-character avoid list).
+- **What was sent is provenance.** The generator stamps the quality and size it sent on the returned image under
+  provider-neutral keys (`Managers/Ai/ImageGenerationSettings`), and Media stores them on `GeneratedImage` as
+  `GenerationQuality` and `GenerationSize` (`1K 1:1`, `1:1`, `1024x1024`), migration
+  `AddGeneratedImageGenerationSettings`. Older pictures read null. They are not on the API yet.
+- **Choosing a size or quality is provider-neutral.** `ImageGenerationOptions.ImageSize` and the
+  `ImageGenerationSettings` keys in its `AdditionalProperties`; nothing sets them yet, so each profile's
+  defaults apply. AP.3.1's quality classes are what will.
+- **Verified live** on 2026-10-26: `gpt-image-2-5-flare` at medium, 1K, 1:1 returned a 2.8 MB PNG in 15.7 s
+  (`LiveVeniceImageCheck`, gated on `CP_LIVE_IMAGES`).
 
 **Options considered:** an OpenAI-compatible endpoint via `Aspire.Hosting.OpenAI` (stable rather than
 preview, and redirectable at Ollama or LM Studio with `WithEndpoint`) was rejected because it fixes both

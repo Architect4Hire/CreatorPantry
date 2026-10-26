@@ -182,6 +182,46 @@ public sealed class AiRegistrationTests
     }
 
     /// <summary>
+    /// A configured image model with no sizing profile is not guessed at (AP.2.3): its dialect is unknown, so
+    /// any size sent could be a 400 on every picture, and none sent leaves its dearest default quality in force.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_configured_image_model_with_no_sizing_profile_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: "Endpoint=https://venice.example/api/v1;Key=images-test-key;Model=unprofiled-model"));
+
+        Assert.Contains("'unprofiled-model' has no sizing profile", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A profile that contradicts itself is refused by name, whichever model is configured.</summary>
+    [Fact]
+    public void A_sizing_profile_that_cannot_be_used_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:broken-model:Sizing"] = "Resolution",
+                ["Venice:Models:broken-model:Resolutions:0"] = "1K",
+                ["Venice:Models:broken-model:DefaultResolution"] = "4K",
+                ["Venice:Models:broken-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:broken-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:broken-model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains("broken-model: DefaultResolution must be one of Resolutions", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// A connection string missing a part would otherwise start cleanly and fail every generation with a
     /// status that reads like a provider outage. The refusal names the part and never quotes the key.
     /// </summary>
@@ -211,6 +251,12 @@ public sealed class AiRegistrationTests
         ["Ai:Quota:ModelRates:phi-4-mini-instruct-generic-gpu:CreditsPerMillionOutputTokens"] = "1",
         ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:InputPerMillionTokens"] = "0.001",
         ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:OutputPerMillionTokens"] = "0.001",
+
+        // The image fixture's model, sized by aspect ratio (AP.2.3): a configured model must have a profile.
+        ["Venice:Models:image-model-test:Sizing"] = "AspectRatio",
+        ["Venice:Models:image-model-test:AspectRatios:0"] = "1:1",
+        ["Venice:Models:image-model-test:DefaultAspectRatio"] = "1:1",
+        ["Venice:Models:image-model-test:PromptCharacterLimit"] = "10000",
     };
 
     private const string AzureChat =

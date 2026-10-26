@@ -91,6 +91,18 @@ public sealed class GeneratedImage : IWorkspaceOwned
     public string? ModelDeployment { get; set; }
 
     /// <summary>
+    /// The quality the provider was asked for (<c>low</c>, <c>medium</c>, <c>high</c>), as the generator reported
+    /// sending it (AP.2.3). Null for a model that takes no quality, and for pictures made before it was recorded.
+    /// </summary>
+    public string? GenerationQuality { get; set; }
+
+    /// <summary>
+    /// The size the provider was asked for, in the model's own terms — <c>1K 1:1</c>, <c>1:1</c> or
+    /// <c>1024x1024</c>. Null for pictures made before it was recorded, when no size was sent at all.
+    /// </summary>
+    public string? GenerationSize { get; set; }
+
+    /// <summary>
     /// When the sweep may expire this image, set from <see cref="MediaPolicy.StagedImageTimeToLive"/> at
     /// staging.
     /// </summary>

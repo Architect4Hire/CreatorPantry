@@ -94,6 +94,8 @@ public interface IGeneratedImageGenerationDataLayer
         string mediaType,
         int width,
         int height,
+        string? qualitySent,
+        string? sizeSent,
         CancellationToken cancellationToken);
 
     /// <summary>Settles the operation as succeeded, partially succeeded, or failed.</summary>
@@ -239,6 +241,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
         string mediaType,
         int width,
         int height,
+        string? qualitySent,
+        string? sizeSent,
         CancellationToken cancellationToken)
     {
         var operation = await operations.FindAsync(operationId, cancellationToken);
@@ -288,6 +292,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
             ProviderName = operation.ProviderName ?? string.Empty,
             ModelName = operation.ModelName ?? string.Empty,
             ModelDeployment = operation.ModelDeployment,
+            GenerationQuality = qualitySent,
+            GenerationSize = sizeSent,
             RetentionExpiresAt = now + MediaPolicy.StagedImageTimeToLive,
             CreatedAt = now,
             StatusChangedAt = now,

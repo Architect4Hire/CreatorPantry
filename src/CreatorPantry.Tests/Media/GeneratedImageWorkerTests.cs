@@ -232,6 +232,41 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         Assert.Equal(FakeImageGenerator.Model, image.ModelName);
     }
 
+    /// <summary>
+    /// What the provider was asked for — quality and size, as the generator reports sending them — is recorded
+    /// with the picture (AP.2.3), so a picture's cost and look can be traced to the request that made it.
+    /// </summary>
+    [Fact]
+    public async Task A_staged_image_records_the_quality_and_size_the_provider_was_asked_for()
+    {
+        _generator.Stamp = new AdditionalPropertiesDictionary
+        {
+            [ImageGenerationSettings.QualitySent] = "medium",
+            [ImageGenerationSettings.SizeSent] = "1K 1:1",
+        };
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        await RunAsync();
+
+        Assert.All(await ImagesAsync(WorkspaceA, requested.Id), image =>
+        {
+            Assert.Equal("medium", image.GenerationQuality);
+            Assert.Equal("1K 1:1", image.GenerationSize);
+        });
+    }
+
+    /// <summary>A generator that reports nothing leaves both unknown rather than guessed.</summary>
+    [Fact]
+    public async Task A_staged_image_from_a_generator_that_reports_nothing_records_no_quality_or_size()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        await RunAsync();
+
+        var image = Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+        Assert.Null(image.GenerationQuality);
+        Assert.Null(image.GenerationSize);
+    }
+
     [Fact]
     public async Task A_staging_key_is_derived_from_the_workspace_operation_and_variant()
     {
@@ -1073,6 +1108,9 @@ internal sealed class FakeImageGenerator : IImageGenerator
 
     public void Returns(byte[] bytes) => _bytes = bytes;
 
+    /// <summary>What the generator reports having sent, stamped on each image it returns (AP.2.3).</summary>
+    public AdditionalPropertiesDictionary? Stamp { get; set; }
+
     /// <summary>Answers differently on one call, counted from zero. For partial-batch tests.</summary>
     public void ReturnsAt(int call, byte[] bytes) => _perCall[call] = bytes;
 
@@ -1125,7 +1163,8 @@ internal sealed class FakeImageGenerator : IImageGenerator
             ? scripted
             : _bytes ?? BrandSourceSampleFiles.Png(width: 16, height: 12);
 
-        return Task.FromResult(new ImageGenerationResponse([new DataContent(bytes, "image/png")]));
+        return Task.FromResult(new ImageGenerationResponse(
+            [new DataContent(bytes, "image/png") { AdditionalProperties = Stamp }]));
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)

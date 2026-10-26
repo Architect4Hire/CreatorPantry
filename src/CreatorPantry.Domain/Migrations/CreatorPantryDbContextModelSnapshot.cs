@@ -4506,6 +4506,14 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("GeneratedImageOperationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("GenerationQuality")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("GenerationSize")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<int>("Height")
                         .HasColumnType("int");
 

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using CreatorPantry.AiProvider;
+using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.Extensions.AI;
@@ -140,10 +141,180 @@ public sealed class VeniceImageGeneratorTests
         Assert.True(sent.GetProperty("hide_watermark").GetBoolean());
         Assert.True(sent.GetProperty("safe_mode").GetBoolean());
         Assert.False(sent.GetProperty("return_binary").GetBoolean());
+    }
 
-        // No size in either dialect: Venice's models reject the one they do not speak.
-        Assert.False(sent.TryGetProperty("width", out _));
-        Assert.False(sent.TryGetProperty("aspect_ratio", out _));
+    /// <summary>
+    /// Each sizing kind sends its own fields and none of another's (AP.2.3): Venice rejects a field a model does
+    /// not take, so one sent "just in case" is a 400 on every picture. With nothing asked for, the profile's
+    /// defaults are sent — never the model's own, which for the configured model is its dearest quality.
+    /// </summary>
+    [Theory]
+    [InlineData(Model, "medium", "1K", "1:1", null, null)]
+    [InlineData(TierNoQuality, null, "1K", "1:1", null, null)]
+    [InlineData(AspectOnly, null, null, "1:1", null, null)]
+    [InlineData(Pixels, null, null, null, 1024, 1024)]
+    public async Task Each_sizing_kind_sends_its_own_fields_and_no_others(
+        string model, string? quality, string? resolution, string? aspect, int? width, int? height)
+    {
+        var handler = new StubHandler(_ => Generated(Picture));
+
+        await GeneratorOver(handler).GenerateAsync(
+            new ImageGenerationRequest("a loaf of bread"),
+            new ImageGenerationOptions { ModelId = model },
+            TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(handler.Body!);
+        var sent = body.RootElement;
+
+        Assert.Equal(model, sent.GetProperty("model").GetString());
+        AssertField(sent, "quality", quality);
+        AssertField(sent, "resolution", resolution);
+        AssertField(sent, "aspect_ratio", aspect);
+        AssertField(sent, "width", width);
+        AssertField(sent, "height", height);
+        Assert.Equal("png", sent.GetProperty("format").GetString());
+        Assert.True(sent.GetProperty("safe_mode").GetBoolean());
+    }
+
+    /// <summary>
+    /// A value asked for through the provider-neutral keys is sent as the model spells it, so a later caller
+    /// writing <c>2k</c> gets <c>2K</c> on the wire.
+    /// </summary>
+    [Fact]
+    public async Task A_requested_quality_and_resolution_are_sent_as_the_model_names_them()
+    {
+        var handler = new StubHandler(_ => Generated(Picture));
+
+        await GeneratorOver(handler).GenerateAsync(
+            new ImageGenerationRequest("a loaf of bread"),
+            new ImageGenerationOptions
+            {
+                AdditionalProperties = new()
+                {
+                    [ImageGenerationSettings.Quality] = "HIGH",
+                    [ImageGenerationSettings.Resolution] = "2k",
+                    [ImageGenerationSettings.AspectRatio] = "3:2",
+                },
+            },
+            TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Equal("high", body.RootElement.GetProperty("quality").GetString());
+        Assert.Equal("2K", body.RootElement.GetProperty("resolution").GetString());
+        Assert.Equal("3:2", body.RootElement.GetProperty("aspect_ratio").GetString());
+    }
+
+    /// <summary>
+    /// What was sent comes back on the picture, and through the Media gateway, so provenance records the request
+    /// the picture came from.
+    /// </summary>
+    [Fact]
+    public async Task What_was_sent_is_stamped_on_the_picture_and_reaches_the_gateway()
+    {
+        var handler = new StubHandler(_ => Generated(Picture));
+
+        var response = await GeneratorOver(handler).GenerateAsync(
+            new ImageGenerationRequest("a loaf of bread"), cancellationToken: TestContext.Current.CancellationToken);
+        var image = Assert.IsType<DataContent>(Assert.Single(response.Contents));
+
+        Assert.Equal("medium", image.AdditionalProperties![ImageGenerationSettings.QualitySent]);
+        Assert.Equal("1K 1:1", image.AdditionalProperties[ImageGenerationSettings.SizeSent]);
+
+        var result = await GatewayOver(new StubHandler(_ => Generated(Picture)))
+            .GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal("medium", result.QualitySent);
+        Assert.Equal("1K 1:1", result.SizeSent);
+    }
+
+    [Theory]
+    [InlineData(AspectOnly, null, "1:1")]
+    [InlineData(Pixels, null, "1024x1024")]
+    public async Task A_model_with_no_quality_stamps_only_its_size(string model, string? quality, string size)
+    {
+        var response = await GeneratorOver(new StubHandler(_ => Generated(Picture))).GenerateAsync(
+            new ImageGenerationRequest("a loaf of bread"),
+            new ImageGenerationOptions { ModelId = model },
+            TestContext.Current.CancellationToken);
+        var image = Assert.IsType<DataContent>(Assert.Single(response.Contents));
+
+        Assert.Equal(quality, image.AdditionalProperties!.TryGetValue(ImageGenerationSettings.QualitySent, out var sent) ? sent : null);
+        Assert.Equal(size, image.AdditionalProperties[ImageGenerationSettings.SizeSent]);
+    }
+
+    /// <summary>
+    /// Refused before anything is sent, and in the shape the gateway reads as refused and terminal: a model with
+    /// no profile is not guessed at, a value the model does not offer is not sent, and a prompt past the model's
+    /// limit is not cut.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(RefusedBeforeSending))]
+    public async Task A_request_the_model_cannot_take_is_refused_without_being_sent(
+        string why, string prompt, ImageGenerationOptions options)
+    {
+        var handler = new StubHandler(_ => Generated(Picture));
+
+        var failure = await Assert.ThrowsAsync<HttpRequestException>(() => GeneratorOver(handler).GenerateAsync(
+            new ImageGenerationRequest(prompt), options, TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, failure.StatusCode);
+        Assert.Null(handler.Method);
+        Assert.False(string.IsNullOrWhiteSpace(why));
+
+        var result = await new GeneratedImageProviderGateway(
+                new RefusingGenerator(failure), NullLogger<GeneratedImageProviderGateway>.Instance)
+            .GenerateAsync(prompt, avoid: null, TestContext.Current.CancellationToken);
+        Assert.Equal(GeneratedImageProviderOutcome.Refused, result.Outcome);
+    }
+
+    public static TheoryData<string, string, ImageGenerationOptions> RefusedBeforeSending() => new()
+    {
+        { "a model with no profile", "a loaf", new ImageGenerationOptions { ModelId = "no-such-model" } },
+        { "a prompt past the model's limit", new string('a', 101), new ImageGenerationOptions() },
+        { "a quality the model does not offer", "a loaf", Asking(ImageGenerationSettings.Quality, "ultra") },
+        { "a resolution the model does not offer", "a loaf", Asking(ImageGenerationSettings.Resolution, "8K") },
+        { "a quality for a model that takes none", "a loaf", Asking(ImageGenerationSettings.Quality, "high", AspectOnly) },
+        { "a pixel size for a tiered model", "a loaf", new ImageGenerationOptions { ImageSize = new System.Drawing.Size(1024, 1024) } },
+        { "a pixel size off the divisor", "a loaf", new ImageGenerationOptions { ModelId = Pixels, ImageSize = new System.Drawing.Size(1000, 1001) } },
+        { "a pixel size over the model's largest", "a loaf", new ImageGenerationOptions { ModelId = Pixels, ImageSize = new System.Drawing.Size(2048, 1024) } },
+    };
+
+    /// <summary>A refusal for an over-long prompt names the limit, never the prompt.</summary>
+    [Fact]
+    public async Task An_over_limit_refusal_does_not_carry_the_prompt()
+    {
+        var prompt = "secret family recipe " + new string('x', 100);
+
+        var failure = await Assert.ThrowsAsync<HttpRequestException>(() => GeneratorOver(new StubHandler(_ => Generated(Picture)))
+            .GenerateAsync(new ImageGenerationRequest(prompt), cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain("secret family recipe", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("100", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(BrokenProfiles))]
+    public void A_profile_that_cannot_be_used_says_why(string expected, VeniceModelProfile profile)
+    {
+        Assert.Contains(profile.Problems(), problem => problem.Contains(expected, StringComparison.Ordinal));
+    }
+
+    public static TheoryData<string, VeniceModelProfile> BrokenProfiles() => new()
+    {
+        { "Sizing", new VeniceModelProfile { PromptCharacterLimit = 10 } },
+        { "PromptCharacterLimit", Profile(VeniceSizing.AspectRatio, aspects: ["1:1"], defaultAspect: "1:1", limit: 0) },
+        { "DefaultResolution", Profile(VeniceSizing.Resolution, resolutions: ["1K"], defaultResolution: "2K", aspects: ["1:1"], defaultAspect: "1:1") },
+        { "DefaultQuality", Profile(VeniceSizing.Resolution, resolutions: ["1K"], defaultResolution: "1K", aspects: ["1:1"], defaultAspect: "1:1", qualities: ["low"], defaultQuality: "high") },
+        { "takes no Resolutions", Profile(VeniceSizing.AspectRatio, aspects: ["1:1"], defaultAspect: "1:1", resolutions: ["1K"]) },
+        { "MaxDimension", new VeniceModelProfile { Sizing = VeniceSizing.Pixels, WidthHeightDivisor = 8, MaxDimension = 2048, DefaultWidth = 1024, DefaultHeight = 1024, PromptCharacterLimit = 10 } },
+        { "multiples of WidthHeightDivisor", new VeniceModelProfile { Sizing = VeniceSizing.Pixels, WidthHeightDivisor = 8, MaxDimension = 1280, DefaultWidth = 1001, DefaultHeight = 1024, PromptCharacterLimit = 10 } },
+        { "provenance can record", Profile(VeniceSizing.Resolution, resolutions: ["1K"], defaultResolution: "1K", aspects: ["1:1"], defaultAspect: "1:1", qualities: ["extraordinarily-high"], defaultQuality: "extraordinarily-high") },
+    };
+
+    [Fact]
+    public void Every_test_profile_is_usable()
+    {
+        Assert.All(Profiles, profile => Assert.Empty(profile.Value.Problems()));
     }
 
     /// <summary>
@@ -274,7 +445,89 @@ public sealed class VeniceImageGeneratorTests
     private static VeniceImageGenerator GeneratorOver(StubHandler handler) => new(
         new HttpClient(handler) { BaseAddress = new Uri("https://venice.test/api/v1/") },
         Model,
+        Profiles,
         NullLogger<VeniceImageGenerator>.Instance);
+
+    private const string TierNoQuality = "test-tier-model";
+    private const string AspectOnly = "test-aspect-model";
+    private const string Pixels = "test-pixel-model";
+
+    /// <summary>One profile per sizing kind; the configured <see cref="Model"/> is tiered with qualities.</summary>
+    private static readonly Dictionary<string, VeniceModelProfile> Profiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [Model] = Profile(
+            VeniceSizing.Resolution,
+            resolutions: ["1K", "2K", "4K"], defaultResolution: "1K",
+            qualities: ["low", "medium", "high"], defaultQuality: "medium",
+            aspects: ["1:1", "3:2"], defaultAspect: "1:1",
+            limit: 100),
+        [TierNoQuality] = Profile(
+            VeniceSizing.Resolution, resolutions: ["1K", "2K"], defaultResolution: "1K", aspects: ["1:1"], defaultAspect: "1:1"),
+        [AspectOnly] = Profile(VeniceSizing.AspectRatio, aspects: ["1:1", "4:3"], defaultAspect: "1:1"),
+        [Pixels] = new VeniceModelProfile
+        {
+            Sizing = VeniceSizing.Pixels,
+            WidthHeightDivisor = 8,
+            MaxDimension = 1280,
+            DefaultWidth = 1024,
+            DefaultHeight = 1024,
+            PromptCharacterLimit = 7500,
+        },
+    };
+
+    private static VeniceModelProfile Profile(
+        VeniceSizing sizing,
+        string[]? resolutions = null,
+        string? defaultResolution = null,
+        string[]? qualities = null,
+        string? defaultQuality = null,
+        string[]? aspects = null,
+        string? defaultAspect = null,
+        int limit = 10_000)
+    {
+        var profile = new VeniceModelProfile
+        {
+            Sizing = sizing,
+            DefaultResolution = defaultResolution,
+            DefaultQuality = defaultQuality,
+            DefaultAspectRatio = defaultAspect,
+            PromptCharacterLimit = limit,
+        };
+        profile.Resolutions.AddRange(resolutions ?? []);
+        profile.Qualities.AddRange(qualities ?? []);
+        profile.AspectRatios.AddRange(aspects ?? []);
+
+        return profile;
+    }
+
+    private static ImageGenerationOptions Asking(string key, string value, string? model = null) =>
+        new() { ModelId = model, AdditionalProperties = new() { [key] = value } };
+
+    private static void AssertField(JsonElement sent, string name, object? expected)
+    {
+        if (expected is null)
+        {
+            Assert.False(sent.TryGetProperty(name, out _), $"'{name}' was sent and the model does not take it.");
+            return;
+        }
+
+        var value = sent.GetProperty(name);
+        Assert.Equal(expected.ToString(), value.ValueKind == JsonValueKind.Number ? value.GetInt32().ToString() : value.GetString());
+    }
+
+    /// <summary>Stands in for the generator so the gateway's reading of a refusal can be checked on its own.</summary>
+    private sealed class RefusingGenerator(Exception failure) : IImageGenerator
+    {
+        public Task<ImageGenerationResponse> GenerateAsync(
+            ImageGenerationRequest request, ImageGenerationOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw failure;
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
 
     private static HttpResponseMessage Generated(byte[] bytes) => Json(
         HttpStatusCode.OK,

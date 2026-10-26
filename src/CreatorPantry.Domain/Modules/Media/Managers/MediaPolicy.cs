@@ -44,6 +44,12 @@ public static class MediaPolicy
     /// <summary>The longest a stored provider or model identifier may be.</summary>
     public const int ProviderIdentifierMaxLength = 200;
 
+    /// <summary>The quality a picture was asked for at the provider, as the model names it (AP.2.3).</summary>
+    public const int GenerationQualityMaxLength = CreatorPantry.Domain.Managers.Ai.ImageGenerationSettings.QualitySentMaxLength;
+
+    /// <summary>The size a picture was asked for at the provider, in the model's terms (<c>1K 1:1</c>, <c>1024x1024</c>).</summary>
+    public const int GenerationSizeMaxLength = CreatorPantry.Domain.Managers.Ai.ImageGenerationSettings.SizeSentMaxLength;
+
     /// <summary>
     /// The longest a sanitized provider failure summary may be.
     /// </summary>

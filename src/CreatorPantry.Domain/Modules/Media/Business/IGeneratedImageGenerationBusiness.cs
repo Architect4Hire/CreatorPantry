@@ -370,6 +370,8 @@ internal sealed class GeneratedImageGenerationBusiness(
             inspection.MediaType!,
             inspection.Width,
             inspection.Height,
+            generated.QualitySent,
+            generated.SizeSent,
             cancellationToken);
 
         switch (stage)
