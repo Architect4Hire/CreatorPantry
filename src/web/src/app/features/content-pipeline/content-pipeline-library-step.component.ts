@@ -12,7 +12,12 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { CpButtonComponent, CpNoticeComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { ContentPipelineDraft } from '../../models/content-pipeline.models';
 import { CreativeContextReference, keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
@@ -101,6 +106,7 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
   selector: 'cp-content-pipeline-library-step',
   standalone: true,
   imports: [
+    CpSkeletonComponent,
     RouterLink,
     CpButtonComponent,
     CpNoticeComponent,

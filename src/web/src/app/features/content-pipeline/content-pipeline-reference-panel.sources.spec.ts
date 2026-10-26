@@ -453,7 +453,7 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
     it('lets go of a picture a hand-off put on the context when another is chosen through the session', async () => {
       await mount({ references: [{ kind: 'GeneratedImage', generatedImageId: 'img-handed-over' }] });
 
-      expect(el.querySelector('.chosen-name')?.textContent).toContain('A generated picture');
+      expect(el.querySelector('.chosen-name')?.textContent).toContain('A picture you made with AI');
 
       await click('Remove');
       await click('Choose The long table');
@@ -506,6 +506,21 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       expect(el.textContent).toContain('What the picture shows');
       expect(el.textContent).toContain('Hard side light from the left');
       expect(el.querySelector('.confidence')?.textContent?.trim()).toBeTruthy();
+    });
+
+    it('is marked as read by AI, says to check it against the picture, and keeps its actions last', async () => {
+      await mount();
+      await click('Choose A loaf I like');
+      await click('Read this picture');
+      await answerReading(READING);
+
+      const surface = el.querySelector('cp-generated') as HTMLElement;
+      expect(surface.textContent).toContain('Read by AI');
+      expect(surface.textContent).toContain('Hard side light from the left');
+      expect(surface.textContent).toContain('Check each part against the picture');
+      const actions = surface.querySelector('[cpGeneratedActions]') as HTMLElement;
+      expect(actions.textContent).toContain('Use this as my prompt');
+      expect(actions.textContent).toContain('Discard this reading');
     });
 
     it('heads the reading one level below its host, at the level the host says', async () => {

@@ -11,7 +11,13 @@ import {
   output,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CpButtonComponent, CpFieldComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpFieldComponent,
+  CpGeneratedComponent,
+  CpGeneratedLabelComponent,
+  CpNoticeComponent,
+} from '@creator-pantry/ui';
 
 import { AiOperationStatusComponent } from '../ai/ai-operation-status.component';
 import { AiOperationTracker } from '../ai/ai-operation-tracker';
@@ -54,6 +60,8 @@ import { IdempotencyKey } from './content-pipeline-idempotency';
     FormsModule,
     CpButtonComponent,
     CpFieldComponent,
+    CpGeneratedComponent,
+    CpGeneratedLabelComponent,
     CpNoticeComponent,
     AiOperationStatusComponent,
     AiAllowanceNoticeComponent,

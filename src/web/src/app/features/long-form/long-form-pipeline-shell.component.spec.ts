@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { WORKFLOW_SHELL_NARROW_QUERY } from '../../shared/workflow-shell/workflow-shell.component';
 import { AiProposalStatus } from '../../models/ai-proposal.models';
 import { WorkspaceRole } from '../../models/auth.models';
 import { BrandProfile } from '../../models/brand-profile.models';
@@ -200,8 +201,18 @@ async function create(
     brand?: BrandProfileOutcome;
     guide?: { name: string; versionNumber: number } | null | 'unavailable';
     setup?: () => void;
+    /** A window as narrow as the one a workflow run folds its steps at. */
+    narrow?: boolean;
   } = {},
 ): Promise<void> {
+  if (options.narrow) {
+    const real = window.matchMedia.bind(window);
+    spyOn(window, 'matchMedia').and.callFake((query: string) =>
+      query === WORKFLOW_SHELL_NARROW_QUERY
+        ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList)
+        : real(query),
+    );
+  }
   leaveAnswer = true;
   leaveAsked = 0;
   confirmAnswer = true;
@@ -387,6 +398,61 @@ describe('LongFormPipelineShellComponent', () => {
 
     // A live region that exists before it has anything to say.
     expect(root().querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
+    // The flow's progress in the tool's tone, with its stepper.
+    expect(root().querySelector('cp-progress')?.getAttribute('data-tone')).toBe('tool');
+  });
+
+  it("lays out the step's moves as a workflow run does: the way on, then Save and exit, then More options", async () => {
+    await create({ url: `${PIECE}/outline`, setup: () => piece('Draft') });
+
+    const footer = root().querySelector('cp-topic-card .footer') as HTMLElement;
+    const rowOf = (label: string): string | undefined =>
+      Array.from(footer.querySelectorAll('button')).find((each) => text(each) === label)?.closest('.cp-actions')?.className;
+
+    expect(rowOf('Back')).toContain('primary-row');
+    expect(rowOf('Continue')).toContain('primary-row');
+    expect(rowOf('Save and exit')).toContain('secondary-row');
+    const more = footer.querySelector('details.more') as HTMLDetailsElement;
+    expect(text(more.querySelector('summary')!)).toBe('More options');
+    expect(more.open).toBeFalse();
+    expect(text(more)).toContain('Start a new piece');
+    // What stands in the way sits above the buttons it is about.
+    const needed = footer.querySelector('[data-testid="needed"]') as HTMLElement;
+    expect(needed.compareDocumentPosition(button('Continue')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps Continue focusable before the next step opens, and says what is missing when it is pressed', async () => {
+    await create({ url: `${PIECE}/outline`, setup: () => piece('Draft') });
+
+    const continueButton = button('Continue')!;
+    expect(continueButton.disabled).toBeFalse();
+    continueButton.focus();
+
+    await click('Continue');
+
+    expect(router.url).withContext('it stays on the step').toBe(`${PIECE}/outline`);
+    expect(document.activeElement).toBe(button('Continue'));
+    expect(text(root().querySelector('[aria-live="polite"]')!)).toBe('Approve the plan to start writing.');
+  });
+
+  it('folds the steps into a disclosure on a narrow screen, as a workflow run does', async () => {
+    await create({ narrow: true });
+
+    const fold = root().querySelector<HTMLDetailsElement>('details.steps-disclosure')!;
+    expect(fold).not.toBeNull();
+    expect(fold.open).toBeFalse();
+    expect(text(fold.querySelector('summary')!)).toBe('Step 1 of 4: all steps');
+    expect(root().querySelector('nav[aria-label="Long-form progress"]')).toBeNull();
+  });
+
+  it('draws the flow coming while the workspace is read, and says it once', async () => {
+    await create({ memberships: 'loading' });
+
+    const loading = root().querySelector('[data-testid="long-form-loading"]') as HTMLElement;
+    expect(loading.getAttribute('aria-busy')).toBe('true');
+    expect(loading.querySelectorAll('cp-skeleton').length).toBeGreaterThan(0);
+    expect(text(loading)).toBe('');
+    expect(text()).toContain('Loading your piece…');
   });
 
   it('asks only what the piece is about, and shows the voice and the audience as read from the brand', async () => {
@@ -559,7 +625,7 @@ describe('LongFormPipelineShellComponent', () => {
     await create({ url: `${PIECE}/outline`, setup: () => piece('Draft') });
 
     expect(plan().workspaceSlug()).toBe(SLUG);
-    expect(button('Continue')?.disabled).toBeTrue();
+    expect(button('Continue')?.getAttribute('aria-disabled')).toBe('true');
     expect(text(root().querySelector('[data-testid="needed"]')!)).toBe('Approve the plan to start writing.');
 
     plan().approved.emit(draftOf('d-piece', 'ctx-piece', 'Outlined'));
@@ -574,14 +640,14 @@ describe('LongFormPipelineShellComponent', () => {
     await create({ url: `${PIECE}/write`, setup: () => piece('Outlined') });
 
     expect(documentSurface().show()).toBe('write');
-    expect(button('Continue')?.disabled).toBeTrue();
+    expect(button('Continue')?.getAttribute('aria-disabled')).toBe('true');
     expect(text(root().querySelector('[data-testid="needed"]')!)).toBe('Write at least one section to read the piece whole.');
 
     // The surface reads the piece as the creator writes; the shell learns from that, not from a second read.
     documentSurface().documentRead.emit(documentAt('Writing'));
     await settle();
 
-    expect(button('Continue')?.disabled).toBeFalse();
+    expect(button('Continue')?.getAttribute('aria-disabled')).toBeNull();
     await click('Continue');
 
     expect(router.url).toBe(`${PIECE}/review`);
@@ -621,6 +687,8 @@ describe('LongFormPipelineShellComponent', () => {
     });
 
     expect(text(root().querySelector('#cp-long-form-resume-heading')!)).toBe('Pick up where you left off');
+    // The page's one featured card: before the first step it is all there is.
+    expect(root().querySelectorAll('cp-card.cp-card--featured').length).toBe(1);
     expect(text()).toContain('You were on Review and accept.');
     expect(root().querySelector('cp-stepper')).toBeNull();
 

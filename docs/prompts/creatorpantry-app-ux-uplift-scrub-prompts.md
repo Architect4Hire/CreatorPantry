@@ -1306,7 +1306,7 @@ UTILIZATION: design-review.
 BEHAVIOR: Show the layout; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
 
-## AU.5.4 Content Pipeline and Long-form
+## AU.5.4 Content Pipeline and Long-form - done
 
 ```text
 SCOPE: Orange tone on both flows. Each step's card takes cp-generated for generated output, skeletons for its
@@ -1321,6 +1321,83 @@ UTILIZATION: design-review.
 BEHAVIOR: Show one step of each flow before/after; wait for approval; implement with specs; run npm run build
 and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped. The owner asked for both flows to be reworked using the workflow run's UI, and
+approved doing both in this prompt rather than splitting Long-form out. "The workflow UI" is read as how the run
+shell (`WorkflowShellComponent`) looks and behaves. Both journeys keep their own shells, steps, saving and addresses:
+moving them onto server-side runs would change steps and saving, which this prompt rules out.*
+
+*The library:*
+
+- *`cp-progress` takes `tone="tool"`, a flow's own progress filled with `--cp-tone`. A meter that could mean
+  something keeps its own fill. That covers an allowance, or a length against a limit.*
+- *`cp-stepper`'s current row and done glyph draw with the tone tokens. They are the primary's on an untoned page,
+  so workflow runs and Brand setup look as they did.*
+- *The Image Studio, Social Studio and AI Recipe Studio progress bars take `tone="tool"` too, to match their steppers.*
+- *The showcase has a toned flow example. README and DESIGN-SYSTEM.md say so.*
+
+*Both flows take the run's frame:*
+
+- *The footer is ruled off from the step. It holds what the step still needs, the save status (pipeline only), Back
+  and Continue, then Save and exit (`ghost`). Start over (pipeline) or Start a new piece (Long-form) is folded under
+  "More options".*
+- *Continue is never disabled. It is secondary with `aria-disabled` until the step is ready. Pressed early, it stays
+  put and announces what is missing.*
+- *The stepper folds into "Step N of 4: all steps" at the run's width. `injectFlowNarrow()` is in
+  `shared/workflow-shell/flow-narrow.ts`.*
+- *Loading is a skeleton of the frame under one status sentence.*
+- *The resume card is `featured`.*
+
+*The Content Pipeline:*
+
+- *The prompt panel's "written for you" notice is now `cp-generated-label`, with "From the look you picked" or
+  "From your reference photograph" as provenance.*
+- *"The prompt we wrote" sits in `cp-generated`, with "Use this wording instead" as its action. The private
+  `.generated` box is gone.*
+- *The reference reading is `cp-generated kind="reading"` and says to check each part against the picture.
+  Discard and "Use this as my prompt" are its actions. "A generated picture" is now "A picture you made with AI".*
+- *The looks:*
+  - *They start as an illustrated "No looks yet" (`picture`).*
+  - *Two skeleton blocks show while they are planned.*
+  - *They sit in `cp-generated`, with "Plan different looks" as its action.*
+  - *The shot choice stays outside the surface.*
+- *Skeletons replace the loading lines in the brand defaults, channels, idea, kept pictures, board and the run's
+  pictures.*
+- *The idea is deliberately not labelled. No model makes it.*
+
+*Long-form:*
+
+- *The plan's "No plan yet" is illustrated (`article`).*
+- *Skeleton sections show while the plan loads or is being planned, and while the piece loads.*
+- *Skeleton lines show under "Writing this section now…".*
+
+*`design-review` ran once:*
+
+- *Fixed:*
+  - *A Long-form Continue that could be pressed silently. Both shells now always announce a reason.*
+  - *The stacked JSDoc on `cp-progress`.*
+  - *DESIGN-SYSTEM.md's footer wording ("the save status where the flow keeps one").*
+- *Not taken, because each was already true before this prompt and is not a regression:*
+  - *Status sentences created already holding their loading text. Same as the Image Studio.*
+  - *The pipeline's save status inside the keyed step block.*
+  - *Sub-heads at h4/h5 under the cards' h2. This is the AU.5.2 owner note.*
+  - *"Plan some looks" using `disabled`.*
+- *Wrong: it reported that the run shell's narrow signal does not follow resizes. It does
+  (`workflow-shell.component.ts`).*
+
+*Left for the owner:*
+
+- *On an orange flow the tool's tone and a warning share orange. The glyph and words carry the warning, so it is not
+  a WCAG failure. A pressed-again Continue with the same reason is not re-announced.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), safety copy holds, and the library
+is 476/476. The full showcase run was 6224/6245 with 1 skipped and 20 reds, all in known order-dependent families:*
+
+- *landing;*
+- *My Week's moving specs;*
+- *brand defaults, which met a "Discard unsaved changes?" dialog left open by another spec.*
+
+*Those files then passed alone, 270/270. The affected features and the showcase pass alone, 840/840.*
 
 ## AU.6.1 Pictures and the Content Board
 

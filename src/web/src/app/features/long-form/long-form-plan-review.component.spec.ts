@@ -355,6 +355,8 @@ describe('LongFormPlanReviewComponent', () => {
     await create();
 
     expect(text()).toContain('No plan yet');
+    // A first use, drawn: the empty state carries an illustration in the tool's tone.
+    expect(el.querySelector('cp-empty-state cp-illustration')).not.toBeNull();
     await click('Ask for a plan');
 
     expect(service.outlineRequests.length).toBe(1);
@@ -389,6 +391,9 @@ describe('LongFormPlanReviewComponent', () => {
     expect(service.watched).toEqual(['r-7']);
     expect(text()).toContain('Planning your piece');
     expect(text()).not.toContain('No plan yet');
+    // The plan coming, drawn under the sentence that says so.
+    expect(el.querySelector('[data-testid="plan-loading"]')?.getAttribute('aria-busy')).toBe('true');
+    expect(el.querySelectorAll('[data-testid="plan-loading"] cp-skeleton').length).toBeGreaterThan(0);
   });
 
   it('says a failed outline changed nothing, and offers another try', async () => {

@@ -617,6 +617,7 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       expect(rows()).toEqual([]);
       expect(text()).not.toContain('Workspace A’s picture');
       expect(text()).toContain('Loading the pictures you kept…');
+      expect(el.querySelector('[data-testid="kept-loading"] cp-skeleton')).not.toBeNull();
     });
   });
 });

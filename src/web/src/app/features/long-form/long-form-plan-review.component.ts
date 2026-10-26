@@ -12,6 +12,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   CpButtonComponent,
   CpEmptyStateComponent,
@@ -19,6 +20,7 @@ import {
   CpFormSectionComponent,
   CpGeneratedLabelComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
   CpStatusPillTone,
 } from '@creator-pantry/ui';
@@ -89,6 +91,7 @@ interface WriteProblem {
   selector: 'cp-long-form-plan-review',
   standalone: true,
   imports: [
+    NgTemplateOutlet,
     AiAllowanceNoticeComponent,
     CpButtonComponent,
     CpEmptyStateComponent,
@@ -96,6 +99,7 @@ interface WriteProblem {
     CpFormSectionComponent,
     CpGeneratedLabelComponent,
     CpNoticeComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
   ],
   templateUrl: './long-form-plan-review.component.html',

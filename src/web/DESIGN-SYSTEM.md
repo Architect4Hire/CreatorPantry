@@ -203,7 +203,7 @@ A library's toolbar holds `cp-search-field` and `cp-select-field`, each around t
 
 ### The steps of a flow
 
-`CpStepperComponent` lists a flow's steps in order and says where the creator is. Each row is the step's name with its state under it in a word — "Not started", "You are here", "Done", "Skipped" — beside a glyph (○ ● ✓ ↷), and the current row is bordered, filled and carries `aria-current="step"`. The word is what a screen reader hears; the glyph is hidden from it.
+`CpStepperComponent` lists a flow's steps in order and says where the creator is. Each row is the step's name with its state under it in a word — "Not started", "You are here", "Done", "Skipped" — beside a glyph (○ ● ✓ ↷), and the current row is bordered, filled and carries `aria-current="step"`. The word is what a screen reader hears; the glyph is hidden from it. The border, the fill and the done glyph are the tool's tone, so a toned flow's steps take its colour; the flow's own `cp-progress` matches with `tone="tool"`, which a meter that is not the flow's progress never takes.
 
 It is a read-out. A row is not a link and takes no click: a flow moves by its own Back and Continue, which know what has to be saved and what the step still needs, and a stepper that let the creator jump would have to know that too. Use it for a flow whose steps are taken in order. Do not use it as tabs, as page navigation, or as a progress bar — `cp-progress` is the bar, and the two sit together. The consumer owns the `<nav>` it sits in and whether it folds away when the page is narrow.
 
@@ -299,11 +299,13 @@ A flow takes the creator through a piece of work in order, keeping what they ent
 1. `cp-page-head` — the flow's name, a lede saying what it makes and that it can be left and picked up, and the breadcrumb to the page it sits under. No action: a flow's actions belong to its steps.
 2. A polite live region that is always in the DOM, for what a step change or a save just did.
 3. Beside each other where there is room, stacked where there is not: the progress, and the step.
-   - **The progress** is the flow's own `cp-progress` over a `cp-stepper` in the flow's own `<nav>`. The stepper says where the creator is; it is not how they move. A flow may fold the stepper into a disclosure at a narrow width, as Brand setup does.
-   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. It holds the help disclosure, the legend, the step's `CpFormSectionComponent` sections, the save status, and Back / Continue last. When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
+   - **The progress** is the flow's own `cp-progress` (`tone="tool"`) over a `cp-stepper` in the flow's own `<nav>`. The stepper says where the creator is; it is not how they move. A flow may fold the stepper into a disclosure at a narrow width ("Step 2 of 4: all steps"), as Brand setup and a workflow run do; `injectFlowNarrow()` (`src/app/shared/workflow-shell/flow-narrow.ts`) is the run's width.
+   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. It holds the help disclosure, the legend, the step's `CpFormSectionComponent` sections, then a footer ruled off from them, as a workflow run's is: what the step still needs, the save status where the flow keeps one, Back and Continue in the first row, Save and exit (`ghost`) in the second, and anything that throws work away — Start over, Start a new piece — folded under "More options". When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
+   - **Continue is never disabled** in a workflow run, the Content Pipeline or Long-form. It is `primary` when the step is ready and `secondary` with `aria-disabled="true"` when it is not; pressed early it stays put, keeps its focus and announces what the step still needs. A disabled button would drop focus and say nothing.
+   - **Loading is drawn, not said.** The flow's own loading state is the frame in `cp-skeleton`s — a line and a block where the steps go, a card of lines and a block where the step goes — `aria-busy`, under one always-present status sentence. A step's own reads do the same, and where a step can start with nothing yet made (the looks, a plan) it is an illustrated first-use `cp-empty-state` with the one action that makes it.
 4. **The legend is the shell's.** One sentence per step about what is optional, printed by the shell above the step's sections from the step's own definition, so no step can forget it and none marks a field optional.
 5. **What stands in the way is said above the buttons it is about** — "Pick an idea to carry on" — not after them.
-6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
+6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over, `featured` because it is the only thing on the page; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
 7. A flow keeps its steps, their order, what is saved as the creator goes and how it resumes. The shape changes what is drawn, never when something is written.
 
 **A guided workflow run is drawn by the shared shell, not by its journey.** `WorkflowShellComponent`
@@ -316,7 +318,8 @@ registering what it holds and a `flush()` the shell calls before every move; a s
 page where it is done. The hosting page prints the `cp-page-head` from the shell's `described` output, with
 `workflowLede()` as the lede, because a routed page owns its one heading. `WorkflowRunPageComponent`
 (`/:ws/workflows/runs/:runId`) is the reference. The two flows above predate it and keep their own shells until their
-journeys move onto it.
+journeys move onto it; the Content Pipeline and Long-form draw the run's footer and fold (AU.5.4), so the three read
+alike while their steps, saving and addresses stay their own.
 
 A page that is none of the three — the recipe editor, the kitchen view, a studio that is one long form — still takes the frame and the page head, and owes nothing more to these shapes:
 

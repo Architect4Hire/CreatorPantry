@@ -961,6 +961,23 @@
         <button cpButton type="button" [disabled]="stepperAt() === stepperNames.length - 1" (click)="moveStepper(1)">Continue</button>
       </div>
     </div>
+
+    <p class="section-note">
+      On a toned page the flow's own progress and its stepper take the tool's tone: the stepper always, the bar
+      when it is <code>tone="tool"</code>. A meter that is not the flow's progress — an allowance, a length against
+      a limit — keeps its own fill. Here, the Content Pipeline's orange.
+    </p>
+    <div class="showcase-stepper" data-cp-tone="orange" data-testid="toned-flow">
+      <cp-progress
+        label="Example progress"
+        tone="tool"
+        [value]="((stepperAt() + 1) / stepperNames.length) * 100"
+        [valueText]="'Step ' + (stepperAt() + 1) + ' of ' + stepperNames.length"
+      />
+      <nav aria-label="Example progress on a toned page">
+        <cp-stepper label="Example steps on a toned page" [steps]="stepperSteps()" />
+      </nav>
+    </div>
   </section>
 
   <section aria-labelledby="validation-heading">

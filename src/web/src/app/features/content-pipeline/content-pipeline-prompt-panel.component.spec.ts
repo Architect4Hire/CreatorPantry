@@ -367,6 +367,12 @@ describe('ContentPipelinePromptPanelComponent', () => {
     // Titled by what it holds, not as an undo: after writing again it is the newer text.
     expect(el.textContent).toContain('The prompt we wrote');
     expect(el.textContent).not.toContain('before your changes');
+    // Marked as what a model wrote, in the one surface for it, with its action last inside it.
+    const written = el.querySelector('details cp-generated') as HTMLElement;
+    expect(written.textContent).toContain('Drafted by AI');
+    expect(written.textContent).toContain('First wording.');
+    expect(written.querySelector('[cpGeneratedActions]')?.textContent).toContain('Use this wording instead');
+    expect(el.querySelector('p.generated')).toBeNull();
 
     confirmAnswer = false;
     await click('Use this wording instead');
@@ -409,16 +415,22 @@ describe('ContentPipelinePromptPanelComponent', () => {
     expect(notice?.classList.contains('cp-notice--warning')).toBeTrue();
   });
 
-  it('says the words in the box were written for the creator, until they change them', async () => {
+  it('marks the words in the box as drafted by AI, until the creator changes them', async () => {
     await mount();
     await click('Write the prompt');
     await answerWatch(readyOperation('A loaf.'));
 
-    expect(el.textContent).toContain('written for you');
+    // The library's mark, not a sentence of the panel's own, with where the words came from.
+    const mark = el.querySelector('cp-generated-label') as HTMLElement;
+    expect(mark.textContent).toContain('Drafted by AI');
+    expect(mark.textContent).toContain('From the look you picked');
+    expect(el.textContent).not.toContain('written for you');
 
     await type('My own prompt.');
 
-    expect(el.textContent).not.toContain('written for you');
+    // Off the box once the words are theirs. The wording as it was written stays marked in its own disclosure.
+    const onTheBox = Array.from(el.querySelectorAll('cp-generated-label')).filter((label) => label.closest('cp-generated') === null);
+    expect(onTheBox.length).toBe(0);
   });
 
   it('keeps the request id so the prompt comes back after a refresh, and reads it rather than asking again', async () => {

@@ -4,9 +4,12 @@
      arriving with the region that would have announced it. -->
 <p class="cp-sr-only" role="status" aria-live="polite" data-testid="announcement">{{ announcement() }}</p>
 
+<!-- Always here, so the sentence is heard when it is set; the skeleton below is what shows. -->
+<p class="cp-sr-only" role="status">{{ load() === 'loading' ? 'Loading the plan…' : '' }}</p>
+
 @switch (load()) {
   @case ('loading') {
-    <p class="cp-muted" role="status">Loading the plan…</p>
+    <ng-container *ngTemplateOutlet="sections" />
   }
   @case ('not_found') {
     <cp-notice tone="error" role="alert">This draft is no longer here.</cp-notice>
@@ -23,6 +26,9 @@
   @case ('ready') {
     @if (planning() && !gaveUpChecking()) {
       <p class="cp-muted" role="status">Planning your piece. This usually takes a few seconds.</p>
+      @if (!hasPlan()) {
+        <ng-container *ngTemplateOutlet="sections" />
+      }
 
       @if (tracker.connection() === 'degraded') {
         <cp-notice tone="warning" role="status">
@@ -50,6 +56,7 @@
     @if (!hasPlan()) {
       @if (!planning() && !outlineProblem()) {
         <cp-empty-state
+          illustration="article"
           title="No plan yet"
           description="Ask for a plan and you’ll get a list of sections to rename, reorder and approve. Nothing is written until you approve it."
         >
@@ -256,3 +263,11 @@
     }
   }
 }
+
+<!-- The plan coming: its state line, then a few sections, each a heading and two fields. -->
+<ng-template #sections>
+  <div class="loading" aria-busy="true" data-testid="plan-loading">
+    <cp-skeleton shape="line" />
+    <cp-skeleton shape="block" [count]="3" />
+  </div>
+</ng-template>

@@ -19,6 +19,7 @@ import {
   CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
+  CpSkeletonComponent,
   CpStep,
   CpStepperComponent,
   CpTopicCardComponent,
@@ -27,6 +28,7 @@ import { combineLatest, map } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { injectRouteTitle } from '../../core/route-title';
+import { injectFlowNarrow } from '../../shared/workflow-shell/flow-narrow';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { linkedRecipeOf } from '../../models/creative-context.models';
 import { LongFormAssembledDocument } from '../../models/long-form-document.models';
@@ -125,6 +127,7 @@ function memoryFiling(): CreativeContextFilingStore {
     CpNoticeComponent,
     CpPageHeadComponent,
     CpProgressComponent,
+    CpSkeletonComponent,
     CpStepperComponent,
     CpTopicCardComponent,
     CreativeContextSaveNoticeComponent,
@@ -153,6 +156,8 @@ export class LongFormPipelineShellComponent {
   protected readonly pageTitle = injectRouteTitle('Long-form');
   protected readonly headingId = LONG_FORM_PIPELINE_HEADING_ID;
   protected readonly total = LONG_FORM_PIPELINE_STEP_COUNT;
+  /** True where the stepper folds into a disclosure, at the width a workflow run's does. */
+  protected readonly narrow = injectFlowNarrow();
   protected readonly allowance = this.usage.allowance;
 
   readonly workspaceSlug = signal('');
@@ -668,7 +673,15 @@ export class LongFormPipelineShellComponent {
   protected async continue(): Promise<void> {
     const next = LONG_FORM_PIPELINE_STEP_SLUGS[longFormPipelineStepIndex(this.current()) + 1];
 
-    if (next !== undefined && this.canContinue()) await this.go(next);
+    if (next === undefined) return;
+    // Pressed before the next step is open, Continue stays put and says why: it is never disabled, so it keeps
+    // its focus and the reason is heard rather than only seen above it.
+    if (!this.canContinue()) {
+      this.announcement.set(this.needed() ?? 'The next step is not open yet. Finish this one to carry on.');
+      return;
+    }
+
+    await this.go(next);
   }
 
   protected async resume(): Promise<void> {

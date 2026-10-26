@@ -22,6 +22,7 @@ import {
   CpFieldRowComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
+  CpSkeletonComponent,
 } from '@creator-pantry/ui';
 
 import { ConfirmService } from '../../core/confirm.service';
@@ -236,6 +237,7 @@ type SubjectMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlink
   selector: 'cp-content-pipeline-idea-step',
   standalone: true,
   imports: [
+    CpSkeletonComponent,
     FormsModule,
     CpBadgeComponent,
     CpButtonComponent,

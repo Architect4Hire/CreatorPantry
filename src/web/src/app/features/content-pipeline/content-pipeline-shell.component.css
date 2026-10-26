@@ -35,8 +35,39 @@
 }
 
 .help p,
-.state,
 .legend,
-.saved {
+.needed {
   margin: 0;
+}
+
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+.steps-disclosure summary {
+  font-weight: 700;
+}
+
+/* The workflow run's footer (workflow-shell.component.css): ruled off from the step, its moves in two rows. */
+.footer {
+  display: grid;
+  gap: var(--cp-space-4);
+  margin-top: var(--cp-space-5);
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
+}
+
+.save-status {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-sm);
+}
+
+.more summary {
+  color: var(--cp-text-muted);
+}
+
+.more-actions {
+  margin-top: var(--cp-space-3);
 }

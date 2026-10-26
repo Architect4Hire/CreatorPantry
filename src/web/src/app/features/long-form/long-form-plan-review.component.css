@@ -5,3 +5,9 @@
   gap: var(--cp-space-8);
   min-width: 0;
 }
+
+/* What is coming, drawn while it loads: a line, then sections a little apart. */
+.loading {
+  display: grid;
+  gap: var(--cp-space-4);
+}

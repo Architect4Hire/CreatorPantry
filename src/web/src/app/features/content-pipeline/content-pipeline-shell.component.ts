@@ -26,6 +26,7 @@ import {
   CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
+  CpSkeletonComponent,
   CpStep,
   CpStepperComponent,
   CpTopicCardComponent,
@@ -58,6 +59,7 @@ import { CreativeContextFields } from '../../models/creative-context-fields.mode
 import { keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
 import { DamKeepRecipe } from '../../models/dam-asset.models';
 import { RecipePickerComponent } from '../../shared/recipe-picker/recipe-picker.component';
+import { injectFlowNarrow } from '../../shared/workflow-shell/flow-narrow';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
@@ -154,6 +156,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     CpCardComponent,
     CpNoticeComponent,
     CpProgressComponent,
+    CpSkeletonComponent,
     CreativeContextSaveNoticeComponent,
     RecipePickerComponent,
     ContentPipelineBrandDefaultsComponent,
@@ -187,6 +190,9 @@ export class ContentPipelineShellComponent {
   private readonly brandProfiles = inject(BrandProfileService);
   private readonly confirm = inject(ConfirmService);
   private readonly injector = inject(Injector);
+
+  /** True where the stepper folds into a disclosure, at the width a workflow run's does. */
+  protected readonly narrow = injectFlowNarrow();
 
   readonly steps = CONTENT_PIPELINE_STEPS;
   readonly total = CONTENT_PIPELINE_STEP_COUNT;
@@ -368,6 +374,18 @@ export class ContentPipelineShellComponent {
     if (draft.seed.accepted === null) return 'Pick an idea to carry on.';
     if (this.needsBriefChoice()) return 'Choose what to work from to carry on.';
     if (draft.prompt.finalPrompt.trim() === '') return 'Write the prompt, or have one written, to carry on.';
+
+    return null;
+  });
+
+  /**
+   * What the step still needs before Continue moves on, said above the buttons — or null when nothing stands in
+   * the way. The same rule as `canContinue`, in words; a step with no requirement has none to say.
+   */
+  readonly needed = computed<string | null>(() => {
+    const slug = this.currentSlug();
+    if (slug === 'picture') return this.pictureProblem();
+    if (slug === 'images' && !this.canContinue()) return 'Keep at least one picture to carry on.';
 
     return null;
   });
@@ -891,7 +909,13 @@ export class ContentPipelineShellComponent {
    */
   protected continue(): void {
     const index = this.currentIndex();
-    if (index === null || !this.canContinue()) return;
+    if (index === null) return;
+    // Pressed before the step is ready, Continue stays put and says why: it is never disabled, so it keeps its
+    // focus and the reason is heard rather than only seen above it.
+    if (!this.canContinue()) {
+      this.announce(this.needed() ?? 'The next step is not open yet. Finish this one to carry on.');
+      return;
+    }
 
     const next = CONTENT_PIPELINE_STEP_SLUGS[index + 1];
     const draft = this.draft();

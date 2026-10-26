@@ -41,8 +41,9 @@
     </select>
   </cp-field>
 
+  <p class="cp-sr-only" role="status">{{ channels().status === 'loading' ? 'Loading the list of channels…' : '' }}</p>
   @if (channels().status === 'loading') {
-    <p class="cp-muted" role="status">Loading the list of channels…</p>
+    <div aria-busy="true" data-testid="channels-loading"><cp-skeleton shape="line" [count]="2" /></div>
   }
   @if (channels().status === 'unavailable') {
     <cp-notice tone="warning" role="status">

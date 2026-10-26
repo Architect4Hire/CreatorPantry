@@ -1,6 +1,8 @@
+<p class="cp-sr-only" role="status">{{ phase() === 'loading' ? 'Checking your board…' : '' }}</p>
+
 @switch (phase()) {
   @case ('loading') {
-    <p class="cp-muted" role="status">Checking your board…</p>
+    <div aria-busy="true" data-testid="board-loading"><cp-skeleton shape="line" [count]="2" /></div>
   }
   @case ('unavailable') {
     <cp-notice tone="error" role="alert">

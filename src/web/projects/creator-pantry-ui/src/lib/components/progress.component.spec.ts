@@ -43,7 +43,7 @@ describe('CpProgressComponent', () => {
     expect(bar.getAttribute('aria-valuenow')).toBe('36');
   });
 
-  for (const tone of ['default', 'success', 'warning', 'error'] as const) {
+  for (const tone of ['default', 'success', 'warning', 'error', 'tool'] as const) {
     it(`reflects the '${tone}' tone on the host so the fill can be themed`, async () => {
       const { host } = await render({ value: 50, tone });
 
@@ -63,6 +63,20 @@ describe('CpProgressComponent', () => {
     expect(loud.host.textContent).toBe(quiet.host.textContent);
     expect(loud.bar.getAttribute('aria-valuetext')).toBe(quiet.bar.getAttribute('aria-valuetext'));
     expect(loud.bar.getAttribute('aria-valuenow')).toBe(quiet.bar.getAttribute('aria-valuenow'));
+  });
+
+  it("fills a flow's own progress with the tool's tone, and only when asked to", async () => {
+    const tool = await render({ value: 50, tone: 'tool' });
+    document.body.appendChild(tool.host);
+    tool.host.style.setProperty('--cp-tone', 'rgb(4, 5, 6)');
+    const fill = tool.bar.querySelector('span') as HTMLElement;
+    expect(getComputedStyle(fill).backgroundColor).toBe('rgb(4, 5, 6)');
+
+    // A meter that is not a flow's progress keeps its own fill on a toned page.
+    fixture.componentRef.setInput('tone', 'default');
+    fixture.detectChanges();
+    expect(getComputedStyle(fill).backgroundColor).not.toBe('rgb(4, 5, 6)');
+    tool.host.remove();
   });
 
   it('clamps the fill to the accessible range while printing what it was told', async () => {

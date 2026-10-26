@@ -103,11 +103,9 @@
      would rather write their own prompt is not waiting on a model to be allowed to. -->
 @if (promptIsGenerated()) {
   <!-- Generated content is identified and stays editable (.claude/rules/frontend.md). Without this an unedited
-       composition is indistinguishable from the creator's own wording. -->
-  <cp-notice role="note">
-    These words were written for you from {{ generatedFrom() }}. Change any of them — what is in the box is what
-    gets used.
-  </cp-notice>
+       composition is indistinguishable from the creator's own wording. The mark alone: the box below is the
+       edge, and its hint already says the creator's words win. -->
+  <cp-generated-label [provenance]="'From ' + generatedFrom()" />
 }
 
 <cp-field
@@ -135,12 +133,14 @@
          *newer* text, and calling that "before your changes" was simply wrong. -->
     <details class="cp-disclosure">
       <summary>The prompt we wrote</summary>
-      <p class="generated">{{ generated.text }}</p>
-      <div class="cp-actions">
-        <button cpButton type="button" variant="text" size="sm" (click)="restoreGenerated()">
-          Use this wording instead
-        </button>
-      </div>
+      <cp-generated>
+        <p class="wording">{{ generated.text }}</p>
+        <div cpGeneratedActions class="cp-actions">
+          <button cpButton type="button" variant="text" size="sm" (click)="restoreGenerated()">
+            Use this wording instead
+          </button>
+        </div>
+      </cp-generated>
     </details>
   }
 }

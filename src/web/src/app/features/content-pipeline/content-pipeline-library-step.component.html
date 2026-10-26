@@ -1,6 +1,9 @@
+<!-- Always here, so the sentence is heard when it is set; the skeleton is the pictures coming. -->
+<p class="cp-sr-only" role="status">{{ phase() === 'loading' ? 'Loading the pictures you kept…' : '' }}</p>
+
 @switch (phase()) {
   @case ('loading') {
-    <p class="cp-muted" role="status">Loading the pictures you kept…</p>
+    <div aria-busy="true" data-testid="kept-loading"><cp-skeleton shape="card" [count]="2" /></div>
   }
   @case ('unavailable') {
     <cp-notice tone="error" role="alert">

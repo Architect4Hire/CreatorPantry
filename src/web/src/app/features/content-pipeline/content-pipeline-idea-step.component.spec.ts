@@ -319,6 +319,7 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await click('Suggest an idea');
 
     expect(el.textContent).toContain('Putting an idea together');
+    expect(el.querySelector('[data-testid="idea-loading"] cp-skeleton')).not.toBeNull();
 
     await answer({ status: 'found', seed: seed() });
 

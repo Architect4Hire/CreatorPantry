@@ -81,14 +81,16 @@ const GLYPH: Readonly<Record<CpStepStatus, string>> = {
         color: var(--cp-text-muted);
         overflow-wrap: anywhere;
       }
+      /* The tool's tone, as the flow's progress (DESIGN-SYSTEM.md, "Warmth inside the app"): the primary's four on
+         an untoned page. The glyph is the tone as text, so a light accent still reads beside the word. */
       li[aria-current='step'] {
-        border-color: var(--cp-primary);
-        background: var(--cp-primary-soft);
+        border-color: var(--cp-tone);
+        background: var(--cp-tone-soft);
         color: var(--cp-text);
         font-weight: 700;
       }
       li[data-status='done'] .glyph {
-        color: var(--cp-primary);
+        color: var(--cp-tone-text);
       }
       .glyph {
         grid-row: span 2;
