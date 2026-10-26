@@ -45,8 +45,8 @@ import { brandSetupCanDeactivateGuard } from './features/brand/setup/brand-setup
 import { recipeEditorCanDeactivateGuard } from './features/recipes/recipe-editor.guard';
 import { RECIPES_ROUTES } from './features/recipes/recipes.routes';
 import { AI_RECIPE_STUDIO_ROUTES } from './features/ai/ai-recipe-studio.routes';
-import { RecipeConceptStudioComponent } from './features/ai/recipe-concept-studio.component';
-import { RecipeFirstDraftReviewComponent } from './features/ai/recipe-first-draft-review.component';
+import { recipeStudioFlowCanDeactivateGuard } from './features/ai/recipe-studio-flow.guard';
+import { RecipeStudioFlowComponent } from './features/ai/recipe-studio-flow.component';
 
 describe('app routes', () => {
   it('guards the public landing route with anonymousOnlyGuard, matching only the exact empty path', () => {
@@ -331,22 +331,18 @@ describe('app routes', () => {
     expect(await setupStepRoute.loadComponent!()).toBe(BrandSetupShellComponent);
     expect(setupStepRoute.canDeactivate).toEqual([brandSetupCanDeactivateGuard]);
 
-    // 'ai-recipe-studio' is a nested grouping like 'recipes': AIREC-001's concept form at its index, and
-    // AIREC-002's first-draft review beside it, so it resolves through loadChildren rather than loadComponent.
+    // 'ai-recipe-studio' is a nested grouping like 'recipes': one flow (AU.5.2) — AIREC-001's concepts, then
+    // AIREC-002's first-draft review — at its index and for a piece of work, with the review's old addresses opening
+    // the same flow on its last step. Every one is behind the flow's leave guard, since each can show the review.
     const aiRecipeStudioRoute = workspaceRoute.children!.find((route) => route.path === 'ai-recipe-studio')!;
     const aiRecipeStudioChildren = (await aiRecipeStudioRoute.loadChildren!()) as Routes;
     expect(aiRecipeStudioChildren).toBe(AI_RECIPE_STUDIO_ROUTES);
-    const conceptStudioRoute = aiRecipeStudioChildren.find((route) => route.path === '')!;
-    expect(await conceptStudioRoute.loadComponent!()).toBe(RecipeConceptStudioComponent);
-
-    const draftReviewRoute = aiRecipeStudioChildren.find((route) => route.path === 'draft')!;
-    expect(await draftReviewRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
-
-    // The same review opened for a creative context (AF.1.4), behind the same guard: an unsaved edit is no
-    // safer to leave because the address has an id in it.
-    const draftForContextRoute = aiRecipeStudioChildren.find((route) => route.path === 'draft/context/:contextId')!;
-    expect(await draftForContextRoute.loadComponent!()).toBe(RecipeFirstDraftReviewComponent);
-    expect(draftForContextRoute.canDeactivate).toEqual(draftReviewRoute.canDeactivate);
+    for (const path of ['', 'context/:contextId', 'draft', 'draft/context/:contextId']) {
+      const route = aiRecipeStudioChildren.find((each) => each.path === path)!;
+      expect(await route.loadComponent!()).withContext(path).toBe(RecipeStudioFlowComponent);
+      expect(route.canDeactivate).withContext(path).toEqual([recipeStudioFlowCanDeactivateGuard]);
+      expect(route.data?.['legacyDraft'] === true).withContext(path).toBe(path.startsWith('draft'));
+    }
 
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
     // 'new'/':recipeId' editor routes, so it resolves through loadChildren rather than loadComponent.

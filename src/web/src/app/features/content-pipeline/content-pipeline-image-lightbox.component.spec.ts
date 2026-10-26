@@ -32,6 +32,7 @@ const SHEET = [picture(1), picture(2), picture(3)];
   template: `<button type="button" id="opener" (click)="openAt.set('img-2')">View larger</button>
     <cp-content-pipeline-image-lightbox
       workspaceSlug="cozy-fall"
+      [provenance]="provenance()"
       [images]="images()"
       [openAt]="openAt()"
       [keepers]="keepers()"
@@ -45,6 +46,7 @@ const SHEET = [picture(1), picture(2), picture(3)];
 })
 class HostComponent {
   readonly images = signal<readonly StagedImage[]>(SHEET);
+  readonly provenance = signal('');
   readonly openAt = signal<string | null>(null);
   readonly keepers = signal<readonly string[]>([]);
   readonly busy = signal(false);
@@ -308,7 +310,7 @@ describe('ContentPipelineImageLightboxComponent', () => {
     await open();
 
     // The original, asked for by name: the route's own default is now the web-size copy.
-    const link = labelled('a', 'Download the original of picture 2 of 3, 482 KB');
+    const link = labelled('a', 'Download original (482 KB): picture 2 of 3');
     expect(link?.getAttribute('href')).toBe(`${GATEWAY}/img-2/content?rendition=original`);
     expect(link?.textContent).toContain('Download original (482 KB)');
 
@@ -322,11 +324,11 @@ describe('ContentPipelineImageLightboxComponent', () => {
     host.openAt.set('img-1');
     await settle();
 
-    const web = labelled('a', 'Download picture 1 of 1 at web size, 153 KB');
+    const web = labelled('a', 'Download web size (153 KB): picture 1 of 1');
     expect(web?.getAttribute('href')).toBe(`${GATEWAY}/img-1/content?rendition=web`);
     expect(web?.textContent).toContain('Download web size (153 KB)');
 
-    const original = labelled('a', 'Download the original of picture 1 of 1, 482 KB');
+    const original = labelled('a', 'Download original (482 KB): picture 1 of 1');
     expect(original?.getAttribute('href')).toBe(`${GATEWAY}/img-1/content?rendition=original`);
 
     expect(dialog()?.textContent).toContain('Web size 153 KB · original 482 KB');
@@ -338,6 +340,16 @@ describe('ContentPipelineImageLightboxComponent', () => {
 
     expect(dialog()!.querySelector<HTMLInputElement>('input[type="checkbox"]')!.disabled).toBeTrue();
     expect(buttonWith('Decline this one')?.disabled).toBeTrue();
+  });
+
+  it('keeps the mark a picture had in the grid, shown larger, and names what made it when that is known', async () => {
+    await open();
+    expect(dialog()?.querySelector('cp-generated-label')?.textContent).toContain('Made by AI');
+    expect(dialog()?.querySelector('cp-generated-label')?.textContent).not.toContain('Venice');
+
+    host.provenance.set('Venice, flux-dev');
+    await settle();
+    expect(dialog()?.querySelector('cp-generated-label')?.textContent).toContain('Venice, flux-dev');
   });
 
   it('states the picture’s status in a word as well as a tone', async () => {

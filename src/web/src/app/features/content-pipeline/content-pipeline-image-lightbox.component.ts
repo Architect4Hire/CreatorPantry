@@ -9,7 +9,13 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpCheckboxComponent, CpLightboxComponent, CpStatusPillComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCheckboxComponent,
+  CpGeneratedLabelComponent,
+  CpLightboxComponent,
+  CpStatusPillComponent,
+} from '@creator-pantry/ui';
 
 import { StagedImage, isStagedImageActionable } from '../../models/generated-image.models';
 import { byteSizeText, pictureSizeText } from '../../models/picture-rendition.models';
@@ -50,6 +56,7 @@ import { ContentPipelineStagedImageComponent } from './content-pipeline-staged-i
     RouterLink,
     CpButtonComponent,
     CpCheckboxComponent,
+    CpGeneratedLabelComponent,
     CpLightboxComponent,
     CpStatusPillComponent,
     ContentPipelineStagedImageComponent,
@@ -64,6 +71,8 @@ export class ContentPipelineImageLightboxComponent {
 
   readonly workspaceSlug = input.required<string>();
   readonly images = input.required<readonly StagedImage[]>();
+  /** What made the pictures, for the mark in the caption; empty where it is not known or not shown. */
+  readonly provenance = input('');
 
   /** The picture to show, or null for closed. The step owns this, so one place decides what is open. */
   readonly openAt = input<string | null>(null);

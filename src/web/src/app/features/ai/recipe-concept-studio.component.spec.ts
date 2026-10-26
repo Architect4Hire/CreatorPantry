@@ -1377,6 +1377,70 @@ describe('RecipeConceptStudioComponent', () => {
       discardPeriodicTasks();
     }));
 
+    // ---- One part at a time, for the studio's own flow (AU.5.2) ----
+
+    it('shows only the brief on the flow’s first step, and only what came back on its second', fakeAsync(() => {
+      host!.part.set('brief');
+      render();
+
+      expect(element().querySelector('.brief-card')).not.toBeNull();
+      expect(element().querySelector('cp-list-shell')).toBeNull();
+      expect(element().querySelector('cp-empty-state.studio-first-use')).toBeNull();
+
+      host!.part.set('concepts');
+      fixture.detectChanges();
+
+      expect(element().querySelector('.brief-card')).toBeNull();
+      // Nothing asked for yet: the concepts step says where they will land.
+      expect(element().querySelector('cp-empty-state.studio-first-use')).not.toBeNull();
+    }));
+
+    it('keeps what was typed in the brief while the concepts step shows', fakeAsync(() => {
+      host!.part.set('brief');
+      render();
+      fixture.componentInstance.dishName.set('Soda bread');
+
+      host!.part.set('concepts');
+      fixture.detectChanges();
+      host!.part.set('brief');
+      fixture.detectChanges();
+      settle();
+
+      expect(input('concept-dish-name').value).toBe('Soda bread');
+    }));
+
+    it('names the model on the studio’s own flow, which is the studio’s page', fakeAsync(() => {
+      host!.showMaker = true;
+      host!.conceptRequestId = 'op-kept';
+      configure();
+      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      fixture.detectChanges();
+      settle();
+      settle();
+
+      expect(element().querySelector('cp-generated cp-generated-label')?.textContent).toContain('phi-4 (foundry-local)');
+    }));
+
+    it('tells the host when a new brief is asked for, so the flow can go back to it', fakeAsync(() => {
+      const restarted = jasmine.createSpy('briefRestarted');
+      host!.briefRestarted = restarted;
+      render();
+      service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      click('Get concepts');
+
+      click('Try a new brief');
+
+      expect(restarted).toHaveBeenCalledTimes(1);
+    }));
+
+    it('reads the piece of work from the host, as the address would name it', fakeAsync(() => {
+      readOutcome = { status: 'not_found' };
+      host!.contextId = 'ctx-from-host';
+      render();
+
+      expect(contexts.reads.map((read) => read.contextId)).toContain('ctx-from-host');
+    }));
+
     it('still marks the concepts as drafted by AI in a guided step, without naming the model', fakeAsync(() => {
       host!.conceptRequestId = 'op-kept';
       configure();

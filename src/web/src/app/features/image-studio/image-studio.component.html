@@ -2,7 +2,9 @@
   <cp-page-head
     [heading]="pageTitle"
     lede="Describe a shot, get the words for it, and turn them into pictures. What you fill in is kept as you go, so you can stop and pick up later."
-  />
+  >
+    <cp-shell-nav-icon cpPageHeadIcon name="image" />
+  </cp-page-head>
   @if (workflowRun && workspaceSlug()) {
     <cp-workflow-return-notice [workspaceSlug]="workspaceSlug()" [runId]="workflowRun" />
   }
@@ -10,6 +12,9 @@
 
 <div class="studio">
   <div class="cp-sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement() }}</div>
+  <!-- Always in the page, so it is announced when its words change: a live region created already holding its
+       text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
+  <p class="cp-sr-only loading-status" role="status">{{ phase() === 'loading' ? 'Loading your studio…' : '' }}</p>
 
   @if (phase() !== 'ready') {
     <!-- Hosted, the step's own card holds these; on the studio's page each is a card of its own. -->
@@ -25,17 +30,44 @@
   @switch (phase()) {
     @case ('ready') {
       @if (!hosted) {
-        <cp-anchor-nav
-          [items]="sections"
-          ariaLabel="Parts of the Image Studio"
-          [activeTargetId]="activeSection()"
-          (activated)="onSectionActivated($event)"
-        />
-        <cp-card>
-          <ng-container [ngTemplateOutlet]="work" />
-        </cp-card>
+        <!--
+          A flow, as the "Create food images" workflow is (AU.5.2): the progress and the steps beside one wide card
+          headed by the step's name, holding that step's sections and Back / Continue. The same three parts as the
+          workflow's first three steps, so making pictures reads the same wherever it is started.
+        -->
+        <div class="layout">
+          <div class="progress">
+            <cp-progress label="Image Studio progress" [value]="percent()" [valueText]="progressText()" />
+            <nav aria-label="Image Studio progress">
+              <cp-stepper label="Image Studio steps" [steps]="stepperSteps()" />
+            </nav>
+          </div>
+
+          <!-- The heading takes focus when the step changes. -->
+          <cp-topic-card [heading]="currentStep().label" [headingId]="stepHeadingId" wide>
+            <details class="help cp-disclosure">
+              <summary>Need help with this step?</summary>
+              <p class="cp-muted">{{ currentStep().help }}</p>
+            </details>
+
+            <ng-container [ngTemplateOutlet]="work" />
+
+            <div cpTopicCardActions class="cp-actions">
+              @if (!isFirst()) {
+                <button cpButton type="button" variant="secondary" (click)="back()">Back</button>
+              }
+              <!-- Nothing is required to move on: only the prompt is needed, and only to make pictures. -->
+              @if (!isLast()) {
+                <button cpButton type="button" variant="primary" (click)="continue()">Continue</button>
+              }
+              <button cpButton type="button" variant="text" [disabled]="!canStartOver()" (click)="startOver()">
+                Start over
+              </button>
+            </div>
+          </cp-topic-card>
+        </div>
       } @else {
-        <!-- Hosted, the step's own card holds the part: a second card inside it would be a card in a card. -->
+        <!-- Hosted, the workflow's own card holds the part: a second card inside it would be a card in a card. -->
         <ng-container [ngTemplateOutlet]="work" />
       }
     }
@@ -54,14 +86,14 @@
         </cp-notice>
       }
 
-      <!-- Said once, above the sections, rather than on each field: marking one optional field among a dozen
-           unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
+      <!-- Said once per step, above its sections, rather than on each field: marking one optional field among a
+           dozen unmarked ones makes the rest read as required (DESIGN-SYSTEM.md). -->
       @if (legend(); as text) {
         <p class="legend cp-muted">{{ text }}</p>
       }
 
       @if (shows('about')) {
-        <section id="cp-studio-brief" class="brief" tabindex="-1" aria-label="The brief">
+        <div class="brief">
           <cp-recipe-picker
             [workspaceSlug]="workspaceSlug()"
             [session]="session"
@@ -89,11 +121,11 @@
               (changed)="onConfig($event)"
             />
           }
-        </section>
+        </div>
       }
 
       @if (shows('plan')) {
-        <section id="cp-studio-idea" class="brief" tabindex="-1" aria-label="An idea">
+        <div class="brief">
           <cp-content-pipeline-idea-step
             [workspaceSlug]="workspaceSlug()"
             [draft]="ideaDraft()"
@@ -104,7 +136,7 @@
             (changed)="onIdea($event)"
             (announced)="onAnnounced($event)"
           />
-        </section>
+        </div>
 
         <cp-form-section
           heading="The look"
@@ -129,9 +161,6 @@
       @if (shows('about') || shows('plan')) {
         <cp-form-section [heading]="extrasHeading()" [intro]="extrasIntro()" sectionId="cp-studio-extras">
           @if (shows('about')) {
-            @if (!hosted) {
-              <h3 class="sub">A brief</h3>
-            }
             <p class="cp-muted">
               Something you have written about this shoot. It is read as source material, never as instructions.
             </p>
@@ -144,14 +173,11 @@
           }
 
           @if (shows('plan')) {
-            @if (!hosted) {
-              <h3 class="sub">A reference picture</h3>
-            }
             <cp-content-pipeline-reference-panel
               [workspaceSlug]="workspaceSlug()"
               [prompt]="prompt()"
               [session]="session"
-              [headingLevel]="hosted ? 3 : 4"
+              [headingLevel]="3"
               [runOperationId]="draft().images.operationId"
               (changed)="onPrompt($event)"
               (announced)="onAnnounced($event)"
@@ -203,14 +229,6 @@
       <cp-creative-context-save-notice [session]="session" />
 
       <p class="saved cp-muted" role="status">{{ savedText() }}</p>
-
-      @if (!hosted) {
-        <div class="cp-actions">
-          <button cpButton type="button" variant="text" [disabled]="!canStartOver()" (click)="startOver()">
-            Start over
-          </button>
-        </div>
-      }
     </div>
   }
 </ng-template>
@@ -218,7 +236,12 @@
 <ng-template #states>
   @switch (phase()) {
     @case ('loading') {
-      <p class="state" role="status">Loading your studio…</p>
+      <!-- The shape of the form that is coming (APP-003), said by the status line above. -->
+      <div class="loading" aria-busy="true">
+        <cp-skeleton shape="line" [count]="2" />
+        <cp-skeleton shape="block" />
+        <cp-skeleton shape="line" [count]="5" />
+      </div>
     }
     @case ('unavailable') {
       <cp-notice tone="error" role="alert">

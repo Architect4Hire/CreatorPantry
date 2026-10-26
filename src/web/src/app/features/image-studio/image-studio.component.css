@@ -19,20 +19,32 @@ cp-content-pipeline-setup-step {
   gap: var(--cp-space-8);
 }
 
-/* Reached from the in-page navigation, so it takes focus and has to show it. */
-.brief:focus-visible {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 4px;
+
+/* The flow's frame, as the Content Pipeline's: the steps beside the step's card when there is room for both. */
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.sub {
-  margin: var(--cp-space-4) 0 0;
-  font-family: var(--cp-font-display);
-  font-size: var(--cp-font-size-lg);
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
 }
 
-.sub:first-of-type {
-  margin-top: 0;
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.help p {
+  margin: 0;
 }
 
 .refusal {
@@ -41,7 +53,11 @@ cp-content-pipeline-setup-step {
   gap: var(--cp-space-4);
 }
 
-.state,
+.loading {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
 .legend,
 .saved {
   margin: 0;

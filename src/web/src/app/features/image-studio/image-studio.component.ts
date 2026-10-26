@@ -2,7 +2,8 @@ import { Location, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -13,13 +14,16 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
 import {
-  CpAnchorNavComponent,
-  CpAnchorNavItem,
   CpButtonComponent,
   CpCardComponent,
   CpFormSectionComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
+  CpProgressComponent,
+  CpSkeletonComponent,
+  CpStep,
+  CpStepperComponent,
+  CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../../core/route-title';
@@ -63,7 +67,8 @@ import {
   GeneratedImageRunLibrary,
   GeneratedImageRunWording,
 } from '../content-pipeline/generated-image-run.component';
-import { ImageStudioHost } from './image-studio-host';
+import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
+import { ImageStudioHost, ImageStudioPart } from './image-studio-host';
 
 /**
  * `loading` and `unavailable` are how reading the creator's memberships can end; `not_found` and `read_only`
@@ -83,17 +88,40 @@ type Phase =
   | 'filing_failed'
   | 'ready';
 
-/** The parts of the page a creator can jump between, in the order the work usually happens. */
-const SECTIONS: readonly CpAnchorNavItem[] = [
-  { targetId: 'cp-studio-brief', label: 'The brief' },
-  { targetId: 'cp-studio-idea', label: 'An idea' },
-  { targetId: 'cp-studio-look', label: 'The look' },
-  { targetId: 'cp-studio-extras', label: 'Extras' },
-  { targetId: 'cp-studio-prompt', label: 'The prompt' },
-  { targetId: 'cp-studio-images-make', label: 'The pictures' },
+/**
+ * The studio's steps, in order: the same three parts, with the same names and help, as the first three steps of
+ * the "Create food images" workflow (13A.19), so the studio and the workflow are one way of making pictures.
+ */
+const STUDIO_STEPS: readonly { readonly part: ImageStudioPart; readonly label: string; readonly help: string }[] = [
+  {
+    part: 'about',
+    label: 'Choose what the picture is for',
+    help: 'A recipe or an idea, where it is going and how many pictures to try.',
+  },
+  {
+    part: 'plan',
+    label: 'Plan the picture',
+    help: 'Describe the scene, or start from a suggestion. You can change every word before anything is made.',
+  },
+  {
+    part: 'make',
+    label: 'Make pictures and keep the best',
+    help: 'Save the ones you like to your library; the rest are not kept.',
+  },
 ];
 
-/** The run's sentences, said for a page where everything it refers to is above it rather than a step back. */
+/** The step card's heading, which takes focus when the step changes. */
+const STEP_HEADING_ID = 'cp-studio-step-heading';
+
+/** The address's name for the step on screen, so a refresh or a shared link opens the same step. */
+const STEP_PARAM = 'step';
+
+/** The step a `?step=` names, or the first for none or one this page does not know. */
+function stepFrom(value: string | null): ImageStudioPart {
+  return STUDIO_STEPS.some((step) => step.part === value) ? (value as ImageStudioPart) : 'about';
+}
+
+/** The run's sentences for the studio's last step: what to save, and what saving does. */
 const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
   makeIntro: 'This is the prompt above, exactly as it will be sent. Change it there if it is not right yet.',
   noPrompt: 'There is no prompt yet. Write one above, or have one written for you.',
@@ -108,11 +136,12 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
 };
 
 /**
- * The same sentences for a guided step, where the prompt and the count are a step back rather than above (13A.19).
- * The count's sentence is also where the cost is said before anything is made: pictures are not drawn from the AI
- * allowance, which the planning steps show before each of their own asks.
+ * Where the prompt and the count are a step back rather than above — on the studio's own page and in a guided step
+ * alike, since both go one step at a time (13A.19, AU.5.2). The count's sentence is also where the cost is said
+ * before anything is made: pictures are not drawn from the AI allowance, which the planning steps show before each
+ * of their own asks.
  */
-const HOSTED_RUN_WORDING: GeneratedImageRunWording = {
+const STEP_RUN_WORDING: GeneratedImageRunWording = {
   ...STUDIO_RUN_WORDING,
   makeIntro: 'This is your prompt from the last step, exactly as it will be sent. Go back a step to change it.',
   noPrompt: 'There is no prompt yet. Go back a step to write one, or have one written for you.',
@@ -136,8 +165,10 @@ function memoryFiling(): CreativeContextFilingStore {
  * **One page, not a journey.** It is the client for the same four contracts as the Content Pipeline's prompt
  * and images steps — looks planned for a shot (IMG-001), a prompt composed and then the creator's (IMG-002), a
  * reference photograph read (IMG-004), and a run of pictures asked for, looked at and declined
- * (IMG-003, IMG-005/006) — without a posts step after. Every section is on screen at once, because a creator
- * who already knows the prompt they want has no use for being walked to it.
+ * (IMG-003, IMG-005/006) — without a posts step after. It goes one step at a time, as the "Create food images"
+ * workflow does, through the same three parts (AU.5.2): one way of making pictures, wherever it is started from.
+ * A creator who already knows the prompt they want is not held up — nothing is required to move on, and the
+ * prompt box is on the second step.
  *
  * **An idea is offered, and never required.** The pipeline's idea step sits between the brief and the look:
  * the typed name is read into a cuisine, a dish type and a method the creator can change, an idea can be
@@ -145,7 +176,7 @@ function memoryFiling(): CreativeContextFilingStore {
  * pipeline does — plan from the description, the idea, or both — and the looks are planned from the answer.
  * The day and its theme are not shown as parts: the studio plans no week.
  *
- * **Which is the one behaviour that differs from the pipeline: the prompt box is always here.** A prompt the
+ * **Which is the one behaviour that differs from the pipeline: the prompt box is always on its step.** A prompt the
  * creator types themselves is as finished as one written for them, and needs no look picked first. Having one
  * *written* still does, because that is what IMG-002 composes from.
  *
@@ -183,11 +214,13 @@ function memoryFiling(): CreativeContextFilingStore {
   imports: [
     NgTemplateOutlet,
     RouterLink,
-    CpAnchorNavComponent,
     CpButtonComponent,
     CpCardComponent,
     CpFormSectionComponent,
     CpNoticeComponent,
+    CpProgressComponent,
+    CpStepperComponent,
+    CpTopicCardComponent,
     CreativeContextSaveNoticeComponent,
     RecipePickerComponent,
     ContentPipelineBrandDefaultsComponent,
@@ -199,6 +232,8 @@ function memoryFiling(): CreativeContextFilingStore {
     ContentPipelineSetupStepComponent,
     GeneratedImageRunComponent,
     CpPageHeadComponent,
+    CpSkeletonComponent,
+    ShellNavIconComponent,
     WorkflowReturnNoticeComponent,
   ],
   templateUrl: './image-studio.component.html',
@@ -216,18 +251,67 @@ export class ImageStudioComponent {
   private readonly drafts = inject(ImageStudioDraftService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly confirm = inject(ConfirmService);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   /** Set when a guided step shows one part of the studio (13A.19); null on the studio's own page. */
   protected readonly hosted = inject(ImageStudioHost, { optional: true });
 
-  protected readonly sections = SECTIONS;
-
   /** The guided run that sent the creator here, from `?workflowRun=` (13A.19); never on a hosted part. */
   protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
-  protected readonly runWording = this.hosted ? HOSTED_RUN_WORDING : STUDIO_RUN_WORDING;
+  protected readonly runWording = STEP_RUN_WORDING;
 
-  /** Which part shows: every part on the studio's page, one in a step. */
-  protected readonly shows = (part: 'about' | 'plan' | 'make'): boolean => this.hosted === null || this.hosted.part === part;
+  /** The step on screen on the studio's own page, from `?step=`; a guided step names its part instead. */
+  protected readonly step = signal<ImageStudioPart>(
+    this.hosted ? this.hosted.part : stepFrom(this.route.snapshot.queryParamMap.get(STEP_PARAM)),
+  );
+  /** The furthest step reached on this visit, which is what the stepper calls done. */
+  private readonly furthest = signal(stepIndexOf(this.step()));
+
+  /** True when the address named a step. Otherwise the studio opens where the work stands, once it is read. */
+  private readonly stepNamed = !this.hosted && this.route.snapshot.queryParamMap.get(STEP_PARAM) !== null;
+
+  /**
+   * Coming back to work with no step in the address opens the step it was left on: a run of pictures kept on this
+   * device is the last step's, a written prompt the second's. A creator who returns to a run still being made sees
+   * it at once, as they did when every part was on one page.
+   */
+  private readonly resumeStep = effect(() => {
+    if (this.hosted || this.stepNamed || !this.loaded()) return;
+
+    untracked(() => {
+      const draft = this.draft();
+      const part: ImageStudioPart =
+        draft.images.operationId !== null ? 'make' : draft.prompt.finalPrompt.trim() !== '' ? 'plan' : 'about';
+      if (part === this.step()) return;
+
+      this.step.set(part);
+      this.furthest.update((value) => Math.max(value, stepIndexOf(part)));
+      this.showAddress(this.shownAddress ?? [this.location.path().split('?')[0]]);
+      this.announcement.set(`Picked up where you left off: ${this.stepSentence()}`);
+    });
+  });
+
+  /** The one part on screen: the guided step's, or the studio's own step. */
+  protected readonly currentPart = computed<ImageStudioPart>(() => (this.hosted ? this.hosted.part : this.step()));
+
+  /** Which part shows. One at a time, wherever the studio is. */
+  protected readonly shows = (part: ImageStudioPart): boolean => this.currentPart() === part;
+
+  protected readonly stepHeadingId = STEP_HEADING_ID;
+  protected readonly stepIndex = computed(() => stepIndexOf(this.step()));
+  protected readonly currentStep = computed(() => STUDIO_STEPS[this.stepIndex()]);
+  protected readonly isFirst = computed(() => this.stepIndex() === 0);
+  protected readonly isLast = computed(() => this.stepIndex() === STUDIO_STEPS.length - 1);
+  protected readonly progressText = computed(() => `Step ${this.stepIndex() + 1} of ${STUDIO_STEPS.length}`);
+  protected readonly percent = computed(() => Math.round(((this.stepIndex() + 1) / STUDIO_STEPS.length) * 100));
+
+  /** The steps as `cp-stepper` takes them: it owns the word and the glyph for each state. */
+  protected readonly stepperSteps = computed<readonly CpStep[]>(() =>
+    STUDIO_STEPS.map((step, index) => ({
+      id: step.part,
+      label: step.label,
+      status: index === this.stepIndex() ? 'current' : index < this.furthest() ? 'done' : 'upcoming',
+    })),
+  );
 
   /**
    * How many pictures a run tries. Hosted, the brand's default applies until the creator chooses, as it does in the
@@ -244,19 +328,17 @@ export class ImageStudioComponent {
    * card already carries the shell's legend, so the studio prints none of its own.
    */
   protected readonly legend = computed(() =>
-    this.hosted ? null : 'Only the prompt is needed to make pictures. Everything else is there to help you get to one.',
+    this.hosted || this.currentPart() === 'make'
+      ? null
+      : 'Everything on this step is optional. Only the prompt is needed to make pictures.',
   );
 
-  protected readonly extrasHeading = computed(() =>
-    this.hosted ? (this.hosted.part === 'about' ? 'A brief' : 'A reference picture') : 'Extras',
-  );
+  protected readonly extrasHeading = computed(() => (this.currentPart() === 'about' ? 'A brief' : 'A reference picture'));
 
   protected readonly extrasIntro = computed(() =>
-    this.hosted
-      ? this.hosted.part === 'about'
-        ? 'Something you have written about this shoot, if you have it.'
-        : 'A photograph to take cues from, if you have one.'
-      : 'A brief to work from, and a picture to take cues from. Both optional.',
+    this.currentPart() === 'about'
+      ? 'Something you have written about this shoot, if you have it.'
+      : 'A photograph to take cues from, if you have one.',
   );
 
   /** The piece of work as the server last answered it, for a step that names what it made. */
@@ -282,8 +364,6 @@ export class ImageStudioComponent {
   readonly announcement = signal('');
   /** True when something was stored here that could not be read, so the creator is told rather than puzzled. */
   readonly discarded = signal(false);
-  /** The section last jumped to, so the navigation can say where the creator is. */
-  protected readonly activeSection = signal<string | null>(null);
 
   /** False until this creator's work has been read — its context from the server, the rest from this device. */
   private readonly loaded = signal(false);
@@ -583,7 +663,6 @@ export class ImageStudioComponent {
     this.draft.set(emptyImageStudioDraft());
     this.discarded.set(false);
     this.announcement.set('');
-    this.activeSection.set(null);
   }
 
   /**
@@ -718,7 +797,16 @@ export class ImageStudioComponent {
 
   /** Change the address without navigating: the same screen, findable under its new name. */
   private showAddress(commands: readonly unknown[]): void {
-    this.location.replaceState(this.router.serializeUrl(this.router.createUrlTree([...commands])));
+    this.shownAddress = commands;
+    this.location.replaceState(this.router.serializeUrl(this.router.createUrlTree([...commands], this.stepQuery())));
+  }
+
+  /** The address last shown, so a change of step keeps the work's own address and changes only `?step=`. */
+  private shownAddress: readonly unknown[] | null = null;
+
+  /** `?step=` for any step but the first, whose address stays bare. */
+  private stepQuery(): { queryParams: Record<string, string> } {
+    return { queryParams: this.step() === 'about' ? {} : { [STEP_PARAM]: this.step() } };
   }
 
   /** Keep, for the context this work is on, what belongs on this device. */
@@ -832,19 +920,33 @@ export class ImageStudioComponent {
     );
   }
 
-  /**
-   * Go to one part of the page.
-   *
-   * The navigation leaves scrolling and focus to its consumer. `scrollIntoView` with no `behavior` lets the
-   * stylesheet decide, which is how global.css honours `prefers-reduced-motion`; focus then lands on the
-   * section itself, so a keyboard or screen-reader user arrives where a sighted one was taken.
-   */
-  protected onSectionActivated(item: CpAnchorNavItem): void {
-    this.activeSection.set(item.targetId);
+  /** Back a step. Nothing is lost: every answer is kept as it is made. */
+  protected back(): void {
+    if (!this.isFirst()) this.goTo(STUDIO_STEPS[this.stepIndex() - 1].part);
+  }
 
-    const target = this.host.nativeElement.querySelector<HTMLElement>(`#${CSS.escape(item.targetId)}`);
-    target?.scrollIntoView({ block: 'start' });
-    target?.focus({ preventScroll: true });
+  /** On a step. Nothing is required to move on — only the prompt is needed, and only to make pictures. */
+  protected continue(): void {
+    if (!this.isLast()) this.goTo(STUDIO_STEPS[this.stepIndex() + 1].part);
+  }
+
+  /**
+   * Show one step: say so in the address, so a refresh opens it again, and move focus to its heading, so a keyboard
+   * or screen-reader user arrives on the new step rather than where the button was. The heading is `tabindex="-1"`
+   * for exactly this and never enters the tab order.
+   */
+  private goTo(part: ImageStudioPart): void {
+    this.step.set(part);
+    this.furthest.update((value) => Math.max(value, stepIndexOf(part)));
+    this.showAddress(this.shownAddress ?? [this.location.path().split('?')[0]]);
+    // Focus reads the step's name; its place in the flow is said here, where the polite region will be heard.
+    this.announcement.set(this.stepSentence());
+    afterNextRender(() => document.getElementById(STEP_HEADING_ID)?.focus(), { injector: this.injector });
+  }
+
+  /** "Step 2 of 3: Plan the picture." */
+  private stepSentence(): string {
+    return `${this.progressText()}: ${this.currentStep().label}.`;
   }
 
   /**
@@ -895,8 +997,13 @@ export class ImageStudioComponent {
     this.draft.set(emptyImageStudioDraft());
     this.deviceRefused.set(false);
     this.discarded.set(false);
-    this.activeSection.set(null);
+    this.step.set('about');
+    this.furthest.set(0);
     this.epoch.update((value) => value + 1);
     this.announcement.set('Started over. Nothing is filled in.');
   }
+}
+
+function stepIndexOf(part: ImageStudioPart): number {
+  return Math.max(0, STUDIO_STEPS.findIndex((step) => step.part === part));
 }

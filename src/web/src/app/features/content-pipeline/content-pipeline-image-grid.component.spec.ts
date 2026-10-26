@@ -138,7 +138,7 @@ describe('ContentPipelineImageGridComponent', () => {
   });
 
   it('gives every control an accessible name that says which picture it acts on', () => {
-    expect(labelled('button', 'View picture 1 of 2 larger')).not.toBeNull();
+    expect(labelled('button', 'View larger: picture 1 of 2')).not.toBeNull();
     expect(labelled('a', 'Download picture 1 of 2')).not.toBeNull();
     expect(labelled('button', 'Decline picture 2 of 2')).not.toBeNull();
   });
@@ -171,7 +171,7 @@ describe('ContentPipelineImageGridComponent', () => {
   });
 
   it('asks the step to open a picture larger rather than opening anything itself', async () => {
-    labelled('button', 'View picture 2 of 2 larger')!.click();
+    labelled('button', 'View larger: picture 2 of 2')!.click();
     await settle();
 
     expect(host.opens).toEqual(['img-2']);
@@ -229,7 +229,7 @@ describe('ContentPipelineImageGridComponent', () => {
       await settle();
 
       expect(el.querySelector('input[type="checkbox"]')).toBeNull();
-      labelled('button', 'Save picture 2 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 2 of 2')!.click();
       await settle();
 
       expect(host.saveAsks).toEqual(['img-2']);
@@ -241,8 +241,8 @@ describe('ContentPipelineImageGridComponent', () => {
       await settle();
 
       expect(tiles()[0].textContent).toContain('In your library as “The hero”.');
-      expect(labelled('a', 'Open picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a1');
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a1');
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
       expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
       // A download is still offered: the bytes are the asset's, and a copy of your own is a copy of your own.
       expect(labelled('a', 'Download picture 1 of 2')).not.toBeNull();
@@ -261,10 +261,10 @@ describe('ContentPipelineImageGridComponent', () => {
       await settle();
 
       expect(tiles()[0].textContent).toContain('Saving picture 1 of 2 to your library…');
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
       expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
       // And the picture beside it is untouched: one save is about one picture.
-      expect(labelled('button', 'Save picture 2 of 2 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 2 of 2')).not.toBeNull();
     });
 
     it('says why a save did not land and offers another go, leaving the picture as it was', async () => {
@@ -272,7 +272,7 @@ describe('ContentPipelineImageGridComponent', () => {
       await settle();
 
       expect(tiles()[0].querySelector('[role="alert"]')?.textContent).toContain('Nothing was saved.');
-      labelled('button', 'Try saving picture 1 of 2 again')!.click();
+      labelled('button', 'Try again: save picture 1 of 2')!.click();
       await settle();
 
       expect(host.saveAsks).toEqual(['img-1']);
@@ -285,7 +285,7 @@ describe('ContentPipelineImageGridComponent', () => {
       host.saves.set(savesWith(images, 'nothing'));
       await settle();
 
-      expect(labelled('button', 'Save picture 1 of 1 to your library')?.hasAttribute('disabled')).toBeTrue();
+      expect(labelled('button', 'Save to library: picture 1 of 1')?.hasAttribute('disabled')).toBeTrue();
       expect(tiles()[0].textContent).toContain('No longer available');
     });
   });

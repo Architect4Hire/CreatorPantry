@@ -180,8 +180,12 @@ describe('RecipePickerComponent', () => {
       TestBed.overrideProvider(RecipeService, { useValue: library });
       await mount();
 
-      expect(el.textContent).toContain('You have no recipes yet');
-      expect(el.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/recipes`);
+      expect(el.textContent).toContain('No recipes to link yet');
+      // Drawn, and compact: a part of a form with nothing in it, not the page's first use (AU.5.2).
+      const empty = el.querySelector('cp-empty-state')!;
+      expect(empty.getAttribute('data-variant')).toBe('no-results');
+      expect(empty.querySelector('cp-illustration')).not.toBeNull();
+      expect(empty.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/recipes`);
       expect(el.querySelector('input[role="combobox"]')).toBeNull();
     });
 

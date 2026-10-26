@@ -1181,16 +1181,16 @@ capture, and chose to keep dietary notes out of the tags (option A).*
   - *Fixed: "submitting" was not announced.*
   - *Fixed: a leftover class.*
 - *Left for the owner:*
-  - *`cp-generated` round a grid of option cards, and round the advisory list's bordered items. This prompt asks for
-    the surface, but "Generated content" says a box round a card is a box in a box and takes the label alone. The
-    swap is one line in each template if the label alone is preferred.*
+  - *`cp-generated` round a grid of option cards, and round the advisory list's bordered items, against "Generated
+    content"'s box-in-a-box rule. Settled in AU.5.2: the owner kept the surface, and the rule now says a set of
+    edged items takes it once, round the set.*
   - *`cp-empty-state` always prints an `h3`, which skips a level under the draft review's `h1`. It needs a heading
     level input in the library.*
 
 *`npm run build` passes. The page contract holds (28 self-tests), safety copy holds, the library is 471/471 and the
 showcase is 6191/6191.*
 
-## AU.5.2 Image Studio
+## AU.5.2 Image Studio - done
 
 ```text
 SCOPE: Pink tone and icon. Results as a picture-led grid in cp-generated, each with "View larger" into
@@ -1202,6 +1202,95 @@ RESTRICTION: No change to generation, credits, or what is stored. Do not run bac
 UTILIZATION: design-review; playwright-cli screenshots standalone and hosted in the Content Pipeline.
 BEHAVIOR: Show both modes; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped, with a scope change the owner asked for part-way. The owner approved the
+results sketch, and chose to keep `cp-generated` round a set of edged items and write that into the rule. Then
+they asked that the Image Studio, and also the AI Recipe Studio, take the workflows' UX. Both are now flows on
+their own pages. That overrides this prompt's "anchor nav and form sections unchanged in structure".*
+
+*No screenshots of either mode were taken. The capture account's credentials were not in the environment, and a
+run with pictures in it would have spent real Venice credits. The "before" is the AU.0 capture of both pages.*
+
+*The pictures (`generated-image-run`, shared by the Image Studio, Content Pipeline step 4 and a workflow's Images
+step):*
+
+- *The grid sits in `cp-generated kind="picture"`.*
+  - *The mark moved off the run's status line, so it now shows when the server named no provider. That fixes the
+    AU.3.1 leftover.*
+  - *The model is named only on the studio's own page.*
+  - *"Tidy away the rest" is the surface's action.*
+  - *There is no surface round skeletons alone.*
+- *Each picture still coming is a skeleton tile in the same grid, framed like a real tile.*
+  - *Its picture takes the shape of the first one made, or square before any is made. No size is asked for, so
+    each model's own default applies.*
+  - *None are drawn once the page stops checking.*
+- *A first-use "No pictures yet" (`picture`) stands where the grid will be.*
+- *The lightbox caption carries `cp-generated-label`.*
+- *"Asking for your pictures…" is an always-mounted offscreen status.*
+- *Library: `cp-skeleton` takes `pictureAspect`, for a card's picture or a block. DESIGN-SYSTEM.md says so, and
+  "Generated content" has the new rule about sets.*
+- *`cp-recipe-picker`'s empty library is a compact illustrated state (`recipe`), in every studio that uses it. The
+  empty-state paragraph now allows a compact state to draw what is missing.*
+- *Label in Name (WCAG 2.5.3, found by `design-review`, and older than this prompt): every picture control's
+  accessible name now begins with its visible words. This covers the grid, the lightbox's downloads and the
+  library step.*
+
+*The Image Studio is a flow:*
+
+- *Its steps are "Choose what the picture is for", "Plan the picture" and "Make pictures and keep the best". These
+  are the same parts and names as the "Create food images" workflow's first three steps, which host the same
+  component.*
+- *The frame is the Content Pipeline's: `cp-progress` over `cp-stepper` beside one wide `cp-topic-card`. The card
+  holds Back, Continue and Start over, and its heading takes focus on a step change.*
+- *Each step change is announced. The step is kept in `?step=`.*
+- *Work opened with no step lands where it stands: on Make with a run kept, on Plan with a prompt written. It says
+  "Picked up where you left off".*
+- *The page head has the `image` icon and a skeleton loading state.*
+- *The workflow step's link no longer promises "every part of it on one page".*
+
+*The AI Recipe Studio is a flow (`RecipeStudioFlowComponent`):*
+
+- *Its steps are "Describe what you're after", "Choose a concept" and "Review the first draft".*
+- *It hosts the concept studio and the first-draft review through `RecipeStudioHost`, as "Start your recipe" does.
+  The host gained a `part` signal, `contextId`, `showMaker` and `briefRestarted`. Their defaults are the
+  workflow's, which is unchanged.*
+- *One ideas screen spans steps 1–2, so Back finds the brief as typed.*
+- *Asking moves to step 2 and drafting to step 3. Continue is offered only where something was asked for.*
+- *Back from the review, or leaving the page, asks first when rewrites would be lost. This is
+  `recipeStudioFlowCanDeactivateGuard`, which replaces the review's own guard.*
+- *The place is kept in `?step=&request=&draft=`. The old `/draft` addresses open step 3 and move to the studio's
+  address.*
+- *The routes load the import inline, so the page contract checks the flow as a routed page (31).*
+
+*`design-review` ran twice:*
+
+- *Fixed:*
+  - *Label in Name.*
+  - *Skeletons after "Stop checking".*
+  - *A mark round placeholders.*
+  - *Three live regions created already holding their text.*
+  - *The skeleton tile's frame.*
+  - *The empty-state rule.*
+  - *Step changes and the resume, which were silent.*
+  - *Doubled "nothing writes a recipe" copy.*
+  - *Dead `tabindex` targets from the anchor nav.*
+- *Not taken, because they match the Content Pipeline reference:*
+  - *A breadcrumb. Both studios are top-level pages.*
+  - *Start over in the actions row.*
+  - *The stepper stacking above the card at 375px.*
+  - *Matching progress and nav names.*
+- *Left for the owner:*
+  - *Inside a step card, `cp-form-section` and `cp-list-shell` still print `h2`, flat under the card's `h2`. Neither
+    has a heading-level input. The same holds in the Content Pipeline and brand setup.*
+  - *The concept studio and the first-draft review keep their own-page mode. Specs cover it, but no route loads
+    it now.*
+  - *A tile's "Saving picture N of M…" status is still created holding its text.*
+  - *Social Studio's workflow step still links "to see every part of it on one page". AU.5.3 settles it.*
+
+*`npm run build` passes. The page contract holds (28 self-tests, 31 routed pages), safety copy holds, and the library
+is 473/473. The showcase is 6217/6218. The one red is the recipe editor's step-layout spec, the known intermittent
+one, which passed in a rerun of its file. An earlier full run had 40 reds in the known families (landing, content card,
+editor) plus My Week's moving specs; all of them passed alone (464/464).*
 
 ## AU.5.3 Social Studio
 

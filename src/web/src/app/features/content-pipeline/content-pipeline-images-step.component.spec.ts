@@ -353,7 +353,9 @@ describe('ContentPipelineImagesStepComponent', () => {
 
       expect(text()).toContain('Making your pictures');
       expect(el.querySelector('[role="progressbar"]')?.getAttribute('aria-valuetext')).toBe('1 of 2 ready');
-      expect(el.querySelectorAll('.sheet > li').length).toBe(1);
+      expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(1);
+      // The one still coming stands in the same grid as a skeleton tile, at the made one's shape (AU.5.2).
+      expect(el.querySelectorAll('.sheet > li.pending').length).toBe(1);
     });
 
     it('says the reading is stale rather than passing it off as live', async () => {
@@ -505,7 +507,7 @@ describe('ContentPipelineImagesStepComponent', () => {
       watches[1].next({ status: 'found', operation: run('Succeeded', [picture(1)]) });
       await settle();
 
-      expect(el.querySelectorAll('.sheet > li').length).toBe(1);
+      expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(1);
     });
 
     it('picks a kept run back up on arrival, without being asked', async () => {
@@ -516,7 +518,7 @@ describe('ContentPipelineImagesStepComponent', () => {
       watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
       await settle();
 
-      expect(el.querySelectorAll('.sheet > li').length).toBe(2);
+      expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(2);
       expect(requests).withContext('resuming asks for nothing new').toEqual([]);
     });
 
@@ -736,7 +738,7 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
 
     watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
     await settle();
-    expect(el.querySelectorAll('.sheet > li').length).toBe(2);
+    expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(2);
 
     // The workspace changes and the draft with it, the way a new owner's kept draft would arrive.
     host.workspaceSlug.set('other-kitchen');
@@ -745,7 +747,7 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
 
     expect(watchedSlugs).toEqual(['cozy-fall|op-a', 'other-kitchen|op-b']);
     // Nothing of A is still on screen while B's run has not answered.
-    expect(el.querySelectorAll('.sheet > li').length).toBe(0);
+    expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(0);
   });
 
   it('re-points at the new workspace even when the run id is unchanged', async () => {
@@ -761,13 +763,13 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
     await mount(draftWith(PROMPT, { operationId: 'op-a' }), ['img-1']);
     watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
     await settle();
-    expect(el.querySelectorAll('.sheet > li').length).toBe(2);
+    expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(2);
 
     host.workspaceSlug.set('other-kitchen');
     host.draft.set(draftWith(PROMPT));
     await settle();
 
-    expect(el.querySelectorAll('.sheet > li').length).toBe(0);
+    expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(0);
     expect(text()).not.toContain('Choose the keepers');
     expect(watchedSlugs).withContext('nothing asked of B').toEqual(['cozy-fall|op-a']);
   });
@@ -783,7 +785,7 @@ describe('ContentPipelineImagesStepComponent across two workspaces', () => {
     watches[0].next({ status: 'found', operation: run('Succeeded', [picture(1), picture(2)]) });
     await settle();
 
-    expect(el.querySelectorAll('.sheet > li').length).withContext('A’s answer dropped').toBe(0);
+    expect(el.querySelectorAll('.sheet > li:not(.pending)').length).withContext('A’s answer dropped').toBe(0);
   });
 
   it('asks for new pictures in the workspace on screen, not the one it started in', async () => {

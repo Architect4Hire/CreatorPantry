@@ -208,11 +208,12 @@ export class RecipeFirstDraftReviewComponent {
 
   /**
    * What made the draft, for the "Drafted by AI" line: the model and the service it ran on, never the prompt.
-   * Left out in a guided step, as the studio leaves it out there; "How this was made" still says it in full.
+   * Left out in a guided step, as the studio leaves it out there; "How this was made" still says it in full. The
+   * studio's own flow hosts this page too, and names the model, because it is the studio's page.
    */
   protected readonly provenance = computed(() => {
     const proposal = this.operation()?.proposal;
-    return proposal && !this.host ? `${proposal.modelName} (${proposal.providerName})` : '';
+    return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
   });
 
   private readonly watchProblem = signal<'not_found' | 'forbidden' | null>(null);

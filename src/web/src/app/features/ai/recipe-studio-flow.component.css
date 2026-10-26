@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+/* The flow's frame, as the Content Pipeline's and the Image Studio's: the steps beside the step's card when there
+   is room for both. minmax(0, …) so a long value inside the card cannot push the page sideways. */
+.layout {
+  display: grid;
+  gap: var(--cp-space-6);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 56rem) {
+  .layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.progress {
+  display: grid;
+  gap: var(--cp-space-4);
+}
+
+.help summary {
+  color: var(--cp-text-muted);
+}
+
+.help p {
+  margin: 0;
+}

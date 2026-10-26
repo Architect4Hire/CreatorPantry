@@ -189,7 +189,7 @@ export class RecipeConceptStudioComponent {
   private readonly creativeContexts = inject(CreativeContextService);
 
   /** The work named in the address (`ai-recipe-studio/context/:contextId`), or null for ideas that are for none. */
-  private readonly routeContextId = this.host ? null : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
+  private readonly routeContextId = this.host ? this.host.contextId : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
 
   /**
    * What is known about that work: nothing asked for, still being read, read, or not this workspace's to read.
@@ -529,8 +529,15 @@ export class RecipeConceptStudioComponent {
    */
   readonly provenance = computed(() => {
     const proposal = this.operation()?.proposal;
-    return proposal && !this.host ? `${proposal.modelName} (${proposal.providerName})` : '';
+    return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
   });
+
+  /** The workflow's sentence above the brief; the studio's own flow says it in its page lede instead. */
+  protected readonly showsHostedIntro = computed(() => this.host?.part() === 'both');
+  /** Whether the brief shows: everywhere but the concepts step of the studio's own flow. */
+  protected readonly showsBrief = computed(() => (this.host?.part() ?? 'both') !== 'concepts');
+  /** Whether what came back shows: everywhere but the brief step of the studio's own flow. */
+  protected readonly showsConcepts = computed(() => (this.host?.part() ?? 'both') !== 'brief');
 
   /** The one sentence said while a skeleton stands in for what is coming; empty otherwise. */
   readonly loadingSentence = computed(() => {
@@ -871,6 +878,7 @@ export class RecipeConceptStudioComponent {
     if (this.host) {
       const requestId = this.requestIdSignal();
       if (requestId !== null) this.host.conceptsRequested(requestId);
+      else this.host.briefRestarted();
       return;
     }
 

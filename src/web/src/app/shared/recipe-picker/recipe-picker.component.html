@@ -97,10 +97,15 @@
       }
     </div>
   } @else if (libraryEmpty()) {
-    <p class="cp-muted">
-      You have no recipes yet, so there is nothing to link.
-      <a [routerLink]="libraryLink()">Go to your recipes</a>
-    </p>
+    <!-- Compact: a part of a form with nothing in it yet, not the page's first use. -->
+    <cp-empty-state
+      variant="no-results"
+      illustration="recipe"
+      title="No recipes to link yet"
+      description="Linking one is optional. Once a recipe is in your library, it can be linked here."
+    >
+      <a cpEmptyStateActions [routerLink]="libraryLink()">Go to your recipes</a>
+    </cp-empty-state>
   } @else {
     @if (search().status === 'unavailable') {
       <cp-notice tone="error" role="alert">

@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -548,25 +549,70 @@ async function saved(): Promise<void> {
   await settle();
 }
 
+/**
+ * The studio goes one step at a time (AU.5.2). The step names, in order, as the step card's heading prints them, so
+ * a spec can move to the step holding what it is about the way a creator would: by Back and Continue.
+ */
+const STEP_LABELS = {
+  about: 'Choose what the picture is for',
+  plan: 'Plan the picture',
+  make: 'Make pictures and keep the best',
+} as const;
+type StudioStep = keyof typeof STEP_LABELS;
+const STEP_ORDER: readonly StudioStep[] = ['about', 'plan', 'make'];
+
+/** The step on screen, or null for a hosted part, which shows one part and has no steps of its own. */
+function stepOnScreen(): StudioStep | null {
+  const heading = root().querySelector('#cp-studio-step-heading')?.textContent?.trim();
+  return STEP_ORDER.find((part) => STEP_LABELS[part] === heading) ?? null;
+}
+
+/**
+ * Move to one step by Back and Continue, as a creator does, and say whether it moved. A hosted part has no steps,
+ * so it stays put.
+ */
+function showStep(part: StudioStep): boolean {
+  let moved = false;
+  for (let moves = 0; moves < STEP_ORDER.length; moves += 1) {
+    const current = stepOnScreen();
+    if (current === null || current === part) return moved;
+
+    const forward = STEP_ORDER.indexOf(part) > STEP_ORDER.indexOf(current);
+    const control = Array.from(root().querySelectorAll<HTMLButtonElement>('[cpTopicCardActions] button')).find(
+      (each) => each.textContent?.trim() === (forward ? 'Continue' : 'Back'),
+    );
+    control!.click();
+    harness.detectChanges();
+    moved = true;
+  }
+  return moved;
+}
+
+/** Typed once the step's fields have taken their values: a field typed into in the tick it mounts is overwritten. */
 async function typeConcept(value: string): Promise<void> {
+  if (showStep('about')) await settle();
   const concept = root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!;
   concept.value = value;
   concept.dispatchEvent(new Event('input'));
   await settle();
 }
 
-function subjectValue(): string {
+/** Read after the step's fields have had their tick when the step changed: a field it shows takes its value a beat later. */
+async function subjectValue(): Promise<string> {
+  if (showStep('about')) await settle();
   return root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!.value;
 }
 
 async function typeSubject(value: string): Promise<void> {
+  if (showStep('about')) await settle();
   const field = root().querySelector<HTMLInputElement>('#cp-pipeline-subject')!;
   field.value = value;
   field.dispatchEvent(new Event('input'));
   await settle();
 }
 
-function conceptValue(): string {
+async function conceptValue(): Promise<string> {
+  if (showStep('about')) await settle();
   return root().querySelector<HTMLTextAreaElement>('#cp-pipeline-concept')!.value;
 }
 
@@ -582,20 +628,32 @@ function button(label: string): HTMLButtonElement | null {
   );
 }
 
+/** Press a button by its words, moving to the step that has it when the one on screen does not. */
 async function click(label: string): Promise<void> {
+  for (const part of [stepOnScreen(), ...STEP_ORDER]) {
+    if (button(label) !== null) break;
+    if (part !== null) showStep(part);
+  }
   button(label)!.click();
   await settle();
 }
 
+async function promptValue(): Promise<string> {
+  if (showStep('plan')) await settle();
+  return promptBox().value;
+}
+
 function promptBox(): HTMLTextAreaElement {
+  showStep('plan');
   return root().querySelector<HTMLTextAreaElement>('#cp-pipeline-final-prompt')!;
 }
 
 /** The "Save to library" button of one picture, by its place in the run. */
 function saveButton(position: number, total = 2): HTMLButtonElement | null {
+  showStep('make');
   return (
     Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find(
-      (each) => each.getAttribute('aria-label') === `Save picture ${position} of ${total} to your library`,
+      (each) => each.getAttribute('aria-label') === `Save to library: picture ${position} of ${total}`,
     ) ?? null
   );
 }
@@ -624,6 +682,7 @@ function savedAsset(overrides: Partial<DamCreatedAsset> = {}): DamCreatedAsset {
 }
 
 async function typePrompt(value: string): Promise<void> {
+  if (showStep('plan')) await settle();
   const box = promptBox();
   box.value = value;
   box.dispatchEvent(new Event('input'));
@@ -679,6 +738,9 @@ describe('ImageStudioComponent', () => {
 
       expect(text()).toContain('Loading your studio');
       expect(root().querySelector('cp-form-section')).toBeNull();
+      // The shape of the form, not a sentence in its place (APP-003): said offscreen, drawn in a busy region.
+      expect(root().querySelector('p.loading-status[role="status"]')?.textContent).toContain('Loading your studio');
+      expect(root().querySelector('.loading[aria-busy="true"] cp-skeleton')).not.toBeNull();
     });
 
     it('says the workspaces could not be loaded, and offers to try again', async () => {
@@ -715,14 +777,19 @@ describe('ImageStudioComponent', () => {
   });
 
   describe('the page', () => {
-    it('lays the work out as named sections, in the order it happens', async () => {
+    it("wears the studio's icon in its page head", async () => {
       await create();
 
-      const headings = Array.from(root().querySelectorAll('cp-form-section h2')).map((heading) =>
-        heading.textContent?.trim(),
-      );
+      expect(root().querySelector('cp-page-head cp-shell-nav-icon[cpPageHeadIcon]')).not.toBeNull();
+    });
 
-      expect(headings).toEqual([
+    it('lays each step out as named sections, in the order the work happens', async () => {
+      await create();
+
+      const headings = (): (string | undefined)[] =>
+        Array.from(root().querySelectorAll('cp-form-section h2')).map((heading) => heading.textContent?.trim());
+
+      expect(headings()).toEqual([
         'A recipe',
         // Directly under the picker, because the two answer the same question: a recipe from the library, or
         // the name of one that is not in it yet.
@@ -732,13 +799,15 @@ describe('ImageStudioComponent', () => {
         'What you already have in mind',
         'Scene',
         'Style',
-        // The idea sits between the brief and the look, and is asked for rather than shown.
-        'What you already know',
-        'The look',
-        'Extras',
-        'The prompt',
-        'Make the pictures',
+        'A brief',
       ]);
+
+      showStep('plan');
+      // The idea sits before the look, and is asked for rather than shown.
+      expect(headings()).toEqual(['What you already know', 'The look', 'A reference picture', 'The prompt']);
+
+      showStep('make');
+      expect(headings()).toEqual(['Make the pictures']);
     });
 
     it('names every section to a screen reader', async () => {
@@ -874,42 +943,63 @@ describe('ImageStudioComponent', () => {
   });
 
   describe('getting around', () => {
-    it('offers every part of the page as a destination that exists and can take focus', async () => {
+    function stepper(): { label: string; current: boolean }[] {
+      return Array.from(root().querySelectorAll<HTMLElement>('cp-stepper li')).map((row) => ({
+        label: row.textContent ?? '',
+        current: row.getAttribute('aria-current') === 'step',
+      }));
+    }
+
+    it('goes one step at a time, through the same three steps as the "Create food images" workflow', async () => {
       await create();
 
-      const links = Array.from(root().querySelectorAll<HTMLAnchorElement>('cp-anchor-nav a'));
-      expect(links.map((link) => link.textContent?.trim())).toEqual([
-        'The brief',
-        'An idea',
-        'The look',
-        'Extras',
-        'The prompt',
-        'The pictures',
-      ]);
-
-      for (const link of links) {
-        const target = root().querySelector<HTMLElement>(link.getAttribute('href')!);
-        expect(target).withContext(link.getAttribute('href')!).not.toBeNull();
-        expect(target!.getAttribute('tabindex')).toBe('-1');
-      }
+      // A flow: the progress and the steps beside one card headed by the step's name (AU.5.2).
+      expect(root().querySelector('cp-anchor-nav')).toBeNull();
+      expect(root().querySelector('cp-progress')?.textContent).toContain('Step 1 of 3');
+      const rows = stepper();
+      expect(rows.length).toBe(3);
+      expect(rows[0].label).toContain(STEP_LABELS.about);
+      expect(rows[1].label).toContain(STEP_LABELS.plan);
+      expect(rows[2].label).toContain(STEP_LABELS.make);
+      expect(rows.map((row) => row.current)).toEqual([true, false, false]);
+      expect(button('Back')).toBeNull();
     });
 
-    it('moves focus to the part asked for, and marks it as the current one', async () => {
+    it('moves on with Continue and back with Back, taking focus to the step it arrives on', async () => {
       await create();
 
-      const link = Array.from(root().querySelectorAll<HTMLAnchorElement>('cp-anchor-nav a')).find(
-        (each) => each.textContent?.trim() === 'The prompt',
-      )!;
-      const target = root().querySelector<HTMLElement>('#cp-studio-prompt')!;
-      const scrolled = spyOn(target, 'scrollIntoView');
+      await click('Continue');
+      expect(stepOnScreen()).toBe('plan');
+      expect(document.activeElement?.id).toBe('cp-studio-step-heading');
+      expect(root().querySelector('.studio > [role="status"]')?.textContent).toContain('Step 2 of 3: Plan the picture.');
+      expect(stepper().map((row) => row.current)).toEqual([false, true, false]);
+      expect(root().querySelector('cp-progress')?.textContent).toContain('Step 2 of 3');
 
-      link.click();
-      await settle();
+      await click('Continue');
+      expect(stepOnScreen()).toBe('make');
+      expect(button('Continue')).withContext('the last step has nowhere to continue to').toBeNull();
 
-      // No `behavior`: the stylesheet decides, which is how reduced motion is honoured.
-      expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
-      expect(document.activeElement).toBe(target);
-      expect(link.getAttribute('aria-current')).toBe('true');
+      await click('Back');
+      expect(stepOnScreen()).toBe('plan');
+      expect(document.activeElement?.id).toBe('cp-studio-step-heading');
+    });
+
+    it('names the step in the address, so a refresh opens the same step', async () => {
+      await create();
+      await click('Continue');
+
+      expect(TestBed.inject(Location).path()).toContain('step=plan');
+
+      await create({ url: `/${SLUG}/image-studio?step=make` });
+      expect(stepOnScreen()).toBe('make');
+    });
+
+    it('opens work that has a prompt on the step that holds it', async () => {
+      await create({ drafts: { 'w1.m1': draftWith() } });
+
+      expect(stepOnScreen()).toBe('plan');
+      // Said, not left to be noticed: the creator did not choose this step.
+      expect(root().querySelector('.studio > [role="status"]')?.textContent).toContain('Picked up where you left off');
     });
   });
 
@@ -939,7 +1029,7 @@ describe('ImageStudioComponent', () => {
     it('brings a kept prompt back', async () => {
       await create({ drafts: { 'w1.m1': draftWith() } });
 
-      expect(promptBox().value).toBe(PROMPT);
+      expect(await promptValue()).toBe(PROMPT);
     });
 
     it('does not claim an edit was kept when the store refused it', async () => {
@@ -949,7 +1039,7 @@ describe('ImageStudioComponent', () => {
 
       await typePrompt(PROMPT);
 
-      expect(promptBox().value).withContext('the edit stays on screen').toBe(PROMPT);
+      expect(await promptValue()).withContext('the edit stays on screen').toBe(PROMPT);
       expect(text()).toContain('not being kept on this device');
       expect(text()).not.toContain('Saved at');
     });
@@ -964,9 +1054,10 @@ describe('ImageStudioComponent', () => {
   describe('making the pictures', () => {
     it('will not ask without a prompt, and says where to write one', async () => {
       await create();
+      showStep('make');
 
       expect(button('Make the pictures')!.disabled).toBeTrue();
-      expect(text()).toContain('There is no prompt yet. Write one above');
+      expect(text()).toContain('There is no prompt yet. Go back a step to write one');
     });
 
     it('sends the prompt the creator typed, with no look picked, to the workspace in the route', async () => {
@@ -1084,7 +1175,7 @@ describe('ImageStudioComponent', () => {
 
       expect(confirmCalls).toEqual(['Start this over?']);
       expect(cleared).toEqual([]);
-      expect(promptBox().value).toBe(PROMPT);
+      expect(await promptValue()).toBe(PROMPT);
     });
 
     it('throws the draft away, takes the pictures off the screen, and says so', async () => {
@@ -1094,10 +1185,11 @@ describe('ImageStudioComponent', () => {
 
       await click('Start over');
 
-      expect(cleared).toEqual(['w1.m1']);
-      expect(promptBox().value).toBe('');
-      expect(root().querySelectorAll('.sheet > li').length).toBe(0);
+      // Said before anything else moves: going to another step says that step instead.
       expect(root().querySelector('.studio > [role="status"]')?.textContent).toContain('Started over');
+      expect(cleared).toEqual(['w1.m1']);
+      expect(root().querySelectorAll('.sheet > li').length).toBe(0);
+      expect(await promptValue()).toBe('');
 
       // The run that was on screen is abandoned, not left to write itself back into the empty draft.
       const before = writes.length;
@@ -1118,7 +1210,7 @@ describe('ImageStudioComponent', () => {
 
       expect(url()).toBe(`${STUDIO}/context/ctx-w1.m1`);
       expect(server.gets).toEqual([{ slug: SLUG, id: 'ctx-w1.m1' }]);
-      expect(promptBox().value).toBe(PROMPT);
+      expect(await promptValue()).toBe(PROMPT);
     });
 
     it('shows what the context holds with nothing kept on this device — a fresh browser profile', async () => {
@@ -1128,7 +1220,7 @@ describe('ImageStudioComponent', () => {
           fake.seed(SLUG, 'ctx-shared', { channelKeys: ['instagram'], pictureBrief: 'A tight crop of the first slice.' }),
       });
 
-      expect(conceptValue()).toBe('A tight crop of the first slice.');
+      expect(await conceptValue()).toBe('A tight crop of the first slice.');
       expect(text()).toContain('Saved');
       expect(server.patches.length).withContext('reading is not an edit').toBe(0);
       expect(writes.length).withContext('opening leaves no record').toBe(0);
@@ -1176,8 +1268,8 @@ describe('ImageStudioComponent', () => {
       expect(url()).toBe(`${STUDIO}/context/ctx-1`);
       expect(unfiled['w1.m1']).withContext('the old draft is cleared').toBeUndefined();
       expect(contextOf['w1.m1']).toBe('ctx-1');
-      expect(promptBox().value).withContext('the prompt came along').toBe(PROMPT);
-      expect(conceptValue()).toBe('A tight crop.');
+      expect(await promptValue()).withContext('the prompt came along').toBe(PROMPT);
+      expect(await conceptValue()).toBe('A tight crop.');
     });
 
     it('leaves that draft exactly where it is when the move fails, and moves it on a retry — one context', async () => {
@@ -1193,7 +1285,7 @@ describe('ImageStudioComponent', () => {
 
       expect(server.creates.length).toBe(1);
       expect(url()).toBe(`${STUDIO}/context/ctx-1`);
-      expect(promptBox().value).toBe(PROMPT);
+      expect(await promptValue()).toBe(PROMPT);
     });
 
     it('keeps an edit on screen when the server cannot be reached, says so, and sends it on a retry', async () => {
@@ -1203,7 +1295,7 @@ describe('ImageStudioComponent', () => {
       await typeConcept('Typed on a train.');
       await saved();
 
-      expect(conceptValue()).toBe('Typed on a train.');
+      expect(await conceptValue()).toBe('Typed on a train.');
       expect(text()).toContain('not saved yet');
 
       server.offline = false;
@@ -1221,7 +1313,7 @@ describe('ImageStudioComponent', () => {
 
       // What the hand-off seeded. The studio opens knowing what the picture is of, which is what makes
       // "Plan some looks" available without the creator saying it again.
-      expect(subjectValue()).toBe('Fattoush Salad with Radishes');
+      expect(await subjectValue()).toBe('Fattoush Salad with Radishes');
     });
 
     it('shows the newer name after a reload, because the context owns it and this screen only renders it', async () => {
@@ -1237,7 +1329,7 @@ describe('ImageStudioComponent', () => {
       await click('Load the latest');
 
       expect(confirmCalls).toEqual(['Load the latest?']);
-      expect(subjectValue()).toBe('Barmbrack');
+      expect(await subjectValue()).toBe('Barmbrack');
     });
 
     it('keeps the name typed here when the same field was changed somewhere else', async () => {
@@ -1251,7 +1343,7 @@ describe('ImageStudioComponent', () => {
       await saved();
 
       // Theirs until they say otherwise, exactly as the picture description is.
-      expect(subjectValue()).toBe('Fattoush salad');
+      expect(await subjectValue()).toBe('Fattoush salad');
       expect(text()).toContain('changed somewhere else');
     });
 
@@ -1262,15 +1354,15 @@ describe('ImageStudioComponent', () => {
       await typeConcept('A tight crop, soft light.');
       await saved();
 
-      expect(conceptValue()).toBe('A tight crop, soft light.');
+      expect(await conceptValue()).toBe('A tight crop, soft light.');
       expect(text()).toContain('changed somewhere else');
       expect(server.stored(SLUG, 'ctx-w1.m1')?.pictureBrief).toBe('A wide shot of the table.');
 
       await click('Load the latest');
 
       expect(confirmCalls).toEqual(['Load the latest?']);
-      expect(conceptValue()).toBe('A wide shot of the table.');
-      expect(promptBox().value).withContext('what is only on this device is not touched').toBe(PROMPT);
+      expect(await conceptValue()).toBe('A wide shot of the table.');
+      expect(await promptValue()).withContext('what is only on this device is not touched').toBe(PROMPT);
     });
   });
 
@@ -1440,7 +1532,7 @@ describe('ImageStudioComponent', () => {
       await harness.navigateByUrl(`/${OTHER_SLUG}/image-studio`);
       await settle();
 
-      expect(promptBox().value).toBe('');
+      expect(await promptValue()).toBe('');
       expect(text()).not.toContain(PROMPT);
     });
 
@@ -1521,7 +1613,7 @@ describe('ImageStudioComponent', () => {
       });
       await settle();
 
-      expect(promptBox().value).toBe('');
+      expect(await promptValue()).toBe('');
       expect(text()).not.toContain(PROMPT);
 
       await typePrompt('Theirs.');
@@ -1642,7 +1734,7 @@ describe('ImageStudioComponent', () => {
         { drafts: { 'w1.m1': draftWith() } },
       );
 
-      expect(promptBox().value).toBe(PROMPT);
+      expect(await promptValue()).toBe(PROMPT);
       expect(hostedStudio().workContext()?.id).toBe('ctx-w1.m1');
     });
 

@@ -19,6 +19,10 @@
     />
 
     <div cpLightboxCaption class="about">
+      <!-- Shown larger, a picture keeps the mark it had in the grid: the label alone, since the lightbox is
+           already an edge round it (DESIGN-SYSTEM.md, "Generated content"). -->
+      <cp-generated-label class="made" kind="picture" [provenance]="provenance()" />
+
       <p class="status">
         <cp-status-pill [tone]="statusTones[image.status]">{{ statusLabels[image.status] }}</cp-status-pill>
         <span class="cp-muted">{{ sizeText() }}</span>
@@ -69,7 +73,7 @@
           cpButton
           variant="secondary"
           [href]="href"
-          [attr.aria-label]="'Download picture ' + position() + ' of ' + total() + ' at web size, ' + webSizeLabel()"
+          [attr.aria-label]="'Download web size (' + webSizeLabel() + '): picture ' + position() + ' of ' + total()"
         >
           Download web size ({{ webSizeLabel() }})
         </a>
@@ -80,7 +84,7 @@
           cpButton
           variant="secondary"
           [href]="href"
-          [attr.aria-label]="'Download the original of picture ' + position() + ' of ' + total() + ', ' + originalSizeLabel()"
+          [attr.aria-label]="'Download original (' + originalSizeLabel() + '): picture ' + position() + ' of ' + total()"
         >
           Download original ({{ originalSizeLabel() }})
         </a>

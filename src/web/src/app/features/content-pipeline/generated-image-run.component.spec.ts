@@ -201,7 +201,7 @@ function makeButton(): HTMLButtonElement {
 }
 
 function tiles(): HTMLElement[] {
-  return Array.from(el.querySelectorAll('.sheet > li'));
+  return Array.from(el.querySelectorAll('.sheet > li:not(.pending)'));
 }
 
 function labelled(selector: string, name: string): HTMLElement | null {
@@ -411,6 +411,96 @@ describe('GeneratedImageRunComponent', () => {
     expect(el.textContent).toContain('Change that on the first step.');
   });
 
+  describe('the pictures as a set (AU.5.2)', () => {
+    async function running(images: readonly StagedImage[], asked: number): Promise<void> {
+      host.state.set({ operationId: 'op-1' });
+      await settle();
+
+      watches[watches.length - 1].next({
+        status: 'found',
+        operation: { ...operation(images), status: 'Running', variantCount: asked, stagedCount: images.length, completedAt: null },
+      });
+      await settle();
+    }
+
+    it('shows where the pictures will land before any are asked for', () => {
+      const empty = el.querySelector('cp-empty-state.no-pictures')!;
+      expect(empty.textContent).toContain('No pictures yet');
+      expect(empty.querySelector('cp-illustration')).not.toBeNull();
+      expect(el.querySelector('cp-generated')).toBeNull();
+    });
+
+    it('marks the set once, round the grid, even when the server named nothing that made them', async () => {
+      await arrive([picture(0), picture(1)]);
+
+      const generated = el.querySelector('cp-generated')!;
+      expect(generated.querySelector('.sheet')).not.toBeNull();
+      expect(generated.querySelector('cp-generated-label')?.textContent).toContain('Made by AI');
+      // One mark for the set: the label is the surface's, and no tile carries one of its own.
+      expect(generated.querySelectorAll('.sheet cp-generated-label').length).toBe(0);
+      expect(el.querySelector('cp-empty-state.no-pictures')).toBeNull();
+    });
+
+    it('names what made them when the server says, on the set', async () => {
+      host.state.set({ operationId: 'op-1' });
+      await settle();
+      watches[watches.length - 1].next({
+        status: 'found',
+        operation: { ...operation([picture(0)]), providerName: 'Venice', modelName: 'flux-dev' },
+      });
+      await settle();
+
+      expect(el.querySelector('cp-generated cp-generated-label')?.textContent).toContain('Venice, flux-dev');
+    });
+
+    it('puts tidying away the rest with the set, as its action', async () => {
+      await arrive([picture(0), picture(1)]);
+
+      const tidy = Array.from(el.querySelectorAll('button')).find((b) => b.closest('[cpGeneratedActions]'));
+      expect(tidy).toBeTruthy();
+    });
+
+    it('draws each picture still coming as a skeleton tile, at the shape of the ones made', async () => {
+      await running([picture(0, { width: 1024, height: 768 })], 3);
+
+      const pending = Array.from(el.querySelectorAll<HTMLElement>('.sheet > li.pending'));
+      expect(pending.length).toBe(2);
+      expect(pending[0].getAttribute('aria-hidden')).toBe('true');
+      const skeleton = pending[0].querySelector<HTMLElement>('cp-skeleton')!;
+      // The tile's own frame round a picture of the made one's shape, not a card in a tile.
+      expect(skeleton.getAttribute('data-shape')).toBe('block');
+      expect(skeleton.style.getPropertyValue('--cp-skeleton-picture-aspect')).toBe('1024 / 768');
+      // The made one is a real tile, in the same grid.
+      expect(el.querySelectorAll('.sheet > li:not(.pending)').length).toBe(1);
+    });
+
+    it('draws nothing as on its way once this page has stopped checking, since nothing is being watched for', async () => {
+      await running([picture(0)], 3);
+      expect(el.querySelectorAll('.sheet > li.pending').length).toBe(2);
+
+      (Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Stop checking') as HTMLButtonElement).click();
+      await settle();
+
+      expect(el.querySelectorAll('.sheet > li.pending').length).toBe(0);
+      expect(tiles().length).withContext('the picture already made stays').toBe(1);
+    });
+
+    it('draws the whole set square before any picture has been made, and none once the run stops', async () => {
+      await running([], 2);
+
+      const pending = Array.from(el.querySelectorAll<HTMLElement>('.sheet > li.pending'));
+      expect(pending.length).toBe(2);
+      expect(pending[0].querySelector<HTMLElement>('cp-skeleton')!.style.getPropertyValue('--cp-skeleton-picture-aspect')).toBe('1 / 1');
+      // No mark round skeletons alone: there is no output yet to say a model made.
+      expect(el.querySelector('cp-generated')).toBeNull();
+      expect(el.querySelector('[cpGeneratedActions]')).toBeNull();
+
+      watches[watches.length - 1].next({ status: 'found', operation: operation([picture(0), picture(1)]) });
+      await settle();
+      expect(el.querySelectorAll('.sheet > li.pending').length).toBe(0);
+    });
+  });
+
   describe('filing pictures in the library (AF.4.2)', () => {
     const LIBRARY: GeneratedImageRunLibrary = {
       defaultTitle: 'Soda bread hero',
@@ -430,7 +520,7 @@ describe('GeneratedImageRunComponent', () => {
     it('offers one control for the decision — saving — and no keeper to mark as well', async () => {
       await filing();
 
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).not.toBeNull();
       expect(el.querySelector('input[type="checkbox"]')).toBeNull();
       expect(el.textContent).toContain(ELSEWHERE.chooseHeading);
       expect(el.textContent).toContain('Nothing saved to your library yet.');
@@ -440,7 +530,7 @@ describe('GeneratedImageRunComponent', () => {
       await arrive([picture(1), picture(2)]);
 
       expect(el.querySelector('input[type="checkbox"]')).not.toBeNull();
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
       expect(dialog()).toBeNull();
     });
 
@@ -448,7 +538,7 @@ describe('GeneratedImageRunComponent', () => {
       await filing();
       expect(dialog()?.open()).toBeFalse();
 
-      labelled('button', 'Save picture 2 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 2 of 2')!.click();
       await settle();
 
       expect(dialog()?.open()).toBeTrue();
@@ -460,7 +550,7 @@ describe('GeneratedImageRunComponent', () => {
     it('offers no prompt with the save, because a run keeps request ids and not a prompt’s lineage', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
 
       expect(dialog()?.prompt()).toBeNull();
@@ -471,7 +561,7 @@ describe('GeneratedImageRunComponent', () => {
     it('shows a saved picture as saved, with the way to its asset, and hands the asset to its caller', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
 
       dialog()!.saved.emit(createdAsset());
@@ -480,7 +570,7 @@ describe('GeneratedImageRunComponent', () => {
       expect(host.saves).toEqual([createdAsset()]);
       expect(tiles()[0].textContent).toContain('In your library as “Soda bread hero”.');
       expect(
-        labelled('a', 'Open picture 1 of 2 in your library')?.getAttribute('href'),
+        labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href'),
       ).toBe('/cozy-fall/dam/a1');
       expect(host.announcements).toContain('Saved to your library as “Soda bread hero”.');
       expect(el.textContent).toContain('One picture is in your library.');
@@ -489,22 +579,22 @@ describe('GeneratedImageRunComponent', () => {
     it('will not let a saved picture be declined, and offers it no second save', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.saved.emit(createdAsset());
       await settle();
 
       expect(labelled('button', 'Decline picture 1 of 2')).toBeNull();
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
       // The other picture is untouched: one save is about one picture.
       expect(labelled('button', 'Decline picture 2 of 2')).not.toBeNull();
-      expect(labelled('button', 'Save picture 2 of 2 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 2 of 2')).not.toBeNull();
     });
 
     it('says a save is running, then says why it did not land and offers another go', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
 
       dialog()!.progress.emit({ state: 'saving' });
@@ -517,7 +607,7 @@ describe('GeneratedImageRunComponent', () => {
       expect(tiles()[0].querySelector('[role="alert"]')?.textContent).toContain('Nothing was saved.');
 
       // Nothing was lost: the picture is exactly where it was, and the form opens again for it.
-      labelled('button', 'Try saving picture 1 of 2 again')!.click();
+      labelled('button', 'Try again: save picture 1 of 2')!.click();
       await settle();
       expect(dialog()?.open()).toBeTrue();
       expect(dialog()?.generatedImageId()).toBe('img-1');
@@ -528,7 +618,7 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(tiles()[0].textContent).toContain('In your library.');
       expect(tiles()[0].textContent).toContain('Filed in your library');
-      expect(labelled('button', 'Save picture 1 of 2 to your library')).toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 2')).toBeNull();
     });
 
     it('finds the asset of a picture saved before this visit, through the work’s own references', async () => {
@@ -541,7 +631,7 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(detailReads).toEqual(['cozy-fall|a9']);
       expect(tiles()[0].textContent).toContain('In your library as “Last week’s hero”.');
-      expect(labelled('a', 'Open picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a9');
+      expect(labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a9');
     });
 
     it('still says a picture is saved when its asset cannot be found, and offers the library instead', async () => {
@@ -578,7 +668,7 @@ describe('GeneratedImageRunComponent', () => {
       expect(deadline).toContain('stop being available after');
       expect(deadline).toContain(ELSEWHERE.expiryRemedy);
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.saved.emit(createdAsset());
       await settle();
@@ -590,7 +680,7 @@ describe('GeneratedImageRunComponent', () => {
         ),
       ).toBeTrue();
 
-      labelled('button', 'Save picture 2 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 2 of 2')!.click();
       await settle();
       dialog()!.saved.emit(createdAsset({ id: 'a2', title: 'Second', sourceGeneratedImageId: 'img-2' }));
       await settle();
@@ -603,7 +693,7 @@ describe('GeneratedImageRunComponent', () => {
     it('writes no keeper into the draft, because saving is the whole decision here', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.saved.emit(createdAsset());
       await settle();
@@ -615,7 +705,7 @@ describe('GeneratedImageRunComponent', () => {
     it('lets go of a save when the picture turns out not to be there', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.progress.emit({ state: 'failed', problem: 'Nothing was saved.' });
       await settle();
@@ -629,7 +719,7 @@ describe('GeneratedImageRunComponent', () => {
     it('forgets what it knows about a run when the creator makes a new set of pictures', async () => {
       await filing();
 
-      labelled('button', 'Save picture 1 of 2 to your library')!.click();
+      labelled('button', 'Save to library: picture 1 of 2')!.click();
       await settle();
       dialog()!.saved.emit(createdAsset());
       await settle();
@@ -642,7 +732,7 @@ describe('GeneratedImageRunComponent', () => {
       await settle();
 
       expect(el.textContent).toContain('Nothing saved to your library yet.');
-      expect(labelled('button', 'Save picture 1 of 1 to your library')).not.toBeNull();
+      expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
     });
   });
 });

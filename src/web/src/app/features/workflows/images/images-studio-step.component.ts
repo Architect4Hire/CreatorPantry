@@ -63,7 +63,7 @@ import { contextPointer, newestLinked, runContextId } from '../creative-work/cre
         @if (contextId(); as id) {
           <p class="cp-muted elsewhere">
             <a [routerLink]="studioLink(id)" [queryParams]="returnQuery()">Open this in the Image Studio</a>
-            to see every part of it on one page.
+            to carry on with it there.
           </p>
         }
       }

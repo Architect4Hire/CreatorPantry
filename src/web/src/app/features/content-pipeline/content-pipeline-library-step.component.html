@@ -49,7 +49,7 @@
                   @if (row.assetLink; as target) {
                     <a
                       [routerLink]="target"
-                      [attr.aria-label]="'Open picture ' + row.position + ' of ' + row.total + ' in your library'"
+                      [attr.aria-label]="'Open it: picture ' + row.position + ' of ' + row.total + ' in your library'"
                     >
                       Open it
                     </a>
@@ -72,7 +72,7 @@
                     variant="secondary"
                     size="sm"
                     [disabled]="!row.canSave"
-                    [attr.aria-label]="'Try saving picture ' + row.position + ' of ' + row.total + ' again'"
+                    [attr.aria-label]="'Try again: save picture ' + row.position + ' of ' + row.total"
                     (click)="requestSave(row.generatedImageId)"
                   >
                     Try again
@@ -89,7 +89,7 @@
                       type="button"
                       variant="primary"
                       size="sm"
-                      [attr.aria-label]="'Save picture ' + row.position + ' of ' + row.total + ' to your library'"
+                      [attr.aria-label]="'Save to library: picture ' + row.position + ' of ' + row.total"
                       (click)="requestSave(row.generatedImageId)"
                     >
                       Save to library
