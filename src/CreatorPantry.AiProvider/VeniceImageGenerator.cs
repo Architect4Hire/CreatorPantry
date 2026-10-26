@@ -66,11 +66,6 @@ public sealed class VeniceImageGenerator(
     /// <summary>The name provenance records as the provider of every image this generates.</summary>
     public const string ProviderName = "venice";
 
-    /// <summary>
-    /// The status a flagged picture is reported under. Venice answered 200, so there is no status of its own
-    /// to carry; this one is in the range the gateway reads as "it decided, and would decide the same again".
-    /// </summary>
-    public const HttpStatusCode FlaggedStatus = HttpStatusCode.UnprocessableEntity;
 
     private const string GeneratePath = "image/generate";
     private const string ImageMediaType = "image/png";
@@ -150,8 +145,7 @@ public sealed class VeniceImageGenerator(
             logger.LogWarning(
                 "Venice flagged an image after {ElapsedMs} ms; it was not staged.", clock.ElapsedMilliseconds);
 
-            throw new HttpRequestException(
-                "Venice flagged the image it generated.", inner: null, FlaggedStatus);
+            throw new ImageWithheldException("Venice flagged the image it generated.");
         }
 
         var bytes = await ReadImageAsync(response, cancellationToken);
@@ -197,6 +191,18 @@ public sealed class VeniceImageGenerator(
         if (serviceKey is not null)
         {
             return null;
+        }
+
+        // The tier and quality this deployment sends when a request names neither, so the allowance for a
+        // picture can be held at what the picture will actually cost (AP.2.5). Settled from the configured
+        // model's own profile rather than restated, so it cannot disagree with what is sent.
+        if (serviceType == typeof(ImageGenerationDefaults))
+        {
+            var settled = profiles.TryGetValue(model, out var profile) ? profile.Settle(options: null) : null;
+
+            return settled is null || settled.Refusal is not null
+                ? null
+                : new ImageGenerationDefaults(settled.Resolution, settled.Quality);
         }
 
         return serviceType == typeof(ImageGeneratorMetadata) ? metadata

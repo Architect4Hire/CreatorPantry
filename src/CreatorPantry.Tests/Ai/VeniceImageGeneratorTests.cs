@@ -38,6 +38,10 @@ public sealed class VeniceImageGeneratorTests
     [InlineData(401, GeneratedImageProviderOutcome.Refused)]
     [InlineData(402, GeneratedImageProviderOutcome.Refused)]
     [InlineData(403, GeneratedImageProviderOutcome.Refused)]
+    // 422 included, and that is the point of listing it: Venice answers CONTENT_POLICY_VIOLATION and
+    // IMAGE_TOO_LARGE that way, which are requests it would not run. Nothing was generated and nothing is
+    // charged (AP.2.5) — a flagged picture is told apart by ImageWithheldException, below, not by a status.
+    [InlineData(422, GeneratedImageProviderOutcome.Refused)]
     [InlineData(408, GeneratedImageProviderOutcome.Unavailable)]
     [InlineData(500, GeneratedImageProviderOutcome.Unavailable)]
     [InlineData(503, GeneratedImageProviderOutcome.Unavailable)]
@@ -79,13 +83,20 @@ public sealed class VeniceImageGeneratorTests
     }
 
     /// <summary>
-    /// With safe mode on Venice answers 200 with a blurred picture and says so in a header. That is a
-    /// refusal: staging it would offer a creator a smear as what they asked for.
+    /// With safe mode on Venice answers 200 with a blurred picture and says so in a header. That is a refusal
+    /// to stage — a creator offered a smear as what they asked for is worse than being told no — and, since
+    /// AP.2.5, a <em>billable</em> one: Venice made the picture and charges for it, so it comes back as
+    /// <see cref="GeneratedImageProviderOutcome.Flagged"/> rather than as a request that never ran.
     /// </summary>
+    /// <remarks>
+    /// The generator says so with <see cref="ImageWithheldException"/>, which the gateway reads by type. It is
+    /// deliberately not a status code: Venice's own 422s are requests it would not run, and charging for one
+    /// of those would bill a creator for a picture nobody made.
+    /// </remarks>
     [Theory]
     [InlineData("x-venice-is-blurred")]
     [InlineData("x-venice-is-content-violation")]
-    public async Task A_picture_venice_flagged_is_a_refusal_and_is_not_returned(string header)
+    public async Task A_picture_venice_flagged_is_billed_and_is_not_returned(string header)
     {
         var gateway = GatewayOver(new StubHandler(_ =>
         {
@@ -96,8 +107,30 @@ public sealed class VeniceImageGeneratorTests
 
         var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
 
-        Assert.Equal(GeneratedImageProviderOutcome.Refused, result.Outcome);
+        Assert.Equal(GeneratedImageProviderOutcome.Flagged, result.Outcome);
         Assert.True(result.Bytes.IsEmpty);
+    }
+
+    /// <summary>
+    /// Venice's own <c>422</c> is a request it would not run — <c>CONTENT_POLICY_VIOLATION</c> carries a
+    /// suggested prompt and a recommended model — so it generated nothing, costs nothing, and must not be read
+    /// as the flagged-and-billed case above.
+    /// </summary>
+    /// <remarks>
+    /// The two were one outcome for a day. Charging a creator for a picture that was never made is the worse
+    /// half of that mistake, which is why this is its own test rather than a row in the theory.
+    /// </remarks>
+    [Fact]
+    public async Task A_prompt_venice_will_not_run_is_refused_rather_than_billed_as_a_flagged_picture()
+    {
+        var gateway = GatewayOver(new StubHandler(_ => Json(
+            HttpStatusCode.UnprocessableEntity,
+            """{"error":"CONTENT_POLICY_VIOLATION","suggested_prompt":"a loaf","recommended_model":"x"}""")));
+
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageProviderOutcome.Refused, result.Outcome);
+        Assert.NotEqual(GeneratedImageProviderOutcome.Flagged, result.Outcome);
     }
 
     [Fact]

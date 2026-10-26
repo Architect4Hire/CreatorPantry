@@ -33,6 +33,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -93,6 +94,8 @@ public sealed partial class MediaAssetCreateTests : IDisposable
             .AddIngredientModule()
             .AddRecipesModule(configuration)
             .AddContentModule()
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
 
             // The AI module's narrow proposal lookup, and only it: the content module resolves a prompt's

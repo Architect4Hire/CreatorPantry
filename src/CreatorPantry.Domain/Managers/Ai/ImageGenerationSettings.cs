@@ -46,9 +46,31 @@ public static class ImageGenerationSettings
     public const int SizeSentMaxLength = 32;
 
     /// <summary>A value under <paramref name="key"/> as text, or null when it is absent or blank.</summary>
+    /// <remarks>Trimmed, and blank reads as absent — a blank quality is not a quality.</remarks>
     public static string? Read(AdditionalPropertiesDictionary? properties, string key) =>
         properties is not null && properties.TryGetValue(key, out var value)
             && value?.ToString() is { Length: > 0 } text && !string.IsNullOrWhiteSpace(text)
             ? text.Trim()
             : null;
 }
+
+/// <summary>
+/// The quality and size a deployment will send when a request names neither (AP.2.5).
+/// </summary>
+/// <param name="Resolution">The resolution tier, or null when the model takes none.</param>
+/// <param name="Quality">The quality, or null when the model offers none.</param>
+/// <remarks>
+/// <para>
+/// <strong>Why a caller has to be able to ask.</strong> An image's price depends on the model, the tier and the
+/// quality (AP.2.4), and the allowance for a generation is held before it is queued (AP.2.5) — but what tier and
+/// quality get sent is decided inside the generator, from the model's own sizing profile, and a domain that
+/// guessed would price the wrong picture. Asked through
+/// <see cref="Microsoft.Extensions.AI.IImageGenerator.GetService"/>, the same way
+/// <see cref="Microsoft.Extensions.AI.ImageGeneratorMetadata"/> is, so this names no provider.
+/// </para>
+/// <para>
+/// Only the defaults. Once a request names a quality of its own (AP.3.1) it is that request's values that are
+/// priced, and these are what a request naming nothing is priced at.
+/// </para>
+/// </remarks>
+public sealed record ImageGenerationDefaults(string? Resolution, string? Quality);

@@ -16,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Brand;
 
@@ -53,6 +55,8 @@ public sealed class BrandProfileChannelRulesTests : IDisposable
 
             // The profile facade asks the Media module whether a submitted logo is in this workspace's library
             // (12.10k), so its lookup seam has to be resolvable here as it is in every real host.
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options => options

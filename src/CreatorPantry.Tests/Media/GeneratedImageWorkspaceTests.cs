@@ -12,6 +12,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -55,6 +56,8 @@ public sealed class GeneratedImageWorkspaceTests : IAsyncLifetime
             .AddLogging()
             .AddTenancy()
             .AddAudit()
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddSingleton<IClock>(new StoppedClock())
             .AddDbContext<CreatorPantryDbContext>(options => options

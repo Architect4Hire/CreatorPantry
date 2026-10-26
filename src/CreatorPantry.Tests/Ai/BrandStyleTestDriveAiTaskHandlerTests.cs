@@ -25,6 +25,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
 using Polly.Registry;
 using Polly.Timeout;
+using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Ai;
 
@@ -73,6 +75,8 @@ public sealed class BrandStyleTestDriveAiTaskHandlerTests : IAsyncDisposable
 
             // The brand profile facade asks the Media module whether a submitted logo is in this workspace's
             // library (12.10k), so that lookup has to be resolvable wherever the brand module is composed.
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddContentChannelCatalog()
             .AddLogging()

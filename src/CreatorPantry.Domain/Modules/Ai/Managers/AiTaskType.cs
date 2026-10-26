@@ -355,4 +355,24 @@ public enum AiTaskType
     /// <summary>LF.3.1: the prose of one section of a long-form piece.</summary>
     /// <remarks>Declared with LF.1.4 for the same reason as <see cref="LongFormOutline"/>; arrives with LF.3.1.</remarks>
     LongFormSection = 19,
+
+    /// <summary>
+    /// AP.2.5: making a picture. The only member that is not a completion.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>It is here rather than in a vocabulary of its own so a creator's usage breakdown has one
+    /// vocabulary.</strong> <c>AccountAiUsageEntry.TaskType</c> is this enum, and pictures are the largest
+    /// thing an account spends on; a second enum beside it would have to be unioned at every read and would
+    /// drift the first time either side gained a member.
+    /// </para>
+    /// <para>
+    /// <strong>No handler, no prompt and no estimate.</strong> Nothing dispatches on it
+    /// (<c>IAiTaskHandler</c> is keyed by task type and there is none for this), it names no
+    /// <c>.prompt.md</c>, and it is absent from <c>Ai:Quota:TaskEstimates</c> on purpose: an image's hold is
+    /// <c>variantCount × Ai:Quota:ImageRates</c>, which is the exact price rather than an estimate, and
+    /// <c>IAiQuotaAdmissionFacade.AdmitImageAsync</c> is the only thing that admits it.
+    /// </para>
+    /// </remarks>
+    ImageGeneration = 20,
 }

@@ -58,6 +58,10 @@ internal interface IAiQuotaDataLayer
     Task<AccountAiQuota?> FindCurrentQuotaAsync(string accountId, CancellationToken cancellationToken);
 
     /// <summary>The hold already taken for this claim, or null when none was.</summary>
+    /// <summary>One hold by its own id, for a caller asking whether it may still spend against it.</summary>
+    Task<AccountAiQuotaReservation?> FindReservationByIdAsync(
+        Guid reservationId, CancellationToken cancellationToken);
+
     Task<AccountAiQuotaReservation?> FindReservationAsync(
         Guid aiOperationId, Guid leaseToken, CancellationToken cancellationToken);
 
@@ -158,6 +162,10 @@ internal sealed class AiQuotaDataLayer(IAiQuotaRepository quotas) : IAiQuotaData
     public Task<AccountAiQuota?> FindCurrentQuotaAsync(
         string accountId, CancellationToken cancellationToken) =>
         quotas.FindCurrentQuotaAsync(accountId, cancellationToken);
+
+    public Task<AccountAiQuotaReservation?> FindReservationByIdAsync(
+        Guid reservationId, CancellationToken cancellationToken) =>
+        quotas.GetReservationWithPeriodAsync(reservationId, cancellationToken);
 
     public Task<AccountAiQuotaReservation?> FindReservationAsync(
         Guid aiOperationId, Guid leaseToken, CancellationToken cancellationToken) =>

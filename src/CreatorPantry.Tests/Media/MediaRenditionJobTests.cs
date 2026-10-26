@@ -23,6 +23,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -68,6 +69,8 @@ public sealed class MediaRenditionJobTests : IDisposable
                     ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
                 })
                 .Build())
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddGeneratedImageWorker()
             .AddDbContext<CreatorPantryDbContext>(options => options

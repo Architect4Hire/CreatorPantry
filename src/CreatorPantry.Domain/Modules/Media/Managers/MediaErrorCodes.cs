@@ -47,6 +47,23 @@ public static class MediaErrorCodes
     /// discloses the other (tenancy.md). The global query filter makes the two genuinely one case rather than
     /// merely reported as one. Carries no field errors: the id came from the route, so there is no field to name.
     /// </remarks>
+    /// <summary>
+    /// This host cannot price the pictures the request would make, so it will not queue them (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 503, from the <c>.unavailable</c> suffix, and it belongs there: an image model with no credit rate is a
+    /// misconfiguration of this deployment rather than anything about the caller or their allowance. Startup
+    /// refuses a host that can request an unrated picture, so reaching this means a model no sizing profile
+    /// covers.
+    /// </para>
+    /// <para>
+    /// Deliberately not an exhausted-allowance refusal, which would tell a creator to wait for a period reset
+    /// that will not change the answer, and deliberately carries no figures: their balance is not the problem.
+    /// </para>
+    /// </remarks>
+    public const string GenerationUnpriceable = "media.generation.unavailable";
+
     public const string GenerationOperationNotFound = "media.generation_operation.not_found";
 
     /// <summary>No such generated image in the resolved workspace. Also a neighbour's, deliberately.</summary>

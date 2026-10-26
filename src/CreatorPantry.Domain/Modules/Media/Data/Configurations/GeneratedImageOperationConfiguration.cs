@@ -125,6 +125,19 @@ internal sealed class GeneratedImageOperationConfiguration
             table.HasCheckConstraint(
                 "CK_GeneratedImageOperations_IdempotencyKey_NotBlank",
                 "trim(IdempotencyKey) <> ''");
+
+            // The billing counts (AP.2.5). Unusable variants are a subset of the billed ones, and flagged a
+            // subset of those; a row that said otherwise would charge an account for pictures the provider
+            // never made, or report a success as a safety block. Deliberately not bounded above by
+            // VariantCount: a resumed pass re-runs a variant nothing could be staged from, and the provider
+            // bills for both attempts, so a generation can legitimately be billed more than it asked for.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_BilledVariants_Coherent",
+                "BilledVariantCount >= 0 "
+                    + "AND UnusableVariantCount >= 0 "
+                    + "AND FlaggedVariantCount >= 0 "
+                    + "AND UnusableVariantCount <= BilledVariantCount "
+                    + "AND FlaggedVariantCount <= UnusableVariantCount");
         });
     }
 

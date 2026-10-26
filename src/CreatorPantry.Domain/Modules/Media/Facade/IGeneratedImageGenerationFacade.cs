@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Facade;
 
@@ -91,6 +92,51 @@ internal sealed class GeneratedImageGenerationFacade(
                 new Dictionary<string, string[]>()))
             : OperationResult<GeneratedImageOperationDetailServiceModel>.Success(detail);
     }
+
+    /// <summary>
+    /// The refusal an unaffordable generation is answered with (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The shipped quota codes, not Media's own: an exhausted allowance is one fact however the account tried
+    /// to spend it, and a second pair of codes would make a client learn two ways to read "the month is spent".
+    /// <c>ProblemResults</c> already maps them to 429 and 403 with a <c>Retry-After</c>.
+    /// </para>
+    /// <para>
+    /// <strong>Unrated reads as exhausted-shaped but is not.</strong> A deployment with no rate for the
+    /// picture it would make cannot price the request, which is this host's misconfiguration rather than the
+    /// creator's balance — startup refuses such a host, so reaching it means a model nothing profiled. It is
+    /// answered as a provider problem, with no figures, because quoting an allowance would tell a creator to
+    /// wait for a reset that will not help.
+    /// </para>
+    /// </remarks>
+    private static OperationError QuotaRefusal(AiQuotaAdmissionServiceModel refusal) => refusal.Outcome switch
+    {
+        AiQuotaAdmissionOutcome.Suspended => new OperationError(
+            AiQuotaErrors.Suspended,
+            "AI assistance is switched off for your account.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?> { ["unit"] = refusal.Unit.ToString() }),
+
+        AiQuotaAdmissionOutcome.Unrated => new OperationError(
+            MediaErrorCodes.GenerationUnpriceable,
+            "Images cannot be generated on this host right now.",
+            new Dictionary<string, string[]>()),
+
+        // Exhausted, and Busy with it: a period too contended to admit against is not a statement about the
+        // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
+        _ => new OperationError(
+            AiQuotaErrors.Exhausted,
+            "Your AI allowance for this period is spent. It comes back when the period resets.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                ["unit"] = refusal.Unit.ToString(),
+                ["remaining"] = refusal.Remaining,
+                ["required"] = refusal.Required,
+                ["resetsAt"] = refusal.PeriodEndsAt,
+            }),
+    };
 
     public async Task<OperationResult<GeneratedImageOperationServiceModel>> RequestAsync(
         GeneratedImageRequest request, CancellationToken cancellationToken)
@@ -180,6 +226,15 @@ internal sealed class GeneratedImageGenerationFacade(
             request.IdempotencyKey.Trim(),
             subject,
             cancellationToken);
+
+        // The account could not pay for the pictures (PRICE-001, USAGE-006/007). Nothing was written and
+        // nothing is queued, and the refusal carries this account's own figures and names no workspace —
+        // the same problem family a completion is refused with, because it is the same allowance.
+        if (result.Operation is null)
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                QuotaRefusal(result.Refusal!));
+        }
 
         // A key names one request. Found again with anything about the request different — the words, the
         // number of images, the proposal, or who is asking — it is a second request wearing the first one's

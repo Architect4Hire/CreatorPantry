@@ -116,7 +116,12 @@ export type AiTaskType =
   /** LF.2.1's section plan for a blog article or newsletter issue. Declared by LF.1.4; no route requests it yet. */
   | 'LongFormOutline'
   /** LF.3.1's prose for one section of a long-form piece. Declared by LF.1.4; no route requests it yet. */
-  | 'LongFormSection';
+  | 'LongFormSection'
+  /**
+   * AP.2.5's picture. The only member that is not a completion, and the one an account spends most on:
+   * a usage breakdown reports image generations under this alongside every text task.
+   */
+  | 'ImageGeneration';
 
 /** Exported so the usage read can decode the same enum rather than mirroring it a second time. */
 export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
@@ -140,6 +145,7 @@ export const AI_TASK_TYPE_VALUES: ReadonlySet<string> = new Set<AiTaskType>([
   'ChannelPosts',
   'LongFormOutline',
   'LongFormSection',
+  'ImageGeneration',
 ]);
 
 /**
@@ -205,6 +211,10 @@ export const AI_TASK_DISCRIMINATORS: Readonly<Record<AiTaskType, string | null>>
   // And long-form through its own request seam (LF.2.2, LF.3.3), which names a draft rather than a recipe.
   LongFormOutline: null,
   LongFormSection: null,
+  // And a picture through the image-generation seam, which is not an AI operation at all: it writes a
+  // GeneratedImageOperation and the panel this map feeds never shows one. Null, because there is no AI
+  // proposal here to ask again for.
+  ImageGeneration: null,
 };
 
 /** Mirrors AiOperationScope. Which parts of the recipe a proposal may touch — a bound the server enforces. */

@@ -23,6 +23,23 @@ internal interface IAiQuotaAdmissionBusiness
     Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.AdmitImageAsync"/>
+    Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Settles an image generation's hold from what it was billed for, and gives back the account it is
+    /// charged to; null when the hold was already settled (AP.2.5). Stages; does not save.
+    /// </summary>
+    Task<string?> StageImageSettlementAsync(
+        AiImageUsageServiceModel usage, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.IsImageHoldLiveAsync"/>
+    Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ReleaseImageAsync"/>
+    Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken);
+
     Task StageSettlementAsync(
         Guid reservationId,
         IReadOnlyCollection<AiUsageAttemptServiceModel> attempts,
@@ -366,6 +383,208 @@ internal sealed class AiQuotaAdmissionBusiness(
                     + $"{_options.EstimatedCallsPerRun}; a run makes at least one provider call.");
 
     /// <summary>The admission predicate, and the only place a balance is read.</summary>
+    /// <summary>
+    /// The lease token an image reservation is filed under.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Empty, because there is no lease to name.</strong> A completion is admitted by the worker that
+    /// already holds a claim, so its reservation is keyed by operation <em>and</em> claim: one claim, one hold.
+    /// A picture is admitted at the request, before any worker has claimed it, and then settled once however
+    /// many passes it takes — so the operation alone is the key, and the unique index on
+    /// <c>(AiOperationId, LeaseToken)</c> enforces exactly that with this constant in the second column.
+    /// </remarks>
+    private static readonly Guid ImageLeaseToken = Guid.Empty;
+
+    public async Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AccountId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ModelName);
+
+        if (request.VariantCount < 1)
+        {
+            throw new ArgumentException(
+                "An admitted generation must ask for at least one picture.", nameof(request));
+        }
+
+        // A replayed admission for the same generation finds the hold it already took, exactly as a
+        // redelivered claim does. The unique index is the backstop for a genuine race.
+        var existing = await dataLayer.FindReservationAsync(
+            request.GeneratedImageOperationId, ImageLeaseToken, cancellationToken);
+
+        if (existing is not null)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                existing.Status is AiQuotaReservationStatus.Held
+                    ? AiQuotaAdmissionOutcome.Admitted
+                    : AiQuotaAdmissionOutcome.Busy,
+                existing.Status is AiQuotaReservationStatus.Held ? existing.Id : null,
+                existing.ReservedAmount,
+                0m,
+                existing.Unit,
+                null);
+        }
+
+        var now = clock.UtcNow;
+        var terms = await periods.ResolveTermsAsync(request.AccountId, cancellationToken);
+
+        if (terms.IsSuspended)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Suspended, null, 0m, 0m, terms.Unit, null);
+        }
+
+        var period = await periods.OpenAsync(request.AccountId, terms, now, cancellationToken);
+
+        // The exact price of one picture, not an estimate of it: the provider prices the model, the tier and
+        // the quality, all of which are known before anything is generated (AP.2.4). An unrated picture has no
+        // price, and is refused rather than admitted for nothing (PRICE-001).
+        var perImage = AiImageQuotaConverter.Charge(
+            period.Unit, request.ModelName, request.Resolution, request.Quality, _options);
+
+        if (perImage is not > 0m)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Unrated, null, 0m, Remaining(period), period.Unit, period.EndsAt);
+        }
+
+        var hold = AiQuotaUnitConverter.Round(perImage.Value * request.VariantCount);
+
+        // Committed here, not staged: the period's row version is what makes two admissions for one account
+        // unable to both succeed, and a concurrency check needs its own transaction. So the hold exists before
+        // the operation row does, and a caller whose operation then fails to write owes a release —
+        // ReleaseImageAsync, with the expiry sweep behind it.
+        var (outcome, reservation, written) = await dataLayer.ReserveAsync(
+            request.AccountId,
+            now,
+            current => Covers(current, hold)
+                ? new AccountAiQuotaReservation
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = request.AccountId,
+                    PeriodId = current.Id,
+                    AiOperationId = request.GeneratedImageOperationId,
+                    LeaseToken = ImageLeaseToken,
+                    TaskType = AiTaskType.ImageGeneration,
+                    Unit = current.Unit,
+                    ReservedAmount = hold,
+
+                    // The per-picture price. Settlement multiplies it by what was billed, so it never needs
+                    // the model, tier or quality again — which is what lets a worker that does not know them
+                    // settle correctly.
+                    PerAttemptEstimate = AiQuotaUnitConverter.Round(perImage.Value),
+                    Status = AiQuotaReservationStatus.Held,
+                    HeldAt = now,
+                    ExpiresAt = request.ExpiresAt,
+                }
+                : null,
+            cancellationToken);
+
+        var settled = written ?? period;
+
+        return outcome switch
+        {
+            AiQuotaWriteOutcome.Applied => new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Admitted,
+                reservation!.Id,
+                hold,
+                Remaining(settled),
+                settled.Unit,
+                settled.EndsAt) { Required = hold },
+
+            // Carrying what it would have taken, which is what the refusal has to be able to tell a creator
+            // (USAGE-007): "your allowance is spent" alone does not say whether they are one picture over or
+            // twenty. Nothing was held, so Reserved stays nought.
+            AiQuotaWriteOutcome.Refused => new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Exhausted,
+                null,
+                0m,
+                Remaining(settled),
+                settled.Unit,
+                settled.EndsAt) { Required = hold },
+
+            _ => new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Busy, null, 0m, 0m, settled.Unit, settled.EndsAt) { Required = hold },
+        };
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Exact, not estimated.</strong> A completion's settlement converts reported tokens and falls back
+    /// to an estimate for a call the provider said nothing about; a picture has a price, held on the
+    /// reservation as <c>PerAttemptEstimate</c>, so the charge is that price times the number of pictures the
+    /// provider actually made. Nothing is read from configuration here, which also means a rate changed between
+    /// the request and the settlement cannot re-price a generation already admitted.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing billed is a release, not a zero charge.</strong> A generation whose every call failed
+    /// before anything was generated owes nothing, and holding its allowance until the lease lapsed would
+    /// strand it.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> StageImageSettlementAsync(
+        AiImageUsageServiceModel usage, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var now = clock.UtcNow;
+        string? accountId = null;
+
+        var outcome = await dataLayer.StageSettlementAsync(
+            usage.ReservationId,
+            reservation =>
+            {
+                // A replay. The recorded outcome stands and nothing is written a second time, which is what
+                // makes a redelivered settlement post once (USAGE-004).
+                if (reservation.Status is not AiQuotaReservationStatus.Held)
+                {
+                    return false;
+                }
+
+                accountId = reservation.AccountId;
+
+                if (usage.BilledVariants == 0)
+                {
+                    reservation.Status = AiQuotaReservationStatus.Released;
+                    reservation.SettledAmount = 0m;
+                    reservation.UsageReported = false;
+                    reservation.SettledAt = now;
+
+                    return true;
+                }
+
+                reservation.Status = AiQuotaReservationStatus.Settled;
+
+                // True, and it means something different here than it does for a completion: an image provider
+                // reports no tokens, but what it charged for is known exactly, which is the question this flag
+                // is asked at settlement.
+                reservation.UsageReported = true;
+                reservation.SettledAmount = AiQuotaUnitConverter.Round(
+                    reservation.PerAttemptEstimate * usage.BilledVariants);
+                reservation.SettledAt = now;
+
+                return true;
+            },
+            cancellationToken);
+
+        if (outcome is AiQuotaWriteOutcome.NotFound)
+        {
+            throw new InvalidOperationException(
+                $"Image generation {usage.GeneratedImageOperationId} settled against reservation "
+                    + $"{usage.ReservationId}, which does not exist.");
+        }
+
+        return accountId;
+    }
+
+    public async Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
+            is { Status: AiQuotaReservationStatus.Held, ReleasedAt: null };
+
+    public async Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        await dataLayer.ExpireAsync(reservationId, clock.UtcNow, cancellationToken);
+
     private static bool Covers(AccountAiQuotaPeriod period, decimal hold) =>
         period.Consumed + period.Reserved + hold <= period.Allowance + period.CarriedOver;
 

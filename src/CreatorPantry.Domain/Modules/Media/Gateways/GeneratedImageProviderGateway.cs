@@ -26,11 +26,20 @@ public enum GeneratedImageModelStatus
 /// <param name="ProviderName">Who served it. Recorded on every staged image.</param>
 /// <param name="ModelName">Which model produced it.</param>
 /// <param name="ModelDeployment">The deployment, when the provider distinguishes one from the model.</param>
+/// <param name="Resolution">
+/// The resolution tier this deployment will send when a request names none, so a picture's allowance can be
+/// held at what the picture will cost (AP.2.5). Null when the model takes no tier, and also when the
+/// deployment will not say — which is not the same thing, and is why
+/// <see cref="GeneratedImageModelStatus.Unidentified"/> covers the second case.
+/// </param>
+/// <param name="Quality">The quality it will send on the same terms. Null when the model offers none.</param>
 public sealed record GeneratedImageModel(
     GeneratedImageModelStatus Status,
     string? ProviderName = null,
     string? ModelName = null,
-    string? ModelDeployment = null);
+    string? ModelDeployment = null,
+    string? Resolution = null,
+    string? Quality = null);
 
 /// <summary>How one image request ended.</summary>
 public enum GeneratedImageProviderOutcome
@@ -61,6 +70,26 @@ public enum GeneratedImageProviderOutcome
     /// The provider answered with nothing this can stage: no image content, or a link instead of bytes.
     /// </summary>
     InvalidResponse = 6,
+
+    /// <summary>
+    /// The provider generated a picture and then withheld it on its own safety grounds. Terminal, and
+    /// <strong>billed</strong>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Told apart from <see cref="Refused"/> because the money is the difference: a refused request was never
+    /// generated and costs nothing, while a flagged one was generated, is charged for, and must be settled as
+    /// such (AP.2.5). Both are terminal — asking again buys the same answer.
+    /// </para>
+    /// <para>
+    /// <strong>Carried by <see cref="ImageWithheldException"/>, not by a status code.</strong> It was a status
+    /// code first, and that was wrong: a provider's own 4xx includes request rejections — Venice answers
+    /// <c>CONTENT_POLICY_VIOLATION</c> and <c>IMAGE_TOO_LARGE</c> as 422 — and reading those as flagged would
+    /// bill a creator for a picture nobody made, which is the exact mistake this outcome exists to prevent in
+    /// the other direction. A generator says so in as many words instead.
+    /// </para>
+    /// </remarks>
+    Flagged = 7,
 }
 
 /// <param name="Bytes">Present exactly when the outcome is <see cref="GeneratedImageProviderOutcome.Generated"/>.</param>
@@ -134,9 +163,26 @@ public sealed class GeneratedImageProviderGateway(
         // Provenance is not decoration on a generated image: it is the only record of what made the bytes,
         // and a staged image with a guessed provider could never be told from one whose provider was known.
         // A deployment that will not say is a fact to record as a failure, not to paper over.
-        return provider is null || model is null
+        if (provider is null || model is null)
+        {
+            return new GeneratedImageModel(GeneratedImageModelStatus.Unidentified);
+        }
+
+        // What it will send when nothing names a size. A deployment that answers nothing here is identified
+        // but unpriceable: admission reads these to hold the picture's own price, and a generation admitted
+        // against a guess would charge for a picture nobody asked for. Unidentified says exactly that — the
+        // deployment will not say enough about itself to run a billable picture through it.
+        var defaults = generator.GetService(typeof(ImageGenerationDefaults)) as ImageGenerationDefaults;
+
+        return defaults is null
             ? new GeneratedImageModel(GeneratedImageModelStatus.Unidentified)
-            : new GeneratedImageModel(GeneratedImageModelStatus.Identified, provider, model, model);
+            : new GeneratedImageModel(
+                GeneratedImageModelStatus.Identified,
+                provider,
+                model,
+                model,
+                defaults.Resolution,
+                defaults.Quality);
     }
 
     public async Task<GeneratedImageResult> GenerateAsync(
@@ -258,6 +304,10 @@ public sealed class GeneratedImageProviderGateway(
 
         // Every other answer the provider actually formed and returned with a client-error status: it
         // decided, and it will decide the same way again.
+        // Generated and withheld, said by the generator rather than inferred from a status: the provider's own
+        // 4xx are requests it would not run, and those cost nothing.
+        ImageWithheldException => GeneratedImageProviderOutcome.Flagged,
+
         HttpRequestException { StatusCode: { } status } when (int)status is >= 400 and < 500 =>
             GeneratedImageProviderOutcome.Refused,
 

@@ -28,6 +28,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -78,6 +79,8 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
                     ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
                 })
                 .Build())
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddGeneratedImageWorker()
             .AddDbContext<CreatorPantryDbContext>(options => options
@@ -878,7 +881,11 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         return scope;
     }
 
-    private AsyncServiceScope ScopeFor(Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner)
+    /// <summary>The account a scope belongs to when a test does not care which (AP.2.5 made it matter).</summary>
+    private const string DefaultAccount = "acct";
+
+    private AsyncServiceScope ScopeFor(
+        Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner, string account = DefaultAccount)
     {
         var scope = _provider.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
@@ -886,7 +893,7 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
             role,
-            "acct");
+            account);
 
         return scope;
     }
@@ -899,9 +906,10 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         Guid workspaceId,
         int variants = 1,
         string prompt = "a bowl of soup on a wooden table",
-        string? key = null)
+        string? key = null,
+        string account = DefaultAccount)
     {
-        await using var scope = ScopeFor(workspaceId);
+        await using var scope = ScopeFor(workspaceId, account: account);
 
         var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
             .RequestAsync(Request(variants, prompt, key), TestContext.Current.CancellationToken);
@@ -1087,6 +1095,15 @@ internal sealed class FakeImageGenerator : IImageGenerator
 
     public const string Model = "fake-image-1";
 
+    /// <summary>
+    /// The size and quality this generator says it will send, which is what its pictures are priced at.
+    /// </summary>
+    /// <remarks>
+    /// Settable, so a test can make this deployment one whose model is priced per tier and quality. Null for
+    /// both by default, matching an aspect-ratio model: one price a picture, keyed by the model alone.
+    /// </remarks>
+    public ImageGenerationDefaults? Defaults { get; set; } = new(null, null);
+
     private readonly List<int> _requestedCounts = [];
     private readonly List<string> _prompts = [];
     private readonly Dictionary<int, byte[]> _perCall = [];
@@ -1174,6 +1191,14 @@ internal sealed class FakeImageGenerator : IImageGenerator
         if (serviceType == typeof(ImageGeneratorMetadata) && serviceKey is null)
         {
             return new ImageGeneratorMetadata(Provider, null, Model);
+        }
+
+        // What this deployment would send when a request names no size (AP.2.5). The real generator settles
+        // it from the model's sizing profile; this one has a flat rate, so it names neither — which is a
+        // priceable answer, and quite different from the null a generator that cannot say returns.
+        if (serviceType == typeof(ImageGenerationDefaults) && serviceKey is null)
+        {
+            return Defaults;
         }
 
         return serviceType.IsInstanceOfType(this) && serviceKey is null ? this : null;

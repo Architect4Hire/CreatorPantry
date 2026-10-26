@@ -1,0 +1,46 @@
+namespace CreatorPantry.Domain.Modules.AiUsage.Managers;
+
+/// <summary>
+/// The refusals an account's AI allowance can produce, whatever kind of work asked for it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Here rather than in the module that first needed them.</strong> Both codes shipped as
+/// <c>AiProposalErrors</c> constants, which was right while completions were the only thing that spent an
+/// allowance. Pictures spend the same allowance (AP.2.5), and a second pair of codes for the same two facts
+/// would mean a client learning two ways to read "the month is spent". The strings are unchanged, so the
+/// problem catalogue, <c>ProblemResults.RetryFor</c> and every shipped client see exactly what they saw before;
+/// <c>AiProposalErrors</c> now names these.
+/// </para>
+/// <para>
+/// A refusal carries this account's own figures and never names a workspace (USAGE-007).
+/// </para>
+/// </remarks>
+public static class AiQuotaErrors
+{
+    /// <summary>
+    /// The requesting account's allowance for this period will not cover the request (USAGE-006).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>429, from the <c>.exhausted</c> suffix.</strong> The remedy is to wait rather than to be granted
+    /// anything, the wait has a known end, and a client that already backs off on 429 is doing the right thing.
+    /// </para>
+    /// <para>
+    /// The edge's own rate limiter answers <c>rate_limited</c> with the same status. The two are told apart by
+    /// this code, and they mean different things: one says slow down, this one says the month is spent.
+    /// </para>
+    /// </remarks>
+    public const string Exhausted = "ai.quota.exhausted";
+
+    /// <summary>
+    /// AI access is switched off for the requesting account, whatever allowance remains.
+    /// </summary>
+    /// <remarks>
+    /// A distinct code from <see cref="Exhausted"/> and a distinct status — 403, from the <c>.suspended</c>
+    /// suffix — because there is no reset to offer and no amount of waiting that changes the answer. It carries
+    /// no balance for the same reason: a remaining figure for an account that cannot spend it would read as an
+    /// invitation to try again.
+    /// </remarks>
+    public const string Suspended = "ai.quota.suspended";
+}

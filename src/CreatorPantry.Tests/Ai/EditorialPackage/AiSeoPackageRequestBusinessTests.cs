@@ -27,6 +27,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Ai.EditorialPackage;
 
@@ -80,7 +81,7 @@ public sealed partial class AiSeoPackageRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
-            .AddAiUsageModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()

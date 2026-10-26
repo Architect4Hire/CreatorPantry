@@ -103,6 +103,58 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
     /// </remarks>
     public string IdempotencyKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The hold this generation's pictures are paid for from (AP.2.5). Null only for a generation admitted
+    /// before this column existed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set before the row is saved, so an operation that exists always names the hold that paid for it: a
+    /// queued generation with no hold would make pictures nobody was charged for. The other direction cannot
+    /// be made atomic — the hold commits first, because the period's row version needs its own transaction —
+    /// so a hold whose operation never got written is released on the way out of
+    /// <c>GeneratedImageGenerationDataLayer.RequestAsync</c>, with the expiry sweep behind that.
+    /// </para>
+    /// <para>
+    /// An id, not a foreign key, and deliberately: the reservation belongs to the account rather than to this
+    /// workspace, and a workspace deletion cascading into an account's allowance is the thing
+    /// <c>AccountAiUsageEntry</c> declares no relationships to avoid.
+    /// </para>
+    /// </remarks>
+    public Guid? AiQuotaReservationId { get; set; }
+
+    /// <summary>
+    /// How many variants the provider has generated and billed for, over every pass this operation has taken.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Cumulative, and that is what makes a resumed generation charge each picture once.</strong> A
+    /// variant whose bytes could not be staged leaves no <c>GeneratedImage</c> row, so the rows are not a
+    /// record of what was billed; a later pass re-runs that variant and the provider bills again, which this
+    /// counts again because it genuinely happened twice.
+    /// </para>
+    /// <para>
+    /// It counts what the provider <em>generated</em>. A call that failed before generation —
+    /// rate-limited, unreachable, refused outright — is not in it, and its share of the hold is released.
+    /// </para>
+    /// </remarks>
+    public int BilledVariantCount { get; set; }
+
+    /// <summary>
+    /// How many of <see cref="BilledVariantCount"/> nothing could be staged from: bytes that did not hold
+    /// together, a picture too large, or one the provider flagged.
+    /// </summary>
+    /// <remarks>
+    /// Charged all the same — the provider made the picture and bills for it — and recorded apart so the
+    /// ledger can say so rather than reporting every charge as a success.
+    /// </remarks>
+    public int UnusableVariantCount { get; set; }
+
+    /// <summary>
+    /// How many of <see cref="UnusableVariantCount"/> the provider withheld on its own safety grounds.
+    /// </summary>
+    public int FlaggedVariantCount { get; set; }
+
     public Guid RequestedByMembershipId { get; set; }
 
     public DateTimeOffset RequestedAt { get; set; }

@@ -25,6 +25,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Ai;
 
@@ -85,7 +86,7 @@ public sealed class AiBrandGuideAcceptanceTests : IAsyncDisposable
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiBrandGuideAcceptanceBusiness, AiBrandGuideAcceptanceBusiness>()
-            .AddAiUsageModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddIdempotency(configuration)
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)

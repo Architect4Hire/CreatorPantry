@@ -1168,7 +1168,7 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<Guid>("AiOperationId")
+                    b.Property<Guid?>("AiOperationId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AttemptNumber")
@@ -1177,6 +1177,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<decimal?>("EstimatedCost")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid?>("GeneratedImageOperationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("InputTokens")
                         .HasColumnType("int");
@@ -1226,7 +1229,13 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("AiOperationId", "AttemptNumber")
                         .IsUnique()
-                        .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt");
+                        .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt")
+                        .HasFilter("AiOperationId IS NOT NULL");
+
+                    b.HasIndex("GeneratedImageOperationId", "AttemptNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiUsageEntries_ImageOperation_Attempt")
+                        .HasFilter("GeneratedImageOperationId IS NOT NULL");
 
                     b.HasIndex("AccountId", "WorkspaceId", "OccurredAt")
                         .HasDatabaseName("IX_AccountAiUsageEntries_Account_Workspace_OccurredAt");
@@ -1236,6 +1245,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Attempt_Positive", "AttemptNumber >= 1");
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Cost_NotNegative", "EstimatedCost IS NULL OR EstimatedCost >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Names_One_Operation", "(AiOperationId IS NOT NULL AND GeneratedImageOperationId IS NULL) OR (AiOperationId IS NULL AND GeneratedImageOperationId IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Outcome_Declared", "Outcome <> 0");
 
@@ -4613,6 +4624,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid?>("AiProposalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AiQuotaReservationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
@@ -4622,6 +4636,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<string>("AvoidText")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("BilledVariantCount")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
@@ -4636,6 +4653,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<string>("FailureSummary")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("FlaggedVariantCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
@@ -4686,6 +4706,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("StatusChangedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("UnusableVariantCount")
+                        .HasColumnType("int");
+
                     b.Property<int>("VariantCount")
                         .HasColumnType("int");
 
@@ -4714,6 +4737,8 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.ToTable("GeneratedImageOperations", null, t =>
                         {
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_BilledVariants_Coherent", "BilledVariantCount >= 0 AND UnusableVariantCount >= 0 AND FlaggedVariantCount >= 0 AND UnusableVariantCount <= BilledVariantCount AND FlaggedVariantCount <= UnusableVariantCount");
+
                             t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");

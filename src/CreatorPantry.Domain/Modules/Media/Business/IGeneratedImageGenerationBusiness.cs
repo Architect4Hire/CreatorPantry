@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
@@ -95,6 +96,7 @@ public interface IGeneratedImageGenerationBusiness
 /// </remarks>
 internal sealed class GeneratedImageGenerationBusiness(
     IGeneratedImageGenerationDataLayer dataLayer,
+    IAiQuotaAdmissionFacade quota,
     IWorkspaceContext workspace,
     IClock clock,
     IOptions<LimitsOptions> limits,
@@ -152,6 +154,18 @@ internal sealed class GeneratedImageGenerationBusiness(
 
         var now = clock.UtcNow;
 
+        // What the pictures will cost, read from the deployment rather than guessed: the tier and quality are
+        // decided by the model's own sizing profile, and holding allowance for a picture at a size nobody will
+        // send would charge the wrong amount (AP.2.4, AP.2.5). A host with no image provider holds nothing —
+        // the request is queued and the worker fails it as provider-not-configured, which is what it did
+        // before allowance existed.
+        var model = dataLayer.DescribeModel();
+
+        var admission = model is { Status: GeneratedImageModelStatus.Identified }
+            ? new GeneratedImageAdmissionRequest(
+                workspace.AccountId, model.ModelName!, model.Resolution, model.Quality)
+            : null;
+
         return dataLayer.RequestAsync(
             new GeneratedImageOperation
             {
@@ -175,6 +189,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 Attempts = 0,
                 AvailableAt = now,
             },
+            admission,
             cancellationToken);
     }
 
@@ -233,6 +248,20 @@ internal sealed class GeneratedImageGenerationBusiness(
                 leaseToken,
                 GeneratedImageFailureCategory.BudgetExhausted,
                 "This workspace had already used today's image allowance when this request's turn came.",
+                cancellationToken);
+        }
+
+        // The allowance this generation was admitted against, confirmed still live before a single picture is
+        // made (PRICE-001). The hold is taken at the request and never renewed, so a generation that waited
+        // long enough — behind its workspace's running cap — can be claimed after the expiry sweep has already
+        // given it back. Settlement would charge nothing and the pictures would have been free.
+        if (work.ReservationId is { } hold && !await quota.IsImageHoldLiveAsync(hold, cancellationToken))
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.Quota,
+                "This request waited longer than the allowance held for it; ask for the pictures again.",
                 cancellationToken);
         }
 
@@ -324,6 +353,15 @@ internal sealed class GeneratedImageGenerationBusiness(
                     "The image provider refused this request.");
                 return false;
 
+            case GeneratedImageProviderOutcome.Flagged:
+                // Generated and withheld, which the provider bills for either way (AP.2.5) — so it is counted
+                // before the pass stops. Terminal rather than retryable: the same prompt gets the same answer,
+                // and asking again would buy another charge for it.
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Flagged, run, cancellationToken);
+                run.Terminal(GeneratedImageFailureCategory.ProviderFlagged,
+                    "The image provider made this picture and would not hand it over.");
+                return false;
+
             case GeneratedImageProviderOutcome.InvalidResponse:
                 // One bad answer rather than a verdict on the request: the next variant may well arrive.
                 run.Terminal(GeneratedImageFailureCategory.InvalidResponse,
@@ -331,23 +369,31 @@ internal sealed class GeneratedImageGenerationBusiness(
                 return true;
         }
 
+        // Bytes arrived, so the provider has generated and billed for this picture whatever this host now
+        // makes of it (AP.2.5). Which way it is counted is settled below, once its fate is known — a count
+        // written only where staging succeeded would hand an account a free picture for every one of this
+        // host's own refusals, and one written before the inspection would record a refused picture as a
+        // staged one in the ledger.
         var inspection = GeneratedImageInspector.Inspect(generated.Bytes.Span);
 
         switch (inspection.Outcome)
         {
             case GeneratedImageInspectionOutcome.Empty:
             case GeneratedImageInspectionOutcome.Unsupported:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.UnsupportedMediaType,
                     "The image provider returned something that is not a supported image format.");
                 return true;
 
             case GeneratedImageInspectionOutcome.Corrupt:
             case GeneratedImageInspectionOutcome.TrailingData:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
 
             case GeneratedImageInspectionOutcome.TooLarge:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned an image with more pixels than this workspace will stage.");
                 return true;
@@ -357,6 +403,7 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             default:
                 // An outcome added to the inspector and not named here is a refusal, never a staged image.
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
@@ -377,34 +424,78 @@ internal sealed class GeneratedImageGenerationBusiness(
         switch (stage)
         {
             case GeneratedImageStageOutcome.Staged:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Staged, run, cancellationToken);
                 run.Staged();
                 return true;
 
             case GeneratedImageStageOutcome.AlreadyStaged:
                 // Another attempt won this variant while this one was at the provider. Its bytes are the
-                // ones in storage; these are discarded, which is the cost of losing that race.
+                // ones in storage; these are discarded, which is the cost of losing that race. Still billed:
+                // this pass asked the provider for a picture and the provider made one, so two passes racing
+                // one variant cost two pictures however many of them end up in storage.
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Staged();
                 return true;
 
             case GeneratedImageStageOutcome.Rejected:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.MalwareDetected,
                     "The scanner refused the bytes the image provider returned.");
                 return true;
 
             case GeneratedImageStageOutcome.TooLarge:
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned more bytes than this workspace will stage.");
                 return true;
 
             case GeneratedImageStageOutcome.Unavailable:
+                // The picture was made and billed for; reaching storage is this host's problem, not the
+                // provider's. Counted, then retried — and the retry buys another picture, which the provider
+                // charges for again, which the count will say.
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Retryable(GeneratedImageFailureCategory.Storage,
                     "Private staging storage could not be reached.");
                 return false;
 
             default:
+                // The lease is gone, so nothing can be written — the count included. Another worker owns this
+                // operation and its own pass is what will be billed.
                 run.LeaseLost();
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Counts one variant the provider generated and bills for, under the lease (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Returns whether it was written. A lost lease is the only failure and it means another worker owns this
+    /// operation, so the pass stops rather than generating pictures nobody will be charged for.
+    /// </para>
+    /// <para>
+    /// <strong>Its own write, between provider calls.</strong> It has to survive a crash before the next
+    /// variant: the settlement at the end charges from this count, and a count that lived only in memory would
+    /// let a resumed generation re-run the variants it had already paid for and charge for neither pass.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> BillAsync(
+        Guid operationId,
+        Guid leaseToken,
+        GeneratedImageBilling billing,
+        GeneratedImagePassState run,
+        CancellationToken cancellationToken)
+    {
+        if (await dataLayer.RecordBilledVariantAsync(operationId, leaseToken, billing, cancellationToken)
+            is GeneratedImageWriteOutcome.Applied)
+        {
+            return true;
+        }
+
+        run.LeaseLost();
+
+        return false;
     }
 
     /// <summary>
@@ -486,6 +577,10 @@ internal sealed class GeneratedImageGenerationBusiness(
                 cancellationToken);
     }
 
+    /// <remarks>
+    /// <strong>The one place a generation's allowance is reckoned</strong>, because it is the one place a
+    /// generation ends — the data layer stages its ledger entries and settles its hold here.
+    /// </remarks>
     private async Task<GeneratedImageRunOutcome> SettleAsync(
         Guid operationId,
         Guid leaseToken,
@@ -499,6 +594,11 @@ internal sealed class GeneratedImageGenerationBusiness(
             ? outcome
             : GeneratedImageRunOutcome.Skipped;
 
+    /// <remarks>
+    /// Every caller of this failed before a provider was reached — no deployment, no model identity, or the
+    /// day's budget already spent — so nothing was generated, nothing is charged, and the hold is released
+    /// whole by the settlement below.
+    /// </remarks>
     private async Task<GeneratedImageRunOutcome> FailAsync(
         Guid operationId,
         Guid leaseToken,

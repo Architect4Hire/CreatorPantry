@@ -81,6 +81,17 @@ public sealed class GeneratedImagesController(
     /// four variants answers `400 media.generation.invalid_request`; a Viewer answers
     /// `403 media.generation.forbidden`.
     ///
+    /// **Pictures are charged to the requesting account's AI allowance** (AP.2.5), and the whole request is
+    /// held against it before anything is queued: `variantCount` × the configured rate for the model, tier
+    /// and quality this host will send. An account whose period will not cover all of it answers
+    /// `429 ai.quota.exhausted` with `unit`, `remaining`, `required` and `resetsAt` plus a `Retry-After`, and
+    /// one whose AI access is switched off answers `403 ai.quota.suspended` — the same codes a text request is
+    /// refused with, because it is the same allowance. Nothing is queued either way. A replayed key is never
+    /// refused: its answer is the operation it already bought, and the hold that bought it.
+    ///
+    /// A host with no credit rate for the picture it would make answers `503 media.generation.unavailable`
+    /// and carries no figures: that is this deployment's misconfiguration, not the caller's balance.
+    ///
     /// The action is named `RequestImages` rather than `Request`, which other controllers use and get
     /// away with: this one reads `ControllerBase.Request` for the conditional download below, and an
     /// action of that name hides it.
@@ -92,6 +103,11 @@ public sealed class GeneratedImagesController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+
+    // This host unable to price the picture it would make (AP.2.5) — a misconfiguration rather than anything
+    // about the caller. The allowance refusals need no attribute: 403 is declared above, and 429 is described
+    // by [OperationLimit]'s own transformer, which an attribute here would overwrite with "Too Many Requests".
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> RequestImages(
         string workspaceSlug,
         [FromBody] RequestGeneratedImagesViewModel model,

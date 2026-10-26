@@ -22,6 +22,12 @@ internal interface IAiUsageDataLayer
         Guid aiOperationId, CancellationToken cancellationToken);
 
     /// <summary>Stages entries on the current unit of work. Does not save.</summary>
+    /// <summary>
+    /// Which of one image generation's charges are already in the ledger, by charge ordinal (AP.2.5).
+    /// </summary>
+    Task<IReadOnlySet<int>> FindPostedImageChargeNumbersAsync(
+        Guid generatedImageOperationId, CancellationToken cancellationToken);
+
     void StageEntries(IEnumerable<AccountAiUsageEntry> entries);
 }
 
@@ -31,6 +37,10 @@ internal sealed class AiUsageDataLayer(IAiUsageRepository entries) : IAiUsageDat
     public Task<IReadOnlySet<int>> FindPostedAttemptNumbersAsync(
         Guid aiOperationId, CancellationToken cancellationToken) =>
         entries.FindPostedAttemptNumbersAsync(aiOperationId, cancellationToken);
+
+    public Task<IReadOnlySet<int>> FindPostedImageChargeNumbersAsync(
+        Guid generatedImageOperationId, CancellationToken cancellationToken) =>
+        entries.FindPostedImageChargeNumbersAsync(generatedImageOperationId, cancellationToken);
 
     public void StageEntries(IEnumerable<AccountAiUsageEntry> staged) => entries.AddRange(staged);
 }
