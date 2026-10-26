@@ -1500,7 +1500,7 @@ library is 481/481. The full showcase run was 6205/6251 with 46 reds, all in kno
 *Those files then passed alone, 650/651. The one red was the recipe editor's section-nav spec, which then passed
 238/238 in its own file. The changed features, the thumbnail's consumers and the showcase pass alone, 638/638.*
 
-## AU.6.2 My Day and My Week
+## AU.6.2 My Day and My Week - done
 
 ```text
 SCOPE: My Day gains an illustrated "calendar" empty state (it has none) and today's top three as the featured
@@ -1511,6 +1511,62 @@ RESTRICTION: No change to task behaviour, quick capture or the "Top three" rule.
 UTILIZATION: design-review.
 BEHAVIOR: Show both pages; wait for approval; implement with specs; run npm run build and npm test from src/web.
 ```
+
+*Delivery note (2026-10-26): shipped. The owner approved both pages from a written sketch, with the AU.0 captures
+as the "before". No "after" screenshots were taken.*
+
+*My Day:*
+
+- *The lead card is `featured`, the page's one featured card, whether it is "Your top three" or "Up next". Either
+  one is what to do next. The owner chose to feature both.*
+- *With nothing next, the card in that place is headed "Up next", keeps `my-day-heading-lead` so focus still lands
+  there, and is not featured. It holds a `cp-empty-state` drawn as `calendar`:*
+  - *a roomy `first-use` for an empty day;*
+  - *a compact `no-results` when the day's work is all done or all waiting, because that card follows it.*
+- *The old headings and sentences are now the empty state's title and description. A Viewer's version drops
+  "Add a task".*
+- *Focus after the last task leaves now lands on "Up next" rather than on a heading that said "Nothing to do next";
+  that title is the next thing read. `design-review` noted this, and the approved design allows it.*
+- *"Reading your day…" is left for AU.7's sweep.*
+
+*My Week:*
+
+- *While it loads, the board is the board arriving in the current view, as the Content Board does (AU.6.1):*
+  - *its columns by name;*
+  - *no count;*
+  - *compact's This week holds a skeleton row per day;*
+  - *the Days view's columns are Monday to Sunday with no dates, because a planning week always runs Monday to
+    Sunday (13A.26) and the dates are the server's.*
+- *A free day already had a line, but compact said it twice: "Nothing planned" as its totals, then "Nothing
+  planned for Mon 19 Oct." A part with no tasks now drops its totals line, and a free day's line is "Nothing
+  planned." because its heading already names the day.*
+- *The three empty states are drawn: `calendar` for an empty week, `search` for no results, `calendar` for the
+  time zone. They replace the ▥, ⌕ and ◷ glyphs. This was not in the literal scope, but APP-004 is this prompt's
+  constraint and the owner approved it.*
+- *Drag, the Move control, filters, counts and quick capture are untouched.*
+
+*`design-review` found no blocker. Taken:*
+
+- *`no-results` with a drawing other than `search` was already the dashboard's practice, but DESIGN-SYSTEM.md
+  and `cp-empty-state`'s comment still said "no-results uses search". Both now say what the code does.*
+- *My Day's lead card is documented as an example of the featured card and the drawn quiet topic.*
+
+*Left:*
+
+- *Adding "Nothing else is up next" to the Done message.*
+- *Typing the loading columns' skeleton list as a count. It is the same `Array.from` pattern the Content Board
+  uses.*
+
+*`npm run build` passes. The page contract holds (31 routed pages), and so does the safety copy. The library is
+481/481. My Day and My Week pass alone, 154/154. The full showcase run was 6243/6260 with 1 skipped and 17 reds, all
+in known order-dependent families:*
+
+- *the content card's drawer;*
+- *brand defaults;*
+- *landing;*
+- *the recipe editor's step layout.*
+
+*Those files then passed alone, 444/444.*
 
 ## AU.6.3 Brand, Prompt Library, Workflows and Quick Recipe
 

@@ -141,8 +141,8 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 - **The card in a column** is a `cp-card` holding an `article`: the title as the link at the heading level below the column's, state as `cp-status-pill` then kind as `cp-badge`, measured and dated values as `dl[cpFacts]` with `layout="inline"`, and its actions last in `.cp-actions`. A card whose state *is* the column it sits in — My Week's, where Waiting is the column and not a property of the card — carries no pill for it; a pill that repeats the heading above it is noise. It is not a `cp-media-card`, whose picture panel is for a library shown by its pictures.
 - **Moving is the feature's, and has two paths.** A pointer drag, with whatever the feature uses for it, and a control on every card that does the same thing from the keyboard: it names the column and the place. The second is the complete path and the first is a shortcut for it; a move that can only be dragged is a defect (SC 2.5.7). Every move is announced in a polite live region, in words: what moved, where to, and whether it was kept.
 - **A column that is empty says why,** in a sentence the feature projects: nothing here yet, or nothing matches the filters. The heading and a count of zero stay.
-- **Loading is the board arriving.** The page projects `[cpListShellLoading]` into its list shell: the same `[cpBoard]` with every column under its real name, no count (no number is claimed before the server gives one), and a few skeleton cards in each — uneven, so it reads as work in columns rather than a table. Each is a `cp-card` holding `cp-skeleton` lines. The shell hides the projection from a screen reader (the page may mark it too); it says "Loading…" once and keeps the body busy, and the columns are named to a screen reader when they are real.
-- **An empty board is drawn; an empty column is a quiet line.** The first use is `cp-empty-state` with the `board` drawing and the first action, and a filter that matches nothing is the compact `search` one. A column with nothing in it keeps its heading, its count of zero and its list to drop onto, with one muted sentence saying why — "Nothing here yet.", or that nothing here matches the filters — never an empty state of its own.
+- **Loading is the board arriving.** The page projects `[cpListShellLoading]` into its list shell: the same `[cpBoard]` with every column under its real name, no count (no number is claimed before the server gives one), and a few skeleton cards in each — uneven, so it reads as work in columns rather than a table. Each is a `cp-card` holding `cp-skeleton` lines. The shell hides the projection from a screen reader (the page may mark it too); it says "Loading…" once and keeps the body busy, and the columns are named to a screen reader when they are real. A board with more than one view draws the view it is in, and a column named after something the server decides is named without it: My Week's Days view loads as Monday to Sunday, not dated, and compact's This week holds a skeleton row per day.
+- **An empty board is drawn; an empty column is a quiet line.** The first use is `cp-empty-state` with the `board` drawing and the first action (My Week's, a week of tasks, is `calendar`), and a filter that matches nothing is the compact `search` one. A column with nothing in it keeps its heading, its count of zero and its list to drop onto, with one muted sentence saying why — "Nothing here yet.", or that nothing here matches the filters — never an empty state of its own. A named part of a column, such as one of My Week's days, does the same, and says it once: the line, with no totals line above it that says the same thing again.
 - **No card is featured.** Every card on a board is one of many in its column, so none takes `featured`; the one featured card a page may have belongs on a page of topics, not in a column.
 - **The order and the rules are the server's.** A board shows the order it was given and asks for a move; it does not decide which moves are allowed or where a card ends up. When the answer is "no" the card goes back and the page says so.
 
@@ -412,7 +412,7 @@ by hand.
   exception to the last is the single featured card a page may have (AU.3.3), whose surface is
   `--cp-tone-soft` mixed four parts to one with the sheet.
 - **At most one featured card per page.** `featured` on `cp-card` (or `cp-topic-card`) marks the one topic that
-  matters most there — the dashboard's most urgent, say — with the tool's tint (the primary's on an untoned page)
+  matters most there — the dashboard's most urgent, say, or My Day's top three or "Up next" — with the tool's tint (the primary's on an untoned page)
   and an edge in the tool's colour. Two of them feature nothing, so a page never has a second, and a list never
   features its items. Hold its actions to primary, secondary and text buttons: a ghost button's edge is lost on the
   tint. Under forced colours the tint goes, so its edge doubles. The tint is mixed with the sheet because the pure tint put an evergreen link at 4.41:1 on
@@ -497,7 +497,11 @@ They are not stock, not traced, not generated by a model, and no drawing of food
 `--cp-tone-text`, the title at `--cp-font-size-xl`, the sentence at `--cp-font-size-md`, then its one action — while
 a no-results state stays compact with a small `search`. A part of a form with nothing in it yet — a recipe picker
 over an empty library (AU.5.2) — is compact too, but draws what is missing (`recipe`) rather than a search: nothing
-was searched for. Without one it keeps the older glyph in a disc, so a page
+was searched for. So is a topic with nothing in it on a page of topics, drawn as what that topic is about (the
+dashboard's quiet topics). My Day's lead card shows both sizes (AU.6.2). Under its own "Up next", an empty day is
+the roomy `calendar` with "Open My Week". A day whose work is all done or all waiting is the compact `calendar`,
+because the Done or Waiting card follows it. The card keeps its heading id, so focus that was in it has somewhere
+to land, and it is not featured: nothing to do next is not what matters most. Without one it keeps the older glyph in a disc, so a page
 changes only when its own prompt draws it. The page contract fails a feature stylesheet that draws its own.
 
 **Loading looks like what is coming** (AU.2.3, AU.7). `cp-skeleton` draws the shape about to arrive — `line`

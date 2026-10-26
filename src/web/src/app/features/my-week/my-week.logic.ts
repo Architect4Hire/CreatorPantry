@@ -84,7 +84,8 @@ export function columnsFor(week: WeekWorkTasks, view: MyWeekView, filters: MyWee
   ];
 
   const daySections = week.days.map((day) =>
-    section(`day-${day.date}`, shortDay(day.date), day, `Nothing planned for ${shortDay(day.date)}.`, day.isToday ? 'Today' : null),
+    // A free day's line: quiet, and short, because its heading — a section's or a column's — already names the day.
+    section(`day-${day.date}`, shortDay(day.date), day, 'Nothing planned.', day.isToday ? 'Today' : null),
   );
 
   const status = [

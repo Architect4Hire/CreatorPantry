@@ -66,9 +66,10 @@
         <cp-notice tone="neutral" role="status">You can see your day here, but this workspace is view-only for you.</cp-notice>
       }
 
-      <!-- What to do next: the creator's own top three, or the one task the day puts first. -->
+      <!-- What to do next: the creator's own top three, or the one task the day puts first. Either is what matters
+           most on the page, so it is the one featured card. -->
       @if (shown.lead; as lead) {
-        <cp-topic-card [heading]="lead.kind === 'top-three' ? 'Your top three' : 'Up next'" headingId="my-day-heading-lead">
+        <cp-topic-card featured [heading]="lead.kind === 'top-three' ? 'Your top three' : 'Up next'" headingId="my-day-heading-lead">
           <ul class="tasks" id="my-day-list-lead">
             @for (entry of lead.entries; track entry.task.id) {
               <li
@@ -107,24 +108,17 @@
           }
         </cp-topic-card>
       } @else {
-        <!-- In the top card's place, under its heading id, so focus that was there has somewhere to land. -->
-        <cp-topic-card [heading]="emptyHeading()" headingId="my-day-heading-lead">
-          <p class="plain">
-            @if (day()!.waiting.length > 0) {
-              Everything left is waiting on something else.
-            } @else if (day()!.completedToday.length > 0) {
-              Everything planned for today is done.
-            } @else {
-              There’s nothing on today’s list.
-            }
-            @if (canAct()) {
-              Add a task, or look ahead at your week.
-            }
-          </p>
-          <div cpTopicCardActions class="cp-actions">
-            <a cpButton variant="secondary" [routerLink]="link('my-week')">Open My Week</a>
-          </div>
-        </cp-topic-card>
+        <!-- In the top card's place, under its heading and heading id, so focus that was there has somewhere to
+             land. Not featured: nothing to do next is not what matters most. -->
+        @if (empty(); as said) {
+          <cp-topic-card heading="Up next" headingId="my-day-heading-lead">
+            <cp-empty-state illustration="calendar" [variant]="said.variant" [title]="said.title" [description]="said.description">
+              <div cpEmptyStateActions>
+                <a cpButton variant="secondary" [routerLink]="link('my-week')">Open My Week</a>
+              </div>
+            </cp-empty-state>
+          </cp-topic-card>
+        }
       }
 
       <!-- Offers, never plans: nothing is scheduled until "Plan for today" is pressed. -->

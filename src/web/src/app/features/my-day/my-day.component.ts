@@ -6,6 +6,7 @@ import {
   CpBadgeComponent,
   CpButtonComponent,
   CpCardComponent,
+  CpEmptyStateComponent,
   CpNoticeComponent,
   CpPageHeadComponent,
   CpTopicCardComponent,
@@ -63,7 +64,8 @@ interface Message {
  * **A detail page about the day** (DESIGN-SYSTEM.md, "The two shapes"), in one column: the head with Add a task,
  * the one place for messages, then a topic card for what to do next — the creator's own top three when they chose
  * one — and one per group of the day that has anything in it, most pressing first. Not a dashboard of counts and not
- * a board: no totals, no columns, no dragging.
+ * a board: no totals, no columns, no dragging. The card for what to do next is the page's one featured card, and only
+ * while it has something in it (AU.6.2).
  *
  * **Every task is on the page once.** The card at the top takes its tasks out of their groups and says which group
  * each came from, so nothing is hidden and nothing is listed twice.
@@ -83,6 +85,7 @@ interface Message {
     CpBadgeComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpEmptyStateComponent,
     CpNoticeComponent,
     CpPageHeadComponent,
     CpTopicCardComponent,
@@ -145,12 +148,23 @@ export class MyDayComponent {
     return day ? longDay(day.date) : 'What to do next, and everything else on your plate today.';
   });
 
-  /** What the top card says when there is nothing to do next. */
-  protected readonly emptyHeading = computed(() => {
+  /**
+   * What the top card says when there is nothing to do next (AU.6.2): a drawn empty state under the card's own
+   * "Up next". Roomy only on a day with nothing in it at all; a day whose work is done or waiting stays compact,
+   * because those cards follow it.
+   */
+  protected readonly empty = computed(() => {
     const day = this.day();
-    if (day && day.waiting.length > 0) return 'Nothing to do next';
+    const invite = this.canAct() ? ' Add a task, or look ahead at your week.' : '';
 
-    return day && day.completedToday.length > 0 ? 'That’s everything for today' : 'Nothing planned for today';
+    if (day && day.waiting.length > 0) {
+      return { title: 'Nothing to do next', description: `Everything left is waiting on something else.${invite}`, variant: 'no-results' as const };
+    }
+    if (day && day.completedToday.length > 0) {
+      return { title: 'That’s everything for today', description: `Everything planned for today is done.${invite}`, variant: 'no-results' as const };
+    }
+
+    return { title: 'Nothing planned for today', description: `There’s nothing on today’s list.${invite}`, variant: 'first-use' as const };
   });
 
   /** Suggestions, offered only on a day with nothing left in it to do, and only to someone who can plan. */
