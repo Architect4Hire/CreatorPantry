@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.a-render-flag-carried-over-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "A rendering setting in the creator's prompt is not kept in the shorter one: it is the text an image model reads and the creator saves, and IMG-002's directive ban applies to it unchanged.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a plum galette on pale linen, soft window light from the left, icing sugar on the crust, warm and unhurried. Framed to a 4:5 crop. --ar 4:5 --seed 7\",\"leftOut\":[\"a small jug of cream just in frame\",\"two forks on a folded napkin\"],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 250
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_render_directive_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

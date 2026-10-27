@@ -90,6 +90,14 @@ public sealed class GeneratedImagesController(
     /// its operation if the default has changed — and a replayed key is answered even if its class has since
     /// been taken off this host.
     ///
+    /// **The prompt has to fit the class's model, and is never cut to fit** (AP.3.2). What is sent is the prompt,
+    /// then the avoid list under a heading of its own, and each class's model takes so many characters of it. A
+    /// request over that answers `422 media.generation.prompt.unprocessable` naming `promptText` when a shorter
+    /// prompt would fit — `POST .../image-prompt-requests/compactions` asks for one — or
+    /// `422 media.generation.avoid.unprocessable` naming `avoidText` when the avoid list alone leaves too little
+    /// room. Both carry `characterLimit`, `characterCount` and `promptBudget`, the most the prompt may be with
+    /// the avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.
+    ///
     /// **Pictures are charged to the requesting account's AI allowance** (AP.2.5), and the whole request is
     /// held against it before anything is queued: `variantCount` × the configured rate for the model, tier
     /// and quality the request's class sends. An account whose period will not cover all of it answers

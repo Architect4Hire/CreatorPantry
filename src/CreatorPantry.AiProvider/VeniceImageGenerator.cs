@@ -188,6 +188,23 @@ public sealed class VeniceImageGenerator(
     {
         ArgumentNullException.ThrowIfNull(serviceType);
 
+        // How many prompt characters a model takes (AP.3.2): the one service asked for by key, the key being the
+        // model id a quality class sends to — or no key for the configured model. The profile's own number, so
+        // a prompt measured as fitting is never one the length check above refuses.
+        if (serviceType == typeof(ImagePromptLimit))
+        {
+            var modelId = serviceKey switch
+            {
+                null => model,
+                string named => named,
+                _ => null,
+            };
+
+            return modelId is not null && profiles.TryGetValue(modelId, out var limited)
+                ? new ImagePromptLimit(limited.PromptCharacterLimit)
+                : null;
+        }
+
         if (serviceKey is not null)
         {
             return null;

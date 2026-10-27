@@ -448,6 +448,14 @@ public static class AiServiceCollectionExtensions
             IValidator<RequestImagePromptViewModel>,
             RequestImagePromptViewModelValidator>();
 
+        // A shorter version of a prompt for a picture quality whose model takes fewer characters (AP.3.2): the
+        // same task, so the same seam. Its fit is measured through the Media facade.
+        services.AddScoped<IAiImagePromptCompactionRequestBusiness, AiImagePromptCompactionRequestBusiness>();
+        services.AddScoped<IAiImagePromptCompactionRequestFacade, AiImagePromptCompactionRequestFacade>();
+        services.AddScoped<
+            IValidator<RequestImagePromptCompactionViewModel>,
+            RequestImagePromptCompactionViewModelValidator>();
+
         return services;
     }
 

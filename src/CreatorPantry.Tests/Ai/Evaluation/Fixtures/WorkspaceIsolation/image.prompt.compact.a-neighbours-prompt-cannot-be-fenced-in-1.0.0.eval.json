@@ -1,0 +1,20 @@
+{
+  "id": "image.prompt.compact.a-neighbours-prompt-cannot-be-fenced-in",
+  "version": "1.0.0",
+  "category": "WorkspaceIsolation",
+  "kind": "PromptEnvelope",
+  "description": "Fencing another workspace's prompt would be the wrong answer. The segment is stamped with the resolved workspace, so text read from another one is refused outright rather than shortened as untrusted material.",
+  "input": {
+    "workspaceId": "11111111-1111-1111-1111-111111111111",
+    "task": "Shorten the image prompt in the UNTRUSTED segment so that it is at most 108 characters long.",
+    "outputSchema": "{\"type\":\"object\"}",
+    "untrustedText": "{\"prompt\": \"The other studio's galette, exactly as they shoot it.\"}",
+    "segment": "untrustedText",
+    "segmentWorkspaceId": "22222222-2222-2222-2222-222222222222"
+  },
+  "expect": {
+    "untrustedTextInUserMessage": false,
+    "untrustedTextInSystemMessage": false,
+    "refused": true
+  }
+}

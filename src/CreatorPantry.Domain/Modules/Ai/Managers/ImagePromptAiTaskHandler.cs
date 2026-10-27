@@ -63,10 +63,19 @@ internal sealed class ImagePromptAiTaskHandler(
         WriteIndented = true,
     };
 
+    private readonly ImagePromptCompactor compactor = new(gateway, templates, clock);
+
     public async Task<AiTaskHandlerOutcome> HandleAsync(
         AiTaskExecutionContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+
+        // A shorter version of a prompt the creator already has (AP.3.2), rather than one composed from a
+        // concept. The same task and the same proposal shape, with a template and an input of its own.
+        if (ImagePromptCompactionInputs.IsCompaction(context.Inputs))
+        {
+            return await compactor.HandleAsync(context, cancellationToken);
+        }
 
         var conceptRequestId = ImagePromptInputs.ReadId(context.Inputs, ImagePromptInputs.ConceptRequestId);
         var conceptId = ImagePromptInputs.ReadId(context.Inputs, ImagePromptInputs.ConceptId);

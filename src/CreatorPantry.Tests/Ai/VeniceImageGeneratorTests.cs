@@ -312,6 +312,47 @@ public sealed class VeniceImageGeneratorTests
         { "a pixel size over the model's largest", "a loaf", new ImageGenerationOptions { ModelId = Pixels, ImageSize = new System.Drawing.Size(2048, 1024) } },
     };
 
+    /// <summary>
+    /// Each model's prompt limit is answered by its id (AP.3.2) — the configured model's with no key — from the
+    /// same profile the length check refuses on; a model with no profile, or a key that is not an id, says nothing.
+    /// </summary>
+    [Fact]
+    public void Each_models_prompt_limit_is_answered_by_its_id()
+    {
+        var generator = GeneratorOver(new StubHandler(_ => Generated(Picture)));
+
+        Assert.Equal(new ImagePromptLimit(7500), generator.GetService(typeof(ImagePromptLimit), Pixels));
+        Assert.Equal(new ImagePromptLimit(100), generator.GetService(typeof(ImagePromptLimit)));
+        Assert.Null(generator.GetService(typeof(ImagePromptLimit), "no-such-model"));
+        Assert.Null(generator.GetService(typeof(ImagePromptLimit), 42));
+
+        Assert.Equal(7500, GatewayOver(new StubHandler(_ => Generated(Picture))).PromptCharacterLimit(Pixels));
+    }
+
+    /// <summary>
+    /// <strong>The measure and the refusal agree.</strong> A prompt and avoid list the fit rule puts exactly at the
+    /// limit are sent, and one character more is refused — so a request Media lets through is never one the
+    /// generator turns away in the worker.
+    /// </summary>
+    [Fact]
+    public async Task What_the_fit_rule_says_fits_is_what_the_generator_sends()
+    {
+        const string avoid = "harsh flash";
+        var room = 100 - GeneratedImagePromptComposition.Compose(string.Empty, avoid).Length;
+        var atTheLimit = new string('p', room);
+
+        Assert.True(GeneratedImagePromptComposition.Measure(atTheLimit, avoid, 100).Fits);
+        Assert.False(GeneratedImagePromptComposition.Measure(atTheLimit + "p", avoid, 100).Fits);
+
+        var sent = await GatewayOver(new StubHandler(_ => Generated(Picture)))
+            .GenerateAsync(atTheLimit, avoid, settings: null, TestContext.Current.CancellationToken);
+        var refused = await GatewayOver(new StubHandler(_ => Generated(Picture)))
+            .GenerateAsync(atTheLimit + "p", avoid, settings: null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageProviderOutcome.Generated, sent.Outcome);
+        Assert.Equal(GeneratedImageProviderOutcome.Refused, refused.Outcome);
+    }
+
     /// <summary>A refusal for an over-long prompt names the limit, never the prompt.</summary>
     [Fact]
     public async Task An_over_limit_refusal_does_not_carry_the_prompt()

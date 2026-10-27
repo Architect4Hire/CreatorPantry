@@ -96,6 +96,9 @@ public interface IGeneratedImageGenerationDataLayer
     /// <inheritdoc cref="IGeneratedImageProviderGateway.Describe"/>
     GeneratedImageModel DescribeModel();
 
+    /// <inheritdoc cref="IGeneratedImageProviderGateway.PromptCharacterLimit"/>
+    int? PromptCharacterLimit(string modelName);
+
     /// <summary>
     /// What <paramref name="variants"/> pictures at <paramref name="settings"/> would cost the account, asked of
     /// the AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
@@ -265,6 +268,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
     ILogger<GeneratedImageGenerationDataLayer> logger) : IGeneratedImageGenerationDataLayer
 {
     public GeneratedImageModel DescribeModel() => provider.Describe();
+
+    public int? PromptCharacterLimit(string modelName) => provider.PromptCharacterLimit(modelName);
 
     public Task<AiImageQuoteServiceModel> QuoteAsync(
         string accountId, GeneratedImageSettings settings, int variants, CancellationToken cancellationToken)

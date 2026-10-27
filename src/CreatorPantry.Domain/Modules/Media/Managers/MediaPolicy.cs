@@ -195,6 +195,16 @@ public static class MediaPolicy
     /// </remarks>
     public static readonly TimeSpan GenerationHoldDuration = TimeSpan.FromHours(2);
 
+    /// <summary>
+    /// The least room a shorter prompt may be given once the avoid list is set aside (AP.3.2).
+    /// </summary>
+    /// <remarks>
+    /// The same forty characters the image-prompt task holds its own prompts to: a budget below it would ask
+    /// for a compact variant no answer could pass, so a request in that position is refused for its avoid list
+    /// instead. <c>GeneratedImagePromptFitTests</c> holds the two numbers together.
+    /// </remarks>
+    public const int ShortestPromptBudget = 40;
+
     /// <summary>How long one provider call may take before it is treated as unavailable.</summary>
     public static readonly TimeSpan GenerationProviderTimeout = TimeSpan.FromMinutes(3);
 

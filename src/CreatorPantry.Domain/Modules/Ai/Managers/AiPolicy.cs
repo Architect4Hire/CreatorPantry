@@ -874,6 +874,46 @@ public static class AiPolicy
     /// <summary>The shortest a composed image prompt may be. A one-line answer is not a prompt.</summary>
     public const int ImagePromptMinLength = 40;
 
+    /// <summary>
+    /// How much of a shorter prompt's budget the model is asked to aim at, in percent (AP.3.2).
+    /// </summary>
+    /// <remarks>
+    /// A model counts characters badly, and an answer one character over is refused and asked again at the
+    /// creator's expense. Asked for three quarters, a model that overshoots still lands inside the budget the
+    /// validator holds it to, which is the whole budget. Nine tenths was the first figure; the live check's first
+    /// runs against the chat deployment overshot it by between 2% and 40%, so most answers missed by a few
+    /// characters.
+    /// </remarks>
+    public const int ImagePromptCompactionAimPercent = 75;
+
+    /// <summary>
+    /// How many characters a word of an image prompt is taken to need, spaces and punctuation included, when a
+    /// shorter prompt's budget is also given in words (AP.3.2).
+    /// </summary>
+    /// <remarks>
+    /// Seven rather than <see cref="LongFormCharactersPerWord"/>'s six: picture prompts run to long descriptive
+    /// words and commas, and a word count that is a little low leaves room where one a little high runs over.
+    /// </remarks>
+    public const int ImagePromptCompactionCharactersPerWord = 7;
+
+    /// <summary>The most words a shorter prompt's warning names as not being in the creator's own prompt.</summary>
+    public const int MaxImagePromptNewWords = 8;
+
+    /// <summary>The most pieces of detail a shorter prompt may report having left out.</summary>
+    public const int MaxImagePromptLeftOutCount = 8;
+
+    /// <summary>The longest one left-out phrase may be.</summary>
+    public const int ImagePromptLeftOutMaxLength = 120;
+
+    /// <summary>
+    /// The longest avoid list a request for a shorter prompt may carry.
+    /// </summary>
+    /// <remarks>
+    /// The image request's own bound, because this is the avoid list that request will send: one longer than
+    /// a picture request takes has nothing to be shortened for.
+    /// </remarks>
+    public const int ImagePromptCompactionAvoidMaxLength = 4000;
+
     /// <summary>The most warnings one composed prompt may carry.</summary>
     public const int MaxImagePromptWarnings = 6;
 

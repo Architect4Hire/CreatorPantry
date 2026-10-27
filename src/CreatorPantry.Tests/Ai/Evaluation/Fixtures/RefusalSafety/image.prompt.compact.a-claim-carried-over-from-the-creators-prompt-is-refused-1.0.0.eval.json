@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.a-claim-carried-over-from-the-creators-prompt-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "The creator's own long prompt may say what the food is. The shorter one may not: it is held to IMG-002's claim ban, so a model that carried 'gluten-free' across is refused and asked again.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a gluten-free plum galette on pale linen, soft window light from the left, warm and unhurried.\",\"leftOut\":[\"a small jug of cream just in frame\",\"two forks on a folded napkin\"],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 200
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

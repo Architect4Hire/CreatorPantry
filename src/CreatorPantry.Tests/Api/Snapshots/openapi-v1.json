@@ -10705,7 +10705,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, quality class, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\n**A request names how good a picture, never which model** (AP.3.1). \u0060qualityClass\u0060 is one of \u0060Draft\u0060,\n\u0060Standard\u0060, \u0060High\u0060, \u0060High2K\u0060 or \u0060High4K\u0060, and is optional: a request that names none is made at the\nhost\u0027s default class, which \u0060GET .../generated-images/quality-classes\u0060 names. A class this host does not\noffer answers \u0060422 media.generation.quality_class.unprocessable\u0060 naming \u0060qualityClass\u0060. The class is part\nof what a key names: the same key naming a different class answers \u0060422 idempotency.key_reused\u0060. A retry\nthat names none is the request it retries, at whatever class that was made \u2014 so a lost answer still finds\nits operation if the default has changed \u2014 and a replayed key is answered even if its class has since\nbeen taken off this host.\n\n**Pictures are charged to the requesting account\u0027s AI allowance** (AP.2.5), and the whole request is\nheld against it before anything is queued: \u0060variantCount\u0060 \u00D7 the configured rate for the model, tier\nand quality the request\u0027s class sends. An account whose period will not cover all of it answers\n\u0060429 ai.quota.exhausted\u0060 with \u0060unit\u0060, \u0060remaining\u0060, \u0060required\u0060 and \u0060resetsAt\u0060 plus a \u0060Retry-After\u0060, and\none whose AI access is switched off answers \u0060403 ai.quota.suspended\u0060 \u2014 the same codes a text request is\nrefused with, because it is the same allowance. Nothing is queued either way. A replayed key is never\nrefused: its answer is the operation it already bought, and the hold that bought it.\n\nA host with no credit rate for the picture it would make answers \u0060503 media.generation.unavailable\u0060\nand carries no figures: that is this deployment\u0027s misconfiguration, not the caller\u0027s balance.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, quality class, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\n**A request names how good a picture, never which model** (AP.3.1). \u0060qualityClass\u0060 is one of \u0060Draft\u0060,\n\u0060Standard\u0060, \u0060High\u0060, \u0060High2K\u0060 or \u0060High4K\u0060, and is optional: a request that names none is made at the\nhost\u0027s default class, which \u0060GET .../generated-images/quality-classes\u0060 names. A class this host does not\noffer answers \u0060422 media.generation.quality_class.unprocessable\u0060 naming \u0060qualityClass\u0060. The class is part\nof what a key names: the same key naming a different class answers \u0060422 idempotency.key_reused\u0060. A retry\nthat names none is the request it retries, at whatever class that was made \u2014 so a lost answer still finds\nits operation if the default has changed \u2014 and a replayed key is answered even if its class has since\nbeen taken off this host.\n\n**The prompt has to fit the class\u0027s model, and is never cut to fit** (AP.3.2). What is sent is the prompt,\nthen the avoid list under a heading of its own, and each class\u0027s model takes so many characters of it. A\nrequest over that answers \u0060422 media.generation.prompt.unprocessable\u0060 naming \u0060promptText\u0060 when a shorter\nprompt would fit \u2014 \u0060POST .../image-prompt-requests/compactions\u0060 asks for one \u2014 or\n\u0060422 media.generation.avoid.unprocessable\u0060 naming \u0060avoidText\u0060 when the avoid list alone leaves too little\nroom. Both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and \u0060promptBudget\u0060, the most the prompt may be with\nthe avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.\n\n**Pictures are charged to the requesting account\u0027s AI allowance** (AP.2.5), and the whole request is\nheld against it before anything is queued: \u0060variantCount\u0060 \u00D7 the configured rate for the model, tier\nand quality the request\u0027s class sends. An account whose period will not cover all of it answers\n\u0060429 ai.quota.exhausted\u0060 with \u0060unit\u0060, \u0060remaining\u0060, \u0060required\u0060 and \u0060resetsAt\u0060 plus a \u0060Retry-After\u0060, and\none whose AI access is switched off answers \u0060403 ai.quota.suspended\u0060 \u2014 the same codes a text request is\nrefused with, because it is the same allowance. Nothing is queued either way. A replayed key is never\nrefused: its answer is the operation it already bought, and the hold that bought it.\n\nA host with no credit rate for the picture it would make answers \u0060503 media.generation.unavailable\u0060\nand carries no figures: that is this deployment\u0027s misconfiguration, not the caller\u0027s balance.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -11456,6 +11456,144 @@
           },
           "429": {
             "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/image-prompt-requests/compactions": {
+      "post": {
+        "tags": [
+          "ImagePromptRequests"
+        ],
+        "summary": "Asks for a shorter version of a prompt, to fit a picture quality whose model takes fewer characters.",
+        "description": "Contributor or above. \u0060202\u0060, and the \u0060Location\u0060 header points at the same status resource a composed\nprompt is read from: a shorter prompt is an image-prompt request, and its proposal has the same shape \u2014 the\nprompt, and the avoid list.\n\n**Measured the way a picture request is.** The prompt and avoid list are measured against the model the\nclass sends to, exactly as \u0060POST .../generated-images\u0060 measures them. One that already fits is refused\n\u0060422 ai.imagePromptCompaction.prompt.unprocessable\u0060, and one whose avoid list alone leaves no room is refused\n\u0060422 ai.imagePromptCompaction.avoid.unprocessable\u0060; both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and\n\u0060promptBudget\u0060. A class this host does not offer is \u0060422 media.generation.quality_class.unprocessable\u0060, the\npicture request\u0027s own refusal. A deployment that cannot say its limit answers\n\u0060503 ai.imagePromptCompaction.unavailable\u0060.\n\n**The avoid list is kept word for word and never shown to the model.** The proposal carries it as written,\nbeside a prompt shortened to fit what is left. A prompt the model cannot fit to that is refused, never cut,\nand the operation fails.\n\n**Never silent.** Every proposal says it was shortened by AI and that the creator\u0027s own prompt is\nunchanged, and lists what the model says it left out. Nothing is sent for pictures until the creator does\nso, with the shortened text and this proposal\u0027s id.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required, for the reason composing a prompt requires one.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -43319,6 +43457,36 @@
               "boolean"
             ],
             "description": "Send false to compose this prompt without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
+          }
+        }
+      },
+      "RequestImagePromptCompaction": {
+        "type": "object",
+        "properties": {
+          "promptText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The prompt to shorten, exactly as it would be sent for pictures."
+          },
+          "avoidText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The avoid list that goes with the prompt. Optional. Kept word for word; never shortened."
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The picture quality the shorter prompt must fit. Optional; the default quality when omitted.",
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
           }
         }
       },

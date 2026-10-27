@@ -74,3 +74,21 @@ public static class ImageGenerationSettings
 /// </para>
 /// </remarks>
 public sealed record ImageGenerationDefaults(string? Resolution, string? Quality);
+
+/// <summary>
+/// The most prompt characters one image model takes (AP.3.2).
+/// </summary>
+/// <param name="Characters">The limit, counted as <see cref="string.Length"/> counts.</param>
+/// <remarks>
+/// <para>
+/// Asked through <see cref="Microsoft.Extensions.AI.IImageGenerator.GetService"/> with the model id as the
+/// service key, so a quality class can be measured against the model it sends to before anything is queued —
+/// and the generator, which refuses an over-long prompt rather than cutting it, is the only thing that knows the
+/// number. Null from a generator that will not say, and a caller then has nothing to measure against.
+/// </para>
+/// <para>
+/// Counted as <see cref="string.Length"/> counts because that is how the generator counts when it refuses, so
+/// a prompt this says fits is never one the generator turns away.
+/// </para>
+/// </remarks>
+public sealed record ImagePromptLimit(int Characters);

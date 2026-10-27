@@ -81,6 +81,15 @@ public interface IGeneratedImageGenerationBusiness
     Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// How a prompt and its avoid list measure against the model <paramref name="qualityClass"/> sends to
+    /// (AP.3.2), or null when there is nothing to measure against: no image deployment, or one that will not say
+    /// its limit. Reads configuration only.
+    /// </summary>
+    /// <param name="qualityClass">Already resolved; null on a host that offers no classes.</param>
+    GeneratedImagePromptFitServiceModel? MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass);
+
+    /// <summary>
     /// The in-progress cap and the daily variant budget (15.3), or null when this request may be queued. A key that
     /// has already bought an operation is never refused: its answer is the operation it bought.
     /// </summary>
@@ -320,6 +329,25 @@ internal sealed class GeneratedImageGenerationBusiness(
 
     public Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken) =>
         dataLayer.IsReplayAsync(idempotencyKey, cancellationToken);
+
+    /// <remarks>
+    /// The model is the one the class sends to, or the deployment's own when there is no class — the same
+    /// choice <see cref="Sent"/> makes for pricing, so what is measured is what the worker will send to.
+    /// </remarks>
+    public GeneratedImagePromptFitServiceModel? MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass)
+    {
+        ArgumentNullException.ThrowIfNull(promptText);
+
+        var modelName = SettingsFor(qualityClass)?.ModelName
+            ?? (dataLayer.DescribeModel() is { Status: GeneratedImageModelStatus.Identified, ModelName: { } named }
+                ? named
+                : null);
+
+        return modelName is not null && dataLayer.PromptCharacterLimit(modelName) is { } limit and > 0
+            ? GeneratedImagePromptComposition.Measure(promptText, avoidText, limit)
+            : null;
+    }
 
     public GeneratedImageQualityClassesServiceModel ListQualityClasses()
     {

@@ -122,6 +122,12 @@ public interface IGeneratedImageProviderGateway
     /// <summary>Which deployment would serve a request made now.</summary>
     GeneratedImageModel Describe();
 
+    /// <summary>
+    /// How many prompt characters <paramref name="modelName"/> takes (AP.3.2), or null when the deployment will
+    /// not say — including on a host with no image deployment at all.
+    /// </summary>
+    int? PromptCharacterLimit(string modelName);
+
     /// <summary>Generates one image, and makes no claim about what came back beyond its being bytes.</summary>
     /// <param name="prompt">The creator's prompt.</param>
     /// <param name="avoid">What to avoid, when the creator said.</param>
@@ -158,6 +164,15 @@ public sealed class GeneratedImageProviderGateway(
     IImageGenerator generator,
     ILogger<GeneratedImageProviderGateway> logger) : IGeneratedImageProviderGateway
 {
+    public int? PromptCharacterLimit(string modelName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelName);
+
+        return generator is UnconfiguredImageGenerator
+            ? null
+            : (generator.GetService(typeof(ImagePromptLimit), modelName) as ImagePromptLimit)?.Characters;
+    }
+
     public GeneratedImageModel Describe()
     {
         if (generator is UnconfiguredImageGenerator)
@@ -212,7 +227,7 @@ public sealed class GeneratedImageProviderGateway(
         try
         {
             response = await generator.GenerateAsync(
-                new ImageGenerationRequest(Compose(prompt, avoid)),
+                new ImageGenerationRequest(GeneratedImagePromptComposition.Compose(prompt, avoid)),
                 Options(settings),
                 timeout.Token);
         }
@@ -350,19 +365,6 @@ public sealed class GeneratedImageProviderGateway(
 
         return options;
     }
-
-    /// <summary>
-    /// Puts the avoid list after the prompt, under a plain heading of its own.
-    /// </summary>
-    /// <remarks>
-    /// Both halves are the creator's own text and neither is a system instruction: an image provider is given
-    /// one string, has no tools to be talked into using, and this workspace's words are all that is in it
-    /// (ai.md). The heading is prose, not a delimiter a model is bound by — it tells the two apart for the
-    /// provider and does not stop an avoid list worded as a directive from being read as one. That is
-    /// acceptable here because the worst it can do is change a picture the same creator asked for.
-    /// </remarks>
-    private static string Compose(string prompt, string? avoid) =>
-        string.IsNullOrWhiteSpace(avoid) ? prompt : $"{prompt}\n\nAvoid the following: {avoid}";
 
     private static string? Trimmed(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.Length > MediaPolicy.ProviderIdentifierMaxLength

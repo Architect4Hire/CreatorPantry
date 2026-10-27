@@ -46,6 +46,34 @@ public static class MediaErrorCodes
     public const string GenerationQualityClassUnprocessable = "media.generation.quality_class.unprocessable";
 
     /// <summary>
+    /// The prompt and its avoid list are longer than the model the chosen quality class sends to takes, and a
+    /// shorter prompt would fit (AP.3.2). Maps to 422, naming <c>promptText</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Refused, never cut: a prompt shortened at a character boundary is a picture of something the creator did
+    /// not ask for. The problem carries <c>characterLimit</c>, <c>characterCount</c> and <c>promptBudget</c> — how
+    /// long the prompt may be with the avoid list kept whole — so a client can say what to do or ask for a
+    /// compact variant to that budget, without parsing a sentence.
+    /// </para>
+    /// <para>
+    /// Checked after the class is chosen and never against a replayed key, whose answer is the operation it
+    /// already bought.
+    /// </para>
+    /// </remarks>
+    public const string GenerationPromptUnprocessable = "media.generation.prompt.unprocessable";
+
+    /// <summary>
+    /// The avoid list alone leaves too little of the chosen class's limit for any prompt (AP.3.2). Maps to 422,
+    /// naming <c>avoidText</c>, with the same figures as <see cref="GenerationPromptUnprocessable"/>.
+    /// </summary>
+    /// <remarks>
+    /// Apart from <see cref="GenerationPromptUnprocessable"/> because the remedy is different: a shorter prompt
+    /// cannot fix it, and the avoid list is the creator's own and is never shortened for them.
+    /// </remarks>
+    public const string GenerationAvoidUnprocessable = "media.generation.avoid.unprocessable";
+
+    /// <summary>
     /// No image-generation operation of this workspace has that id.
     /// </summary>
     /// <remarks>

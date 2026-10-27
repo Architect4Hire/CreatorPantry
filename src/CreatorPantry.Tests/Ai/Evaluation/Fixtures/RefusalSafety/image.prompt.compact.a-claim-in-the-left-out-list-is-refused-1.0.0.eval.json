@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.a-claim-in-the-left-out-list-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "The left-out list is read by the creator beside the prompt, so it is held to the same rules. Something removed because a prompt may not carry it is reported in a warning without being repeated, not listed back here.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a plum galette on pale linen, soft window light from the left, icing sugar on the crust, warm and unhurried. Framed to a 4:5 crop.\",\"leftOut\":[\"the gluten-free label on the crust\"],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 200
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_claim_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

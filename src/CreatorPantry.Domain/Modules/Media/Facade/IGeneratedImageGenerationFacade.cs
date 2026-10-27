@@ -1,3 +1,4 @@
+using System.Globalization;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
@@ -93,6 +94,21 @@ public interface IGeneratedImageGenerationFacade
     /// </remarks>
     Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How a prompt and its avoid list measure against the model a quality class sends to (AP.3.2) — the same
+    /// measure a request for pictures is refused on. Reads configuration only.
+    /// </summary>
+    /// <remarks>
+    /// Contributor, like the request it measures. Null as a success when there is nothing to measure against:
+    /// no image deployment, or one that will not say its limit. A class this host does not offer is the
+    /// request's own refusal.
+    /// </remarks>
+    /// <param name="promptText">The prompt, as it would be sent.</param>
+    /// <param name="avoidText">The avoid list, as it would be sent, or null for none.</param>
+    /// <param name="qualityClass">The class to measure against; null for the host's default.</param>
+    OperationResult<GeneratedImagePromptFitServiceModel?> MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
@@ -210,6 +226,69 @@ internal sealed class GeneratedImageGenerationFacade(
             message,
             [("qualityClass", "That picture quality is not offered here.")]);
 
+    /// <summary>
+    /// The refusal for a prompt the chosen class's model cannot take, naming the part that has to change and
+    /// carrying the figures a client acts on (AP.3.2).
+    /// </summary>
+    private static OperationError PromptDoesNotFit(GeneratedImagePromptFitServiceModel fit, string message)
+    {
+        var refusal = fit.Outcome is GeneratedImagePromptFitOutcome.AvoidTooLong
+            ? OperationError.Validation(
+                MediaErrorCodes.GenerationAvoidUnprocessable,
+                message,
+                [("avoidText", string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Pictures at this quality take {0:N0} characters, and the avoid list alone leaves room for "
+                        + "fewer than {1} characters of prompt. Shorten the avoid list.",
+                    fit.Limit,
+                    MediaPolicy.ShortestPromptBudget))])
+            : OperationError.Validation(
+                MediaErrorCodes.GenerationPromptUnprocessable,
+                message,
+                [("promptText", string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Pictures at this quality take {0:N0} characters, and this prompt with its avoid list is "
+                        + "{1:N0}. Keep the prompt to {2:N0} characters, or ask for a shorter version of it.",
+                    fit.Limit,
+                    fit.Length,
+                    fit.PromptBudget))]);
+
+        return refusal with
+        {
+            Extensions = new Dictionary<string, object?>
+            {
+                ["characterLimit"] = fit.Limit,
+                ["characterCount"] = fit.Length,
+                ["promptBudget"] = fit.PromptBudget,
+            },
+        };
+    }
+
+    public OperationResult<GeneratedImagePromptFitServiceModel?> MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass)
+    {
+        ArgumentNullException.ThrowIfNull(promptText);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImagePromptFitServiceModel?>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (!business.TryChooseQualityClass(qualityClass, out var chosen))
+        {
+            return OperationResult<GeneratedImagePromptFitServiceModel?>.Failure(
+                QualityClassNotOffered("The prompt could not be measured."));
+        }
+
+        return OperationResult<GeneratedImagePromptFitServiceModel?>.Success(business.MeasurePrompt(
+            promptText.Trim(),
+            string.IsNullOrWhiteSpace(avoidText) ? null : avoidText.Trim(),
+            chosen));
+    }
+
     public async Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
         int? variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
     {
@@ -281,6 +360,16 @@ internal sealed class GeneratedImageGenerationFacade(
 
         var promptText = request.PromptText.Trim();
         var avoidText = string.IsNullOrWhiteSpace(request.AvoidText) ? null : request.AvoidText.Trim();
+
+        // What would be sent has to fit the model the class sends to (AP.3.2). The generator refuses an over-long
+        // prompt rather than cutting it, but only in the worker, after the pictures were held for — so the same
+        // measure is asked here, before anything is held or queued. A replay is still never refused.
+        if (business.MeasurePrompt(promptText, avoidText, qualityClass) is { Fits: false } fit
+            && !await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                PromptDoesNotFit(fit, "The images could not be requested."));
+        }
 
         // The proposal the prompt came from, when one is named, has to be one of this workspace's (12.10l).
         // The composite key on the operation already refuses anything else, but as an exception nobody reads:

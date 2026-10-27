@@ -234,6 +234,14 @@ public static class AiImagePromptOutputValidator
         }
     }
 
+    /// <summary>
+    /// The prose rules alone — control and invisible characters, food claims, links and markup, rendering
+    /// directives — for an answer that carries a prompt in a shape of its own (AP.3.2's shorter prompt), so the
+    /// two are held to one set of rules rather than two copies of it.
+    /// </summary>
+    internal static AiOutputFailure? ProseFailure(string value, string what) =>
+        (Control(value, what) ?? Claims(value, what) ?? Text(value, what) ?? Directives(value, what))?.Failure;
+
     private static AiOutputValidationOutcome<AiImagePromptOutputDocument>? Control(string value, string what)
     {
         if (value.Length > AiPolicy.ImagePromptMaxLength)

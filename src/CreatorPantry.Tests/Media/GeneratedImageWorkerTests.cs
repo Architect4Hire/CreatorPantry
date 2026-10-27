@@ -1106,6 +1106,9 @@ internal sealed class FakeImageGenerator : IImageGenerator
     /// </remarks>
     public ImageGenerationDefaults? Defaults { get; set; } = new(null, null);
 
+    /// <summary>Each model's prompt character limit, by model id (AP.3.2). Empty: no model says.</summary>
+    public Dictionary<string, int> PromptLimits { get; } = new(StringComparer.Ordinal);
+
     private readonly List<int> _requestedCounts = [];
     private readonly List<string> _prompts = [];
     private readonly Dictionary<int, byte[]> _perCall = [];
@@ -1208,6 +1211,15 @@ internal sealed class FakeImageGenerator : IImageGenerator
         if (serviceType == typeof(ImageGenerationDefaults) && serviceKey is null)
         {
             return Defaults;
+        }
+
+        // A model's prompt character limit (AP.3.2), keyed by model id as the real generator is. None by default,
+        // so a test that does not set one measures nothing and sends what it always sent.
+        if (serviceType == typeof(ImagePromptLimit))
+        {
+            return (serviceKey as string ?? Model) is { } model && PromptLimits.TryGetValue(model, out var limit)
+                ? new ImagePromptLimit(limit)
+                : null;
         }
 
         return serviceType.IsInstanceOfType(this) && serviceKey is null ? this : null;
