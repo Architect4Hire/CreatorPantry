@@ -61,15 +61,6 @@ export interface AllowanceFigures {
 }
 
 /**
- * When an allowance counts as nearly spent.
- *
- * <strong>A product decision, not a mirrored one.</strong> The server publishes no threshold, no percentage
- * and no "nearly" signal of any kind — it says what is left and refuses when there is not enough. A fifth is
- * the point at which telling somebody is still useful rather than merely alarming.
- */
-export const NEARLY_SPENT_FRACTION = 0.2;
-
-/**
  * The typed client for `GET /api/v1/me/ai-usage` — the signed-in account's own allowance, across every
  * workspace it works in (USAGE-008).
  *
@@ -100,10 +91,9 @@ export class AiUsageService {
     if (state.usage.isSuspended) return { kind: 'suspended', period };
     if (period.remaining <= 0) return { kind: 'exhausted', period };
 
-    // Guard the divide: an allowance of zero is spent by definition, and is handled above.
-    const fraction = period.allowance > 0 ? period.remaining / period.allowance : 0;
-
-    return fraction <= NEARLY_SPENT_FRACTION ? { kind: 'nearly-spent', period } : { kind: 'healthy', period };
+    // The server's line, not one kept here (AP.2.6): the page, the notice and an image quote all read the same
+    // answer, so none of them can come to warn at a different point from the others.
+    return state.usage.isNearlySpent ? { kind: 'nearly-spent', period } : { kind: 'healthy', period };
   });
 
   /** Loads once. A prior failure is retried on the next call rather than cached forever. */

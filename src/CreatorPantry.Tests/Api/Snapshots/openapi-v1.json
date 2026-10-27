@@ -10837,6 +10837,96 @@
         ]
       }
     },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/quote": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "What asking for this many pictures would cost the caller, and what it would leave them (PRICE-004).",
+        "description": "Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by\nthe same code that admits the request, for the model, tier and quality this deployment would send. A\nsnapshot: the request is still the decision, and can be refused if the balance moved in between.\n\nRefused as the request it prices would be: \u0060400 media.generation.invalid_request\u0060 for a count outside one\nto four, and \u0060403 media.generation.forbidden\u0060 for a member below Contributor.\n\n**A host that cannot price the picture answers \u0060200\u0060 with \u0060outcome: Unavailable\u0060, not \u0060503\u0060.** The request\nanswers \u0060503 media.generation.unavailable\u0060 because it cannot do what was asked; a quote can \u2014 it says there\nis no price to show \u2014 and a page asking on every change of count would otherwise log an error per step for\none misconfiguration.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variants",
+            "in": "query",
+            "description": "How many pictures to price \u2014 one to four, as a request may ask for.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/generated-images/operations/{operationId}": {
       "get": {
         "tags": [
@@ -26895,7 +26985,10 @@
           "period",
           "isSuspended",
           "byTask",
-          "byWorkspace"
+          "byWorkspace",
+          "isNearlySpent",
+          "pictures",
+          "writing"
         ],
         "type": "object",
         "properties": {
@@ -26916,6 +27009,25 @@
             "items": {
               "$ref": "#/components/schemas/AccountAiUsageWorkspaceTotal"
             }
+          },
+          "isNearlySpent": {
+            "type": "boolean"
+          },
+          "pictures": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "writing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -35372,6 +35484,121 @@
           "PartiallySucceeded",
           "Failed",
           "Cancelled"
+        ],
+        "type": "string"
+      },
+      "GeneratedImageQuote": {
+        "required": [
+          "outcome",
+          "unit",
+          "variants",
+          "perPicture",
+          "total",
+          "allowance",
+          "remaining",
+          "remainingAfter",
+          "affordableVariants",
+          "leavesNearlySpent",
+          "resetsAt",
+          "timeZoneId"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/GeneratedImageQuoteOutcome"
+          },
+          "unit": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "variants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "perPicture": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "allowance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remainingAfter": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "affordableVariants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "leavesNearlySpent": {
+            "type": "boolean"
+          },
+          "resetsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GeneratedImageQuoteOutcome": {
+        "enum": [
+          "Unspecified",
+          "Affordable",
+          "Exhausted",
+          "Suspended",
+          "Unavailable"
         ],
         "type": "string"
       },

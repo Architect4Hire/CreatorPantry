@@ -174,7 +174,7 @@ export class AiUsageComponent {
 
     return [
       { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
-      { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: '' },
+      { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: this.usedContext() },
       { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
     ];
   });
@@ -193,6 +193,21 @@ export class AiUsageComponent {
     if (held !== null) parts.push(`${held} set aside for requests still running.`);
 
     return parts.join(' ');
+  });
+
+  /**
+   * What the used credits went on — pictures, and everything else — each the server's own total (AP.2.6). Nothing
+   * said before anything has been spent.
+   */
+  private readonly usedContext = computed(() => {
+    const usage = this.currentUsage();
+    const figures = this.figures();
+    if (usage === null || figures === null || (usage.pictures === 0 && usage.writing === 0)) return '';
+
+    const pictures = formatAllowanceAmount(usage.pictures, figures.unit);
+    const writing = formatAllowanceAmount(usage.writing, figures.unit);
+
+    return pictures === null || writing === null ? '' : `${pictures} on pictures and ${writing} on writing.`;
   });
 
   /** Skeleton places for the figures while they load. */

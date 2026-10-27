@@ -28,6 +28,7 @@
     </p>
   }
 
+
   @switch (tracker.phase().kind) {
     @case ('forbidden') {
       <cp-notice tone="error" role="alert">{{ wording().forbidden }}</cp-notice>
@@ -77,13 +78,44 @@
     }
   }
 
+  <!-- The price, before the pictures are asked for (AP.2.6); every figure in it is the server's. Each region is in
+       the page before it has anything to say, so it is announced when it does, and sits outside the prompt's branch
+       so the description the Make button points at always exists. "Working out…" is shown and not announced:
+       stepping through counts is then said once a step, when the price is known. -->
+  <p class="cp-muted" [id]="sectionIdPrefix() + '-quote'">
+    <span role="status">{{ quoteLine() }}</span>
+    @if (quoteState().status === 'loading') {
+      <span aria-hidden="true">Working out what this costs…</span>
+    }
+  </p>
+  <cp-notice tone="warning" role="status" [quiet]="!quoteWarning()" [id]="sectionIdPrefix() + '-quote-warning'">
+    {{ quoteWarning() }}
+  </cp-notice>
+  <cp-notice tone="error" role="alert" [quiet]="!quoteRefusal()" [id]="sectionIdPrefix() + '-quote-refusal'">
+    {{ quoteRefusal() }}
+  </cp-notice>
+
   <div class="cp-actions">
     @if (hasPictures()) {
-      <button cpButton type="button" variant="secondary" [disabled]="!canGenerate()" (click)="generateFresh()">
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        [disabled]="!canGenerate()"
+        [attr.aria-describedby]="quoteBlocks() ? sectionIdPrefix() + '-quote-refusal' : null"
+        (click)="generateFresh()"
+      >
         Make new pictures
       </button>
     } @else {
-      <button cpButton type="button" variant="primary" [disabled]="!canGenerate()" (click)="generate()">
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        [disabled]="!canGenerate()"
+        [attr.aria-describedby]="quoteBlocks() ? sectionIdPrefix() + '-quote-refusal' : null"
+        (click)="generate()"
+      >
         {{ tracker.phase().kind === 'idle' ? 'Make the pictures' : 'Try again' }}
       </button>
     }

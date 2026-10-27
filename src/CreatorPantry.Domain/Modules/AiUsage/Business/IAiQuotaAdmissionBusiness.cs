@@ -23,6 +23,15 @@ internal interface IAiQuotaAdmissionBusiness
     Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.QuoteImageAsync"/>
+    Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken);
+
     /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.AdmitImageAsync"/>
     Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
         AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
@@ -181,6 +190,73 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// against a balance — not even an overspent one, where every other task is refused.
     /// </para>
     /// </remarks>
+    public async Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(variantCount);
+
+        var now = clock.UtcNow;
+        var terms = await periods.ResolveTermsAsync(accountId, cancellationToken);
+
+        if (terms.IsSuspended)
+        {
+            // No balance and no reset, for the reason PeekAsync gives: a suspension has nothing to wait for.
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.Suspended, terms.Unit, variantCount, null, null, 0m, 0m, null, 0, false, null, null);
+        }
+
+        // Projected, never opened: a quote is a GET, and asking a price must not spend a row (AiUsageReadBusiness).
+        var period = await periods.ProjectAsync(accountId, terms, now, cancellationToken);
+        var spendable = period.Allowance + period.CarriedOver;
+        var remaining = Remaining(period);
+
+        // The same price admission takes, from the same converter on the same inputs, so the figure a creator
+        // is shown is the hold their request is then admitted against — never an approximation of it.
+        var perImage = AiImageQuotaConverter.Charge(period.Unit, modelName, resolution, quality, _options);
+
+        if (perImage is not > 0m)
+        {
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.Unpriced, period.Unit, variantCount, null, null, spendable, remaining,
+                null, 0, false, period.EndsAt, period.TimeZoneId);
+        }
+
+        var total = AiQuotaUnitConverter.Round(perImage.Value * variantCount);
+        var affordable = Covers(period, total);
+
+        // Counted down with admission's own predicate and rounding rather than divided, so "enough for two"
+        // is a request for two that admission would then accept.
+        var fits = variantCount;
+
+        while (fits > 0 && !Covers(period, AiQuotaUnitConverter.Round(perImage.Value * fits)))
+        {
+            fits--;
+        }
+
+        decimal? after = affordable ? remaining - total : null;
+
+        return new AiImageQuoteServiceModel(
+            affordable ? AiImageQuoteOutcome.Affordable : AiImageQuoteOutcome.Exhausted,
+            period.Unit,
+            variantCount,
+            AiQuotaUnitConverter.Round(perImage.Value),
+            total,
+            spendable,
+            remaining,
+            after,
+            fits,
+            after is { } left
+                && AiQuotaPeriodCalculator.IsNearlySpent(spendable, left, _options.NearlySpentFraction),
+            period.EndsAt,
+            period.TimeZoneId);
+    }
+
     public async Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken)
     {

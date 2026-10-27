@@ -86,6 +86,14 @@ public static class AiQuotaPeriodCalculator
         Math.Max(allowance + carriedOver - consumed - reserved, 0m);
 
     /// <summary>Whether <paramref name="anchor"/> is a day this length can actually start on.</summary>
+    /// <summary>
+    /// Whether <paramref name="remaining"/> is at or below <paramref name="fraction"/> of
+    /// <paramref name="spendable"/> (USAGE-010). False for an allowance of nothing, which is spent rather than
+    /// nearly so.
+    /// </summary>
+    public static bool IsNearlySpent(decimal spendable, decimal remaining, decimal fraction) =>
+        spendable > 0m && remaining <= spendable * fraction;
+
     public static bool IsValidAnchor(AiQuotaPeriodLength length, int anchor) =>
         length switch
         {

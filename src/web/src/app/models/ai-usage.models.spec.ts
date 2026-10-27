@@ -16,6 +16,9 @@ const PERIOD = {
 const PAYLOAD = {
   period: PERIOD,
   isSuspended: false,
+  isNearlySpent: false,
+  pictures: 0,
+  writing: '360.5',
   byTask: [
     { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
     { taskType: 'RecipeRevision', amount: 120, requests: 4 },
@@ -119,6 +122,26 @@ describe('decodeAccountAiUsage', () => {
   it('rejects a payload missing a breakdown rather than reporting an empty one', () => {
     expect(decodeAccountAiUsage({ ...PAYLOAD, byTask: undefined })).toBeNull();
     expect(decodeAccountAiUsage({ ...PAYLOAD, byWorkspace: 'not an array' })).toBeNull();
+  });
+
+  /** The nearly-spent answer and the two totals are the server's (AP.2.6); a read without them is not one. */
+  it('reads the server’s nearly-spent answer and its pictures and writing totals', () => {
+    const usage = decodeAccountAiUsage({ ...PAYLOAD, isNearlySpent: true, pictures: 150 });
+
+    expect(usage?.isNearlySpent).toBeTrue();
+    expect(usage?.pictures).toBe(150);
+    expect(usage?.writing).toBe(360.5);
+  });
+
+  it('refuses a read missing the nearly-spent answer or a total', () => {
+    const { isNearlySpent, ...withoutAnswer } = PAYLOAD;
+    const { pictures, ...withoutPictures } = PAYLOAD;
+
+    expect(isNearlySpent).toBeFalse();
+    expect(pictures).toBe(0);
+    expect(decodeAccountAiUsage(withoutAnswer)).toBeNull();
+    expect(decodeAccountAiUsage(withoutPictures)).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, isNearlySpent: 'yes' })).toBeNull();
   });
 
   /** `requests` is published as an integer; a decimal would be the server sending what it says it cannot. */

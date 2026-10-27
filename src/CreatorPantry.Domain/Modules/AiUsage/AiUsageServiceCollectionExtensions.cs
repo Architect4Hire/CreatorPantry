@@ -50,7 +50,10 @@ public static class AiUsageServiceCollectionExtensions
         services.AddScoped<IAiUsageReadDataLayer, AiUsageReadDataLayer>();
         services.AddScoped<IAiUsageReadRepository, AiUsageReadRepository>();
 
-        var quota = services.AddOptions<AiQuotaOptions>();
+        var quota = services.AddOptions<AiQuotaOptions>()
+            .Validate(
+                options => options.NearlySpentFraction is > 0m and < 1m,
+                "Ai:Quota:NearlySpentFraction must be above nought and below one.");
 
         if (configuration is not null)
         {

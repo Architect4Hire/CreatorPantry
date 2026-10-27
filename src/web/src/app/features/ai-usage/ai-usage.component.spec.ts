@@ -8,7 +8,18 @@ import { AiUsageComponent } from './ai-usage.component';
 
 const URL = 'https://gateway.example/api/v1/me/ai-usage';
 
-function payload(overrides: { remaining?: number; allowance?: number; isSuspended?: boolean; byTask?: unknown[]; byWorkspace?: unknown[] } = {}) {
+function payload(
+  overrides: {
+    remaining?: number;
+    allowance?: number;
+    isSuspended?: boolean;
+    isNearlySpent?: boolean;
+    pictures?: number;
+    writing?: number;
+    byTask?: unknown[];
+    byWorkspace?: unknown[];
+  } = {},
+) {
   const allowance = overrides.allowance ?? 1000;
   const remaining = overrides.remaining ?? 640;
 
@@ -26,6 +37,10 @@ function payload(overrides: { remaining?: number; allowance?: number; isSuspende
       resetsAt: '2026-04-01T00:00:00+01:00',
     },
     isSuspended: overrides.isSuspended ?? false,
+    // What the server would say for these figures, unless a case says otherwise.
+    isNearlySpent: overrides.isNearlySpent ?? (remaining > 0 && remaining <= allowance / 5),
+    pictures: overrides.pictures ?? 0,
+    writing: overrides.writing ?? 360,
     byTask: overrides.byTask ?? [
       { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
       { taskType: 'IngredientSubstitution', amount: 120, requests: 4 },
@@ -190,6 +205,19 @@ describe('AiUsageComponent', () => {
 
     expect(host.textContent).toContain('A workspace you’ve left');
     expect(host.textContent).toContain('120 credits');
+  });
+
+  /** Pictures told apart from writing, beside what was used — the server's two totals, formatted (AP.2.6). */
+  it('says what the used credits went on, pictures apart from writing', async () => {
+    const host = await render(payload({ pictures: 150, writing: 210 }));
+
+    expect(tileTexts(host)[1]).toContain('150 AI credits on pictures and 210 AI credits on writing.');
+  });
+
+  it('says nothing about what was used on before anything has been', async () => {
+    const host = await render(payload({ pictures: 0, writing: 0 }));
+
+    expect(tileTexts(host)[1]).not.toContain('on pictures');
   });
 
   it('names a nearly spent allowance in words, not only in colour', async () => {

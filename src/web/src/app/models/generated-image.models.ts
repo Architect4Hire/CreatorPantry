@@ -394,3 +394,92 @@ export function decodeGeneratedImageOperationDetail(value: unknown): GeneratedIm
 
   return { ...operation, images };
 }
+
+/** Mirrors `GeneratedImageQuoteOutcome`: whether a request for pictures could go ahead right now (AP.2.6). */
+export type GeneratedImageQuoteOutcome = 'Affordable' | 'Exhausted' | 'Suspended' | 'Unavailable';
+
+const GENERATED_IMAGE_QUOTE_OUTCOME_VALUES: ReadonlySet<string> = new Set<GeneratedImageQuoteOutcome>([
+  'Affordable',
+  'Exhausted',
+  'Suspended',
+  'Unavailable',
+]);
+
+/**
+ * What asking for pictures would cost and leave, before the creator asks. Mirrors
+ * `GeneratedImageQuoteServiceModel`.
+ *
+ * <strong>Every figure is the server's, and nothing here is worked out from them.</strong> The price is the one
+ * admission then holds, `remainingAfter` and `affordableVariants` are computed where the allowance lives, and
+ * `leavesNearlySpent` is the server's line rather than a threshold kept in this bundle (PRICE-004, USAGE-010).
+ */
+export interface GeneratedImageQuote {
+  readonly outcome: GeneratedImageQuoteOutcome;
+  readonly unit: string | null;
+  readonly variants: number;
+  readonly perPicture: number | null;
+  readonly total: number | null;
+  readonly allowance: number | null;
+  readonly remaining: number | null;
+  /** What would be left after this request; null unless it is affordable. */
+  readonly remainingAfter: number | null;
+  /** How many pictures what is left would cover now, by the same test the request is admitted by. */
+  readonly affordableVariants: number;
+  readonly leavesNearlySpent: boolean;
+  /** When the allowance comes back. Render it in `timeZoneId`, never the browser's zone. */
+  readonly resetsAt: string | null;
+  readonly timeZoneId: string | null;
+}
+
+function quoteFigure(value: unknown): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Decodes a quote, or null when it is not one. A figure that is there but is not a number refuses the whole quote
+ * rather than reading as missing: "120 credits" becoming "no price" would tell a creator the opposite of the server.
+ */
+export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote | null {
+  if (!isRecord(value)) return null;
+
+  const outcome = decodeEnum<GeneratedImageQuoteOutcome>(GENERATED_IMAGE_QUOTE_OUTCOME_VALUES, value['outcome']);
+  const variants = value['variants'];
+  const affordableVariants = value['affordableVariants'];
+  const leavesNearlySpent = value['leavesNearlySpent'];
+  const figures = {
+    perPicture: quoteFigure(value['perPicture']),
+    total: quoteFigure(value['total']),
+    allowance: quoteFigure(value['allowance']),
+    remaining: quoteFigure(value['remaining']),
+    remainingAfter: quoteFigure(value['remainingAfter']),
+  };
+
+  if (
+    outcome === null ||
+    typeof variants !== 'number' ||
+    typeof affordableVariants !== 'number' ||
+    typeof leavesNearlySpent !== 'boolean' ||
+    !isStringOrNull(value['unit']) ||
+    !isStringOrNull(value['resetsAt']) ||
+    !isStringOrNull(value['timeZoneId']) ||
+    Object.values(figures).some((figure) => figure === undefined)
+  ) {
+    return null;
+  }
+
+  return {
+    outcome,
+    unit: (value['unit'] as string | null) ?? null,
+    variants,
+    perPicture: figures.perPicture ?? null,
+    total: figures.total ?? null,
+    allowance: figures.allowance ?? null,
+    remaining: figures.remaining ?? null,
+    remainingAfter: figures.remainingAfter ?? null,
+    affordableVariants,
+    leavesNearlySpent,
+    resetsAt: (value['resetsAt'] as string | null) ?? null,
+    timeZoneId: (value['timeZoneId'] as string | null) ?? null,
+  };
+}

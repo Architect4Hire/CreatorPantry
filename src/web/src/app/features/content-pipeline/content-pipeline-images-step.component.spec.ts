@@ -591,7 +591,9 @@ describe('ContentPipelineImagesStepComponent', () => {
       await settle();
 
       expect(keepers()).toEqual([]);
-      expect(el.querySelector('[role="alert"]')?.textContent).toContain('do not have permission');
+      // Any alert that says it: the step also keeps an empty one waiting for a quote's refusal (AP.2.6).
+      const alerts = Array.from(el.querySelectorAll('[role="alert"]')).map((alert) => alert.textContent ?? '');
+      expect(alerts.some((alert) => alert.includes('do not have permission'))).toBeTrue();
     });
   });
 

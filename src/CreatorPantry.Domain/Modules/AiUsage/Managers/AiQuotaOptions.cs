@@ -145,6 +145,23 @@ public sealed class AiQuotaOptions
     /// is already tokens.
     /// </remarks>
     public decimal TokensPerCredit { get; set; } = 1000m;
+
+    /// <summary>
+    /// The share of a period's spendable allowance at or below which it counts as nearly spent (USAGE-010).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The one place this line is drawn.</strong> It used to be a constant in the browser, which meant the
+    /// usage page and anything else that warned had to agree by copying it. The server now says it — on the
+    /// usage read (<c>isNearlySpent</c>) and on an image quote (<c>leavesNearlySpent</c>) — so a surface renders
+    /// the answer and never works it out (AP.2.6).
+    /// </para>
+    /// <para>
+    /// A product decision, not a limit: nothing is refused at it. A fifth is the point at which telling somebody
+    /// is still useful rather than merely alarming. Above nought and below one.
+    /// </para>
+    /// </remarks>
+    public decimal NearlySpentFraction { get; set; } = 0.2m;
 }
 
 /// <param name="CreditsPerMillionInputTokens">Credits charged per million reported input tokens.</param>

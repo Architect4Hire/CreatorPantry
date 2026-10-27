@@ -6,10 +6,12 @@ import { ApiBaseService } from '../core/api-base.service';
 import {
   GeneratedImageOperation,
   GeneratedImageOperationDetail,
+  GeneratedImageQuote,
   IDEMPOTENCY_KEY_REQUIRED_CODE,
   RequestGeneratedImagesRequest,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
+  decodeGeneratedImageQuote,
   encodeRequestGeneratedImages,
 } from '../models/generated-image.models';
 import { PictureRendition, renditionQuery } from '../models/picture-rendition.models';
@@ -178,6 +180,24 @@ export class GeneratedImageService {
       return { status: 'declined' };
     } catch (error) {
       return mapRejectError(error);
+    }
+  }
+
+  /**
+   * What asking for `variants` pictures would cost the signed-in creator, and what it would leave (AP.2.6).
+   *
+   * Read-only and free to ask again. Null for anything that is not a quote — a failure, a refusal, a body that
+   * does not decode — because a surface with no quote says so and lets the request decide: the server refuses an
+   * unaffordable request properly on its own.
+   */
+  async quote(workspaceSlug: string, variants: number): Promise<GeneratedImageQuote | null> {
+    const url = this.url(workspaceSlug, `/quote?variants=${encodeURIComponent(String(variants))}`);
+    if (!url) return null;
+
+    try {
+      return decodeGeneratedImageQuote(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+    } catch {
+      return null;
     }
   }
 

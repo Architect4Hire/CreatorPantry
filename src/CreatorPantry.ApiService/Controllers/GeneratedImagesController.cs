@@ -142,6 +142,45 @@ public sealed class GeneratedImagesController(
             : this.ProblemFor(result.Error!);
     }
 
+    /// <summary>
+    /// What asking for this many pictures would cost the caller, and what it would leave them (PRICE-004).
+    /// </summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="model">How many pictures to price — one to four, as a request may ask for.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by
+    /// the same code that admits the request, for the model, tier and quality this deployment would send. A
+    /// snapshot: the request is still the decision, and can be refused if the balance moved in between.
+    ///
+    /// Refused as the request it prices would be: `400 media.generation.invalid_request` for a count outside one
+    /// to four, and `403 media.generation.forbidden` for a member below Contributor.
+    ///
+    /// **A host that cannot price the picture answers `200` with `outcome: Unavailable`, not `503`.** The request
+    /// answers `503 media.generation.unavailable` because it cannot do what was asked; a quote can — it says there
+    /// is no price to show — and a page asking on every change of count would otherwise log an error per step for
+    /// one misconfiguration.
+    /// </remarks>
+    [HttpGet("quote")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<GeneratedImageQuoteServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> Quote(
+        string workspaceSlug,
+        [FromQuery] GeneratedImageQuoteViewModel model,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var result = await generation.QuoteAsync(model.Variants, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
     /// <summary>Reads one image request and the images it has produced so far.</summary>
     /// <param name="workspaceSlug">
     /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
@@ -385,6 +424,18 @@ public sealed class GeneratedImagesController(
         // no ranges, and the conditional request is decided above, so exactly one place compares a tag.
         return new FileStreamResult(download.Content, download.MediaType);
     }
+}
+
+/// <summary>The question a quote answers: how many pictures (AP.2.6).</summary>
+/// <remarks>
+/// Nullable for the same reason the request's own count is: a missing one is this feature's validation error,
+/// which can say which field was wrong, rather than the model binder's.
+/// </remarks>
+public sealed record GeneratedImageQuoteViewModel
+{
+    /// <summary>How many pictures to price, as a request would ask for them.</summary>
+    [FromQuery(Name = "variants")]
+    public int? Variants { get; init; }
 }
 
 /// <summary>The body of an image-generation request (IMG-003).</summary>

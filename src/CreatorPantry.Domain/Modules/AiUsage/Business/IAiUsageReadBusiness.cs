@@ -1,9 +1,11 @@
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.AiUsage.Business;
 
@@ -21,7 +23,8 @@ internal sealed class AiUsageReadBusiness(
     IAiUsageReadDataLayer usage,
     IAiQuotaPeriodResolver periods,
     IWorkspaceFacade workspaces,
-    IClock clock) : IAiUsageReadBusiness
+    IClock clock,
+    IOptions<AiQuotaOptions> options) : IAiUsageReadBusiness
 {
     public async Task<AccountAiUsageServiceModel> GetCurrentAsync(
         string accountId, CancellationToken cancellationToken)
@@ -41,15 +44,28 @@ internal sealed class AiUsageReadBusiness(
         var byWorkspace = await usage.SumByWorkspaceAsync(
             accountId, period.Id, period.StartsAt, period.EndsAt, cancellationToken);
 
+        var described = Describe(period, terms.PeriodLength);
+
+        // Pictures against everything else, from the same rows the per-task list shows, so the two figures
+        // and the list can never disagree about what a picture cost (AP.2.6).
+        var pictures = byTask.Where(row => row.TaskType is AiTaskType.ImageGeneration).Sum(row => row.Amount);
+        var writing = byTask.Where(row => row.TaskType is not AiTaskType.ImageGeneration).Sum(row => row.Amount);
+
         return new AccountAiUsageServiceModel(
-            Describe(period, terms.PeriodLength),
+            described,
             terms.IsSuspended,
             [.. byTask
                 .Select(row => new AccountAiUsageTaskTotalServiceModel(row.TaskType, row.Amount, row.Requests))
                 .OrderByDescending(row => row.Amount)
                 .ThenByDescending(row => row.Requests)
                 .ThenBy(row => row.TaskType)],
-            await NameAsync(accountId, byWorkspace, cancellationToken));
+            await NameAsync(accountId, byWorkspace, cancellationToken),
+            IsNearlySpent: !terms.IsSuspended
+                && described.Remaining > 0m
+                && AiQuotaPeriodCalculator.IsNearlySpent(
+                    described.Allowance, described.Remaining, options.Value.NearlySpentFraction),
+            Pictures: pictures,
+            Writing: writing);
     }
 
     /// <remarks>

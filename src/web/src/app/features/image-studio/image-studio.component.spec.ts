@@ -1685,9 +1685,10 @@ describe('ImageStudioComponent', () => {
       );
 
       expect(text()).toContain(PROMPT);
-      expect(text()).withContext('the cost, before anything is made').toContain(
-        'Asking for 3 pictures. Making pictures doesn’t use your AI allowance.',
-      );
+      // The count, and where to change it. The cost is the run's own quote beside it (AP.2.6); pictures do use
+      // the AI allowance, and the sentence that said otherwise is gone.
+      expect(text()).toContain('Asking for 3 pictures. To change how many, go back to the first step.');
+      expect(text()).not.toContain('doesn’t use your AI allowance');
       requestOutcome = accepted();
       await click('Make the pictures');
 

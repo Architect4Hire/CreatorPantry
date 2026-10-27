@@ -87,6 +87,12 @@ public sealed record AccountAiUsageWorkspaceTotalServiceModel(
 /// </param>
 /// <param name="ByTask">Spend per capability, largest first.</param>
 /// <param name="ByWorkspace">Spend per workspace, largest first.</param>
+/// <param name="IsNearlySpent">
+/// Whether what is left is at or below <c>Ai:Quota:NearlySpentFraction</c> of the spendable allowance, and above
+/// nothing (USAGE-010). The server's call, so every surface that warns agrees (AP.2.6).
+/// </param>
+/// <param name="Pictures">What pictures charged this period: the <c>ImageGeneration</c> share of <see cref="ByTask"/>.</param>
+/// <param name="Writing">What every other capability charged this period. With <see cref="Pictures"/>, sums to <c>Consumed</c>.</param>
 /// <remarks>
 /// <para>
 /// <strong>Both breakdowns are in the period's unit and both sum to <c>Consumed</c>.</strong> They are built
@@ -109,4 +115,7 @@ public sealed record AccountAiUsageServiceModel(
     AccountAiUsagePeriodServiceModel Period,
     bool IsSuspended,
     IReadOnlyList<AccountAiUsageTaskTotalServiceModel> ByTask,
-    IReadOnlyList<AccountAiUsageWorkspaceTotalServiceModel> ByWorkspace);
+    IReadOnlyList<AccountAiUsageWorkspaceTotalServiceModel> ByWorkspace,
+    bool IsNearlySpent,
+    decimal Pictures,
+    decimal Writing);

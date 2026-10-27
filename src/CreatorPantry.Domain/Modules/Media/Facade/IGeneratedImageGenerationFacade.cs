@@ -68,6 +68,18 @@ public interface IGeneratedImageGenerationFacade
     /// </remarks>
     Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
         Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What asking for <paramref name="variants"/> pictures would cost the caller and leave them, before they
+    /// ask (PRICE-004, AP.2.6). Read-only: nothing is held or written.
+    /// </summary>
+    /// <remarks>
+    /// Contributor, the same as the request it prices: a Viewer cannot ask for pictures, so has no price to see.
+    /// The count is checked as the request checks it, so a quote can never be for a request that would be refused
+    /// as invalid.
+    /// </remarks>
+    Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
+        int? variants, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
@@ -137,6 +149,29 @@ internal sealed class GeneratedImageGenerationFacade(
                 ["resetsAt"] = refusal.PeriodEndsAt,
             }),
     };
+
+    public async Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
+        int? variants, CancellationToken cancellationToken)
+    {
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (variants is not { } count || count < 1 || count > MediaPolicy.MaxVariantsPerOperation)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(OperationError.Validation(
+                MediaErrorCodes.GenerationInvalidRequest,
+                "The images could not be priced.",
+                [("variants", $"Ask about between 1 and {MediaPolicy.MaxVariantsPerOperation} images.")]));
+        }
+
+        return OperationResult<GeneratedImageQuoteServiceModel>.Success(
+            await business.QuoteAsync(count, cancellationToken));
+    }
 
     public async Task<OperationResult<GeneratedImageOperationServiceModel>> RequestAsync(
         GeneratedImageRequest request, CancellationToken cancellationToken)

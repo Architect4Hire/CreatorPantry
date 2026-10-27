@@ -95,6 +95,13 @@ public interface IGeneratedImageGenerationDataLayer
     /// <inheritdoc cref="IGeneratedImageProviderGateway.Describe"/>
     GeneratedImageModel DescribeModel();
 
+    /// <summary>
+    /// What <paramref name="variants"/> pictures of <paramref name="model"/> would cost the account, asked of the
+    /// AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
+    /// </summary>
+    Task<AiImageQuoteServiceModel> QuoteAsync(
+        string accountId, GeneratedImageModel model, int variants, CancellationToken cancellationToken);
+
     /// <inheritdoc cref="IGeneratedImageProviderGateway.GenerateAsync"/>
     Task<GeneratedImageResult> GenerateAsync(string prompt, string? avoid, CancellationToken cancellationToken);
 
@@ -250,6 +257,15 @@ internal sealed class GeneratedImageGenerationDataLayer(
     ILogger<GeneratedImageGenerationDataLayer> logger) : IGeneratedImageGenerationDataLayer
 {
     public GeneratedImageModel DescribeModel() => provider.Describe();
+
+    public Task<AiImageQuoteServiceModel> QuoteAsync(
+        string accountId, GeneratedImageModel model, int variants, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        return quota.QuoteImageAsync(
+            accountId, model.ModelName!, model.Resolution, model.Quality, variants, cancellationToken);
+    }
 
     public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
         Guid operationId, CancellationToken cancellationToken) =>

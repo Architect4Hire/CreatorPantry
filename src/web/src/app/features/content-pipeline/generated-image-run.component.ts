@@ -38,6 +38,8 @@ import {
 import { DamAssetService } from '../../services/dam-asset.service';
 import { matchSavedPictures } from '../../services/dam-saved-pictures';
 import { GeneratedImageService, StagedImageRejectOutcome } from '../../services/generated-image.service';
+import { GeneratedImageQuote } from '../../models/generated-image.models';
+import { formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
 import {
   SaveToLibraryDialogComponent,
   SaveToLibraryProgress,
@@ -83,6 +85,14 @@ export interface GeneratedImageRunWording {
   readonly keepNote: string;
   /** Finishes "These pictures stop being available after <when>," with what to do about it. */
   readonly expiryRemedy: string;
+}
+
+/** How long a quote waits after the count last changed before it asks, so stepping through counts asks once. */
+export const QUOTE_SETTLE_MS = 250;
+
+/** A count of pictures inside a sentence; {@link pictureCount} starts one. */
+function picturesInSentence(count: number): string {
+  return count === 1 ? 'one picture' : `${count} pictures`;
 }
 
 /** The Content Pipeline's wording, and the default — it was the first caller. */
@@ -288,10 +298,35 @@ export class GeneratedImageRunComponent {
    */
   private gone = false;
 
+  /**
+   * What this request would cost, asked of the server before the creator asks for the pictures (AP.2.6).
+   *
+   * `error` covers a quote that failed and a quote that could not be read alike, and neither blocks anything:
+   * only a known, spent allowance stops a request, and the server refuses an unaffordable one properly on its own.
+   */
+  protected readonly quoteState = signal<
+    | { readonly status: 'loading' }
+    | { readonly status: 'ready'; readonly quote: GeneratedImageQuote }
+    | { readonly status: 'error' }
+  >({ status: 'loading' });
+
+  private quoteGeneration = 0;
+  private quoteTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.gone = true;
       this.tracker.destroy();
+      if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+    });
+
+    // A fresh price whenever what it prices changes: the count, or the workspace it would be made in. Not asked
+    // where nothing can be made — the run shown without its maker has no request to price.
+    effect(() => {
+      const slug = this.workspaceSlug();
+      const count = this.count();
+      if (!this.showMaker()) return;
+      untracked(() => this.requote(slug, count));
     });
 
     // Follow whatever run the draft names, for whichever workspace the step is pointed at. One effect rather
@@ -371,10 +406,93 @@ export class GeneratedImageRunComponent {
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,
   );
 
+  /**
+   * Whether the server has said this request cannot be afforded right now — spent, or switched off. A quote still
+   * loading, failed or unavailable stops nothing: the server is the authority and refuses properly.
+   */
+  protected readonly quoteBlocks = computed(() => {
+    const state = this.quoteState();
+
+    return state.status === 'ready' && (state.quote.outcome === 'Exhausted' || state.quote.outcome === 'Suspended');
+  });
+
   /** Refused here rather than by the server, so the creator is told what to fix and where. */
   protected readonly canGenerate = computed(
-    () => this.sendText() !== '' && !this.promptTooLong() && !this.tracker.busy() && !this.working(),
+    () =>
+      this.sendText() !== '' &&
+      !this.promptTooLong() &&
+      !this.quoteBlocks() &&
+      !this.tracker.busy() &&
+      !this.working(),
   );
+
+  /**
+   * The price, said beside the count. Every figure is the server's: nothing here adds, subtracts or compares
+   * amounts (PRICE-004). Empty while there is nothing to say — no quote yet, or a host with no image provider,
+   * whose request reports that itself.
+   */
+  protected readonly quoteLine = computed(() => {
+    const state = this.quoteState();
+
+    // Nothing announced while asking: the template shows "Working out…" beside this, hidden from a screen reader.
+    if (state.status === 'loading') return '';
+    if (state.status === 'error') return 'We couldn’t work out what this costs just now.';
+
+    const quote = state.quote;
+    if (quote.outcome !== 'Affordable') return '';
+
+    const total = this.amount(quote.total, quote.unit);
+    const after = this.amount(quote.remainingAfter, quote.unit);
+
+    // A unit this product does not quote figures in is described rather than counted (allowance-text.ts).
+    return total === null || after === null
+      ? 'This uses some of your AI allowance.'
+      : `${pictureCount(quote.variants)} · ${total}. ${after} left after this.`;
+  });
+
+  /** USAGE-010's warning: affordable, but going ahead leaves the allowance nearly spent — the server's line. */
+  protected readonly quoteWarning = computed(() => {
+    const state = this.quoteState();
+    if (state.status !== 'ready' || state.quote.outcome !== 'Affordable' || !state.quote.leavesNearlySpent) {
+      return null;
+    }
+
+    return `That leaves your AI allowance nearly spent ${this.untilReset(state.quote)}.`;
+  });
+
+  /**
+   * Why the request cannot go ahead, said where it would be made. The filled-in request is left exactly as it
+   * is: changing the count asks again, and the button comes back as soon as the request fits.
+   */
+  protected readonly quoteRefusal = computed(() => {
+    const state = this.quoteState();
+    if (state.status !== 'ready') return null;
+
+    const quote = state.quote;
+
+    if (quote.outcome === 'Suspended') {
+      return 'AI assistance is switched off for your account, so pictures can’t be made just now. Get in touch and we can look into it.';
+    }
+
+    if (quote.outcome !== 'Exhausted') return null;
+
+    const total = this.amount(quote.total, quote.unit);
+    const remaining = this.amount(quote.remaining, quote.unit);
+    const reset = this.resetSentence(quote);
+
+    if (total === null || remaining === null) {
+      return `There isn’t enough of your AI allowance left for this. ${reset}`;
+    }
+
+    const fits =
+      quote.affordableVariants > 0
+        ? ` — enough for ${picturesInSentence(quote.affordableVariants)}. ${this.wording().countRemedy}`
+        : '.';
+
+    const need = quote.variants === 1 ? 'needs' : 'need';
+
+    return `${pictureCount(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits} ${reset}`;
+  });
 
   protected readonly detail = this.tracker.detail;
 
@@ -574,6 +692,49 @@ export class GeneratedImageRunComponent {
     return stranded && this.imagesState().operationId !== null;
   });
 
+  /**
+   * Asks the price of `count` pictures, a moment after the last change so a creator stepping through counts asks
+   * once. The most recently started ask wins whichever answers first.
+   */
+  private requote(slug: string, count: number): void {
+    const generation = ++this.quoteGeneration;
+    this.quoteState.set({ status: 'loading' });
+
+    if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+
+    this.quoteTimer = setTimeout(async () => {
+      this.quoteTimer = null;
+
+      let quote: GeneratedImageQuote | null;
+
+      try {
+        quote = await this.service.quote(slug, count);
+      } catch {
+        quote = null;
+      }
+
+      if (this.gone || generation !== this.quoteGeneration) return;
+
+      this.quoteState.set(quote === null ? { status: 'error' } : { status: 'ready', quote });
+    }, QUOTE_SETTLE_MS);
+  }
+
+  private amount(value: number | null, unit: string | null): string | null {
+    return value === null || unit === null ? null : formatAllowanceAmount(value, unit);
+  }
+
+  private untilReset(quote: GeneratedImageQuote): string {
+    const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
+
+    return when === null ? 'until it comes back' : `until it comes back on ${when}`;
+  }
+
+  private resetSentence(quote: GeneratedImageQuote): string {
+    const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
+
+    return when === null ? 'Your allowance comes back when the period resets.' : `Your allowance comes back on ${when}.`;
+  }
+
   /** Ask for the pictures — or ask again for the same ones, after an answer that never arrived. */
   protected async generate(): Promise<void> {
     if (!this.canGenerate()) return;
@@ -614,6 +775,9 @@ export class GeneratedImageRunComponent {
     this.followedKey = `${this.workspaceSlug()}|${operationId}`;
     this.emitImages({ operationId });
     this.announced.emit(`Making ${this.count() === 1 ? 'one picture' : this.count() + ' pictures'}.`);
+
+    // What is left has moved by exactly this request's hold, so the next price is read again rather than kept.
+    this.requote(this.workspaceSlug(), this.count());
   }
 
   /**

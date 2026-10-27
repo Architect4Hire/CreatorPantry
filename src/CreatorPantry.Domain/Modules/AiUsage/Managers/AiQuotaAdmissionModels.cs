@@ -268,3 +268,55 @@ public sealed record AiImageUsageServiceModel(
     /// <summary>Every variant the provider generated and billed for, whatever became of it.</summary>
     public int BilledVariants => StagedVariants + UnusableVariants;
 }
+
+/// <summary>Whether an image request could be admitted right now (AP.2.6).</summary>
+public enum AiImageQuoteOutcome
+{
+    Unspecified = 0,
+
+    /// <summary>What is left covers the whole request.</summary>
+    Affordable = 1,
+
+    /// <summary>What is left does not cover it; <see cref="AiImageQuoteServiceModel.AffordableVariants"/> says how many it would.</summary>
+    Exhausted = 2,
+
+    /// <summary>AI access is switched off, whatever is left.</summary>
+    Suspended = 3,
+
+    /// <summary>This host has no rate for the picture it would make, so it cannot be priced or admitted.</summary>
+    Unpriced = 4,
+}
+
+/// <summary>
+/// What an image request would cost and what it would leave, read without holding or writing anything (AP.2.6).
+/// </summary>
+/// <param name="Outcome">Whether the request could be admitted right now.</param>
+/// <param name="Unit">What every amount here is counted in.</param>
+/// <param name="Variants">How many pictures were asked about.</param>
+/// <param name="PerPicture">One picture's price, rounded as a hold is; null when it cannot be priced.</param>
+/// <param name="Total">The whole request's price — exactly the hold admission would take; null when unpriced.</param>
+/// <param name="Allowance">The period's spendable total.</param>
+/// <param name="Remaining">What is left of it now, after settled and outstanding holds.</param>
+/// <param name="RemainingAfter">What would be left after this request; null unless it is affordable.</param>
+/// <param name="AffordableVariants">How many of the asked-for pictures what is left would cover now, by the same test admission applies.</param>
+/// <param name="LeavesNearlySpent">Whether going ahead leaves the allowance at or below its nearly-spent line (USAGE-010).</param>
+/// <param name="ResetsAt">When the allowance comes back. Null for a suspension, which does not come back by itself.</param>
+/// <param name="TimeZoneId">The zone <paramref name="ResetsAt"/> is a local midnight in.</param>
+/// <remarks>
+/// <strong>A snapshot, not a reservation</strong>, exactly as <c>PeekAsync</c> is: another tab can spend the
+/// balance between this answer and the request. Admission decides; this only lets a creator see the price first.
+/// Every figure is computed here so a surface renders it and never works one out (PRICE-004).
+/// </remarks>
+public sealed record AiImageQuoteServiceModel(
+    AiImageQuoteOutcome Outcome,
+    AiQuotaUnit Unit,
+    int Variants,
+    decimal? PerPicture,
+    decimal? Total,
+    decimal Allowance,
+    decimal Remaining,
+    decimal? RemainingAfter,
+    int AffordableVariants,
+    bool LeavesNearlySpent,
+    DateTimeOffset? ResetsAt,
+    string? TimeZoneId);

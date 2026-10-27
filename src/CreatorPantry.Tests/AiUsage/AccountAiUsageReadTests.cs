@@ -168,6 +168,50 @@ public sealed class AccountAiUsageReadTests : IAsyncDisposable
         Assert.True((await CurrentAsync()).IsSuspended);
     }
 
+    /// <summary>
+    /// The nearly-spent line is the server's (USAGE-010, AP.2.6): a fifth of the spendable allowance or less,
+    /// counted, and above nothing — a spent allowance is spent, not nearly so.
+    /// </summary>
+    [Theory]
+    [InlineData(799, false)]
+    [InlineData(800, true)]
+    [InlineData(999, true)]
+    [InlineData(1000, false)]
+    public async Task An_allowance_at_a_fifth_or_less_reads_as_nearly_spent(int consumed, bool expected)
+    {
+        await SeedPeriodAsync(consumed: consumed);
+
+        Assert.Equal(expected, (await CurrentAsync()).IsNearlySpent);
+    }
+
+    [Fact]
+    public async Task A_suspended_account_is_not_also_nearly_spent()
+    {
+        await SeedQuotaAsync(suspended: true);
+        await SeedPeriodAsync(consumed: 900m);
+
+        Assert.False((await CurrentAsync()).IsNearlySpent);
+    }
+
+    /// <summary>
+    /// What pictures cost is told apart from everything else, from the same rows the per-task list shows, so the
+    /// two figures and the list always agree and together make up what the period consumed.
+    /// </summary>
+    [Fact]
+    public async Task Pictures_are_told_apart_from_writing()
+    {
+        var periodId = await SeedPeriodAsync(consumed: 230m);
+        await SeedRunAsync(periodId, WorkspaceA, AiTaskType.ImageGeneration, amount: 150m, attempts: 3);
+        await SeedRunAsync(periodId, WorkspaceA, AiTaskType.RecipeConcepts, amount: 50m, attempts: 1);
+        await SeedRunAsync(periodId, WorkspaceB, AiTaskType.ChannelPosts, amount: 30m, attempts: 1);
+
+        var usage = await CurrentAsync();
+
+        Assert.Equal(150m, usage.Pictures);
+        Assert.Equal(80m, usage.Writing);
+        Assert.Equal(usage.ByTask.Sum(row => row.Amount), usage.Pictures + usage.Writing);
+    }
+
     // ---- the breakdowns --------------------------------------------------------------------------------
 
     /// <summary>

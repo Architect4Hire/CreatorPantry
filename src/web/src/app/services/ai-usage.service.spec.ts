@@ -7,7 +7,9 @@ import { AiUsageService } from './ai-usage.service';
 
 const URL = 'https://gateway.example/api/v1/me/ai-usage';
 
-function payload(overrides: { remaining?: number; allowance?: number; consumed?: number; isSuspended?: boolean } = {}) {
+function payload(
+  overrides: { remaining?: number; allowance?: number; consumed?: number; isSuspended?: boolean; isNearlySpent?: boolean } = {},
+) {
   const allowance = overrides.allowance ?? 1000;
   const remaining = overrides.remaining ?? 640;
 
@@ -25,6 +27,10 @@ function payload(overrides: { remaining?: number; allowance?: number; consumed?:
       resetsAt: '2026-04-01T00:00:00+01:00',
     },
     isSuspended: overrides.isSuspended ?? false,
+    // What the server would say for these figures, unless a case says otherwise.
+    isNearlySpent: overrides.isNearlySpent ?? (remaining > 0 && remaining <= allowance / 5),
+    pictures: 0,
+    writing: 240,
     byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }],
     byWorkspace: [{ workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 }],
   };
@@ -71,6 +77,21 @@ describe('AiUsageService', () => {
     expect(allowance.kind).toBe('healthy');
     expect(allowance.kind !== 'unknown' && allowance.period.remaining).toBe(640);
     expect(allowance.kind !== 'unknown' && allowance.period.usedPercent).toBe(36);
+  });
+
+  /** The server draws the line (AP.2.6): the service reads its answer and keeps no threshold of its own. */
+  it('takes nearly spent from the server, whatever the figures would suggest', async () => {
+    const plenty = service.ensureLoaded();
+    http.expectOne(URL).flush(payload({ remaining: 640, isNearlySpent: true }));
+    await plenty;
+
+    expect(service.allowance().kind).toBe('nearly-spent');
+
+    const low = service.refresh();
+    http.expectOne(URL).flush(payload({ remaining: 100, isNearlySpent: false }));
+    await low;
+
+    expect(service.allowance().kind).toBe('healthy');
   });
 
   it('reports a fifth or less as nearly spent', async () => {

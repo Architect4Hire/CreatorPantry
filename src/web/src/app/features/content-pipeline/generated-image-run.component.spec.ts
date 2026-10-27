@@ -10,6 +10,7 @@ import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
 import {
   GeneratedImageOperationDetail,
+  GeneratedImageQuote,
   GeneratedImageSubject,
   RequestGeneratedImagesRequest,
   StagedImage,
@@ -28,6 +29,7 @@ import {
   GeneratedImageRunLibrary,
   GeneratedImageRunWording,
   PIPELINE_IMAGE_RUN_WORDING,
+  QUOTE_SETTLE_MS,
 } from './generated-image-run.component';
 
 // What a run does — asking, watching, choosing, declining, tidying up, and staying inside one workspace — is
@@ -187,6 +189,51 @@ let requestOutcome: GeneratedImageRequestOutcome;
 let watches: Subject<GeneratedImageWatchOutcome>[];
 let details: Record<string, DamAssetDetailOutcome>;
 let detailReads: string[];
+let quoteAsks: number[];
+let quoteAnswer: (variants: number) => GeneratedImageQuote | null;
+
+/** A price the server might give: affordable by default, 50 credits a picture, from an allowance of 1,000. */
+function quote(variants: number, overrides: Partial<GeneratedImageQuote> = {}): GeneratedImageQuote {
+  return {
+    outcome: 'Affordable',
+    unit: 'Credits',
+    variants,
+    perPicture: 50,
+    total: variants * 50,
+    allowance: 1000,
+    remaining: 1000,
+    remainingAfter: 1000 - variants * 50,
+    affordableVariants: variants,
+    leavesNearlySpent: false,
+    resetsAt: '2026-11-01T00:00:00+00:00',
+    timeZoneId: 'Etc/UTC',
+    ...overrides,
+  };
+}
+
+/** Waits out the quote's settle time, then lets the answer render. */
+async function priced(): Promise<void> {
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, QUOTE_SETTLE_MS + 20));
+  await settle();
+}
+
+/**
+ * Answers the next quote with `next`. The run asked for its first price while the suite was being set up, so this
+ * nudges the count away and straight back inside one settle window — one ask, for the same count — and waits.
+ */
+async function answerWith(next: (variants: number) => GeneratedImageQuote | null): Promise<void> {
+  quoteAnswer = next;
+  const count = host.variantCount();
+  host.variantCount.set(count + 1);
+  fixture.detectChanges();
+  host.variantCount.set(count);
+  await priced();
+}
+
+function quoteLine(): string {
+  return (el.querySelector('[id$="-quote"]')?.textContent ?? '').trim();
+}
 
 async function settle(): Promise<void> {
   fixture.detectChanges();
@@ -232,6 +279,8 @@ describe('GeneratedImageRunComponent', () => {
     watches = [];
     details = {};
     detailReads = [];
+    quoteAsks = [];
+    quoteAnswer = (variants) => quote(variants);
     requestOutcome = { status: 'unavailable' };
 
     await TestBed.configureTestingModule({
@@ -255,6 +304,10 @@ describe('GeneratedImageRunComponent', () => {
             preview: () => EMPTY,
             reject: () => Promise.resolve({ status: 'declined' as const }),
             downloadUrl: () => null,
+            quote: (_slug: string, variants: number) => {
+              quoteAsks.push(variants);
+              return Promise.resolve(quoteAnswer(variants));
+            },
           },
         },
         {
@@ -733,6 +786,136 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(el.textContent).toContain('Nothing saved to your library yet.');
       expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
+    });
+  });
+
+  // ---- the price, before the pictures are asked for (AP.2.6) ---------------------------------------------
+
+  describe('the quote', () => {
+    it('says what the pictures will cost and what that leaves, in the server’s figures', async () => {
+      await priced();
+
+      expect(quoteAsks).toEqual([2]);
+      expect(quoteLine()).toBe('2 pictures · 100 AI credits. 900 AI credits left after this.');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('warns when going ahead leaves the allowance nearly spent, and still lets it go ahead', async () => {
+      await answerWith((variants) => quote(variants, { remaining: 250, remainingAfter: 150, leavesNearlySpent: true }));
+
+      const warning = el.querySelector('#cp-studio-images-quote-warning');
+      expect(warning?.getAttribute('role')).toBe('status');
+      expect(warning?.textContent).toContain('That leaves your AI allowance nearly spent until it comes back on');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('stops a request the allowance cannot cover, says how many would fit, and keeps what was filled in', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Exhausted', remaining: 60, remainingAfter: null, affordableVariants: 1 }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal');
+      expect(refusal?.getAttribute('role')).toBe('alert');
+      expect(refusal?.textContent).toContain(
+        '2 pictures need 100 AI credits, and you have 60 AI credits left — enough for one picture. Change that in the brief.',
+      );
+      expect(refusal?.textContent).toContain('Your allowance comes back on');
+
+      // Refused here, with its reason attached to the button, and the creator's prompt still on screen.
+      expect(makeButton().disabled).toBeTrue();
+      expect(makeButton().getAttribute('aria-describedby')).toBe('cp-studio-images-quote-refusal');
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+
+      makeButton().click();
+      await settle();
+      expect(requests.length).toBe(0);
+
+      // Asking for fewer asks the price again, and the button comes back as soon as the request fits.
+      quoteAnswer = (variants) => quote(variants, { remaining: 60, remainingAfter: 10 });
+      host.variantCount.set(1);
+      await priced();
+
+      expect(quoteAsks.at(-1)).toBe(1);
+      expect(makeButton().disabled).toBeFalse();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+      // The region stays, quiet and empty, so a later refusal is still announced.
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+
+      // Operable from the keyboard once it is back: a native button that takes focus.
+      makeButton().focus();
+      expect(document.activeElement).toBe(makeButton());
+    });
+
+    it('stops a request from an account whose AI help is switched off, and says so', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Suspended', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('AI assistance is switched off');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('stops nothing when the price could not be worked out — the request decides', async () => {
+      await answerWith(() => null);
+
+      expect(quoteLine()).toBe('We couldn’t work out what this costs just now.');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says nothing about a price on a host with no image provider, and stops nothing', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Unavailable', unit: null, perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(quoteLine()).toBe('');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says nothing while asking, so a change of count is announced once, with its price', async () => {
+      host.variantCount.set(3);
+      fixture.detectChanges();
+
+      expect(el.querySelector('[id$="-quote"] [role="status"]')?.textContent?.trim()).toBe('');
+      expect(quoteLine()).toContain('Working out what this costs…');
+
+      await priced();
+      expect(el.querySelector('[id$="-quote"] [role="status"]')?.textContent?.trim()).toBe(
+        '3 pictures · 150 AI credits. 850 AI credits left after this.',
+      );
+    });
+
+    it('keeps its refusal region in the page with no prompt, so the button never points at nothing', async () => {
+      host.promptText.set('');
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Exhausted', remaining: 0, remainingAfter: null, affordableVariants: 0 }),
+      );
+
+      const described = makeButton().getAttribute('aria-describedby');
+      expect(described).toBe('cp-studio-images-quote-refusal');
+      expect(el.querySelector(`#${described}`)).not.toBeNull();
+    });
+
+    it('asks once for a run of quick changes to the count, and shows only the last answer', async () => {
+      await priced();
+
+      host.variantCount.set(3);
+      fixture.detectChanges();
+      host.variantCount.set(4);
+      await priced();
+
+      expect(quoteAsks).toEqual([2, 4]);
+      expect(quoteLine()).toContain('4 pictures · 200 AI credits.');
+    });
+
+    it('asks the price again once a request is accepted, because what is left has moved', async () => {
+      requestOutcome = { status: 'accepted', operation: { id: 'op-9', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      await priced();
+
+      makeButton().click();
+      await priced();
+
+      expect(requests.length).toBe(1);
+      expect(quoteAsks).toEqual([2, 2]);
     });
   });
 });

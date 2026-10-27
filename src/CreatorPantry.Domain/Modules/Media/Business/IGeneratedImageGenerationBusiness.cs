@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
@@ -55,6 +56,12 @@ public interface IGeneratedImageGenerationBusiness
 
     /// <summary>How many images one operation of the resolved workspace has staged.</summary>
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What a request for <paramref name="variants"/> pictures would cost the caller's account right now, priced
+    /// for the model, tier and quality this deployment would send (AP.2.6). Writes nothing.
+    /// </summary>
+    Task<GeneratedImageQuoteServiceModel> QuoteAsync(int variants, CancellationToken cancellationToken);
 
     /// <summary>
     /// The in-progress cap and the daily variant budget (15.3), or null when this request may be queued. A key that
@@ -195,6 +202,49 @@ internal sealed class GeneratedImageGenerationBusiness(
 
     public Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.StagedCountAsync(operationId, cancellationToken);
+
+    public async Task<GeneratedImageQuoteServiceModel> QuoteAsync(int variants, CancellationToken cancellationToken)
+    {
+        // The same description RequestAsync admits against, so the quote prices the picture the request would
+        // make: the model, the tier and the quality its sizing profile decides. A host with no image provider
+        // has nothing to quote.
+        var model = dataLayer.DescribeModel();
+
+        if (model is not { Status: GeneratedImageModelStatus.Identified, ModelName: not null })
+        {
+            return GeneratedImageQuoteServiceModel.Unavailable(variants);
+        }
+
+        // The account from the resolved context — the creator asking — never a request field (USAGE-001).
+        var quote = await dataLayer.QuoteAsync(workspace.AccountId, model, variants, cancellationToken);
+
+        return quote.Outcome switch
+        {
+            AiImageQuoteOutcome.Affordable or AiImageQuoteOutcome.Exhausted => new GeneratedImageQuoteServiceModel(
+                quote.Outcome is AiImageQuoteOutcome.Affordable
+                    ? GeneratedImageQuoteOutcome.Affordable
+                    : GeneratedImageQuoteOutcome.Exhausted,
+                quote.Unit.ToString(),
+                quote.Variants,
+                quote.PerPicture,
+                quote.Total,
+                quote.Allowance,
+                quote.Remaining,
+                quote.RemainingAfter,
+                quote.AffordableVariants,
+                quote.LeavesNearlySpent,
+                quote.ResetsAt,
+                quote.TimeZoneId),
+
+            // No balance and no reset date, as the request's own suspension refusal carries none.
+            AiImageQuoteOutcome.Suspended => new GeneratedImageQuoteServiceModel(
+                GeneratedImageQuoteOutcome.Suspended,
+                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null),
+
+            // Unpriced is this host's misconfiguration, not the creator's balance; it reads as no provider.
+            _ => GeneratedImageQuoteServiceModel.Unavailable(variants),
+        };
+    }
 
     public async Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken)

@@ -75,6 +75,16 @@ export interface AccountAiUsage {
   readonly isSuspended: boolean;
   readonly byTask: readonly AccountAiUsageTaskTotal[];
   readonly byWorkspace: readonly AccountAiUsageWorkspaceTotal[];
+  /**
+   * Whether what is left is nearly spent — <strong>the server's line, not this bundle's</strong> (USAGE-010,
+   * AP.2.6). The threshold lives in `Ai:Quota:NearlySpentFraction`, so every surface that warns agrees with the
+   * image quote's `leavesNearlySpent` without keeping a copy of it.
+   */
+  readonly isNearlySpent: boolean;
+  /** What pictures charged this period. With `writing`, makes up `period.consumed`. */
+  readonly pictures: number;
+  /** What every other kind of AI help charged this period. */
+  readonly writing: number;
 }
 
 /**
@@ -91,12 +101,23 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
   const isSuspended = value['isSuspended'];
   const byTask = decodeList(value['byTask'], decodeTaskTotal);
   const byWorkspace = decodeList(value['byWorkspace'], decodeWorkspaceTotal);
+  const isNearlySpent = value['isNearlySpent'];
+  const pictures = amountOf(value['pictures']);
+  const writing = amountOf(value['writing']);
 
-  if (period === null || typeof isSuspended !== 'boolean' || byTask === null || byWorkspace === null) {
+  if (
+    period === null ||
+    typeof isSuspended !== 'boolean' ||
+    typeof isNearlySpent !== 'boolean' ||
+    byTask === null ||
+    byWorkspace === null ||
+    pictures === null ||
+    writing === null
+  ) {
     return null;
   }
 
-  return { period, isSuspended, byTask, byWorkspace };
+  return { period, isSuspended, byTask, byWorkspace, isNearlySpent, pictures, writing };
 }
 
 function decodePeriod(value: unknown): AccountAiUsagePeriod | null {

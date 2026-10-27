@@ -136,6 +136,28 @@ public interface IAiQuotaAdmissionFacade
     Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// What an image request would cost the account and what it would leave, without holding or writing
+    /// anything (AP.2.6).
+    /// </summary>
+    /// <param name="accountId">From <c>IWorkspaceContext.AccountId</c>, never a request field (USAGE-001).</param>
+    /// <param name="modelName">The model the deployment will send to, from the Media gateway's description.</param>
+    /// <param name="resolution">The tier it will send, or null for a model that takes none.</param>
+    /// <param name="quality">The quality it will send, or null for a model that takes none.</param>
+    /// <param name="variantCount">How many pictures, already checked by the caller.</param>
+    /// <remarks>
+    /// Priced by the converter <see cref="AdmitImageAsync"/> uses and judged by its predicate, so a request the
+    /// quote calls affordable is one admission accepts unless the balance moves in between. A snapshot: it can be
+    /// wrong a moment later, and admission is still the decision.
+    /// </remarks>
+    Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Whether an account could run this task right now, and what it has left — without holding anything.
     /// </summary>
     /// <param name="accountId">
@@ -249,6 +271,15 @@ internal sealed class AiQuotaAdmissionFacade(
 
     public Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
         business.ReleaseImageAsync(reservationId, cancellationToken);
+
+    public Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken) =>
+        business.QuoteImageAsync(accountId, modelName, resolution, quality, variantCount, cancellationToken);
 
     public Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken) =>
