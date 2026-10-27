@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
@@ -50,6 +51,7 @@ public sealed class AiProposalBrandContextPersistenceTests : IDisposable
             .AddSingleton<IClock>(_clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -219,6 +220,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             .AddSingleton(clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

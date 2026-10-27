@@ -1016,6 +1016,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateOnly>("LocalStartDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<decimal>("Reserved")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -1040,6 +1044,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<int>("Unit")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("UpgradeGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EndsAt")
@@ -1059,6 +1067,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Totals_NotNegative", "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Unit_Declared", "Unit <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_UpgradeGranted_FromPlan", "UpgradeGranted >= 0 AND (PlanKey IS NOT NULL OR CAST(UpgradeGranted AS REAL) <= 0)");
                         });
                 });
 
@@ -1081,6 +1091,12 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<DateTimeOffset>("HeldAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ImagesBilled")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ImagesRequested")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("LeaseToken")
                         .HasColumnType("uniqueidentifier");
@@ -1136,6 +1152,10 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("IX_AccountAiQuotaReservations_Unposted")
                         .HasFilter("PostedAt IS NULL");
 
+                    b.HasIndex("AccountId", "HeldAt")
+                        .HasDatabaseName("IX_AccountAiQuotaReservations_Account_Images")
+                        .HasFilter("ImagesRequested IS NOT NULL");
+
                     b.HasIndex("AiOperationId", "LeaseToken")
                         .IsUnique()
                         .HasDatabaseName("UX_AccountAiQuotaReservations_Operation_Lease");
@@ -1147,6 +1167,8 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AccountAiQuotaReservations", null, t =>
                         {
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Amounts_NotNegative", "ReservedAmount > 0 AND PerAttemptEstimate > 0 AND (SettledAmount IS NULL OR SettledAmount >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Images_Counts", "(ImagesRequested IS NULL OR ImagesRequested >= 1) AND (ImagesBilled IS NULL OR (ImagesRequested IS NOT NULL AND ImagesBilled >= 0))");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Outcome_Matches_Status", "(Status IN (1, 4) AND SettledAt IS NULL AND SettledAmount IS NULL) OR (Status IN (2, 3) AND SettledAt IS NOT NULL AND SettledAmount IS NOT NULL)");
 
@@ -4779,8 +4801,15 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("RequestedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("RequestedByAccountId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<Guid>("RequestedByMembershipId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RunningImagesCap")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("datetimeoffset");
@@ -4829,6 +4858,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_GeneratedImageOperations_QualityClass_Declared", "QualityClass IS NULL OR (QualityClass >= 1 AND QualityClass <= 5)");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_RunningImagesCap_Account", "(RequestedByAccountId IS NULL AND RunningImagesCap IS NULL) OR (RequestedByAccountId IS NOT NULL AND RunningImagesCap >= 1)");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
 

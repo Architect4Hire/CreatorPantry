@@ -181,4 +181,26 @@ public class AccountAiQuotaReservation
     /// table says by then.
     /// </remarks>
     public long? PlatformImageSpendMicros { get; set; }
+
+    /// <summary>
+    /// How many pictures this hold was taken for; null for a completion (AP.4.2).
+    /// </summary>
+    /// <remarks>
+    /// The account's pictures for a UTC day are counted from these holds, because they are the one record of a
+    /// picture request that is the account's rather than a workspace's: platform-scoped, counts only, and taken
+    /// under the period's row version, which serializes admissions for one account. While held, every picture
+    /// asked for counts; once settled, <see cref="ImagesBilled"/> does; released or expired, none.
+    /// </remarks>
+    public int? ImagesRequested { get; set; }
+
+    /// <summary>
+    /// How many of <see cref="ImagesRequested"/> the provider made or flagged and the account was charged for, at
+    /// most <see cref="ImagesRequested"/>; null until the hold settles, and on a completion.
+    /// </summary>
+    /// <remarks>
+    /// What stays counted against the day once the generation is finished. A picture never sent — the provider
+    /// was unavailable, the request failed first — was never charged, so it stops counting and the creator may ask
+    /// for it again the same day.
+    /// </remarks>
+    public int? ImagesBilled { get; set; }
 }

@@ -168,6 +168,34 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
 
     public Guid RequestedByMembershipId { get; set; }
 
+    /// <summary>
+    /// The Identity account that asked, recorded with <see cref="RunningImagesCap"/> so the queue can hold that
+    /// account to its plan's running pictures across every workspace it works in (AP.4.2). Null with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// From <c>IWorkspaceContext.AccountId</c> in the request scope — never a request field — and the initiating
+    /// account auth.md asks a background job to record. The worker never charges or authorizes by it: it runs as a
+    /// service identity, and the allowance was held at the request.
+    /// </para>
+    /// <para>
+    /// Read only by the claim, as an identifier compared with other rows' and never returned. Account erasure
+    /// (9A.3) clears it with the account's quota and plan rows.
+    /// </para>
+    /// </remarks>
+    public string? RequestedByAccountId { get; set; }
+
+    /// <summary>
+    /// How many pictures <see cref="RequestedByAccountId"/>'s plan let it have generating at once when this was
+    /// asked for (AP.4.2); null when no plan applied, and the workspace's flat cap alone holds it.
+    /// </summary>
+    /// <remarks>
+    /// Taken at the request rather than read at the claim, because the claim cannot ask a plan anything — it is a
+    /// query, and it runs before the worker knows whose work it is. So a plan changed while this waits does not
+    /// change it: the next request carries the new number.
+    /// </remarks>
+    public int? RunningImagesCap { get; set; }
+
     public DateTimeOffset RequestedAt { get; set; }
 
     public DateTimeOffset StatusChangedAt { get; set; }

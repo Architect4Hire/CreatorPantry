@@ -23,6 +23,14 @@ public interface IAccountPlanFacade
     /// no longer has all read as <c>Billing:DefaultPlan</c>.
     /// </returns>
     Task<AccountPlanServiceModel?> ResolveAsync(string accountId, CancellationToken cancellationToken);
+
+    /// <summary>The plan the account was on at <paramref name="at"/>, read as <see cref="ResolveAsync(string, CancellationToken)"/> reads now.</summary>
+    /// <remarks>
+    /// For the allowance period (AP.4.2): a period opens with the plan in force at its own start, so a change made
+    /// after the roll waits for the next one even when the account's period row is only written later.
+    /// </remarks>
+    Task<AccountPlanServiceModel?> ResolveAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAccountPlanFacade"/>
@@ -32,6 +40,14 @@ internal sealed class AccountPlanFacade(IAccountPlanBusiness business) : IAccoun
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
 
-        return business.ResolveAsync(accountId, cancellationToken);
+        return business.ResolveAsync(accountId, null, cancellationToken);
+    }
+
+    public Task<AccountPlanServiceModel?> ResolveAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+
+        return business.ResolveAsync(accountId, at, cancellationToken);
     }
 }

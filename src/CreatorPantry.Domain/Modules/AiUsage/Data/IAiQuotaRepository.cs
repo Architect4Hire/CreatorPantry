@@ -45,6 +45,15 @@ internal interface IAiQuotaRepository
     /// <summary>What this period still has outstanding, in holds nobody has given back.</summary>
     Task<decimal> SumOutstandingAsync(Guid periodId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The pictures the account has asked for since <paramref name="since"/> that still count (AP.4.2): every one
+    /// on a hold still held, what was billed on a settled hold, and none on a released or expired one.
+    /// </summary>
+    Task<int> CountImagesSinceAsync(string accountId, DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <summary>Whether any period of the account was opened under this plan.</summary>
+    Task<bool> HasPeriodUnderPlanAsync(string accountId, string planKey, CancellationToken cancellationToken);
+
     /// <summary>Holds whose lease lapsed before anything settled them.</summary>
     Task<IReadOnlyList<Guid>> FindLapsedReservationIdsAsync(
         DateTimeOffset now, int take, CancellationToken cancellationToken);
@@ -130,6 +139,32 @@ internal sealed class AiQuotaRepository(CreatorPantryDbContext context) : IAiQuo
         await context.AccountAiQuotaReservations
             .Where(reservation => reservation.PeriodId == periodId && reservation.ReleasedAt == null)
             .SumAsync(reservation => reservation.ReservedAmount, cancellationToken);
+
+    /// <remarks>
+    /// Seeks <c>IX_AccountAiQuotaReservations_Account_Images</c>. Counts only — this module never learns which
+    /// workspace a picture was for, and needs no workspace filter to answer for the account across all of them.
+    /// </remarks>
+    public async Task<int> CountImagesSinceAsync(
+        string accountId, DateTimeOffset since, CancellationToken cancellationToken) =>
+        await context.AccountAiQuotaReservations
+            .AsNoTracking()
+            .Where(reservation => reservation.AccountId == accountId
+                && reservation.ImagesRequested != null
+                && reservation.HeldAt >= since)
+            .SumAsync(
+                reservation => reservation.Status == AiQuotaReservationStatus.Held
+                    ? reservation.ImagesRequested!.Value
+                    : reservation.Status == AiQuotaReservationStatus.Settled
+                        ? reservation.ImagesBilled ?? 0
+                        : 0,
+                cancellationToken);
+
+    /// <remarks>Seeks <c>UX_AccountAiQuotaPeriods_Account_StartsAt</c>; an account has one row a month.</remarks>
+    public Task<bool> HasPeriodUnderPlanAsync(
+        string accountId, string planKey, CancellationToken cancellationToken) =>
+        context.AccountAiQuotaPeriods
+            .AsNoTracking()
+            .AnyAsync(period => period.AccountId == accountId && period.PlanKey == planKey, cancellationToken);
 
     /// <remarks>
     /// Seeks <c>IX_AccountAiQuotaReservations_Outstanding</c>, and projects to identifiers only: the sweep is

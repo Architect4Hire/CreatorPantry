@@ -1,18 +1,27 @@
+using CreatorPantry.Domain.Managers.Limits;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing.Business;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Billing;
 
 public static class BillingServiceCollectionExtensions
 {
     /// <summary>
-    /// The plan catalogue (LP.6) and which plan each account is on (AP.4.1). The API alone registers it for now:
-    /// nothing in the Worker reads a plan until AP.4.2 makes running pictures depend on one.
+    /// The plan catalogue (LP.6) and which plan each account is on (AP.4.1). The API and the Worker both register
+    /// it, with the same <c>Billing</c> section: the Worker opens allowance periods when it admits text work, and
+    /// a period opened there has to grant what the API's read of it shows (AP.4.2).
     /// </summary>
+    /// <param name="configuration">
+    /// Read for <see cref="BillingOptions.SectionName"/>. Optional so a test registering the modules that ask for a
+    /// plan can do so without one, and get no catalogue — every account then resolves to no plan, and whatever
+    /// reads a plan keeps its flat limits.
+    /// </param>
     /// <remarks>
     /// <para>
     /// The catalogue is validated at startup rather than at the request. A price of nought on a paid plan, two
@@ -25,10 +34,17 @@ public static class BillingServiceCollectionExtensions
     /// naming a plan since removed, which resolves to the default with a warning instead.
     /// </para>
     /// </remarks>
-    public static IServiceCollection AddBillingModule(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddBillingModule(
+        this IServiceCollection services, IConfiguration? configuration = null)
     {
-        services.AddOptions<BillingOptions>()
-            .Bind(configuration.GetSection(BillingOptions.SectionName))
+        var catalogue = services.AddOptions<BillingOptions>();
+
+        if (configuration is not null)
+        {
+            catalogue.Bind(configuration.GetSection(BillingOptions.SectionName));
+        }
+
+        catalogue
             .Validate(
                 billing => !billing.PublishPlans || billing.Plans.Count > 0,
                 "Billing:PublishPlans is on but Billing:Plans is empty; a published catalogue needs at least one plan.")
@@ -109,7 +125,31 @@ public static class BillingServiceCollectionExtensions
                     plan.QualityClasses.All(quality => !string.IsNullOrWhiteSpace(quality))
                     && plan.QualityClasses.Distinct(StringComparer.OrdinalIgnoreCase).Count() == plan.QualityClasses.Count),
                 "A plan under Billing:Plans lists a blank or repeated quality class.")
+            .Validate<IOptions<LimitsOptions>>(
+                // Both caps apply to a request (AP.4.2): the plan's to the account, the workspace's to everyone in
+                // the workspace. A plan above the workspace's could never be reached by a creator who works in one
+                // workspace, so its card would promise a number the product cannot give.
+                (billing, limits) => !limits.Value.Enabled || billing.Plans.All(plan =>
+                    plan.DailyImageCap <= limits.Value.ImageVariantsPerWorkspacePerDay),
+                "A plan under Billing:Plans has a DailyImageCap above Limits:ImageVariantsPerWorkspacePerDay; "
+                    + "a creator in one workspace could never reach it.")
+            .Validate<IOptions<LimitsOptions>>(
+                (billing, limits) => !limits.Value.Enabled || billing.Plans.All(plan =>
+                    plan.RunningImages <= limits.Value.ImageRunningPerWorkspace
+                    && plan.RunningImages <= limits.Value.ImageInFlightPerWorkspace),
+                "A plan under Billing:Plans has RunningImages above Limits:ImageRunningPerWorkspace or "
+                    + "Limits:ImageInFlightPerWorkspace; a creator in one workspace could never reach it.")
+            .Validate<IOptions<AiQuotaOptions>>(
+                // A plan's credits are credits a month. Granted under another unit or period they would be a
+                // different allowance from the one the page states, so the default terms must be those.
+                (billing, quota) => billing.Plans.Count == 0
+                    || (quota.Value.DefaultUnit == AiQuotaUnit.Credits
+                        && quota.Value.DefaultPeriodLength == AiQuotaPeriodLength.Monthly),
+                "Billing:Plans is set but Ai:Quota:DefaultUnit is not Credits or Ai:Quota:DefaultPeriodLength is not "
+                    + "Monthly; a plan's credits are a monthly allowance in credits.")
             .ValidateOnStart();
+
+        services.AddSingleton<RemovedPlanWarnings>();
 
         services.AddScoped<IPlanCatalogueBusiness, PlanCatalogueBusiness>();
         services.AddScoped<IPlanCatalogueFacade, PlanCatalogueFacade>();

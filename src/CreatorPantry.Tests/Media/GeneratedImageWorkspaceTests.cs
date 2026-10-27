@@ -1,6 +1,7 @@
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Facade;
@@ -57,6 +58,7 @@ public sealed class GeneratedImageWorkspaceTests : IAsyncLifetime
             .AddTenancy()
             .AddAudit()
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddSingleton<IClock>(new StoppedClock())

@@ -10,6 +10,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -69,6 +70,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
             .AddTenancy()
             .AddAudit()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
 
             // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece

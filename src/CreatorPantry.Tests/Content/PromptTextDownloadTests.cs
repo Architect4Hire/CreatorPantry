@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
@@ -70,6 +71,7 @@ public sealed class PromptTextDownloadTests : IAsyncDisposable
             .AddRecipesModule()
             .AddContentModule()
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()

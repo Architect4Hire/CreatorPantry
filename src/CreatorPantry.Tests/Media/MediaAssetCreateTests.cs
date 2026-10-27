@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Content.Managers;
@@ -95,6 +96,7 @@ public sealed partial class MediaAssetCreateTests : IDisposable
             .AddRecipesModule(configuration)
             .AddContentModule()
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
 

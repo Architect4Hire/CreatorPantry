@@ -13,6 +13,7 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand.Facade;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Content.Facade;
@@ -86,6 +87,7 @@ public sealed class ImagePromptAiTaskHandlerTests : IAsyncDisposable
             .AddSingleton(new AiTaskOptions())
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddDbContext<CreatorPantryDbContext>(options => options

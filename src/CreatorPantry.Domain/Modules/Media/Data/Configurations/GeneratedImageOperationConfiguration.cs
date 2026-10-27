@@ -92,6 +92,9 @@ internal sealed class GeneratedImageOperationConfiguration
 
         // A retry returns the first answer. Image generation is the most expensive call this product makes,
         // so this index is the difference between a lost response and a second charge.
+        builder.Property(operation => operation.RequestedByAccountId)
+            .HasMaxLength(MediaPolicy.AccountIdMaxLength);
+
         builder.HasIndex(operation => new { operation.WorkspaceId, operation.IdempotencyKey })
             .IsUnique()
             .HasDatabaseName("UX_GeneratedImageOperations_Workspace_IdempotencyKey");
@@ -138,6 +141,13 @@ internal sealed class GeneratedImageOperationConfiguration
                     + "AND FlaggedVariantCount >= 0 "
                     + "AND UnusableVariantCount <= BilledVariantCount "
                     + "AND FlaggedVariantCount <= UnusableVariantCount");
+
+            // The plan's running cap and the account it is counted against travel together (AP.4.2): a cap with
+            // no account would hold nobody to it, and an account with no cap is a recorded id nothing reads.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_RunningImagesCap_Account",
+                "(RequestedByAccountId IS NULL AND RunningImagesCap IS NULL) "
+                    + "OR (RequestedByAccountId IS NOT NULL AND RunningImagesCap >= 1)");
 
             // A quality class is one of the declared ones or absent (AP.3.1) — absent only for a request made
             // on a host that offers none, or before the column existed.

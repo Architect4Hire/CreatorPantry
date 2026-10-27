@@ -54,7 +54,8 @@ internal sealed class GeneratedImageWorker(
                 Guid.NewGuid(),
                 clock.UtcNow,
                 cancellationToken,
-                limits.Value.Enabled ? limits.Value.ImageRunningPerWorkspace : int.MaxValue);
+                limits.Value.Enabled ? limits.Value.ImageRunningPerWorkspace : int.MaxValue,
+                runningPerAccount: limits.Value.Enabled);
 
             if (claim is null)
             {

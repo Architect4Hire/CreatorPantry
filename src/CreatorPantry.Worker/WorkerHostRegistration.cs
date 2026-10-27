@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
@@ -78,6 +79,10 @@ public static class WorkerHostRegistration
         // without it every StoreProposalAsync/FailAsync fails to resolve its dependencies at startup rather
         // than quietly recording no usage (USAGE-001) or admitting a run against nothing (USAGE-004).
         builder.Services.AddAiUsageModule(builder.Configuration);
+
+        // Which plan an account is on (AP.4.2). The allowance a period opens with is its plan's, and the worker
+        // opens periods when it admits text work, so it reads the same Billing section the API does.
+        builder.Services.AddBillingModule(builder.Configuration);
 
         // The same in-progress caps and daily budgets the API checks a request against (15.3): the worker checks
         // them again before it spends anything, and shares the queues by them.

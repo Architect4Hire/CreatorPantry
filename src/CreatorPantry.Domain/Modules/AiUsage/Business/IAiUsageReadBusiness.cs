@@ -148,7 +148,7 @@ internal sealed class AiUsageReadBusiness(
 
             // The spendable total, which is what a quota refusal publishes under this name too. One word, one
             // number, across every payload about the same period.
-            period.Allowance + period.CarriedOver,
+            period.Allowance + period.UpgradeGranted + period.CarriedOver,
             period.CarriedOver,
             period.Consumed,
             period.Reserved,
@@ -156,7 +156,7 @@ internal sealed class AiUsageReadBusiness(
             // From the shared calculator, so the balance a creator is shown is the one an admission would then
             // judge their next request against.
             AiQuotaPeriodCalculator.Remaining(
-                period.Allowance, period.CarriedOver, period.Consumed, period.Reserved),
+                period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved),
             length,
             period.TimeZoneId,
             period.StartsAt,

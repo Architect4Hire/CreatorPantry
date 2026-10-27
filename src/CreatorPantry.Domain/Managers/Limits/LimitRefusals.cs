@@ -11,7 +11,10 @@ public static class LimitErrorCodes
     /// <summary>Too much work already queued or running; it frees as that work finishes.</summary>
     public const string ConcurrencyExhausted = "limits.concurrency.exhausted";
 
-    /// <summary>The workspace's allowance for the day is spent; it resets at the next UTC midnight.</summary>
+    /// <summary>
+    /// A daily allowance is spent — the workspace's, or the caller's plan's (AP.4.2); it resets at the next UTC
+    /// midnight.
+    /// </summary>
     public const string BudgetExhausted = "limits.budget.exhausted";
 }
 
@@ -55,12 +58,19 @@ public static class LimitRefusal
             limit,
             resetsAt: null);
 
-    public static OperationError Budget(LimitedOperation operation, int limit, DateTimeOffset resetsAt) =>
+    /// <param name="scope">
+    /// Whose day it is: the workspace's flat budget, or the caller's own across every workspace — a plan's daily
+    /// picture cap (AP.4.2), which is the person's and so is said to them as theirs.
+    /// </param>
+    public static OperationError Budget(
+        LimitedOperation operation, int limit, DateTimeOffset resetsAt, LimitScope scope = LimitScope.Workspace) =>
         Error(
             LimitErrorCodes.BudgetExhausted,
-            "This workspace has used today's allowance for this. It resets at midnight UTC.",
+            scope is LimitScope.User
+                ? "You have used today's allowance for this on your plan. It resets at midnight UTC."
+                : "This workspace has used today's allowance for this. It resets at midnight UTC.",
             operation,
-            LimitScope.Workspace,
+            scope,
             limit,
             resetsAt);
 

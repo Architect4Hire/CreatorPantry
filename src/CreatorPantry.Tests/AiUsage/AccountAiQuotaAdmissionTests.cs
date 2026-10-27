@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.Data.Sqlite;
@@ -66,6 +67,7 @@ public sealed class AccountAiQuotaAdmissionTests : IDisposable
             .AddTenancy()
             .AddAudit()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()

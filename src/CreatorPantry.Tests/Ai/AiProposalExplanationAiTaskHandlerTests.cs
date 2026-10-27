@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -40,6 +41,7 @@ public sealed class AiProposalExplanationAiTaskHandlerTests : IAsyncDisposable
             .AddAudit()
             .AddSingleton<IClock>(new StoppedClock())
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

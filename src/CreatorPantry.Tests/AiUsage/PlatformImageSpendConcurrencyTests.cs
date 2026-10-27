@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -214,6 +215,7 @@ public sealed class PlatformImageSpendConcurrencyTests : IAsyncLifetime
         var instance = new ServiceCollection()
             .AddLogging()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .Configure<AiQuotaOptions>(options =>

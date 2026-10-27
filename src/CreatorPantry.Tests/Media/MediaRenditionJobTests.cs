@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Business;
@@ -70,6 +71,7 @@ public sealed class MediaRenditionJobTests : IDisposable
                 })
                 .Build())
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddGeneratedImageWorker()

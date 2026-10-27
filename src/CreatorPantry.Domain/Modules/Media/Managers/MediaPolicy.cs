@@ -41,6 +41,12 @@ public static class MediaPolicy
     /// <summary>The longest a stored content checksum may be, including its algorithm prefix.</summary>
     public const int ChecksumMaxLength = 80;
 
+    /// <summary>
+    /// An Identity account id, as <c>GeneratedImageOperation.RequestedByAccountId</c> stores it. The width of
+    /// Identity's own key, restated here because another module's policy does not cross a boundary.
+    /// </summary>
+    public const int AccountIdMaxLength = 450;
+
     /// <summary>The longest a stored provider or model identifier may be.</summary>
     public const int ProviderIdentifierMaxLength = 200;
 

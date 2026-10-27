@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -71,6 +72,7 @@ public sealed class PromptRecordExportTests : IAsyncDisposable
             .AddRecipesModule()
             .AddContentModule()
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()

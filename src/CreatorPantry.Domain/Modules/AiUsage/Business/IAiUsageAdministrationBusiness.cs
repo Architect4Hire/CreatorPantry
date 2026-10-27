@@ -345,7 +345,13 @@ internal sealed class AiUsageAdministrationBusiness(
                 new AccountAiQuotaChangeServiceModel(accountId, AccountAiQuotaChangeOutcome.Unchanged, before));
         }
 
-        var after = Terms(target);
+        var after = Terms(
+            target,
+            await periods.FallbackAllowanceAsync(
+                accountId,
+                target?.Unit ?? _options.DefaultUnit,
+                target?.PeriodLength ?? _options.DefaultPeriodLength,
+                cancellationToken));
 
         var outcome = await dataLayer.ReplaceQuotaAsync(
             accountId,
@@ -484,16 +490,17 @@ internal sealed class AiUsageAdministrationBusiness(
     /// The terms a pending write will put in force, described without re-reading the database.
     /// </summary>
     /// <remarks>
-    /// A null <paramref name="write"/> is a clear, which leaves the account on the configured default — so the
-    /// allowance reported is the option value, exactly as <c>AiQuotaPeriodResolver.ResolveTermsAsync</c> would
-    /// resolve it a moment later.
+    /// A null <paramref name="write"/> is a clear, which leaves the account on the configured default; a write
+    /// with no allowance leaves the number to the same place. Either way the allowance reported is
+    /// <paramref name="fallback"/> — the account's plan's credits, or the option value with no plan — exactly as
+    /// <c>AiQuotaPeriodResolver.ResolveTermsAsync</c> would resolve it a moment later (AP.4.2).
     /// </remarks>
-    private AccountAiQuotaTermsServiceModel Terms(AccountAiQuotaWrite? write) =>
+    private AccountAiQuotaTermsServiceModel Terms(AccountAiQuotaWrite? write, decimal fallback) =>
         write is null
             ? new AccountAiQuotaTermsServiceModel(
                 AccountAiQuotaSource.PlatformDefault,
                 _options.DefaultUnit,
-                _options.DefaultAllowance,
+                fallback,
                 _options.DefaultPeriodLength,
                 _options.DefaultPeriodAnchor,
                 _options.DefaultTimeZoneId,
@@ -503,7 +510,7 @@ internal sealed class AiUsageAdministrationBusiness(
             : new AccountAiQuotaTermsServiceModel(
                 AccountAiQuotaSource.Account,
                 write.Unit,
-                write.Allowance ?? _options.DefaultAllowance,
+                write.Allowance ?? fallback,
                 write.PeriodLength,
                 write.PeriodAnchor,
                 write.TimeZoneId,
@@ -514,12 +521,12 @@ internal sealed class AiUsageAdministrationBusiness(
     private static AccountAiUsagePeriodServiceModel Describe(
         AccountAiQuotaPeriod period, AiQuotaPeriodLength length) =>
         new(period.Unit,
-            period.Allowance + period.CarriedOver,
+            period.Allowance + period.UpgradeGranted + period.CarriedOver,
             period.CarriedOver,
             period.Consumed,
             period.Reserved,
             AiQuotaPeriodCalculator.Remaining(
-                period.Allowance, period.CarriedOver, period.Consumed, period.Reserved),
+                period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved),
             length,
             period.TimeZoneId,
             period.StartsAt,

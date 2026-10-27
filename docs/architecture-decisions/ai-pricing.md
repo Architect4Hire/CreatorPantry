@@ -1,7 +1,7 @@
 # AI Pricing Decisions
 
 *Status: Accepted — 2026-10-26, except B-51, which is **proposed, not decided**. Recorded by AI-pricing prompt
-AP.1.1. B-55 added 2026-10-27 at the owner's request.*
+AP.1.1. B-55 added 2026-10-27 at the owner's request; B-56 added 2026-10-27 by AP.4.2 with the owner's answers.*
 
 This record fixes the product decisions behind CreatorPantry's AI pricing — closing the image cost leak, then
 plans, prepaid credit packs and Stripe billing on top of the allowance Phase 9A built — so the AP prompts build
@@ -61,8 +61,9 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-51 | Plan, pack, rate and model figures | PRICE-006, 007, 008 | **Proposed** | The pricing analysis's table, held in configuration so the owner can change it without a code change. No prompt may hard-code a figure. |
 | B-52 | The trial gate is a lifetime picture cap | PRICE-012 | Decided | No card on file. A trial account may generate at most 10 pictures in all, per Identity account, beside the daily cap. |
 | B-53 | Pictures stay on Venice | PRICE-006 | Decided | Images do not move to Azure Foundry. AP.3.4 (FLUX.2-pro on Foundry) is skipped. |
-| B-54 | Downgrades take effect at period end | PRICE-007, 010 | Decided | A downgrade, a cancellation and a trial running out all take effect when the running period ends. How an upgrade lands is open. |
+| B-54 | Downgrades take effect at period end | PRICE-007, 010 | Decided | A downgrade, a cancellation and a trial running out all take effect when the running period ends. How an upgrade lands is B-56. |
 | B-55 | A picture's price is the rate it is charged at | PRICE-004, 006, 013 | Decided | Owner, 2026-10-27. A quality class's credits are read from `Ai:Quota:ImageRates` for the model, quality and resolution the class sends. Every page that states a picture price reads that table; there is no second copy. |
+| B-56 | The plan sets the allowance and the picture caps | PRICE-007, 012, USAGE-003, 009 | Decided | Owner, 2026-10-27, answering AP.4.2. An ops-set allowance wins; otherwise the plan in force at the period's start. An upgrade adds the difference at once; a trial's credits are granted once. The plan's daily and running picture caps are the account's, beside the workspace's flat ones. |
 
 ## Decisions
 
@@ -273,6 +274,51 @@ classes on the page. Until AP.3.1, the one class the deployment sends is standar
 **Rules:** `ai.md` (rates are configuration), `frontend.md` (the browser renders the server's figures),
 `api-contract.md`.
 
+### B-56 The plan sets the allowance and the picture caps
+
+- **Precedence (USAGE-009).** An `AccountAiQuota` row an administrator set with an allowance is the account's
+  allowance, whatever its plan. A row with no allowance — one that only suspends or sets a zone — leaves the
+  number to the plan. With no row, the plan decides. With no plans configured, `Ai:Quota:DefaultAllowance`, as
+  before plans existed.
+- **A period opens with the plan in force at its own start**, not at the moment its row is written, so an
+  account that is idle across the roll is treated as one that used AI on the first. The opening `Allowance` is
+  never rewritten.
+- **An upgrade adds the difference at once.** Owner, 2026-10-27: "if they upgrade they get the difference not
+  the total". The period's grant is raised to the new plan's credits — Creator's 6,000 to Pro's 18,000 adds
+  12,000 — recorded apart from the opening allowance (`AccountAiQuotaPeriod.UpgradeGranted`). The grant is only
+  ever raised: up, down and up again in one period adds the difference once. Caps and quality classes change at
+  once too, because they are read at the request. This settles the open item "Upgrade timing" as option (a),
+  with the allowance granted as the difference rather than pro-rated.
+- **A downgrade waits for the roll** (B-54), including a downgrade made before an idle account's period row was
+  written.
+- **A trial's credits are granted once in an account's life.** Owner, 2026-10-27: "trial credits are only for
+  the trial". A plan whose `Period` is `Once` grants its credits to the first period opened under it and nothing
+  to any later one; the period records the plan it opened under (`PlanKey`). This holds before AP.7.1 ends
+  trials: an account left on a trial default has its thousand credits once, not every month.
+- **The daily picture cap is the account's, per UTC day, across every workspace it works in** (B-47). It is
+  judged inside the account's picture hold, under the period's row version, so two requests cannot both take
+  the last picture of the day; counted from the holds, never by reading another workspace's operations. While a
+  hold is held, every picture asked for counts; once settled, those charged; released or expired, none.
+- **The running-pictures cap is the account's too**, taken from the plan at the request onto the operation and
+  enforced by the queue claim with the same strength as the workspace's running share.
+- **Beside the workspace's limits, never instead of them.** `Limits:ImageVariantsPerWorkspacePerDay`,
+  `ImageRunningPerWorkspace` and `ImageInFlightPerWorkspace` remain a bound on each workspace whoever asks. A
+  request passes both, in this order: workspace in-flight, workspace day, account day, credits. Startup refuses a
+  plan whose caps exceed the workspace's, which a creator in one workspace could never reach;
+  `ImageRunningPerWorkspace` rose from 2 to 3 so Studio's 3 can be reached. Both kinds switch off with
+  `Limits:Enabled`.
+- **Development defaults to Studio** (owner, 2026-10-27), so local work is not held to the trial's figures
+  before AP.4.4 can move an account. Which plan a deployment defaults to is still the daily-limits document's
+  open item.
+
+**Options considered:** pro-rating an upgrade by days left — rejected by the owner; the whole new allowance on
+top — rejected ("the difference not the total"); a separate per-account day-hold table (DL.4) — not needed, since
+the account's picture holds already exist, are counts only, and are serialized per account.
+**Consequences:** AP.6.2 configures Stripe so an upgrade is charged and granted at once and a downgrade at
+period end. AP.7.1 decides how a trial ends; its credits are already once-only. Account erasure (9A.3) clears
+`GeneratedImageOperation.RequestedByAccountId` with the account's quota and plan rows.
+**Rules:** `backend.md` (Limits), `tenancy.md`.
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -288,12 +334,14 @@ classes on the page. Until AP.3.1, the one class the deployment sends is standar
 | AP.6.2 | Downgrade and cancellation at period end (B-54); upgrade timing open. |
 | AP.7.1 | Lifetime picture cap of 10, no card (B-52). |
 | AP.3.1, AP.3.1A, AP.4.5, AP.6.5 | **Amended or added** 2026-10-27 so the quote, the picker, the landing page and the billing page read each class's price from the charging table (B-55). |
+| AP.4.2, DL.4, DL.5, DL.8 | **Delivered by AP.4.2** (B-56): the plan's allowance and both picture caps, through the account's picture holds rather than DL.4's day-hold table. |
 | DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |
 
 ## Open items
 
-### Upgrade timing — open, needed by AP.4.2
+### Upgrade timing — decided 2026-10-27, B-56
 
+- **Answer:** everything at once, with the allowance raised by the difference between the plans.
 - **Question:** when a creator upgrades mid-period, what changes at once?
 - **Options:** (a) everything at once, with the new allowance granted now (pro-rated or whole); (b) the caps and
   quality classes at once and the allowance at the next period roll, as AP.4.2 and the AP.4.4 checkpoint read;

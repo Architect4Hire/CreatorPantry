@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
@@ -145,7 +146,7 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            current => Covers(current, hold)
+            (current, _) => Covers(current, hold)
                 ? new AccountAiQuotaReservation
                 {
                     Id = Guid.NewGuid(),
@@ -163,6 +164,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                 }
                 : null,
             platform: null,
+            imageDayStart: null,
             cancellationToken);
 
         // The period as the write left it, which after a retry is not the instance resolved above.
@@ -230,7 +232,7 @@ internal sealed class AiQuotaAdmissionBusiness(
 
         // Projected, never opened: a quote is a GET, and asking a price must not spend a row (AiUsageReadBusiness).
         var period = await periods.ProjectAsync(accountId, terms, now, cancellationToken);
-        var spendable = period.Allowance + period.CarriedOver;
+        var spendable = Spendable(period);
         var remaining = Remaining(period);
 
         // The same price admission takes, from the same converter on the same inputs, so the figure a creator
@@ -312,7 +314,7 @@ internal sealed class AiQuotaAdmissionBusiness(
         return new AiQuotaStateServiceModel(
             covered ? AiQuotaStateOutcome.Available : AiQuotaStateOutcome.Exhausted,
             period.Unit,
-            period.Allowance + period.CarriedOver,
+            Spendable(period),
             Remaining(period),
             required,
             period.EndsAt);
@@ -574,6 +576,13 @@ internal sealed class AiQuotaAdmissionBusiness(
                 ImageLeaseToken);
         }
 
+        // The plan's daily picture cap (AP.4.2), judged before the balance: the cap says when to come back, and
+        // credits do not come back today. Judged inside the reservation, against a count read after the period on
+        // every attempt, so the period's row version that keeps two admissions from spending one balance also
+        // keeps them from both taking the account's last pictures of the day. The flag says which line refused;
+        // the delegate runs again on every retry, so it is set afresh each time.
+        var overDay = false;
+
         // Committed here, not staged: the period's row version is what makes two admissions for one account
         // unable to both succeed, and a concurrency check needs its own transaction. So the hold exists before
         // the operation row does, and a caller whose operation then fails to write owes a release —
@@ -581,8 +590,12 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            current => Covers(current, hold)
-                ? new AccountAiQuotaReservation
+            (current, imagesToday) =>
+            {
+                // All of this request or none of it, as the workspace's cap is: four with three left is refused.
+                overDay = request.DailyImageCap is { } cap && imagesToday + request.VariantCount > cap;
+
+                return overDay || !Covers(current, hold) ? null : new AccountAiQuotaReservation
                 {
                     Id = Guid.NewGuid(),
                     AccountId = request.AccountId,
@@ -600,9 +613,14 @@ internal sealed class AiQuotaAdmissionBusiness(
                     Status = AiQuotaReservationStatus.Held,
                     HeldAt = now,
                     ExpiresAt = request.ExpiresAt,
-                }
-                : null,
+
+                    // Counted against the account's day whether or not this request carried a cap, so a cap that
+                    // arrives with a plan later in the day counts what was already asked for.
+                    ImagesRequested = request.VariantCount,
+                };
+            },
             platform,
+            LimitDay.StartOf(now),
             cancellationToken);
 
         var settled = written ?? period;
@@ -610,6 +628,19 @@ internal sealed class AiQuotaAdmissionBusiness(
         if (outcome is AiQuotaWriteOutcome.Applied && platform is not null)
         {
             PlatformImageSpendTelemetry.RecordAdmitted(platform.Micros);
+        }
+
+        if (outcome is AiQuotaWriteOutcome.Refused && overDay)
+        {
+            // The account's own figures only — its cap and when the day turns — and nothing about the balance,
+            // which is not why. LimitRefusal's shape, so a client reads it as every other daily limit.
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.DailyImageCap, null, 0m, 0m, settled.Unit, null)
+            {
+                Required = hold,
+                DailyImageCap = request.DailyImageCap,
+                DailyImageCapResetsAt = LimitDay.NextAfter(now),
+            };
         }
 
         if (outcome is AiQuotaWriteOutcome.OverPlatformCeiling)
@@ -683,6 +714,15 @@ internal sealed class AiQuotaAdmissionBusiness(
                 }
 
                 accountId = reservation.AccountId;
+
+                // What stays counted against the account's day (AP.4.2): what was charged, and nothing that was
+                // never sent — but never more than was asked for. A crashed pass can have a variant billed twice,
+                // and that second charge is the platform's fault, not a picture the creator chose to spend their
+                // day on. Left null on a hold taken before pictures were counted.
+                if (reservation.ImagesRequested is { } requested)
+                {
+                    reservation.ImagesBilled = Math.Min(usage.BilledVariants, requested);
+                }
 
                 if (usage.BilledVariants == 0)
                 {
@@ -825,7 +865,14 @@ internal sealed class AiQuotaAdmissionBusiness(
     }
 
     private static bool Covers(AccountAiQuotaPeriod period, decimal hold) =>
-        period.Consumed + period.Reserved + hold <= period.Allowance + period.CarriedOver;
+        period.Consumed + period.Reserved + hold <= Spendable(period);
+
+    /// <summary>
+    /// What the period may spend in all: what it opened with, what upgrades added (AP.4.2), and what the period
+    /// before handed over.
+    /// </summary>
+    private static decimal Spendable(AccountAiQuotaPeriod period) =>
+        period.Allowance + period.UpgradeGranted + period.CarriedOver;
 
     /// <summary>
     /// What is left, from the shared calculator, so the figure a refusal reports is the one the creator's own
@@ -833,7 +880,7 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// </summary>
     private static decimal Remaining(AccountAiQuotaPeriod period) =>
         AiQuotaPeriodCalculator.Remaining(
-            period.Allowance, period.CarriedOver, period.Consumed, period.Reserved);
+            period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved);
 
     // The terms, the period roll and the zone fallback all moved to IAiQuotaPeriodResolver when the read seam
     // needed them too. Two copies of a roll would eventually show a creator a balance the next admission did

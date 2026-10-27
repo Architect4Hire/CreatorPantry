@@ -10,6 +10,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Content.Business;
 using CreatorPantry.Domain.Modules.Content.Data;
@@ -70,6 +71,7 @@ public sealed class PromptDetailTests : IAsyncDisposable
             .AddRecipesModule()
             .AddContentModule()
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()

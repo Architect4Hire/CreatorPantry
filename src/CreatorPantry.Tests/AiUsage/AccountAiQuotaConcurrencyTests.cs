@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,6 +49,7 @@ public sealed class AccountAiQuotaConcurrencyTests : IAsyncLifetime
 
         _provider = new ServiceCollection()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .Configure<AiQuotaOptions>(options =>

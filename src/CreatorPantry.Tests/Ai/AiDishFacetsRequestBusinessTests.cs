@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
@@ -47,6 +48,7 @@ public sealed class AiDishFacetsRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

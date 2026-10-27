@@ -12,6 +12,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
@@ -83,6 +84,7 @@ public sealed class AiBrandStyleTestDriveBusinessTests : IAsyncDisposable
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()
             .AddScoped<IAiBrandStyleTestDriveBusiness, AiBrandStyleTestDriveBusiness>()
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddIdempotency(configuration)
             .AddDbContext<CreatorPantryDbContext>(options => options

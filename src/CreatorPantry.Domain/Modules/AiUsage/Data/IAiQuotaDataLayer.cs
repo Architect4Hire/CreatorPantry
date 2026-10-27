@@ -103,7 +103,7 @@ internal interface IAiQuotaDataLayer
     Task<AccountAiQuotaPeriod> ResolvePeriodAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod?, decimal, AccountAiQuotaPeriod> open,
+        Func<AccountAiQuotaPeriod?, decimal, CancellationToken, Task<AccountAiQuotaPeriod>> open,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -118,7 +118,7 @@ internal interface IAiQuotaDataLayer
     Task<AccountAiQuotaPeriod> ProjectPeriodAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod?, decimal, AccountAiQuotaPeriod> open,
+        Func<AccountAiQuotaPeriod?, decimal, CancellationToken, Task<AccountAiQuotaPeriod>> open,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -134,6 +134,12 @@ internal interface IAiQuotaDataLayer
     /// not be passed. The charge and the hold then commit in one transaction or not at all (AP.2.7). Null for a
     /// completion, and for a picture on a host with no ceiling.
     /// </param>
+    /// <param name="imageDayStart">
+    /// For a picture: the start of the UTC day whose pictures <paramref name="admit"/> is told the account has
+    /// already asked for (AP.4.2). Counted after the period is read on every attempt, so an admission that
+    /// commits in between moves the period's row version and this one is judged again. Null for a completion,
+    /// which is told nought.
+    /// </param>
     /// <returns>
     /// The outcome, the hold when one was taken, and the period as it stands after the write — which is not
     /// the instance the caller resolved earlier, because a retry re-reads.
@@ -147,9 +153,24 @@ internal interface IAiQuotaDataLayer
         ReserveAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+            Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
             PlatformImageSpendCharge? platform,
+            DateTimeOffset? imageDayStart,
             CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Raises a period's grant for an upgrade (AP.4.2), and returns the period as it stands afterwards; null when
+    /// it no longer exists. One concurrency-safe write.
+    /// </summary>
+    /// <param name="raise">
+    /// Applies the top-up to the period as it is at this instant, or returns false when it already has as much.
+    /// Re-invoked against a fresh read on every retry, so two admissions racing to apply one upgrade apply it once.
+    /// </param>
+    Task<AccountAiQuotaPeriod?> RaisePeriodAsync(
+        Guid periodId, Func<AccountAiQuotaPeriod, bool> raise, CancellationToken cancellationToken);
+
+    /// <summary>Whether the account has ever had a period opened under this plan (B-48).</summary>
+    Task<bool> HasPeriodUnderPlanAsync(string accountId, string planKey, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gives back a picture's hold whose operation was never queued, and what it added to the platform's day.
@@ -221,7 +242,7 @@ internal sealed class AiQuotaDataLayer(
     public async Task<AccountAiQuotaPeriod> ProjectPeriodAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod?, decimal, AccountAiQuotaPeriod> open,
+        Func<AccountAiQuotaPeriod?, decimal, CancellationToken, Task<AccountAiQuotaPeriod>> open,
         CancellationToken cancellationToken) =>
         await quotas.FindPeriodAtAsync(accountId, instant, cancellationToken)
         ?? await BuildPeriodAsync(accountId, instant, open, cancellationToken);
@@ -229,7 +250,7 @@ internal sealed class AiQuotaDataLayer(
     public async Task<AccountAiQuotaPeriod> ResolvePeriodAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod?, decimal, AccountAiQuotaPeriod> open,
+        Func<AccountAiQuotaPeriod?, decimal, CancellationToken, Task<AccountAiQuotaPeriod>> open,
         CancellationToken cancellationToken)
     {
         var existing = await quotas.FindPeriodAtAsync(accountId, instant, cancellationToken);
@@ -274,7 +295,7 @@ internal sealed class AiQuotaDataLayer(
     private async Task<AccountAiQuotaPeriod> BuildPeriodAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod?, decimal, AccountAiQuotaPeriod> open,
+        Func<AccountAiQuotaPeriod?, decimal, CancellationToken, Task<AccountAiQuotaPeriod>> open,
         CancellationToken cancellationToken)
     {
         var previous = await quotas.FindPeriodBeforeAsync(accountId, instant, cancellationToken);
@@ -282,19 +303,21 @@ internal sealed class AiQuotaDataLayer(
             ? 0m
             : await quotas.SumOutstandingAsync(previous.Id, cancellationToken);
 
-        return open(previous, outstanding);
+        return await open(previous, outstanding, cancellationToken);
     }
 
     public async Task<(AiQuotaWriteOutcome, AccountAiQuotaReservation?, AccountAiQuotaPeriod?)> ReserveAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+        Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
         PlatformImageSpendCharge? platform,
+        DateTimeOffset? imageDayStart,
         CancellationToken cancellationToken)
     {
         if (platform is not null)
         {
-            return await ReserveAgainstPlatformAsync(accountId, instant, admit, platform, cancellationToken);
+            return await ReserveAgainstPlatformAsync(
+                accountId, instant, admit, platform, imageDayStart, cancellationToken);
         }
 
         AccountAiQuotaPeriod? period = null;
@@ -308,7 +331,7 @@ internal sealed class AiQuotaDataLayer(
                 return (AiQuotaWriteOutcome.NotFound, null, null);
             }
 
-            var reservation = admit(period);
+            var reservation = admit(period, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken));
 
             if (reservation is null)
             {
@@ -364,8 +387,9 @@ internal sealed class AiQuotaDataLayer(
         ReserveAgainstPlatformAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+            Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
             PlatformImageSpendCharge platform,
+            DateTimeOffset? imageDayStart,
             CancellationToken cancellationToken)
     {
         // Its own commit, before the transaction: the charge is an UPDATE, and an update of a row that does not
@@ -404,7 +428,7 @@ internal sealed class AiQuotaDataLayer(
                         return (AiQuotaWriteOutcome.NotFound, (AccountAiQuotaReservation?)null, current, true);
                     }
 
-                    var hold = admit(current);
+                    var hold = admit(current, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken));
 
                     if (hold is null)
                     {
@@ -451,6 +475,56 @@ internal sealed class AiQuotaDataLayer(
 
         return (AiQuotaWriteOutcome.Contended, null, last);
     }
+
+    /// <summary>The account's pictures since the start of the day, or nought for a completion.</summary>
+    /// <remarks>
+    /// Read after the period on every attempt, never before it. An admission that commits between the two reads
+    /// is counted here; one that commits after both moves the period's row version, and this attempt's save loses
+    /// and judges again. Read the other way round, a commit between the reads would be missed by both.
+    /// </remarks>
+    private async Task<int> ImagesSinceAsync(
+        string accountId, DateTimeOffset? imageDayStart, CancellationToken cancellationToken) =>
+        imageDayStart is { } since
+            ? await quotas.CountImagesSinceAsync(accountId, since, cancellationToken)
+            : 0;
+
+    public async Task<AccountAiQuotaPeriod?> RaisePeriodAsync(
+        Guid periodId, Func<AccountAiQuotaPeriod, bool> raise, CancellationToken cancellationToken)
+    {
+        AccountAiQuotaPeriod? period = null;
+
+        for (var attempt = 0; attempt < AiQuotaPolicy.ContendedWriteAttempts; attempt++)
+        {
+            period = await quotas.GetPeriodAsync(periodId, cancellationToken);
+
+            if (period is null || !raise(period))
+            {
+                return period;
+            }
+
+            try
+            {
+                await quotas.SaveAsync(cancellationToken);
+
+                return period;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Another admission moved the period, possibly by applying this same upgrade. The next read
+                // shows whether there is still anything to add.
+                quotas.Forget();
+            }
+        }
+
+        // Contended to the end. The period is returned as last read, without the top-up: admission then judges
+        // against what was there before the upgrade, which can refuse a request the upgrade would have covered
+        // but can never admit one the account cannot pay for. The next request applies it.
+        return period is null ? null : await quotas.GetPeriodAsync(periodId, cancellationToken);
+    }
+
+    public Task<bool> HasPeriodUnderPlanAsync(
+        string accountId, string planKey, CancellationToken cancellationToken) =>
+        quotas.HasPeriodUnderPlanAsync(accountId, planKey, cancellationToken);
 
     public async Task<AiQuotaWriteOutcome> ReleaseImageAsync(
         Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken)

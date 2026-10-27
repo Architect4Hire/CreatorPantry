@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
@@ -130,6 +131,7 @@ public interface IGeneratedImageGenerationBusiness
 internal sealed class GeneratedImageGenerationBusiness(
     IGeneratedImageGenerationDataLayer dataLayer,
     IAiQuotaAdmissionFacade quota,
+    IAccountPlanFacade plans,
     IWorkspaceContext workspace,
     IClock clock,
     IOptions<LimitsOptions> limits,
@@ -190,7 +192,7 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.FindDetailAsync(operationId, cancellationToken);
 
-    public Task<GeneratedImageRequestResult> RequestAsync(
+    public async Task<GeneratedImageRequestResult> RequestAsync(
         string promptText,
         string? avoidText,
         Guid? aiProposalId,
@@ -218,11 +220,19 @@ internal sealed class GeneratedImageGenerationBusiness(
             ? Sent(SettingsFor(qualityClass), model)
             : null;
 
+        // The account's plan, for its picture caps (AP.4.2): pictures a UTC day, judged with the allowance hold,
+        // and pictures generating at once, carried on the row for the claim. Both are limits beside the
+        // workspace's flat ones and switch off with them; with no plans configured there is none, and the flat
+        // caps alone apply, as before plans existed. Billing through its facade, keyed by the account the
+        // request resolved — never a request field.
+        var plan = limits.Value.Enabled ? await plans.ResolveAsync(workspace.AccountId, cancellationToken) : null;
+
         var admission = sent is not null
-            ? new GeneratedImageAdmissionRequest(workspace.AccountId, sent.ModelName, sent.Resolution, sent.Quality)
+            ? new GeneratedImageAdmissionRequest(
+                workspace.AccountId, sent.ModelName, sent.Resolution, sent.Quality, plan?.DailyImageCap)
             : null;
 
-        return dataLayer.RequestAsync(
+        return await dataLayer.RequestAsync(
             new GeneratedImageOperation
             {
                 Id = Guid.NewGuid(),
@@ -245,6 +255,8 @@ internal sealed class GeneratedImageGenerationBusiness(
                 StatusChangedAt = now,
                 Attempts = 0,
                 AvailableAt = now,
+                RequestedByAccountId = plan is null ? null : workspace.AccountId,
+                RunningImagesCap = plan?.RunningImages,
             },
             admission,
             cancellationToken);

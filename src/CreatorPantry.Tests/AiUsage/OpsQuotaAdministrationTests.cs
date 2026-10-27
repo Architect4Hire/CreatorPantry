@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,12 +22,19 @@ public sealed class OpsQuotaAdministrationTests
     private const string Password = "Correct horse battery staple";
 
     /// <summary>
-    /// The allowance this host is configured with, which is what "the platform default" means. Read rather
-    /// than written down: an environment's settings file may raise it, and these tests are about where the
-    /// figure comes from, not what it is.
+    /// The allowance this host grants an account with no quota of its own, which is what "the platform default"
+    /// means: its default plan's credits when the host has plans (AP.4.2), and <c>Ai:Quota:DefaultAllowance</c>
+    /// when it has none. Read rather than written down: an environment's settings file may change either, and
+    /// these tests are about where the figure comes from, not what it is.
     /// </summary>
-    private static decimal PlatformDefault(SqliteApiHost host) =>
-        host.Factory.Services.GetRequiredService<IOptions<AiQuotaOptions>>().Value.DefaultAllowance;
+    private static decimal PlatformDefault(SqliteApiHost host)
+    {
+        var billing = host.Factory.Services.GetRequiredService<IOptions<BillingOptions>>().Value;
+
+        return billing.Plans.FirstOrDefault(plan => plan.Key == billing.DefaultPlan) is { } plan
+            ? plan.Credits
+            : host.Factory.Services.GetRequiredService<IOptions<AiQuotaOptions>>().Value.DefaultAllowance;
+    }
 
     /// <summary>Reading an account nobody has is a 404 with a stable code.</summary>
     [Fact]

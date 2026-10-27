@@ -1,5 +1,6 @@
 using System.Globalization;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Facade;
@@ -172,6 +173,10 @@ internal sealed class GeneratedImageGenerationFacade(
             "Pictures can't be made right now. Please try again later.",
             new Dictionary<string, string[]>()),
 
+        // The plan's daily picture cap (AP.4.2): the account's own day across every workspace, said as every other
+        // daily limit is — a 429 with the cap and the reset, and no balance, which is not why.
+        AiQuotaAdmissionOutcome.DailyImageCap => DailyCapRefusal(refusal),
+
         // Exhausted, and Busy with it: a period too contended to admit against is not a statement about the
         // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
         _ => new OperationError(
@@ -186,6 +191,18 @@ internal sealed class GeneratedImageGenerationFacade(
                 ["resetsAt"] = refusal.PeriodEndsAt,
             }),
     };
+
+    private static OperationError DailyCapRefusal(AiQuotaAdmissionServiceModel refusal)
+    {
+        LimitsTelemetry.Refused(LimitedOperation.ImageGeneration, "budget", LimitScope.User);
+
+        // Both are set on every refusal of this kind; admission is the only thing that makes one.
+        return LimitRefusal.Budget(
+            LimitedOperation.ImageGeneration,
+            refusal.DailyImageCap!.Value,
+            refusal.DailyImageCapResetsAt!.Value,
+            LimitScope.User);
+    }
 
     public Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
         CancellationToken cancellationToken) =>

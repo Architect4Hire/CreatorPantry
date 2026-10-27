@@ -89,6 +89,17 @@ public enum AiQuotaAdmissionOutcome
     /// cannot be made right now, with no figure, because every figure behind this answer is everybody's.
     /// </remarks>
     PlatformCeiling = 7,
+
+    /// <summary>
+    /// The account has asked for as many pictures today as its plan allows (AP.4.2). Nothing was held.
+    /// </summary>
+    /// <remarks>
+    /// The account's own line, across every workspace it works in, and judged before its balance: it comes back
+    /// at the next UTC midnight, which an exhausted balance does not. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.DailyImageCap"/> and
+    /// <see cref="AiQuotaAdmissionServiceModel.DailyImageCapResetsAt"/>, and no balance.
+    /// </remarks>
+    DailyImageCap = 8,
 }
 
 /// <summary>What an admission decided, in the only terms a caller needs.</summary>
@@ -132,6 +143,12 @@ public sealed record AiQuotaAdmissionServiceModel(
     /// </para>
     /// </remarks>
     public decimal Required { get; init; }
+
+    /// <summary>The plan's daily picture cap, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
+    public int? DailyImageCap { get; init; }
+
+    /// <summary>When the cap's UTC day ends, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
+    public DateTimeOffset? DailyImageCapResetsAt { get; init; }
 }
 
 /// <summary>Whether an account may spend right now, without anything being held to find out.</summary>
@@ -152,7 +169,9 @@ public enum AiQuotaStateOutcome
 /// </summary>
 /// <param name="Outcome">Whether a run of the asked-about task could be admitted right now.</param>
 /// <param name="Unit">What the three amounts below are denominated in.</param>
-/// <param name="Allowance">The period's spendable total: its allowance plus anything carried into it.</param>
+/// <param name="Allowance">
+/// The period's spendable total: its allowance, anything an upgrade added (AP.4.2), and anything carried into it.
+/// </param>
 /// <param name="Remaining">What is left of that after everything settled and everything outstanding.</param>
 /// <param name="Required">
 /// What admitting the asked-about task would hold. Zero for a task that cannot spend anything.
@@ -206,6 +225,10 @@ public sealed record AiQuotaMaintenanceSummary(int Posted, int Expired, int Fina
 /// requeued generation is still holding this allowance, and a hold that lapsed between passes would leave the
 /// next one generating against an allowance nobody had checked.
 /// </param>
+/// <param name="DailyImageCap">
+/// How many pictures the account's plan allows it in a UTC day, across every workspace (AP.4.2); null when no plan
+/// applies — no plans configured, or limits switched off — and only the workspace's flat cap stands.
+/// </param>
 /// <remarks>
 /// <para>
 /// <strong>Admitted at the request, not at the worker</strong>, which is where this differs from
@@ -226,7 +249,8 @@ public sealed record AiImageQuotaAdmissionRequestServiceModel(
     string ModelName,
     string? Resolution,
     string? Quality,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    int? DailyImageCap = null);
 
 /// <summary>
 /// What one image generation's charges were, for the ledger and the settlement together (AP.2.5).

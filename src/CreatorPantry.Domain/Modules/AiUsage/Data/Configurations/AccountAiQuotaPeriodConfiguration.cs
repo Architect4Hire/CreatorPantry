@@ -26,7 +26,14 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
                 "CK_AccountAiQuotaPeriods_Totals_NotNegative",
                 "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
 
-            // Deliberately NOT constrained: Consumed + Reserved <= Allowance + CarriedOver. A provider can use
+            // A top-up is only ever an upgrade of a plan's grant (AP.4.2), so a period with one names the plan it
+            // opened under; a period an ops quota or the platform default decided is never topped up. Cast for
+            // the comparison with nought because SQLite stores a decimal as text, where '0.0' = 0 is false.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_UpgradeGranted_FromPlan",
+                "UpgradeGranted >= 0 AND (PlanKey IS NOT NULL OR CAST(UpgradeGranted AS REAL) <= 0)");
+
+            // Deliberately NOT constrained: Consumed + Reserved <= Allowance + UpgradeGranted + CarriedOver. A provider can use
             // more than the reservation estimated, and refusing to record that overshoot would be far worse
             // than storing it — an unrecordable settlement is a lost attempt. Handling the overshoot is the
             // settlement seam's job (9A.5), not the database's.
@@ -58,6 +65,13 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         builder.Property(period => period.CarriedOver)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(period => period.PlanKey)
+            .HasMaxLength(AiUsagePolicy.PlanKeyMaxLength);
+
+        builder.Property(period => period.UpgradeGranted)
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 

@@ -41,7 +41,8 @@ public sealed record OperationRateRule
 /// <remarks>
 /// <para>
 /// <strong>Not billing.</strong> Nothing here is a plan, a price or a tier: one set of numbers for every workspace,
-/// chosen to stop runaway use and to share the queues fairly.
+/// chosen to stop runaway use and to share the queues fairly. A plan's picture caps (AP.4.2) are the account's and
+/// live in <c>Billing:Plans</c>; they apply beside these, and switch off with <see cref="Enabled"/>.
 /// </para>
 /// <para>
 /// <strong>Three kinds, three stores.</strong> Rates are token buckets in Redis (an in-memory bucket per instance
@@ -71,9 +72,18 @@ public sealed class LimitsOptions
     public int ImageInFlightPerWorkspace { get; set; } = 3;
 
     /// <summary>Image requests one workspace may have running at once.</summary>
-    public int ImageRunningPerWorkspace { get; set; } = 2;
+    /// <remarks>
+    /// Three since AP.4.2, so the most generous plan's <c>RunningImages</c> can be reached by a creator who works in
+    /// one workspace; startup refuses a plan above it. A plan's own cap, where there is one, is the account's
+    /// across workspaces and applies beside this one.
+    /// </remarks>
+    public int ImageRunningPerWorkspace { get; set; } = 3;
 
     /// <summary>Generated-image variants one workspace may request in a UTC day.</summary>
+    /// <remarks>
+    /// A bound on the workspace whoever asks, beside the plan's daily picture cap, which is the account's across
+    /// every workspace it works in (AP.4.2). A request must pass both; startup refuses a plan above this one.
+    /// </remarks>
     public int ImageVariantsPerWorkspacePerDay { get; set; } = 200;
 
     /// <summary>Publications one workspace may confirm in a UTC day.</summary>

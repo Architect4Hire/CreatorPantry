@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
@@ -76,6 +77,7 @@ public sealed class AiEditorialPackageRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

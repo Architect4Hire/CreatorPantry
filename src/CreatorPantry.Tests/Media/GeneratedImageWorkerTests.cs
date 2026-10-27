@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Reflection;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Content.Facade;
@@ -80,6 +81,7 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
                 })
                 .Build())
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
             .AddAiUsageModule(ImageQuotaTestSettings.WithQualityClasses())
             // Three quality classes on fake models (AP.3.1). Standard is the default and sends to the model every
             // other test here already prices, so a request that names no class is made exactly as before.

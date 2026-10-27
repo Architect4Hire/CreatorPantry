@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
+using CreatorPantry.Domain.Modules.Billing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -379,6 +380,7 @@ public sealed class PlatformImageSpendAdmissionTests : IDisposable
         var services = new ServiceCollection()
             .AddAudit()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .Configure<AiQuotaOptions>(options =>

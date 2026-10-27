@@ -60,6 +60,14 @@ internal sealed class AccountAiQuotaReservationConfiguration
             table.HasCheckConstraint(
                 "CK_AccountAiQuotaReservations_PlatformImageSpend_Positive",
                 "PlatformImageSpendMicros IS NULL OR PlatformImageSpendMicros > 0");
+
+            // A picture hold is for at least one picture, and what it billed is a count of them. Not bounded above
+            // by what was asked: a provider that billed a variant a crashed pass had already paid for is a charge
+            // to record, not a row to refuse.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_Images_Counts",
+                "(ImagesRequested IS NULL OR ImagesRequested >= 1) "
+                    + "AND (ImagesBilled IS NULL OR (ImagesRequested IS NOT NULL AND ImagesBilled >= 0))");
         });
 
         builder.HasKey(reservation => reservation.Id);
@@ -117,6 +125,13 @@ internal sealed class AccountAiQuotaReservationConfiguration
         builder.HasIndex(reservation => reservation.SettledAt)
             .HasFilter("PostedAt IS NULL")
             .HasDatabaseName("IX_AccountAiQuotaReservations_Unposted");
+
+        // An account's pictures for the UTC day (AP.4.2), read inside every picture admission. Leads with the
+        // account because the question is always one account's, and filtered to picture holds so completions —
+        // most of the table — are not in it.
+        builder.HasIndex(reservation => new { reservation.AccountId, reservation.HeldAt })
+            .HasFilter("ImagesRequested IS NOT NULL")
+            .HasDatabaseName("IX_AccountAiQuotaReservations_Account_Images");
 
         // The operator's leaderboard (USAGE-009): charged spend across every account in a window. It leads with
         // PostedAt rather than the account because the question is "who, in this window" — the window is the

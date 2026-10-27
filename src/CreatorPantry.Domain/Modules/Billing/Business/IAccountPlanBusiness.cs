@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Managers;
@@ -9,8 +10,12 @@ namespace CreatorPantry.Domain.Modules.Billing.Business;
 /// <summary>Which plan an account is on, and putting it on another (PRICE-007, AP.4.1).</summary>
 internal interface IAccountPlanBusiness
 {
-    /// <summary>The account's plan now, with the catalogue's terms; null when no plans are configured.</summary>
-    Task<AccountPlanServiceModel?> ResolveAsync(string accountId, CancellationToken cancellationToken);
+    /// <summary>
+    /// The account's plan at <paramref name="at"/>, with the catalogue's terms; null when no plans are configured.
+    /// </summary>
+    /// <param name="at">The instant to read, or null for now.</param>
+    Task<AccountPlanServiceModel?> ResolveAsync(
+        string accountId, DateTimeOffset? at, CancellationToken cancellationToken);
 
     /// <summary>
     /// Puts the account on <paramref name="planKey"/> from <paramref name="effectiveFrom"/> on, or on the default
@@ -41,9 +46,11 @@ internal sealed class AccountPlanBusiness(
     IAccountPlanDataLayer data,
     IOptions<BillingOptions> options,
     IClock clock,
+    RemovedPlanWarnings warnings,
     ILogger<AccountPlanBusiness> logger) : IAccountPlanBusiness
 {
-    public async Task<AccountPlanServiceModel?> ResolveAsync(string accountId, CancellationToken cancellationToken)
+    public async Task<AccountPlanServiceModel?> ResolveAsync(
+        string accountId, DateTimeOffset? at, CancellationToken cancellationToken)
     {
         var billing = options.Value;
 
@@ -55,12 +62,15 @@ internal sealed class AccountPlanBusiness(
             return null;
         }
 
-        var span = await data.FindSpanAsync(accountId, clock.UtcNow, cancellationToken);
+        var now = clock.UtcNow;
+        var span = await data.FindSpanAsync(accountId, at ?? now, cancellationToken);
         var row = span.InForce;
 
         var plan = row?.PlanKey is { } key ? Find(billing, key) : null;
 
-        if (row?.PlanKey is not null && plan is null)
+        // Throttled per row (AP.4.2): admission resolves a plan on every AI and picture request, and an
+        // unthrottled warning would log once per request for as long as nobody moved the account.
+        if (row?.PlanKey is not null && plan is null && warnings.ShouldWarn(row.Id, now))
         {
             // A plan the owner took out of the catalogue while accounts were still on it. Never a throw on a
             // creator's request (DL.2): the account reads as the default until somebody moves it, and this says
@@ -166,4 +176,43 @@ internal sealed class AccountPlanBusiness(
 
     private static PlanOption? Find(BillingOptions billing, string key) =>
         billing.Plans.FirstOrDefault(plan => string.Equals(plan.Key, key, StringComparison.OrdinalIgnoreCase));
+}
+
+/// <summary>
+/// Whether a row naming a removed plan has been warned about recently enough to say nothing (AP.4.2).
+/// </summary>
+/// <remarks>
+/// A singleton, so the interval holds across requests; per process, so each instance says it once. Keyed by the
+/// row, which is bounded by how many accounts are on removed plans rather than by traffic.
+/// </remarks>
+internal sealed class RemovedPlanWarnings
+{
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> _warnedAt = new();
+
+    public bool ShouldWarn(Guid accountPlanId, DateTimeOffset now)
+    {
+        while (true)
+        {
+            if (!_warnedAt.TryGetValue(accountPlanId, out var last))
+            {
+                if (_warnedAt.TryAdd(accountPlanId, now))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (now - last < BillingPolicy.RemovedPlanWarningInterval)
+            {
+                return false;
+            }
+
+            // Only the caller that moves the stamp warns, so two requests at the boundary log once.
+            if (_warnedAt.TryUpdate(accountPlanId, now, last))
+            {
+                return true;
+            }
+        }
+    }
 }

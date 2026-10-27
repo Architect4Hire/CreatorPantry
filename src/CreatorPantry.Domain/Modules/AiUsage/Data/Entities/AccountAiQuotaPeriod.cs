@@ -91,6 +91,41 @@ public class AccountAiQuotaPeriod
     /// </remarks>
     public decimal CarriedOver { get; set; }
 
+    /// <summary>
+    /// The plan whose credits <see cref="Allowance"/> was, when the period opened; null when an ops-set quota or
+    /// the platform default decided it instead (AP.4.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The plan in force at <see cref="StartsAt"/>, not at the moment the row was written, so a plan change made
+    /// after the roll waits for the next roll whether or not the account had used AI in between. Never changed
+    /// after the period opens, upgrades included: it is what the period was opened under.
+    /// </para>
+    /// <para>
+    /// It is also the record that a trial's credits were granted (B-48): a plan granted <c>Once</c> grants nothing
+    /// to an account with an earlier period opened under it. A key, not a foreign key — the catalogue is
+    /// configuration, and a plan removed from it leaves this history readable.
+    /// </para>
+    /// </remarks>
+    public string? PlanKey { get; set; }
+
+    /// <summary>
+    /// What upgrades during this period added to it, in <see cref="Unit"/>: the new plan's credits less what the
+    /// period had already been granted, never the new plan's whole allowance (AP.4.2, owner 2026-10-27).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Kept apart from <see cref="Allowance"/>, which stays what the period opened with, so the opening terms are
+    /// never rewritten and a reader can tell an opening grant from a top-up. The spendable total is
+    /// <see cref="Allowance"/> plus this plus <see cref="CarriedOver"/>.
+    /// </para>
+    /// <para>
+    /// Only ever raised. A downgrade takes effect at the next roll (B-54), so nothing here is taken back, and an
+    /// upgrade, a downgrade and the same upgrade again in one period grant the difference once.
+    /// </para>
+    /// </remarks>
+    public decimal UpgradeGranted { get; set; }
+
     /// <summary>Settled spend: what attempts in this period actually reported using.</summary>
     public decimal Consumed { get; set; }
 

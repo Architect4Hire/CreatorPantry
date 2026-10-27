@@ -7,11 +7,12 @@ namespace CreatorPantry.Domain.Modules.AiUsage.Managers;
 /// </summary>
 /// <param name="Unit">What the four amounts below are counted in.</param>
 /// <param name="Allowance">
-/// The period's spendable total: its own allowance plus anything carried into it.
+/// The period's spendable total: its own allowance, anything an upgrade added during it (AP.4.2), and anything
+/// carried into it.
 /// </param>
 /// <param name="CarriedOver">
 /// How much of <paramref name="Allowance"/> rolled in from the period before, so a roll is visible rather than
-/// implied. The period's own allowance is the difference.
+/// implied. The period's own allowance, upgrades included, is the difference.
 /// </param>
 /// <param name="Consumed">What settled runs actually charged.</param>
 /// <param name="Reserved">What runs in flight are holding right now. Zero on a period that has closed.</param>

@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -46,6 +47,7 @@ public sealed class AccountAiUsageReadTests : IAsyncDisposable
         _provider = new ServiceCollection()
             .AddTenancy()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .AddDbContext<CreatorPantryDbContext>(options => options

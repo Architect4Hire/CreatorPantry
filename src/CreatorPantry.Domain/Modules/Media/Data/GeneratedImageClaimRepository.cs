@@ -66,8 +66,17 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
     /// that many running is passed over for the next workspace's, so one workspace with a deep queue cannot hold
     /// every worker. A share, not a hard cap: two workers claiming in the same instant can each take one.
     /// </param>
+    /// <param name="runningPerAccount">
+    /// Whether a row carrying its account's plan cap (AP.4.2) is passed over while that account already has that
+    /// many running, in any workspace. The same strength as the workspace's share, for the same reason; off with
+    /// limits, like it.
+    /// </param>
     public async Task<GeneratedImageClaim?> ClaimNextAsync(
-        Guid leaseToken, DateTimeOffset now, CancellationToken cancellationToken, int runningPerWorkspace = int.MaxValue)
+        Guid leaseToken,
+        DateTimeOffset now,
+        CancellationToken cancellationToken,
+        int runningPerWorkspace = int.MaxValue,
+        bool runningPerAccount = false)
     {
         var expiresAt = (DateTimeOffset?)(now + MediaPolicy.GenerationLeaseDuration);
 
@@ -83,6 +92,18 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
                 .IgnoreQueryFilters()
                 .Count(running => running.WorkspaceId == operation.WorkspaceId
                     && running.Status == GeneratedImageOperationStatus.Running) < runningPerWorkspace);
+        }
+
+        if (runningPerAccount)
+        {
+            // Identifiers again, across workspaces by design: the plan is the account's (B-47), and this is the one
+            // place that can see an account's running pictures before a worker knows whose they are. The cap was
+            // taken from the plan at the request, so nothing here asks Billing anything.
+            due = due.Where(operation => operation.RunningImagesCap == null
+                || context.GeneratedImageOperations
+                    .IgnoreQueryFilters()
+                    .Count(running => running.RequestedByAccountId == operation.RequestedByAccountId
+                        && running.Status == GeneratedImageOperationStatus.Running) < operation.RunningImagesCap);
         }
 
         var candidates = await due

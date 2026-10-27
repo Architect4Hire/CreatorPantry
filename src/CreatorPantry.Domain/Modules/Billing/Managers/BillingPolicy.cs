@@ -15,4 +15,9 @@ public static class BillingPolicy
     /// plan the catalogue offers is always one an account can be put on.
     /// </summary>
     public const int PlanKeyMaxLength = 64;
+
+    /// <summary>
+    /// How often one stored row naming a plan the catalogue no longer has is warned about, per process.
+    /// </summary>
+    public static readonly TimeSpan RemovedPlanWarningInterval = TimeSpan.FromHours(1);
 }

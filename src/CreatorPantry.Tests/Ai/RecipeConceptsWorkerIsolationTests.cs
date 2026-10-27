@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -56,6 +57,7 @@ public sealed class RecipeConceptsWorkerIsolationTests : IAsyncDisposable
             .AddSingleton<IPromptTemplateStore>(EmbeddedPromptTemplateStore.Load(typeof(AiPolicy).Assembly))
             .AddSingleton<IAiCompletionGateway>(BuildGateway(chatClient))
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
 
             // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece
