@@ -19,6 +19,7 @@ public sealed class PlansEndpointTests
         {
             billing.PublishPlans = published;
             billing.Currency = "USD";
+            billing.DefaultPlan = "creator";
             billing.Plans =
             [
                 new PlanOption
@@ -30,6 +31,8 @@ public sealed class PlansEndpointTests
                     Credits = 6000,
                     ExampleMix = "50 recipe drafts, 100 social posts and 80 pictures",
                     DailyImageCap = 25,
+                    Period = PlanAllowancePeriod.Monthly,
+                    RunningImages = 1,
                     QualityClasses = ["draft", "standard", "high"],
                     Recommended = true,
                 },
@@ -78,6 +81,8 @@ public sealed class PlansEndpointTests
                 Credits = 1000,
                 ExampleMix = "20 recipe drafts",
                 DailyImageCap = 5,
+                Period = PlanAllowancePeriod.Once,
+                RunningImages = 1,
                 TrialDays = 14,
                 TrialImageCap = 10,
             }));

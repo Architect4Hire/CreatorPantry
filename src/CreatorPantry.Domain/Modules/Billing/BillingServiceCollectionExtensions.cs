@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Modules.Billing.Business;
+using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.Configuration;
@@ -9,13 +10,20 @@ namespace CreatorPantry.Domain.Modules.Billing;
 public static class BillingServiceCollectionExtensions
 {
     /// <summary>
-    /// The published plan catalogue (LP.6, the catalogue half of AP.4.1). Configuration only: the module owns no
-    /// table, so it has no Data area and the API alone registers it — nothing in the Worker reads a price.
+    /// The plan catalogue (LP.6) and which plan each account is on (AP.4.1). The API alone registers it for now:
+    /// nothing in the Worker reads a plan until AP.4.2 makes running pictures depend on one.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The catalogue is validated at startup rather than at the request. A price of nought on a paid plan, two
     /// plans both flagged as recommended or a duplicate key are all the sort of mistake that would otherwise be
     /// found by a visitor reading the page, and a host that would publish a wrong price should not start.
+    /// </para>
+    /// <para>
+    /// The same goes for what an account resolves to: a default that names no plan, or a plan with no allowance
+    /// period, would otherwise be found by a creator's request. The one thing startup cannot see is a stored row
+    /// naming a plan since removed, which resolves to the default with a warning instead.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddBillingModule(this IServiceCollection services, IConfiguration configuration)
     {
@@ -75,10 +83,41 @@ public static class BillingServiceCollectionExtensions
                 // tell a visitor it is free.
                 billing => !billing.PublishPlans || billing.Rates.All().All(rate => rate > 0),
                 "A rate under Billing:Rates is nought; a published menu states what each kind of action costs.")
+            .Validate(
+                // What an account with no plan row is on. Without plans there is nothing to default to, and an
+                // account resolves to no plan at all.
+                billing => billing.Plans.Count == 0
+                    || billing.Plans.Any(plan => string.Equals(plan.Key, billing.DefaultPlan, StringComparison.OrdinalIgnoreCase)),
+                "Billing:DefaultPlan does not name a plan under Billing:Plans; an account with no plan of its own is on it.")
+            .Validate(
+                // Stored on AccountPlan.PlanKey, so a key the column cannot hold is a plan nobody can be put on.
+                billing => billing.Plans.All(plan => plan.Key.Length <= BillingPolicy.PlanKeyMaxLength),
+                $"A plan key under Billing:Plans is longer than {BillingPolicy.PlanKeyMaxLength} characters.")
+            .Validate(
+                billing => billing.Plans.All(plan => plan.Period != PlanAllowancePeriod.Unspecified),
+                "A plan under Billing:Plans has no Period; say whether its credits come Monthly or Once.")
+            .Validate(
+                // A trial's credits are granted once, not per period (B-48), and only a trial's are.
+                billing => billing.Plans.All(plan => (plan.Period == PlanAllowancePeriod.Once) == (plan.TrialDays is not null)),
+                "A plan under Billing:Plans grants its credits Once without a trial, or is a trial that does not; Once is the trial's period and only the trial's.")
+            .Validate(
+                // Nought would be a plan that may ask for pictures and can never have one running.
+                billing => billing.Plans.All(plan => plan.RunningImages >= 1),
+                "A plan under Billing:Plans has RunningImages below one.")
+            .Validate(
+                billing => billing.Plans.All(plan =>
+                    plan.QualityClasses.All(quality => !string.IsNullOrWhiteSpace(quality))
+                    && plan.QualityClasses.Distinct(StringComparer.OrdinalIgnoreCase).Count() == plan.QualityClasses.Count),
+                "A plan under Billing:Plans lists a blank or repeated quality class.")
             .ValidateOnStart();
 
         services.AddScoped<IPlanCatalogueBusiness, PlanCatalogueBusiness>();
         services.AddScoped<IPlanCatalogueFacade, PlanCatalogueFacade>();
+
+        services.AddScoped<IAccountPlanRepository, AccountPlanRepository>();
+        services.AddScoped<IAccountPlanDataLayer, AccountPlanDataLayer>();
+        services.AddScoped<IAccountPlanBusiness, AccountPlanBusiness>();
+        services.AddScoped<IAccountPlanFacade, AccountPlanFacade>();
 
         return services;
     }

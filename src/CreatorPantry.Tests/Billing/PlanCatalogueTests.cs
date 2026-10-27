@@ -33,6 +33,7 @@ public sealed class PlanCatalogueTests
     [
         ("Billing:PublishPlans", publish ? "true" : "false"),
         ("Billing:Currency", "USD"),
+        ("Billing:DefaultPlan", "creator"),
         ("Billing:Plans:0:Key", "pro"),
         ("Billing:Plans:0:Name", "Pro"),
         ("Billing:Plans:0:MonthlyPrice", "49"),
@@ -40,6 +41,8 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:0:Credits", "18000"),
         ("Billing:Plans:0:ExampleMix", "150 recipe drafts"),
         ("Billing:Plans:0:DailyImageCap", "75"),
+        ("Billing:Plans:0:Period", "Monthly"),
+        ("Billing:Plans:0:RunningImages", "2"),
         ("Billing:Plans:0:QualityClasses:0", "draft"),
         ("Billing:Plans:1:Key", "creator"),
         ("Billing:Plans:1:Name", "Creator"),
@@ -48,6 +51,8 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:1:Credits", "6000"),
         ("Billing:Plans:1:ExampleMix", "50 recipe drafts"),
         ("Billing:Plans:1:DailyImageCap", "25"),
+        ("Billing:Plans:1:Period", "Monthly"),
+        ("Billing:Plans:1:RunningImages", "1"),
         ("Billing:Plans:1:Recommended", "true"),
         ("Billing:Packs:0:Key", "large"),
         ("Billing:Packs:0:Credits", "20000"),
@@ -73,6 +78,8 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:2:Credits", "1000"),
         ("Billing:Plans:2:ExampleMix", "20 recipe drafts"),
         ("Billing:Plans:2:DailyImageCap", "5"),
+        ("Billing:Plans:2:Period", "Once"),
+        ("Billing:Plans:2:RunningImages", "1"),
         ("Billing:Plans:2:TrialDays", "14"),
         ("Billing:Plans:2:TrialImageCap", "10"),
     ];
@@ -227,6 +234,51 @@ public sealed class PlanCatalogueTests
         var error = Assert.Throws<OptionsValidationException>(() => options.Value);
         Assert.NotEmpty(error.Failures);
         Assert.False(string.IsNullOrWhiteSpace(why));
+    }
+
+    public static TheoryData<string, (string, string?)[]> UnresolvableCatalogues() => new()
+    {
+        { "there is no default plan", [.. TwoPlans(), ("Billing:DefaultPlan", null)] },
+        { "the default names no plan", [.. TwoPlans(), ("Billing:DefaultPlan", "enterprise")] },
+        { "a plan has no allowance period", [.. TwoPlans(), ("Billing:Plans:1:Period", null)] },
+        { "a paid plan grants its credits once", [.. TwoPlans(), ("Billing:Plans:1:Period", "Once")] },
+        { "a trial renews monthly", [.. WithTrial(), ("Billing:Plans:2:Period", "Monthly")] },
+        { "a plan may have no picture running", [.. TwoPlans(), ("Billing:Plans:1:RunningImages", "0")] },
+        { "a plan key is wider than its column", [.. TwoPlans(), ("Billing:Plans:1:Key", new string('a', 65))] },
+        {
+            "a plan lists a quality class twice",
+            [.. TwoPlans(), ("Billing:Plans:0:QualityClasses:1", "Draft")]
+        },
+    };
+
+    /// <summary>
+    /// What an account resolves to is checked at startup as well (AP.4.1). Each of these would otherwise surface
+    /// on a creator's request — a default that is not a plan, a plan with no allowance period — or, for the key,
+    /// as a plan nobody can be put on. Unpublished, because none of them is about what the page shows.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(UnresolvableCatalogues))]
+    public void A_catalogue_an_account_could_not_be_resolved_against_refuses_to_start(
+        string why, (string, string?)[] settings)
+    {
+        var options = Host([.. settings, ("Billing:PublishPlans", "false")]).GetRequiredService<IOptions<BillingOptions>>();
+
+        var error = Assert.Throws<OptionsValidationException>(() => options.Value);
+        Assert.NotEmpty(error.Failures);
+        Assert.False(string.IsNullOrWhiteSpace(why));
+    }
+
+    /// <summary>
+    /// No plans means no default to name: every deployment today, which must start, and whose accounts resolve to
+    /// no plan at all (<c>AccountPlanResolutionTests</c>).
+    /// </summary>
+    [Fact]
+    public void An_empty_catalogue_needs_no_default_plan()
+    {
+        var options = Host(("Billing:PublishPlans", "false")).GetRequiredService<IOptions<BillingOptions>>();
+
+        Assert.Null(options.Value.DefaultPlan);
+        Assert.Empty(options.Value.Plans);
     }
 
     /// <summary>A deployment that publishes nothing is the default, and it is not an error.</summary>

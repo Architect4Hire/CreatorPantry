@@ -1,10 +1,9 @@
 namespace CreatorPantry.Domain.Modules.Billing.Managers;
 
 /// <summary>
-/// The published plan catalogue, in configuration so the owner can change a price without a code change
-/// (AP.4.1). This is the catalogue half of that prompt and nothing more: there is no <c>AccountPlan</c> table
-/// yet, so nothing here is attached to an account, and no code reads these figures to admit or refuse work.
-/// The landing page is the only consumer (LP.6).
+/// The plan catalogue, in configuration so the owner can change a price without a code change (AP.4.1). The
+/// landing page publishes it (LP.6), and <c>IAccountPlanFacade</c> reads it to say what terms the plan an account
+/// is on carries. Nothing yet admits or refuses work by those terms; AP.4.2 does.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,6 +29,24 @@ public sealed class BillingOptions
 
     /// <summary>ISO 4217 code every price here is in. One currency: there is no localisation of money yet.</summary>
     public string Currency { get; set; } = "USD";
+
+    /// <summary>
+    /// The key of the plan an account is on when no <c>AccountPlan</c> row says otherwise — no row at all, a row
+    /// that says "the default", or a row naming a plan the catalogue no longer has. Required, and must name a
+    /// plan, whenever <see cref="Plans"/> has any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Proposed, not decided:</b> development sets <c>trial</c>, the daily-limits document's proposal for
+    /// what a new sign-up is on. A trial as the default does not expire — nothing ends one until AP.7.1 builds
+    /// the trial's end — so an account with no row stays on the trial's terms indefinitely until then.
+    /// </para>
+    /// <para>
+    /// With no plans configured, which is every deployment today, there is no default either, and an account
+    /// resolves to no plan at all: whatever reads plans keeps the flat limits it had before them.
+    /// </para>
+    /// </remarks>
+    public string? DefaultPlan { get; set; }
 
     public IList<PlanOption> Plans { get; set; } = [];
 
@@ -79,8 +96,11 @@ public sealed class PlanOption
     /// <summary>What a month works out at when a year is paid up front. Zero for a free trial.</summary>
     public decimal AnnualMonthlyPrice { get; set; }
 
-    /// <summary>AI credits the plan includes each period.</summary>
+    /// <summary>AI credits the plan includes each <see cref="Period"/>: the plan's allowance.</summary>
     public int Credits { get; set; }
+
+    /// <summary>How often <see cref="Credits"/> are granted. Monthly, or once for a trial.</summary>
+    public PlanAllowancePeriod Period { get; set; }
 
     /// <summary>
     /// What those credits buy, in the creator's terms — "about 20 recipe drafts, 40 social posts and 60
@@ -90,6 +110,12 @@ public sealed class PlanOption
 
     /// <summary>Pictures that may be generated in a UTC day.</summary>
     public int DailyImageCap { get; set; }
+
+    /// <summary>
+    /// Pictures the account may have generating at once. Not published: the landing page makes no claim about it,
+    /// and until AP.4.2 nothing enforces it in place of the flat per-workspace limit.
+    /// </summary>
+    public int RunningImages { get; set; }
 
     /// <summary>The picture quality classes the plan may ask for, in increasing order.</summary>
     public IList<string> QualityClasses { get; set; } = [];

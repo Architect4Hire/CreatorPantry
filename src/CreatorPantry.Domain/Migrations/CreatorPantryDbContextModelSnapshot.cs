@@ -1425,6 +1425,55 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("OpsApiClients", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("SupersedesFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("AccountId", "EffectiveFrom")
+                        .HasName("AK_AccountPlans_Account_EffectiveFrom");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountPlans_Account_Root")
+                        .HasFilter("SupersedesFrom IS NULL");
+
+                    b.HasIndex("AccountId", "SupersedesFrom")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountPlans_Account_Successor")
+                        .HasFilter("SupersedesFrom IS NOT NULL");
+
+                    b.ToTable("AccountPlans", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountPlans_After_Superseded", "SupersedesFrom IS NULL OR SupersedesFrom < EffectiveFrom");
+
+                            t.HasCheckConstraint("CK_AccountPlans_PlanKey_NotBlank", "PlanKey IS NULL OR trim(PlanKey) <> ''");
+
+                            t.HasCheckConstraint("CK_AccountPlans_Source_Declared", "Source <> 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8040,6 +8089,16 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("LastWorkspaceId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "SupersedesFrom")
+                        .HasPrincipalKey("AccountId", "EffectiveFrom")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_AccountPlans_Superseded");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>

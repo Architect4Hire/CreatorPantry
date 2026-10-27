@@ -394,12 +394,11 @@ public sealed class ModuleBoundaryTests
     /// <c>Dashboard</c> (13.11): the workspace at a glance, a read-only projection over the recipe, AI,
     /// content, media, publishing and brand modules, each asked through its own facade.
     /// <para>
-    /// <c>Billing</c> (LP.6): the published plan catalogue, which is configuration rather than a table — the
-    /// landing page reads what a deployment chose to publish. AP.4.1 brings the <c>AccountPlan</c> table, and
-    /// this name leaves the list in the same change.
+    /// <c>Billing</c> was here from LP.6, when it was the plan catalogue alone, and left when AP.4.1 gave it the
+    /// <c>AccountPlan</c> table.
     /// </para>
     /// </remarks>
-    private static readonly string[] ProjectionModules = ["Billing", "Dashboard"];
+    private static readonly string[] ProjectionModules = ["Dashboard"];
 
     /// <summary>
     /// Modules that so far are only a contract: types in a Managers area and nothing that runs — no table, no

@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Publishing.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
@@ -343,6 +344,13 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// identity. Counts only and platform-scoped, like the two above it.
     /// </remarks>
     public DbSet<AccountAiQuotaReservation> AccountAiQuotaReservations => Set<AccountAiQuotaReservation>();
+
+    /// <remarks>
+    /// Which plan one account is on, from when (PRICE-007, AP.4.1): an append-only chain per account whose
+    /// constraints make two plans at once unstorable. Platform-scoped like the quota tables, because a plan is the
+    /// account's and never a workspace's (B-47). Holds a plan key, not the plan's figures.
+    /// </remarks>
+    public DbSet<AccountPlan> AccountPlans => Set<AccountPlan>();
 
     /// <remarks>
     /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
