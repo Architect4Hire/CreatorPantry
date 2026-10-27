@@ -12,7 +12,10 @@
     "capture:tour": "node scripts/capture-tour.mjs",
     "capture:app": "node scripts/capture-app.mjs",
     "make:og-card": "node scripts/make-og-card.mjs",
-    "make:food-images": "node scripts/make-food-images.mjs"
+    "make:food-images": "node scripts/make-food-images.mjs",
+    "lint": "ng lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@angular/animations": "^22.0.0",
@@ -32,7 +35,11 @@
     "@angular-devkit/build-angular": "^22.0.0",
     "@angular/cli": "^22.0.0",
     "@angular/compiler-cli": "^22.0.0",
+    "@eslint/js": "^10.0.1",
     "@types/jasmine": "~5.1.0",
+    "angular-eslint": "22.6.0",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "10.1.8",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.4",
     "karma-chrome-launcher": "~3.2.0",
@@ -41,7 +48,9 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "ng-packagr": "^22.0.0",
     "playwright": "^1.64.1",
+    "prettier": "3.9.10",
     "sharp": "^0.35.5",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "typescript-eslint": "8.71.0"
   }
 }

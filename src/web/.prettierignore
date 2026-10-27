@@ -1,0 +1,4 @@
+# Prettier also skips everything in .gitignore (dist, .angular, coverage, node_modules, …).
+
+# Written by npm; formatting it only produces churn on the next install.
+package-lock.json

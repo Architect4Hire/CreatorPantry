@@ -11,18 +11,33 @@
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
-          "options": { "project": "projects/creator-pantry-ui/ng-package.json" }
+          "options": {
+            "project": "projects/creator-pantry-ui/ng-package.json"
+          }
         },
         "test": {
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "projects/creator-pantry-ui/tsconfig.spec.json",
-            "polyfills": ["zone.js", "zone.js/testing"],
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
             "styles": [
               "projects/creator-pantry-ui/src/lib/styles/tokens.css",
               "projects/creator-pantry-ui/src/lib/styles/themes.css",
               "projects/creator-pantry-ui/src/lib/styles/global.css"
             ]
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "projects/creator-pantry-ui/**/*.ts",
+              "projects/creator-pantry-ui/**/*.html"
+            ],
+            "eslintConfig": "projects/creator-pantry-ui/eslint.config.js"
           }
         }
       }
@@ -38,7 +53,12 @@
           "options": {
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
-            "assets": [{ "glob": "**/*", "input": "public" }],
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
             "styles": [
               "projects/creator-pantry-ui/src/lib/styles/tokens.css",
               "projects/creator-pantry-ui/src/lib/styles/themes.css",
@@ -49,18 +69,38 @@
           "configurations": {
             "production": {
               "outputHashing": "all",
-              "optimization": { "scripts": true, "styles": { "minify": true, "inlineCritical": false }, "fonts": true },
-              "budgets": [{ "type": "initial", "maximumWarning": "700kB", "maximumError": "1MB" }]
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              },
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "700kB",
+                  "maximumError": "1MB"
+                }
+              ]
             },
-            "development": { "optimization": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "showcase:build:production" },
-            "development": { "buildTarget": "showcase:build:development" }
+            "production": {
+              "buildTarget": "showcase:build:production"
+            },
+            "development": {
+              "buildTarget": "showcase:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
@@ -68,7 +108,19 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "polyfills": ["zone.js", "zone.js/testing"]
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
           }
         }
       }
