@@ -3,9 +3,12 @@
     Typed filters are applied on submit rather than on every keystroke: "3, 5" matches nothing while it is
     still "3,", and a list that emptied itself mid-type would read as "no tests".
   -->
+  <!--
+    `cp-field`, so these are drawn as every other field is and keep the label they need: a date box says nothing
+    about which end of the range it is. Their errors stay in the lines under the toolbar, which describe them.
+  -->
   <form class="typed" cpToolbarSearch (ngSubmit)="applyTypedFilters()">
-    <label class="field">
-      <span class="label">Versions</span>
+    <cp-field label="Versions" [forId]="idPrefix + '-versions'">
       <input
         [id]="idPrefix + '-versions'"
         type="text"
@@ -17,10 +20,9 @@
         [attr.aria-invalid]="filterError('version') ? 'true' : null"
         [attr.aria-describedby]="filterError('version') ? idPrefix + '-versions-error' : null"
       />
-    </label>
+    </cp-field>
 
-    <label class="field">
-      <span class="label">Cooked from</span>
+    <cp-field label="Cooked from" [forId]="idPrefix + '-from'">
       <input
         [id]="idPrefix + '-from'"
         type="date"
@@ -29,10 +31,9 @@
         (change)="testedFromDate.set($any($event.target).value); applyTypedFilters()"
         [attr.aria-invalid]="filterError('testedFrom') ? 'true' : null"
       />
-    </label>
+    </cp-field>
 
-    <label class="field">
-      <span class="label">Cooked to</span>
+    <cp-field label="Cooked to" [forId]="idPrefix + '-to'">
       <input
         [id]="idPrefix + '-to'"
         type="date"
@@ -41,9 +42,10 @@
         (change)="testedToDate.set($any($event.target).value); applyTypedFilters()"
         [attr.aria-invalid]="filterError('testedBefore') ? 'true' : null"
       />
-    </label>
+    </cp-field>
 
-    <button cpButton variant="secondary" size="sm" type="submit">Apply</button>
+    <!-- The default size, so it stands as tall as the fields it applies. -->
+    <button cpButton variant="secondary" type="submit">Apply</button>
   </form>
 
   <div cpChipGroup cpToolbarFilters label="Filter by the tester's verdict">
@@ -68,7 +70,9 @@
     }
   </div>
 
-  <cp-select-field cpToolbarActions label="Filter by outstanding problems">
+  <!-- In the filters slot, beside the verdicts: it is a filter, and in the actions slot it wrapped onto a line of
+       its own under everything else. -->
+  <cp-select-field cpToolbarFilters label="Filter by outstanding problems">
     <!--
       Single-valued, so a select rather than chips. Labelled as a record of what testers wrote: it is never a
       readiness, safety or dietary finding.

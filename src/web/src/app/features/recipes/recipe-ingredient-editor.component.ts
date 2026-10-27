@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, map, switchMap } from 'rxjs';
@@ -545,6 +557,7 @@ export class RecipeIngredientEditorComponent {
   );
 
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly injector = inject(Injector);
 
   constructor() {
     void this.loadUnits();
@@ -701,12 +714,13 @@ export class RecipeIngredientEditorComponent {
    *
    * Lines already entered stay exactly where they are — in the first group, which now shows the empty heading
    * field it always had — so nothing moves and nothing is lost. The new group is the section the creator is
-   * about to write.
+   * about to write, so focus goes to its heading field.
    */
   addGroup(): void {
     this.showGroups.set(true);
-    this.addGroupInternal();
+    const groupKey = this.addGroupInternal();
     this.emitChange();
+    this.revealAndFocus(`ingredient-group-title-${groupKey}`);
   }
 
   removeGroup(groupKey: string): void {
@@ -727,14 +741,19 @@ export class RecipeIngredientEditorComponent {
    * into the one list, which is created here if this is the first line of a new recipe. That group is a wire
    * requirement (R.1: lines travel inside an IngredientGroupInput) and stays untitled, so it submits and comes
    * back as the untitled group it is, and the creator is never shown a heading they did not ask for.
+   *
+   * The new line is scrolled into view and its Quantity field focused: the click was a request to type the next
+   * ingredient, and leaving focus on the button would mean finding the line and clicking into it as well.
    */
   addRow(groupKey?: string): void {
     const targetKey = groupKey ?? this.groups()[0]?.key ?? this.addGroupInternal();
+    const row = blankRow();
 
     this.groups.update((groups) =>
-      groups.map((group) => (group.key === targetKey ? { ...group, ingredients: [...group.ingredients, blankRow()] } : group)),
+      groups.map((group) => (group.key === targetKey ? { ...group, ingredients: [...group.ingredients, row] } : group)),
     );
     this.emitChange();
+    this.revealAndFocus(`row-quantity-${row.key}`);
   }
 
   removeRow(groupKey: string, rowKey: string): void {
@@ -877,6 +896,22 @@ export class RecipeIngredientEditorComponent {
       term.length < INGREDIENT_SEARCH_MIN_LENGTH ? { status: 'tooShort', rowKey } : { status: 'searching', rowKey },
     );
     this.ingredientQuery.next({ rowKey, text: term });
+  }
+
+  /**
+   * Once the render that creates it has run, brings the line or group holding this control into view and focuses
+   * the control. The whole line rather than only the field, so its status and its Remove are on screen too;
+   * `nearest`, so a line already in view does not jump.
+   */
+  private revealAndFocus(controlId: string): void {
+    afterNextRender(
+      () => {
+        const control = this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="${controlId}"]`);
+        control?.closest('li, section')?.scrollIntoView({ block: 'nearest' });
+        control?.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
   }
 
   private addGroupInternal(): string {

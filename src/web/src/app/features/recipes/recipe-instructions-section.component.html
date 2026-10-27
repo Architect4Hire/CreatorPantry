@@ -5,17 +5,14 @@
   [problem]="form.sectionProblem('instructions') ?? ''"
   intro="The method, step by step."
 >
-  <!-- At the top, as the ingredient editor's are, and the same quiet secondary buttons: two ways to add, ahead of
-       what they add to, rather than a green call to action stranded under a list that may be empty. -->
+  <!-- At the top, as the ingredient editor's are, and the same quiet secondary buttons. -->
   <div class="toolbar">
-    <!-- Only while the method is a single list. Once it has phases each one has its own "Add step" beneath its
-         steps, which says which phase the new step belongs to. -->
-    @if (!form.showInstructionGroups()) {
-      <button cpButton variant="secondary" type="button" (click)="form.addInstructionStep()">Add step</button>
+    <!-- Only while there is nothing to add beneath. Once the method has a step, "Add step" sits under its last
+         one, where the creator who has just written that step already is — the ingredient editor's rule. -->
+    @if (form.instructionGroups().length === 0) {
+      <button cpButton variant="secondary" type="button" (click)="addStep()">Add step</button>
     }
-    <button cpButton variant="secondary" type="button" (click)="form.addInstructionGroup()">
-      Add instruction group
-    </button>
+    <button cpButton variant="secondary" type="button" (click)="addGroup()">Add instruction group</button>
   </div>
 
   @if (form.instructionGroups().length === 0) {
@@ -205,11 +202,11 @@
             }
           </ol>
 
-          @if (form.showInstructionGroups()) {
-            <button cpButton variant="secondary" type="button" (click)="form.addInstructionStep(group.key)">
-              Add step
-            </button>
-          }
+          <!-- Under the last step of every group, grouped or not: grouped, it also says which phase the new step
+               belongs to. -->
+          <button class="add-line" cpButton variant="secondary" type="button" (click)="addStep(group.key)">
+            Add step
+          </button>
         </section>
       }
     </div>

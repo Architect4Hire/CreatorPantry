@@ -541,11 +541,12 @@ export class RecipeFormState {
 
   /**
    * Opts the method into phases, and appends an empty one to fill. Steps already written stay where they are,
-   * in the first group, which now shows the empty heading field it always had.
+   * in the first group, which now shows the empty heading field it always had. Returns the new group's key, so
+   * the view can take the creator to it.
    */
-  addInstructionGroup(): void {
+  addInstructionGroup(): string {
     this.showInstructionGroups.set(true);
-    this.addInstructionGroupInternal();
+    return this.addInstructionGroupInternal();
   }
 
   private addInstructionGroupInternal(): string {
@@ -566,10 +567,12 @@ export class RecipeFormState {
   /**
    * Adds a blank step. With no `groupKey` — the ungrouped case — it goes into the one list, created here if
    * this is the first step of a new recipe. That group exists because the wire contract needs one (R.1: steps
-   * travel inside an InstructionGroupInput) and stays untitled.
+   * travel inside an InstructionGroupInput) and stays untitled. Returns the new step's key, so the view can take
+   * the creator to it.
    */
-  addInstructionStep(groupKey?: string): void {
+  addInstructionStep(groupKey?: string): string {
     const targetKey = groupKey ?? this.instructionGroups()[0]?.key ?? this.addInstructionGroupInternal();
+    const stepKey = crypto.randomUUID();
 
     this.instructionGroups.update((groups) =>
       groups.map((group) =>
@@ -579,7 +582,7 @@ export class RecipeFormState {
               steps: [
                 ...group.steps,
                 {
-                  key: crypto.randomUUID(),
+                  key: stepKey,
                   id: null,
                   text: '',
                   note: '',
@@ -594,6 +597,8 @@ export class RecipeFormState {
           : group,
       ),
     );
+
+    return stepKey;
   }
 
   removeInstructionStep(groupKey: string, stepKey: string): void {

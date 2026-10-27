@@ -5,10 +5,11 @@
  * list wants them, that is the point at which they become one.
  */
 
+/* --cp-space-6, so the list's heading starts a new part under the filters rather than reading as one of them. */
 :host {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--cp-space-4);
+  gap: var(--cp-space-6);
   min-width: 0;
 }
 
@@ -21,35 +22,6 @@
   gap: var(--cp-space-3);
 }
 
-.field {
-  display: grid;
-  gap: var(--cp-space-1);
-}
-
-.label {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-font-size-xs);
-  font-weight: 700;
-}
-
-.field input {
-  min-height: 40px;
-  padding: 0 var(--cp-space-3);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface);
-  color: var(--cp-text);
-  font: inherit;
-}
-
-.field input[type='text'] {
-  min-width: 9rem;
-}
-
-.field input:focus-visible {
-  outline: 2px solid var(--cp-focus);
-  outline-offset: 2px;
-}
 
 .filter-error {
   margin: 0;

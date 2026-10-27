@@ -60,7 +60,6 @@
 .group ul,
 .group ol {
   margin: 0;
-  padding-left: var(--cp-space-5);
   display: grid;
   gap: var(--cp-space-1);
 }
@@ -68,6 +67,11 @@
 .instruction-group {
   display: grid;
   gap: var(--cp-space-3);
+}
+
+/* Its own width, not the group's: a full-width bar under the steps would read as a divider, not a button. */
+.add-line {
+  justify-self: start;
 }
 
 .group-header {

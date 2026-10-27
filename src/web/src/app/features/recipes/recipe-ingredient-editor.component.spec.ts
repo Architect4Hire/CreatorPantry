@@ -665,24 +665,70 @@ describe('RecipeIngredientEditorComponent', () => {
       window.scrollTo(0, 0);
     });
 
-    it('offers one "Add ingredient" at a time: the toolbar one for a plain list, one beneath each group once there are groups', async () => {
+    it('offers one "Add ingredient" at a time: the toolbar one while empty, then one beneath the last line of each group', async () => {
       const fixture = await createFixture();
       const element = host(fixture);
       const adds = () =>
         Array.from(element.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add ingredient');
       const toolbar = () => element.querySelector('.toolbar')!;
+      const follows = (earlier: Element, later: Element) =>
+        (earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
       expect(adds().length).withContext('empty: the toolbar one, and no second one in the empty state').toBe(1);
       expect(toolbar().contains(adds()[0])).toBeTrue();
 
       buttonLabelled(fixture, 'Add ingredient')!.click();
       fixture.detectChanges();
-      expect(adds().length).withContext('a plain list: still just the toolbar one').toBe(1);
+      buttonLabelled(fixture, 'Add ingredient')!.click();
+      fixture.detectChanges();
+      expect(adds().length).withContext('a plain list: just the one').toBe(1);
+      expect(toolbar().contains(adds()[0])).withContext('no longer in the toolbar').toBeFalse();
+      const rows = element.querySelectorAll('.row');
+      expect(rows.length).toBe(2);
+      expect(follows(rows[rows.length - 1], adds()[0])).withContext('beneath the last line').toBeTrue();
 
       buttonLabelled(fixture, 'Add ingredient group')!.click();
       fixture.detectChanges();
       expect(adds().length).withContext('grouped: one beneath each group').toBe(fixture.componentInstance.groups().length);
       expect(adds().some((button) => toolbar().contains(button))).withContext('none left in the toolbar').toBeFalse();
+    });
+
+    // A long list used to mean scrolling back to the top for every new line, then down again to fill it in.
+    it('takes the creator to the line it adds, its quantity focused', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      document.body.appendChild(element);
+
+      try {
+        for (let count = 0; count < 3; count += 1) {
+          buttonLabelled(fixture, 'Add ingredient')!.click();
+          fixture.detectChanges();
+          await fixture.whenStable();
+        }
+
+        const quantities = element.querySelectorAll<HTMLInputElement>('input[id^="row-quantity-"]');
+        expect(quantities.length).toBe(3);
+        expect(document.activeElement).withContext('the newest line, not the button').toBe(quantities[2]);
+      } finally {
+        element.remove();
+      }
+    });
+
+    it('focuses the heading of a group it adds', async () => {
+      const fixture = await createFixture();
+      const element = host(fixture);
+      document.body.appendChild(element);
+
+      try {
+        buttonLabelled(fixture, 'Add ingredient group')!.click();
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const key = fixture.componentInstance.groups().at(-1)!.key;
+        expect(document.activeElement?.id).toBe(`ingredient-group-title-${key}`);
+      } finally {
+        element.remove();
+      }
     });
 
     it('puts move and remove at the top right of the line, level with its status', async () => {

@@ -157,7 +157,8 @@
                       <li>
                         <!--
                           A button, not a link: only the host knows whether the record has a surface to show,
-                          and several kinds have none yet. Activating it asks the host to go there.
+                          and several kinds have none yet. Activating it asks the host to go there. Its text is
+                          the record in the editor's words, never a property name.
                         -->
                         <button
                           cpButton
@@ -166,13 +167,7 @@
                           type="button"
                           (click)="activateEvidence(item)"
                         >
-                          <span class="evidence-kind">{{ evidenceKindLabel(item.kind) }}</span>
-                          @if (item.label) {
-                            <span class="evidence-label">{{ item.label }}</span>
-                          }
-                          @if (item.fieldName) {
-                            <span class="evidence-field">{{ item.fieldName }}</span>
-                          }
+                          {{ evidenceText(item) }}
                         </button>
                       </li>
                     }
