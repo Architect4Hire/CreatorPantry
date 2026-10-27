@@ -60,7 +60,6 @@
 .group ul,
 .group ol {
   margin: 0;
-  padding-left: var(--cp-space-5);
   display: grid;
   gap: var(--cp-space-1);
 }
