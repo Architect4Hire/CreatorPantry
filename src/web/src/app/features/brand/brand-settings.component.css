@@ -11,12 +11,24 @@
   margin: 0;
 }
 
-.legend,
 .hint,
 .empty {
   margin: 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-sm);
+}
+
+/* The same legend as the recipe form's: one sentence above the sections, at the body size, with the asterisk in the
+   colour every required field's own label uses. */
+.required-legend {
+  margin: 0 0 var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-md);
+}
+
+.required-legend span[aria-hidden='true'] {
+  color: var(--cp-danger);
+  font-weight: 700;
 }
 
 .form-fields {

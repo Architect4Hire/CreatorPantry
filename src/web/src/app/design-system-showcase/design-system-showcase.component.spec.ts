@@ -369,7 +369,7 @@ describe('DesignSystemShowcaseComponent', () => {
       fixture.detectChanges();
 
       expect(view.title.getAttribute('aria-invalid')).toBe('true');
-      expect(view.root.querySelector('cp-validation-summary h2')!.textContent).toContain('1 problem to fix');
+      expect(view.root.querySelectorAll('cp-validation-summary li').length).toBe(1);
     });
 
     it('shows a warning while typing, without calling the field invalid', async () => {
@@ -382,7 +382,7 @@ describe('DesignSystemShowcaseComponent', () => {
 
       expect(view.root.querySelector('cp-field .warning')!.textContent).toContain('a batch');
       expect(view.servings.hasAttribute('aria-invalid')).toBeFalse();
-      expect(view.root.querySelector('cp-validation-summary h2')!.textContent).toContain('1 thing worth a look');
+      expect(view.root.querySelector('cp-validation-summary li.advice')!.textContent).toContain('Heads up:');
     });
 
     it('takes the creator to the field an issue is about', async () => {
