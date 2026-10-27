@@ -42,8 +42,33 @@ public sealed class GeneratedImageQuoteWireMirrorTests
         Assert.Equal(Sent, Names(set));
     }
 
+    // The quality classes the picker offers (AP.3.1A). A class the browser does not know is dropped from the price
+    // list rather than refusing it, so a new one would never be offered — quietly. This is what makes it loud.
+    private static readonly string[] Classes = Enum.GetNames<GeneratedImageQualityClass>()
+        .Order(StringComparer.Ordinal)
+        .ToArray();
+
+    [Fact]
+    public void The_TypeScript_union_names_every_quality_class_the_server_offers()
+    {
+        var union = Between(Read(), "export type GeneratedImageQualityClass =", ";");
+
+        Assert.Equal(Classes, Names(union));
+    }
+
+    [Fact]
+    public void The_decoders_class_set_names_every_quality_class_the_server_offers()
+    {
+        var set = Between(
+            Read(),
+            "const GENERATED_IMAGE_QUALITY_CLASS_VALUES: ReadonlySet<string> = new Set<GeneratedImageQualityClass>([",
+            "]);");
+
+        Assert.Equal(Classes, Names(set));
+    }
+
     private static string[] Names(string body) =>
-        Regex.Matches(body, @"'([A-Za-z]+)'").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal).ToArray();
+        Regex.Matches(body, @"'([A-Za-z][A-Za-z0-9]*)'").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal).ToArray();
 
     private static string Between(string source, string opening, string closing)
     {

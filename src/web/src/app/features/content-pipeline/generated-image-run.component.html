@@ -22,7 +22,56 @@
         Your prompt is longer than we can send — {{ promptLengthText() }}. {{ wording().tooLongRemedy }}
       </cp-notice>
     }
+  }
 
+  <!-- How good each picture is, before how many (AP.3.1A). Outside the prompt's branch, so the price list reads
+       even before there is a prompt. Nothing here blocks Make: while the list is loading or could not be read the
+       request names no class, and the host's default — which the quote prices meanwhile — is what is made. -->
+  <!-- Both regions are always in the page, so each is announced when it has something to say. -->
+  <p class="cp-sr-only" role="status">{{ classesState().status === 'loading' ? 'Finding the picture qualities…' : '' }}</p>
+  <cp-notice
+    tone="warning"
+    role="status"
+    [quiet]="classesState().status !== 'error'"
+    [id]="sectionIdPrefix() + '-quality-problem'"
+  >
+    @if (classesState().status === 'error') {
+      We couldn’t load the picture qualities just now, so pictures are made at the usual quality.
+      <!-- Not "Try again": the Make button says that after a failed ask, and two controls of one name in one
+           section would be two different things a creator cannot tell apart. -->
+      <button cpButton type="button" variant="text" size="sm" (click)="retryClasses()">Load the qualities again</button>
+    }
+  </cp-notice>
+
+  @switch (classesState().status) {
+    @case ('loading') {
+      <div class="quality" aria-busy="true">
+        <cp-skeleton shape="line" [count]="3" />
+      </div>
+    }
+    @case ('error') {}
+    @default {
+      @if (offersChoice()) {
+        <div class="quality">
+          <!-- Shown for the eye; the group carries the same words as its own name, so it is said once. -->
+          <p class="quality-label" aria-hidden="true">Picture quality</p>
+          <cp-choice-group
+            label="Picture quality"
+            layout="fit"
+            [idPrefix]="sectionIdPrefix() + '-quality-'"
+            [name]="sectionIdPrefix() + '-quality'"
+            [options]="classOptions()"
+            [value]="chosenValue()"
+            (valueChange)="chooseClass($event)"
+          />
+        </div>
+      } @else if (onlyClassSentence() !== '') {
+        <p class="cp-muted">{{ onlyClassSentence() }}</p>
+      }
+    }
+  }
+
+  @if (sendText() !== '') {
     <p class="cp-muted">
       Asking for {{ count() === 1 ? 'one picture' : count() + ' pictures' }}. {{ wording().countRemedy }}
     </p>

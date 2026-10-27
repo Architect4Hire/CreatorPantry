@@ -6,11 +6,14 @@ import { ApiBaseService } from '../core/api-base.service';
 import {
   GeneratedImageOperation,
   GeneratedImageOperationDetail,
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
   GeneratedImageQuote,
   IDEMPOTENCY_KEY_REQUIRED_CODE,
   RequestGeneratedImagesRequest,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
+  decodeGeneratedImageQualityClasses,
   decodeGeneratedImageQuote,
   encodeRequestGeneratedImages,
 } from '../models/generated-image.models';
@@ -190,12 +193,38 @@ export class GeneratedImageService {
    * does not decode — because a surface with no quote says so and lets the request decide: the server refuses an
    * unaffordable request properly on its own.
    */
-  async quote(workspaceSlug: string, variants: number): Promise<GeneratedImageQuote | null> {
-    const url = this.url(workspaceSlug, `/quote?variants=${encodeURIComponent(String(variants))}`);
+  async quote(
+    workspaceSlug: string,
+    variants: number,
+    qualityClass: GeneratedImageQualityClass | null = null,
+  ): Promise<GeneratedImageQuote | null> {
+    // No class prices the host's default, which is what a request naming none is made at (AP.3.1).
+    const named = qualityClass === null ? '' : `&qualityClass=${encodeURIComponent(qualityClass)}`;
+    const url = this.url(workspaceSlug, `/quote?variants=${encodeURIComponent(String(variants))}${named}`);
     if (!url) return null;
 
     try {
       return decodeGeneratedImageQuote(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The picture qualities this host offers, each with what one picture costs (AP.3.1). The same for every member:
+   * a price list, not a balance.
+   *
+   * Null for anything that is not a list. A surface with no list offers no choice and asks for nothing by name, so
+   * its pictures are made at the host's default — nothing is refused for want of it.
+   */
+  async qualityClasses(workspaceSlug: string): Promise<GeneratedImageQualityClasses | null> {
+    const url = this.url(workspaceSlug, '/quality-classes');
+    if (!url) return null;
+
+    try {
+      return decodeGeneratedImageQualityClasses(
+        await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })),
+      );
     } catch {
       return null;
     }

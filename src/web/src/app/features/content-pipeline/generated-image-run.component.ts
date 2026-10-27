@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -13,11 +16,14 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import {
   CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpEmptyStateComponent,
   CpFormSectionComponent,
   CpGeneratedComponent,
   CpNoticeComponent,
   CpProgressComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -38,8 +44,12 @@ import {
 import { DamAssetService } from '../../services/dam-asset.service';
 import { matchSavedPictures } from '../../services/dam-saved-pictures';
 import { GeneratedImageService, StagedImageRejectOutcome } from '../../services/generated-image.service';
-import { GeneratedImageQuote } from '../../models/generated-image.models';
-import { formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
+import {
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
+  GeneratedImageQuote,
+} from '../../models/generated-image.models';
+import { allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
 import {
   SaveToLibraryDialogComponent,
   SaveToLibraryProgress,
@@ -94,6 +104,21 @@ export const QUOTE_SETTLE_MS = 250;
 function picturesInSentence(count: number): string {
   return count === 1 ? 'one picture' : `${count} pictures`;
 }
+
+/**
+ * What each quality class is called and what it is for (AP.3.1A), in words the owner approved. A plain steer
+ * between classes, never a promise about how a particular picture will look; the price beside it is always the
+ * server's.
+ */
+export const QUALITY_CLASS_WORDING: Readonly<
+  Record<GeneratedImageQualityClass, { readonly label: string; readonly purpose: string }>
+> = {
+  Draft: { label: 'Draft', purpose: 'Quick, for trying an idea.' },
+  Standard: { label: 'Standard', purpose: 'Good for most posts.' },
+  High: { label: 'High', purpose: 'Finer detail.' },
+  High2K: { label: 'High, 2K', purpose: 'Finer detail, larger.' },
+  High4K: { label: 'High, 4K', purpose: 'Finer detail, at the largest size.' },
+};
 
 /** The Content Pipeline's wording, and the default — it was the first caller. */
 export const PIPELINE_IMAGE_RUN_WORDING: GeneratedImageRunWording = {
@@ -184,11 +209,13 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
   imports: [
     NgTemplateOutlet,
     CpButtonComponent,
+    CpChoiceGroupComponent,
     CpEmptyStateComponent,
     CpFormSectionComponent,
     CpGeneratedComponent,
     CpNoticeComponent,
     CpProgressComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     ContentPipelineImageGridComponent,
     ContentPipelineImageLightboxComponent,
@@ -203,6 +230,8 @@ export class GeneratedImageRunComponent {
   private readonly assets = inject(DamAssetService);
   private readonly confirm = inject(ConfirmService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = input.required<string>();
   /** The prompt as the caller holds it. Trimmed here before it is shown or sent; nothing here edits it. */
@@ -313,6 +342,27 @@ export class GeneratedImageRunComponent {
   private quoteGeneration = 0;
   private quoteTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /**
+   * The qualities this host offers and what one picture of each costs (AP.3.1A). A list that has not arrived or
+   * could not be read blocks nothing: the request then names no class and is made at the host's default, which is
+   * exactly what the quote prices meanwhile.
+   */
+  protected readonly classesState = signal<
+    | { readonly status: 'loading' }
+    | { readonly status: 'ready'; readonly list: GeneratedImageQualityClasses }
+    | { readonly status: 'error' }
+  >({ status: 'loading' });
+
+  /**
+   * The class the creator has picked, or null before the list has said what there is.
+   *
+   * Held here for the visit rather than in the draft: it is a choice about the next request, and nothing about
+   * the prompt or the count. Changing it changes the price and the next request, and touches neither.
+   */
+  protected readonly chosenClass = signal<GeneratedImageQualityClass | null>(null);
+
+  private classesGeneration = 0;
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.gone = true;
@@ -320,13 +370,27 @@ export class GeneratedImageRunComponent {
       if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
     });
 
-    // A fresh price whenever what it prices changes: the count, or the workspace it would be made in. Not asked
-    // where nothing can be made — the run shown without its maker has no request to price.
+    // A fresh price whenever what it prices changes: the count, the quality, or the workspace it would be made
+    // in. Asked wherever pictures can be made, the guided step included — leaving the maker's name off the
+    // provenance line hides what made a picture, never what one costs.
+    // Not until the price list has settled, either way: asked before it, the price is the default's and then
+    // changes a moment later to the class the list picks — a figure that moves under the creator for nothing.
     effect(() => {
       const slug = this.workspaceSlug();
       const count = this.count();
-      if (!this.showMaker()) return;
-      untracked(() => this.requote(slug, count));
+      const qualityClass = this.requestClass();
+      const listing = this.classesState().status === 'loading';
+      untracked(() => (listing ? this.holdQuote() : this.requote(slug, count, qualityClass)));
+    });
+
+    // The price list belongs to the workspace it was read for, so another workspace reads its own and starts
+    // again from its default: a pick is a choice made about one workspace's request.
+    effect(() => {
+      const slug = this.workspaceSlug();
+      untracked(() => {
+        this.chosenClass.set(null);
+        void this.loadClasses(slug);
+      });
     });
 
     // Follow whatever run the draft names, for whichever workspace the step is pointed at. One effect rather
@@ -405,6 +469,57 @@ export class GeneratedImageRunComponent {
   protected readonly promptLengthText = computed(
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,
   );
+
+  /** The class the next request names: the creator's pick from a list that arrived, or none — the host's default. */
+  protected readonly requestClass = computed<GeneratedImageQualityClass | null>(() => {
+    const state = this.classesState();
+    const chosen = this.chosenClass();
+    if (state.status !== 'ready' || chosen === null) return null;
+
+    return state.list.classes.some((row) => row.qualityClass === chosen) ? chosen : null;
+  });
+
+  /**
+   * The qualities as tiles, each with its own price as the server states it. Formatting only (PRICE-004, PRICE-013):
+   * no figure here is compared, added or worked out.
+   */
+  protected readonly classOptions = computed<readonly CpChoiceOption[]>(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return [];
+
+    return state.list.classes.map((row) => {
+      const wording = QUALITY_CLASS_WORDING[row.qualityClass];
+      const price = formatAllowanceAmount(row.perPicture, state.list.unit);
+
+      return {
+        value: row.qualityClass,
+        label: wording.label,
+        hint: price === null ? wording.purpose : `${price} a picture. ${wording.purpose}`,
+      };
+    });
+  });
+
+  /** The tiles offer a choice only when there are two or more; one class is a sentence, and none is nothing. */
+  protected readonly offersChoice = computed(() => this.classOptions().length > 1);
+
+  /** The one class a host offers, said rather than offered: "Pictures are made at Standard quality — …". */
+  protected readonly onlyClassSentence = computed(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready' || state.list.classes.length !== 1) return '';
+
+    const only = state.list.classes[0];
+    const price = formatAllowanceAmount(only.perPicture, state.list.unit);
+    const label = QUALITY_CLASS_WORDING[only.qualityClass].label;
+
+    return price === null
+      ? `Pictures are made at ${label} quality.`
+      : `Pictures are made at ${label} quality — ${price} a picture.`;
+  });
+
+  protected readonly chosenValue = computed<readonly string[]>(() => {
+    const chosen = this.requestClass();
+    return chosen === null ? [] : [chosen];
+  });
 
   /**
    * Whether the server has said this request cannot be afforded right now — spent, or switched off. A quote still
@@ -490,8 +605,19 @@ export class GeneratedImageRunComponent {
         : '.';
 
     const need = quote.variants === 1 ? 'needs' : 'need';
+    const asked = this.requestClass();
 
-    return `${pictureCount(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits} ${reset}`;
+    // Without a choice on screen, the sentence is AP.2.6's. With one, it says which quality the figures are for,
+    // and — when there is a lower one — that the choice is still open. Which lower one would fit is not worked
+    // out here: that would be pricing in the browser. The list is in the server's order, lowest quality first.
+    if (!this.offersChoice() || asked === null) {
+      return `${pictureCount(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits} ${reset}`;
+    }
+
+    const lowest = this.classOptions()[0]?.value === asked;
+    const lower = lowest ? '' : ' You can also choose a lower quality.';
+
+    return `At ${QUALITY_CLASS_WORDING[asked].label} quality, ${picturesInSentence(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits}${lower} ${reset}`;
   });
 
   protected readonly detail = this.tracker.detail;
@@ -693,10 +819,10 @@ export class GeneratedImageRunComponent {
   });
 
   /**
-   * Asks the price of `count` pictures, a moment after the last change so a creator stepping through counts asks
-   * once. The most recently started ask wins whichever answers first.
+   * Asks the price of `count` pictures at `qualityClass`, a moment after the last change so a creator stepping
+   * through counts or qualities asks once. The most recently started ask wins whichever answers first.
    */
-  private requote(slug: string, count: number): void {
+  private requote(slug: string, count: number, qualityClass: GeneratedImageQualityClass | null): void {
     const generation = ++this.quoteGeneration;
     this.quoteState.set({ status: 'loading' });
 
@@ -708,7 +834,7 @@ export class GeneratedImageRunComponent {
       let quote: GeneratedImageQuote | null;
 
       try {
-        quote = await this.service.quote(slug, count);
+        quote = await this.service.quote(slug, count, qualityClass);
       } catch {
         quote = null;
       }
@@ -717,6 +843,81 @@ export class GeneratedImageRunComponent {
 
       this.quoteState.set(quote === null ? { status: 'error' } : { status: 'ready', quote });
     }, QUOTE_SETTLE_MS);
+  }
+
+  /** "Working out…" while the price list is still coming, with any ask already waiting called off. */
+  private holdQuote(): void {
+    ++this.quoteGeneration;
+    if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+    this.quoteTimer = null;
+    this.quoteState.set({ status: 'loading' });
+  }
+
+  /** Read the price list for `slug`. The latest read wins, so a change of workspace never shows the last one's. */
+  protected async loadClasses(slug: string = this.workspaceSlug()): Promise<void> {
+    const generation = ++this.classesGeneration;
+    this.classesState.set({ status: 'loading' });
+
+    let list: GeneratedImageQualityClasses | null;
+
+    try {
+      list = await this.service.qualityClasses(slug);
+    } catch {
+      list = null;
+    }
+
+    if (this.gone || generation !== this.classesGeneration) return;
+
+    // A price this page cannot word is no price list: tiles with no figure would read as free (PRICE-013).
+    if (list === null || (list.classes.length > 0 && !allowanceIsCountable(list.unit))) {
+      this.classesState.set({ status: 'error' });
+      return;
+    }
+
+    // A pick that is still offered stays — a retry after a failure must not undo a choice — and anything else
+    // starts from the host's default, or the one class there is.
+    const chosen = this.chosenClass();
+    const offered = list.classes.some((row) => row.qualityClass === chosen);
+    this.chosenClass.set(
+      offered ? chosen : (list.defaultClass ?? (list.classes.length === 1 ? list.classes[0].qualityClass : null)),
+    );
+    this.classesState.set({ status: 'ready', list });
+  }
+
+  /**
+   * Ask for the list again from the failed notice. The button goes with the notice while it loads, so focus is put
+   * back once it settles: on the quality picked, on the next thing to do when there is nothing to pick, or on the
+   * button again if it failed again.
+   */
+  protected async retryClasses(): Promise<void> {
+    await this.loadClasses();
+    if (this.gone) return;
+
+    afterNextRender(
+      () => {
+        const root = this.host.nativeElement;
+        const prefix = this.sectionIdPrefix();
+        const status = this.classesState().status;
+        const target =
+          status === 'error'
+            ? root.querySelector<HTMLElement>(`#${prefix}-quality-problem button`)
+            : status === 'ready' && this.offersChoice()
+              ? root.querySelector<HTMLElement>('.quality input:checked') ??
+                root.querySelector<HTMLElement>('.quality input')
+              : root.querySelector<HTMLElement>('.cp-actions button');
+
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected chooseClass(value: readonly string[]): void {
+    const state = this.classesState();
+    if (state.status !== 'ready') return;
+
+    const picked = state.list.classes.find((row) => row.qualityClass === value[0]);
+    if (picked) this.chosenClass.set(picked.qualityClass);
   }
 
   private amount(value: number | null, unit: string | null): string | null {
@@ -746,10 +947,12 @@ export class GeneratedImageRunComponent {
       avoidText: this.avoidText(),
       variantCount: this.count(),
       subject: this.subject(),
+      qualityClass: this.requestClass(),
     };
 
     // A key names one request (12.10l). If what is being asked for has changed since the attempt that took
-    // the key — the prompt was reworded, the count changed — this is a different ask and takes a new one. The
+    // the key — the prompt was reworded, the count or the quality changed — this is a different ask and takes a
+    // new one. The
     // server refuses a key reused for a different request, so keeping it would strand the creator on a retry
     // that can never succeed.
     const asked = JSON.stringify(request);
@@ -777,7 +980,7 @@ export class GeneratedImageRunComponent {
     this.announced.emit(`Making ${this.count() === 1 ? 'one picture' : this.count() + ' pictures'}.`);
 
     // What is left has moved by exactly this request's hold, so the next price is read again rather than kept.
-    this.requote(this.workspaceSlug(), this.count());
+    this.requote(this.workspaceSlug(), this.count(), this.requestClass());
   }
 
   /**

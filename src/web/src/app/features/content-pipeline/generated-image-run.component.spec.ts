@@ -10,6 +10,8 @@ import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
 import {
   GeneratedImageOperationDetail,
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
   GeneratedImageQuote,
   GeneratedImageSubject,
   RequestGeneratedImagesRequest,
@@ -147,7 +149,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
 @Component({
   imports: [GeneratedImageRunComponent],
   template: `<cp-generated-image-run
-    workspaceSlug="cozy-fall"
+    [workspaceSlug]="slug()"
     [promptText]="promptText()"
     [avoidText]="avoidText()"
     [variantCount]="variantCount()"
@@ -157,6 +159,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
     [sectionIdPrefix]="prefix()"
     [library]="library()"
     [keepers]="keepers()"
+    [showMaker]="showMaker()"
     (changed)="changes.push($event); state.set($event)"
     (keepToggled)="keeps.push($event)"
     (announced)="announcements.push($event)"
@@ -164,6 +167,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
   />`,
 })
 class HostComponent {
+  readonly slug = signal('cozy-fall');
   readonly promptText = signal('A tight crop.');
   readonly avoidText = signal<string | null>(null);
   readonly variantCount = signal(2);
@@ -173,6 +177,7 @@ class HostComponent {
   readonly prefix = signal('cp-studio-images');
   readonly library = signal<GeneratedImageRunLibrary | null>(null);
   readonly keepers = signal<readonly string[]>([]);
+  readonly showMaker = signal(true);
 
   readonly keeps: { readonly id: string; readonly keep: boolean }[] = [];
   readonly changes: ContentPipelineImagesState[] = [];
@@ -190,7 +195,30 @@ let watches: Subject<GeneratedImageWatchOutcome>[];
 let details: Record<string, DamAssetDetailOutcome>;
 let detailReads: string[];
 let quoteAsks: number[];
-let quoteAnswer: (variants: number) => GeneratedImageQuote | null;
+let quoteClasses: (GeneratedImageQualityClass | null)[];
+let quoteAnswer: (variants: number, qualityClass: GeneratedImageQualityClass | null) => GeneratedImageQuote | null;
+let classesAnswer: () => Promise<GeneratedImageQualityClasses | null>;
+let classesReads: number;
+
+/** The price list a host with three classes would send: Standard the default, cheapest first (AP.3.1). */
+function classes(
+  rows: readonly (readonly [GeneratedImageQualityClass, number])[] = [
+    ['Draft', 25],
+    ['Standard', 50],
+    ['High', 87.5],
+  ],
+  defaultClass: GeneratedImageQualityClass | null = 'Standard',
+): GeneratedImageQualityClasses {
+  return {
+    defaultClass,
+    unit: 'Credits',
+    classes: rows.map(([qualityClass, perPicture]) => ({
+      qualityClass,
+      perPicture,
+      isDefault: qualityClass === defaultClass,
+    })),
+  };
+}
 
 /** A price the server might give: affordable by default, 50 credits a picture, from an allowance of 1,000. */
 function quote(variants: number, overrides: Partial<GeneratedImageQuote> = {}): GeneratedImageQuote {
@@ -241,6 +269,15 @@ async function settle(): Promise<void> {
   fixture.detectChanges();
 }
 
+/** One quality's radio, by the class it stands for. */
+function qualityRadio(qualityClass: GeneratedImageQualityClass): HTMLInputElement {
+  return el.querySelector(`#cp-studio-images-quality-${qualityClass}`) as HTMLInputElement;
+}
+
+function qualityGroup(): HTMLElement | null {
+  return el.querySelector('[role="radiogroup"][aria-label="Picture quality"]');
+}
+
 function makeButton(): HTMLButtonElement {
   return Array.from(el.querySelectorAll('button')).find(
     (button) => (button.textContent ?? '').trim() === 'Make the pictures',
@@ -280,7 +317,10 @@ describe('GeneratedImageRunComponent', () => {
     details = {};
     detailReads = [];
     quoteAsks = [];
+    quoteClasses = [];
     quoteAnswer = (variants) => quote(variants);
+    classesAnswer = () => Promise.resolve(classes());
+    classesReads = 0;
     requestOutcome = { status: 'unavailable' };
 
     await TestBed.configureTestingModule({
@@ -304,9 +344,14 @@ describe('GeneratedImageRunComponent', () => {
             preview: () => EMPTY,
             reject: () => Promise.resolve({ status: 'declined' as const }),
             downloadUrl: () => null,
-            quote: (_slug: string, variants: number) => {
+            quote: (_slug: string, variants: number, qualityClass: GeneratedImageQualityClass | null = null) => {
               quoteAsks.push(variants);
-              return Promise.resolve(quoteAnswer(variants));
+              quoteClasses.push(qualityClass);
+              return Promise.resolve(quoteAnswer(variants, qualityClass));
+            },
+            qualityClasses: () => {
+              classesReads += 1;
+              return classesAnswer();
             },
           },
         },
@@ -396,7 +441,13 @@ describe('GeneratedImageRunComponent', () => {
     await settle();
 
     expect(requests).toEqual([
-      { promptText: 'A tight crop.', avoidText: 'clutter, harsh light', variantCount: 4, subject: null },
+      {
+        promptText: 'A tight crop.',
+        avoidText: 'clutter, harsh light',
+        variantCount: 4,
+        subject: null,
+        qualityClass: 'Standard',
+      },
     ]);
   });
 
@@ -453,6 +504,17 @@ describe('GeneratedImageRunComponent', () => {
       await settle();
       await ask();
 
+      expect(keys[1]).not.toBe(keys[0]);
+    });
+
+    it('takes a new key when only the quality changed, since the key names the class too (AP.3.1)', async () => {
+      await ask();
+
+      qualityRadio('High').click();
+      await settle();
+      await ask();
+
+      expect(requests.map((request) => request.qualityClass)).toEqual(['Standard', 'High']);
       expect(keys[1]).not.toBe(keys[0]);
     });
   });
@@ -917,5 +979,280 @@ describe('GeneratedImageRunComponent', () => {
       expect(requests.length).toBe(1);
       expect(quoteAsks).toEqual([2, 2]);
     });
+
+    it('is asked where the maker is left off the provenance line, because that hides a name and not a price', async () => {
+      await rebuild((next) => next.showMaker.set(false));
+      await priced();
+
+      expect(quoteAsks.length).toBeGreaterThan(0);
+      expect(quoteLine()).toBe('2 pictures · 100 AI credits. 900 AI credits left after this.');
+      expect(qualityGroup()).not.toBeNull();
+    });
+  });
+
+  // ---- how good each picture is (AP.3.1A) ---------------------------------------------------------------
+
+  describe('the quality', () => {
+    function countLine(): HTMLElement | undefined {
+      return Array.from(el.querySelectorAll<HTMLElement>('p')).find((p) => (p.textContent ?? '').includes('Asking for'));
+    }
+
+    it('offers each class with its own price, the default picked, before the count', async () => {
+      await priced();
+
+      const group = qualityGroup();
+      expect(group).not.toBeNull();
+
+      const tiles = Array.from(group!.querySelectorAll('.tile')).map((tile) => [
+        tile.querySelector('.label')?.textContent?.trim(),
+        tile.querySelector('.hint')?.textContent?.trim(),
+      ]);
+      expect(tiles).toEqual([
+        ['Draft', '25 AI credits a picture. Quick, for trying an idea.'],
+        ['Standard', '50 AI credits a picture. Good for most posts.'],
+        ['High', '87.5 AI credits a picture. Finer detail.'],
+      ]);
+      expect(qualityRadio('Standard').checked).toBeTrue();
+
+      // Before the count it prices, so "2 pictures · 100 AI credits" reads as following the choice.
+      expect(group!.compareDocumentPosition(countLine()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      // The default is what the first price was asked for.
+      expect(quoteClasses).toEqual(['Standard']);
+    });
+
+    it('asks the price again for the class chosen, and leaves the prompt and the count as they were', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { perPicture: 87.5, total: variants * 87.5, remainingAfter: 1000 - variants * 87.5 })
+          : quote(variants);
+      await priced();
+
+      qualityRadio('High').click();
+      await priced();
+
+      expect(quoteClasses.at(-1)).toBe('High');
+      expect(quoteLine()).toBe('2 pictures · 175 AI credits. 825 AI credits left after this.');
+
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+      expect(countLine()?.textContent).toContain('Asking for 2 pictures.');
+      expect(host.changes).toEqual([]);
+    });
+
+    it('asks once for a run of quick changes of class, for the last one', async () => {
+      await priced();
+      const before = quoteAsks.length;
+
+      qualityRadio('High').click();
+      fixture.detectChanges();
+      qualityRadio('Draft').click();
+      await priced();
+
+      expect(quoteAsks.length).toBe(before + 1);
+      expect(quoteClasses.at(-1)).toBe('Draft');
+    });
+
+    it('sends the chosen class on the request', async () => {
+      await priced();
+
+      qualityRadio('Draft').click();
+      await settle();
+      makeButton().click();
+      await settle();
+
+      expect(requests.length).toBe(1);
+      expect(requests[0].qualityClass).toBe('Draft');
+      expect(requests[0].promptText).toBe('A tight crop.');
+      expect(requests[0].variantCount).toBe(2);
+    });
+
+    it('is operated by the keyboard as one radio group: real radios, one name, focus kept on the one picked', async () => {
+      await priced();
+
+      const radios = Array.from(qualityGroup()!.querySelectorAll<HTMLInputElement>('input'));
+      expect(radios.every((radio) => radio.type === 'radio')).toBeTrue();
+      expect(new Set(radios.map((radio) => radio.name)).size).toBe(1);
+      expect(radios.filter((radio) => radio.checked).map((radio) => radio.value)).toEqual(['Standard']);
+      expect(radios.some((radio) => radio.disabled)).toBeFalse();
+
+      // An arrow key moves focus and checks the next radio, which the browser does and a test cannot press; what
+      // the page owes is that a check from there is taken, and that the group is not redrawn under the focus.
+      const high = qualityRadio('High');
+      high.focus();
+      high.click();
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeTrue();
+      expect(document.activeElement).toBe(qualityRadio('High'));
+      expect(quoteClasses.at(-1)).toBe('High');
+    });
+
+    it('names what fits at an unaffordable class and leaves the choice open', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: 175, remaining: 100, remainingAfter: null, affordableVariants: 1 })
+          : quote(variants, { remaining: 100, remainingAfter: 0 });
+      await priced();
+
+      qualityRadio('High').click();
+      await priced();
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain(
+        'At High quality, 2 pictures need 175 AI credits, and you have 100 AI credits left — enough for one picture.',
+      );
+      expect(refusal).toContain('You can also choose a lower quality.');
+      expect(makeButton().disabled).toBeTrue();
+
+      // Every class can still be chosen, and the prompt is still there.
+      expect(Array.from(qualityGroup()!.querySelectorAll('input')).some((radio) => radio.disabled)).toBeFalse();
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+
+      qualityRadio('Standard').click();
+      await priced();
+
+      expect(makeButton().disabled).toBeFalse();
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+    });
+
+    it('suggests no lower quality when the lowest is the one that does not fit', async () => {
+      quoteAnswer = (variants) =>
+        quote(variants, { outcome: 'Exhausted', perPicture: 25, total: 50, remaining: 10, remainingAfter: null, affordableVariants: 0 });
+      await priced();
+
+      qualityRadio('Draft').click();
+      await priced();
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('At Draft quality, 2 pictures need 50 AI credits, and you have 10 AI credits left.');
+      expect(refusal).not.toContain('lower quality');
+    });
+
+    it('starts another workspace from its own default, not from the pick made in the last one', async () => {
+      await priced();
+      qualityRadio('High').click();
+      await priced();
+
+      host.slug.set('other-kitchen');
+      await priced();
+
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses.at(-1)).toBe('Standard');
+    });
+
+    it('treats a price list it cannot word as one it could not read, rather than showing classes with no price', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve({ ...classes(), unit: 'Tokens' })));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.querySelector('#cp-studio-images-quality-problem')?.textContent).toContain(
+        'couldn’t load the picture qualities',
+      );
+      expect(quoteClasses.at(-1)).toBeNull();
+    });
+
+    it('holds the place while the list is loading, blocks nothing, and holds the price until it knows the class', async () => {
+      await rebuild(() => (classesAnswer = () => new Promise(() => undefined)));
+      await priced();
+
+      const loading = el.querySelector('.quality[aria-busy="true"]');
+      expect(loading).not.toBeNull();
+      expect(loading?.querySelector('cp-skeleton')).not.toBeNull();
+
+      // Said once from a region that was in the page before it had words, outside the busy body.
+      const said = Array.from(el.querySelectorAll('.cp-sr-only[role="status"]')).map((node) => node.textContent?.trim());
+      expect(said).toContain('Finding the picture qualities…');
+      expect(qualityGroup()).toBeNull();
+
+      // No price asked yet, so none that changes a moment later; "Working out…" says so, and stops nothing.
+      expect(quoteClasses).toEqual([]);
+      expect(quoteLine()).toContain('Working out what this costs…');
+      expect(makeButton().disabled).toBeFalse();
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
+
+    it('says the list could not be read, makes pictures at the usual quality, and loads it again on request', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(null)));
+      await priced();
+
+      // The region is the one that was there, quiet, before anything failed — so the failure is announced.
+      const notice = el.querySelector('#cp-studio-images-quality-problem');
+      expect(notice?.getAttribute('role')).toBe('status');
+      expect(notice?.textContent).toContain('couldn’t load the picture qualities');
+      expect(notice?.textContent).toContain('so pictures are made at the usual quality');
+      expect(qualityGroup()).toBeNull();
+      expect(makeButton().disabled).toBeFalse();
+      expect(quoteClasses.at(-1)).toBeNull();
+
+      classesAnswer = () => Promise.resolve(classes());
+      const again = Array.from(notice!.querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === 'Load the qualities again',
+      )!;
+      again.click();
+      await priced();
+
+      expect(classesReads).toBe(2);
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses.at(-1)).toBe('Standard');
+
+      // The button went with the notice; focus is on the quality picked rather than lost to the page, and the
+      // region stays, quiet, for a later failure.
+      expect(document.activeElement).toBe(qualityRadio('Standard'));
+      expect(el.querySelector('#cp-studio-images-quality-problem')?.textContent?.trim()).toBe('');
+    });
+
+    it('puts focus back on the button when loading again fails again', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(null)));
+      await priced();
+
+      const button = () => el.querySelector<HTMLButtonElement>('#cp-studio-images-quality-problem button')!;
+      button().click();
+      await priced();
+
+      expect(classesReads).toBe(2);
+      expect(document.activeElement).toBe(button());
+    });
+
+    it('says the one class a host offers rather than offering a choice of one, and sends it', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([['High', 87.5]], 'High'))));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.textContent).toContain('Pictures are made at High quality — 87.5 AI credits a picture.');
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBe('High');
+    });
+
+    it('offers nothing on a host with no classes, and names none on the request', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([], null))));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.textContent).not.toContain('Picture quality');
+      expect(el.textContent).not.toContain('Pictures are made at');
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
   });
 });
+
+/** A fresh run, set up by `configure` before it first renders — for what it reads as it arrives. */
+async function rebuild(configure: (next: HostComponent) => void): Promise<void> {
+  fixture.destroy();
+  quoteAsks = [];
+  quoteClasses = [];
+  classesReads = 0;
+
+  fixture = TestBed.createComponent(HostComponent);
+  host = fixture.componentInstance;
+  el = fixture.nativeElement;
+  configure(host);
+  await settle();
+}

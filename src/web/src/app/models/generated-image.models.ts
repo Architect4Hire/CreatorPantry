@@ -177,6 +177,8 @@ export interface RequestGeneratedImagesRequest {
   readonly variantCount: number;
   /** What the pictures are for, when the surface asking knows. Recorded on the run; it grounds nothing. */
   readonly subject?: GeneratedImageSubject | null;
+  /** How good each picture is (AP.3.1). Null or absent asks for the host's default class. */
+  readonly qualityClass?: GeneratedImageQualityClass | null;
 }
 
 /**
@@ -227,6 +229,9 @@ export function encodeRequestGeneratedImages(request: RequestGeneratedImagesRequ
     if (subject.recipeVersionId) body['recipeVersionId'] = subject.recipeVersionId;
   }
   if (subject?.creativeContextId) body['creativeContextId'] = subject.creativeContextId;
+
+  // Left out rather than sent null, like the subject: a request that names no class is the default's.
+  if (request.qualityClass) body['qualityClass'] = request.qualityClass;
 
   return body;
 }
@@ -481,5 +486,81 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     leavesNearlySpent,
     resetsAt: (value['resetsAt'] as string | null) ?? null,
     timeZoneId: (value['timeZoneId'] as string | null) ?? null,
+  };
+}
+
+/** Mirrors `GeneratedImageQualityClass`: how good a picture is asked to be, never which model makes it (AP.3.1). */
+export type GeneratedImageQualityClass = 'Draft' | 'Standard' | 'High' | 'High2K' | 'High4K';
+
+const GENERATED_IMAGE_QUALITY_CLASS_VALUES: ReadonlySet<string> = new Set<GeneratedImageQualityClass>([
+  'Draft',
+  'Standard',
+  'High',
+  'High2K',
+  'High4K',
+]);
+
+/** One class this host offers and what one picture of it costs, in the list's `unit`. */
+export interface GeneratedImageQualityClassPrice {
+  readonly qualityClass: GeneratedImageQualityClass;
+  /** The rate a request at this class is charged per picture — the server's figure, shown and never worked with. */
+  readonly perPicture: number;
+  readonly isDefault: boolean;
+}
+
+/**
+ * The picture qualities a creator may ask for here, each with its price (AP.3.1, PRICE-013). Mirrors
+ * `GeneratedImageQualityClassesServiceModel`.
+ *
+ * A price list, not the creator's balance: what one request would cost and leave is the quote's.
+ */
+export interface GeneratedImageQualityClasses {
+  /** What a request naming no class is made at; null when the host offers no classes. */
+  readonly defaultClass: GeneratedImageQualityClass | null;
+  readonly unit: string;
+  /** In the server's order, cheapest first. Empty on a host that offers no choice. */
+  readonly classes: readonly GeneratedImageQualityClassPrice[];
+}
+
+/**
+ * Decodes the price list, or null when it is not one.
+ *
+ * A row naming a class this bundle does not know is dropped rather than refusing the list: a class added on the
+ * server is then simply not offered here, which is safe, where refusing would hide every class. A price that is
+ * there but not a number refuses the whole list, as the quote's figures do — a creator shown no price for one
+ * class would read it as free.
+ */
+export function decodeGeneratedImageQualityClasses(value: unknown): GeneratedImageQualityClasses | null {
+  if (!isRecord(value) || typeof value['unit'] !== 'string' || !Array.isArray(value['classes'])) return null;
+
+  const rawDefault = value['defaultClass'];
+  if (rawDefault !== null && typeof rawDefault !== 'string') return null;
+
+  const classes: GeneratedImageQualityClassPrice[] = [];
+
+  for (const row of value['classes'] as unknown[]) {
+    if (!isRecord(row)) return null;
+
+    const perPicture = row['perPicture'];
+    if (typeof perPicture !== 'number' || !Number.isFinite(perPicture) || typeof row['isDefault'] !== 'boolean') {
+      return null;
+    }
+
+    const qualityClass = decodeEnum<GeneratedImageQualityClass>(GENERATED_IMAGE_QUALITY_CLASS_VALUES, row['qualityClass']);
+    if (qualityClass === null) continue;
+
+    classes.push({ qualityClass, perPicture, isDefault: row['isDefault'] });
+  }
+
+  const defaultClass =
+    rawDefault === null
+      ? null
+      : decodeEnum<GeneratedImageQualityClass>(GENERATED_IMAGE_QUALITY_CLASS_VALUES, rawDefault);
+
+  return {
+    // Only a default that is offered here: one this bundle cannot show is no default to pick.
+    defaultClass: classes.some((row) => row.qualityClass === defaultClass) ? defaultClass : null,
+    unit: value['unit'],
+    classes,
   };
 }
