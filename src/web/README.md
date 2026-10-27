@@ -8,7 +8,12 @@ Run the whole system from the repository root with `aspire run`. Aspire installs
 Angular development server (`web-dev`) on an assigned port, and proxies `/runtime-config.json` to
 `CreatorPantry.Web`. `npm start` refuses to run without the port and web-host address Aspire provides.
 
-Build both the library and showcase with `npm run build`; run their tests with `npm test`. `npm test` first runs
+Format with `npm run format` before committing: `npm test` starts with `npm run format:check` and fails on any file
+Prettier would change. Templates use `htmlWhitespaceSensitivity: "strict"`, because Angular renders whitespace beside
+text; an `@if` written flush against text stays as written under `<!-- prettier-ignore -->`. `npm run lint` runs
+ESLint (angular-eslint), which leaves formatting to Prettier.
+
+Build both the library and showcase with `npm run build`; run their tests with `npm test`. `npm test` then runs
 `scripts/check-page-contract.mjs` (and its own tests), which fails when a signed-in page pads or caps its own
 `:host`, prints an `h1` or a header outside `cp-page-head`, or redraws a part the library owns — a card grid, a
 facts list, a toolbar field, a step list, a chip, a sliding panel, or the `.cp-muted` and `.cp-actions`

@@ -193,7 +193,8 @@ Controller → Facade → Business → DataLayer → Repository | Gateway
 - Run backend verification with `dotnet run --project src/CreatorPantry.Tests`. **Not `dotnet test`** — it reports "Zero tests ran" and exits 5 on this project, which is success-shaped output for a suite that never ran. The cause is upstream in xunit.v3 4.0.1's handling of the .NET 10 SDK's `--server dotnettestcli` mode; see the comment in `CreatorPantry.Tests.csproj`. Narrow a run with `-- --filter-class "CreatorPantry.Tests.<Area>.*"`.
 - Add migrations with `dotnet ef migrations add <Name> --project src/CreatorPantry.Domain --startup-project src/CreatorPantry.ApiService`. A live `aspire run` holds the API's output open, so both that command and the test run above fail to build until the output is redirected: pass `-p:BaseOutputPath=<scratch>/` to `dotnet run`, and set `BaseOutputPath=<scratch>\\` in the environment for `dotnet ef`, which takes no MSBuild properties of its own. A full run is about six minutes and is expected to be entirely green, redirected or not; it needs Docker for the one SQL Server container the SQL-backed fixtures share (`SqlServerTestDatabase`).
 - A migration only reaches the running database when `MigrationService` starts, so restart `aspire run` after adding one — otherwise the API queries columns the database does not have.
-- In `src/web/`, use `npm ci`, `npm run build`, and `npm test`.
+- In `src/web/`, use `npm ci`, `npm run build`, and `npm test`. Run `npm run format` before committing — `npm test`
+  fails on any file Prettier would change. A commit that is only formatter output goes in `.git-blame-ignore-revs`.
 - Use the matching skill in `.claude/skills/` before implementing a seam.
 - Use `.claude/agents/` as read-only reviewers after implementation.
 - Keep work atomic: one route, entity, integration, job, component, or domain seam per prompt.
