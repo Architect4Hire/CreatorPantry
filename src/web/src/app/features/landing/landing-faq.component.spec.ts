@@ -44,7 +44,10 @@ describe('LandingFaqComponent', () => {
 
   const questions = () => Array.from(host.querySelectorAll('summary h3')).map((el) => el.textContent?.trim());
   const answerTo = (question: string) =>
-    Array.from(host.querySelectorAll('details')).find((details) => details.textContent?.includes(question))?.querySelector('p')?.textContent?.trim();
+    Array.from(host.querySelectorAll('details'))
+      .find((details) => details.textContent?.includes(question))
+      ?.querySelector('p')
+      ?.textContent?.trim();
 
   afterEach(() => fixture?.destroy());
 
@@ -95,7 +98,9 @@ describe('LandingFaqComponent', () => {
     await create(priced);
 
     expect(questions().length).toBe(10);
-    expect(answerTo('Do packs expire?')).toBe('No. A pack is credits you have bought, so they keep until you spend them.');
+    expect(answerTo('Do packs expire?')).toBe(
+      'No. A pack is credits you have bought, so they keep until you spend them.',
+    );
   });
 
   /**

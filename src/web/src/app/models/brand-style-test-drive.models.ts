@@ -130,8 +130,7 @@ export function decodeBrandStyleTestDrive(value: unknown): BrandStyleTestDrive |
   if (rawFailure !== null && rawFailure !== undefined && failureCategory === null) return null;
 
   const rawComparison = value['comparison'];
-  const comparison =
-    rawComparison === null || rawComparison === undefined ? null : decodeComparison(rawComparison);
+  const comparison = rawComparison === null || rawComparison === undefined ? null : decodeComparison(rawComparison);
   if (rawComparison !== null && rawComparison !== undefined && comparison === null) return null;
 
   return { requestId, status, failureCategory, requestedAt, statusChangedAt, comparison };

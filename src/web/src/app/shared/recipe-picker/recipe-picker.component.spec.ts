@@ -56,7 +56,12 @@ describe('RecipePickerComponent', () => {
     const slug = options.slug ?? SLUG;
     server.seed(slug, CTX, {
       references: options.linked
-        ? [server.reference({ kind: 'Recipe', recipeId: options.linked.recipeId, recipeVersionId: options.linked.recipeVersionId }, 0)]
+        ? [
+            server.reference(
+              { kind: 'Recipe', recipeId: options.linked.recipeId, recipeVersionId: options.linked.recipeVersionId },
+              0,
+            ),
+          ]
         : [],
     });
 
@@ -97,9 +102,7 @@ describe('RecipePickerComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement | null {
-    return (
-      Array.from(el.querySelectorAll('button')).find((each) => each.textContent?.trim() === label) ?? null
-    );
+    return Array.from(el.querySelectorAll('button')).find((each) => each.textContent?.trim() === label) ?? null;
   }
 
   async function click(label: string): Promise<void> {
@@ -134,7 +137,9 @@ describe('RecipePickerComponent', () => {
     it('names its search box, and says the link is optional', async () => {
       await mount();
 
-      expect(box().getAttribute('aria-labelledby') ?? el.querySelector(`label[for="${box().id}"]`)?.textContent).toBeTruthy();
+      expect(
+        box().getAttribute('aria-labelledby') ?? el.querySelector(`label[for="${box().id}"]`)?.textContent,
+      ).toBeTruthy();
       expect(el.textContent).toContain('Find a recipe');
       expect(el.textContent).toContain('Optional');
     });
@@ -423,7 +428,9 @@ describe('RecipePickerComponent', () => {
       button('Use “Soda bread”')!.click();
       button('Use “Soda bread”')!.click();
       // Each press that is taken reads the recipe's versions at once, before anything answers.
-      expect(library.histories.length - before).withContext('the second press is not taken').toBe(1);
+      expect(library.histories.length - before)
+        .withContext('the second press is not taken')
+        .toBe(1);
       await settle();
 
       expect(references().map((each) => each.recipeId)).toEqual(['r-soda']);

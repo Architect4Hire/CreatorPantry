@@ -1,7 +1,10 @@
 <main class="showcase">
   <header class="showcase-header">
     <h1>CreatorPantry design system</h1>
-    <p>Every supported state of each <code>&#64;creator-pantry/ui</code> primitive, for visual review and regression testing. Development-only — this route does not exist in a production build.</p>
+    <p
+      >Every supported state of each <code>&#64;creator-pantry/ui</code> primitive, for visual review and regression
+      testing. Development-only — this route does not exist in a production build.</p
+    >
   </header>
 
   <section aria-labelledby="buttons-heading">
@@ -19,7 +22,9 @@
     </div>
     <div class="button-extras">
       <button cpButton disabled>Disabled (native)</button>
-      <a cpButton variant="secondary" aria-disabled="true" tabindex="-1">Disabled anchor (aria-disabled, since anchors have no native disabled state)</a>
+      <a cpButton variant="secondary" aria-disabled="true" tabindex="-1"
+        >Disabled anchor (aria-disabled, since anchors have no native disabled state)</a
+      >
       <button cpButton [fullWidth]="true">Full width</button>
       <a cpButton href="#buttons-heading">Anchor rendered as button</a>
     </div>
@@ -29,11 +34,11 @@
     <h2 id="field-heading">Field</h2>
     <p class="section-note">Label, hint, required, error, warning, disabled, and every projected control type.</p>
     <p class="section-note">
-      The control is projected, so no template binding can reach it — the field wires <code>aria-describedby</code>
-      to its hint, error and warning, <code>aria-invalid</code> while an error shows, and <code>aria-required</code>
-      when required, after each render. Without that the <code>*</code> and the hint are visible and invisible at
-      once. Optionality is the inverse and is stated once per form: marking one optional field among a dozen
-      unmarked ones makes the rest read as required. A warning is advice and never marks the control invalid.
+      The control is projected, so no template binding can reach it — the field wires <code>aria-describedby</code> to
+      its hint, error and warning, <code>aria-invalid</code> while an error shows, and <code>aria-required</code> when
+      required, after each render. Without that the <code>*</code> and the hint are visible and invisible at once.
+      Optionality is the inverse and is stated once per form: marking one optional field among a dozen unmarked ones
+      makes the rest read as required. A warning is advice and never marks the control invalid.
     </p>
     <div class="field-grid">
       <cp-field label="Recipe title" forId="showcase-default">
@@ -85,7 +90,10 @@
       </cp-card>
       <cp-card [interactive]="true">
         <h3>Interactive</h3>
-        <p>Hover to see the lift and border-color change. Wrap real interactive content (a link or button) inside — the card itself adds no keyboard behavior.</p>
+        <p
+          >Hover to see the lift and border-color change. Wrap real interactive content (a link or button) inside — the
+          card itself adds no keyboard behavior.</p
+        >
       </cp-card>
       <cp-card [flush]="true">
         <div class="flush-demo">Flush — no internal padding, content controls its own edges.</div>
@@ -96,12 +104,11 @@
   <section aria-labelledby="focus-ring-heading">
     <h2 id="focus-ring-heading">Focus ring</h2>
     <p class="section-note">
-      One token and one rule — <code>outline: 3px solid var(--cp-focus)</code> at an <code>outline-offset</code>
-      of 2px, on <code>:focus-visible</code> in <code>global.css</code>. The ring is opaque, because a ring
-      mixed with <code>transparent</code> takes
-      the lightness of whatever is under it and measured 1.66:1 on the light page. Tab along the row in both
-      themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and inside a
-      <code>cp-card</code>, which is a dark sheet in the dark theme and reads the page's own ring.
+      One token and one rule — <code>outline: 3px solid var(--cp-focus)</code> at an <code>outline-offset</code> of 2px,
+      on <code>:focus-visible</code> in <code>global.css</code>. The ring is opaque, because a ring mixed with
+      <code>transparent</code> takes the lightness of whatever is under it and measured 1.66:1 on the light page. Tab
+      along the row in both themes: the ring holds at least 3:1 on the page, on a white sheet, on a soft fruit tint, and
+      inside a <code>cp-card</code>, which is a dark sheet in the dark theme and reads the page's own ring.
     </p>
     <div class="focus-row">
       <button cpButton variant="secondary">On the page</button>
@@ -109,9 +116,9 @@
       <span class="focus-tint"><button cpButton variant="ghost">On a fruit tint</button></span>
     </div>
     <p class="section-note">
-      A focused primary button is green fill, 2px of page, green ring. The ring is the same colour as the fill
-      it haloes; the page showing between them is what separates the two, at 5.05:1 in the light theme and
-      8.70:1 in the dark. Inside a card it is the card showing between them, at 5.35:1 and 7.67:1.
+      A focused primary button is green fill, 2px of page, green ring. The ring is the same colour as the fill it
+      haloes; the page showing between them is what separates the two, at 5.05:1 in the light theme and 8.70:1 in the
+      dark. Inside a card it is the card showing between them, at 5.35:1 and 7.67:1.
     </p>
     <cp-card>
       <div class="focus-row">
@@ -135,9 +142,9 @@
     <h2 id="tones-heading">Tool tones</h2>
     <p class="section-note">
       A route sets <code>data-cp-tone</code> on the page frame and every part under it draws with
-      <code>--cp-tone</code>, <code>--cp-tone-soft</code>, <code>--cp-tone-text</code> and
-      <code>--cp-tone-on</code>. No tone is the primary. The tone marks the tool, never the primary action or a
-      status. Switch themes: every text here holds 4.5:1.
+      <code>--cp-tone</code>, <code>--cp-tone-soft</code>, <code>--cp-tone-text</code> and <code>--cp-tone-on</code>. No
+      tone is the primary. The tone marks the tool, never the primary action or a status. Switch themes: every text here
+      holds 4.5:1.
     </p>
     <ul class="tone-list">
       @for (tone of tones; track tone.name) {
@@ -168,10 +175,10 @@
   <section aria-labelledby="drawer-heading">
     <h2 id="drawer-heading">Drawer</h2>
     <p class="section-note">
-      One task beside the page it is about. The page stays in view and is inert, focus is held inside and
-      returns to the button that opened it, and under <code>40rem</code> the drawer is a full-screen sheet.
-      Escape, the scrim and the close control only <em>ask</em> to close: the form below confirms a discard
-      through <code>ConfirmService</code> once something has been typed, and closes at once when nothing has.
+      One task beside the page it is about. The page stays in view and is inert, focus is held inside and returns to the
+      button that opened it, and under <code>40rem</code> the drawer is a full-screen sheet. Escape, the scrim and the
+      close control only <em>ask</em> to close: the form below confirms a discard through
+      <code>ConfirmService</code> once something has been typed, and closes at once when nothing has.
     </p>
     <div class="button-extras">
       <button cpButton (click)="openDrawer('form')">Open a drawer holding a form</button>
@@ -182,10 +189,9 @@
   <section aria-labelledby="lightbox-heading">
     <h2 id="lightbox-heading">Lightbox</h2>
     <p class="section-note">
-      One picture, as large as the window allows and never larger than it was made. The picture is the
-      consumer's own <code>&lt;img&gt;</code>; the lightbox takes no address. Escape, the scrim and the close
-      control ask to close, focus returns to the button that opened it, and under <code>40rem</code> it fills
-      the window.
+      One picture, as large as the window allows and never larger than it was made. The picture is the consumer's own
+      <code>&lt;img&gt;</code>; the lightbox takes no address. Escape, the scrim and the close control ask to close,
+      focus returns to the button that opened it, and under <code>40rem</code> it fills the window.
     </p>
     <div class="button-extras">
       <button cpButton (click)="lightboxOpen.set('plain')">View a picture larger</button>
@@ -204,17 +210,17 @@
     </div>
 
     <p class="section-note">
-      <code>valueText</code> replaces the percentage figure and is announced as <code>aria-valuetext</code>,
-      for a meter whose reading is an amount rather than a fraction — how much is left, not how far through.
+      <code>valueText</code> replaces the percentage figure and is announced as <code>aria-valuetext</code>, for a meter
+      whose reading is an amount rather than a fraction — how much is left, not how far through.
     </p>
     <div class="progress-grid">
       <cp-progress label="Allowance used this period" [value]="36" valueText="640 credits left of 1,000" />
     </div>
 
     <p class="section-note">
-      <code>tone</code> colours the fill and does nothing else. It carries no meaning of its own: a bar that
-      only changed colour would be status by colour alone, so each one here is paired with the pill that says
-      the same thing in a word and a glyph. Remove the colour and nothing is lost.
+      <code>tone</code> colours the fill and does nothing else. It carries no meaning of its own: a bar that only
+      changed colour would be status by colour alone, so each one here is paired with the pill that says the same thing
+      in a word and a glyph. Remove the colour and nothing is lost.
     </p>
     <div class="progress-grid">
       @for (sample of progressTones; track sample.tone) {
@@ -279,27 +285,52 @@
   <section aria-labelledby="list-shell-heading">
     <h2 id="list-shell-heading">List shell</h2>
     <p class="section-note">
-      Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.
-      Loading draws skeletons in the shape that is coming, as rows or as a library of cards, and says
-      "Loading…" to a screen reader only. Until the list is ready its footer is said, not shown.
+      Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell. Loading
+      draws skeletons in the shape that is coming, as rows or as a library of cards, and says "Loading…" to a screen
+      reader only. Until the list is ready its footer is said, not shown.
     </p>
     <div class="button-extras">
       @for (state of listShellStates; track state) {
-        <button cpButton [variant]="listShellState() === state ? 'primary' : 'secondary'" size="sm" (click)="listShellState.set(state)">{{ state }}</button>
+        <button
+          cpButton
+          [variant]="listShellState() === state ? 'primary' : 'secondary'"
+          size="sm"
+          (click)="listShellState.set(state)"
+          >{{ state }}</button
+        >
       }
       @for (layout of listShellLayouts; track layout) {
-        <button cpButton [variant]="listShellLayout() === layout ? 'primary' : 'secondary'" size="sm" (click)="listShellLayout.set(layout)">loading as {{ layout }}</button>
+        <button
+          cpButton
+          [variant]="listShellLayout() === layout ? 'primary' : 'secondary'"
+          size="sm"
+          (click)="listShellLayout.set(layout)"
+          >loading as {{ layout }}</button
+        >
       }
     </div>
-    <cp-list-shell heading="Recent recipes" [state]="listShellState()" [loadingLayout]="listShellLayout()" errorMessage="Couldn't load recipes. Check your connection and try again.">
+    <cp-list-shell
+      heading="Recent recipes"
+      [state]="listShellState()"
+      [loadingLayout]="listShellLayout()"
+      errorMessage="Couldn't load recipes. Check your connection and try again."
+    >
       <div cpListShellActions>
         <button cpButton variant="text" size="sm">View all →</button>
       </div>
       <table class="demo-table">
-        <thead><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead>
+        <thead
+          ><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead
+        >
         <tbody>
-          <tr><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td><td>Sep 16</td></tr>
-          <tr><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td><td>Sep 14</td></tr>
+          <tr
+            ><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td
+            ><td>Sep 16</td></tr
+          >
+          <tr
+            ><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td
+            ><td>Sep 14</td></tr
+          >
         </tbody>
       </table>
       <div cpListShellPagination>
@@ -312,9 +343,8 @@
   <section aria-labelledby="skeleton-heading">
     <h2 id="skeleton-heading">Skeleton</h2>
     <p class="section-note">
-      The shape of what is loading: <code>line</code>, <code>block</code>, <code>circle</code> and
-      <code>card</code>. Hidden from assistive technology — the region that is loading says so once. Still under
-      reduced motion.
+      The shape of what is loading: <code>line</code>, <code>block</code>, <code>circle</code> and <code>card</code>.
+      Hidden from assistive technology — the region that is loading says so once. Still under reduced motion.
     </p>
     <div class="skeleton-demo">
       <cp-skeleton shape="circle" [count]="3" />
@@ -329,23 +359,33 @@
     <p class="section-note">
       <code>cpEnter</code>: content fades in and rises <code>--cp-enter-distance</code> over
       <code>--cp-duration-enter</code> the first time it renders, and a group lands
-      <code>--cp-enter-stagger</code> apart in the order it was built. The library applies it where it is always
-      right — a list shell's ready content, a generated result, a group of options — and a page applies none of
-      its own. It happens once: the list below does not arrive again when a filter reloads it. Under
-      <code>prefers-reduced-motion</code> nothing moves and nothing waits, and the whole thing is off for print.
-      Replay re-creates all three, the way the app does when the content next arrives.
+      <code>--cp-enter-stagger</code> apart in the order it was built. The library applies it where it is always right —
+      a list shell's ready content, a generated result, a group of options — and a page applies none of its own. It
+      happens once: the list below does not arrive again when a filter reloads it. Under
+      <code>prefers-reduced-motion</code> nothing moves and nothing waits, and the whole thing is off for print. Replay
+      re-creates all three, the way the app does when the content next arrives.
     </p>
     <div class="button-extras">
-      <button cpButton variant="secondary" size="sm" type="button" (click)="replayEntrance()">Replay the entrance</button>
+      <button cpButton variant="secondary" size="sm" type="button" (click)="replayEntrance()"
+        >Replay the entrance</button
+      >
     </div>
     @for (run of entranceRuns(); track run) {
       <div class="showcase-stack entrance-demo">
         <cp-list-shell heading="Recent recipes">
           <table class="demo-table">
-            <thead><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead>
+            <thead
+              ><tr><th>Title</th><th>Status</th><th>Updated</th></tr></thead
+            >
             <tbody>
-              <tr><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td><td>Sep 16</td></tr>
-              <tr><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td><td>Sep 14</td></tr>
+              <tr
+                ><td>Cozy Fall Soup</td><td><cp-status-pill tone="success">Ready</cp-status-pill></td
+                ><td>Sep 16</td></tr
+              >
+              <tr
+                ><td>Roasted Vegetable Pasta</td><td><cp-status-pill tone="progress">Drafting</cp-status-pill></td
+                ><td>Sep 14</td></tr
+              >
             </tbody>
           </table>
         </cp-list-shell>
@@ -355,7 +395,12 @@
         <ul cpCardGrid minColumn="16rem" aria-label="Example concepts arriving">
           @for (concept of concepts; track concept.id) {
             <li>
-              <cp-option-card [heading]="concept.heading" [facts]="concept.facts" [summary]="concept.summary" chooseLabel="Choose this concept" />
+              <cp-option-card
+                [heading]="concept.heading"
+                [facts]="concept.facts"
+                [summary]="concept.summary"
+                chooseLabel="Choose this concept"
+              />
             </li>
           }
         </ul>
@@ -366,7 +411,12 @@
   <section aria-labelledby="tabs-heading">
     <h2 id="tabs-heading">Tabs</h2>
     <p class="section-note">ARIA tabs pattern with roving tabindex, a disabled tab, and lazy-mounted panels.</p>
-    <cp-tabs ariaLabel="Recipe editor sections" [tabs]="tabs" [selectedId]="selectedTabId()" (selectedIdChange)="selectedTabId.set($event ?? 'ingredients')">
+    <cp-tabs
+      ariaLabel="Recipe editor sections"
+      [tabs]="tabs"
+      [selectedId]="selectedTabId()"
+      (selectedIdChange)="selectedTabId.set($event ?? 'ingredients')"
+    >
       <cp-tab-panel id="ingredients">
         <p class="section-note">Ingredient list content — mounted the first time this tab is selected.</p>
       </cp-tab-panel>
@@ -380,9 +430,9 @@
 
     <h3>A long list wraps, and an area can nest its own tabs</h3>
     <p class="section-note">
-      Too many tabs for one row go to a second row rather than scrolling sideways, so none is hidden off the
-      edge at narrow widths or at 200% zoom. Narrow this window to see it. “Tools” nests a second tablist,
-      which is how the recipe editor keeps each calculation lazy behind its own tab.
+      Too many tabs for one row go to a second row rather than scrolling sideways, so none is hidden off the edge at
+      narrow widths or at 200% zoom. Narrow this window to see it. “Tools” nests a second tablist, which is how the
+      recipe editor keeps each calculation lazy behind its own tab.
     </p>
     <cp-tabs
       ariaLabel="Workspace areas"
@@ -419,8 +469,8 @@
   <section aria-labelledby="toolbar-heading">
     <h2 id="toolbar-heading">Toolbar</h2>
     <p class="section-note">
-      Search, filters, actions, and an overflow disclosure, with roving-tabindex keyboard navigation. The
-      &ldquo;More actions&rdquo; disclosure appears only because this toolbar projects into
+      Search, filters, actions, and an overflow disclosure, with roving-tabindex keyboard navigation. The &ldquo;More
+      actions&rdquo; disclosure appears only because this toolbar projects into
       <code>[cpToolbarOverflow]</code>; drop those two buttons and it disappears rather than opening onto nothing.
     </p>
     <cp-toolbar ariaLabel="Recipe list toolbar">
@@ -435,13 +485,18 @@
   <section aria-labelledby="empty-state-heading">
     <h2 id="empty-state-heading">Empty state</h2>
     <p class="section-note">
-      First-use and no-results variants — action order is DOM order. With an <code>illustration</code> a first use
-      is the roomy layout and takes the page's tone (the pink one is inside an Image Studio tone); no-results stays
+      First-use and no-results variants — action order is DOM order. With an <code>illustration</code> a first use is
+      the roomy layout and takes the page's tone (the pink one is inside an Image Studio tone); no-results stays
       compact. Without one it is the older glyph in a disc.
     </p>
     <div class="card-row">
       <cp-card [flush]="true">
-        <cp-empty-state title="No recipes yet" description="Start your first recipe and it will show up here." variant="first-use" illustration="recipe">
+        <cp-empty-state
+          title="No recipes yet"
+          description="Start your first recipe and it will show up here."
+          variant="first-use"
+          illustration="recipe"
+        >
           <div cpEmptyStateActions>
             <button cpButton>＋ Create recipe</button>
           </div>
@@ -449,7 +504,12 @@
       </cp-card>
       <div data-cp-tone="pink">
         <cp-card [flush]="true">
-          <cp-empty-state title="No pictures yet" description="Pictures you make or keep land here, newest first." variant="first-use" illustration="picture">
+          <cp-empty-state
+            title="No pictures yet"
+            description="Pictures you make or keep land here, newest first."
+            variant="first-use"
+            illustration="picture"
+          >
             <div cpEmptyStateActions>
               <button cpButton>Make a picture</button>
             </div>
@@ -457,14 +517,24 @@
         </cp-card>
       </div>
       <cp-card [flush]="true">
-        <cp-empty-state title="No matches" description="Try a different search term or clear your filters." variant="no-results" illustration="search">
+        <cp-empty-state
+          title="No matches"
+          description="Try a different search term or clear your filters."
+          variant="no-results"
+          illustration="search"
+        >
           <div cpEmptyStateActions>
             <button cpButton variant="secondary">Clear filters</button>
           </div>
         </cp-empty-state>
       </cp-card>
       <cp-card [flush]="true">
-        <cp-empty-state title="No notes yet" description="The older glyph, for a page not yet drawn." variant="first-use" icon="✎" />
+        <cp-empty-state
+          title="No notes yet"
+          description="The older glyph, for a page not yet drawn."
+          variant="first-use"
+          icon="✎"
+        />
       </cp-card>
     </div>
   </section>
@@ -507,13 +577,15 @@
   <section aria-labelledby="diff-legend-heading">
     <h2 id="diff-legend-heading">Diff legend</h2>
     <p class="section-note">
-      All 7 kinds by default; presentation only, no diff computation. A surface that marks up individual
-      changes takes its glyph and wording from <code>cpDiffGlyph()</code> and <code>cpDiffLabel()</code>, so a
-      row and the legend entry explaining it cannot drift apart.
+      All 7 kinds by default; presentation only, no diff computation. A surface that marks up individual changes takes
+      its glyph and wording from <code>cpDiffGlyph()</code> and <code>cpDiffLabel()</code>, so a row and the legend
+      entry explaining it cannot drift apart.
     </p>
     <cp-diff-legend />
 
-    <p class="section-note">Narrowed to the kinds one surface actually renders, so it explains nothing a reader will not meet.</p>
+    <p class="section-note"
+      >Narrowed to the kinds one surface actually renders, so it explains nothing a reader will not meet.</p
+    >
     <cp-diff-legend [show]="['added', 'removed', 'changed', 'moved']" />
   </section>
 
@@ -521,20 +593,20 @@
     <h2 id="combobox-heading">Combobox</h2>
     <p class="section-note">
       A text input that filters a list it is given, with the WAI-ARIA combobox keyboard: arrows to move,
-      <code>Home</code>/<code>End</code> to jump, <code>Enter</code> to choose, <code>Escape</code> to close
-      without losing what was typed. Focus never leaves the input — the active row is named by
-      <code>aria-activedescendant</code> — and the number of remaining rows is announced. It fetches nothing;
-      a consumer filtering server-side passes its own list with <code>[filterLocally]="false"</code>.
+      <code>Home</code>/<code>End</code> to jump, <code>Enter</code> to choose, <code>Escape</code> to close without
+      losing what was typed. Focus never leaves the input — the active row is named by
+      <code>aria-activedescendant</code> — and the number of remaining rows is announced. It fetches nothing; a consumer
+      filtering server-side passes its own list with <code>[filterLocally]="false"</code>.
     </p>
     <p class="section-note">
-      It renders no label of its own: it composes inside <code>cp-field</code>, which owns the label, hint and
-      error, and whose input styling reaches the text box inside it.
+      It renders no label of its own: it composes inside <code>cp-field</code>, which owns the label, hint and error,
+      and whose input styling reaches the text box inside it.
     </p>
     <p class="section-note">
       A caret marks it as a picker, and clicking the box opens the list — without both, a combobox wearing
-      <code>cp-field</code>'s ordinary input styling is indistinguishable from a text box, and a creator who
-      clicks it and waits concludes the picker is missing. Focus alone does not open it: tabbing through a form
-      would pop every list open on the way past and announce a count nobody asked for.
+      <code>cp-field</code>'s ordinary input styling is indistinguishable from a text box, and a creator who clicks it
+      and waits concludes the picker is missing. Focus alone does not open it: tabbing through a form would pop every
+      list open on the way past and announce a count nobody asked for.
     </p>
 
     <cp-field label="Unit" forId="showcase-unit" hint="Must be one of the measurement units">
@@ -548,19 +620,27 @@
       />
     </cp-field>
     <p class="section-note">
-      Restricted: text that names no unit reverts when the field is left, so the box only ever reads as the unit
-      it stands for. Chosen: <strong>{{ unit()?.label ?? 'nothing yet' }}</strong>.
+      Restricted: text that names no unit reverts when the field is left, so the box only ever reads as the unit it
+      stands for. Chosen: <strong>{{ unit()?.label ?? 'nothing yet' }}</strong
+      >.
     </p>
 
     <cp-field label="Tag" forId="showcase-tag" hint="Pick an existing tag or write a new one">
-      <cp-combobox inputId="showcase-tag" [options]="tagOptions" [(value)]="tagText" [(selected)]="tag" mode="free-text">
+      <cp-combobox
+        inputId="showcase-tag"
+        [options]="tagOptions"
+        [(value)]="tagText"
+        [(selected)]="tag"
+        mode="free-text"
+      >
         <span cpComboboxEmpty>No tag by that name yet — it will be created.</span>
       </cp-combobox>
     </cp-field>
     <p class="section-note">
-      Free text: what was typed stands, and the selection says whether it names something that already exists.
-      Typed <strong>{{ tagText() || '—' }}</strong>, which is
-      <strong>{{ tag() ? 'an existing tag' : 'new' }}</strong>.
+      Free text: what was typed stands, and the selection says whether it names something that already exists. Typed
+      <strong>{{ tagText() || '—' }}</strong
+      >, which is <strong>{{ tag() ? 'an existing tag' : 'new' }}</strong
+      >.
     </p>
 
     <cp-field label="Unit (unavailable)" forId="showcase-unit-disabled" hint="Disabled while a save is in flight">
@@ -571,11 +651,11 @@
   <section aria-labelledby="checkbox-heading">
     <h2 id="checkbox-heading">Checkbox</h2>
     <p class="section-note">
-      A drawn control, because an unstyled <code>&lt;input type="checkbox"&gt;</code> is painted from the
-      inherited <code>color-scheme</code> — in dark mode its <em>unchecked</em> box is a dark filled square — and
-      arrives at 13×13 with no author focus ring. The real input is still there, focusable and announced; it is
-      only visually replaced. Checked reads as a glyph, so the state does not depend on telling two colours
-      apart, and the whole label is a 40px target.
+      A drawn control, because an unstyled <code>&lt;input type="checkbox"&gt;</code> is painted from the inherited
+      <code>color-scheme</code> — in dark mode its <em>unchecked</em> box is a dark filled square — and arrives at 13×13
+      with no author focus ring. The real input is still there, focusable and announced; it is only visually replaced.
+      Checked reads as a glyph, so the state does not depend on telling two colours apart, and the whole label is a 40px
+      target.
     </p>
     <div class="button-extras">
       <cp-checkbox label="Optional" [(checked)]="showcaseOptional" />
@@ -588,21 +668,17 @@
   <section aria-labelledby="choice-group-heading">
     <h2 id="choice-group-heading">Choice group</h2>
     <p class="section-note">
-      A set of answers as selectable tiles. The whole tile is the target, which is how an option carrying a
-      label, a line about what it means and a sample sentence stays scannable — and how it clears 40px without
-      each feature inventing padding. Drawn, for the same reason the checkbox above is: a native radio left to
-      the inherited <code>color-scheme</code> arrives at 13px with no author focus ring. The real input stays in
-      the DOM, so arrow keys, <kbd>Space</kbd> and what a screen reader says are all still the browser's.
+      A set of answers as selectable tiles. The whole tile is the target, which is how an option carrying a label, a
+      line about what it means and a sample sentence stays scannable — and how it clears 40px without each feature
+      inventing padding. Drawn, for the same reason the checkbox above is: a native radio left to the inherited
+      <code>color-scheme</code> arrives at 13px with no author focus ring. The real input stays in the DOM, so arrow
+      keys, <kbd>Space</kbd> and what a screen reader says are all still the browser's.
     </p>
     <div class="showcase-stack">
-      <cp-choice-group
-        label="How do you come across?"
-        [options]="voiceChoices"
-        [(value)]="showcaseVoice"
-      />
+      <cp-choice-group label="How do you come across?" [options]="voiceChoices" [(value)]="showcaseVoice" />
       <p class="section-note">
-        Several answers, capped: at the cap the rest are <em>disabled</em> rather than a pick being dropped
-        silently, so the limit is visible before it bites.
+        Several answers, capped: at the cap the rest are <em>disabled</em> rather than a pick being dropped silently, so
+        the limit is visible before it bites.
       </p>
       <cp-choice-group
         label="How does it feel to read?"
@@ -625,10 +701,10 @@
   <section aria-labelledby="page-head-heading">
     <h2 id="page-head-heading">Page head</h2>
     <p class="section-note">
-      The top of a page: where it sits, what it is called, what it is, and the one thing to do with it. It owns
-      the page's one <code>h1</code> — the shell prints none — so this showcase, which has a title of its own, is
-      the one place a second appears. The breadcrumb is the consumer's own link with <code>cpBackLink</code> on
-      it, so the library names no route; an empty slot takes no room.
+      The top of a page: where it sits, what it is called, what it is, and the one thing to do with it. It owns the
+      page's one <code>h1</code> — the shell prints none — so this showcase, which has a title of its own, is the one
+      place a second appears. The breadcrumb is the consumer's own link with <code>cpBackLink</code> on it, so the
+      library names no route; an empty slot takes no room.
     </p>
     <div class="showcase-stack">
       <cp-card>
@@ -639,7 +715,10 @@
         </cp-page-head>
       </cp-card>
       <cp-card>
-        <cp-page-head heading="DAM" lede="Every finished picture kept in this workspace. Search and filter to find one.">
+        <cp-page-head
+          heading="DAM"
+          lede="Every finished picture kept in this workspace. Search and filter to find one."
+        >
           <button cpButton cpPageHeadActions type="button">Upload a picture</button>
         </cp-page-head>
       </cp-card>
@@ -648,10 +727,10 @@
       </cp-card>
     </div>
     <p class="section-note">
-      Which tool (D3): the page projects its section's nav icon into <code>[cpPageHeadIcon]</code> and the head
-      draws it on a tile of the route's tone, over a rule in the same colour. Untoned pages keep the hairline. A
-      detail page may project its record's own picture into <code>[cpPageHeadMedia]</code> — beside the title
-      where the head is wide, above it where it is narrow.
+      Which tool (D3): the page projects its section's nav icon into <code>[cpPageHeadIcon]</code> and the head draws it
+      on a tile of the route's tone, over a rule in the same colour. Untoned pages keep the hairline. A detail page may
+      project its record's own picture into <code>[cpPageHeadMedia]</code> — beside the title where the head is wide,
+      above it where it is narrow.
     </p>
     <div class="showcase-stack">
       @for (head of tonedHeads; track head.heading) {
@@ -677,9 +756,9 @@
   <section aria-labelledby="card-grid-heading">
     <h2 id="card-grid-heading">Card grid</h2>
     <p class="section-note">
-      A list of cards as a grid: as many columns as fit, one at a narrow width or high zoom. It is an attribute
-      on the consumer's own <code>ul</code>, so the list and its items stay the feature's. A few cards keep
-      their size rather than stretching across the row; <code>minColumn</code> widens the floor.
+      A list of cards as a grid: as many columns as fit, one at a narrow width or high zoom. It is an attribute on the
+      consumer's own <code>ul</code>, so the list and its items stay the feature's. A few cards keep their size rather
+      than stretching across the row; <code>minColumn</code> widens the floor.
     </p>
     <ul cpCardGrid aria-label="Example cards">
       <li><cp-card>Soda bread hero</cp-card></li>
@@ -689,15 +768,15 @@
       <li><cp-card>Lemon tart</cp-card></li>
     </ul>
     <p class="section-note">
-      <code>flow="masonry"</code> lets each card keep its own height and packs the columns, for a set of
-      topics that are each as long as they need to be rather than a shelf of like things. The eye reads down
-      a column before it reads across; the order the Tab key and a screen reader follow is unchanged.
+      <code>flow="masonry"</code> lets each card keep its own height and packs the columns, for a set of topics that are
+      each as long as they need to be rather than a shelf of like things. The eye reads down a column before it reads
+      across; the order the Tab key and a screen reader follow is unchanged.
     </p>
     <ul cpCardGrid flow="masonry" aria-label="Example cards, packed">
       <li>
         <cp-card>
-          A card with rather more in it than the others, so that a row would have to be as tall as this one
-          and the short cards beside it would each stand in a gap of their own.
+          A card with rather more in it than the others, so that a row would have to be as tall as this one and the
+          short cards beside it would each stand in a gap of their own.
         </cp-card>
       </li>
       <li><cp-card>Short</cp-card></li>
@@ -711,10 +790,10 @@
   <section aria-labelledby="board-heading">
     <h2 id="board-heading">Board</h2>
     <p class="section-note">
-      A library whose things are sorted into a few named, ordered columns. <code>cpBoard</code> sets the
-      columns side by side and moves them below one another as the space narrows, so the page never scrolls
-      sideways. Each <code>cp-board-column</code> is a region named by its heading, says its count in words,
-      and holds the feature's own list. Moving a card — by pointer or by keyboard — is the feature's.
+      A library whose things are sorted into a few named, ordered columns. <code>cpBoard</code> sets the columns side by
+      side and moves them below one another as the space narrows, so the page never scrolls sideways. Each
+      <code>cp-board-column</code> is a region named by its heading, says its count in words, and holds the feature's
+      own list. Moving a card — by pointer or by keyboard — is the feature's.
     </p>
     <div cpBoard>
       <cp-board-column heading="To do" [count]="2" [countLabel]="['card', 'cards']" [headingLevel]="3">
@@ -761,12 +840,12 @@
   <section aria-labelledby="media-card-heading">
     <h2 id="media-card-heading">Media card</h2>
     <p class="section-note">
-      One thing in a library, shown by its picture. The picture is projected — the feature that owns it
-      authorises and loads it — and a drawn panel stands in when there is none, so a row of cards stays even:
-      a faint gingham and the kind's illustration, named or mapped from the older glyph. A picture still on its
-      way — its element marked <code>data-cp-picture-pending</code> — shows the panel too. Hover or focus a title
-      and its picture leans in. The title is the link; the card is not one. An action that does not open the thing — a
-      preview — goes last, in the actions slot.
+      One thing in a library, shown by its picture. The picture is projected — the feature that owns it authorises and
+      loads it — and a drawn panel stands in when there is none, so a row of cards stays even: a faint gingham and the
+      kind's illustration, named or mapped from the older glyph. A picture still on its way — its element marked
+      <code>data-cp-picture-pending</code> — shows the panel too. Hover or focus a title and its picture leans in. The
+      title is the link; the card is not one. An action that does not open the thing — a preview — goes last, in the
+      actions slot.
     </p>
     <ul cpCardGrid aria-label="Example media cards">
       <li>
@@ -799,7 +878,11 @@
       </li>
       <li>
         <cp-media-card description="Low light, wooden blocks behind.">
-          <img cpMediaCardPicture src="images/food/photo-10-480.jpg" alt="A burger with a fried egg beside two pepper mills" />
+          <img
+            cpMediaCardPicture
+            src="images/food/photo-10-480.jpg"
+            alt="A burger with a fried egg beside two pepper mills"
+          />
           <a cpMediaCardTitle href="#media-card-heading">Brunch burger</a>
           <cp-badge cpMediaCardBadges>Original</cp-badge>
           <dl cpFacts layout="inline">
@@ -831,7 +914,11 @@
     <ul cpCardGrid data-cp-tone="pink" aria-label="Example media cards on a toned page">
       <li>
         <cp-media-card description="Overhead, in the pan it baked in.">
-          <img cpMediaCardPicture src="images/food/photo-11-480.jpg" alt="A fillet of fish with dill, tomatoes and lemon in a dark pan" />
+          <img
+            cpMediaCardPicture
+            src="images/food/photo-11-480.jpg"
+            alt="A fillet of fish with dill, tomatoes and lemon in a dark pan"
+          />
           <a cpMediaCardTitle href="#media-card-heading">Baked fish, run 2</a>
           <cp-generated-label cpMediaCardBadges kind="picture" />
         </cp-media-card>
@@ -854,10 +941,10 @@
   <section aria-labelledby="option-card-heading">
     <h2 id="option-card-heading">Option card</h2>
     <p class="section-note">
-      One choice among several, compared side by side: the name, up to three key facts as tags, a sentence, the
-      rest behind a disclosure — a fourth fact moves there rather than being dropped — and the one button that
-      chooses it. Choosing is an action the feature handles, not a form value; the chosen card shows an edge, a ✓
-      and the word, and its button stays focusable. A field's answer in a form is <code>cp-choice-group</code>.
+      One choice among several, compared side by side: the name, up to three key facts as tags, a sentence, the rest
+      behind a disclosure — a fourth fact moves there rather than being dropped — and the one button that chooses it.
+      Choosing is an action the feature handles, not a form value; the chosen card shows an edge, a ✓ and the word, and
+      its button stays focusable. A field's answer in a form is <code>cp-choice-group</code>.
     </p>
     <ul cpCardGrid minColumn="18rem" aria-label="Example concepts">
       @for (concept of concepts; track concept.id) {
@@ -885,9 +972,9 @@
   <section aria-labelledby="stat-tile-heading">
     <h2 id="stat-tile-heading">Figure tile and featured card</h2>
     <p class="section-note">
-      A figure is never a bare number: the count and what it counts are one sentence, with an optional line of
-      context and a link to where it is dealt with. The featured card is the one topic on a page that matters
-      most — the tool's tint, edged in its colour — and a page has at most one. Each tone is shown here once.
+      A figure is never a bare number: the count and what it counts are one sentence, with an optional line of context
+      and a link to where it is dealt with. The featured card is the one topic on a page that matters most — the tool's
+      tint, edged in its colour — and a page has at most one. Each tone is shown here once.
     </p>
     @for (tone of tones; track tone.tool) {
       <div class="showcase-stack showcase-figure-row" [attr.data-cp-tone]="tone.name">
@@ -919,10 +1006,10 @@
   <section aria-labelledby="topic-card-heading">
     <h2 id="topic-card-heading">Topic card and facts</h2>
     <p class="section-note">
-      One topic on a page about a single thing: a heading that names its region, a body held to the reading
-      measure, and the actions last. <code>wide</code> lifts the measure for a table. The facts list is a real
-      <code>dl</code> — <code>stacked</code> here, <code>inline</code> on the media cards above, and
-      <code>across</code> for a strip of short figures read first, as under a recipe's head.
+      One topic on a page about a single thing: a heading that names its region, a body held to the reading measure, and
+      the actions last. <code>wide</code> lifts the measure for a table. The facts list is a real <code>dl</code> —
+      <code>stacked</code> here, <code>inline</code> on the media cards above, and <code>across</code> for a strip of
+      short figures read first, as under a recipe's head.
     </p>
     <div class="showcase-stack">
       <dl cpFacts layout="across">
@@ -951,8 +1038,8 @@
   <section aria-labelledby="toolbar-field-heading">
     <h2 id="toolbar-field-heading">Toolbar search and select fields</h2>
     <p class="section-note">
-      The consumer's own native control, named by a label that is announced but not shown, and drawn at the
-      toolbar's 40px. Its value and its events stay in the feature.
+      The consumer's own native control, named by a label that is announced but not shown, and drawn at the toolbar's
+      40px. Its value and its events stay in the feature.
     </p>
     <cp-toolbar ariaLabel="Example filters">
       <cp-search-field cpToolbarSearch label="Search the library">
@@ -976,23 +1063,27 @@
   <section aria-labelledby="stepper-heading">
     <h2 id="stepper-heading">Stepper</h2>
     <p class="section-note">
-      The steps of a flow, in order, saying where the creator is: each state in a word as well as a glyph and a
-      fill. A read-out, not navigation — a flow moves by its own Back and Continue, so no row is a link.
+      The steps of a flow, in order, saying where the creator is: each state in a word as well as a glyph and a fill. A
+      read-out, not navigation — a flow moves by its own Back and Continue, so no row is a link.
     </p>
     <div class="showcase-stepper">
       <nav aria-label="Example progress">
         <cp-stepper label="Example steps" [steps]="stepperSteps()" />
       </nav>
       <div class="cp-actions">
-        <button cpButton variant="secondary" type="button" [disabled]="stepperAt() === 0" (click)="moveStepper(-1)">Back</button>
-        <button cpButton type="button" [disabled]="stepperAt() === stepperNames.length - 1" (click)="moveStepper(1)">Continue</button>
+        <button cpButton variant="secondary" type="button" [disabled]="stepperAt() === 0" (click)="moveStepper(-1)"
+          >Back</button
+        >
+        <button cpButton type="button" [disabled]="stepperAt() === stepperNames.length - 1" (click)="moveStepper(1)"
+          >Continue</button
+        >
       </div>
     </div>
 
     <p class="section-note">
-      On a toned page the flow's own progress and its stepper take the tool's tone: the stepper always, the bar
-      when it is <code>tone="tool"</code>. A meter that is not the flow's progress — an allowance, a length against
-      a limit — keeps its own fill. Here, the Content Pipeline's orange.
+      On a toned page the flow's own progress and its stepper take the tool's tone: the stepper always, the bar when it
+      is <code>tone="tool"</code>. A meter that is not the flow's progress — an allowance, a length against a limit —
+      keeps its own fill. Here, the Content Pipeline's orange.
     </p>
     <div class="showcase-stepper" data-cp-tone="orange" data-testid="toned-flow">
       <cp-progress
@@ -1010,11 +1101,11 @@
   <section aria-labelledby="validation-heading">
     <h2 id="validation-heading">Validation summary</h2>
     <p class="section-note">
-      Everything wrong with a form in one place, each line a button that takes the creator to its field. Errors
-      are headed with their count and stop a save; warnings and information sit below under their own heading and
-      never do. Severity is a glyph as well as a colour — a disc, a triangle, an <code>i</code>. It decides
-      nothing: the form says which issues exist and what selecting one does. Try it: save with the title empty,
-      then set the servings above 40 to see a warning appear while typing.
+      Everything wrong with a form in one place, each line a button that takes the creator to its field. Errors are
+      headed with their count and stop a save; warnings and information sit below under their own heading and never do.
+      Severity is a glyph as well as a colour — a disc, a triangle, an <code>i</code>. It decides nothing: the form says
+      which issues exist and what selecting one does. Try it: save with the title empty, then set the servings above 40
+      to see a warning appear while typing.
     </p>
     <div class="showcase-validation">
       <cp-validation-summary
@@ -1058,10 +1149,10 @@
   <section aria-labelledby="chip-heading">
     <h2 id="chip-heading">Chips</h2>
     <p class="section-note">
-      A filter with a handful of fixed answers, all of them in view. Each chip is the consumer's own button and
-      says whether it is on with <code>aria-pressed</code>, a border, a fill and a heavier label; the group
-      is named, and whether one chip or several may be on is the page's rule. A filter with many answers, or
-      answers read from the server, is a select.
+      A filter with a handful of fixed answers, all of them in view. Each chip is the consumer's own button and says
+      whether it is on with <code>aria-pressed</code>, a border, a fill and a heavier label; the group is named, and
+      whether one chip or several may be on is the page's rule. A filter with many answers, or answers read from the
+      server, is a select.
     </p>
     <cp-toolbar ariaLabel="Example status filter">
       <div cpChipGroup cpToolbarFilters label="Filter by status">
@@ -1076,18 +1167,17 @@
   <section aria-labelledby="notice-heading">
     <h2 id="notice-heading">Notice</h2>
     <p class="section-note">
-      One sentence the product has to say about the thing on screen. Every tone brings a glyph as well as a
-      fill, so "saved" and "could not save" are still different to someone who cannot tell two hues apart. The
-      consumer owns the liveness — <code>role="status"</code> or <code>role="alert"</code> — because only the
-      consumer knows whether the sentence interrupts; and a region that must exist before it has text can hold
-      its place <code>quiet</code>.
+      One sentence the product has to say about the thing on screen. Every tone brings a glyph as well as a fill, so
+      "saved" and "could not save" are still different to someone who cannot tell two hues apart. The consumer owns the
+      liveness — <code>role="status"</code> or <code>role="alert"</code> — because only the consumer knows whether the
+      sentence interrupts; and a region that must exist before it has text can hold its place <code>quiet</code>.
     </p>
     <div class="showcase-stack">
       <cp-notice role="status">Saved at 4:05pm.</cp-notice>
       <cp-notice tone="success" role="status">Your guide is active.</cp-notice>
       <cp-notice tone="warning" role="status" glyph="⚑">
-        <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here. Editing is
-        off until you bring it back.
+        <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here. Editing is off
+        until you bring it back.
       </cp-notice>
       <cp-notice tone="error" role="alert">
         This recipe changed elsewhere since you loaded it.
@@ -1100,10 +1190,10 @@
     <h2 id="generated-heading">Generated content</h2>
     <p class="section-note">
       What a model made says so in words — "Drafted by AI", "Made by AI" or "Read by AI", picked by
-      <code>kind</code> — beside a glyph, never by a colour. The edge is dashed and neutral: a draft is not
-      finished, and no tone means "made by AI". <code>cp-generated</code> is a surface of its own, named by its label,
-      with the creator's decisions last; <code>cp-generated-label</code> is the label alone, for output that already
-      sits in a card or under a field.
+      <code>kind</code> — beside a glyph, never by a colour. The edge is dashed and neutral: a draft is not finished,
+      and no tone means "made by AI". <code>cp-generated</code> is a surface of its own, named by its label, with the
+      creator's decisions last; <code>cp-generated-label</code> is the label alone, for output that already sits in a
+      card or under a field.
     </p>
     <div class="showcase-stack">
       <cp-generated provenance="gpt-4o · 25 Oct, 08:30">
@@ -1128,10 +1218,10 @@
   <section aria-labelledby="anchor-nav-heading">
     <h2 id="anchor-nav-heading">Anchor nav</h2>
     <p class="section-note">
-      Ordinary navigation over a document that is all present — every item tabbable in order, no roving
-      tabindex, deliberately not a tablist. It emits which destination was asked for; scrolling and focus stay
-      with the consumer, which is the only side that can name the control worth focusing. With no items it
-      renders nothing at all, so a surface with one section shows no empty shell.
+      Ordinary navigation over a document that is all present — every item tabbable in order, no roving tabindex,
+      deliberately not a tablist. It emits which destination was asked for; scrolling and focus stay with the consumer,
+      which is the only side that can name the control worth focusing. With no items it renders nothing at all, so a
+      surface with one section shows no empty shell.
     </p>
     <cp-anchor-nav
       ariaLabel="Showcase groups"
@@ -1140,9 +1230,9 @@
       (activated)="onAnchorNavActivated($event)"
     />
     <p class="section-note">
-      Set <code>--cp-anchor-nav-direction: column</code> on the host — from inside a container query,
-      typically — to stack it in a gutter. The default wrapping row is what fits above the content it names on
-      a narrow screen and at 200% zoom.
+      Set <code>--cp-anchor-nav-direction: column</code> on the host — from inside a container query, typically — to
+      stack it in a gutter. The default wrapping row is what fits above the content it names on a narrow screen and at
+      200% zoom.
     </p>
     <cp-anchor-nav
       style="--cp-anchor-nav-direction: column; max-width: 12rem"
@@ -1155,7 +1245,9 @@
 
   <section aria-labelledby="toast-heading">
     <h2 id="toast-heading">Live status / toast</h2>
-    <p class="section-note">Info/success auto-dismiss after 5s and pause on hover; warning/error are persistent until dismissed.</p>
+    <p class="section-note"
+      >Info/success auto-dismiss after 5s and pause on hover; warning/error are persistent until dismissed.</p
+    >
     <div class="button-extras">
       <button cpButton size="sm" (click)="pushToast('info')">Push info</button>
       <button cpButton variant="secondary" size="sm" (click)="pushToast('success')">Push success</button>
@@ -1167,15 +1259,16 @@
   <section aria-labelledby="form-section-heading">
     <h2 id="form-section-heading">Form section</h2>
     <p class="section-note">
-      One named part of a form: a heading, a sentence under it, the server's word on the whole part when it
-      refuses, and the fields themselves. Every form in the app is built from these, stacked a
+      One named part of a form: a heading, a sentence under it, the server's word on the whole part when it refuses, and
+      the fields themselves. Every form in the app is built from these, stacked a
       <code>--cp-space-8</code> apart, so a long form reads as named parts rather than a wall of boxes.
     </p>
     <p class="section-note">
-      The section names itself from its own heading and, while a problem is showing, is described by it — so a
-      form that moves focus here on a refusal reads the heading and then the reason. Fields projected straight
-      into it are capped at <code>--cp-measure-field</code>; a field inside a component projected here is left
-      to that component. Short fields share a line by going into a <code>cp-field-row</code>; give it <code>columns</code> when they are quantities, so the row stays inside the line the other fields keep to and each value is an equal share of it.
+      The section names itself from its own heading and, while a problem is showing, is described by it — so a form that
+      moves focus here on a refusal reads the heading and then the reason. Fields projected straight into it are capped
+      at <code>--cp-measure-field</code>; a field inside a component projected here is left to that component. Short
+      fields share a line by going into a <code>cp-field-row</code>; give it <code>columns</code> when they are
+      quantities, so the row stays inside the line the other fields keep to and each value is an equal share of it.
     </p>
 
     <div class="showcase-form">
@@ -1272,8 +1365,8 @@
 >
   @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; track paragraph) {
     <p>
-      Paragraph {{ paragraph }} of a long preview. Only this body scrolls: the header above and the footer below
-      stay where they are, and reaching the end does not carry the scroll on into the page behind.
+      Paragraph {{ paragraph }} of a long preview. Only this body scrolls: the header above and the footer below stay
+      where they are, and reaching the end does not carry the scroll on into the page behind.
     </p>
   }
   <button cpDrawerActions cpButton variant="ghost" type="button" (click)="closeDrawer()">Close</button>
@@ -1282,10 +1375,9 @@
 <section aria-labelledby="brand-guide-heading" class="showcase-brand-guide">
   <h2 id="brand-guide-heading">Brand guide control</h2>
   <p class="section-note">
-    One small control for editorial, SEO and social setup screens: which brand guide this piece will use, in a
-    sentence. A stale guide must be continued or reviewed explicitly — it is never used silently — and the
-    advanced detail stays behind <em>Guide details</em>. App-level (<code>app/shared</code>), not part of
-    <code>&#64;creator-pantry/ui</code>.
+    One small control for editorial, SEO and social setup screens: which brand guide this piece will use, in a sentence.
+    A stale guide must be continued or reviewed explicitly — it is never used silently — and the advanced detail stays
+    behind <em>Guide details</em>. App-level (<code>app/shared</code>), not part of <code>&#64;creator-pantry/ui</code>.
   </p>
 
   <h3>Interactive</h3>
@@ -1318,11 +1410,11 @@
 <section aria-labelledby="brand-visual-heading" class="showcase-brand-guide">
   <h2 id="brand-visual-heading">Brand visual-style control</h2>
   <p class="section-note">
-    The photography and image-prompt sibling of the brand guide control: the active visual style and its exact
-    version, the look in the creator's words, what is kept out of the picture, and reference examples chosen from
-    the library. It says before submit what would otherwise be reported afterwards — a reference with no readable
-    text, a guide that is not the active one — and never uploads or activates anything. App-level
-    (<code>app/shared</code>), not part of <code>&#64;creator-pantry/ui</code>.
+    The photography and image-prompt sibling of the brand guide control: the active visual style and its exact version,
+    the look in the creator's words, what is kept out of the picture, and reference examples chosen from the library. It
+    says before submit what would otherwise be reported afterwards — a reference with no readable text, a guide that is
+    not the active one — and never uploads or activates anything. App-level (<code>app/shared</code>), not part of
+    <code>&#64;creator-pantry/ui</code>.
   </p>
 
   <h3>Interactive</h3>
@@ -1342,7 +1434,11 @@
 
   <h3>States</h3>
   <div class="brand-guide-states">
-    <cp-brand-visual-style-control [activeGuide]="brandGuide" [styleLines]="visualLines" [references]="visualReferences" />
+    <cp-brand-visual-style-control
+      [activeGuide]="brandGuide"
+      [styleLines]="visualLines"
+      [references]="visualReferences"
+    />
     <cp-brand-visual-style-control
       [activeGuide]="brandGuide"
       [choices]="brandGuideChoices"
@@ -1356,7 +1452,11 @@
       [selectedReferenceIds]="['ref-scan']"
     />
     <cp-brand-visual-style-control [activeGuide]="brandGuide" [hasVisualGuidance]="false" />
-    <cp-brand-visual-style-control [activeGuide]="brandGuide" [selection]="{ kind: 'none' }" [references]="visualReferences" />
+    <cp-brand-visual-style-control
+      [activeGuide]="brandGuide"
+      [selection]="{ kind: 'none' }"
+      [references]="visualReferences"
+    />
     <cp-brand-visual-style-control [activeGuide]="brandGuideStale" [styleLines]="visualLines" />
     <cp-brand-visual-style-control [activeGuide]="null" />
     <cp-brand-visual-style-control status="loading" />
@@ -1367,8 +1467,8 @@
 <cp-dialog [open]="dialogOpen() === 'long'" title="Long dialog, no description" (closed)="closeDialog()">
   @for (paragraph of [1, 2, 3, 4, 5, 6, 7, 8]; track paragraph) {
     <p>
-      Paragraph {{ paragraph }} of long dialog content, long enough across all eight paragraphs that the dialog body
-      has to scroll internally while the header and footer stay fixed in place.
+      Paragraph {{ paragraph }} of long dialog content, long enough across all eight paragraphs that the dialog body has
+      to scroll internally while the header and footer stay fixed in place.
     </p>
   }
   <div cpDialogActions>

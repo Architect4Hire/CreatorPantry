@@ -186,7 +186,9 @@ export class ThemedDaysComponent {
   protected readonly deleting = signal<string | null>(null);
 
   /** The last thing a delete had to say, shown in the form's live region. */
-  protected readonly deleteNotice = signal<{ readonly tone: 'success' | 'error'; readonly message: string } | null>(null);
+  protected readonly deleteNotice = signal<{ readonly tone: 'success' | 'error'; readonly message: string } | null>(
+    null,
+  );
 
   protected readonly canEdit = computed(() => this.role() === 'Editor' || this.role() === 'Owner');
   protected readonly canDelete = computed(() => this.role() === 'Owner');
@@ -559,9 +561,7 @@ export class ThemedDaysComponent {
   }
 
   private clearDay(day: WeekDay): void {
-    const fields = Object.fromEntries(
-      Object.entries(this.fieldErrors()).filter(([key]) => !key.startsWith(`${day}.`)),
-    );
+    const fields = Object.fromEntries(Object.entries(this.fieldErrors()).filter(([key]) => !key.startsWith(`${day}.`)));
     this.fieldErrors.set(fields);
 
     const { [day]: _cleared, ...problems } = this.dayProblems();

@@ -206,9 +206,7 @@ describe('RecipeUnitConversionComponent', () => {
 
   it('groups the unit pickers by dimension', async () => {
     const { fixture } = await createFixture();
-    const select: HTMLSelectElement = fixture.nativeElement.querySelector(
-      `#${fixture.componentInstance.fromFieldId}`,
-    );
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector(`#${fixture.componentInstance.fromFieldId}`);
     const groups = Array.from(select.querySelectorAll('optgroup')).map((group) => group.label);
 
     expect(groups).toEqual(['Weight', 'Volume', 'Temperature']);
@@ -514,7 +512,9 @@ describe('RecipeUnitConversionComponent', () => {
 
     // The announcement is a persistent region whose text changes, not the card itself: a live region
     // inserted already holding its content is not reliably announced.
-    const region: HTMLElement = harness.fixture.nativeElement.querySelector('.conversion-announcement[role="status"][aria-live="polite"]');
+    const region: HTMLElement = harness.fixture.nativeElement.querySelector(
+      '.conversion-announcement[role="status"][aria-live="polite"]',
+    );
     expect(region.getAttribute('aria-live')).toBe('polite');
     expect(region.textContent?.trim().length).toBeGreaterThan(0);
     expect(harness.fixture.nativeElement.querySelector('.result-card').getAttribute('role')).toBeNull();
@@ -528,12 +528,7 @@ describe('RecipeUnitConversionComponent', () => {
     await convert(harness, (req) => req.flush(conversionPayload()));
 
     const terms: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.result-detail dt'));
-    expect(terms.map((term) => term.textContent?.trim())).toEqual([
-      'Method',
-      'Formula',
-      'Precision',
-      'Rounding',
-    ]);
+    expect(terms.map((term) => term.textContent?.trim())).toEqual(['Method', 'Formula', 'Precision', 'Rounding']);
   });
 
   // `disabled` plus a `title` announces nothing useful; the reason has to be in the option's own text.

@@ -16,10 +16,11 @@
 
 <!-- Always in the page, so the words are announced when they change: a live region created already holding its
      text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
-<p class="cp-sr-only draft-loading-status" role="status">{{ state() === 'loading' ? 'Looking for your draft…' : '' }}</p>
+<p class="cp-sr-only draft-loading-status" role="status">{{
+  state() === 'loading' ? 'Looking for your draft…' : ''
+}}</p>
 
 <div class="draft-review">
-
   @if (state() === 'idle') {
     <cp-empty-state
       variant="first-use"
@@ -30,8 +31,8 @@
   } @else if (state() === 'discarded') {
     <div class="draft-notice" role="status">
       <p>
-        Draft discarded. It was cleared from this page and left to expire on its own — nothing was sent
-        anywhere, and no recipe was created.
+        Draft discarded. It was cleared from this page and left to expire on its own — nothing was sent anywhere, and no
+        recipe was created.
       </p>
       <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">
         {{ host ? 'Back to your ideas' : 'Review another draft' }}
@@ -46,7 +47,9 @@
       illustration="search"
     />
     @if (host) {
-      <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)">Back to your ideas</button>
+      <button cpButton type="button" variant="secondary" size="sm" (click)="watchRequest(null)"
+        >Back to your ideas</button
+      >
     }
   } @else if (state() === 'forbidden') {
     <p class="draft-notice" role="alert">This draft can't be read with your role in this workspace.</p>
@@ -136,9 +139,7 @@
             Said whether or not anything is flagged: an empty flag list is not a clean bill of health, and
             ai.md asks for uncertainty to be surfaced rather than implied away.
           -->
-          <p class="draft-section-note">
-            Anything not flagged here simply wasn't flagged — it hasn't been checked.
-          </p>
+          <p class="draft-section-note"> Anything not flagged here simply wasn't flagged — it hasn't been checked. </p>
         </section>
       }
 
@@ -150,13 +151,25 @@
         <cp-card>
           <dl class="draft-fields">
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'title', 'Title', d.title), label: 'Title', required: true }"
+              *ngTemplateOutlet="
+                field;
+                context: { $implicit: editTarget('recipe', 'title', 'Title', d.title), label: 'Title', required: true }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'description', 'Description', d.description), label: 'Description' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'description', 'Description', d.description),
+                  label: 'Description',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'notes', 'Notes', d.notes), label: 'Notes' }"
+              *ngTemplateOutlet="
+                field;
+                context: { $implicit: editTarget('recipe', 'notes', 'Notes', d.notes), label: 'Notes' }
+              "
             />
           </dl>
         </cp-card>
@@ -168,34 +181,90 @@
         <cp-card>
           <dl class="draft-fields draft-fields-grid">
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldText', 'Yield', d.yield.yieldText), label: 'Yield' }"
+              *ngTemplateOutlet="
+                field;
+                context: { $implicit: editTarget('recipe', 'yieldText', 'Yield', d.yield.yieldText), label: 'Yield' }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldQuantity', 'Yield quantity', d.yield.yieldQuantity), label: 'Yield quantity' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'yieldQuantity', 'Yield quantity', d.yield.yieldQuantity),
+                  label: 'Yield quantity',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'yieldUnitText', 'Yield unit', d.yield.yieldUnitText), label: 'Yield unit' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'yieldUnitText', 'Yield unit', d.yield.yieldUnitText),
+                  label: 'Yield unit',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'servingCount', 'Servings', d.yield.servingCount), label: 'Servings' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'servingCount', 'Servings', d.yield.servingCount),
+                  label: 'Servings',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'servingSize', 'Serving size', d.yield.servingSize), label: 'Serving size' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'servingSize', 'Serving size', d.yield.servingSize),
+                  label: 'Serving size',
+                }
+              "
             />
           </dl>
 
           <dl class="draft-fields draft-fields-grid">
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'prepTimeMinutes', 'Prep time (minutes)', d.timing.prepTimeMinutes), label: 'Prep time (minutes)' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'prepTimeMinutes', 'Prep time (minutes)', d.timing.prepTimeMinutes),
+                  label: 'Prep time (minutes)',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'cookTimeMinutes', 'Cook time (minutes)', d.timing.cookTimeMinutes), label: 'Cook time (minutes)' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'cookTimeMinutes', 'Cook time (minutes)', d.timing.cookTimeMinutes),
+                  label: 'Cook time (minutes)',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'restTimeMinutes', 'Rest time (minutes)', d.timing.restTimeMinutes), label: 'Rest time (minutes)' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget('recipe', 'restTimeMinutes', 'Rest time (minutes)', d.timing.restTimeMinutes),
+                  label: 'Rest time (minutes)',
+                }
+              "
             />
             <ng-container
-              *ngTemplateOutlet="field; context: { $implicit: editTarget('recipe', 'totalTimeMinutes', 'Total time (minutes)', d.timing.totalTimeMinutes), label: 'Total time (minutes)' }"
+              *ngTemplateOutlet="
+                field;
+                context: {
+                  $implicit: editTarget(
+                    'recipe',
+                    'totalTimeMinutes',
+                    'Total time (minutes)',
+                    d.timing.totalTimeMinutes
+                  ),
+                  label: 'Total time (minutes)',
+                }
+              "
             />
           </dl>
           <!--
@@ -221,8 +290,8 @@
           @if (linesWithoutAmount().length; as count) {
             <cp-notice tone="warning" role="status">
               {{ count === 1 ? 'One line does not say how much' : count + ' lines do not say how much' }}:
-              {{ linesWithoutAmount().join('; ') }}. Write {{ count === 1 ? 'the amount' : 'the amounts' }} in
-              below before you accept this draft — a line without one cannot be scaled or converted.
+              {{ linesWithoutAmount().join('; ') }}. Write {{ count === 1 ? 'the amount' : 'the amounts' }} in below
+              before you accept this draft — a line without one cannot be scaled or converted.
             </cp-notice>
           }
           @for (group of d.ingredientGroups; track group.changeId; let gi = $index) {
@@ -230,7 +299,9 @@
               @if (groupHeading(group, gi, d.ingredientGroups.length); as heading) {
                 <h4 class="draft-group-title">
                   {{ heading }}
-                  @if (group.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                  @if (group.isOptional) {
+                    <cp-badge tone="orange">Optional</cp-badge>
+                  }
                 </h4>
               }
 
@@ -241,9 +312,15 @@
                   @for (line of group.items; track line.changeId) {
                     <li class="draft-line">
                       <div class="draft-line-main">
-                        <span class="draft-line-text">{{ valueOf(line.changeId + ':displayText', line.displayText) }}</span>
-                        @if (line.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
-                        @if (isEdited(line.changeId + ':displayText')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                        <span class="draft-line-text">{{
+                          valueOf(line.changeId + ':displayText', line.displayText)
+                        }}</span>
+                        @if (line.isOptional) {
+                          <cp-badge tone="orange">Optional</cp-badge>
+                        }
+                        @if (isEdited(line.changeId + ':displayText')) {
+                          <cp-badge tone="blue">Your wording</cp-badge>
+                        }
                       </div>
 
                       @if (line.preparationNote) {
@@ -251,7 +328,17 @@
                       }
 
                       <ng-container
-                        *ngTemplateOutlet="editor; context: { $implicit: editTarget(line.changeId, 'displayText', ingredientLabel(line), line.displayText) }"
+                        *ngTemplateOutlet="
+                          editor;
+                          context: {
+                            $implicit: editTarget(
+                              line.changeId,
+                              'displayText',
+                              ingredientLabel(line),
+                              line.displayText
+                            ),
+                          }
+                        "
                       />
                     </li>
                   }
@@ -274,7 +361,9 @@
               @if (groupHeading(group, gi, d.instructionGroups.length); as heading) {
                 <h4 class="draft-group-title">
                   {{ heading }}
-                  @if (group.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
+                  @if (group.isOptional) {
+                    <cp-badge tone="orange">Optional</cp-badge>
+                  }
                 </h4>
               }
 
@@ -286,16 +375,23 @@
                     <li class="draft-step">
                       <div class="draft-step-main">
                         <span class="draft-step-text">{{ valueOf(step.changeId + ':text', step.text) }}</span>
-                        @if (isEdited(step.changeId + ':text')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                        @if (isEdited(step.changeId + ':text')) {
+                          <cp-badge tone="blue">Your wording</cp-badge>
+                        }
                       </div>
 
-                      @if (step.note) { <p class="draft-line-note">{{ step.note }}</p> }
+                      @if (step.note) {
+                        <p class="draft-line-note">{{ step.note }}</p>
+                      }
                       @if (step.durationMinutes) {
                         <p class="draft-line-note">About {{ step.durationMinutes }} minutes.</p>
                       }
 
                       <ng-container
-                        *ngTemplateOutlet="editor; context: { $implicit: editTarget(step.changeId, 'text', stepLabel(step, si), step.text) }"
+                        *ngTemplateOutlet="
+                          editor;
+                          context: { $implicit: editTarget(step.changeId, 'text', stepLabel(step, si), step.text) }
+                        "
                       />
                     </li>
                   }
@@ -316,13 +412,24 @@
                 <li class="draft-line">
                   <div class="draft-line-main">
                     <span class="draft-line-text">{{ valueOf(item.changeId + ':displayText', item.displayText) }}</span>
-                    @if (item.isOptional) { <cp-badge tone="orange">Optional</cp-badge> }
-                    @if (isEdited(item.changeId + ':displayText')) { <cp-badge tone="blue">Your wording</cp-badge> }
+                    @if (item.isOptional) {
+                      <cp-badge tone="orange">Optional</cp-badge>
+                    }
+                    @if (isEdited(item.changeId + ':displayText')) {
+                      <cp-badge tone="blue">Your wording</cp-badge>
+                    }
                   </div>
-                  @if (item.note) { <p class="draft-line-note">{{ item.note }}</p> }
+                  @if (item.note) {
+                    <p class="draft-line-note">{{ item.note }}</p>
+                  }
 
                   <ng-container
-                    *ngTemplateOutlet="editor; context: { $implicit: editTarget(item.changeId, 'displayText', equipmentLabel(item), item.displayText) }"
+                    *ngTemplateOutlet="
+                      editor;
+                      context: {
+                        $implicit: editTarget(item.changeId, 'displayText', equipmentLabel(item), item.displayText),
+                      }
+                    "
                   />
                 </li>
               }
@@ -406,8 +513,8 @@
         </div>
 
         <p class="draft-actions-note" id="draft-actions-note">
-          Creating the recipe adds it to your library with your rewrites, and you will be asked to confirm
-          first. Discarding clears the draft from this page and leaves it to expire — nothing is sent anywhere.
+          Creating the recipe adds it to your library with your rewrites, and you will be asked to confirm first.
+          Discarding clears the draft from this page and leaves it to expire — nothing is sent anywhere.
         </p>
       </section>
     }
@@ -452,12 +559,16 @@
   <div class="draft-field">
     <dt>
       {{ label }}
-      @if (required) { <span class="draft-field-required" aria-hidden="true">*</span> }
+      @if (required) {
+        <span class="draft-field-required" aria-hidden="true">*</span>
+      }
     </dt>
     <dd>
       @if (valueOf(target.key, target.original.length > 0 ? target.original : null); as value) {
         <span class="draft-field-value">{{ value }}</span>
-        @if (isEdited(target.key)) { <cp-badge tone="blue">Your wording</cp-badge> }
+        @if (isEdited(target.key)) {
+          <cp-badge tone="blue">Your wording</cp-badge>
+        }
       } @else {
         <span class="draft-field-absent">{{ notSupplied }}</span>
       }
@@ -489,9 +600,7 @@
       </cp-field>
 
       <div class="draft-editor-actions">
-        <button cpButton type="button" variant="primary" size="sm" (click)="applyEdit(target)">
-          Use my wording
-        </button>
+        <button cpButton type="button" variant="primary" size="sm" (click)="applyEdit(target)"> Use my wording </button>
         <button cpButton type="button" variant="text" size="sm" (click)="cancelEdit()">Cancel</button>
         @if (isEdited(target.key)) {
           <button cpButton type="button" variant="text" size="sm" (click)="revertEdit(target)">

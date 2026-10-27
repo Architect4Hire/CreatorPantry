@@ -70,7 +70,9 @@ export function readLongFormSeoPackage(proposal: AiProposalDetail): LongFormSeoP
   }
 
   const warningsFor = (change: AiProposedChange): readonly string[] =>
-    proposal.warnings.filter((warning) => warning.changeId === change.changeId).map((warning) => sentenceOf(warning.message));
+    proposal.warnings
+      .filter((warning) => warning.changeId === change.changeId)
+      .map((warning) => sentenceOf(warning.message));
 
   const bySection = new Map<string, LongFormSeoLinkIdea[]>();
 
@@ -99,7 +101,9 @@ export function readLongFormSeoPackage(proposal: AiProposalDetail): LongFormSeoP
     metaDescription: one('metaDescription'),
     keyPhrases: bySection.get('keyPhrases') ?? [],
     internalLinks: bySection.get('internalLinks') ?? [],
-    warnings: proposal.warnings.filter((warning) => warning.changeId === null).map((warning) => sentenceOf(warning.message)),
+    warnings: proposal.warnings
+      .filter((warning) => warning.changeId === null)
+      .map((warning) => sentenceOf(warning.message)),
   };
 }
 

@@ -35,18 +35,50 @@ export type CpProgressTone = 'default' | 'success' | 'warning' | 'error' | 'tool
     </div>`,
   host: { '[attr.data-tone]': 'tone()' },
   styles: [
-    `:host{display:grid;gap:.4rem}
-    .meta{display:flex;justify-content:space-between;gap:var(--cp-space-2);color:var(--cp-text-muted);font-size:var(--cp-font-size-xs)}
-    .track{height:.4rem;border-radius:var(--cp-radius-full);overflow:hidden;background:var(--cp-surface-subtle)}
-    .track span{display:block;height:100%;border-radius:inherit;background:var(--cp-progress-fill);transition:width var(--cp-duration-normal) var(--cp-ease)}
-    /* A component-local custom property, deliberately named for this component rather than sitting in the
+    `
+      :host {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--cp-space-2);
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-xs);
+      }
+      .track {
+        height: 0.4rem;
+        border-radius: var(--cp-radius-full);
+        overflow: hidden;
+        background: var(--cp-surface-subtle);
+      }
+      .track span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--cp-progress-fill);
+        transition: width var(--cp-duration-normal) var(--cp-ease);
+      }
+      /* A component-local custom property, deliberately named for this component rather than sitting in the
        shared token namespace: it is plumbing for the rules below, not a semantic intent other components
        should reach for. A missing intent belongs in both themes; this is not one. */
-    :host{--cp-progress-fill:var(--cp-primary)}
-    :host([data-tone='success']){--cp-progress-fill:var(--cp-primary)}
-    :host([data-tone='tool']){--cp-progress-fill:var(--cp-tone)}
-    :host([data-tone='warning']){--cp-progress-fill:var(--cp-orange)}
-    :host([data-tone='error']){--cp-progress-fill:var(--cp-danger)}`,
+      :host {
+        --cp-progress-fill: var(--cp-primary);
+      }
+      :host([data-tone='success']) {
+        --cp-progress-fill: var(--cp-primary);
+      }
+      :host([data-tone='tool']) {
+        --cp-progress-fill: var(--cp-tone);
+      }
+      :host([data-tone='warning']) {
+        --cp-progress-fill: var(--cp-orange);
+      }
+      :host([data-tone='error']) {
+        --cp-progress-fill: var(--cp-danger);
+      }
+    `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

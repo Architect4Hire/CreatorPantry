@@ -2,8 +2,8 @@
   <header class="adaptation-header">
     <h2 id="cp-adaptation-heading">Adapt this recipe</h2>
     <p class="adaptation-lede">
-      Choose one goal and say what it means for this recipe. A complete proposal comes back for you to review
-      — nothing changes until you accept it.
+      Choose one goal and say what it means for this recipe. A complete proposal comes back for you to review — nothing
+      changes until you accept it.
     </p>
   </header>
 
@@ -109,7 +109,11 @@
           <cp-field
             [label]="yieldMode() === 'multiplier' ? 'Multiply the yield by' : 'Target yield'"
             forId="cp-adaptation-yield-value"
-            [hint]="yieldMode() === 'multiplier' ? 'For example, 2 for double the batch.' : 'The number, in the recipe\'s own yield unit.'"
+            [hint]="
+              yieldMode() === 'multiplier'
+                ? 'For example, 2 for double the batch.'
+                : 'The number, in the recipe\'s own yield unit.'
+            "
             [error]="errorFor('TargetMultiplier')"
           >
             <input

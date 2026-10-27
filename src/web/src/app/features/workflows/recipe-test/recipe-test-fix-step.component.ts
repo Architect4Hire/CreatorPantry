@@ -41,7 +41,11 @@ const WAYS: readonly CpChoiceOption[] = [
     label: 'Sort out the problems you noted',
     hint: 'Close each one, and say which version fixed it. If the test went wrong, cook it again here once it’s fixed.',
   },
-  { value: 'change', label: 'Change the recipe', hint: 'Edit any part of it. Your saved change is a new version, ready to cook again.' },
+  {
+    value: 'change',
+    label: 'Change the recipe',
+    hint: 'Edit any part of it. Your saved change is a new version, ready to cook again.',
+  },
   {
     value: 'check',
     label: 'Check it over',
@@ -90,7 +94,11 @@ const WAYS: readonly CpChoiceOption[] = [
       @case ('ready') {
         @if (ready(); as recipe) {
           <div class="fix">
-            <cp-form-section sectionId="recipe-test-fix-way" heading="What’s needed?" intro="Nothing counts as fixed until it is.">
+            <cp-form-section
+              sectionId="recipe-test-fix-way"
+              heading="What’s needed?"
+              intro="Nothing counts as fixed until it is."
+            >
               <cp-choice-group
                 label="What’s needed?"
                 idPrefix="recipe-test-fix-"
@@ -200,9 +208,9 @@ export class RecipeTestFixStepComponent implements OnInit {
   async checkSorted(): Promise<void> {
     const readiness = await readRunReadiness(this.readiness, this.workspaceSlug(), this.run());
     this.sorted.set(
-      readiness !== null
-        && readinessRuleMet(readiness, 'recipe.testing.lastOutcomeFailed')
-        && readinessRuleMet(readiness, 'recipe.testing.blockingIssueOutstanding'),
+      readiness !== null &&
+        readinessRuleMet(readiness, 'recipe.testing.lastOutcomeFailed') &&
+        readinessRuleMet(readiness, 'recipe.testing.blockingIssueOutstanding'),
     );
   }
 

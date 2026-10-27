@@ -39,7 +39,9 @@ describe('decodeRecipeExportSummary', () => {
 
   it('rejects a reason that contradicts the verdict, in either direction', () => {
     expect(decodeRecipeExportSummary(payload({ exportable: false, notExportableReason: null }))).toBeNull();
-    expect(decodeRecipeExportSummary(payload({ exportable: true, notExportableReason: 'recipe_export_not_approved' }))).toBeNull();
+    expect(
+      decodeRecipeExportSummary(payload({ exportable: true, notExportableReason: 'recipe_export_not_approved' })),
+    ).toBeNull();
   });
 
   it('rejects anything that could be misread as exportable or current', () => {

@@ -161,11 +161,7 @@ class StubTestRunService {
     return Promise.resolve(this.getOutcome);
   }
 
-  createTestRun(
-    _slug: string,
-    _recipeId: string,
-    request: CreateRecipeTestRunRequest,
-  ): Promise<CreateTestRunOutcome> {
+  createTestRun(_slug: string, _recipeId: string, request: CreateRecipeTestRunRequest): Promise<CreateTestRunOutcome> {
     this.createCalls.push(request);
     return Promise.resolve(this.createOutcome);
   }

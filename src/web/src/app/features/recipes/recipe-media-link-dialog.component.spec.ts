@@ -52,7 +52,9 @@ describe('RecipeMediaLinkDialogComponent', () => {
   let searchSpy: jasmine.Spy<(slug: string, query: DamAssetSearchQuery) => Observable<DamAssetSearchOutcome>>;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<
+    (slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>
+  >;
   let linkSpy: jasmine.Spy<
     (slug: string, recipeId: string, request: LinkRecipeAssetRequest, key: string) => Promise<LinkRecipeAssetOutcome>
   >;
@@ -110,9 +112,13 @@ describe('RecipeMediaLinkDialogComponent', () => {
 
   beforeEach(async () => {
     searchSpy = jasmine.createSpy('search').and.callFake(() => found());
-    detailSpy = jasmine.createSpy('detail').and.callFake(() => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({}, 3) }));
+    detailSpy = jasmine
+      .createSpy('detail')
+      .and.callFake(() => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({}, 3) }));
     contentSpy = jasmine.createSpy('content').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
-    versionContentSpy = jasmine.createSpy('versionContent').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
+    versionContentSpy = jasmine
+      .createSpy('versionContent')
+      .and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
     linkSpy = jasmine.createSpy('link').and.resolveTo({ status: 'linked', recipe: mediaRecipe(), replayed: false });
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(true);
 
@@ -154,7 +160,9 @@ describe('RecipeMediaLinkDialogComponent', () => {
     });
 
     it('offers nothing that would change the library', () => {
-      const labels = Array.from(root().querySelectorAll('button, a')).map((each) => (each.textContent ?? '').trim().toLowerCase());
+      const labels = Array.from(root().querySelectorAll('button, a')).map((each) =>
+        (each.textContent ?? '').trim().toLowerCase(),
+      );
 
       expect(labels.some((label) => /upload|edit|delete|remove/.test(label))).toBeFalse();
       expect(root().querySelector('input[type="file"]')).toBeNull();
@@ -210,7 +218,9 @@ describe('RecipeMediaLinkDialogComponent', () => {
 
     it('loads more with the cursor, appends, and keeps what is shown when a further page fails', async () => {
       searchSpy.and.callFake((_slug, query) =>
-        query.cursor === null ? found([assetSummary()], 'c2', 3) : found([assetSummary({ id: 'a2', title: 'Crumb close-up' })], 'c3', null),
+        query.cursor === null
+          ? found([assetSummary()], 'c2', 3)
+          : found([assetSummary({ id: 'a2', title: 'Crumb close-up' })], 'c3', null),
       );
       host.open.set(false);
       await settle();
@@ -569,7 +579,8 @@ describe('RecipeMediaLinkDialogComponent', () => {
   describe('accessibility', () => {
     it('is a labelled modal dialog whose title names the step it is on', async () => {
       const dialog = root().querySelector('[role="dialog"]')!;
-      const title = (): string => root().querySelector(`[id="${dialog.getAttribute('aria-labelledby')}"]`)?.textContent ?? '';
+      const title = (): string =>
+        root().querySelector(`[id="${dialog.getAttribute('aria-labelledby')}"]`)?.textContent ?? '';
 
       expect(dialog.getAttribute('aria-modal')).toBe('true');
       expect(title()).toBe('Add a picture from the library');
@@ -593,7 +604,9 @@ describe('RecipeMediaLinkDialogComponent', () => {
     });
 
     it('closes on Escape', async () => {
-      root().querySelector('cp-dialog')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      root()
+        .querySelector('cp-dialog')!
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       await settle();
 
       expect(host.closes).toBe(1);

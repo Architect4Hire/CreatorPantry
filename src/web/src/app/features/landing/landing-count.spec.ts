@@ -10,7 +10,12 @@ function fakeView(reducedMotion: boolean) {
     performance: { now: () => now },
   } as unknown as Window;
 
-  return { view, frames, tick: (ms: number) => (now += ms), run: () => frames.splice(0).forEach((frame) => frame(now)) };
+  return {
+    view,
+    frames,
+    tick: (ms: number) => (now += ms),
+    run: () => frames.splice(0).forEach((frame) => frame(now)),
+  };
 }
 
 describe('LandingCount', () => {

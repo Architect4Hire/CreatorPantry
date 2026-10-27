@@ -70,10 +70,7 @@ export function promptOriginOf(
  * No proposal, no draft and no template: a prompt the creator typed has none of the three, and the server
  * refuses one that claims any of them.
  */
-export function manualPromptFor(
-  prompt: ContentPipelinePromptState,
-  channelKey: string | null,
-): PromptLineageOutcome {
+export function manualPromptFor(prompt: ContentPipelinePromptState, channelKey: string | null): PromptLineageOutcome {
   const text = prompt.finalPrompt.trim();
   if (text === '') return { status: 'refused', reason: 'no_prompt' };
   if (channelKey === null || channelKey.trim() === '') return { status: 'refused', reason: 'no_channel' };

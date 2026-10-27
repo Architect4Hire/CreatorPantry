@@ -120,12 +120,7 @@ const DIETARY_COMPATIBILITIES: ReadonlySet<string> = new Set<DietaryCompatibilit
  * active source may state that something is absent (B-36).
  */
 export type ReferenceSourceKind =
-  | 'OfficialDatabase'
-  | 'Publisher'
-  | 'Manufacturer'
-  | 'LabMeasured'
-  | 'CommunityContributed'
-  | 'AiEstimated';
+  'OfficialDatabase' | 'Publisher' | 'Manufacturer' | 'LabMeasured' | 'CommunityContributed' | 'AiEstimated';
 
 const REFERENCE_SOURCE_KINDS: ReadonlySet<string> = new Set<ReferenceSourceKind>([
   'OfficialDatabase',

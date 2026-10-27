@@ -1,7 +1,4 @@
-import {
-  decodeRecipeYieldReconciliationResult,
-  encodeRecalculateYieldRequest,
-} from './recipe-yield.models';
+import { decodeRecipeYieldReconciliationResult, encodeRecalculateYieldRequest } from './recipe-yield.models';
 
 function payload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -33,9 +30,7 @@ describe('recipe-yield.models', () => {
     });
 
     it('decodes a solved preview and which field it computed', () => {
-      const decoded = decodeRecipeYieldReconciliationResult(
-        payload({ status: 'Solved', solvedField: 'BatchYield' }),
-      );
+      const decoded = decodeRecipeYieldReconciliationResult(payload({ status: 'Solved', solvedField: 'BatchYield' }));
 
       expect(decoded?.preview.status).toBe('Solved');
       expect(decoded?.preview.solvedField).toBe('BatchYield');
@@ -43,9 +38,7 @@ describe('recipe-yield.models', () => {
 
     // Neither of these is a failed request: both are conclusions about the recipe's own figures.
     it('decodes a contradictory preview with all three values intact', () => {
-      const decoded = decodeRecipeYieldReconciliationResult(
-        payload({ status: 'Contradictory', batchYield: 99 }),
-      );
+      const decoded = decodeRecipeYieldReconciliationResult(payload({ status: 'Contradictory', batchYield: 99 }));
 
       expect(decoded?.preview.status).toBe('Contradictory');
       expect(decoded?.preview.batchYield).toBe(99);
@@ -67,8 +60,7 @@ describe('recipe-yield.models', () => {
       expect(decodeRecipeYieldReconciliationResult(payload())?.preview.panComparable).toBeNull();
 
       expect(
-        decodeRecipeYieldReconciliationResult(payload({ panVolume: 9, panComparable: false }))?.preview
-          .panComparable,
+        decodeRecipeYieldReconciliationResult(payload({ panVolume: 9, panComparable: false }))?.preview.panComparable,
       ).toBeFalse();
 
       const compared = decodeRecipeYieldReconciliationResult(
@@ -88,9 +80,7 @@ describe('recipe-yield.models', () => {
 
     // A present-but-unreadable ratio is not the same as no ratio at all.
     it('refuses a fill ratio that is present but unreadable', () => {
-      expect(
-        decodeRecipeYieldReconciliationResult(payload({ panComparable: true, panFillRatio: 1.33 })),
-      ).toBeNull();
+      expect(decodeRecipeYieldReconciliationResult(payload({ panComparable: true, panFillRatio: 1.33 }))).toBeNull();
     });
 
     it('refuses a pan-comparable flag that is not a boolean', () => {

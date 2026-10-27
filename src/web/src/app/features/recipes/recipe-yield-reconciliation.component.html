@@ -9,8 +9,7 @@
   <ul class="assumptions" role="list">
     <li>{{ unitAssumption() }}</li>
     <li>
-      Only what you type here is used. The recipe's own yield quantity is never filled in or assumed on your
-      behalf.
+      Only what you type here is used. The recipe's own yield quantity is never filled in or assumed on your behalf.
     </li>
   </ul>
 
@@ -130,7 +129,6 @@
     <p class="calculation-problem" role="alert">{{ problem }}</p>
   }
 
-
   <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
        region that appears already holding its content is not reliably announced. -->
   <p class="calculation-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
@@ -154,8 +152,8 @@
               } @else {
                 <span class="cp-sr-only">No value</span>
                 <span aria-hidden="true">—</span>
-              }
-            </span>&ngsp;
+              }</span
+            >&ngsp;
             <!-- Which number the creator gave and which one the server worked out, in words rather than by
                  styling one of the rows differently. `&ngsp;` above keeps a real space between the two, so
                  the value and its provenance are not announced as one run-together word. -->
@@ -191,14 +189,14 @@
           <p class="result-caution">
             <span class="caution-glyph" aria-hidden="true">⚠</span>
             <span>
-              This is how the batch compares to the vessel, not whether it fits. CreatorPantry does not know
-              your pan's shape or how full it should be.
+              This is how the batch compares to the vessel, not whether it fits. CreatorPantry does not know your pan's
+              shape or how full it should be.
             </span>
           </p>
         } @else {
           <p class="result-explanation">
-            A capacity of {{ reconciliation.preview.panVolume }} was given, but it could not be compared. That
-            needs the recipe's yield to be a volume and a batch yield to be known.
+            A capacity of {{ reconciliation.preview.panVolume }} was given, but it could not be compared. That needs the
+            recipe's yield to be a volume and a batch yield to be known.
           </p>
         }
       }
@@ -214,8 +212,8 @@
           <dl class="apply-diff">
             <dt>Recipe yield quantity</dt>
             <dd>
-              <span class="apply-before">{{ diff.before }}</span>&ngsp;
-              <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
+              <span class="apply-before">{{ diff.before }}</span
+              >&ngsp; <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
               <span class="cp-sr-only">becomes</span>&ngsp;
               <span class="apply-after">{{ diff.after }}</span>
             </dd>

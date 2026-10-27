@@ -23,7 +23,16 @@ describe('MyWeekComponent', () => {
   function membership(role: 'Owner' | 'Viewer'): MyMembershipsState {
     return {
       status: 'ready',
-      memberships: [{ workspaceId: 'w-1', workspaceSlug: SLUG, workspaceName: "Sam's Kitchen", membershipId: 'm-1', role, status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w-1',
+          workspaceSlug: SLUG,
+          workspaceName: "Sam's Kitchen",
+          membershipId: 'm-1',
+          role,
+          status: 'Active',
+        },
+      ],
     } as MyMembershipsState;
   }
 
@@ -59,10 +68,15 @@ describe('MyWeekComponent', () => {
 
   const found = (shown = fullWeek()): WeekOutcome => ({ status: 'found', week: shown });
   const root = () => harness.routeNativeElement as HTMLElement;
-  const columnHeadings = () => [...root().querySelectorAll('cp-board-column h3')].map((h) => h.textContent!.replace(/\s+/g, ' ').trim());
+  const columnHeadings = () =>
+    [...root().querySelectorAll('cp-board-column h3')].map((h) => h.textContent!.replace(/\s+/g, ' ').trim());
   const text = () => root().textContent!.replace(/\s+/g, ' ');
-  const chip = (label: string) => [...root().querySelectorAll<HTMLButtonElement>('button[cpChip]')].find((b) => b.textContent!.trim() === label)!;
-  const link = (label: string) => [...root().querySelectorAll<HTMLAnchorElement>('a')].find((a) => a.textContent!.replace(/[‹›]/g, '').trim() === label);
+  const chip = (label: string) =>
+    [...root().querySelectorAll<HTMLButtonElement>('button[cpChip]')].find((b) => b.textContent!.trim() === label)!;
+  const link = (label: string) =>
+    [...root().querySelectorAll<HTMLAnchorElement>('a')].find(
+      (a) => a.textContent!.replace(/[‹›]/g, '').trim() === label,
+    );
   const query = () => TestBed.inject(Router).routerState.snapshot.root.queryParams;
 
   async function navigate(url: string): Promise<void> {
@@ -146,7 +160,9 @@ describe('MyWeekComponent', () => {
 
     // The shell's own skeleton is replaced, and "Loading…" is said by the shell alone.
     expect(root().querySelectorAll('cp-list-shell cp-skeleton').length).toBe(2 + 7 + 3);
-    const statuses = [...root().querySelectorAll('cp-list-shell [role="status"]')].filter((each) => each.textContent?.includes('Loading'));
+    const statuses = [...root().querySelectorAll('cp-list-shell [role="status"]')].filter((each) =>
+      each.textContent?.includes('Loading'),
+    );
     expect(statuses.length).toBe(1);
     expect(root().querySelector('li[data-task-id]')).toBeNull();
   });
@@ -249,7 +265,9 @@ describe('MyWeekComponent', () => {
   it('filters the loaded cards from the address and says how many of each list it shows', async () => {
     await mount(`/${SLUG}/my-week?q=galette`, found());
 
-    expect([...root().querySelectorAll('li[data-task-id]')].map((row) => row.getAttribute('data-task-id'))).toEqual(['thu-2']);
+    expect([...root().querySelectorAll('li[data-task-id]')].map((row) => row.getAttribute('data-task-id'))).toEqual([
+      'thu-2',
+    ]);
     expect(text()).toContain('1 of 2 shown');
     expect(root().querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('galette');
   });
@@ -262,7 +280,9 @@ describe('MyWeekComponent', () => {
     expect(query()['priority']).toBe('high');
     expect(chip('High priority').getAttribute('aria-pressed')).toBe('true');
 
-    [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === 'Clear filters')!.click();
+    [...root().querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent!.trim() === 'Clear filters')!
+      .click();
     await settle();
     expect(query()['priority']).toBeUndefined();
     expect(query()['label']).toBeUndefined();
@@ -290,7 +310,9 @@ describe('MyWeekComponent', () => {
   it('puts focus in the search box after Clear filters, whose button goes with them', async () => {
     await mount(`/${SLUG}/my-week?priority=high`, found());
 
-    [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === 'Clear filters')!.click();
+    [...root().querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent!.trim() === 'Clear filters')!
+      .click();
     await settle();
 
     expect(document.activeElement).toBe(root().querySelector('input[type="search"]'));
@@ -342,7 +364,9 @@ describe('MyWeekComponent', () => {
     await mount(`/${SLUG}/my-week`, { status: 'unavailable', offline: false }, found());
 
     expect(root().querySelector('cp-list-shell [role="alert"]')!.textContent).toContain('couldn’t be read');
-    [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === 'Try again')!.click();
+    [...root().querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent!.trim() === 'Try again')!
+      .click();
     await settle();
 
     expect(root().querySelectorAll('li[data-task-id]').length).toBe(9);
@@ -375,7 +399,8 @@ describe('MyWeekComponent', () => {
   it('captures into this week by default, into the week on screen otherwise, and reads the week again after', async () => {
     await mount(`/${SLUG}/my-week`, found(), found(week({ weekStart: '2038-10-18', isCurrentWeek: false })));
     const open = spyOn(captures, 'open');
-    const add = () => [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === '+ Add a task')!;
+    const add = () =>
+      [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === '+ Add a task')!;
 
     add().click();
     expect(open).toHaveBeenCalledWith({});

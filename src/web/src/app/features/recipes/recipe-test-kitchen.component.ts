@@ -24,11 +24,7 @@ import { roleAllows } from '../../models/recipe-readiness.models';
 import { RecipeTestRun, TestRunSummary } from '../../models/recipe-test-run.models';
 import { RecipeTestRunService } from '../../services/recipe-test-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
-import {
-  RecipeTestHistoryComponent,
-  TEST_OUTCOME_LABELS,
-  TEST_OUTCOME_TONES,
-} from './recipe-test-history.component';
+import { RecipeTestHistoryComponent, TEST_OUTCOME_LABELS, TEST_OUTCOME_TONES } from './recipe-test-history.component';
 import { RecipeTestIssuesComponent } from './recipe-test-issues.component';
 import { RecipeTestRunFormComponent, TestRunSaved } from './recipe-test-run-form.component';
 
@@ -133,7 +129,6 @@ export class RecipeTestKitchenComponent {
   /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
   readonly headingLevel = input<2 | 3>(2);
 
-
   readonly outcomeLabels = TEST_OUTCOME_LABELS;
   readonly outcomeTones = TEST_OUTCOME_TONES;
 
@@ -220,8 +215,7 @@ export class RecipeTestKitchenComponent {
 
   /** Whether the form is the right surface for what is open: a writer, and a test that is actually in hand. */
   readonly showForm = computed(
-    () => this.canWrite() && this.versionForForm() !== null
-      && (this.openSummary() === null || this.openRun() !== null),
+    () => this.canWrite() && this.versionForForm() !== null && (this.openSummary() === null || this.openRun() !== null),
   );
 
   // -------------------------------------------------------------------------
@@ -306,7 +300,10 @@ export class RecipeTestKitchenComponent {
     // the whole reason the read route exists. A failed read is not a failed save: the notice above already
     // said the test is recorded, so this only leaves the panel unopened.
     const outcome = await this.testRunService.getTestRun(
-      this.workspaceSlug(), this.recipeId(), saved.testRun.testRunId);
+      this.workspaceSlug(),
+      this.recipeId(),
+      saved.testRun.testRunId,
+    );
 
     if (outcome.status === 'found') {
       this.openRunSignal.set(outcome.testRun);

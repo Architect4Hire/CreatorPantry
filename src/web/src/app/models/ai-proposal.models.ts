@@ -40,14 +40,7 @@ function decodeArray<T>(value: unknown, decode: (element: unknown) => T | null):
 
 /** Mirrors AiOperationStatus. Five of the eight are terminal; see {@link isTerminalAiStatus}. */
 export type AiOperationStatus =
-  | 'Requested'
-  | 'Running'
-  | 'Proposed'
-  | 'Accepted'
-  | 'PartiallyAccepted'
-  | 'Rejected'
-  | 'Failed'
-  | 'Expired';
+  'Requested' | 'Running' | 'Proposed' | 'Accepted' | 'PartiallyAccepted' | 'Rejected' | 'Failed' | 'Expired';
 
 /** Exported for the same reason `AI_TASK_TYPE_VALUES` is: a second mirror of one enum is one that drifts. */
 export const AI_OPERATION_STATUS_VALUES: ReadonlySet<string> = new Set<AiOperationStatus>([
@@ -460,9 +453,7 @@ export interface AiProposalDispositionRequest {
  * Omits `wasHelpful` and `comment` when there is nothing to say, and trims the comment, so a creator who
  * tabbed through the box without typing does not store a blank string as their opinion.
  */
-export function encodeAiProposalDispositionRequest(
-  request: AiProposalDispositionRequest,
-): Record<string, unknown> {
+export function encodeAiProposalDispositionRequest(request: AiProposalDispositionRequest): Record<string, unknown> {
   const comment = (request.comment ?? '').trim();
   const body: Record<string, unknown> = {
     decision: request.decision,
@@ -739,13 +730,13 @@ export function decodeAiOpenProposals(value: unknown): readonly AiOpenProposal[]
     const taskType = decodeEnum<AiTaskType>(AI_TASK_TYPE_VALUES, item['taskType']);
     const status = decodeEnum<AiOperationStatus>(AI_OPERATION_STATUS_VALUES, item['status']);
     if (
-      typeof item['requestId'] !== 'string'
-      || taskType === null
-      || status === null
-      || typeof item['requestedAt'] !== 'string'
-      || typeof item['pendingChangeCount'] !== 'number'
-      || typeof item['hasSafetyCaution'] !== 'boolean'
-      || typeof item['isStale'] !== 'boolean'
+      typeof item['requestId'] !== 'string' ||
+      taskType === null ||
+      status === null ||
+      typeof item['requestedAt'] !== 'string' ||
+      typeof item['pendingChangeCount'] !== 'number' ||
+      typeof item['hasSafetyCaution'] !== 'boolean' ||
+      typeof item['isStale'] !== 'boolean'
     ) {
       return null;
     }

@@ -1,5 +1,15 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -14,7 +24,11 @@ import { ConfirmService } from '../../core/confirm.service';
 import { PublishingProfile, PublishingProfiles, PublishingRecord } from '../../models/publishing.models';
 import { PublishingService } from '../../services/publishing.service';
 import { IdempotencyKey } from '../content-pipeline/content-pipeline-idempotency';
-import { PUBLISHING_CONNECTION_NOTES, channelKeyForPlatform, profileUnavailableReason } from './publishing-presentation';
+import {
+  PUBLISHING_CONNECTION_NOTES,
+  channelKeyForPlatform,
+  profileUnavailableReason,
+} from './publishing-presentation';
 import { zonedToInstant } from './publishing-time';
 
 /** What the server holds a post to, so a field stops where the route would (`PublishingLedgerPolicy`). */
@@ -102,115 +116,115 @@ const PROBLEMS = {
     }
 
     <ng-template #body>
-    <form id="content-card-schedule-form" class="form" novalidate (submit)="onSubmit($event)">
-      @if (!inline()) {
-        <p class="cp-muted legend">Everything here is needed.</p>
-      }
+      <form id="content-card-schedule-form" class="form" novalidate (submit)="onSubmit($event)">
+        @if (!inline()) {
+          <p class="cp-muted legend">Everything here is needed.</p>
+        }
 
-      @if (problem(); as sentence) {
-        <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
-      }
+        @if (problem(); as sentence) {
+          <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
+        }
 
-      @if (connectionNote(); as note) {
-        <cp-notice tone="warning" role="status">{{ note }}</cp-notice>
-      }
+        @if (connectionNote(); as note) {
+          <cp-notice tone="warning" role="status">{{ note }}</cp-notice>
+        }
 
-      @if (hasPicture()) {
-        <cp-notice tone="warning" role="status">
-          This card has a picture, and a picture cannot be published through the provider yet. Only the text below will
-          be scheduled — add the picture at the provider if you need it.
-        </cp-notice>
-      }
+        @if (hasPicture()) {
+          <cp-notice tone="warning" role="status">
+            This card has a picture, and a picture cannot be published through the provider yet. Only the text below
+            will be scheduled — add the picture at the provider if you need it.
+          </cp-notice>
+        }
 
-      <cp-field
-        label="Publish to"
-        forId="content-card-schedule-profile"
-        [required]="true"
-        [error]="errorFor('publishingProfileId')"
-      >
-        <select
-          id="content-card-schedule-profile"
-          name="profile"
-          [disabled]="saving() || selectable().length === 0"
-          [ngModel]="profileId()"
-          (ngModelChange)="profileId.set($event)"
+        <cp-field
+          label="Publish to"
+          forId="content-card-schedule-profile"
+          [required]="true"
+          [error]="errorFor('publishingProfileId')"
         >
-          <option value="">Choose a profile…</option>
-          @for (profile of selectable(); track profile.id) {
-            <option [value]="profile.id">{{ profile.displayName }} · {{ profile.platform }}</option>
-          }
-        </select>
-      </cp-field>
+          <select
+            id="content-card-schedule-profile"
+            name="profile"
+            [disabled]="saving() || selectable().length === 0"
+            [ngModel]="profileId()"
+            (ngModelChange)="profileId.set($event)"
+          >
+            <option value="">Choose a profile…</option>
+            @for (profile of selectable(); track profile.id) {
+              <option [value]="profile.id">{{ profile.displayName }} · {{ profile.platform }}</option>
+            }
+          </select>
+        </cp-field>
 
-      @if (unselectable().length > 0) {
-        <ul class="unselectable cp-muted">
-          @for (profile of unselectable(); track profile.id) {
-            <li>{{ profile.displayName }} · {{ profile.platform }} — {{ profile.reason }}</li>
-          }
-        </ul>
-      }
+        @if (unselectable().length > 0) {
+          <ul class="unselectable cp-muted">
+            @for (profile of unselectable(); track profile.id) {
+              <li>{{ profile.displayName }} · {{ profile.platform }} — {{ profile.reason }}</li>
+            }
+          </ul>
+        }
 
-      <cp-field
-        label="Post"
-        forId="content-card-schedule-text"
-        [required]="true"
-        [hint]="textHint()"
-        [error]="errorFor('text')"
-      >
-        <textarea
-          id="content-card-schedule-text"
-          name="text"
-          rows="6"
-          [attr.maxlength]="TEXT_MAX"
+        <cp-field
+          label="Post"
+          forId="content-card-schedule-text"
+          [required]="true"
+          [hint]="textHint()"
+          [error]="errorFor('text')"
+        >
+          <textarea
+            id="content-card-schedule-text"
+            name="text"
+            rows="6"
+            [attr.maxlength]="TEXT_MAX"
+            [disabled]="saving()"
+            [ngModel]="text()"
+            (ngModelChange)="text.set($event)"
+          ></textarea>
+        </cp-field>
+
+        <cp-field
+          label="Date"
+          forId="content-card-schedule-date"
+          [required]="true"
+          [hint]="zoneHint()"
+          [error]="errorFor('scheduledAt')"
+        >
+          <input
+            id="content-card-schedule-date"
+            name="date"
+            type="date"
+            [disabled]="saving()"
+            [ngModel]="date()"
+            (ngModelChange)="date.set($event)"
+          />
+        </cp-field>
+
+        <cp-field label="Time" forId="content-card-schedule-time" [required]="true" [error]="''">
+          <input
+            id="content-card-schedule-time"
+            name="time"
+            type="time"
+            [disabled]="saving()"
+            [ngModel]="time()"
+            (ngModelChange)="time.set($event)"
+          />
+        </cp-field>
+
+        <cp-checkbox
+          label="I confirm this should be published"
           [disabled]="saving()"
-          [ngModel]="text()"
-          (ngModelChange)="text.set($event)"
-        ></textarea>
-      </cp-field>
-
-      <cp-field
-        label="Date"
-        forId="content-card-schedule-date"
-        [required]="true"
-        [hint]="zoneHint()"
-        [error]="errorFor('scheduledAt')"
-      >
-        <input
-          id="content-card-schedule-date"
-          name="date"
-          type="date"
-          [disabled]="saving()"
-          [ngModel]="date()"
-          (ngModelChange)="date.set($event)"
+          [checked]="confirmed()"
+          (checkedChange)="confirmed.set($event)"
         />
-      </cp-field>
-
-      <cp-field label="Time" forId="content-card-schedule-time" [required]="true" [error]="''">
-        <input
-          id="content-card-schedule-time"
-          name="time"
-          type="time"
-          [disabled]="saving()"
-          [ngModel]="time()"
-          (ngModelChange)="time.set($event)"
-        />
-      </cp-field>
-
-      <cp-checkbox
-        label="I confirm this should be published"
-        [disabled]="saving()"
-        [checked]="confirmed()"
-        (checkedChange)="confirmed.set($event)"
-      />
-      @if (inline()) {
-        <div class="cp-actions inline-actions">
-          <span class="cp-muted state" role="status">{{ stateText() }}</span>
-          <button cpButton type="submit" variant="primary" [disabled]="saving() || !canSubmit()">
-            {{ saving() ? 'Scheduling…' : 'Schedule' }}
-          </button>
-        </div>
-      }
-    </form>
+        @if (inline()) {
+          <div class="cp-actions inline-actions">
+            <span class="cp-muted state" role="status">{{ stateText() }}</span>
+            <button cpButton type="submit" variant="primary" [disabled]="saving() || !canSubmit()">
+              {{ saving() ? 'Scheduling…' : 'Schedule' }}
+            </button>
+          </div>
+        }
+      </form>
     </ng-template>`,
   styles: [
     `

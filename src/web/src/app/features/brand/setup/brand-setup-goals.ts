@@ -79,8 +79,13 @@ function text(value: unknown, max: number): string {
 /** Reads a saved slice defensively: anything unknown or malformed falls back to the default for that field. */
 export function decodeGoals(slice: Readonly<Record<string, unknown>> | null): GoalsAnswers {
   if (slice === null) return DEFAULT_ANSWERS;
-  const audience = AUDIENCE_OPTIONS.some((o) => o.key === slice['audience']) ? (slice['audience'] as string) : DEFAULT_AUDIENCE;
-  const channels = 'channels' in slice && Array.isArray(slice['channels']) ? pickKnown(slice['channels'], CHANNEL_OPTIONS) : DEFAULT_CHANNELS;
+  const audience = AUDIENCE_OPTIONS.some((o) => o.key === slice['audience'])
+    ? (slice['audience'] as string)
+    : DEFAULT_AUDIENCE;
+  const channels =
+    'channels' in slice && Array.isArray(slice['channels'])
+      ? pickKnown(slice['channels'], CHANNEL_OPTIONS)
+      : DEFAULT_CHANNELS;
   return {
     purposes: pickKnown(slice['purposes'], PURPOSE_OPTIONS),
     audience,

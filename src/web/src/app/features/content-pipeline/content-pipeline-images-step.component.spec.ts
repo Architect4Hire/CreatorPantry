@@ -209,9 +209,8 @@ function text(): string {
 
 function buttonWith(label: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find(
-      (button) => (button.textContent ?? '').trim() === label,
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim() === label) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -227,9 +226,8 @@ function keepBox(id: string): HTMLInputElement {
 
 function labelled(selector: string, name: string): HTMLElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLElement>(selector)).find(
-      (node) => node.getAttribute('aria-label') === name,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLElement>(selector)).find((node) => node.getAttribute('aria-label') === name) ??
+    null
   );
 }
 
@@ -618,7 +616,9 @@ describe('ContentPipelineImagesStepComponent', () => {
 
       expect(rejected).toEqual(['cozy-fall|img-1']);
       expect(text()).toContain('Declined.');
-      expect(watches.length).withContext('asked again').toBe(before + 1);
+      expect(watches.length)
+        .withContext('asked again')
+        .toBe(before + 1);
     });
 
     it('takes the mark off a picture it declines, so nothing carries into the next step', async () => {
@@ -689,7 +689,9 @@ describe('ContentPipelineImagesStepComponent', () => {
 
       expect(text()).toContain('One picture was declined.');
       expect(text()).toContain('had already gone');
-      expect(text().match(/had already gone/g)?.length).withContext('said once').toBe(1);
+      expect(text().match(/had already gone/g)?.length)
+        .withContext('said once')
+        .toBe(1);
     });
 
     it('declines in the workspace on screen and names no other', async () => {

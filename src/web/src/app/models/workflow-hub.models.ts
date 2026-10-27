@@ -77,14 +77,14 @@ function decodeNeed(value: unknown): WorkflowStartNeed | null {
 
 function decodeDefinition(value: unknown): WorkflowDefinitionSummary | null {
   if (
-    !isRecord(value)
-    || !isString(value['key'])
-    || !isString(value['goal'])
-    || !isString(value['description'])
-    || !isString(value['expectedOutcome'])
-    || typeof value['available'] !== 'boolean'
-    || typeof value['canStart'] !== 'boolean'
-    || !Array.isArray(value['waitingFor'])
+    !isRecord(value) ||
+    !isString(value['key']) ||
+    !isString(value['goal']) ||
+    !isString(value['description']) ||
+    !isString(value['expectedOutcome']) ||
+    typeof value['available'] !== 'boolean' ||
+    typeof value['canStart'] !== 'boolean' ||
+    !Array.isArray(value['waitingFor'])
   ) {
     return null;
   }
@@ -113,7 +113,10 @@ export function decodeWorkflowDefinitions(value: unknown): readonly WorkflowDefi
 
 function decodeMember(value: unknown): WorkflowRunMember | null {
   if (!isRecord(value) || !isString(value['membershipId'])) return null;
-  return { membershipId: value['membershipId'], displayName: isString(value['displayName']) ? value['displayName'] : null };
+  return {
+    membershipId: value['membershipId'],
+    displayName: isString(value['displayName']) ? value['displayName'] : null,
+  };
 }
 
 function titleOf(value: unknown, key: string): string | null {
@@ -127,17 +130,17 @@ function decodeSummary(value: unknown): WorkflowRunSummary | null {
   const reasons = value['attentionReasons'];
 
   if (
-    !isString(value['id'])
-    || !isString(value['title'])
-    || status === null
-    || !isString(value['definitionKey'])
-    || !isString(value['goal'])
-    || owner === null
-    || !isCount(value['stepCount'])
-    || !isCount(value['completedStepCount'])
-    || !isCount(value['skippedStepCount'])
-    || !isString(value['updatedAt'])
-    || (reasons !== undefined && !(Array.isArray(reasons) && reasons.every(isString)))
+    !isString(value['id']) ||
+    !isString(value['title']) ||
+    status === null ||
+    !isString(value['definitionKey']) ||
+    !isString(value['goal']) ||
+    owner === null ||
+    !isCount(value['stepCount']) ||
+    !isCount(value['completedStepCount']) ||
+    !isCount(value['skippedStepCount']) ||
+    !isString(value['updatedAt']) ||
+    (reasons !== undefined && !(Array.isArray(reasons) && reasons.every(isString)))
   ) {
     return null;
   }

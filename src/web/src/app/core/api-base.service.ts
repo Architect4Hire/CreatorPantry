@@ -3,8 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { RuntimeConfigService } from './runtime-config.service';
 
 export type ApiBaseResolution =
-  | { readonly status: 'ready'; readonly baseUrl: string }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'ready'; readonly baseUrl: string } | { readonly status: 'unavailable' };
 
 /**
  * The sanctioned indirection over `RuntimeConfigService`. Typed API services (auth, workspace, etc.)

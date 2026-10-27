@@ -82,9 +82,7 @@ function readiness(overrides: Partial<RecipeReadiness> = {}): RecipeReadiness {
         status: 'Blocker',
         summary: 'Two ingredient lines have not been matched.',
         detail: 'Match them so scaling can work on them.',
-        evidence: [
-          { kind: 'RecipeIngredientLine', recordId: 'l1', fieldName: 'ingredientId', label: '1 glug of oil' },
-        ],
+        evidence: [{ kind: 'RecipeIngredientLine', recordId: 'l1', fieldName: 'ingredientId', label: '1 glug of oil' }],
       }),
       finding({
         ruleId: 'recipe.media.hero',
@@ -660,9 +658,7 @@ describe('RecipeReadinessComponent', () => {
     expect(back[0].textContent).toContain('Two ingredient lines have not been matched.');
 
     (back[0] as HTMLButtonElement).click();
-    expect(document.activeElement?.id).toBe(
-      fixture.componentInstance.findingElementId('recipe.ingredients.unmatched'),
-    );
+    expect(document.activeElement?.id).toBe(fixture.componentInstance.findingElementId('recipe.ingredients.unmatched'));
   });
 
   /** Clearing the blockers is the remedy, so pressing Approve again cannot help. */

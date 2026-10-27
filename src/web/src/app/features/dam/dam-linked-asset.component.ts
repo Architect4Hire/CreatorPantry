@@ -63,7 +63,9 @@ type LinkedAssetState =
       @switch (current.status) {
         @case ('found') {
           @if (current.status === 'found') {
-            <p class="title"><a [routerLink]="assetLink()">{{ current.asset.title }}</a></p>
+            <p class="title"
+              ><a [routerLink]="assetLink()">{{ current.asset.title }}</a></p
+            >
           }
         }
         @case ('gone') {

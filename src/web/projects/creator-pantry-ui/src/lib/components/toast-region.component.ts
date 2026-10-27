@@ -20,11 +20,95 @@ interface CpToastTimerState {
 }
 
 @Component({
-  selector: 'cp-toast-region', standalone: true,
+  selector: 'cp-toast-region',
+  standalone: true,
   imports: [CpButtonComponent],
-  template: `<div class="region polite" role="status" aria-live="polite" aria-atomic="false">@for(toast of politeToasts(); track toast.id){<div class="toast" [attr.data-severity]="toast.severity" (mouseenter)="pause(toast.id)" (mouseleave)="resume(toast.id)" (focusin)="pause(toast.id)" (focusout)="resume(toast.id)"><span class="message">{{toast.message}}</span><button cpButton type="button" variant="ghost" size="sm" (click)="dismiss(toast.id)">Dismiss</button></div>}</div><div class="region assertive" role="alert" aria-live="assertive" aria-atomic="false">@for(toast of assertiveToasts(); track toast.id){<div class="toast" [attr.data-severity]="toast.severity" (mouseenter)="pause(toast.id)" (mouseleave)="resume(toast.id)" (focusin)="pause(toast.id)" (focusout)="resume(toast.id)"><span class="message">{{toast.message}}</span><button cpButton type="button" variant="ghost" size="sm" (click)="dismiss(toast.id)">Dismiss</button></div>}</div>`,
-  styles: [`:host{display:block}.region{position:fixed;right:var(--cp-space-5);z-index:var(--cp-z-modal);display:flex;flex-direction:column;gap:var(--cp-space-2);pointer-events:none}.region.polite{bottom:var(--cp-space-5)}.region.assertive{top:var(--cp-space-5)}.toast{pointer-events:auto;display:flex;align-items:center;gap:var(--cp-space-3);min-width:16rem;max-width:24rem;padding:var(--cp-space-3) var(--cp-space-4);border:1px solid var(--cp-border);border-left:4px solid var(--cp-border-strong);border-radius:var(--cp-radius-md);background:var(--cp-surface-raised);color:var(--cp-text);box-shadow:var(--cp-shadow-sm);font:400 var(--cp-font-size-sm)/var(--cp-leading-normal) var(--cp-font-sans);opacity:1;transform:translateY(0);transition:opacity var(--cp-duration-normal) var(--cp-ease),transform var(--cp-duration-normal) var(--cp-ease)}.toast[data-severity='info']{border-left-color:var(--cp-blue)}.toast[data-severity='success']{border-left-color:var(--cp-primary)}.toast[data-severity='warning']{border-left-color:var(--cp-orange)}.toast[data-severity='error']{border-left-color:var(--cp-danger)}.message{flex:1}`],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  template: `<div class="region polite" role="status" aria-live="polite" aria-atomic="false">
+      @for (toast of politeToasts(); track toast.id) {
+        <div
+          class="toast"
+          [attr.data-severity]="toast.severity"
+          (mouseenter)="pause(toast.id)"
+          (mouseleave)="resume(toast.id)"
+          (focusin)="pause(toast.id)"
+          (focusout)="resume(toast.id)"
+          ><span class="message">{{ toast.message }}</span
+          ><button cpButton type="button" variant="ghost" size="sm" (click)="dismiss(toast.id)">Dismiss</button></div
+        >
+      }</div
+    ><div class="region assertive" role="alert" aria-live="assertive" aria-atomic="false">
+      @for (toast of assertiveToasts(); track toast.id) {
+        <div
+          class="toast"
+          [attr.data-severity]="toast.severity"
+          (mouseenter)="pause(toast.id)"
+          (mouseleave)="resume(toast.id)"
+          (focusin)="pause(toast.id)"
+          (focusout)="resume(toast.id)"
+          ><span class="message">{{ toast.message }}</span
+          ><button cpButton type="button" variant="ghost" size="sm" (click)="dismiss(toast.id)">Dismiss</button></div
+        >
+      }
+    </div>`,
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      .region {
+        position: fixed;
+        right: var(--cp-space-5);
+        z-index: var(--cp-z-modal);
+        display: flex;
+        flex-direction: column;
+        gap: var(--cp-space-2);
+        pointer-events: none;
+      }
+      .region.polite {
+        bottom: var(--cp-space-5);
+      }
+      .region.assertive {
+        top: var(--cp-space-5);
+      }
+      .toast {
+        pointer-events: auto;
+        display: flex;
+        align-items: center;
+        gap: var(--cp-space-3);
+        min-width: 16rem;
+        max-width: 24rem;
+        padding: var(--cp-space-3) var(--cp-space-4);
+        border: 1px solid var(--cp-border);
+        border-left: 4px solid var(--cp-border-strong);
+        border-radius: var(--cp-radius-md);
+        background: var(--cp-surface-raised);
+        color: var(--cp-text);
+        box-shadow: var(--cp-shadow-sm);
+        font: 400 var(--cp-font-size-sm)/var(--cp-leading-normal) var(--cp-font-sans);
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+          opacity var(--cp-duration-normal) var(--cp-ease),
+          transform var(--cp-duration-normal) var(--cp-ease);
+      }
+      .toast[data-severity='info'] {
+        border-left-color: var(--cp-blue);
+      }
+      .toast[data-severity='success'] {
+        border-left-color: var(--cp-primary);
+      }
+      .toast[data-severity='warning'] {
+        border-left-color: var(--cp-orange);
+      }
+      .toast[data-severity='error'] {
+        border-left-color: var(--cp-danger);
+      }
+      .message {
+        flex: 1;
+      }
+    `,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpToastRegionComponent {
   readonly toasts = input<CpToast[]>([]);
@@ -47,14 +131,18 @@ export class CpToastRegionComponent {
     return result;
   });
 
-  readonly politeToasts = computed(() => this.visibleToasts().filter(toast => toast.severity === 'info' || toast.severity === 'success'));
-  readonly assertiveToasts = computed(() => this.visibleToasts().filter(toast => toast.severity === 'warning' || toast.severity === 'error'));
+  readonly politeToasts = computed(() =>
+    this.visibleToasts().filter((toast) => toast.severity === 'info' || toast.severity === 'success'),
+  );
+  readonly assertiveToasts = computed(() =>
+    this.visibleToasts().filter((toast) => toast.severity === 'warning' || toast.severity === 'error'),
+  );
 
   constructor() {
     effect(() => {
       const toasts = this.toasts();
       const visible = this.visibleToasts();
-      const currentIds = new Set(toasts.map(toast => toast.id));
+      const currentIds = new Set(toasts.map((toast) => toast.id));
 
       for (const toast of visible) {
         if (!this.timers.has(toast.id)) this.startTimer(toast);
@@ -70,7 +158,7 @@ export class CpToastRegionComponent {
 
       const dismissedIds = this.dismissedIds();
       if (dismissedIds.size > 0) {
-        const next = new Set(Array.from(dismissedIds).filter(id => currentIds.has(id)));
+        const next = new Set(Array.from(dismissedIds).filter((id) => currentIds.has(id)));
         if (next.size !== dismissedIds.size) this.dismissedIds.set(next);
       }
     });

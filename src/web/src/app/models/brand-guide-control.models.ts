@@ -87,7 +87,9 @@ export function resolveBrandGuideUse(inputs: BrandGuideUseInputs): BrandGuideUse
     (choice) => choice.guideId === selection.guideId && choice.versionNumber === selection.versionNumber,
   );
 
-  return picked === undefined ? { kind: 'unavailable', blocked: true } : guideUse('override', picked, staleAcknowledged);
+  return picked === undefined
+    ? { kind: 'unavailable', blocked: true }
+    : guideUse('override', picked, staleAcknowledged);
 }
 
 function guideUse(source: 'default' | 'override', guide: BrandGuideChoice, staleAcknowledged: boolean): BrandGuideUse {

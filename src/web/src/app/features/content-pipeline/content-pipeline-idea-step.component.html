@@ -13,8 +13,8 @@
 
 @if (recipeRefused()) {
   <cp-notice tone="error" role="alert">
-    The recipe linked to this run couldn't be read, so no idea was made. It may have been archived or removed. Go
-    back a step to link another recipe or remove the link.
+    The recipe linked to this run couldn't be read, so no idea was made. It may have been archived or removed. Go back a
+    step to link another recipe or remove the link.
     <button cpButton type="button" variant="secondary" size="sm" (click)="tryAnother()">Try again</button>
   </cp-notice>
 }
@@ -89,11 +89,13 @@
     }
 
     <!-- Said, not drawn: the fields it fills are already on screen, held until it arrives. -->
-    <p class="cp-sr-only" role="status">{{ vocabulary().status === 'loading' ? 'Loading the cooking vocabulary…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      vocabulary().status === 'loading' ? 'Loading the cooking vocabulary…' : ''
+    }}</p>
     @if (vocabulary().status === 'unavailable') {
       <cp-notice tone="warning" role="status">
-        The cooking vocabulary could not be loaded, so you cannot state these right now. You can still ask for an
-        idea and keep the parts you like.
+        The cooking vocabulary could not be loaded, so you cannot state these right now. You can still ask for an idea
+        and keep the parts you like.
         <!-- Not "Try again": the notices above this one retry the idea, and two buttons with the same name on
              one screen say nothing about which is which to anyone reading them out of context. -->
         <button cpButton type="button" variant="secondary" size="sm" (click)="loadVocabulary()">
@@ -109,8 +111,8 @@
     <p>No idea yet. We can put one together around the recipe you linked, with your own weekly theme.</p>
   } @else {
     <p>
-      No idea yet. We can put one together from the cooking vocabulary and your own weekly theme, using anything
-      you stated above.
+      No idea yet. We can put one together from the cooking vocabulary and your own weekly theme, using anything you
+      stated above.
     </p>
   }
   <div class="cp-actions">
@@ -121,7 +123,11 @@
 @if (seed(); as idea) {
   <cp-form-section
     heading="The idea"
-    [intro]="accepted() ? 'This is the idea you picked.' : 'Change any part yourself, or keep the parts you like and try again for the rest.'"
+    [intro]="
+      accepted()
+        ? 'This is the idea you picked.'
+        : 'Change any part yourself, or keep the parts you like and try again for the rest.'
+    "
   >
     <p class="description">{{ idea.description }}</p>
 
@@ -170,8 +176,8 @@
       <!-- Shown because this idea's method carries a caution. A method without one renders nothing here: that
            means no caution has been attached, never that a technique is safe. -->
       <cp-notice tone="warning" role="note">
-        This method needs care. Follow tested guidance from an authoritative source for times, temperatures and
-        storage — nothing here is a food-safety instruction.
+        This method needs care. Follow tested guidance from an authoritative source for times, temperatures and storage
+        — nothing here is a food-safety instruction.
       </cp-notice>
     }
 
@@ -208,7 +214,9 @@
               variant="text"
               size="sm"
               [attr.aria-pressed]="isKept(row.name)"
-              [attr.aria-label]="(isKept(row.name) ? 'Stop keeping ' : 'Keep ') + row.label.toLowerCase() + ': ' + row.displayName"
+              [attr.aria-label]="
+                (isKept(row.name) ? 'Stop keeping ' : 'Keep ') + row.label.toLowerCase() + ': ' + row.displayName
+              "
               (click)="toggleKeep(row.name)"
             >
               {{ isKept(row.name) ? 'Keeping' : 'Keep' }}
@@ -232,7 +240,11 @@
 @if (offersBriefChoice()) {
   <cp-form-section
     heading="What to work from"
-    [intro]="'You described a picture ' + descriptionWhere() + ', and now you have an idea too. Say which the picture should be planned from. Neither is changed by choosing.'"
+    [intro]="
+      'You described a picture ' +
+      descriptionWhere() +
+      ', and now you have an idea too. Say which the picture should be planned from. Neither is changed by choosing.'
+    "
     sectionId="cp-pipeline-brief-choice"
   >
     <cp-choice-group
@@ -244,8 +256,8 @@
 
     @if (briefEdited()) {
       <cp-notice role="note">
-        You have edited the brief since choosing, so it no longer reads exactly like the choice above. It is shown,
-        and can be changed, {{ briefWhere() }}.
+        You have edited the brief since choosing, so it no longer reads exactly like the choice above. It is shown, and
+        can be changed, {{ briefWhere() }}.
       </cp-notice>
     }
   </cp-form-section>
@@ -254,13 +266,14 @@
 <details class="cp-disclosure">
   <summary>Come back to an idea you have seen before</summary>
   <p class="cp-muted">
-    Every idea has a short code. Keep a code and the same idea comes back — as long as the vocabulary and that
-    day's theme have not changed since.
+    Every idea has a short code. Keep a code and the same idea comes back — as long as the vocabulary and that day's
+    theme have not changed since.
   </p>
 
   @if (seed(); as idea) {
     <p class="cp-muted">
-      This idea's code is <code>{{ idea.token }}</code>.
+      This idea's code is <code>{{ idea.token }}</code
+      >.
     </p>
   }
 

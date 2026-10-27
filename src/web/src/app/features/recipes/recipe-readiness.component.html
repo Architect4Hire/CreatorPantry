@@ -7,8 +7,8 @@
         <h2 class="title">{{ heading() }}</h2>
       }
       <p class="intro">
-        Every rule checked against this recipe as it stands now. The checks are run on the server and the same
-        recipe always gets the same answer.
+        Every rule checked against this recipe as it stands now. The checks are run on the server and the same recipe
+        always gets the same answer.
       </p>
     </div>
 
@@ -29,8 +29,8 @@
     reports how complete the allergen *records* are and never what is in the dish (recipes.md).
   -->
   <p class="caveat">
-    This is about how complete the recipe is, not whether it is safe. It is not an allergen, nutrition, dietary
-    or food-safety clearance, and no combination of these checks makes it one.
+    This is about how complete the recipe is, not whether it is safe. It is not an allergen, nutrition, dietary or
+    food-safety clearance, and no combination of these checks makes it one.
   </p>
 
   @if (readinessMessage()) {
@@ -76,8 +76,8 @@
 
     @if (isStale()) {
       <p class="problem" role="status">
-        This recipe has been edited since it was checked, so these answers describe earlier words. Check it again
-        before approving.
+        This recipe has been edited since it was checked, so these answers describe earlier words. Check it again before
+        approving.
       </p>
     }
 
@@ -88,8 +88,8 @@
     @if (check.disabledRuleIds.length > 0) {
       <p class="cp-muted measure">
         {{ check.disabledRuleIds.length }}
-        {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and
-        did not run. A check that did not run has not passed.
+        {{ check.disabledRuleIds.length === 1 ? 'check is' : 'checks are' }} switched off for this workspace and did not
+        run. A check that did not run has not passed.
       </p>
     }
 
@@ -97,8 +97,7 @@
       <p class="problem" role="status">
         Configuration names
         {{ check.unknownConfiguredRuleIds.length === 1 ? 'a check' : 'checks' }} that do not exist:
-        {{ check.unknownConfiguredRuleIds.join(', ') }}. Someone should fix that spelling — nothing was checked
-        for it.
+        {{ check.unknownConfiguredRuleIds.join(', ') }}. Someone should fix that spelling — nothing was checked for it.
       </p>
     }
 
@@ -114,8 +113,8 @@
             <h3 class="group-title" [id]="idPrefix + '-group-' + group">
               {{ headingFor(group) }}
               <cp-status-pill [tone]="toneFor(group)">
-                {{ findingsIn(group).length }}<span class="cp-sr-only">
-                  {{ findingsIn(group).length === 1 ? 'check' : 'checks' }}</span>
+                {{ findingsIn(group).length
+                }}<span class="cp-sr-only"> {{ findingsIn(group).length === 1 ? 'check' : 'checks' }}</span>
               </cp-status-pill>
             </h3>
 
@@ -159,13 +158,7 @@
                           A button, not a link: only the host knows whether the record has a surface to show,
                           and several kinds have none yet. Activating it asks the host to go there.
                         -->
-                        <button
-                          cpButton
-                          variant="text"
-                          size="sm"
-                          type="button"
-                          (click)="activateEvidence(item)"
-                        >
+                        <button cpButton variant="text" size="sm" type="button" (click)="activateEvidence(item)">
                           <span class="evidence-kind">{{ evidenceKindLabel(item.kind) }}</span>
                           @if (item.label) {
                             <span class="evidence-label">{{ item.label }}</span>
@@ -265,7 +258,11 @@
       label="Why"
       [forId]="idPrefix + '-reason'"
       [required]="move.requiresReason"
-      [hint]="move.requiresReason ? 'Required, and kept on the recipe\'s history.' : 'Optional. It travels onto the version this approval writes.'"
+      [hint]="
+        move.requiresReason
+          ? 'Required, and kept on the recipe\'s history.'
+          : 'Optional. It travels onto the version this approval writes.'
+      "
     >
       <textarea
         [id]="idPrefix + '-reason'"

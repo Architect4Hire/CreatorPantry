@@ -1,6 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { BrandGuideChoice, BrandGuideControlStatus, BrandGuideSelection } from '../../models/brand-guide-control.models';
+import {
+  BrandGuideChoice,
+  BrandGuideControlStatus,
+  BrandGuideSelection,
+} from '../../models/brand-guide-control.models';
 import { BrandVisualReference, BrandVisualStyleLine } from '../../models/brand-visual-style-control.models';
 import { BrandVisualStyleControlComponent } from './brand-visual-style-control.component';
 
@@ -152,7 +156,7 @@ describe('BrandVisualStyleControlComponent', () => {
   });
 
   describe('the look and what is kept out', () => {
-    it('shows the look and the avoid summary in the creator\'s words', async () => {
+    it("shows the look and the avoid summary in the creator's words", async () => {
       const host = await render({ styleLines: lines, negativeGuidance: 'No flash, no neon, no hands in frame.' });
 
       expect(text(host)).toContain('Visual identity');
@@ -175,12 +179,17 @@ describe('BrandVisualStyleControlComponent', () => {
 
       expect(fieldset.querySelector('legend')?.textContent).toContain('Reference examples');
       expect(fieldset.getAttribute('aria-describedby')).toBeTruthy();
-      expect(host.querySelector(`#${fieldset.getAttribute('aria-describedby')}`)?.textContent).toContain('1 of 10 chosen.');
+      expect(host.querySelector(`#${fieldset.getAttribute('aria-describedby')}`)?.textContent).toContain(
+        '1 of 10 chosen.',
+      );
       expect(host.querySelector(`#${fieldset.getAttribute('aria-describedby')}`)?.getAttribute('role')).toBe('status');
     });
 
     it('emits the new selection when one is ticked and unticked', async () => {
-      const host = await render({ references: [usable, { ...usable, documentId: 'd3', title: 'Autumn board' }], selectedReferenceIds: ['d1'] });
+      const host = await render({
+        references: [usable, { ...usable, documentId: 'd3', title: 'Autumn board' }],
+        selectedReferenceIds: ['d1'],
+      });
       const events: (readonly string[])[] = [];
       fixture.componentInstance.selectedReferenceIdsChange.subscribe((ids) => events.push(ids));
 
@@ -306,7 +315,9 @@ describe('BrandVisualStyleControlComponent', () => {
   });
 
   it('keeps provenance behind a collapsed disclosure showing the exact version', async () => {
-    const host = await render({ activeGuide: guide({ appliedSections: ['Visual identity', 'Photography direction'] }) });
+    const host = await render({
+      activeGuide: guide({ appliedSections: ['Visual identity', 'Photography direction'] }),
+    });
     const details = host.querySelector('details')!;
 
     expect(details.open).toBeFalse();

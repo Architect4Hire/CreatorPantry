@@ -230,9 +230,7 @@ export interface RecipeTemperatureConversionResult {
   readonly result: TemperatureConversionResult;
 }
 
-export function decodeRecipeTemperatureConversionResult(
-  value: unknown,
-): RecipeTemperatureConversionResult | null {
+export function decodeRecipeTemperatureConversionResult(value: unknown): RecipeTemperatureConversionResult | null {
   if (!isRecord(value)) return null;
   const { sourceVersionNumber, result: rawResult } = value;
 

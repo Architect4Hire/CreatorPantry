@@ -50,8 +50,15 @@ describe('BrandProfileService', () => {
 
   afterEach(() => http.verify());
 
-  function problem(status: number, code: string, errors?: Record<string, string[]>): [object, { status: number; statusText: string }] {
-    return [{ code, ...(errors ? { errors } : {}) }, { status, statusText: 'x' }];
+  function problem(
+    status: number,
+    code: string,
+    errors?: Record<string, string[]>,
+  ): [object, { status: number; statusText: string }] {
+    return [
+      { code, ...(errors ? { errors } : {}) },
+      { status, statusText: 'x' },
+    ];
   }
 
   it('reads a profile with credentials', async () => {
@@ -120,7 +127,9 @@ describe('BrandProfileService', () => {
     for (const [status, code, expected] of cases) {
       const pending = service.updateBrandProfile('w', {});
       http.expectOne(URL).flush(...problem(status, code));
-      expect((await pending).status).withContext(`${status} ${code}`).toBe(expected);
+      expect((await pending).status)
+        .withContext(`${status} ${code}`)
+        .toBe(expected);
     }
   });
 
@@ -164,17 +173,25 @@ describe('BrandProfileService', () => {
 
   it('keeps the field errors of a 400', async () => {
     const pending = service.createBrandProfile('w', {});
-    http.expectOne(URL).flush(...problem(400, 'brand.profile.invalid_request', { brandName: ['A brand needs a name.'] }));
+    http
+      .expectOne(URL)
+      .flush(...problem(400, 'brand.profile.invalid_request', { brandName: ['A brand needs a name.'] }));
 
-    expect(await pending).toEqual({ status: 'validation_failed', fieldErrors: { brandName: ['A brand needs a name.'] } });
+    expect(await pending).toEqual({
+      status: 'validation_failed',
+      fieldErrors: { brandName: ['A brand needs a name.'] },
+    });
   });
 
   it('reads the channel list, and reports a bad response as unavailable', async () => {
     const pending = service.listContentChannels();
-    http.expectOne('https://gateway.example/api/v1/reference/content-channels').flush([
-      { key: 'instagram', displayName: 'Instagram', isActive: true },
-    ]);
-    expect(await pending).toEqual({ status: 'found', channels: [{ key: 'instagram', displayName: 'Instagram', isActive: true }] });
+    http
+      .expectOne('https://gateway.example/api/v1/reference/content-channels')
+      .flush([{ key: 'instagram', displayName: 'Instagram', isActive: true }]);
+    expect(await pending).toEqual({
+      status: 'found',
+      channels: [{ key: 'instagram', displayName: 'Instagram', isActive: true }],
+    });
 
     const bad = service.listContentChannels();
     http.expectOne('https://gateway.example/api/v1/reference/content-channels').flush({ nope: true });

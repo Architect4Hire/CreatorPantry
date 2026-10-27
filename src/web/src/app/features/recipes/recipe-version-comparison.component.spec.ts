@@ -124,8 +124,16 @@ describe('RecipeVersionComparisonComponent', () => {
           'Ingredients',
           [],
           [
-            item({ id: 'a', presence: 'Added', fieldChanges: [{ field: 'IngredientDisplayText', from: null, to: '3 eggs' }] }),
-            item({ id: 'r', presence: 'Removed', fieldChanges: [{ field: 'IngredientDisplayText', from: '2 eggs', to: null }] }),
+            item({
+              id: 'a',
+              presence: 'Added',
+              fieldChanges: [{ field: 'IngredientDisplayText', from: null, to: '3 eggs' }],
+            }),
+            item({
+              id: 'r',
+              presence: 'Removed',
+              fieldChanges: [{ field: 'IngredientDisplayText', from: '2 eggs', to: null }],
+            }),
             item({ id: 'c', fieldChanges: [{ field: 'IngredientQuantity', from: '240', to: '260' }] }),
             item({ id: 'm', moved: true, fromRank: 2, toRank: 0 }),
           ],
@@ -141,7 +149,9 @@ describe('RecipeVersionComparisonComponent', () => {
     ]);
 
     // The glyph is decorative; the word carries the meaning.
-    expect(rows(element).every((row) => row.querySelector('.row-glyph')!.getAttribute('aria-hidden') === 'true')).toBeTrue();
+    expect(
+      rows(element).every((row) => row.querySelector('.row-glyph')!.getAttribute('aria-hidden') === 'true'),
+    ).toBeTrue();
   });
 
   it('reports a move as a move and not as a replacement', async () => {
@@ -188,7 +198,9 @@ describe('RecipeVersionComparisonComponent', () => {
 
   it('names a cross-group move as one, rather than printing two unrelated positions', async () => {
     const element = await render(
-      comparison([section('Ingredients', [], [item({ moved: true, fromParentId: 'g1', toParentId: 'g2', toRank: 0 })])]),
+      comparison([
+        section('Ingredients', [], [item({ moved: true, fromParentId: 'g1', toParentId: 'g2', toRank: 0 })]),
+      ]),
     );
 
     expect(rows(element)[0].querySelector('.row-movement')!.textContent).toContain('another group');
@@ -220,9 +232,7 @@ describe('RecipeVersionComparisonComponent', () => {
   });
 
   it('humanises a field name it has no label for, so a newly added field still reads', async () => {
-    const element = await render(
-      comparison([section('Timing', [{ field: 'PrepTimeMinutes', from: '20', to: '25' }])]),
-    );
+    const element = await render(comparison([section('Timing', [{ field: 'PrepTimeMinutes', from: '20', to: '25' }])]));
 
     expect(rows(element)[0].querySelector('.row-label')!.textContent?.trim()).toBe('Prep time minutes');
   });
@@ -232,7 +242,9 @@ describe('RecipeVersionComparisonComponent', () => {
    * the section a creator reads is headed "Status" rather than with a word that implies publication.
    */
   it('heads the publication section as Status', async () => {
-    const element = await render(comparison([section('Publication', [{ field: 'Status', from: 'Draft', to: 'Approved' }])]));
+    const element = await render(
+      comparison([section('Publication', [{ field: 'Status', from: 'Draft', to: 'Approved' }])]),
+    );
 
     expect(element.querySelector('.section-heading')!.textContent?.trim()).toBe('Status');
   });
@@ -250,7 +262,11 @@ describe('RecipeVersionComparisonComponent', () => {
   it('names an item that carries no field changes from its section', async () => {
     const element = await render(
       comparison([
-        section('Ingredients', [], [item({ id: 'g', moved: true, fromParentId: null, toParentId: null, fromRank: 1, toRank: 0 })]),
+        section(
+          'Ingredients',
+          [],
+          [item({ id: 'g', moved: true, fromParentId: null, toParentId: null, fromRank: 1, toRank: 0 })],
+        ),
         section('Instructions', [], [item({ id: 's', moved: true, fromRank: 1, toRank: 0 })]),
       ]),
     );

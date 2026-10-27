@@ -96,7 +96,9 @@ describe('DamAssetLogUseComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim().startsWith(label));
+    const match = Array.from(root().querySelectorAll('button')).find((each) =>
+      each.textContent?.trim().startsWith(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -169,7 +171,9 @@ describe('DamAssetLogUseComponent', () => {
     expect(field('campaign').getAttribute('aria-required')).toBeNull();
 
     for (const id of ['platform', 'date', 'campaign', 'notes']) {
-      expect(root().querySelector(`label[for="cp-dam-use-${id}"]`)?.textContent?.trim()).withContext(id).not.toBe('');
+      expect(root().querySelector(`label[for="cp-dam-use-${id}"]`)?.textContent?.trim())
+        .withContext(id)
+        .not.toBe('');
     }
   });
 
@@ -412,7 +416,9 @@ describe('DamAssetLogUseComponent', () => {
 
     // Escape and the scrim are the drawer's own ways out, and ask the same question.
     const asked = confirmSpy.calls.count();
-    (panel() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    (panel() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
     await settle();
     (scrim() as HTMLElement).click();
     await settle();

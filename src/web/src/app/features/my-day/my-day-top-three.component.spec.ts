@@ -27,7 +27,8 @@ describe('MyDayTopThreeComponent', () => {
 
   const root = () => fixture.nativeElement as HTMLElement;
   const tile = (id: string) => root().querySelector<HTMLInputElement>(`#my-day-top-three-${id}`)!;
-  const button = (text: string) => [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
+  const button = (text: string) =>
+    [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
   const order = () => [...root().querySelectorAll('.order li')].map((li) => li.textContent!.trim());
 
   function pick(id: string): void {
@@ -107,7 +108,9 @@ describe('MyDayTopThreeComponent', () => {
     await create();
 
     button('Cancel').click();
-    root().querySelector('[role="dialog"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    root()
+      .querySelector('[role="dialog"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
 
     expect(closed).toBe(2);
     expect(saved).toEqual([]);

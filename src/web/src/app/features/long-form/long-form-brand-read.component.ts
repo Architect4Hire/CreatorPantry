@@ -6,7 +6,8 @@ import { BrandProfileService } from '../../services/brand-profile.service';
 import { BrandVisualGuideService } from '../../services/brand-visual-guide.service';
 
 /** What the brand says about one thing: not read yet, read, or could not be read. */
-type Read<T> = { readonly state: 'loading' } | { readonly state: 'read'; readonly value: T } | { readonly state: 'unavailable' };
+type Read<T> =
+  { readonly state: 'loading' } | { readonly state: 'read'; readonly value: T } | { readonly state: 'unavailable' };
 
 interface Voice {
   readonly name: string;
@@ -126,9 +127,10 @@ export class LongFormBrandReadComponent {
       guide.status === 'found'
         ? {
             state: 'read',
-            value: guide.guide.activeGuide === null
-              ? null
-              : { name: guide.guide.activeGuide.name, versionNumber: guide.guide.activeGuide.versionNumber },
+            value:
+              guide.guide.activeGuide === null
+                ? null
+                : { name: guide.guide.activeGuide.name, versionNumber: guide.guide.activeGuide.versionNumber },
           }
         : { state: 'unavailable' },
     );
@@ -136,8 +138,8 @@ export class LongFormBrandReadComponent {
     this.audience.set(
       profile.status === 'found'
         ? { state: 'read', value: profile.profile.defaultAudience?.trim() || null }
-        // A workspace with no profile has no audience set; only a failed read is "could not be read".
-        : profile.status === 'unavailable'
+        : // A workspace with no profile has no audience set; only a failed read is "could not be read".
+          profile.status === 'unavailable'
           ? { state: 'unavailable' }
           : { state: 'read', value: null },
     );

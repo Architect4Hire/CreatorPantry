@@ -190,7 +190,13 @@ export class RecipeVersionComparisonComponent {
    */
   private itemRows(section: string, item: RecipeItemChange): readonly ComparisonRow[] {
     const kind: CpDiffKind =
-      item.presence === 'Added' ? 'added' : item.presence === 'Removed' ? 'removed' : item.moved && item.fieldChanges.length === 0 ? 'moved' : 'changed';
+      item.presence === 'Added'
+        ? 'added'
+        : item.presence === 'Removed'
+          ? 'removed'
+          : item.moved && item.fieldChanges.length === 0
+            ? 'moved'
+            : 'changed';
 
     const movement = item.presence === 'Retained' && item.moved ? describeMovement(item, kind) : null;
 

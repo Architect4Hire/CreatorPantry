@@ -8,7 +8,9 @@ import { CpFieldRowComponent } from './field-row.component';
   standalone: true,
   imports: [CpFieldRowComponent, CpFieldComponent],
   template: `<cp-field-row [minColumn]="minColumn"><span>one</span><span>two</span></cp-field-row>
-    <cp-field-row><cp-field label="Prep" forId="prep"><input id="prep" /></cp-field></cp-field-row>`,
+    <cp-field-row
+      ><cp-field label="Prep" forId="prep"><input id="prep" /></cp-field
+    ></cp-field-row>`,
 })
 class HostComponent {
   minColumn = '14rem';
@@ -107,15 +109,21 @@ describe('CpFieldRowComponent', () => {
       const host = fixture.nativeElement as HTMLElement;
       const row = host.querySelector<HTMLElement>('cp-field-row.lone')!;
 
-      expect(Math.abs(row.children[0].getBoundingClientRect().width - row.getBoundingClientRect().width)).toBeLessThan(1);
+      expect(Math.abs(row.children[0].getBoundingClientRect().width - row.getBoundingClientRect().width)).toBeLessThan(
+        1,
+      );
     });
 
     it('lets a child take three columns, with a quantity beside it, while the row has room', async () => {
       const fixture = await createFixed();
       fixture.detectChanges();
       const host = fixture.nativeElement as HTMLElement;
-      const quarter = host.querySelector('cp-field-row:not(.lone):not(.wide)')!.children[0].getBoundingClientRect().width;
-      const [text, quantity] = Array.from(host.querySelector('cp-field-row.wide')!.children).map((child) => child.getBoundingClientRect());
+      const quarter = host
+        .querySelector('cp-field-row:not(.lone):not(.wide)')!
+        .children[0].getBoundingClientRect().width;
+      const [text, quantity] = Array.from(host.querySelector('cp-field-row.wide')!.children).map((child) =>
+        child.getBoundingClientRect(),
+      );
 
       expect(text.width).toBeCloseTo(quarter * 3 + 32, 0);
       expect(Math.abs(quantity.width - quarter)).toBeLessThan(1);

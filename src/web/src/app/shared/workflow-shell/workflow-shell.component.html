@@ -40,14 +40,36 @@
           <cp-notice tone="error" role="alert">
             {{ trouble.message }}
             @if (trouble.retry) {
-              <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                [attr.aria-disabled]="busy() !== null || null"
+                (click)="retry()"
+                >Retry</button
+              >
             }
           </cp-notice>
         }
         <div cpTopicCardActions class="cp-actions">
-          <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="resume()">Continue</button>
+          <button
+            cpButton
+            type="button"
+            variant="primary"
+            [attr.aria-disabled]="busy() !== null || null"
+            (click)="resume()"
+            >Continue</button
+          >
           @if (!readOnly()) {
-            <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="startOver()">Start over</button>
+            <button
+              cpButton
+              type="button"
+              variant="text"
+              [attr.aria-disabled]="busy() !== null || null"
+              (click)="startOver()"
+              >Start over</button
+            >
           }
         </div>
       </cp-topic-card>
@@ -69,9 +91,16 @@
             <section class="next" aria-labelledby="cp-workflow-next-heading">
               <h3 id="cp-workflow-next-heading" class="next-heading">What next?</h3>
               <ul class="next-list">
-                @for (suggestion of finished.nextSuggestions; track suggestion.kind + suggestion.key; let first = $first) {
+                @for (
+                  suggestion of finished.nextSuggestions;
+                  track suggestion.kind + suggestion.key;
+                  let first = $first
+                ) {
                   <li class="next-item">
-                    <p class="plain"><strong>{{ suggestion.label }}</strong>. {{ suggestion.why }}</p>
+                    <p class="plain"
+                      ><strong>{{ suggestion.label }}</strong
+                      >. {{ suggestion.why }}</p
+                    >
                     @if (suggestion.kind === 'Workflow' && opensWriter(suggestion)) {
                       <!-- Built as a page of its own (LF.6.3): it opens there, offering the recipe this run made, as
                            the Workflows Hub's card does. No run is started for it. -->
@@ -82,7 +111,8 @@
                           [routerLink]="writerLink()"
                           [queryParams]="writerQuery(suggestion)"
                           [attr.aria-label]="'Open the writer: ' + suggestion.label"
-                        >Open the writer</a>
+                          >Open the writer</a
+                        >
                       }
                     } @else if (suggestion.kind === 'Workflow') {
                       @if (!readOnly() && suggestion.youCanDoIt) {
@@ -105,7 +135,8 @@
                         [routerLink]="link.commands"
                         [queryParams]="link.queryParams"
                         [attr.aria-label]="'Open: ' + suggestion.label"
-                      >Open</a>
+                        >Open</a
+                      >
                     }
                   </li>
                 }
@@ -117,7 +148,15 @@
             <cp-notice tone="error" role="alert">
               {{ trouble.message }}
               @if (trouble.retry) {
-                <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="retry()"
+                  >Retry</button
+                >
               }
             </cp-notice>
           }
@@ -126,7 +165,12 @@
           }
 
           <div cpTopicCardActions class="cp-actions">
-            <a cpButton [variant]="finished.nextSuggestions.length > 0 ? 'secondary' : 'primary'" [routerLink]="['/', workspaceSlug(), 'workflows']">Back to Workflows</a>
+            <a
+              cpButton
+              [variant]="finished.nextSuggestions.length > 0 ? 'secondary' : 'primary'"
+              [routerLink]="['/', workspaceSlug(), 'workflows']"
+              >Back to Workflows</a
+            >
           </div>
         </cp-topic-card>
       }
@@ -147,15 +191,34 @@
             <cp-notice tone="error" role="alert">
               {{ trouble.message }}
               @if (trouble.retry) {
-                <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="retry()"
+                  >Retry</button
+                >
               }
             </cp-notice>
           }
           <div cpTopicCardActions class="cp-actions">
             @if (stopped.replacedByRunId) {
-              <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'workflows', 'runs', stopped.replacedByRunId]">Go to the new run</a>
+              <a
+                cpButton
+                variant="primary"
+                [routerLink]="['/', workspaceSlug(), 'workflows', 'runs', stopped.replacedByRunId]"
+                >Go to the new run</a
+              >
             } @else if (!readOnly()) {
-              <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="startAgain()">
+              <button
+                cpButton
+                type="button"
+                variant="primary"
+                [attr.aria-disabled]="busy() !== null || null"
+                (click)="startAgain()"
+              >
                 {{ busy() === 'start-again' ? 'Starting…' : 'Start this again' }}
               </button>
             }
@@ -184,7 +247,12 @@
 
       <!-- One card for the step, headed by its name. Wide: a step's screen keeps its own measure. Its heading
            takes focus when the step changes. With every step done, the same card finishes the run. -->
-      <cp-topic-card #stepCard [heading]="step()?.title ?? 'Every step is done'" headingId="cp-workflow-step-heading" wide>
+      <cp-topic-card
+        #stepCard
+        [heading]="step()?.title ?? 'Every step is done'"
+        headingId="cp-workflow-step-heading"
+        wide
+      >
         @if (step(); as here) {
           <details class="help cp-disclosure">
             <summary>Need help with this step?</summary>
@@ -261,7 +329,15 @@
               <cp-notice tone="error" role="alert">
                 {{ trouble.message }}
                 @if (trouble.retry) {
-                  <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="busy() !== null || null" (click)="retry()">Retry</button>
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="retry()"
+                    >Retry</button
+                  >
                 }
               </cp-notice>
             }
@@ -270,28 +346,58 @@
 
             <div class="cp-actions primary-row">
               @if (!isFirst()) {
-                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="back()">
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="back()"
+                >
                   {{ busy() === 'back' ? 'Going back…' : 'Back' }}
                 </button>
               }
               @if (step()?.requirement === 'Optional') {
-                <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="skip()">
+                <button
+                  cpButton
+                  type="button"
+                  variant="text"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="skip()"
+                >
                   {{ busy() === 'skip' ? 'Skipping…' : 'Skip for now' }}
                 </button>
               }
               @if (step()) {
-                <button cpButton type="button" [variant]="stepReady() ? 'primary' : 'secondary'" [attr.aria-disabled]="busy() !== null || null" (click)="continue()">
+                <button
+                  cpButton
+                  type="button"
+                  [variant]="stepReady() ? 'primary' : 'secondary'"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="continue()"
+                >
                   {{ busy() === 'continue' ? 'Checking…' : 'Continue' }}
                 </button>
               } @else {
-                <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="finish()">
+                <button
+                  cpButton
+                  type="button"
+                  variant="primary"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="finish()"
+                >
                   {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
                 </button>
               }
             </div>
 
             <div class="cp-actions secondary-row">
-              <button cpButton type="button" variant="ghost" [attr.aria-disabled]="busy() !== null || null" (click)="saveAndExit()">
+              <button
+                cpButton
+                type="button"
+                variant="ghost"
+                [attr.aria-disabled]="busy() !== null || null"
+                (click)="saveAndExit()"
+              >
                 {{ busy() === 'save-exit' ? 'Saving…' : 'Save and exit' }}
               </button>
             </div>
@@ -300,8 +406,22 @@
             <details class="more cp-disclosure">
               <summary>More options</summary>
               <div class="cp-actions more-actions">
-                <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="startOver()">Start over</button>
-                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="askToStop()">Stop this run</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="text"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="startOver()"
+                  >Start over</button
+                >
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="askToStop()"
+                  >Stop this run</button
+                >
               </div>
             </details>
           }
@@ -318,7 +438,11 @@
   titleId="cp-workflow-stop-title"
   (closed)="cancelStop()"
 >
-  <cp-field label="Why are you stopping?" forId="cp-workflow-stop-reason" hint="Optional. Only people in this workspace can see it.">
+  <cp-field
+    label="Why are you stopping?"
+    forId="cp-workflow-stop-reason"
+    hint="Optional. Only people in this workspace can see it."
+  >
     <textarea
       id="cp-workflow-stop-reason"
       rows="3"

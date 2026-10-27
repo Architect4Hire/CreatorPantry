@@ -6,8 +6,8 @@
     <div class="sign-up-card" role="status">
       <h1>Check your email</h1>
       <p>
-        If that address isn't already in use, we've sent a confirmation link to it. Follow the link to
-        activate your account, then <a routerLink="/sign-in">sign in</a>.
+        If that address isn't already in use, we've sent a confirmation link to it. Follow the link to activate your
+        account, then <a routerLink="/sign-in">sign in</a>.
       </p>
     </div>
   } @else {
@@ -47,7 +47,13 @@
         />
       </cp-field>
 
-      <cp-field label="Password" forId="sign-up-password" [required]="true" [error]="fieldError('password')" hint="At least 12 characters.">
+      <cp-field
+        label="Password"
+        forId="sign-up-password"
+        [required]="true"
+        [error]="fieldError('password')"
+        hint="At least 12 characters."
+      >
         <input
           id="sign-up-password"
           type="password"

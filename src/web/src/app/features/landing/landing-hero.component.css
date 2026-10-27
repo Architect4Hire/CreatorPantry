@@ -42,7 +42,12 @@ h1 {
    and the browser would then measure the headline's largest paint without it, letting a collage photo win. */
 .highlight {
   padding-bottom: 0.18em;
-  background: radial-gradient(82% 1.1em at 55% calc(100% + 0.8em), transparent 0 90%, var(--cp-orange) 91% 97.5%, transparent 98.5%)
+  background: radial-gradient(
+      82% 1.1em at 55% calc(100% + 0.8em),
+      transparent 0 90%,
+      var(--cp-orange) 91% 97.5%,
+      transparent 98.5%
+    )
     bottom / 100% 0.34em no-repeat;
   white-space: nowrap;
 }

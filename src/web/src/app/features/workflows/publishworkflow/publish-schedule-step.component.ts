@@ -36,12 +36,17 @@ import { recordPointer, runCardId, runRecordId } from './publish-run';
         </cp-notice>
       }
 
-      <cp-content-card-publishing [workspaceSlug]="workspaceSlug()" [cardId]="card" [hasPicture]="hasPicture()" (summary)="refresh()" />
+      <cp-content-card-publishing
+        [workspaceSlug]="workspaceSlug()"
+        [cardId]="card"
+        [hasPicture]="hasPicture()"
+        (summary)="refresh()"
+      />
 
       @if (booking(); as record) {
         <cp-notice tone="success" role="status">
-          Booked for {{ record.scheduledLocal }} ({{ zoneName(record.scheduleTimeZoneId, record.scheduledAt) }}). The next step says whether it went
-          through.
+          Booked for {{ record.scheduledLocal }} ({{ zoneName(record.scheduleTimeZoneId, record.scheduledAt) }}). The
+          next step says whether it went through.
         </cp-notice>
         @if (keepFailed()) {
           <cp-notice tone="warning" role="status">
@@ -163,7 +168,9 @@ export class PublishScheduleStepComponent implements OnInit {
       const kept = await this.port.keepDraft(recordPointer(record.id));
       if (this.gone) return;
       this.keepFailed.set(!kept);
-      this.port.announce(`Booked for ${record.scheduledLocal} (${zoneName(record.scheduleTimeZoneId, record.scheduledAt)}).`);
+      this.port.announce(
+        `Booked for ${record.scheduledLocal} (${zoneName(record.scheduleTimeZoneId, record.scheduledAt)}).`,
+      );
     }
   }
 

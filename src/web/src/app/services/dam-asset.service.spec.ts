@@ -85,7 +85,13 @@ describe('DamAssetService', () => {
 
     it('sends filters, ordering and cursor as the route names them, and never a workspace', async () => {
       const pending = firstValueFrom(
-        service.search('cozy-fall', { search: 'bread', channel: 'instagram', day: 'Sunday', sort: 'Title', cursor: 'c1' }),
+        service.search('cozy-fall', {
+          search: 'bread',
+          channel: 'instagram',
+          day: 'Sunday',
+          sort: 'Title',
+          cursor: 'c1',
+        }),
       );
 
       const request = http.expectOne((candidate) => candidate.url === BASE);
@@ -109,7 +115,9 @@ describe('DamAssetService', () => {
       expect(await stale).toEqual({ status: 'cursor_expired' });
 
       const rejected = firstValueFrom(service.search('cozy-fall', FIRST));
-      http.expectOne(BASE).flush(problem('media.asset_search.invalid_request'), { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne(BASE)
+        .flush(problem('media.asset_search.invalid_request'), { status: 400, statusText: 'Bad Request' });
       expect(await rejected).toEqual({ status: 'invalid_request' });
     });
 
@@ -126,7 +134,9 @@ describe('DamAssetService', () => {
     it('encodes the slug into the path', async () => {
       const pending = firstValueFrom(service.search('a/b', FIRST));
 
-      http.expectOne(`${GATEWAY}/api/v1/workspaces/a%2Fb/dam-assets`).flush({ items: [], nextCursor: null, totalCount: 0 });
+      http
+        .expectOne(`${GATEWAY}/api/v1/workspaces/a%2Fb/dam-assets`)
+        .flush({ items: [], nextCursor: null, totalCount: 0 });
 
       expect((await pending).status).toBe('found');
     });
@@ -170,7 +180,9 @@ describe('DamAssetService', () => {
 
       // A numbered version is read through its download route, whose own default is the original.
       const held = firstValueFrom(service.versionContent('cozy-fall', ID, 2, 'web'));
-      http.expectOne(`${BASE}/${ID}/versions/2/download?rendition=web`).flush(new Blob(['bytes'], { type: 'image/jpeg' }));
+      http
+        .expectOne(`${BASE}/${ID}/versions/2/download?rendition=web`)
+        .flush(new Blob(['bytes'], { type: 'image/jpeg' }));
       expect((await held).status).toBe('found');
 
       expect(service.downloadUrl('cozy-fall', ID)).toBe(`${BASE}/${ID}/download`);
@@ -196,7 +208,7 @@ describe('DamAssetService', () => {
       if (outcome.status === 'found') expect(outcome.bytes.type).toBe('image/jpeg');
     });
 
-    it('answers gone for a 404 — unknown, another workspace\'s and removed are one case', async () => {
+    it("answers gone for a 404 — unknown, another workspace's and removed are one case", async () => {
       const pending = firstValueFrom(service.content('cozy-fall', ID));
 
       http

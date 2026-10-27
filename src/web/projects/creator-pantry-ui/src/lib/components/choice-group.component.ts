@@ -112,8 +112,11 @@ let cpChoiceGroupUid = 0;
         /* The interactive card's own lift, a little shorter for a smaller surface: a tile is the same gesture
            at a smaller size, so it should answer the pointer the same way. global.css shortens this to nothing
            under prefers-reduced-motion. */
-        transition: transform var(--cp-duration-fast) var(--cp-ease), border-color var(--cp-duration-fast),
-          background var(--cp-duration-fast), box-shadow var(--cp-duration-fast);
+        transition:
+          transform var(--cp-duration-fast) var(--cp-ease),
+          border-color var(--cp-duration-fast),
+          background var(--cp-duration-fast),
+          box-shadow var(--cp-duration-fast);
       }
       /* Visually replaced, never removed: still focusable, still announced, still a radio or checkbox to a form. */
       input {
@@ -274,6 +277,10 @@ export class CpChoiceGroupComponent {
     }
 
     // Reported in the order the options are shown, so the same answers always serialise the same way.
-    this.value.set(this.options().map((option) => option.value).filter((candidate) => next.has(candidate)));
+    this.value.set(
+      this.options()
+        .map((option) => option.value)
+        .filter((candidate) => next.has(candidate)),
+    );
   }
 }

@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
@@ -160,13 +169,25 @@ export class MyDayComponent {
     const invite = this.canAct() ? ' Add a task, or look ahead at your week.' : '';
 
     if (day && day.waiting.length > 0) {
-      return { title: 'Nothing to do next', description: `Everything left is waiting on something else.${invite}`, variant: 'no-results' as const };
+      return {
+        title: 'Nothing to do next',
+        description: `Everything left is waiting on something else.${invite}`,
+        variant: 'no-results' as const,
+      };
     }
     if (day && day.completedToday.length > 0) {
-      return { title: 'That’s everything for today', description: `Everything planned for today is done.${invite}`, variant: 'no-results' as const };
+      return {
+        title: 'That’s everything for today',
+        description: `Everything planned for today is done.${invite}`,
+        variant: 'no-results' as const,
+      };
     }
 
-    return { title: 'Nothing planned for today', description: `There’s nothing on today’s list.${invite}`, variant: 'first-use' as const };
+    return {
+      title: 'Nothing planned for today',
+      description: `There’s nothing on today’s list.${invite}`,
+      variant: 'first-use' as const,
+    };
   });
 
   /** Suggestions, offered only on a day with nothing left in it to do, and only to someone who can plan. */
@@ -193,11 +214,17 @@ export class MyDayComponent {
 
     return (
       state.status === 'ready' &&
-      state.memberships.some((candidate) => candidate.workspaceSlug === this.workspaceSlug() && candidate.role === 'Viewer')
+      state.memberships.some(
+        (candidate) => candidate.workspaceSlug === this.workspaceSlug() && candidate.role === 'Viewer',
+      )
     );
   });
 
-  protected readonly link = (...segments: readonly string[]): readonly string[] => ['/', this.workspaceSlug(), ...segments];
+  protected readonly link = (...segments: readonly string[]): readonly string[] => [
+    '/',
+    this.workspaceSlug(),
+    ...segments,
+  ];
 
   /** A task's own row, so another page can send the creator straight to it (13A.33a). */
   protected readonly rowId = (taskId: string): string => `my-day-task-${taskId}`;
@@ -251,24 +278,39 @@ export class MyDayComponent {
   }
 
   protected async markDone(entry: MyDayEntry, container: Container): Promise<void> {
-    await this.change(entry, container, () => this.tasks.complete(this.workspaceSlug(), entry.task), (saved) => ({
-      text: `Done: “${saved.title}”.`,
-      undo: { kind: 'complete', after: saved },
-    }));
+    await this.change(
+      entry,
+      container,
+      () => this.tasks.complete(this.workspaceSlug(), entry.task),
+      (saved) => ({
+        text: `Done: “${saved.title}”.`,
+        undo: { kind: 'complete', after: saved },
+      }),
+    );
   }
 
   protected async reopen(entry: MyDayEntry, container: Container): Promise<void> {
-    await this.change(entry, container, () => this.tasks.reopen(this.workspaceSlug(), entry.task), (saved, day) => ({
-      text: `Reopened “${saved.title}”${this.whereNow(day, saved.id)}.`,
-      undo: { kind: 'reopen', after: saved },
-    }));
+    await this.change(
+      entry,
+      container,
+      () => this.tasks.reopen(this.workspaceSlug(), entry.task),
+      (saved, day) => ({
+        text: `Reopened “${saved.title}”${this.whereNow(day, saved.id)}.`,
+        undo: { kind: 'reopen', after: saved },
+      }),
+    );
   }
 
   protected async move(entry: MyDayEntry, container: Container, choice: MyDayMove): Promise<void> {
-    await this.change(entry, container, () => this.tasks.move(this.workspaceSlug(), entry.task, choice.request), (saved, day) => ({
-      text: this.movedText(saved, day, choice),
-      undo: { kind: 'move', before: entry.task, after: saved },
-    }));
+    await this.change(
+      entry,
+      container,
+      () => this.tasks.move(this.workspaceSlug(), entry.task, choice.request),
+      (saved, day) => ({
+        text: this.movedText(saved, day, choice),
+        undo: { kind: 'move', before: entry.task, after: saved },
+      }),
+    );
   }
 
   /**
@@ -308,7 +350,10 @@ export class MyDayComponent {
     if (!day || !this.mayAct()) return;
 
     this.busyTaskId.set(suggestion.task.id);
-    const outcome = await this.tasks.move(this.workspaceSlug(), suggestion.task, { status: 'Backlog', scheduledDate: day.date });
+    const outcome = await this.tasks.move(this.workspaceSlug(), suggestion.task, {
+      status: 'Backlog',
+      scheduledDate: day.date,
+    });
     this.busyTaskId.set(null);
 
     if (outcome.status === 'saved') {
@@ -363,13 +408,16 @@ export class MyDayComponent {
       case 'saved':
         this.topThreeOpen.set(false);
         this.message.set({
-          text: outcome.taskIds.length === 0 ? 'Your top three is cleared.' : 'Your top three is at the top of your day.',
+          text:
+            outcome.taskIds.length === 0 ? 'Your top three is cleared.' : 'Your top three is at the top of your day.',
           tone: 'success',
         });
         await this.read();
         return;
       case 'refused':
-        this.topThreeProblem.set('One of those is no longer on your day, so nothing was saved. Your day has been read again: choose again.');
+        this.topThreeProblem.set(
+          'One of those is no longer on your day, so nothing was saved. Your day has been read again: choose again.',
+        );
         await this.read();
         return;
       case 'no_time_zone':
@@ -380,7 +428,9 @@ export class MyDayComponent {
         return;
       default:
         this.topThreeProblem.set(
-          outcome.offline ? 'You’re offline. Your top three can be saved when you’re back.' : 'That didn’t save. Try again.',
+          outcome.offline
+            ? 'You’re offline. Your top three can be saved when you’re back.'
+            : 'That didn’t save. Try again.',
         );
     }
   }
@@ -416,13 +466,20 @@ export class MyDayComponent {
       this.message.set(
         read
           ? { text: said.text, tone: 'success', action: { kind: 'undo', undo: said.undo } }
-          : { text: `${said.text} Your day couldn’t be read again just now.`, tone: 'warning', action: { kind: 'retry' } },
+          : {
+              text: `${said.text} Your day couldn’t be read again just now.`,
+              tone: 'warning',
+              action: { kind: 'retry' },
+            },
       );
       this.focusAfter(container, index);
       return;
     }
 
-    this.message.set({ text: this.refusal(entry.task, outcome), tone: outcome.status === 'unavailable' ? 'warning' : 'error' });
+    this.message.set({
+      text: this.refusal(entry.task, outcome),
+      tone: outcome.status === 'unavailable' ? 'warning' : 'error',
+    });
     if (outcome.status !== 'unavailable' && outcome.status !== 'forbidden') await this.read();
 
     // The choice that was pressed has gone with the closed Move panel: back to the task, wherever it now is.
@@ -472,7 +529,11 @@ export class MyDayComponent {
     }
 
     if (!(await this.read())) {
-      this.message.set({ text: 'Your task was saved, but your day couldn’t be read again just now.', tone: 'warning', action: { kind: 'retry' } });
+      this.message.set({
+        text: 'Your task was saved, but your day couldn’t be read again just now.',
+        tone: 'warning',
+        action: { kind: 'retry' },
+      });
     }
   }
 
@@ -512,7 +573,10 @@ export class MyDayComponent {
   }
 
   private indexIn(container: Container, taskId: string): number {
-    return Math.max(0, this.entriesOf(container).findIndex((entry) => entry.task.id === taskId));
+    return Math.max(
+      0,
+      this.entriesOf(container).findIndex((entry) => entry.task.id === taskId),
+    );
   }
 
   private entriesOf(container: Container): readonly MyDayEntry[] {
@@ -527,7 +591,10 @@ export class MyDayComponent {
   private containerOf(taskId: string): Container | null {
     if (this.layout()?.lead?.entries.some((entry) => entry.task.id === taskId)) return 'lead';
 
-    return this.layout()?.groups.find((group) => group.entries.some((entry) => entry.task.id === taskId))?.definition.key ?? null;
+    return (
+      this.layout()?.groups.find((group) => group.entries.some((entry) => entry.task.id === taskId))?.definition.key ??
+      null
+    );
   }
 
   /**
@@ -650,7 +717,10 @@ export class MyDayComponent {
       );
 
     if (!onToday) {
-      this.message.set({ tone: 'neutral', text: 'That task is not on today’s list. It may be finished, handed on, or planned for another day.' });
+      this.message.set({
+        tone: 'neutral',
+        text: 'That task is not on today’s list. It may be finished, handed on, or planned for another day.',
+      });
 
       return;
     }
@@ -675,5 +745,8 @@ export class MyDayComponent {
 
 /** A row's first control — Done, Reopen, or a suggestion's button — rather than its title link. */
 function controlOf(row: HTMLElement): HTMLElement | null {
-  return row.querySelector<HTMLElement>('.task-controls button, .task-controls a') ?? row.querySelector<HTMLElement>('button');
+  return (
+    row.querySelector<HTMLElement>('.task-controls button, .task-controls a') ??
+    row.querySelector<HTMLElement>('button')
+  );
 }

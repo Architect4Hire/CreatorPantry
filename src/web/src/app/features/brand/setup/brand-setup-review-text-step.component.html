@@ -18,7 +18,10 @@
       }
     </cp-form-section>
   } @else {
-    <cp-form-section heading="Your examples" intro="Check the words we read from each one, fix anything that's wrong, or leave an example out.">
+    <cp-form-section
+      heading="Your examples"
+      intro="Check the words we read from each one, fix anything that's wrong, or leave an example out."
+    >
       @if (undecided() > 0) {
         <cp-notice tone="warning" role="status">
           {{ undecided() === 1 ? '1 example still needs' : undecided() + ' examples still need' }} your OK before you
@@ -53,7 +56,13 @@
             <p class="preview">{{ preview(card.extraction) }}</p>
             <details class="cp-disclosure">
               <summary>See all the text</summary>
-              <div class="full-text" role="region" tabindex="0" [attr.aria-label]="'All the text of ' + titleOf(card)">{{ card.extraction.text }}</div>
+              <div
+                class="full-text"
+                role="region"
+                tabindex="0"
+                [attr.aria-label]="'All the text of ' + titleOf(card)"
+                >{{ card.extraction.text }}</div
+              >
             </details>
           }
 
@@ -92,49 +101,119 @@
             @if (editor) {
               @if (editor.conflict) {
                 <button cpButton type="button" variant="primary" size="sm" (click)="keepMine(card)">Keep mine</button>
-                <button cpButton type="button" variant="secondary" size="sm" (click)="startFromNewest(card)">Start from the newest</button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="startFromNewest(card)"
+                  >Start from the newest</button
+                >
               } @else {
-                <button cpButton type="button" variant="primary" size="sm" [disabled]="editor.saving" (click)="saveEdit(card)">
+                <button
+                  cpButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  [disabled]="editor.saving"
+                  (click)="saveEdit(card)"
+                >
                   {{ editor.saving ? 'Saving…' : 'Save text' }}
                 </button>
               }
-              <button cpButton type="button" variant="ghost" size="sm" [disabled]="editor.saving" (click)="cancelEdit(card)">Cancel</button>
+              <button
+                cpButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                [disabled]="editor.saving"
+                (click)="cancelEdit(card)"
+                >Cancel</button
+              >
             } @else {
               @switch (entry.kind) {
                 @case ('waiting') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="checkAgain(card)">Check again</button>
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="isBusy(card.documentId)"
+                    (click)="checkAgain(card)"
+                    >Check again</button
+                  >
                 }
                 @case ('unreachable') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="checkAgain(card)">Check again</button>
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="isBusy(card.documentId)"
+                    (click)="checkAgain(card)"
+                    >Check again</button
+                  >
                 }
                 @case ('stopped') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="isBusy(card.documentId)"
+                    (click)="retryRead(card)"
+                  >
                     {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
                   </button>
-                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)"
+                    >Type or paste the text</button
+                  >
                 }
                 @case ('failed') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="isBusy(card.documentId)"
+                    (click)="retryRead(card)"
+                  >
                     {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
                   </button>
-                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)"
+                    >Type or paste the text</button
+                  >
                 }
                 @case ('scan') {
-                  <button cpButton type="button" variant="primary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
+                  <button cpButton type="button" variant="primary" size="sm" (click)="startEdit(card)"
+                    >Type or paste the text</button
+                  >
                 }
                 @case ('read') {
-                  <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)">Looks right</button>
-                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+                  <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)"
+                    >Looks right</button
+                  >
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)"
+                    >Edit the text</button
+                  >
                 }
                 @case ('partial') {
-                  <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)">Use the beginning</button>
-                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+                  <button cpButton type="button" variant="primary" size="sm" (click)="confirm(card)"
+                    >Use the beginning</button
+                  >
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)"
+                    >Edit the text</button
+                  >
                 }
                 @case ('confirmed') {
-                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
+                  <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)"
+                    >Edit the text</button
+                  >
                 }
                 @case ('left-out') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="bringBack(card)">
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [disabled]="isBusy(card.documentId)"
+                    (click)="bringBack(card)"
+                  >
                     {{ isBusy(card.documentId, 'unarchive') ? 'Bringing it back…' : 'Bring it back' }}
                   </button>
                 }

@@ -110,7 +110,11 @@ describe('RecipeRestoreComponent', () => {
   let closes: number;
 
   /** Renders the dialog for `version`, against a history whose newest version is `newest`. */
-  async function render(version = 3, newest = 8, options: { dirty?: boolean; token?: string | null } = {}): Promise<HTMLElement> {
+  async function render(
+    version = 3,
+    newest = 8,
+    options: { dirty?: boolean; token?: string | null } = {},
+  ): Promise<HTMLElement> {
     fixture = TestBed.createComponent(RecipeRestoreComponent);
     fixture.componentRef.setInput('workspaceSlug', 'cozy-fall');
     fixture.componentRef.setInput('recipeId', 'r1');

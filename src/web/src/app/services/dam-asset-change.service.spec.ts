@@ -104,7 +104,9 @@ describe('DamAssetService — changing an asset', () => {
     it('reports a stale token as its own outcome, because its remedy is to read again', async () => {
       const pending = service.patchMetadata('cozy-fall', ID, body, 'key-1');
 
-      http.expectOne(`${BASE}/${ID}`).flush(problem('media.asset.stale.conflict'), { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne(`${BASE}/${ID}`)
+        .flush(problem('media.asset.stale.conflict'), { status: 409, statusText: 'Conflict' });
 
       expect(await pending).toEqual({ status: 'stale' });
     });
@@ -120,12 +122,16 @@ describe('DamAssetService — changing an asset', () => {
     it("carries the server's field errors on a refused edit", async () => {
       const pending = service.patchMetadata('cozy-fall', ID, body, 'key-1');
 
-      http
-        .expectOne(`${BASE}/${ID}`)
-        .flush(problem('media.asset.invalid_request', { title: 'That edit could not be saved.', errors: { title: ['A title is required.'] } }), {
+      http.expectOne(`${BASE}/${ID}`).flush(
+        problem('media.asset.invalid_request', {
+          title: 'That edit could not be saved.',
+          errors: { title: ['A title is required.'] },
+        }),
+        {
           status: 400,
           statusText: 'Bad Request',
-        });
+        },
+      );
 
       expect(await pending).toEqual({
         status: 'invalid',
@@ -238,7 +244,9 @@ describe('DamAssetService — changing an asset', () => {
 
         http.expectOne(`${BASE}/${ID}/versions`).flush(problem(code), { status, statusText: 'Refused' });
 
-        expect(upload.events).toEqual([{ kind: 'done', outcome: { status: 'failed', reason } } as DamVersionUploadEvent]);
+        expect(upload.events).toEqual([
+          { kind: 'done', outcome: { status: 'failed', reason } } as DamVersionUploadEvent,
+        ]);
         expect(upload.completed()).toBeTrue();
       });
     }

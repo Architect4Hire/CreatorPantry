@@ -91,21 +91,25 @@ describe('RecipeAssetLinkService', () => {
 
     it('carries field errors on a malformed request', async () => {
       const pending = service.link('cozy-fall', 'r1', REQUEST, 'key-1');
-      http
-        .expectOne(BASE)
-        .flush(problem('recipes.assetLink.invalid_request', { caption: ['Too long.'] }), { status: 400, statusText: 'Bad Request' });
+      http.expectOne(BASE).flush(problem('recipes.assetLink.invalid_request', { caption: ['Too long.'] }), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
 
       expect(await pending).toEqual({ status: 'validation_failed', fieldErrors: { caption: ['Too long.'] } });
     });
 
     it('tells a target that is not there from a spent idempotency key, though both are 422', async () => {
       const refused = service.link('cozy-fall', 'r1', REQUEST, 'key-1');
-      http
-        .expectOne(BASE)
-        .flush(problem('recipes.assetLink.target.unprocessable', { mediaAssetId: ["That picture is not in this workspace's library."] }), {
+      http.expectOne(BASE).flush(
+        problem('recipes.assetLink.target.unprocessable', {
+          mediaAssetId: ["That picture is not in this workspace's library."],
+        }),
+        {
           status: 422,
           statusText: 'Unprocessable Entity',
-        });
+        },
+      );
 
       expect(await refused).toEqual({
         status: 'target_refused',
@@ -113,7 +117,9 @@ describe('RecipeAssetLinkService', () => {
       });
 
       const reused = service.link('cozy-fall', 'r1', REQUEST, 'key-1');
-      http.expectOne(BASE).flush(problem('idempotency.key_reused'), { status: 422, statusText: 'Unprocessable Entity' });
+      http
+        .expectOne(BASE)
+        .flush(problem('idempotency.key_reused'), { status: 422, statusText: 'Unprocessable Entity' });
 
       expect((await reused).status).toBe('idempotency_key_conflict');
     });
@@ -143,7 +149,9 @@ describe('RecipeAssetLinkService', () => {
         const pending = service.link('cozy-fall', 'r1', REQUEST, 'key-1');
         http.expectOne(BASE).flush(problem('x'), { status, statusText: 'x' });
 
-        expect((await pending).status).withContext(String(status)).toBe(expected);
+        expect((await pending).status)
+          .withContext(String(status))
+          .toBe(expected);
       }
     });
   });
@@ -167,7 +175,9 @@ describe('RecipeAssetLinkService', () => {
 
     it('tells a link that is already gone from a recipe that cannot be seen, though both are 404', async () => {
       const gone = service.unlink('cozy-fall', 'r1', 'l1', 'token-1', 'key-2');
-      http.expectOne(`${BASE}/l1`).flush(problem('recipes.assetLink.not_found'), { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne(`${BASE}/l1`)
+        .flush(problem('recipes.assetLink.not_found'), { status: 404, statusText: 'Not Found' });
       expect((await gone).status).toBe('link_not_found');
 
       const hidden = service.unlink('cozy-fall', 'r1', 'l1', 'token-1', 'key-2');
@@ -186,7 +196,9 @@ describe('RecipeAssetLinkService', () => {
         const pending = service.unlink('cozy-fall', 'r1', 'l1', 'token-1', 'key-2');
         http.expectOne(`${BASE}/l1`).flush(problem(code), { status, statusText: 'x' });
 
-        expect((await pending).status).withContext(`${status} ${code}`).toBe(expected);
+        expect((await pending).status)
+          .withContext(`${status} ${code}`)
+          .toBe(expected);
       }
     });
   });

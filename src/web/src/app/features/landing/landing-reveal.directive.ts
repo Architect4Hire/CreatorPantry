@@ -111,8 +111,7 @@ export class LandingRevealDirective {
   private hide(element: HTMLElement, delayMs: number): void {
     element.style.opacity = '0';
     element.style.translate = `0 ${RISE}`;
-    element.style.transition =
-      `opacity var(--cp-duration-normal) var(--cp-ease) ${delayMs}ms, translate var(--cp-duration-normal) var(--cp-ease) ${delayMs}ms`;
+    element.style.transition = `opacity var(--cp-duration-normal) var(--cp-ease) ${delayMs}ms, translate var(--cp-duration-normal) var(--cp-ease) ${delayMs}ms`;
   }
 
   private show(): void {

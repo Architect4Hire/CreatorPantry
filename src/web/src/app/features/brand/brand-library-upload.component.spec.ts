@@ -93,7 +93,9 @@ describe('BrandLibraryUploadComponent', () => {
     return uploadSpy.calls.allArgs() as UploadArgs[];
   }
 
-  async function create(outcome: BrandSourceAddOutcome = { status: 'added', document: ADDED, replayed: false }): Promise<void> {
+  async function create(
+    outcome: BrandSourceAddOutcome = { status: 'added', document: ADDED, replayed: false },
+  ): Promise<void> {
     uploadSpy = jasmine.createSpy('upload').and.resolveTo(outcome);
 
     TestBed.resetTestingModule();
@@ -204,9 +206,7 @@ describe('BrandLibraryUploadComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(uploads()[0][2]).toEqual(
-      jasmine.objectContaining({ audience: 'Weeknight cooks' }),
-    );
+    expect(uploads()[0][2]).toEqual(jasmine.objectContaining({ audience: 'Weeknight cooks' }));
   });
 
   it('reports the added example and closes', async () => {
@@ -289,7 +289,9 @@ describe('BrandLibraryUploadComponent', () => {
 
     expect(problemId).toBeTruthy();
     expect(root().querySelector(`#${problemId}`)?.getAttribute('role')).toBe('alert');
-    expect(root().querySelector(`#${section.getAttribute('aria-labelledby')}`)?.textContent).toContain('Example details');
+    expect(root().querySelector(`#${section.getAttribute('aria-labelledby')}`)?.textContent).toContain(
+      'Example details',
+    );
   });
 
   it('names Editor access as what is missing rather than reporting a generic failure', async () => {
@@ -373,7 +375,9 @@ describe('BrandLibraryUploadComponent', () => {
 
   it('will not close or re-submit while an upload is in flight', async () => {
     let finish: (outcome: BrandSourceAddOutcome) => void = () => undefined;
-    uploadSpy = jasmine.createSpy('upload').and.returnValue(new Promise<BrandSourceAddOutcome>((resolve) => (finish = resolve)));
+    uploadSpy = jasmine
+      .createSpy('upload')
+      .and.returnValue(new Promise<BrandSourceAddOutcome>((resolve) => (finish = resolve)));
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -409,14 +413,13 @@ describe('BrandLibraryUploadComponent', () => {
   });
 
   it('aborts the request when the upload is cancelled, and says nothing was saved', async () => {
-    uploadSpy = jasmine
-      .createSpy('upload')
-      .and.callFake((...args: UploadArgs) =>
+    uploadSpy = jasmine.createSpy('upload').and.callFake(
+      (...args: UploadArgs) =>
         new Promise<BrandSourceAddOutcome>((resolve) => {
           const signal = args[4];
           signal?.addEventListener('abort', () => resolve({ status: 'failed', reason: 'cancelled' }), { once: true });
         }),
-      );
+    );
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({

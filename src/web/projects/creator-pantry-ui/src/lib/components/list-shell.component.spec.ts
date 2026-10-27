@@ -7,12 +7,30 @@ import { CpListShellComponent, CpListShellLoadingLayout, CpListShellState } from
   standalone: true,
   imports: [CpListShellComponent],
   template: `
-    <cp-list-shell [heading]="heading" [state]="state" [loadingLayout]="loadingLayout" [errorMessage]="errorMessage" [emptyMessage]="emptyMessage">
-      @if (showActions) { <span cpListShellActions>Bulk actions</span> }
-      @if (showEmpty) { <div cpListShellEmpty>Nothing here yet, custom copy.</div> }
-      @if (showLoading) { <div cpListShellLoading class="own-loading">Four columns arriving</div> }
-      @if (showPagination) { <span cpListShellPagination>Page 1 of 3</span> }
-      <table><tbody><tr><td>Row content</td></tr></tbody></table>
+    <cp-list-shell
+      [heading]="heading"
+      [state]="state"
+      [loadingLayout]="loadingLayout"
+      [errorMessage]="errorMessage"
+      [emptyMessage]="emptyMessage"
+    >
+      @if (showActions) {
+        <span cpListShellActions>Bulk actions</span>
+      }
+      @if (showEmpty) {
+        <div cpListShellEmpty>Nothing here yet, custom copy.</div>
+      }
+      @if (showLoading) {
+        <div cpListShellLoading class="own-loading">Four columns arriving</div>
+      }
+      @if (showPagination) {
+        <span cpListShellPagination>Page 1 of 3</span>
+      }
+      <table
+        ><tbody
+          ><tr><td>Row content</td></tr></tbody
+        ></table
+      >
     </cp-list-shell>
   `,
 })
@@ -173,7 +191,13 @@ describe('CpListShellComponent', () => {
       imports: [CpListShellComponent],
       template: `<div class="frame" style="position: relative; width: 300px; overflow: auto">
         <cp-list-shell heading="Versions">
-          <table style="width: 900px"><thead><tr><th>One</th><th><span class="cp-sr-only">Download</span></th></tr></thead></table>
+          <table style="width: 900px"
+            ><thead
+              ><tr
+                ><th>One</th><th><span class="cp-sr-only">Download</span></th></tr
+              ></thead
+            ></table
+          >
         </cp-list-shell>
       </div>`,
     })

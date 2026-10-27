@@ -22,5 +22,8 @@ export const authGuard: CanActivateFn = async () => {
   const session = auth.session();
   if (session.status === 'authenticated') return true;
 
-  return router.createUrlTree(['/sign-in'], session.status === 'degraded' ? { queryParams: { reason: 'degraded' } } : {});
+  return router.createUrlTree(
+    ['/sign-in'],
+    session.status === 'degraded' ? { queryParams: { reason: 'degraded' } } : {},
+  );
 };

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
@@ -146,8 +156,8 @@ export class BrandSetupFinishStepComponent implements OnInit {
         // REVISIT WITH 11A.20/11A.21 (audit 11A.24a, B1): this promised that every new blog post, caption and
         // newsletter would start from the guide. No writing handler reads one yet.
         `"${this.state().name.trim() || 'Your guide'}" becomes this workspace's default voice, and the one ` +
-        '"Test my style" writes from. Blog, caption and newsletter generation does not read it yet, so nothing '
-        + 'you generate today changes. You can switch to another voice later.',
+        '"Test my style" writes from. Blog, caption and newsletter generation does not read it yet, so nothing ' +
+        'you generate today changes. You can switch to another voice later.',
       confirmLabel: 'Switch it on',
       cancelLabel: 'Not yet',
       tone: 'neutral',

@@ -81,7 +81,8 @@ const PANELS = [
     path: (workspace) => `/${workspace}/workflows`,
     heading: 'Workflows',
     proof: /scheduled|confirm/i,
-    needs: 'a publish run at its confirm step; pass its address as CAPTURE_URL_PUBLISHING. Buffer has to be configured for this workspace (see .claude/rules/aspire.md), or the step has nothing to confirm.',
+    needs:
+      'a publish run at its confirm step; pass its address as CAPTURE_URL_PUBLISHING. Buffer has to be configured for this workspace (see .claude/rules/aspire.md), or the step has nothing to confirm.',
   },
 ];
 
@@ -100,12 +101,17 @@ function required(name) {
  */
 async function assertPanelsMatchComponent() {
   const source = await readFile(join(landing, 'landing-tour.component.ts'), 'utf8');
-  const stops = source.slice(source.indexOf('export const TOUR_STOPS'), source.indexOf('export const TOUR_HAS_CAPTURES'));
+  const stops = source.slice(
+    source.indexOf('export const TOUR_STOPS'),
+    source.indexOf('export const TOUR_HAS_CAPTURES'),
+  );
   const ids = [...stops.matchAll(/^\s*panel: '([a-z-]+)',$/gm)].map((match) => match[1]);
   if (ids.length === 0) throw new Error('Found no panels in landing-tour.component.ts. Has TOUR_STOPS moved?');
   const mine = PANELS.map((panel) => panel.id);
   if (ids.join() !== mine.join()) {
-    throw new Error(`The tour's panels and this script's have drifted.\n  component: ${ids.join(', ')}\n  script:    ${mine.join(', ')}`);
+    throw new Error(
+      `The tour's panels and this script's have drifted.\n  component: ${ids.join(', ')}\n  script:    ${mine.join(', ')}`,
+    );
   }
   return ids;
 }
@@ -147,8 +153,14 @@ async function write(sharp, shot, panelId, theme) {
   const sizes = { '2x': VIEWPORT.width, '1x': VIEWPORT.width / 2 };
   for (const [density, width] of Object.entries(sizes)) {
     const resized = full.clone().resize({ width, fit: 'inside' });
-    await resized.clone().avif({ quality: 55 }).toFile(join(imagesDir, `${panelId}-${theme}@${density}.avif`));
-    await resized.clone().webp({ quality: 78 }).toFile(join(imagesDir, `${panelId}-${theme}@${density}.webp`));
+    await resized
+      .clone()
+      .avif({ quality: 55 })
+      .toFile(join(imagesDir, `${panelId}-${theme}@${density}.avif`));
+    await resized
+      .clone()
+      .webp({ quality: 78 })
+      .toFile(join(imagesDir, `${panelId}-${theme}@${density}.webp`));
   }
   return { width: VIEWPORT.width / 2, height: VIEWPORT.height / 2 };
 }
@@ -156,14 +168,20 @@ async function write(sharp, shot, panelId, theme) {
 /** A panel joins the tour only when all four of its files are on disk, in both themes. */
 async function onDisk(id) {
   const files = new Set(await readdir(imagesDir).catch(() => []));
-  return THEMES.every((theme) => ['1x', '2x'].every((density) => ['avif', 'webp'].every((format) => files.has(`${id}-${theme}@${density}.${format}`))));
+  return THEMES.every((theme) =>
+    ['1x', '2x'].every((density) =>
+      ['avif', 'webp'].every((format) => files.has(`${id}-${theme}@${density}.${format}`)),
+    ),
+  );
 }
 
 /** What the generated file says today, so a panel this run did not photograph keeps the day it was photographed. */
 async function alreadyListed() {
   const source = await readFile(join(landing, 'landing-tour.captures.ts'), 'utf8');
   const listed = new Map();
-  for (const entry of source.matchAll(/\{ panel: '([a-z-]+)', width: (\d+), height: (\d+), capturedOn: '([\d-]+)' \}/g)) {
+  for (const entry of source.matchAll(
+    /\{ panel: '([a-z-]+)', width: (\d+), height: (\d+), capturedOn: '([\d-]+)' \}/g,
+  )) {
     listed.set(entry[1], { width: Number(entry[2]), height: Number(entry[3]), capturedOn: entry[4] });
   }
   return listed;
@@ -190,7 +208,10 @@ async function writeCapturesModule(captures) {
   const path = join(landing, 'landing-tour.captures.ts');
   const source = await readFile(path, 'utf8');
   const entries = captures
-    .map(([panel, entry]) => `  { panel: '${panel}', width: ${entry.width}, height: ${entry.height}, capturedOn: '${entry.capturedOn}' },`)
+    .map(
+      ([panel, entry]) =>
+        `  { panel: '${panel}', width: ${entry.width}, height: ${entry.height}, capturedOn: '${entry.capturedOn}' },`,
+    )
     .join('\n');
   const list = entries ? `[\n${entries}\n]` : '[]';
   const next = source.replace(
@@ -237,7 +258,9 @@ async function main() {
       for (const panel of PANELS) {
         const override = process.env[`CAPTURE_URL_${panel.id.replaceAll('-', '_').toUpperCase()}`];
         if (!override && panel.requiresUrl) {
-          failures.push(`${panel.id} (${theme}): no address given. The screen this panel promises lives at an id of its own, and ${panel.path(workspace)} is only the way in. It needs ${panel.needs}`);
+          failures.push(
+            `${panel.id} (${theme}): no address given. The screen this panel promises lives at an id of its own, and ${panel.path(workspace)} is only the way in. It needs ${panel.needs}`,
+          );
           continue;
         }
         const url = override ?? `${baseUrl}${panel.path(workspace)}`;

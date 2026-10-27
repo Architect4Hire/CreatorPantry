@@ -6,7 +6,11 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { WorkspaceRole } from '../../models/auth.models';
 import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/content-pipeline.models';
 import { LongFormDraftStatus, LongFormDraftSummary } from '../../models/long-form-draft.models';
-import { WorkflowDefinitionSummary, WorkflowRunSummary, WorkflowRunSummaryPage } from '../../models/workflow-hub.models';
+import {
+  WorkflowDefinitionSummary,
+  WorkflowRunSummary,
+  WorkflowRunSummaryPage,
+} from '../../models/workflow-hub.models';
 import { decodeWorkflowRun } from '../../models/workflow-run.models';
 import { wireRun } from '../../models/workflow-run.testing';
 import {
@@ -32,7 +36,11 @@ function member(workspaceId: string, slug: string, membershipId: string, role: W
   return { workspaceId, workspaceSlug: slug, workspaceName: slug, membershipId, role, status: 'Active' as const };
 }
 
-function definition(key: string, goal: string, overrides: Partial<WorkflowDefinitionSummary> = {}): WorkflowDefinitionSummary {
+function definition(
+  key: string,
+  goal: string,
+  overrides: Partial<WorkflowDefinitionSummary> = {},
+): WorkflowDefinitionSummary {
   return {
     key,
     goal,
@@ -110,17 +118,29 @@ const hubStore = {
     definitionReads.push(slug);
     const read = () => {
       const answer = definitions[slug] ?? [];
-      return answer === 'unavailable' ? { status: 'unavailable' as const } : { status: 'found' as const, definitions: answer };
+      return answer === 'unavailable'
+        ? { status: 'unavailable' as const }
+        : { status: 'found' as const, definitions: answer };
     };
     if (holdDefinitions === undefined) return Promise.resolve(read());
     return new Promise<ReturnType<typeof read>>((resolve) => (holdDefinitions = () => resolve(read())));
   },
-  runs: (slug: string, query: { view: WorkflowRunListView; cursor?: string | null }): Promise<WorkflowRunListOutcome> => {
+  runs: (
+    slug: string,
+    query: { view: WorkflowRunListView; cursor?: string | null },
+  ): Promise<WorkflowRunListOutcome> => {
     runReads.push({ slug, view: query.view, cursor: query.cursor ?? null });
     const answer = runPages[slug]?.[query.view] ?? { items: [], nextCursor: null };
     if (answer === 'unavailable') return Promise.resolve({ status: 'unavailable' });
     if (query.cursor && failNextPage) return Promise.resolve({ status: 'unavailable' });
-    if (query.cursor) return Promise.resolve({ status: 'found', page: { items: [summary(`${query.view}-page-2`, { title: 'From the next page', updatedAt: '2026-09-01T00:00:00Z' })], nextCursor: null } });
+    if (query.cursor)
+      return Promise.resolve({
+        status: 'found',
+        page: {
+          items: [summary(`${query.view}-page-2`, { title: 'From the next page', updatedAt: '2026-09-01T00:00:00Z' })],
+          nextCursor: null,
+        },
+      });
     return Promise.resolve({ status: 'found', page: answer });
   },
 };
@@ -160,7 +180,10 @@ async function create(
     unreadable?: boolean;
   } = {},
 ): Promise<void> {
-  definitions = { [SLUG]: options.definitions ?? DEFINITIONS, [OTHER_SLUG]: [definition('recipe.create', 'Create a recipe')] };
+  definitions = {
+    [SLUG]: options.definitions ?? DEFINITIONS,
+    [OTHER_SLUG]: [definition('recipe.create', 'Create a recipe')],
+  };
   runPages = { [SLUG]: options.runs ?? {} };
   runReads = [];
   failNextPage = false;
@@ -171,11 +194,16 @@ async function create(
   stored = { 'w1.m1': options.draft ?? null };
   unreadable = new Set(options.unreadable ? ['w1.m1'] : []);
   loads = 0;
-  start = jasmine.createSpy('start').and.resolveTo({ status: 'started', run: decodeWorkflowRun(wireRun({ id: 'run-new' }))! });
+  start = jasmine
+    .createSpy('start')
+    .and.resolveTo({ status: 'started', run: decodeWorkflowRun(wireRun({ id: 'run-new' }))! });
 
   const role = options.role ?? 'Editor';
   memberships = signal<MyMembershipsState>(
-    options.state ?? { status: 'ready', memberships: [member('w1', SLUG, 'm1', role), member('w2', OTHER_SLUG, 'm2', role)] },
+    options.state ?? {
+      status: 'ready',
+      memberships: [member('w1', SLUG, 'm1', role), member('w2', OTHER_SLUG, 'm2', role)],
+    },
   );
 
   TestBed.resetTestingModule();
@@ -224,7 +252,9 @@ function card(heading: string): HTMLElement | null {
 }
 
 function rows(heading: string): string[] {
-  return Array.from(card(heading)?.querySelectorAll('.rows > li') ?? []).map((row) => (row.textContent ?? '').replace(/\s+/g, ' ').trim());
+  return Array.from(card(heading)?.querySelectorAll('.rows > li') ?? []).map((row) =>
+    (row.textContent ?? '').replace(/\s+/g, ' ').trim(),
+  );
 }
 
 function goals(): string[] {
@@ -232,7 +262,11 @@ function goals(): string[] {
 }
 
 function control(scope: Element | null, label: string): HTMLElement | null {
-  return (Array.from(scope?.querySelectorAll<HTMLElement>('a, button') ?? []).find((el) => el.textContent?.trim() === label) ?? null);
+  return (
+    Array.from(scope?.querySelectorAll<HTMLElement>('a, button') ?? []).find(
+      (el) => el.textContent?.trim() === label,
+    ) ?? null
+  );
 }
 
 async function search(value: string): Promise<void> {
@@ -278,7 +312,12 @@ describe('WorkflowsHubComponent', () => {
   describe('returning', () => {
     it('puts work in progress first, from every place it is kept, newest first', async () => {
       await create({
-        runs: { mine: { items: [summary('run-1', { title: 'Soda bread', updatedAt: '2026-10-14T10:00:00Z' })], nextCursor: null } },
+        runs: {
+          mine: {
+            items: [summary('run-1', { title: 'Soda bread', updatedAt: '2026-10-14T10:00:00Z' })],
+            nextCursor: null,
+          },
+        },
         longForm: [piece('lf-1', 'Writing', '2026-10-15T08:00:00Z'), piece('lf-2', 'Accepted', '2026-10-15T09:00:00Z')],
         draft: inProgress('2026-10-12T09:00:00Z'),
       });
@@ -291,7 +330,9 @@ describe('WorkflowsHubComponent', () => {
       expect(shown[1]).toContain('Next: Ingredients · 1 of 5 steps done');
       expect(shown[2]).toContain('Make a picture and posts from one idea');
 
-      const links = Array.from(card('Continue where you left off')!.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+      const links = Array.from(card('Continue where you left off')!.querySelectorAll('a')).map((a) =>
+        a.getAttribute('href'),
+      );
       expect(links).toEqual([
         `/${SLUG}/workflows/long-form/context/ctx-lf-1/draft/lf-1`,
         `/${SLUG}/workflows/runs/run-1`,
@@ -334,14 +375,21 @@ describe('WorkflowsHubComponent', () => {
           completed: {
             items: [
               summary('done-1', { status: 'Completed', completedAt: '2026-10-18T12:00:00Z', nextStepTitle: null }),
-              summary('done-2', { title: 'Soda bread', status: 'Completed', completedAt: '2026-10-17T12:00:00Z', nextStepTitle: null }),
+              summary('done-2', {
+                title: 'Soda bread',
+                status: 'Completed',
+                completedAt: '2026-10-17T12:00:00Z',
+                nextStepTitle: null,
+              }),
             ],
             nextCursor: null,
           },
         },
       });
 
-      const names = Array.from(card('Recent outcomes')!.querySelectorAll('a')).map((a) => a.getAttribute('aria-label')!);
+      const names = Array.from(card('Recent outcomes')!.querySelectorAll('a')).map((a) =>
+        a.getAttribute('aria-label')!,
+      );
       expect(names[0]).toMatch(/^See what you made with Create a recipe — Ingredients, finished /);
       expect(names[1]).toMatch(/^See what you made with “Soda bread”, finished /);
     });
@@ -367,7 +415,9 @@ describe('WorkflowsHubComponent', () => {
     });
 
     it('shows five, then more on asking — reading the next page of runs when it needs to', async () => {
-      const items = Array.from({ length: 6 }, (_, i) => summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-1${i}T10:00:00Z` }));
+      const items = Array.from({ length: 6 }, (_, i) =>
+        summary(`run-${i}`, { title: `Run ${i}`, updatedAt: `2026-10-1${i}T10:00:00Z` }),
+      );
       await create({ runs: { mine: { items, nextCursor: 'next-page' } } });
 
       expect(rows('Continue where you left off').length).toBe(5);
@@ -385,8 +435,16 @@ describe('WorkflowsHubComponent', () => {
         runs: {
           attention: {
             items: [
-              summary('run-a', { title: 'Old run', owner: { membershipId: 'm9', displayName: 'Robin' }, attentionReasons: ['idle', 'newer_version'] }),
-              summary('run-b', { title: 'Gone owner', owner: { membershipId: 'm8', displayName: null }, attentionReasons: ['not_yours_to_do'] }),
+              summary('run-a', {
+                title: 'Old run',
+                owner: { membershipId: 'm9', displayName: 'Robin' },
+                attentionReasons: ['idle', 'newer_version'],
+              }),
+              summary('run-b', {
+                title: 'Gone owner',
+                owner: { membershipId: 'm8', displayName: null },
+                attentionReasons: ['not_yours_to_do'],
+              }),
             ],
             nextCursor: null,
           },
@@ -422,9 +480,20 @@ describe('WorkflowsHubComponent', () => {
     });
 
     it('lets every list show more than five, so nothing that needs a look is out of reach', async () => {
-      const many = (view: string) => Array.from({ length: 7 }, (_, i) =>
-        summary(`${view}-${i}`, { title: `${view} ${i}`, status: view === 'done' ? 'Completed' : 'InProgress', attentionReasons: ['idle'] }));
-      await create({ runs: { attention: { items: many('look'), nextCursor: null }, completed: { items: many('done'), nextCursor: null } } });
+      const many = (view: string) =>
+        Array.from({ length: 7 }, (_, i) =>
+          summary(`${view}-${i}`, {
+            title: `${view} ${i}`,
+            status: view === 'done' ? 'Completed' : 'InProgress',
+            attentionReasons: ['idle'],
+          }),
+        );
+      await create({
+        runs: {
+          attention: { items: many('look'), nextCursor: null },
+          completed: { items: many('done'), nextCursor: null },
+        },
+      });
 
       expect(rows('Needs attention').length).toBe(5);
       control(card('Needs attention'), 'Show more')!.click();
@@ -439,12 +508,21 @@ describe('WorkflowsHubComponent', () => {
 
     it('lists what was finished recently, leading to what was made', async () => {
       await create({
-        runs: { completed: { items: [summary('run-done', { title: 'Soda bread', status: 'Completed', completedAt: '2026-10-10T12:00:00Z' })], nextCursor: null } },
+        runs: {
+          completed: {
+            items: [
+              summary('run-done', { title: 'Soda bread', status: 'Completed', completedAt: '2026-10-10T12:00:00Z' }),
+            ],
+            nextCursor: null,
+          },
+        },
       });
 
       expect(rows('Recent outcomes')[0]).toContain('Soda bread');
       expect(rows('Recent outcomes')[0]).toContain('Finished');
-      expect(control(card('Recent outcomes'), 'See what you made')!.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/run-done`);
+      expect(control(card('Recent outcomes'), 'See what you made')!.getAttribute('href')).toBe(
+        `/${SLUG}/workflows/runs/run-done`,
+      );
     });
   });
 
@@ -496,7 +574,9 @@ describe('WorkflowsHubComponent', () => {
       await settle();
 
       expect(definitionReads.length).toBe(before + 1);
-      expect(card('Create a recipe')!.textContent).toContain('Your access in this workspace doesn’t let you start this.');
+      expect(card('Create a recipe')!.textContent).toContain(
+        'Your access in this workspace doesn’t let you start this.',
+      );
     });
 
     it('says who can start what the reader cannot, and offers no Start', async () => {
@@ -538,9 +618,15 @@ describe('WorkflowsHubComponent', () => {
     });
 
     it('lets a Viewer see every way in and start none of them', async () => {
-      await create({ role: 'Viewer', definitions: DEFINITIONS.map((d) => ({ ...d, canStart: false, neededRole: 'Contributor' as const })) });
+      await create({
+        role: 'Viewer',
+        definitions: DEFINITIONS.map((d) => ({ ...d, canStart: false, neededRole: 'Contributor' as const })),
+      });
 
-      expect(root().querySelectorAll('section.goals [cpTopicCardActions] a, section.goals [cpTopicCardActions] button').length).toBe(0);
+      expect(
+        root().querySelectorAll('section.goals [cpTopicCardActions] a, section.goals [cpTopicCardActions] button')
+          .length,
+      ).toBe(0);
       expect(card('Draft a recipe from a dish name')!.textContent).toContain('You have view-only access here');
       expect(card('Continue where you left off')).toBeNull();
     });
@@ -705,7 +791,10 @@ describe('WorkflowsHubComponent', () => {
       expect(root().querySelectorAll('h1').length).toBe(1);
       const levels = Array.from(root().querySelectorAll('h1, h2, h3')).map((h) => Number(h.tagName[1]));
       levels.forEach((level, i) => {
-        if (i > 0) expect(level - levels[i - 1]).withContext(`heading ${i}`).toBeLessThanOrEqual(1);
+        if (i > 0)
+          expect(level - levels[i - 1])
+            .withContext(`heading ${i}`)
+            .toBeLessThanOrEqual(1);
       });
       expect(root().querySelector('#hub-goals-heading')!.tagName).toBe('H2');
     });
@@ -718,12 +807,16 @@ describe('WorkflowsHubComponent', () => {
         const name = el.getAttribute('aria-label') ?? el.textContent?.trim() ?? '';
         expect(name.length).withContext(el.outerHTML).toBeGreaterThan(0);
       }
-      expect(control(card('Continue where you left off'), 'Continue')!.getAttribute('aria-label')).toMatch(/^Continue “Soda bread”, last saved /);
+      expect(control(card('Continue where you left off'), 'Continue')!.getAttribute('aria-label')).toMatch(
+        /^Continue “Soda bread”, last saved /,
+      );
 
       // A name that says more still begins with what is shown (WCAG 2.5.3).
       for (const el of Array.from(root().querySelectorAll<HTMLElement>('a[aria-label], button[aria-label]'))) {
         const shown = el.textContent?.trim() ?? '';
-        expect(el.getAttribute('aria-label')!.startsWith(shown)).withContext(`${shown} / ${el.getAttribute('aria-label')}`).toBeTrue();
+        expect(el.getAttribute('aria-label')!.startsWith(shown))
+          .withContext(`${shown} / ${el.getAttribute('aria-label')}`)
+          .toBeTrue();
       }
     });
   });
@@ -738,7 +831,12 @@ describe('WorkflowsHubComponent', () => {
 
       expect(text()).not.toContain('Soda bread');
       expect(definitionReads).toContain(OTHER_SLUG);
-      expect(runReads.filter((read) => read.slug === OTHER_SLUG).map((read) => read.view).sort()).toEqual(['attention', 'completed', 'mine']);
+      expect(
+        runReads
+          .filter((read) => read.slug === OTHER_SLUG)
+          .map((read) => read.view)
+          .sort(),
+      ).toEqual(['attention', 'completed', 'mine']);
       expect(goals()).not.toContain('Create my brand voice');
     });
   });

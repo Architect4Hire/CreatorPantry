@@ -12,9 +12,7 @@ export interface RequestRecipeReviewRequest {
   readonly sourceVersionId: string;
 }
 
-export function encodeRequestRecipeReviewRequest(
-  request: RequestRecipeReviewRequest,
-): Record<string, unknown> {
+export function encodeRequestRecipeReviewRequest(request: RequestRecipeReviewRequest): Record<string, unknown> {
   return { sourceVersionId: request.sourceVersionId };
 }
 

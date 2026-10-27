@@ -22,7 +22,8 @@ export function linkFor(task: WorkTask, workspaceSlug: string): WorkTaskLink | n
     return { commands: ['/', workspaceSlug, ...route.split('/')], what: 'the workflow' };
   }
   if (links.recipeId) return { commands: ['/', workspaceSlug, 'recipes', links.recipeId], what: 'the recipe' };
-  if (links.contentCardId) return { commands: ['/', workspaceSlug, 'content-board', links.contentCardId], what: 'the card' };
+  if (links.contentCardId)
+    return { commands: ['/', workspaceSlug, 'content-board', links.contentCardId], what: 'the card' };
   if (links.mediaAssetId) return { commands: ['/', workspaceSlug, 'dam', links.mediaAssetId], what: 'the picture' };
 
   return null;

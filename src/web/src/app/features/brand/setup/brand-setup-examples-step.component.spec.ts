@@ -13,7 +13,12 @@ import { FAILURE_COPY, decodeExamples, kindOfDocument, precheckFile } from './br
 
 @Component({
   imports: [BrandSetupExamplesStepComponent],
-  template: `<cp-brand-setup-examples-step [step]="step" [draft]="draft()" [workspaceSlug]="slug()" (reported)="reports.push($event)" />`,
+  template: `<cp-brand-setup-examples-step
+    [step]="step"
+    [draft]="draft()"
+    [workspaceSlug]="slug()"
+    (reported)="reports.push($event)"
+  />`,
 })
 class HostComponent {
   readonly step = BRAND_SETUP_STEPS[2];
@@ -36,8 +41,15 @@ function doc(id: string, overrides: Partial<BrandSourceDocumentSummary> = {}): B
   };
 }
 
-const added = (document: BrandSourceDocumentSummary): BrandSourceAddOutcome => ({ status: 'added', document, replayed: false });
-const failed = (reason: Parameters<typeof FAILURE_COPY.hasOwnProperty>[0] & string): BrandSourceAddOutcome => ({ status: 'failed', reason: reason as never });
+const added = (document: BrandSourceDocumentSummary): BrandSourceAddOutcome => ({
+  status: 'added',
+  document,
+  replayed: false,
+});
+const failed = (reason: Parameters<typeof FAILURE_COPY.hasOwnProperty>[0] & string): BrandSourceAddOutcome => ({
+  status: 'failed',
+  reason: reason as never,
+});
 
 let fixture: ComponentFixture<HostComponent>;
 let host: HostComponent;
@@ -63,8 +75,12 @@ async function mount(
     library === 'pending'
       ? jasmine.createSpy('list').and.returnValue(new Promise<BrandSourceListOutcome>(() => undefined))
       : jasmine.createSpy('list').and.resolveTo(library);
-  upload = jasmine.createSpy('upload').and.callFake(async (_s: string, f: File) => added(doc('new', { title: f.name })));
-  pasteText = jasmine.createSpy('pasteText').and.callFake(async (_s: string, b: { title: string }) => added(doc('pasted', { title: b.title })));
+  upload = jasmine
+    .createSpy('upload')
+    .and.callFake(async (_s: string, f: File) => added(doc('new', { title: f.name })));
+  pasteText = jasmine
+    .createSpy('pasteText')
+    .and.callFake(async (_s: string, b: { title: string }) => added(doc('pasted', { title: b.title })));
   TestBed.configureTestingModule({
     providers: [{ provide: BrandSourceDocumentService, useValue: { list, upload, pasteText } }],
   });
@@ -109,7 +125,9 @@ describe('BrandSetupExamplesStepComponent', () => {
   it('draws its examples arriving while the library is checked, and says so once offscreen', async () => {
     await mount(null, 'pending');
 
-    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Checking your examples'))!;
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) =>
+      each.textContent?.includes('Checking your examples'),
+    )!;
     expect(status.classList).toContain('cp-sr-only');
     const busy = el.querySelector('[aria-busy="true"]')!;
     expect(busy.querySelector('cp-skeleton')).not.toBeNull();
@@ -129,7 +147,7 @@ describe('BrandSetupExamplesStepComponent', () => {
     await mount();
     // Optionality is the shell's legend, said once per step: the step itself must not repeat it per field.
     expect(text()).not.toMatch(/\(optional\)/);
-    expect(text()).toContain('Nothing added yet. That\'s fine');
+    expect(text()).toContain("Nothing added yet. That's fine");
     expect(el.querySelector('cp-uploader')).toBeNull();
     expect(text()).toContain('Choose what your example shows above');
     expect(el.querySelectorAll('input[type="radio"]:checked').length).toBe(0);
@@ -138,7 +156,7 @@ describe('BrandSetupExamplesStepComponent', () => {
     expect(last().draft).toBeNull();
   });
 
-  it('asks for the workspace\'s own library using the slug it was given, and sends no workspace id', async () => {
+  it("asks for the workspace's own library using the slug it was given, and sends no workspace id", async () => {
     await mount();
     expect(list).toHaveBeenCalledOnceWith('sams-kitchen');
     await pick('sounds-like-me');
@@ -209,7 +227,16 @@ describe('BrandSetupExamplesStepComponent', () => {
     expect(precheckFile({ name: 'a.pdf', size: 0 })).toBe('corrupt');
   });
 
-  for (const reason of ['unsupported', 'too_large', 'corrupt', 'rejected', 'invalid', 'forbidden', 'not_found', 'key_reused'] as const) {
+  for (const reason of [
+    'unsupported',
+    'too_large',
+    'corrupt',
+    'rejected',
+    'invalid',
+    'forbidden',
+    'not_found',
+    'key_reused',
+  ] as const) {
     it(`explains a ${reason} refusal in plain words and offers no retry`, async () => {
       await mount();
       upload.and.resolveTo(failed(reason));
@@ -242,7 +269,9 @@ describe('BrandSetupExamplesStepComponent', () => {
     await mount();
     upload.and.callFake(
       (_s: string, _f: File, _d: unknown, _k: string, signal: AbortSignal) =>
-        new Promise<BrandSourceAddOutcome>((resolve) => signal.addEventListener('abort', () => resolve(failed('cancelled')))),
+        new Promise<BrandSourceAddOutcome>((resolve) =>
+          signal.addEventListener('abort', () => resolve(failed('cancelled'))),
+        ),
     );
     await pick('blog');
     await chooseFiles(file('slow.txt'));
@@ -260,7 +289,9 @@ describe('BrandSetupExamplesStepComponent', () => {
     expect(text()).toContain('only takes it off this step');
     await click('Remove');
     expect(el.querySelectorAll('cp-brand-setup-example').length).toBe(0);
-    expect(el.querySelector('.cp-sr-only[role="status"][aria-atomic]')?.textContent).toContain('a.txt removed from this step');
+    expect(el.querySelector('.cp-sr-only[role="status"][aria-atomic]')?.textContent).toContain(
+      'a.txt removed from this step',
+    );
     expect(last().draft).toEqual({ items: [] });
   });
 
@@ -278,7 +309,12 @@ describe('BrandSetupExamplesStepComponent', () => {
     await click('Add this text');
     expect(pasteText).toHaveBeenCalledTimes(1);
     expect(pasteText.calls.mostRecent().args[1]).toEqual(
-      jasmine.objectContaining({ title: 'Stiff intro', text: 'We are pleased to present', documentType: 'WritingSample', purpose: 'NotMyVoice' }),
+      jasmine.objectContaining({
+        title: 'Stiff intro',
+        text: 'We are pleased to present',
+        documentType: 'WritingSample',
+        purpose: 'NotMyVoice',
+      }),
     );
     expect(text()).toContain("This doesn't sound like me");
     expect(last().draft).toEqual({ items: [{ documentId: 'pasted', kind: 'not-like-me' }] });
@@ -297,7 +333,13 @@ describe('BrandSetupExamplesStepComponent', () => {
   it('offers what is already in the library, labelled by how it was filed, and never twice', async () => {
     await mount(null, {
       status: 'ok',
-      page: { items: [doc('a', { title: 'Old post', documentType: 'PublishedPost', purpose: 'WritingStyle' }), doc('b', { title: 'Moodboard', documentType: 'VisualReference', purpose: 'VisualDirection' })], nextCursor: null },
+      page: {
+        items: [
+          doc('a', { title: 'Old post', documentType: 'PublishedPost', purpose: 'WritingStyle' }),
+          doc('b', { title: 'Moodboard', documentType: 'VisualReference', purpose: 'VisualDirection' }),
+        ],
+        nextCursor: null,
+      },
     });
     await pick('other');
     await click("Pick one you've already added");
@@ -324,7 +366,12 @@ describe('BrandSetupExamplesStepComponent', () => {
 
   it('restores saved examples from the library, and leaves off ones that are gone', async () => {
     await mount(
-      { items: [{ documentId: 'a', kind: 'blog' }, { documentId: 'gone', kind: 'social' }] },
+      {
+        items: [
+          { documentId: 'a', kind: 'blog' },
+          { documentId: 'gone', kind: 'social' },
+        ],
+      },
       { status: 'ok', page: { items: [doc('a', { title: 'Old post' })], nextCursor: null } },
     );
     expect(text()).toContain('Old post');
@@ -342,9 +389,17 @@ describe('BrandSetupExamplesStepComponent', () => {
 
   it('ignores a malformed saved draft', () => {
     expect(decodeExamples({ items: 'x' })).toEqual([]);
-    expect(decodeExamples({ items: [{ documentId: 5, kind: 'blog' }, { documentId: 'a', kind: 'nope' }, null, { documentId: 'b', kind: 'visual' }, { documentId: 'b', kind: 'visual' }] })).toEqual([
-      { documentId: 'b', kind: 'visual' },
-    ]);
+    expect(
+      decodeExamples({
+        items: [
+          { documentId: 5, kind: 'blog' },
+          { documentId: 'a', kind: 'nope' },
+          null,
+          { documentId: 'b', kind: 'visual' },
+          { documentId: 'b', kind: 'visual' },
+        ],
+      }),
+    ).toEqual([{ documentId: 'b', kind: 'visual' }]);
     expect(kindOfDocument(doc('x', { documentType: 'Newsletter', purpose: 'Background' }))).toBe('newsletter');
   });
 
@@ -358,7 +413,9 @@ describe('BrandSetupExamplesStepComponent', () => {
     expect(live?.textContent).toContain('added');
     expect(button('Remove')?.getAttribute('aria-label')).toBe('Remove a.txt from this step');
     for (const control of Array.from(el.querySelectorAll<HTMLInputElement>('input'))) {
-      expect(control.labels?.length || control.getAttribute('aria-label') || control.type === 'file').withContext(control.id).toBeTruthy();
+      expect(control.labels?.length || control.getAttribute('aria-label') || control.type === 'file')
+        .withContext(control.id)
+        .toBeTruthy();
       expect(control.getAttribute('tabindex')).not.toBe('-1');
     }
     expect(text().toLowerCase()).not.toMatch(/\b(prompt|model|token|embedding|extract|ai)\b/);

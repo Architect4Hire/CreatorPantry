@@ -1,6 +1,13 @@
 <cp-page-head [heading]="pageTitle" [lede]="lede()">
   @if (canAdd()) {
-    <button cpPageHeadActions cpButton type="button" variant="primary" aria-haspopup="dialog" (click)="addTask($any($event.currentTarget))">
+    <button
+      cpPageHeadActions
+      cpButton
+      type="button"
+      variant="primary"
+      aria-haspopup="dialog"
+      (click)="addTask($any($event.currentTarget))"
+    >
       <span aria-hidden="true">+</span> Add a task
     </button>
   }
@@ -12,7 +19,11 @@
   </dl>
 }
 
-<cp-toolbar ariaLabel="Week, filters and view" [loading]="state().status === 'loading'" [disabled]="state().status === 'no_time_zone'">
+<cp-toolbar
+  ariaLabel="Week, filters and view"
+  [loading]="state().status === 'loading'"
+  [disabled]="state().status === 'no_time_zone'"
+>
   <cp-search-field cpToolbarSearch label="Search this week’s tasks">
     <input type="search" name="q" placeholder="Search tasks" [value]="draftQuery()" (input)="setQuery($event)" />
   </cp-search-field>
@@ -42,21 +53,44 @@
   @if (weekLinks(); as links) {
     <!-- One projected node, so all three reach the actions slot. -->
     <ng-container cpToolbarActions>
-      <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: links.previous }" queryParamsHandling="merge">
+      <a
+        cpButton
+        variant="secondary"
+        size="sm"
+        [routerLink]="[]"
+        [queryParams]="{ week: links.previous }"
+        queryParamsHandling="merge"
+      >
         <span aria-hidden="true">‹</span> Previous week
       </a>
       @if (!links.isCurrent) {
-        <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: null }" queryParamsHandling="merge">
+        <a
+          cpButton
+          variant="secondary"
+          size="sm"
+          [routerLink]="[]"
+          [queryParams]="{ week: null }"
+          queryParamsHandling="merge"
+        >
           This week
         </a>
       }
-      <a cpButton variant="secondary" size="sm" [routerLink]="[]" [queryParams]="{ week: links.next }" queryParamsHandling="merge">
+      <a
+        cpButton
+        variant="secondary"
+        size="sm"
+        [routerLink]="[]"
+        [queryParams]="{ week: links.next }"
+        queryParamsHandling="merge"
+      >
         Next week <span aria-hidden="true">›</span>
       </a>
     </ng-container>
   }
   @if (filtered()) {
-    <button cpToolbarActions cpButton variant="text" size="sm" type="button" (click)="clearFilters()">Clear filters</button>
+    <button cpToolbarActions cpButton variant="text" size="sm" type="button" (click)="clearFilters()"
+      >Clear filters</button
+    >
   }
 </cp-toolbar>
 
@@ -110,7 +144,9 @@
         illustration="calendar"
       >
         <div cpEmptyStateActions>
-          <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']">Set the time zone in Brand settings</a>
+          <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'brand']"
+            >Set the time zone in Brand settings</a
+          >
         </div>
       </cp-empty-state>
     } @else if (filtered() && week() && !weekIsEmptyNow()) {
@@ -127,7 +163,11 @@
     } @else {
       <cp-empty-state
         title="Nothing planned for this week"
-        [description]="canAct() ? 'Add a task from the top of the page, or look at another week.' : 'Look at another week from the toolbar.'"
+        [description]="
+          canAct()
+            ? 'Add a task from the top of the page, or look at another week.'
+            : 'Look at another week from the toolbar.'
+        "
         illustration="calendar"
       />
     }
@@ -168,7 +208,9 @@
                   <p class="section-totals">{{ totalsWords(section.totals) }}</p>
                 }
               </div>
-              <ng-container *ngTemplateOutlet="list; context: { $implicit: section, level: 5, name: section.heading }" />
+              <ng-container
+                *ngTemplateOutlet="list; context: { $implicit: section, level: 5, name: section.heading }"
+              />
             </section>
           } @else {
             <ng-container *ngTemplateOutlet="list; context: { $implicit: section, level: 4, name: column.heading }" />

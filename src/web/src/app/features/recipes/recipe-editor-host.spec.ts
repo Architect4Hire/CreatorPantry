@@ -147,7 +147,14 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     const recipes = recipeServiceSpy();
     recipes.createRecipe.and.resolveTo({
       status: 'created',
-      recipe: { recipeId: 'r9', title: 'Soup', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-10-15T09:00:00Z' },
+      recipe: {
+        recipeId: 'r9',
+        title: 'Soup',
+        status: 'Draft',
+        versionId: 'v1',
+        versionNumber: 1,
+        createdAt: '2026-10-15T09:00:00Z',
+      },
       replayed: false,
     });
     const { editor, created, navigate } = await open('details', null, recipes);
@@ -175,7 +182,11 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
 
   it('saves the whole recipe from one part of it, and says when it was kept', async () => {
     const recipes = recipeServiceSpy();
-    recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...DETAIL, notes: 'Better the next day.' }, replayed: false });
+    recipes.updateRecipe.and.resolveTo({
+      status: 'updated',
+      recipe: { ...DETAIL, notes: 'Better the next day.' },
+      replayed: false,
+    });
     const { editor } = await open('ingredients', 'r1', recipes);
 
     editor.form.notes.set('Better the next day.');
@@ -198,7 +209,9 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     fixture.detectChanges();
 
     expect(root.textContent).toContain('Details needs fixing on the recipe’s own page.');
-    const link = Array.from(root.querySelectorAll('a')).find((anchor) => anchor.textContent?.includes('Open the recipe'));
+    const link = Array.from(root.querySelectorAll('a')).find((anchor) =>
+      anchor.textContent?.includes('Open the recipe'),
+    );
     expect(link?.getAttribute('href')).toBe('/cozy-fall/recipes/r1');
   });
 });

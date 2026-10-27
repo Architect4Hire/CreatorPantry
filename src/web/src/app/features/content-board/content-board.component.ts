@@ -155,7 +155,8 @@ export class ContentBoardComponent {
   protected readonly channelOptions = computed(() => {
     const options = this.channels().map((channel) => ({ key: channel.key, label: channel.displayName }));
     const current = this.filters().channel;
-    if (current !== null && !options.some((option) => option.key === current)) options.push({ key: current, label: current });
+    if (current !== null && !options.some((option) => option.key === current))
+      options.push({ key: current, label: current });
 
     return options;
   });
@@ -333,9 +334,7 @@ export class ContentBoardComponent {
   private focusCard(cardId: string): void {
     afterNextRender(
       () => {
-        this.host.nativeElement
-          .querySelector<HTMLElement>(`[data-card-id="${CSS.escape(cardId)}"] .title a`)
-          ?.focus();
+        this.host.nativeElement.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(cardId)}"] .title a`)?.focus();
       },
       { injector: this.injector },
     );

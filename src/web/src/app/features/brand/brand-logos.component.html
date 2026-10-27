@@ -12,10 +12,24 @@
 
         @if (canEdit()) {
           <div class="cp-actions">
-            <button cpButton type="button" variant="secondary" size="sm" [id]="ids.choosePrimary" (click)="open('primary')">
+            <button
+              cpButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              [id]="ids.choosePrimary"
+              (click)="open('primary')"
+            >
               Change
             </button>
-            <button cpButton type="button" variant="secondary" size="sm" aria-label="Unlink the primary logo" (click)="unlink(logo)">
+            <button
+              cpButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              aria-label="Unlink the primary logo"
+              (click)="unlink(logo)"
+            >
               Unlink
             </button>
           </div>
@@ -35,7 +49,9 @@
 
   <div class="group" role="group" aria-labelledby="brand-other-logos-label" aria-describedby="brand-other-logos-hint">
     <p class="group-label" id="brand-other-logos-label">Other logos</p>
-    <p class="hint" id="brand-other-logos-hint">Variants of the logo, such as a mark on its own or a one-colour version.</p>
+    <p class="hint" id="brand-other-logos-hint"
+      >Variants of the logo, such as a mark on its own or a one-colour version.</p
+    >
 
     @if (alternates().length > 0) {
       <ul class="rows">
@@ -81,7 +97,9 @@
         </button>
       </div>
       @if (atLimit()) {
-        <p class="hint" id="brand-logo-limit">A brand can keep up to {{ maxLogos }} logos. Unlink one to add another.</p>
+        <p class="hint" id="brand-logo-limit"
+          >A brand can keep up to {{ maxLogos }} logos. Unlink one to add another.</p
+        >
       }
     }
   </div>

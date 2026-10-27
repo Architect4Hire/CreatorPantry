@@ -7,7 +7,12 @@ import { CpMediaCardComponent, CpMediaCardHeadingLevel } from './media-card.comp
 @Component({
   imports: [CpMediaCardComponent],
   template: `<div style="width: 320px">
-    <cp-media-card [description]="description()" [glyph]="glyph()" [illustration]="illustration()" [headingLevel]="level()">
+    <cp-media-card
+      [description]="description()"
+      [glyph]="glyph()"
+      [illustration]="illustration()"
+      [headingLevel]="level()"
+    >
       @if (picture()) {
         <img cpMediaCardPicture alt="A loaf on a board" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
       }
@@ -41,7 +46,9 @@ class HostComponent {
 /** A row of a grid: one card with a picture and one without, as a library mixes them. */
 @Component({
   imports: [CpMediaCardComponent],
-  template: `<ul style="display: grid; grid-template-columns: repeat(2, 240px); gap: 16px; list-style: none; padding: 0">
+  template: `<ul
+    style="display: grid; grid-template-columns: repeat(2, 240px); gap: 16px; list-style: none; padding: 0"
+  >
     <li>
       <cp-media-card description="Overhead.">
         <!-- A bare picture with no shape of its own: the card gives it the panel's. -->
@@ -140,7 +147,12 @@ describe('CpMediaCardComponent', () => {
 
   it('draws the illustration each documented glyph stood for', () => {
     mount();
-    const pairs: [string, CpIllustrationName][] = [['▣', 'picture'], ['⌘', 'recipe'], ['❝', 'prompt'], ['◆', 'brand']];
+    const pairs: [string, CpIllustrationName][] = [
+      ['▣', 'picture'],
+      ['⌘', 'recipe'],
+      ['❝', 'prompt'],
+      ['◆', 'brand'],
+    ];
     for (const [glyph, name] of pairs) {
       host.glyph.set(glyph);
       fixture.detectChanges();
@@ -199,7 +211,10 @@ describe('CpMediaCardComponent', () => {
     mount((h) => h.picture.set(true));
     const reduced = Array.from(document.styleSheets)
       .flatMap((sheet) => Array.from(sheet.cssRules))
-      .filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule && rule.conditionText.includes('prefers-reduced-motion'))
+      .filter(
+        (rule): rule is CSSMediaRule =>
+          rule instanceof CSSMediaRule && rule.conditionText.includes('prefers-reduced-motion'),
+      )
       .flatMap((rule) => Array.from(rule.cssRules) as CSSStyleRule[])
       .filter((rule) => rule.selectorText?.includes('.title a:focus') && rule.selectorText.includes('.picture'));
     expect(reduced.length).toBe(1);
@@ -212,7 +227,9 @@ describe('CpMediaCardComponent', () => {
     document.body.appendChild(el);
     row.detectChanges();
 
-    const [withPicture, without] = Array.from(el.querySelectorAll('cp-media-card')).map((card) => card.getBoundingClientRect());
+    const [withPicture, without] = Array.from(el.querySelectorAll('cp-media-card')).map((card) =>
+      card.getBoundingClientRect(),
+    );
     expect(withPicture.height).toBe(without.height);
     const picture = el.querySelector('.picture')!.getBoundingClientRect();
     const panel = el.querySelectorAll('.panel')[1].getBoundingClientRect();
@@ -255,7 +272,9 @@ describe('CpMediaCardComponent', () => {
       h.badge.set(true);
       h.description.set('Overhead.');
     });
-    const order = Array.from(el.querySelectorAll('img, .title, .description, .badge, .fact')).map((node) => node.className || node.tagName);
+    const order = Array.from(el.querySelectorAll('img, .title, .description, .badge, .fact')).map(
+      (node) => node.className || node.tagName,
+    );
     expect(order).toEqual(['IMG', 'title', 'description', 'badge', 'fact']);
   });
 

@@ -6,7 +6,9 @@ type Segment = { readonly kind: 'key'; readonly name: string } | { readonly kind
 const SEGMENT_PATTERN = /\[\]|[^.[\]]+/g;
 
 function parsePattern(pattern: string): readonly Segment[] {
-  return (pattern.match(SEGMENT_PATTERN) ?? []).map((token): Segment => (token === '[]' ? { kind: 'each' } : { kind: 'key', name: token }));
+  return (pattern.match(SEGMENT_PATTERN) ?? []).map((token): Segment =>
+    token === '[]' ? { kind: 'each' } : { kind: 'key', name: token },
+  );
 }
 
 interface Target {

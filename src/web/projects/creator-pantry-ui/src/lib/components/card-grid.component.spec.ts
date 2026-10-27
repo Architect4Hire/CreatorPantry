@@ -105,7 +105,9 @@ describe('CpCardGridComponent', () => {
     // The point of masonry: somewhere a card starts where the one above it ended, rather than where the
     // tallest card of a row ended. The cards here are 200px and five of 60px, so a row would leave gaps.
     const packed = lefts
-      .map((left) => cards.filter((card) => Math.round(card.left) === left).sort((first, second) => first.top - second.top))
+      .map((left) =>
+        cards.filter((card) => Math.round(card.left) === left).sort((first, second) => first.top - second.top),
+      )
       .find((column) => column.length > 1);
     expect(packed).toBeDefined();
     expect(Math.round(packed![1].top)).toBe(Math.round(packed![0].bottom + 16));
@@ -125,7 +127,9 @@ describe('CpCardGridComponent', () => {
       h.width.set('150px');
     });
 
-    const lefts = new Set(Array.from(grid().querySelectorAll('li')).map((card) => Math.round(card.getBoundingClientRect().left)));
+    const lefts = new Set(
+      Array.from(grid().querySelectorAll('li')).map((card) => Math.round(card.getBoundingClientRect().left)),
+    );
     expect(lefts.size).toBe(1);
     expect(grid().scrollWidth).toBeLessThanOrEqual(150);
   });

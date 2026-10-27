@@ -296,7 +296,9 @@ export class BrandSourceDetailComponent {
       case 'conflict':
         // Someone else changed it, so the token quoted is stale and nothing happened. Reading again is the
         // remedy, and it is what lets the next attempt quote a token that exists.
-        this.notice.set('Someone else changed this example while you were looking at it, so nothing was changed. Here it is as it stands now.');
+        this.notice.set(
+          'Someone else changed this example while you were looking at it, so nothing was changed. Here it is as it stands now.',
+        );
         void this.load();
         return;
 

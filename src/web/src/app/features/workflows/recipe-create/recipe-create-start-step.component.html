@@ -1,7 +1,11 @@
 <div class="start">
   @if (choosing()) {
     @if (ways().length > 1) {
-      <cp-form-section sectionId="recipe-start-way" heading="How do you want to start?" intro="You can change your mind until you’ve saved something.">
+      <cp-form-section
+        sectionId="recipe-start-way"
+        heading="How do you want to start?"
+        intro="You can change your mind until you’ve saved something."
+      >
         <cp-choice-group
           label="How do you want to start?"
           idPrefix="recipe-start-"
@@ -31,12 +35,15 @@
   <p class="cp-sr-only" role="status">{{ stage().kind === 'finding' ? 'Picking up where you left off…' : '' }}</p>
   @switch (stage().kind) {
     @case ('write') {
-      <p class="plain cp-muted">Give it a name to start. You’ll add what goes in, the method and the timing in the next steps.</p>
+      <p class="plain cp-muted"
+        >Give it a name to start. You’ll add what goes in, the method and the timing in the next steps.</p
+      >
       <cp-recipe-editor />
     }
     @case ('recipe') {
       <cp-notice tone="success" role="status">
-        Your recipe is in your library. Change its name or description here if you like, then carry on to its ingredients.
+        Your recipe is in your library. Change its name or description here if you like, then carry on to its
+        ingredients.
       </cp-notice>
       <cp-recipe-editor />
     }

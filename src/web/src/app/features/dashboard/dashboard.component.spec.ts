@@ -47,7 +47,9 @@ describe('DashboardComponent', () => {
   const headings = (): string[] =>
     Array.from(root().querySelectorAll('cp-topic-card h2')).map((heading) => heading.textContent?.trim() ?? '');
   const figure = (label: string): HTMLElement =>
-    Array.from(root().querySelectorAll('cp-stat-tile')).find((tile) => tile.textContent?.includes(label)) as HTMLElement;
+    Array.from(root().querySelectorAll('cp-stat-tile')).find((tile) =>
+      tile.textContent?.includes(label),
+    ) as HTMLElement;
   const button = (name: string): HTMLButtonElement =>
     Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === name)!;
 
@@ -66,7 +68,16 @@ describe('DashboardComponent', () => {
   function membership(role: 'Owner' | 'Viewer'): MyMembershipsState {
     return {
       status: 'ready',
-      memberships: [{ workspaceId: 'w-1', workspaceSlug: SLUG, workspaceName: 'Cozy Fall', membershipId: 'm-1', role, status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w-1',
+          workspaceSlug: SLUG,
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm-1',
+          role,
+          status: 'Active',
+        },
+      ],
     } as MyMembershipsState;
   }
 
@@ -75,7 +86,9 @@ describe('DashboardComponent', () => {
     memberships = signal(membership('Owner'));
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([{ path: ':workspaceSlug/dashboard', component: DashboardComponent, data: { title: 'Dashboard' } }]),
+        provideRouter([
+          { path: ':workspaceSlug/dashboard', component: DashboardComponent, data: { title: 'Dashboard' } },
+        ]),
         {
           provide: DashboardService,
           useValue: {
@@ -108,7 +121,10 @@ describe('DashboardComponent', () => {
       },
       board: { status: 'Ready', data: { total: 0, columns: [] } },
       recentUploads: { status: 'Ready', data: { items: [] } },
-      workflows: { status: 'Ready', data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] } },
+      workflows: {
+        status: 'Ready',
+        data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] },
+      },
       publishing: { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } },
       testFollowUps: { status: 'Ready', data: { open: 0, blocking: 0, major: 0, minor: 0, recent: [] } },
       aiProposals: { status: 'Ready', data: { awaitingDecision: 0, recent: [] } },
@@ -128,8 +144,14 @@ describe('DashboardComponent', () => {
           today: [],
           topThree: [],
           thisWeek: {
-            weekStart: '2026-10-12', weekEnd: '2026-10-18', plannedTaskCount: 0, estimatedTaskCount: 0,
-            estimatedMinutes: null, inProgressCount: 0, waitingCount: 0, completedCount: 0,
+            weekStart: '2026-10-12',
+            weekEnd: '2026-10-18',
+            plannedTaskCount: 0,
+            estimatedTaskCount: 0,
+            estimatedMinutes: null,
+            inProgressCount: 0,
+            waitingCount: 0,
+            completedCount: 0,
           },
           unplannedCount: 0,
         },
@@ -179,13 +201,15 @@ describe('DashboardComponent', () => {
     expect(blocked.textContent).toBe('Soda bread');
     expect(blocked.getAttribute('href')).toBe(`/${SLUG}/recipes/r1?area=readiness`);
     expect(topic('What is holding recipes back').textContent).toContain('4 blockers');
-    expect(Array.from(topic('What is holding recipes back').querySelectorAll('.reasons li')).map((reason) => reason.textContent)).toEqual([
-      'Add at least one ingredient.',
-      'Add at least one step.',
-      'Say how much it makes.',
-    ]);
+    expect(
+      Array.from(topic('What is holding recipes back').querySelectorAll('.reasons li')).map(
+        (reason) => reason.textContent,
+      ),
+    ).toEqual(['Add at least one ingredient.', 'Add at least one step.', 'Say how much it makes.']);
 
-    expect(topic('Test kitchen follow-ups').querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/recipes/r1?area=tests`);
+    expect(topic('Test kitchen follow-ups').querySelector('a')!.getAttribute('href')).toBe(
+      `/${SLUG}/recipes/r1?area=tests`,
+    );
   });
 
   it('opens a post on its card, and lists one with no card without a link', async () => {
@@ -219,7 +243,14 @@ describe('DashboardComponent', () => {
   });
 
   it('says which day today is, and with no time zone set says it has none rather than naming a day', async () => {
-    await mount(found({ timeZoneId: null, today: null, timeZoneState: 'NotSet', upcoming: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({
+        timeZoneId: null,
+        today: null,
+        timeZoneState: 'NotSet',
+        upcoming: { status: 'Unavailable', data: null },
+      }),
+    );
 
     const updated = root().querySelector('.updated')!.textContent!;
 
@@ -244,10 +275,16 @@ describe('DashboardComponent', () => {
   });
 
   it('names each link and each retry for where it goes, not just what it is', async () => {
-    await mount(found({ board: { status: 'Unavailable', data: null }, recentUploads: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({ board: { status: 'Unavailable', data: null }, recentUploads: { status: 'Unavailable', data: null } }),
+    );
 
-    expect(topic('What is holding recipes back').querySelector('a')!.getAttribute('aria-label')).toBe('Readiness of Soda bread');
-    const retries = Array.from(root().querySelectorAll('cp-topic-card cp-notice button')).map((retry) => retry.getAttribute('aria-label'));
+    expect(topic('What is holding recipes back').querySelector('a')!.getAttribute('aria-label')).toBe(
+      'Readiness of Soda bread',
+    );
+    const retries = Array.from(root().querySelectorAll('cp-topic-card cp-notice button')).map((retry) =>
+      retry.getAttribute('aria-label'),
+    );
     expect(retries).toEqual(['Try again to read the board', 'Try again to read recent pictures']);
   });
 
@@ -282,7 +319,10 @@ describe('DashboardComponent', () => {
     expect(loading.contains(status)).toBe(false);
 
     // Said once. The page's own outcome region is the only other one, and it is empty.
-    expect(Array.from(root().querySelectorAll('[role="status"]')).filter((region) => region.textContent?.trim() !== '').length).toBe(1);
+    expect(
+      Array.from(root().querySelectorAll('[role="status"]')).filter((region) => region.textContent?.trim() !== '')
+        .length,
+    ).toBe(1);
     expect(root().querySelector('cp-topic-card')).toBeNull();
     expect(root().querySelector('cp-stat-tile')).toBeNull();
 
@@ -326,7 +366,10 @@ describe('DashboardComponent', () => {
         publishing: { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } },
         aiProposals: { status: 'Ready', data: { awaitingDecision: 0, recent: [] } },
         testFollowUps: { status: 'Ready', data: { open: 0, blocking: 0, major: 0, minor: 0, recent: [] } },
-        upcoming: { status: 'Ready', data: { from: '2026-10-14', through: '2026-10-27', cardCount: 0, cards: [], postCount: 0, posts: [] } },
+        upcoming: {
+          status: 'Ready',
+          data: { from: '2026-10-14', through: '2026-10-27', cardCount: 0, cards: [], postCount: 0, posts: [] },
+        },
         readinessBlockers: { status: 'Ready', data: { evaluated: 3, unevaluated: 1, blocked: [] } },
       }),
     );
@@ -364,7 +407,15 @@ describe('DashboardComponent', () => {
   });
 
   it('still offers a first step when the plan cannot be read, because no zone is no evidence either way', async () => {
-    await mount(found({ ...emptyWorkspace(), timeZoneId: null, today: null, timeZoneState: 'NotSet', workPlan: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({
+        ...emptyWorkspace(),
+        timeZoneId: null,
+        today: null,
+        timeZoneState: 'NotSet',
+        workPlan: { status: 'Unavailable', data: null },
+      }),
+    );
 
     expect(topic('Get started')).toBeTruthy();
   });
@@ -375,11 +426,20 @@ describe('DashboardComponent', () => {
    * them as though they had just arrived.
    */
   const busyParts = (): readonly { readonly part: string; readonly data: Record<string, unknown> }[] => [
-    { part: 'a post that needs a look', data: { publishing: dashboardBody()['publishing'] as Record<string, unknown> } },
-    { part: 'an open test issue', data: { testFollowUps: dashboardBody()['testFollowUps'] as Record<string, unknown> } },
+    {
+      part: 'a post that needs a look',
+      data: { publishing: dashboardBody()['publishing'] as Record<string, unknown> },
+    },
+    {
+      part: 'an open test issue',
+      data: { testFollowUps: dashboardBody()['testFollowUps'] as Record<string, unknown> },
+    },
     { part: 'a proposal waiting', data: { aiProposals: dashboardBody()['aiProposals'] as Record<string, unknown> } },
     { part: 'something coming up', data: { upcoming: dashboardBody()['upcoming'] as Record<string, unknown> } },
-    { part: 'a picture in the library', data: { recentUploads: dashboardBody()['recentUploads'] as Record<string, unknown> } },
+    {
+      part: 'a picture in the library',
+      data: { recentUploads: dashboardBody()['recentUploads'] as Record<string, unknown> },
+    },
     { part: 'a card on the board', data: { board: dashboardBody()['board'] as Record<string, unknown> } },
   ];
 
@@ -401,7 +461,12 @@ describe('DashboardComponent', () => {
   });
 
   it('does not offer a first step while a part it would judge by could not be read', async () => {
-    await mount(found({ recentUploads: { status: 'Unavailable', data: null }, board: { status: 'Ready', data: { total: 0, columns: [] } } }));
+    await mount(
+      found({
+        recentUploads: { status: 'Unavailable', data: null },
+        board: { status: 'Ready', data: { total: 0, columns: [] } },
+      }),
+    );
 
     expect(topic('Get started')).toBeUndefined();
   });
@@ -417,7 +482,9 @@ describe('DashboardComponent', () => {
     const rows = Array.from(carryOn.querySelectorAll('.items > li'));
     expect(rows.length).toBe(2);
     expect(rows[0].querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/w1`);
-    expect(rows[0].querySelector('a')!.getAttribute('aria-label')).toBe('Carry on with Soda bread, start to finish, last touched Oct 14');
+    expect(rows[0].querySelector('a')!.getAttribute('aria-label')).toBe(
+      'Carry on with Soda bread, start to finish, last touched Oct 14',
+    );
     expect(rows[0].textContent).toContain('Check your method');
 
     // A step above the reader's role is said in words, not left to a colour or to silence.
@@ -476,7 +543,11 @@ describe('DashboardComponent', () => {
       found({
         workPlan: {
           status: 'Ready',
-          data: { ...plan.data, thisWeek: { ...thisWeek, estimatedTaskCount: 0, estimatedMinutes: null }, unplannedCount: 0 },
+          data: {
+            ...plan.data,
+            thisWeek: { ...thisWeek, estimatedTaskCount: 0, estimatedMinutes: null },
+            unplannedCount: 0,
+          },
         },
       }),
     );
@@ -526,13 +597,15 @@ describe('DashboardComponent', () => {
     // A brand profile that failed to read says nothing about whether a zone is set. Sending that creator to
     // Brand settings sends them to change something that is very likely already right; "couldn't be read" with
     // a retry is the truthful answer, and the retry can actually succeed.
-    await mount(found({
-      timeZoneId: null,
-      today: null,
-      timeZoneState: 'Unreadable',
-      workPlan: { status: 'Unavailable', data: null },
-      upcoming: { status: 'Unavailable', data: null },
-    }));
+    await mount(
+      found({
+        timeZoneId: null,
+        today: null,
+        timeZoneState: 'Unreadable',
+        workPlan: { status: 'Unavailable', data: null },
+        upcoming: { status: 'Unavailable', data: null },
+      }),
+    );
 
     for (const heading of ['Your day', 'Your week', 'Coming up']) {
       const notice = topic(heading).querySelector('cp-notice')!;
@@ -546,7 +619,9 @@ describe('DashboardComponent', () => {
   it('keeps the day and the week with a notice when the plan could not be read, and the workflows untouched', async () => {
     // A zone is set here on purpose: with none, there is nothing to read yet and the day and the week say
     // so instead (the test below). Only a workspace that has a zone can have a plan that failed to read.
-    await mount(found({ workPlan: { status: 'Unavailable', data: null }, upcoming: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({ workPlan: { status: 'Unavailable', data: null }, upcoming: { status: 'Unavailable', data: null } }),
+    );
 
     expect(topic('Your day').querySelector('cp-notice')!.textContent).toContain("couldn't be read just now");
     expect(topic('Your week').querySelector('cp-notice')!.textContent).toContain("couldn't be read just now");
@@ -559,7 +634,15 @@ describe('DashboardComponent', () => {
     // A brand-new workspace has no zone, so the day, the week and what is coming up have nothing to show.
     // Saying "couldn't be read" there offers a retry that can never succeed and reads as a broken page on
     // the first screen of the product; My Day and My Week already say what is missing and where to set it.
-    await mount(found({ timeZoneId: null, today: null, timeZoneState: 'NotSet', workPlan: { status: 'Unavailable', data: null }, upcoming: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({
+        timeZoneId: null,
+        today: null,
+        timeZoneState: 'NotSet',
+        workPlan: { status: 'Unavailable', data: null },
+        upcoming: { status: 'Unavailable', data: null },
+      }),
+    );
 
     for (const heading of ['Your day', 'Your week', 'Coming up']) {
       const notice = topic(heading).querySelector('cp-notice')!;
@@ -575,7 +658,10 @@ describe('DashboardComponent', () => {
   it('says what the creator’s own empty topics mean in their own words', async () => {
     await mount(
       found({
-        workflows: { status: 'Ready', data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] } },
+        workflows: {
+          status: 'Ready',
+          data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] },
+        },
         workPlan: {
           status: 'Ready',
           data: {
@@ -587,8 +673,14 @@ describe('DashboardComponent', () => {
             today: [],
             topThree: [],
             thisWeek: {
-              weekStart: '2026-10-12', weekEnd: '2026-10-18', plannedTaskCount: 0, estimatedTaskCount: 0,
-              estimatedMinutes: null, inProgressCount: 0, waitingCount: 0, completedCount: 0,
+              weekStart: '2026-10-12',
+              weekEnd: '2026-10-18',
+              plannedTaskCount: 0,
+              estimatedTaskCount: 0,
+              estimatedMinutes: null,
+              inProgressCount: 0,
+              waitingCount: 0,
+              completedCount: 0,
             },
             unplannedCount: 0,
           },
@@ -657,7 +749,14 @@ describe('DashboardComponent', () => {
   });
 
   it('says a figure that needs a day needs a time zone, not that it could not be read', async () => {
-    await mount(found({ timeZoneId: null, today: null, timeZoneState: 'NotSet', workPlan: { status: 'Unavailable', data: null } }));
+    await mount(
+      found({
+        timeZoneId: null,
+        today: null,
+        timeZoneState: 'NotSet',
+        workPlan: { status: 'Unavailable', data: null },
+      }),
+    );
 
     const tile = figure('tasks late');
     expect(tile.querySelector('cp-notice')!.textContent).toContain('needs your workspace’s time zone');
@@ -670,7 +769,9 @@ describe('DashboardComponent', () => {
   it('features the most urgent topic, and only ever one', async () => {
     await mount(found());
 
-    const featured = Array.from(root().querySelectorAll('cp-topic-card')).filter((card) => card.querySelector('.cp-card--featured'));
+    const featured = Array.from(root().querySelectorAll('cp-topic-card')).filter((card) =>
+      card.querySelector('.cp-card--featured'),
+    );
     expect(featured.length).toBe(1);
     expect(featured[0].querySelector('h2')!.textContent!.trim()).toBe('Your day');
     expect(headings()[0]).toBe('Your day');
@@ -705,7 +806,12 @@ describe('DashboardComponent', () => {
     },
     {
       featured: 'Workflows that need a look',
-      overrides: { workPlan: onTime(), publishing: quietPublishing, readinessBlockers: unblocked, testFollowUps: passing },
+      overrides: {
+        workPlan: onTime(),
+        publishing: quietPublishing,
+        readinessBlockers: unblocked,
+        testFollowUps: passing,
+      },
     },
     {
       featured: 'AI proposals to review',
@@ -744,7 +850,10 @@ describe('DashboardComponent', () => {
   it('features nothing on a dashboard where nothing needs anyone', async () => {
     await mount(
       found({
-        workflows: { status: 'Ready', data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] } },
+        workflows: {
+          status: 'Ready',
+          data: { inProgressCount: 0, continue: [], needsAttentionCount: 0, needsAttention: [] },
+        },
         workPlan: { status: 'Unavailable', data: null },
         publishing: { status: 'Ready', data: { counts: [], needsAttentionCount: 0, needsAttention: [] } },
         readinessBlockers: { status: 'Ready', data: { evaluated: 1, unevaluated: 0, blocked: [] } },
@@ -921,7 +1030,9 @@ describe('DashboardComponent', () => {
           status: 'Ready',
           data: {
             counts: [{ status: 'Draft', count: 1 }],
-            recent: [{ id: 'r9', title: 'Winter kitchen loaf', status: 'Draft', updatedAt: '2026-10-14T09:00:00+00:00' }],
+            recent: [
+              { id: 'r9', title: 'Winter kitchen loaf', status: 'Draft', updatedAt: '2026-10-14T09:00:00+00:00' },
+            ],
           },
         },
       }),

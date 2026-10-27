@@ -152,7 +152,8 @@ describe('PromptDetailComponent', () => {
           useValue: {
             get: getSpy,
             textDownloadUrl: (slug: string, id: string) => `${GATEWAY}/api/v1/workspaces/${slug}/prompts/${id}/text`,
-            recordDownloadUrl: (slug: string, id: string) => `${GATEWAY}/api/v1/workspaces/${slug}/prompts/${id}/record`,
+            recordDownloadUrl: (slug: string, id: string) =>
+              `${GATEWAY}/api/v1/workspaces/${slug}/prompts/${id}/record`,
           },
         },
         {
@@ -307,9 +308,7 @@ describe('PromptDetailComponent', () => {
   });
 
   it('links to the pinned recipe in this workspace, and says when a version was pinned', async () => {
-    getSpy = jasmine
-      .createSpy('get')
-      .and.returnValue(foundPrompt(prompt({ recipeId: 'r1', recipeVersionId: 'v3' })));
+    getSpy = jasmine.createSpy('get').and.returnValue(foundPrompt(prompt({ recipeId: 'r1', recipeVersionId: 'v3' })));
     await create();
 
     expect(link('Open the recipe').getAttribute('href')).toBe(`/${SLUG}/recipes/r1`);
@@ -550,9 +549,9 @@ describe('PromptDetailComponent', () => {
 
   it("shows nothing of one workspace's prompt while another's is being read", async () => {
     const other = new Subject<PromptDetailOutcome>();
-    getSpy = jasmine.createSpy('get').and.callFake((slug: string) =>
-      slug === SLUG ? foundPrompt(prompt({ text: 'Workspace A words.' })) : other,
-    );
+    getSpy = jasmine
+      .createSpy('get')
+      .and.callFake((slug: string) => (slug === SLUG ? foundPrompt(prompt({ text: 'Workspace A words.' })) : other));
     await create();
     expect(text()).toContain('Workspace A words.');
 
@@ -607,7 +606,9 @@ describe('PromptDetailComponent', () => {
 
     for (const section of Array.from(root().querySelectorAll('section[aria-labelledby]'))) {
       const id = section.getAttribute('aria-labelledby') as string;
-      expect(root().querySelector(`#${id}`)?.textContent?.trim()).withContext(id).not.toBe('');
+      expect(root().querySelector(`#${id}`)?.textContent?.trim())
+        .withContext(id)
+        .not.toBe('');
     }
 
     const hintId = link('Download as JSON').getAttribute('aria-describedby') as string;

@@ -49,7 +49,13 @@ class StubGuides {
     if (this.approveFailure) return Promise.resolve({ status: 'failed', reason: this.approveFailure });
     return Promise.resolve({
       status: 'approved',
-      approval: { guideId, versionId: 'v-1', versionNumber, approvedAt: '2026-10-03T10:00:00Z', alreadyApproved: false },
+      approval: {
+        guideId,
+        versionId: 'v-1',
+        versionNumber,
+        approvedAt: '2026-10-03T10:00:00Z',
+        alreadyApproved: false,
+      },
     });
   }
 
@@ -265,7 +271,9 @@ describe('BrandSetupFinishStepComponent', () => {
 
       expect(text()).toContain('Nothing is switched on');
       expect(last().canContinue).toBeTrue();
-      expect(state()).toEqual(jasmine.objectContaining({ guideId: GUIDE_ID, versionNumber: 1, approved: false, activated: false }));
+      expect(state()).toEqual(
+        jasmine.objectContaining({ guideId: GUIDE_ID, versionNumber: 1, approved: false, activated: false }),
+      );
     });
 
     it('sends the written parts under the server own section keys, and no citations', async () => {
@@ -313,7 +321,9 @@ describe('BrandSetupFinishStepComponent', () => {
       expect(asked.confirmLabel).toBe('Switch it on');
 
       expect(guides.createCalls.length).toBe(1);
-      expect(guides.approveCalls).toEqual([{ guideId: GUIDE_ID, versionNumber: 1, key: state()['approveKey'] as string }]);
+      expect(guides.approveCalls).toEqual([
+        { guideId: GUIDE_ID, versionNumber: 1, key: state()['approveKey'] as string },
+      ]);
       expect(guides.activateCalls).toEqual([
         { guideId: GUIDE_ID, versionNumber: 1, expected: null, key: state()['activateKey'] as string },
       ]);
@@ -398,7 +408,9 @@ describe('BrandSetupFinishStepComponent', () => {
 
   describe('coming back to it', () => {
     it('reports a guide already written rather than writing a second', async () => {
-      await mount({ draft: { name: 'My voice', guideId: GUIDE_ID, versionNumber: 1, approved: false, activated: false } });
+      await mount({
+        draft: { name: 'My voice', guideId: GUIDE_ID, versionNumber: 1, approved: false, activated: false },
+      });
 
       expect(text()).toContain('Nothing is switched on');
       expect(last().canContinue).toBeTrue();
@@ -407,7 +419,9 @@ describe('BrandSetupFinishStepComponent', () => {
     });
 
     it('reports a voice already on', async () => {
-      await mount({ draft: { name: 'My voice', guideId: GUIDE_ID, versionNumber: 1, approved: true, activated: true } });
+      await mount({
+        draft: { name: 'My voice', guideId: GUIDE_ID, versionNumber: 1, approved: true, activated: true },
+      });
 
       expect(text()).toContain('Your voice is on.');
       expect(button('Switch my voice on')).toBeNull();

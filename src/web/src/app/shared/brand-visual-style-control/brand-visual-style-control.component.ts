@@ -196,8 +196,7 @@ export class BrandVisualStyleControlComponent {
     const active = this.activeGuide();
 
     return this.choices().filter(
-      (choice) =>
-        active === null || choice.guideId !== active.guideId || choice.versionNumber !== active.versionNumber,
+      (choice) => active === null || choice.guideId !== active.guideId || choice.versionNumber !== active.versionNumber,
     );
   });
 

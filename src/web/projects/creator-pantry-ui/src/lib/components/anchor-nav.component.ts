@@ -37,7 +37,8 @@ export interface CpAnchorNavItem {
  * screen and at 200% zoom.
  */
 @Component({
-  selector: 'cp-anchor-nav', standalone: true,
+  selector: 'cp-anchor-nav',
+  standalone: true,
   template: `@if (items().length > 0) {
     <nav [attr.aria-label]="ariaLabel()">
       <ul>
@@ -49,27 +50,65 @@ export interface CpAnchorNavItem {
               (click)="onActivate($event, item)"
             >
               <span class="label">{{ item.label }}</span>
-              @if (item.detail) { <span class="detail">{{ item.detail }}</span> }
+              @if (item.detail) {
+                <span class="detail">{{ item.detail }}</span>
+              }
             </a>
           </li>
         }
       </ul>
     </nav>
   }`,
-  styles: [`
-    :host { display:block; }
-    ul { display:flex; flex-wrap:wrap; flex-direction:var(--cp-anchor-nav-direction, row); gap:var(--cp-space-1); margin:0; padding:0; list-style:none; }
-    a { display:flex; flex-direction:column; justify-content:center; min-height:2.5rem; padding:var(--cp-space-1) var(--cp-space-3); border-radius:var(--cp-radius-md); color:var(--cp-text-muted); font:600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans); text-decoration:none; }
-    /* Only where there is a pointer to hover with. On a touch screen a tapped link stays :hover until the next tap
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      ul {
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: var(--cp-anchor-nav-direction, row);
+        gap: var(--cp-space-1);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      a {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 2.5rem;
+        padding: var(--cp-space-1) var(--cp-space-3);
+        border-radius: var(--cp-radius-md);
+        color: var(--cp-text-muted);
+        font: 600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans);
+        text-decoration: none;
+      }
+      /* Only where there is a pointer to hover with. On a touch screen a tapped link stays :hover until the next tap
        elsewhere, so the link just jumped to kept its hover background after the page had scrolled on, and read as
        a second "current" item beside the real one. */
-    @media (hover: hover) { a:hover { color:var(--cp-text); background:var(--cp-surface-subtle); } }
-    /* The current destination is named by aria-current for assistive tech; the colour and background are the
+      @media (hover: hover) {
+        a:hover {
+          color: var(--cp-text);
+          background: var(--cp-surface-subtle);
+        }
+      }
+      /* The current destination is named by aria-current for assistive tech; the colour and background are the
        visual half of the same fact, never the only carrier of it. */
-    a[aria-current='true'] { color:var(--cp-primary-text); background:var(--cp-surface-subtle); }
-    .label { overflow-wrap:anywhere; }
-    .detail { font-weight:400; font-size:var(--cp-font-size-xs); color:var(--cp-text-muted); }
-  `],
+      a[aria-current='true'] {
+        color: var(--cp-primary-text);
+        background: var(--cp-surface-subtle);
+      }
+      .label {
+        overflow-wrap: anywhere;
+      }
+      .detail {
+        font-weight: 400;
+        font-size: var(--cp-font-size-xs);
+        color: var(--cp-text-muted);
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpAnchorNavComponent {

@@ -17,7 +17,12 @@ const body = {
   negativeGuidance: 'No flash.',
   references: [
     { documentId: 'd1', title: 'Moodboard', usable: true, unusableReason: null },
-    { documentId: 'd2', title: 'Scan', usable: false, unusableReason: 'We could not read it. It will not be used, and its image is never sent.' },
+    {
+      documentId: 'd2',
+      title: 'Scan',
+      usable: false,
+      unusableReason: 'We could not read it. It will not be used, and its image is never sent.',
+    },
   ],
   referencesTruncated: false,
   referencesAvailable: true,
@@ -29,7 +34,15 @@ describe('decodeBrandVisualGuide', () => {
   });
 
   it('decodes "no active guide" as an answer, not a failure', () => {
-    const none = { activeGuide: null, hasVisualGuidance: false, styleLines: [], negativeGuidance: null, references: [], referencesTruncated: false, referencesAvailable: true };
+    const none = {
+      activeGuide: null,
+      hasVisualGuidance: false,
+      styleLines: [],
+      negativeGuidance: null,
+      references: [],
+      referencesTruncated: false,
+      referencesAvailable: true,
+    };
 
     expect(decodeBrandVisualGuide(none)).toEqual(none);
   });
@@ -56,12 +69,21 @@ describe('toBrandVisualControlData', () => {
     const data = toBrandVisualControlData(decodeBrandVisualGuide(body)!);
 
     expect(data.activeGuide).toEqual(
-      jasmine.objectContaining({ guideId: 'g1', name: 'Bright table', versionNumber: 3, isStale: false, staleReason: null }),
+      jasmine.objectContaining({
+        guideId: 'g1',
+        name: 'Bright table',
+        versionNumber: 3,
+        isStale: false,
+        staleReason: null,
+      }),
     );
     expect(data.hasVisualGuidance).toBeTrue();
     expect(data.styleLines).toEqual(body.styleLines);
     expect(data.negativeGuidance).toBe('No flash.');
-    expect(data.references.map((r) => [r.documentId, r.usable])).toEqual([['d1', true], ['d2', false]]);
+    expect(data.references.map((r) => [r.documentId, r.usable])).toEqual([
+      ['d1', true],
+      ['d2', false],
+    ]);
     expect(data.references[1].unusableReason).toContain('its image is never sent');
   });
 
@@ -75,7 +97,9 @@ describe('toBrandVisualControlData', () => {
   });
 
   it('says references could not load, rather than that there are none', () => {
-    const data = toBrandVisualControlData(decodeBrandVisualGuide({ ...body, references: [], referencesAvailable: false })!);
+    const data = toBrandVisualControlData(
+      decodeBrandVisualGuide({ ...body, references: [], referencesAvailable: false })!,
+    );
 
     expect(data.referencesStatus).toBe('error');
     expect(toBrandVisualControlData(decodeBrandVisualGuide(body)!).referencesStatus).toBe('ready');

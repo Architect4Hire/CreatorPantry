@@ -5,12 +5,7 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 import { ApiBaseService } from '../core/api-base.service';
 import { decodeAiProposalStatus } from '../models/ai-proposal.models';
 import { DISH_FACETS_NOT_ENABLED_CODE, encodeRequestDishFacets } from '../models/dish-facet.models';
-import {
-  AiRequestOutcome,
-  AiWatchOperationOutcome,
-  mapAiRequestError,
-  mapAiWatchError,
-} from './ai-request';
+import { AiRequestOutcome, AiWatchOperationOutcome, mapAiRequestError, mapAiWatchError } from './ai-request';
 
 /**
  * The typed client for reading a dish name into a cuisine, a dish type and a method: ask, and read where that
@@ -66,8 +61,6 @@ export class DishFacetService {
   }
 
   private url(workspaceSlug: string, suffix = ''): string | null {
-    return this.apiBase.url(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/dish-facet-requests${suffix}`,
-    );
+    return this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/dish-facet-requests${suffix}`);
   }
 }

@@ -1,5 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal, untracked } from '@angular/core';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpDialogComponent, CpNoticeComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpDialogComponent,
+  CpNoticeComponent,
+} from '@creator-pantry/ui';
 
 import { MY_DAY_GROUPS, MyDayEntry } from './my-day.logic';
 

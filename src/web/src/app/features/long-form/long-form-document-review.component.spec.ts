@@ -14,7 +14,11 @@ import {
   SettleLongFormSectionRequest,
 } from '../../models/long-form-document.models';
 import { AiAllowanceState } from '../../services/ai-usage.service';
-import { LongFormDraft, PutLongFormFramingRequest, ReorderLongFormItemsRequest } from '../../models/long-form-draft.models';
+import {
+  LongFormDraft,
+  PutLongFormFramingRequest,
+  ReorderLongFormItemsRequest,
+} from '../../models/long-form-draft.models';
 import { LongFormDraftService, LongFormPlanWriteOutcome } from '../../services/long-form-draft.service';
 import {
   LongFormAcceptanceOutcome,
@@ -24,10 +28,7 @@ import {
   LongFormWritingOutcome,
 } from '../../services/long-form-document.service';
 import { LongFormSeoService } from '../../services/long-form-seo.service';
-import {
-  LONG_FORM_REVIEW_POLL_MS,
-  LongFormDocumentReviewComponent,
-} from './long-form-document-review.component';
+import { LONG_FORM_REVIEW_POLL_MS, LongFormDocumentReviewComponent } from './long-form-document-review.component';
 
 const HEALTHY: AiAllowanceState = { kind: 'unknown' };
 
@@ -68,7 +69,14 @@ function section(id: string, overrides: Partial<LongFormDocumentSection> = {}): 
 }
 
 function unwritten(id: string, overrides: Partial<LongFormDocumentSection> = {}): LongFormDocumentSection {
-  return section(id, { body: null, isWritten: false, characterCount: 0, writtenBy: null, aiProposalId: null, ...overrides });
+  return section(id, {
+    body: null,
+    isWritten: false,
+    characterCount: 0,
+    writtenBy: null,
+    aiProposalId: null,
+    ...overrides,
+  });
 }
 
 const THREE: readonly LongFormDocumentSection[] = [
@@ -91,7 +99,10 @@ function documentOf(
     status: 'Writing',
     revisionNumber: 4,
     concurrencyToken: 'token-4',
-    markdown: sections.filter((each) => each.isWritten).map((each) => `## ${each.heading}\n\n${each.body}\n`).join('\n'),
+    markdown: sections
+      .filter((each) => each.isWritten)
+      .map((each) => `## ${each.heading}\n\n${each.body}\n`)
+      .join('\n'),
     wordCount: 1200,
     characterCount: 7000,
     targetWords: { min: 900, max: 1600 },
@@ -122,7 +133,11 @@ function reviewOf(
   return { document, warnings, requests };
 }
 
-function request(sectionId: string, outcome: LongFormSectionRequestSummary['outcome'], overrides: Partial<LongFormSectionRequestSummary> = {}): LongFormSectionRequestSummary {
+function request(
+  sectionId: string,
+  outcome: LongFormSectionRequestSummary['outcome'],
+  overrides: Partial<LongFormSectionRequestSummary> = {},
+): LongFormSectionRequestSummary {
   return {
     sectionId,
     requestId: `r-${sectionId}`,
@@ -142,7 +157,10 @@ class FakeLongFormDocumentService {
   settleOutcome: LongFormSectionWriteOutcome = { status: 'saved' };
   writingOutcome: LongFormWritingOutcome = { status: 'accepted', requests: [], replayed: false };
   restOutcome: LongFormWritingOutcome = { status: 'accepted', requests: [], replayed: false };
-  acceptOutcome: LongFormAcceptanceOutcome = { status: 'accepted', document: documentOf(THREE, { status: 'Accepted' }) };
+  acceptOutcome: LongFormAcceptanceOutcome = {
+    status: 'accepted',
+    document: documentOf(THREE, { status: 'Accepted' }),
+  };
 
   readCalls: [string, string][] = [];
   edits: [string, EditLongFormSectionRequest][] = [];
@@ -163,17 +181,33 @@ class FakeLongFormDocumentService {
     return Promise.resolve(this.reads.length > 1 ? this.reads.shift()! : this.reads[0]!);
   }
 
-  editSection(_slug: string, _draft: string, sectionId: string, body: EditLongFormSectionRequest): Promise<LongFormSectionWriteOutcome> {
+  editSection(
+    _slug: string,
+    _draft: string,
+    sectionId: string,
+    body: EditLongFormSectionRequest,
+  ): Promise<LongFormSectionWriteOutcome> {
     this.edits.push([sectionId, body]);
     return Promise.resolve(this.editOutcomes.length > 1 ? this.editOutcomes.shift()! : this.editOutcomes[0]!);
   }
 
-  settleSection(_slug: string, _draft: string, sectionId: string, body: SettleLongFormSectionRequest): Promise<LongFormSectionWriteOutcome> {
+  settleSection(
+    _slug: string,
+    _draft: string,
+    sectionId: string,
+    body: SettleLongFormSectionRequest,
+  ): Promise<LongFormSectionWriteOutcome> {
     this.settles.push([sectionId, body]);
     return Promise.resolve(this.settleOutcome);
   }
 
-  requestSection(_slug: string, _draft: string, sectionId: string, body: RequestLongFormSectionRequest, key: string): Promise<LongFormWritingOutcome> {
+  requestSection(
+    _slug: string,
+    _draft: string,
+    sectionId: string,
+    body: RequestLongFormSectionRequest,
+    key: string,
+  ): Promise<LongFormWritingOutcome> {
     this.sectionRequests.push([sectionId, body, key]);
     return Promise.resolve(this.writingOutcome);
   }
@@ -332,7 +366,10 @@ describe('LongFormDocumentReviewComponent', () => {
         { provide: LongFormDocumentService, useValue: service },
 
         // The SEO card under an accepted piece has its own spec; here it only has to be mountable.
-        { provide: LongFormSeoService, useValue: { request: () => new Promise(() => undefined), watch: () => new Promise(() => undefined) } },
+        {
+          provide: LongFormSeoService,
+          useValue: { request: () => new Promise(() => undefined), watch: () => new Promise(() => undefined) },
+        },
         { provide: LongFormDraftService, useValue: issue },
         { provide: ConfirmService, useValue: confirmService },
       ],
@@ -345,7 +382,12 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('shows an issue as its subject, its note and its items in order, and an article as neither', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: 'It rained, so I baked.' } })) },
+      {
+        status: 'found',
+        review: reviewOf(
+          issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: 'It rained, so I baked.' } }),
+        ),
+      },
     ];
     await create();
 
@@ -371,7 +413,10 @@ describe('LongFormDocumentReviewComponent', () => {
   it('saves the subject and note the creator typed, and only then lets go of them', async () => {
     service.reads = [
       { status: 'found', review: reviewOf(issueOf()) },
-      { status: 'found', review: reviewOf(issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: null } })) },
+      {
+        status: 'found',
+        review: reviewOf(issueOf(ISSUE, { framing: { subject: 'Three for a cold week', note: null } })),
+      },
     ];
     await create();
 
@@ -385,7 +430,9 @@ describe('LongFormDocumentReviewComponent', () => {
     await click('Save subject and note');
 
     // Both parts every time, and a blank one as none: the route replaces the framing whole.
-    expect(issue.framings).toEqual([{ expectedConcurrencyToken: 'token-4', subject: 'Three for a cold week', note: null }]);
+    expect(issue.framings).toEqual([
+      { expectedConcurrencyToken: 'token-4', subject: 'Three for a cold week', note: null },
+    ]);
     expect(announcement()).toBe('Saved the subject and note.');
     expect(host.review().hasUnsavedWork()).toBeFalse();
     expect(field('subject').value).toBe('Three for a cold week');
@@ -394,7 +441,11 @@ describe('LongFormDocumentReviewComponent', () => {
   it('keeps the creator’s words in their boxes when a save is refused, and says why beside the field', async () => {
     service.reads = [{ status: 'found', review: reviewOf(issueOf()) }];
     issue.framingOutcomes = [
-      { status: 'refused', message: 'The request is not valid.', fieldErrors: { subject: ['Keep the subject to 150 characters.'] } },
+      {
+        status: 'refused',
+        message: 'The request is not valid.',
+        fieldErrors: { subject: ['Keep the subject to 150 characters.'] },
+      },
     ];
     await create();
 
@@ -456,7 +507,9 @@ describe('LongFormDocumentReviewComponent', () => {
     await click('Move up', card(3));
 
     // References, not positions and not section ids: the greeting and the sign-off are not in it at all.
-    expect(issue.orders).toEqual([{ expectedConcurrencyToken: 'token-4', sourceReferenceIds: ['ref-2', 'ref-1', 'ref-3'] }]);
+    expect(issue.orders).toEqual([
+      { expectedConcurrencyToken: 'token-4', sourceReferenceIds: ['ref-2', 'ref-1', 'ref-3'] },
+    ]);
     expect(announcement()).toBe('Moved “The cake” up.');
     expect(Array.from(el.querySelectorAll('article h2')).map((node) => node.textContent)).toEqual([
       'Hello again',
@@ -480,10 +533,25 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('says an item’s recipe is no longer part of the piece, keeps its text, and does not offer to have it written', async () => {
-    const lost = section('i2', { role: 'Item', heading: 'The cake', sourceReferenceId: 'ref-2', sourceState: 'Unresolved' });
-    const lostAndUnwritten = unwritten('i3', { role: 'Item', heading: 'The soup', sourceReferenceId: 'ref-3', sourceState: 'Unresolved' });
+    const lost = section('i2', {
+      role: 'Item',
+      heading: 'The cake',
+      sourceReferenceId: 'ref-2',
+      sourceState: 'Unresolved',
+    });
+    const lostAndUnwritten = unwritten('i3', {
+      role: 'Item',
+      heading: 'The soup',
+      sourceReferenceId: 'ref-3',
+      sourceState: 'Unresolved',
+    });
     service.reads = [
-      { status: 'found', review: reviewOf(issueOf([ISSUE[0]!, ISSUE[1]!, lost, lostAndUnwritten, ISSUE[4]!], { unresolvedItems: ['i2', 'i3'] })) },
+      {
+        status: 'found',
+        review: reviewOf(
+          issueOf([ISSUE[0]!, ISSUE[1]!, lost, lostAndUnwritten, ISSUE[4]!], { unresolvedItems: ['i2', 'i3'] }),
+        ),
+      },
     ];
     await create();
 
@@ -530,7 +598,12 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('marks generated text as written for the creator, and their own text as not', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Mine', writtenBy: 'CreatorEdit', aiProposalId: null })])) },
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([THREE[0]!, section('b', { heading: 'Mine', writtenBy: 'CreatorEdit', aiProposalId: null })]),
+        ),
+      },
     ];
     await create();
 
@@ -540,7 +613,15 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('says whose words a section began as when it was written from accepted copy', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', reusedEditorialParts: ['tips', 'storageReheating'] })])) },
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([
+            THREE[0]!,
+            section('b', { heading: 'Three tips', reusedEditorialParts: ['tips', 'storageReheating'] }),
+          ]),
+        ),
+      },
     ];
     await create();
 
@@ -555,7 +636,13 @@ describe('LongFormDocumentReviewComponent', () => {
       {
         status: 'found',
         review: reviewOf(documentOf(), [
-          { sectionId: 'b', kind: 'UnverifiedClaim', code: 'editorial.unsupported_number', message: '“900g” is a figure the recipe does not state.', fromModel: false },
+          {
+            sectionId: 'b',
+            kind: 'UnverifiedClaim',
+            code: 'editorial.unsupported_number',
+            message: '“900g” is a figure the recipe does not state.',
+            fromModel: false,
+          },
           { sectionId: 'b', kind: 'Assumption', code: null, message: 'I assumed a family audience.', fromModel: true },
         ]),
       },
@@ -585,8 +672,16 @@ describe('LongFormDocumentReviewComponent', () => {
               writtenBy: 'CreatorEdit',
               aiProposalId: null,
               findings: [
-                { code: 'editorial.unsupported_number', kind: 'UnverifiedClaim', message: '“900g” is a figure your recipe does not state.' },
-                { code: 'editorial.unsupported_safety_claim', kind: 'SafetyCaution', message: 'This says the food is safe for someone.' },
+                {
+                  code: 'editorial.unsupported_number',
+                  kind: 'UnverifiedClaim',
+                  message: '“900g” is a figure your recipe does not state.',
+                },
+                {
+                  code: 'editorial.unsupported_safety_claim',
+                  kind: 'SafetyCaution',
+                  message: 'This says the food is safe for someone.',
+                },
               ],
             }),
           ]),
@@ -631,7 +726,12 @@ describe('LongFormDocumentReviewComponent', () => {
     await click('Edit', card(1));
     await type(box(1), 'Unsaved, for the first draft.');
 
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([section('z', { heading: 'Another piece' })], { draftId: 'd-2' })) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(documentOf([section('z', { heading: 'Another piece' })], { draftId: 'd-2' })),
+      },
+    ];
     host.draftId.set('d-2');
     await settle();
 
@@ -684,7 +784,18 @@ describe('LongFormDocumentReviewComponent', () => {
     // Said plainly: this text lives on this page and nowhere else until it is saved.
     expect(text(card(2))).toContain('held on this page only');
 
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', body: '  My own tips.\n\n- One.  ', writtenBy: 'CreatorEdit' }), THREE[2]!])) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([
+            THREE[0]!,
+            section('b', { heading: 'Three tips', body: '  My own tips.\n\n- One.  ', writtenBy: 'CreatorEdit' }),
+            THREE[2]!,
+          ]),
+        ),
+      },
+    ];
     await click('Save this section', card(2));
 
     expect(service.edits).toEqual([['b', { expectedConcurrencyToken: 'token-4', body: '  My own tips.\n\n- One.  ' }]]);
@@ -725,7 +836,12 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('shows the server’s reason beside the box when it refuses the text', async () => {
     service.editOutcomes = [
-      { status: 'refused', code: 'content.long_form.section.invalid', message: 'The request is not valid.', fieldErrors: { body: ['A section’s text is at most 12000 characters.'] } },
+      {
+        status: 'refused',
+        code: 'content.long_form.section.invalid',
+        message: 'The request is not valid.',
+        fieldErrors: { body: ['A section’s text is at most 12000 characters.'] },
+      },
     ];
     await create();
     await click('Edit', card(2));
@@ -797,7 +913,9 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('retries a request that may have arrived under the same key, and a new request under a new one', async () => {
     service.writingOutcome = { status: 'unavailable' };
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) },
+    ];
     await create();
 
     await click('Write it for me', card(2));
@@ -807,7 +925,11 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(service.sectionRequests[1]![2]).toBe(service.sectionRequests[0]![2]);
 
     // Once the server has answered for it, the key is spent.
-    service.writingOutcome = { status: 'refused', code: 'content.long_form.revision.stale.conflict', message: 'This section has changed since it was asked for.' };
+    service.writingOutcome = {
+      status: 'refused',
+      code: 'content.long_form.revision.stale.conflict',
+      message: 'This section has changed since it was asked for.',
+    };
     await click('Write it for me', card(2));
     expect(text(card(2))).toContain('This section has changed since it was asked for.');
 
@@ -820,7 +942,14 @@ describe('LongFormDocumentReviewComponent', () => {
 
     try {
       service.reads = [
-        { status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })]), [], [request('b', 'Waiting')]) },
+        {
+          status: 'found',
+          review: reviewOf(
+            documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })]),
+            [],
+            [request('b', 'Waiting')],
+          ),
+        },
         { status: 'unavailable' },
       ];
       await create();
@@ -847,7 +976,16 @@ describe('LongFormDocumentReviewComponent', () => {
     await click('Edit', card(1));
     await type(box(1), 'My unsaved opening.');
 
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { revisionNumber: 5, concurrencyToken: 'token-5' }), [], [request('b', 'Waiting')]) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf(THREE, { revisionNumber: 5, concurrencyToken: 'token-5' }),
+          [],
+          [request('b', 'Waiting')],
+        ),
+      },
+    ];
     await click('Write it again', card(2));
     await click('Write it again', card(2));
 
@@ -859,12 +997,23 @@ describe('LongFormDocumentReviewComponent', () => {
     jasmine.clock().install();
 
     try {
-      service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' }), THREE[2]!]), [], [request('b', 'Waiting')]) }];
+      service.reads = [
+        {
+          status: 'found',
+          review: reviewOf(
+            documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' }), THREE[2]!]),
+            [],
+            [request('b', 'Waiting')],
+          ),
+        },
+      ];
       await create();
       await click('Edit', card(1));
       await type(box(1), 'Still typing.');
 
-      service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { revisionNumber: 5 }), [], [request('b', 'Written')]) }];
+      service.reads = [
+        { status: 'found', review: reviewOf(documentOf(THREE, { revisionNumber: 5 }), [], [request('b', 'Written')]) },
+      ];
       jasmine.clock().tick(LONG_FORM_REVIEW_POLL_MS + 1);
       await settle();
 
@@ -893,7 +1042,14 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('says when writing failed and that nothing was changed', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })]), [], [request('b', 'Failed', { failureCategory: 'Cancelled' })]) },
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })]),
+          [],
+          [request('b', 'Failed', { failureCategory: 'Cancelled' })],
+        ),
+      },
     ];
     await create();
 
@@ -902,10 +1058,28 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('writes the rest in one request, and says how many the allowance covered when it covers only some', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' }), unwritten('c', { heading: 'Until next time' })])) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([
+            THREE[0]!,
+            unwritten('b', { heading: 'Three tips' }),
+            unwritten('c', { heading: 'Until next time' }),
+          ]),
+        ),
+      },
+    ];
     service.restOutcome = {
       status: 'blocked',
-      refusal: { status: 'quota_exhausted', unit: 'Credits', allowance: 100, remaining: 10, required: 20, resetsAt: '2026-11-01T00:00:00Z' } as never,
+      refusal: {
+        status: 'quota_exhausted',
+        unit: 'Credits',
+        allowance: 100,
+        remaining: 10,
+        required: 20,
+        resetsAt: '2026-11-01T00:00:00Z',
+      } as never,
       sectionsRequested: 2,
       sectionsCoverable: 1,
     };
@@ -920,7 +1094,11 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('says how many sections are being written once the rest has been asked for', async () => {
-    const twoLeft = documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' }), unwritten('c', { heading: 'Until next time' })]);
+    const twoLeft = documentOf([
+      THREE[0]!,
+      unwritten('b', { heading: 'Three tips' }),
+      unwritten('c', { heading: 'Until next time' }),
+    ]);
     service.reads = [
       { status: 'found', review: reviewOf(twoLeft) },
       { status: 'found', review: reviewOf(twoLeft, [], [request('b', 'Waiting'), request('c', 'Waiting')]) },
@@ -946,7 +1124,9 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('does not ask for writing when the allowance is spent', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) },
+    ];
     await create();
     host.allowance.set(SPENT);
     await settle();
@@ -964,7 +1144,14 @@ describe('LongFormDocumentReviewComponent', () => {
   // ---- settling --------------------------------------------------------------------------------------
 
   it('says a section is too long in words, and still lets it be settled or accepted with the rest', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', overCeiling: true, characterCount: 3200 })])) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([THREE[0]!, section('b', { heading: 'Three tips', overCeiling: true, characterCount: 3200 })]),
+        ),
+      },
+    ];
     await create();
 
     expect(card(2).querySelector('cp-status-pill')?.textContent?.trim()).toContain('Too long');
@@ -985,7 +1172,12 @@ describe('LongFormDocumentReviewComponent', () => {
   it('marks a section settled and offers no rewrite of it until the mark is cleared', async () => {
     await create();
 
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', settled: true }), THREE[2]!])) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', settled: true }), THREE[2]!])),
+      },
+    ];
     await click('Mark as settled', card(2));
 
     expect(service.settles).toEqual([['b', { expectedConcurrencyToken: 'token-4', settled: true }]]);
@@ -1006,7 +1198,9 @@ describe('LongFormDocumentReviewComponent', () => {
     await create();
 
     expect(text()).toContain('Every section is written and within its length.');
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await click('Accept this piece');
 
     expect(confirmService.calls.length).toBe(0);
@@ -1025,7 +1219,16 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('names what is wrong before accepting an unfinished piece, and accepts nothing if the creator says no', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(documentOf([THREE[0]!, section('b', { heading: 'Three tips', overCeiling: true }), unwritten('c', { heading: 'Until next time' })])) },
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([
+            THREE[0]!,
+            section('b', { heading: 'Three tips', overCeiling: true }),
+            unwritten('c', { heading: 'Until next time' }),
+          ]),
+        ),
+      },
     ];
     await create();
 
@@ -1051,14 +1254,26 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('accepts nothing and shows the piece again when it changed while the creator was deciding', async () => {
-    service.acceptOutcome = { status: 'confirmation_required', issues: [{ issue: 'UnwrittenSections', sectionIds: ['c'] }] };
+    service.acceptOutcome = {
+      status: 'confirmation_required',
+      issues: [{ issue: 'UnwrittenSections', sectionIds: ['c'] }],
+    };
     await create();
 
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, THREE[1]!, unwritten('c', { heading: 'Until next time' })], { revisionNumber: 5 })) }];
+    service.reads = [
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([THREE[0]!, THREE[1]!, unwritten('c', { heading: 'Until next time' })], { revisionNumber: 5 }),
+        ),
+      },
+    ];
     await click('Accept this piece');
 
     expect(host.accepted.length).toBe(0);
-    expect(el.querySelector('[data-testid="document-problem"]')?.textContent).toContain('changed while you were deciding');
+    expect(el.querySelector('[data-testid="document-problem"]')?.textContent).toContain(
+      'changed while you were deciding',
+    );
     expect(text(el.querySelector('[data-testid="issues"]')!)).toContain('“Until next time” has not been written.');
   });
 
@@ -1069,7 +1284,9 @@ describe('LongFormDocumentReviewComponent', () => {
 
     const accept = button('Accept this piece')!;
     expect(accept.getAttribute('aria-disabled')).toBe('true');
-    expect(el.querySelector(`#${accept.getAttribute('aria-describedby')}`)?.textContent).toContain('Save or discard your changes');
+    expect(el.querySelector(`#${accept.getAttribute('aria-describedby')}`)?.textContent).toContain(
+      'Save or discard your changes',
+    );
 
     accept.click();
     await settle();
@@ -1077,7 +1294,9 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('shows an already accepted piece read-only, with nothing to press', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(el.querySelector('[data-testid="accepted"]')).not.toBeNull();
@@ -1116,7 +1335,9 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('offers what an accepted piece offers on the accepting half, and none of it on the writing half', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
     host.show.set('accept');
     await settle();
@@ -1151,7 +1372,9 @@ describe('LongFormDocumentReviewComponent', () => {
   }
 
   it('offers both downloads of an accepted piece as plain links to the export routes', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(downloads()).toEqual([
@@ -1164,14 +1387,21 @@ describe('LongFormDocumentReviewComponent', () => {
   // ---- SEO suggestions (LF.5.3) --------------------------------------------------------------------------
 
   it('offers SEO suggestions for an accepted piece only, and about its accepted revision', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(el.querySelector('cp-long-form-seo-suggestions')).not.toBeNull();
     expect(button('Suggest SEO details')).not.toBeNull();
 
     for (const status of ['Outlined', 'Writing', 'Assembled', 'NeedsReview'] as const) {
-      service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status, acceptedRevisionNumber: status === 'NeedsReview' ? 4 : null })) }];
+      service.reads = [
+        {
+          status: 'found',
+          review: reviewOf(documentOf(THREE, { status, acceptedRevisionNumber: status === 'NeedsReview' ? 4 : null })),
+        },
+      ];
       await create();
 
       expect(el.querySelector('cp-long-form-seo-suggestions')).withContext(status).toBeNull();
@@ -1188,7 +1418,9 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('still offers the downloads once the sources have moved, and says they are the piece as accepted', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'NeedsReview', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'NeedsReview', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(downloads().map((link) => link.label)).toEqual(['Download Markdown', 'Download HTML']);
@@ -1201,11 +1433,20 @@ describe('LongFormDocumentReviewComponent', () => {
     service.reads = [
       {
         status: 'found',
-        review: reviewOf(documentOf(THREE, { status: 'NeedsReview', acceptedRevisionNumber: 4, staleReasons: reasons, staleSince: '2026-10-12T09:00:00Z' })),
+        review: reviewOf(
+          documentOf(THREE, {
+            status: 'NeedsReview',
+            acceptedRevisionNumber: 4,
+            staleReasons: reasons,
+            staleSince: '2026-10-12T09:00:00Z',
+          }),
+        ),
       },
     ];
 
-    return create().then(() => el.querySelector('[data-testid="needs-review"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+    return create().then(
+      () => el.querySelector('[data-testid="needs-review"]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    );
   }
 
   it('says which source moved, and that nothing in the piece was changed', async () => {
@@ -1234,7 +1475,9 @@ describe('LongFormDocumentReviewComponent', () => {
   });
 
   it('says nothing about a source moving while the piece is accepted and current', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(el.querySelector('[data-testid="needs-review"]')).toBeNull();
@@ -1242,7 +1485,9 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('offers no dead link while the gateway address is not known', async () => {
     service.gateway = null;
-    service.reads = [{ status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf(THREE, { status: 'Accepted', acceptedRevisionNumber: 4 })) },
+    ];
     await create();
 
     expect(el.querySelector('[data-testid="downloads"]')).toBeNull();
@@ -1259,21 +1504,37 @@ describe('LongFormDocumentReviewComponent', () => {
 
   it('offers nothing to accept while nothing is written, and says why', async () => {
     service.reads = [
-      { status: 'found', review: reviewOf(documentOf([unwritten('a', { heading: 'Why this cake' }), unwritten('b', { heading: 'Three tips' })], { status: 'Outlined', markdown: '' })) },
+      {
+        status: 'found',
+        review: reviewOf(
+          documentOf([unwritten('a', { heading: 'Why this cake' }), unwritten('b', { heading: 'Three tips' })], {
+            status: 'Outlined',
+            markdown: '',
+          }),
+        ),
+      },
     ];
     await create();
 
     const accept = button('Accept this piece')!;
     expect(accept.getAttribute('aria-disabled')).toBe('true');
-    expect(el.querySelector(`#${accept.getAttribute('aria-describedby')}`)?.textContent).toContain('Nothing has been written yet');
+    expect(el.querySelector(`#${accept.getAttribute('aria-describedby')}`)?.textContent).toContain(
+      'Nothing has been written yet',
+    );
     expect(text(card(1))).toContain('Nothing has been written for this section yet.');
   });
 
   it('says what the server said when it refuses an acceptance, or the creator may not accept', async () => {
-    service.acceptOutcome = { status: 'refused', code: 'content.long_form.acceptance.nothing_written.unprocessable', message: 'None of this piece has been written yet.' };
+    service.acceptOutcome = {
+      status: 'refused',
+      code: 'content.long_form.acceptance.nothing_written.unprocessable',
+      message: 'None of this piece has been written yet.',
+    };
     await create();
     await click('Accept this piece');
-    expect(el.querySelector('[data-testid="document-problem"]')?.textContent).toContain('None of this piece has been written yet.');
+    expect(el.querySelector('[data-testid="document-problem"]')?.textContent).toContain(
+      'None of this piece has been written yet.',
+    );
 
     service.acceptOutcome = { status: 'forbidden' };
     await click('Accept this piece');
@@ -1340,13 +1601,17 @@ describe('LongFormDocumentReviewComponent', () => {
     expect(dirty.defaultPrevented).toBeTrue();
 
     fixture.destroy();
-    expect(unlisten.calls.allArgs().some(([kind, removed]) => kind === 'beforeunload' && removed === handler)).toBeTrue();
+    expect(
+      unlisten.calls.allArgs().some(([kind, removed]) => kind === 'beforeunload' && removed === handler),
+    ).toBeTrue();
   });
 
   // ---- accessibility and layout ----------------------------------------------------------------------
 
   it('says every status in words, names each control by its section, and has its live region before anything is said', async () => {
-    service.reads = [{ status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) }];
+    service.reads = [
+      { status: 'found', review: reviewOf(documentOf([THREE[0]!, unwritten('b', { heading: 'Three tips' })])) },
+    ];
     await create();
 
     expect(card(1).querySelector('cp-status-pill')?.textContent?.trim()).toContain('Written');

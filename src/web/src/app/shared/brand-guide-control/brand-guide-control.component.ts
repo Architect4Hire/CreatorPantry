@@ -11,7 +11,13 @@ import {
   viewChild,
   ElementRef,
 } from '@angular/core';
-import { CpButtonComponent, CpFieldComponent, CpSkeletonComponent, CpStatusPillComponent, CpStatusPillTone } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpFieldComponent,
+  CpSkeletonComponent,
+  CpStatusPillComponent,
+  CpStatusPillTone,
+} from '@creator-pantry/ui';
 
 import {
   BrandGuideChannelRule,
@@ -156,8 +162,7 @@ export class BrandGuideControlComponent {
     const active = this.activeGuide();
 
     return this.choices().filter(
-      (choice) =>
-        active === null || choice.guideId !== active.guideId || choice.versionNumber !== active.versionNumber,
+      (choice) => active === null || choice.guideId !== active.guideId || choice.versionNumber !== active.versionNumber,
     );
   });
 

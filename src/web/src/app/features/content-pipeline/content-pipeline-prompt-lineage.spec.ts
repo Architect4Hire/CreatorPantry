@@ -1,13 +1,6 @@
 import { AiProposalDetail, AiProposedChange } from '../../models/ai-proposal.models';
-import {
-  ContentPipelinePromptState,
-  emptyContentPipelinePromptState,
-} from '../../models/content-pipeline.models';
-import {
-  generatedPromptFor,
-  manualPromptFor,
-  promptOriginOf,
-} from './content-pipeline-prompt-lineage';
+import { ContentPipelinePromptState, emptyContentPipelinePromptState } from '../../models/content-pipeline.models';
+import { generatedPromptFor, manualPromptFor, promptOriginOf } from './content-pipeline-prompt-lineage';
 
 const PROMPT = 'Overhead, the loaf torn open on linen.';
 const DRAFT = 'Overhead shot of a torn loaf on a linen cloth.';
@@ -49,7 +42,9 @@ function proposal(changes: readonly AiProposedChange[] = []): AiProposalDetail {
 describe('content pipeline prompt lineage (AF.4.3)', () => {
   describe('promptOriginOf', () => {
     it('reads a composition the creator has not touched', () => {
-      const origin = promptOriginOf(prompt({ promptSource: 'composed', promptRequestId: 'req-1', generated: { text: DRAFT, avoid: [] } }));
+      const origin = promptOriginOf(
+        prompt({ promptSource: 'composed', promptRequestId: 'req-1', generated: { text: DRAFT, avoid: [] } }),
+      );
 
       expect(origin).toEqual({ source: 'ImagePromptComposition', requestId: 'req-1' });
     });
@@ -57,14 +52,20 @@ describe('content pipeline prompt lineage (AF.4.3)', () => {
     it('reads a composition the creator has edited, because the draft beside it is still a model’s', () => {
       // The two text fields of a prompt record exist for exactly this: what was written for them, and what
       // they made of it.
-      const origin = promptOriginOf(prompt({ promptSource: 'creator', promptRequestId: 'req-1', generated: { text: DRAFT, avoid: [] } }));
+      const origin = promptOriginOf(
+        prompt({ promptSource: 'creator', promptRequestId: 'req-1', generated: { text: DRAFT, avoid: [] } }),
+      );
 
       expect(origin).toEqual({ source: 'ImagePromptComposition', requestId: 'req-1' });
     });
 
     it('reads a prompt taken from a reference reading', () => {
       const origin = promptOriginOf(
-        prompt({ promptSource: 'reference', referenceRequestId: 'ref-1', reference: { documentId: 'd1', title: 'A photo' } }),
+        prompt({
+          promptSource: 'reference',
+          referenceRequestId: 'ref-1',
+          reference: { documentId: 'd1', title: 'A photo' },
+        }),
       );
 
       expect(origin).toEqual({ source: 'ReferenceImageAnalysis', requestId: 'ref-1' });
@@ -107,13 +108,20 @@ describe('content pipeline prompt lineage (AF.4.3)', () => {
     });
 
     it('is not kept when there is no prompt at all', () => {
-      expect(manualPromptFor(prompt({ finalPrompt: '   ' }), 'blog')).toEqual({ status: 'refused', reason: 'no_prompt' });
+      expect(manualPromptFor(prompt({ finalPrompt: '   ' }), 'blog')).toEqual({
+        status: 'refused',
+        reason: 'no_prompt',
+      });
     });
   });
 
   describe('a prompt a model drafted', () => {
     const origin = { source: 'ImagePromptComposition' as const, requestId: 'req-1' };
-    const composed = prompt({ promptSource: 'composed', promptRequestId: 'req-1', generated: { text: DRAFT, avoid: [] } });
+    const composed = prompt({
+      promptSource: 'composed',
+      promptRequestId: 'req-1',
+      generated: { text: DRAFT, avoid: [] },
+    });
 
     it('names the proposal, the draft and the template that wrote it — and no recipe', () => {
       const outcome = generatedPromptFor(composed, 'instagram', origin, proposal());

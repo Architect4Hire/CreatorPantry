@@ -85,20 +85,18 @@ export class FakeRecipeLibrary {
 
     // Newest first, as the route answers.
     const items = (recipe.versionIds ?? [])
-      .map(
-        (id, index): RecipeVersionHistoryEntry => ({
-          id,
-          versionNumber: index + 1,
-          source: 'CreatorEdit',
-          readiness: 'Draft',
-          reason: null,
-          createdAt: '2026-10-01T09:00:00Z',
-          createdByName: null,
-          parentVersionId: null,
-          restoredFromVersionId: null,
-          aiProposalId: null,
-        }),
-      )
+      .map((id, index): RecipeVersionHistoryEntry => ({
+        id,
+        versionNumber: index + 1,
+        source: 'CreatorEdit',
+        readiness: 'Draft',
+        reason: null,
+        createdAt: '2026-10-01T09:00:00Z',
+        createdByName: null,
+        parentVersionId: null,
+        restoredFromVersionId: null,
+        aiProposalId: null,
+      }))
       .reverse();
 
     return Promise.resolve({ status: 'found', page: { items, nextCursor: null } });

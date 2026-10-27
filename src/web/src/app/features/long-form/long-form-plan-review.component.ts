@@ -260,12 +260,16 @@ export class LongFormPlanReviewComponent {
           : [];
 
       problems[section.key] = {
-        heading: codes.filter((code) => code.includes('.heading.')).map(longFormFindingText).join(' '),
-        intent: codes.filter((code) => code.includes('.intent.')).map(longFormFindingText).join(' '),
+        heading: codes
+          .filter((code) => code.includes('.heading.'))
+          .map(longFormFindingText)
+          .join(' '),
+        intent: codes
+          .filter((code) => code.includes('.intent.'))
+          .map(longFormFindingText)
+          .join(' '),
         section: [
-          ...codes
-            .filter((code) => !code.includes('.heading.') && !code.includes('.intent.'))
-            .map(longFormFindingText),
+          ...codes.filter((code) => !code.includes('.heading.') && !code.includes('.intent.')).map(longFormFindingText),
           ...fromRefusal,
         ].join(' '),
       };
@@ -435,9 +439,7 @@ export class LongFormPlanReviewComponent {
 
     // Focus goes to the section that took its place, or the last one, or the add control when none is left.
     const neighbour = remaining[Math.min(index, remaining.length - 1)];
-    this.focusAfterRender(
-      neighbour ? this.sectionId(neighbour, 'heading') : `${this.idPrefix()}-add-role`,
-    );
+    this.focusAfterRender(neighbour ? this.sectionId(neighbour, 'heading') : `${this.idPrefix()}-add-role`);
   }
 
   protected add(): void {
@@ -662,16 +664,14 @@ export class LongFormPlanReviewComponent {
    * section the creator was looking at keeps its place, its focus and its ids across a save.
    */
   private adopt(draft: LongFormDraft, sent: readonly WorkingSection[] = []): void {
-    const sections = (draft.latest?.sections ?? []).map(
-      (section, index): WorkingSection => ({
-        key: sent[index]?.key ?? this.mintKey(),
-        id: section.id,
-        role: section.role,
-        heading: section.heading,
-        intent: section.intent,
-        sourceReferenceId: section.sourceReferenceId,
-      }),
-    );
+    const sections = (draft.latest?.sections ?? []).map((section, index): WorkingSection => ({
+      key: sent[index]?.key ?? this.mintKey(),
+      id: section.id,
+      role: section.role,
+      heading: section.heading,
+      intent: section.intent,
+      sourceReferenceId: section.sourceReferenceId,
+    }));
 
     this.draft.set(draft);
     this.baseline.set(sections);
@@ -687,9 +687,7 @@ export class LongFormPlanReviewComponent {
 
     // What the server said about this section was about the words it was sent, which these no longer are.
     if (this.refusals()[section.key] !== undefined) {
-      this.refusals.set(
-        Object.fromEntries(Object.entries(this.refusals()).filter(([key]) => key !== section.key)),
-      );
+      this.refusals.set(Object.fromEntries(Object.entries(this.refusals()).filter(([key]) => key !== section.key)));
     }
   }
 

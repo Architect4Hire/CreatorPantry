@@ -39,7 +39,10 @@ describe('validateModel', () => {
       { quantity: ' ', note: '' },
     ];
 
-    expect(validateModel(model({ lines }), rules).map((issue) => issue.path)).toEqual(['lines[1].quantity', 'lines[2].quantity']);
+    expect(validateModel(model({ lines }), rules).map((issue) => issue.path)).toEqual([
+      'lines[1].quantity',
+      'lines[2].quantity',
+    ]);
   });
 
   it('finds no rows to check when the list is empty or is not a list', () => {
@@ -58,7 +61,11 @@ describe('validateModel', () => {
   it('lets a rule compare a field with another through the model', () => {
     const rules: FormRules<Model> = {
       note: [],
-      servings: [custom<Model>('tooMany', (value, { model: whole }) => (Number(value) > whole.lines.length * 10 ? 'More than the lines suggest.' : null))],
+      servings: [
+        custom<Model>('tooMany', (value, { model: whole }) =>
+          Number(value) > whole.lines.length * 10 ? 'More than the lines suggest.' : null,
+        ),
+      ],
     };
 
     expect(validateModel(model({ servings: 50 }), rules).map((issue) => issue.code)).toEqual(['tooMany']);

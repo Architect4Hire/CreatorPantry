@@ -76,8 +76,8 @@
       @if (state() === 'stale') {
         <div class="panel-recovery">
           <p class="panel-notice">
-            Start again from your recipe as it stands now. These suggestions can't be applied to it, and nothing
-            about them was saved.
+            Start again from your recipe as it stands now. These suggestions can't be applied to it, and nothing about
+            them was saved.
           </p>
           <div class="cp-actions">
             <button cpButton type="button" variant="primary" size="sm" (click)="requestRestart()">
@@ -303,7 +303,9 @@
 
           @if (state() === 'proposed' || state() === 'deciding') {
             <!-- Always present where the actions go (APP-003, AU.7): said once while the memberships are read. -->
-            <p class="cp-sr-only" role="status">{{ !mayDecide() && !rolesKnown() ? 'Checking what you can do with these…' : '' }}</p>
+            <p class="cp-sr-only" role="status">{{
+              !mayDecide() && !rolesKnown() ? 'Checking what you can do with these…' : ''
+            }}</p>
             @if (mayDecide()) {
               <div class="feedback">
                 <fieldset class="feedback-helpful">
@@ -368,13 +370,7 @@
                 >
                   Keep all
                 </button>
-                <button
-                  cpButton
-                  type="button"
-                  variant="danger"
-                  [disabled]="state() === 'deciding'"
-                  (click)="reject()"
-                >
+                <button cpButton type="button" variant="danger" [disabled]="state() === 'deciding'" (click)="reject()">
                   Decline all
                 </button>
               </div>
@@ -411,7 +407,9 @@
             <summary>How this was generated</summary>
             <dl cpFacts class="provenance-list">
               <div cpFact label="Made by">{{ detail.modelName }} ({{ detail.providerName }})</div>
-              <div cpFact label="Instructions used">{{ detail.promptTemplateId }}, version {{ detail.promptTemplateVersion }}</div>
+              <div cpFact label="Instructions used"
+                >{{ detail.promptTemplateId }}, version {{ detail.promptTemplateVersion }}</div
+              >
               <!-- Which version of the recipe every "was" value above was read from. The whole basis for
                    accepting a suggestion safely is that this is still the current version, so it is named. -->
               <div cpFact label="Read from recipe version">

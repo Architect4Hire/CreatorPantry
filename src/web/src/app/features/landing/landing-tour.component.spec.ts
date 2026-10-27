@@ -126,7 +126,9 @@ describe('LandingTourComponent', () => {
     const img = host.querySelector<HTMLImageElement>('.shot img')!;
 
     expect(sources.map((source) => source.getAttribute('type'))).toEqual(['image/avif', 'image/webp']);
-    expect(sources[0].getAttribute('srcset')).toBe('/images/tour/image-studio-light@1x.avif 1x, /images/tour/image-studio-light@2x.avif 2x');
+    expect(sources[0].getAttribute('srcset')).toBe(
+      '/images/tour/image-studio-light@1x.avif 1x, /images/tour/image-studio-light@2x.avif 2x',
+    );
     expect(img.getAttribute('width')).toBe('640');
     expect(img.getAttribute('height')).toBe('400');
     expect(img.getAttribute('alt')).toBe('');

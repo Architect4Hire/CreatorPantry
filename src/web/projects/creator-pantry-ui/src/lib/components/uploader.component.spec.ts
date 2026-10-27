@@ -23,7 +23,9 @@ describe('CpUploaderComponent', () => {
     const fileInput = host.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = spyOn(fileInput, 'click');
 
-    const browseButton = Array.from(host.querySelectorAll('button')).find(b => b.textContent?.includes('Browse files')) as HTMLButtonElement;
+    const browseButton = Array.from(host.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Browse files'),
+    ) as HTMLButtonElement;
     browseButton.click();
 
     expect(clickSpy).toHaveBeenCalled();
@@ -38,7 +40,7 @@ describe('CpUploaderComponent', () => {
     Object.defineProperty(fileInput, 'files', { value: fileList, configurable: true });
 
     let emitted: FileList | undefined;
-    fixture.componentInstance.filesSelected.subscribe(files => (emitted = files));
+    fixture.componentInstance.filesSelected.subscribe((files) => (emitted = files));
 
     fileInput.dispatchEvent(new Event('change'));
     fixture.detectChanges();
@@ -56,7 +58,7 @@ describe('CpUploaderComponent', () => {
     const fileList = makeFileList([file]);
 
     let emitted: FileList | undefined;
-    fixture.componentInstance.filesSelected.subscribe(files => (emitted = files));
+    fixture.componentInstance.filesSelected.subscribe((files) => (emitted = files));
 
     const dropEvent = new Event('drop', { cancelable: true }) as DragEvent & { dataTransfer: DataTransfer };
     Object.defineProperty(dropEvent, 'dataTransfer', { value: { files: fileList } });
@@ -101,7 +103,7 @@ describe('CpUploaderComponent', () => {
 
       const host = fixture.nativeElement as HTMLElement;
       const item = host.querySelector('.item') as HTMLElement;
-      const buttons = Array.from(item.querySelectorAll('button')).map(b => b.textContent?.trim());
+      const buttons = Array.from(item.querySelectorAll('button')).map((b) => b.textContent?.trim());
 
       expect(item.querySelector('cp-status-pill')?.textContent).toContain('Queued');
       expect(buttons).toEqual(['Cancel']);
@@ -114,7 +116,7 @@ describe('CpUploaderComponent', () => {
 
       const host = fixture.nativeElement as HTMLElement;
       const item = host.querySelector('.item') as HTMLElement;
-      const buttons = Array.from(item.querySelectorAll('button')).map(b => b.textContent?.trim());
+      const buttons = Array.from(item.querySelectorAll('button')).map((b) => b.textContent?.trim());
 
       expect(item.querySelector('cp-progress')).toBeTruthy();
       expect(buttons).toEqual(['Cancel']);
@@ -126,7 +128,7 @@ describe('CpUploaderComponent', () => {
 
       const host = fixture.nativeElement as HTMLElement;
       const item = host.querySelector('.item') as HTMLElement;
-      const buttons = Array.from(item.querySelectorAll('button')).map(b => b.textContent?.trim());
+      const buttons = Array.from(item.querySelectorAll('button')).map((b) => b.textContent?.trim());
 
       expect(item.querySelector('cp-status-pill')?.textContent).toContain('Uploaded');
       expect(buttons).toEqual(['Remove']);
@@ -138,7 +140,7 @@ describe('CpUploaderComponent', () => {
 
       const host = fixture.nativeElement as HTMLElement;
       const item = host.querySelector('.item') as HTMLElement;
-      const buttons = Array.from(item.querySelectorAll('button')).map(b => b.textContent?.trim());
+      const buttons = Array.from(item.querySelectorAll('button')).map((b) => b.textContent?.trim());
 
       expect(item.querySelector('cp-status-pill')?.textContent).toContain('Network failure');
       expect(buttons).toEqual(['Retry', 'Remove']);
@@ -160,7 +162,7 @@ describe('CpUploaderComponent', () => {
       fixture.detectChanges();
 
       let cancelledId: string | undefined;
-      fixture.componentInstance.cancel.subscribe(id => (cancelledId = id));
+      fixture.componentInstance.cancel.subscribe((id) => (cancelledId = id));
 
       const host = fixture.nativeElement as HTMLElement;
       (host.querySelector('.item button') as HTMLButtonElement).click();
@@ -170,15 +172,17 @@ describe('CpUploaderComponent', () => {
 
     it('emits retry with the item id when Retry is clicked on an errored item', async () => {
       const fixture = await createFixture();
-      fixture.componentRef.setInput('items', [{ id: 'd', name: 'd.jpg', status: 'error', errorMessage: 'Oops' }] satisfies CpUploadItem[]);
+      fixture.componentRef.setInput('items', [
+        { id: 'd', name: 'd.jpg', status: 'error', errorMessage: 'Oops' },
+      ] satisfies CpUploadItem[]);
       fixture.detectChanges();
 
       let retriedId: string | undefined;
-      fixture.componentInstance.retry.subscribe(id => (retriedId = id));
+      fixture.componentInstance.retry.subscribe((id) => (retriedId = id));
 
       const host = fixture.nativeElement as HTMLElement;
       const buttons = Array.from(host.querySelectorAll('.item button')) as HTMLButtonElement[];
-      const retryButton = buttons.find(b => b.textContent?.trim() === 'Retry') as HTMLButtonElement;
+      const retryButton = buttons.find((b) => b.textContent?.trim() === 'Retry') as HTMLButtonElement;
       retryButton.click();
 
       expect(retriedId).toBe('d');
@@ -190,7 +194,7 @@ describe('CpUploaderComponent', () => {
       fixture.detectChanges();
 
       let removedId: string | undefined;
-      fixture.componentInstance.remove.subscribe(id => (removedId = id));
+      fixture.componentInstance.remove.subscribe((id) => (removedId = id));
 
       const host = fixture.nativeElement as HTMLElement;
       (host.querySelector('.item button') as HTMLButtonElement).click();

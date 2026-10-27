@@ -25,10 +25,7 @@ import { decodeEnum, isRecord, isStringOrNull } from './recipe.models';
 /** Mirrors `LongFormKind`. */
 export type LongFormKind = 'BlogArticle' | 'NewsletterIssue';
 
-export const LONG_FORM_KIND_VALUES: ReadonlySet<string> = new Set<LongFormKind>([
-  'BlogArticle',
-  'NewsletterIssue',
-]);
+export const LONG_FORM_KIND_VALUES: ReadonlySet<string> = new Set<LongFormKind>(['BlogArticle', 'NewsletterIssue']);
 
 /** Mirrors `LongFormDraftStatus`: where a draft stands. Not a publication state. */
 export type LongFormDraftStatus = 'Draft' | 'Outlined' | 'Writing' | 'Assembled' | 'Accepted' | 'NeedsReview';

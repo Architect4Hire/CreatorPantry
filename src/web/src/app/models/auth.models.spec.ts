@@ -1,11 +1,23 @@
 import { decodeMyWorkspaceMembership, decodeMyWorkspaceMemberships } from './auth.models';
 
-const VALID = { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' };
+const VALID = {
+  workspaceId: 'w1',
+  workspaceSlug: 'cozy-fall',
+  workspaceName: 'Cozy Fall',
+  membershipId: 'm1',
+  role: 'Owner',
+  status: 'Active',
+};
 
 describe('decodeMyWorkspaceMembership', () => {
   it('decodes a valid entry with named string role/status (the actual API wire format)', () => {
     expect(decodeMyWorkspaceMembership(VALID)).toEqual({
-      workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active',
+      workspaceId: 'w1',
+      workspaceSlug: 'cozy-fall',
+      workspaceName: 'Cozy Fall',
+      membershipId: 'm1',
+      role: 'Owner',
+      status: 'Active',
     });
   });
 

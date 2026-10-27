@@ -26,7 +26,9 @@
     @if (packs().length) {
       <div class="packs">
         <!-- A pack cannot be bought any more than the tiles' billing can, so it says so in the same words. -->
-        <p class="coming"><cp-badge tone="neutral">{{ comingWithBilling }}</cp-badge></p>
+        <p class="coming"
+          ><cp-badge tone="neutral">{{ comingWithBilling }}</cp-badge></p
+        >
         <h3 id="landing-promises-packs">{{ packsHeading }}</h3>
         <!-- `list-style: none` takes the list semantics away in Safari; this puts them back. -->
         <ul role="list" aria-labelledby="landing-promises-packs">

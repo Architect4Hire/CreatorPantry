@@ -20,7 +20,14 @@ const TASK = {
   estimateMinutes: null,
   owner: { membershipId: 'm-1', displayName: 'Sam' },
   assignee: { membershipId: 'm-1', displayName: 'Sam' },
-  links: { workflowRunId: null, workflowStepKey: null, workflowRunRoute: null, recipeId: null, contentCardId: null, mediaAssetId: null },
+  links: {
+    workflowRunId: null,
+    workflowStepKey: null,
+    workflowRunRoute: null,
+    recipeId: null,
+    contentCardId: null,
+    mediaAssetId: null,
+  },
   labels: [],
   createdAt: '2038-10-14T17:00:00+00:00',
   updatedAt: '2038-10-14T17:00:00+00:00',
@@ -67,7 +74,9 @@ describe('WorkTaskService', () => {
 
   it('says when the answer was a replay of an earlier capture', async () => {
     const pending = service.capture('sams-kitchen', { title: 'Shoot the galette' }, 'key-1');
-    http.expectOne(`${WS}/work-tasks`).flush(TASK, { status: 201, statusText: 'Created', headers: { 'Idempotent-Replayed': 'true' } });
+    http
+      .expectOne(`${WS}/work-tasks`)
+      .flush(TASK, { status: 201, statusText: 'Created', headers: { 'Idempotent-Replayed': 'true' } });
 
     const outcome = await pending;
     expect(outcome.status === 'captured' && outcome.replayed).toBeTrue();
@@ -88,7 +97,9 @@ describe('WorkTaskService', () => {
       http.expectOne(`${WS}/work-tasks`).flush(body, { status, statusText: 'x' });
       const outcome = await pending;
 
-      expect(outcome.status).withContext(`${status} ${JSON.stringify(body)}`).toBe(expected as never);
+      expect(outcome.status)
+        .withContext(`${status} ${JSON.stringify(body)}`)
+        .toBe(expected as never);
       if (outcome.status === 'invalid') expect(outcome.fieldErrors['title']).toEqual(['A task needs a title.']);
       if (outcome.status === 'link_refused') expect(outcome.fields).toEqual(['recipeId']);
     }
@@ -103,7 +114,9 @@ describe('WorkTaskService', () => {
 
   it('says a workspace keeps no calendar, and that the week could not be read, apart', async () => {
     const noZone = service.planningDates('sams-kitchen');
-    http.expectOne(`${WS}/work-tasks/week`).flush(problem('planning.week.time_zone_not_set.unprocessable'), { status: 422, statusText: 'x' });
+    http
+      .expectOne(`${WS}/work-tasks/week`)
+      .flush(problem('planning.week.time_zone_not_set.unprocessable'), { status: 422, statusText: 'x' });
     expect(await noZone).toEqual({ status: 'no_time_zone' });
 
     const broken = service.planningDates('sams-kitchen');
@@ -113,7 +126,11 @@ describe('WorkTaskService', () => {
 
   // ---- My Week (13A.33) ----
 
-  const WEEK_GROUP = { tasks: [], hasMore: false, totals: { taskCount: 0, estimatedTaskCount: 0, estimatedMinutes: null } };
+  const WEEK_GROUP = {
+    tasks: [],
+    hasMore: false,
+    totals: { taskCount: 0, estimatedTaskCount: 0, estimatedMinutes: null },
+  };
   const WEEK = {
     weekStart: '2038-10-11',
     weekEnd: '2038-10-17',
@@ -121,7 +138,12 @@ describe('WorkTaskService', () => {
     timeZoneId: 'America/Chicago',
     isCurrentWeek: true,
     planned: WEEK_GROUP.totals,
-    days: [11, 12, 13, 14, 15, 16, 17].map((day) => ({ date: `2038-10-${day}`, dayOfWeek: 'Monday', isToday: day === 14, ...WEEK_GROUP })),
+    days: [11, 12, 13, 14, 15, 16, 17].map((day) => ({
+      date: `2038-10-${day}`,
+      dayOfWeek: 'Monday',
+      isToday: day === 14,
+      ...WEEK_GROUP,
+    })),
     backlog: WEEK_GROUP,
     unplanned: WEEK_GROUP,
     carriedOver: WEEK_GROUP,
@@ -138,7 +160,9 @@ describe('WorkTaskService', () => {
     expect((await current).status).toBe('found');
 
     const named = service.week('sams-kitchen', '2038-10-18');
-    http.expectOne(`${WS}/work-tasks/week?weekStart=2038-10-18`).flush({ ...WEEK, weekStart: '2038-10-18', weekEnd: '2038-10-24', isCurrentWeek: false });
+    http
+      .expectOne(`${WS}/work-tasks/week?weekStart=2038-10-18`)
+      .flush({ ...WEEK, weekStart: '2038-10-18', weekEnd: '2038-10-24', isCurrentWeek: false });
     const outcome = await named;
     expect(outcome.status === 'found' && outcome.week.isCurrentWeek).toBeFalse();
   });
@@ -153,7 +177,9 @@ describe('WorkTaskService', () => {
     for (const [status, body, expected] of cases) {
       const pending = service.week('sams-kitchen', null);
       http.expectOne(`${WS}/work-tasks/week`).flush(body, { status, statusText: 'x' });
-      expect((await pending).status).withContext(`${status}`).toBe(expected);
+      expect((await pending).status)
+        .withContext(`${status}`)
+        .toBe(expected);
     }
 
     const broken = service.week('sams-kitchen', null);
@@ -217,7 +243,11 @@ describe('WorkTaskService', () => {
     const moved = service.move('sams-kitchen', task, { status: 'Backlog', scheduledDate: '2038-10-15' });
     const move = http.expectOne(`${WS}/work-tasks/t-1/move`);
     expect(move.request.method).toBe('POST');
-    expect(move.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', status: 'Backlog', scheduledDate: '2038-10-15' });
+    expect(move.request.body).toEqual({
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      status: 'Backlog',
+      scheduledDate: '2038-10-15',
+    });
     expect(move.request.headers.has('Idempotency-Key')).toBeFalse();
     move.flush({ ...TASK, scheduledDate: '2038-10-15' });
     expect((await moved).status).toBe('saved');
@@ -255,7 +285,11 @@ describe('WorkTaskService', () => {
 
     const moved = service.move('sams-kitchen', task, { status: 'InProgress', beforeTaskId: 't-9' });
     const move = http.expectOne(`${WS}/work-tasks/t-1/move`);
-    expect(move.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', status: 'InProgress', beforeTaskId: 't-9' });
+    expect(move.request.body).toEqual({
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      status: 'InProgress',
+      beforeTaskId: 't-9',
+    });
     move.flush(problem('planning.work_task.invalid'), { status: 400, statusText: 'x' });
     expect((await moved).status).toBe('invalid');
   });
@@ -275,7 +309,9 @@ describe('WorkTaskService', () => {
     for (const [status, body, expected] of cases) {
       const pending = service.complete('sams-kitchen', task);
       http.expectOne(`${WS}/work-tasks/t-1/complete`).flush(body, { status, statusText: 'x' });
-      expect((await pending).status).withContext(`${status} ${JSON.stringify(body)}`).toBe(expected);
+      expect((await pending).status)
+        .withContext(`${status} ${JSON.stringify(body)}`)
+        .toBe(expected);
     }
 
     async function firstTask() {
@@ -305,7 +341,9 @@ describe('WorkTaskService', () => {
     for (const [status, body, expected] of cases) {
       const pending = service.setTopThree('sams-kitchen', []);
       http.expectOne(`${WS}/work-tasks/top-three`).flush(body, { status, statusText: 'x' });
-      expect((await pending).status).withContext(JSON.stringify(body)).toBe(expected);
+      expect((await pending).status)
+        .withContext(JSON.stringify(body))
+        .toBe(expected);
     }
   });
 });

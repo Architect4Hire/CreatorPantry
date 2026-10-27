@@ -394,9 +394,7 @@ export class RecipeFirstDraftReviewComponent {
   readonly unresolvedQuestions = computed<readonly AiProposalWarning[]>(() => this.draft().unresolvedQuestions);
   readonly warnings = computed<readonly AiProposalWarning[]>(() => this.draft().warnings);
 
-  readonly hasSafetyCaution = computed(() =>
-    this.warnings().some((warning) => warning.kind === 'SafetyCaution'),
-  );
+  readonly hasSafetyCaution = computed(() => this.warnings().some((warning) => warning.kind === 'SafetyCaution'));
 
   /**
    * Ingredient lines that do not say how much, as they read right now.
@@ -601,10 +599,7 @@ export class RecipeFirstDraftReviewComponent {
   /** And the reverse on close: back to the row's own Edit button, not to the top of the page. */
   private restoreFocusTo(key: string): void {
     afterNextRender(
-      () =>
-        this.elementRef.nativeElement
-          .querySelector<HTMLElement>(`[data-edit-for="${CSS.escape(key)}"]`)
-          ?.focus(),
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[data-edit-for="${CSS.escape(key)}"]`)?.focus(),
       { injector: this.injector },
     );
   }
@@ -629,8 +624,8 @@ export class RecipeFirstDraftReviewComponent {
     const confirmed = await this.confirmService.confirm({
       title: 'Discard this draft?',
       message:
-        'It will be cleared from this page and left to expire on its own. Nothing is sent anywhere, and no '
-        + 'recipe was created. Your own edits to it are lost.',
+        'It will be cleared from this page and left to expire on its own. Nothing is sent anywhere, and no ' +
+        'recipe was created. Your own edits to it are lost.',
       confirmLabel: 'Discard draft',
       cancelLabel: 'Keep reviewing',
       tone: 'danger',
@@ -755,7 +750,10 @@ export class RecipeFirstDraftReviewComponent {
     this.acceptAsked = true;
 
     try {
-      await this.confirmAndAccept(requestId, proposal.changes.map((change) => change.changeId));
+      await this.confirmAndAccept(
+        requestId,
+        proposal.changes.map((change) => change.changeId),
+      );
     } finally {
       this.acceptAsked = false;
       this.acceptingSignal.set(false);
@@ -856,8 +854,8 @@ export class RecipeFirstDraftReviewComponent {
       .confirm({
         title: 'Leave your edits behind?',
         message:
-          "Your rewrites to this draft haven't been kept anywhere — they are only saved when you create the "
-          + 'recipe. If you leave now, they are lost. The draft itself will still be here.',
+          "Your rewrites to this draft haven't been kept anywhere — they are only saved when you create the " +
+          'recipe. If you leave now, they are lost. The draft itself will still be here.',
         confirmLabel: 'Leave',
         cancelLabel: 'Keep reviewing',
         tone: 'danger',

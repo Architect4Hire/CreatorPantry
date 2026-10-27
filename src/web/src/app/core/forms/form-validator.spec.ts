@@ -101,7 +101,12 @@ describe('FormValidator', () => {
 
   it('clears the server word about a field and what is inside it, and only that', () => {
     const { validator: v } = validator();
-    v.applyServerErrors({ title: ['Taken.'], 'lines[0].quantity': ['Bad.'], 'lines[1].quantity': ['Bad.'], servings: ['Odd.'] });
+    v.applyServerErrors({
+      title: ['Taken.'],
+      'lines[0].quantity': ['Bad.'],
+      'lines[1].quantity': ['Bad.'],
+      servings: ['Odd.'],
+    });
 
     v.clearServer('lines[0]');
     expect(v.issuesFor('lines[0].quantity')).toEqual([]);

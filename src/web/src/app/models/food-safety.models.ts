@@ -88,11 +88,7 @@ const FIELDS: ReadonlySet<string> = new Set<FoodSafetyField>([
 /** What raised the trigger: a structured choice, the creator's words, or an ingredient's category. */
 export type FoodSafetyTriggerKind = 'Technique' | 'Text' | 'IngredientCategory';
 
-const TRIGGER_KINDS: ReadonlySet<string> = new Set<FoodSafetyTriggerKind>([
-  'Technique',
-  'Text',
-  'IngredientCategory',
-]);
+const TRIGGER_KINDS: ReadonlySet<string> = new Set<FoodSafetyTriggerKind>(['Technique', 'Text', 'IngredientCategory']);
 
 /**
  * Whether a warning could be checked against an approved reference, and why not.
@@ -101,12 +97,7 @@ const TRIGGER_KINDS: ReadonlySet<string> = new Set<FoodSafetyTriggerKind>([
  * `NoApprovedSource`. The member exists so a future citation needs no wire change, and so a screen written
  * now cannot assume the absence is permanent.
  */
-export type FoodSafetyEvidenceStatus =
-  | 'Cited'
-  | 'NoApprovedSource'
-  | 'NotConfigured'
-  | 'Unavailable'
-  | 'NoReference';
+export type FoodSafetyEvidenceStatus = 'Cited' | 'NoApprovedSource' | 'NotConfigured' | 'Unavailable' | 'NoReference';
 
 const EVIDENCE_STATUSES: ReadonlySet<string> = new Set<FoodSafetyEvidenceStatus>([
   'Cited',

@@ -124,7 +124,9 @@ describe('recipe asset-link models', () => {
 
   describe('recipeMediaStepLabel', () => {
     it('names a step by its number and the creator’s own words', () => {
-      expect(recipeMediaStepLabel({ id: 's2', number: 2, text: '  Fold in\nthe flour. ' })).toBe('Step 2: Fold in the flour.');
+      expect(recipeMediaStepLabel({ id: 's2', number: 2, text: '  Fold in\nthe flour. ' })).toBe(
+        'Step 2: Fold in the flour.',
+      );
     });
 
     it('shortens a long step and falls back to the number for an empty one', () => {

@@ -19,13 +19,19 @@
           <cp-notice tone="error" role="alert">
             <span tabindex="-1" data-problem>{{ issue.text }}</span>
             @if (issue.offersReload) {
-              <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()">Reload the recipe</button>
+              <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()"
+                >Reload the recipe</button
+              >
             }
           </cp-notice>
         }
 
         <div class="chosen">
-          <cp-dam-asset-thumbnail [workspaceSlug]="workspaceSlug()" [asset]="previewAsset() ?? asset" [versionNumber]="previewVersion()" />
+          <cp-dam-asset-thumbnail
+            [workspaceSlug]="workspaceSlug()"
+            [asset]="previewAsset() ?? asset"
+            [versionNumber]="previewVersion()"
+          />
           <!-- Where focus lands on arriving at this step: the visible name of what was chosen, so the ring is
                on something a sighted keyboard user can see. -->
           <h3 class="chosen-title" tabindex="-1" data-stage-heading>{{ asset.title }}</h3>
@@ -73,7 +79,9 @@
         </div>
 
         <!-- Always present, so its words change as the versions are read rather than arriving with them (AU.7). -->
-        <p class="cp-sr-only" role="status">{{ keepsVersion() && versions().status === 'loading' ? 'Loading this picture’s versions…' : '' }}</p>
+        <p class="cp-sr-only" role="status">{{
+          keepsVersion() && versions().status === 'loading' ? 'Loading this picture’s versions…' : ''
+        }}</p>
         @if (keepsVersion()) {
           @switch (versions().status) {
             @case ('loading') {
@@ -83,14 +91,23 @@
             @case ('unavailable') {
               <cp-notice tone="error" role="alert">
                 This picture’s versions could not be loaded.
-                <button cpButton type="button" variant="secondary" size="sm" (click)="retryVersions()">Try again</button>
+                <button cpButton type="button" variant="secondary" size="sm" (click)="retryVersions()"
+                  >Try again</button
+                >
               </cp-notice>
             }
             @case ('gone') {
-              <cp-notice tone="warning" role="alert">This picture is no longer in the library. Go back and choose another.</cp-notice>
+              <cp-notice tone="warning" role="alert"
+                >This picture is no longer in the library. Go back and choose another.</cp-notice
+              >
             }
             @default {
-              <cp-field label="Version to keep" [forId]="ids.version" [required]="true" [error]="errorFor('versionNumber')">
+              <cp-field
+                label="Version to keep"
+                [forId]="ids.version"
+                [required]="true"
+                [error]="errorFor('versionNumber')"
+              >
                 <select [id]="ids.version" (change)="setPinVersion($event)">
                   @for (number of versionNumbers(); track number) {
                     <option [value]="number" [selected]="number === pinVersion()">

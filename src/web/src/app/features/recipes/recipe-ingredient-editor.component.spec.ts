@@ -149,8 +149,12 @@ describe('RecipeIngredientEditorComponent', () => {
     fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
     fixture.detectChanges();
 
-    const upButtons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="up"]'));
-    const downButtons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="down"]'));
+    const upButtons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="up"]'),
+    );
+    const downButtons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button[aria-label^="Move ingredient"][aria-label$="down"]'),
+    );
 
     expect(upButtons[0].disabled).toBeTrue();
     expect(downButtons[downButtons.length - 1].disabled).toBeTrue();
@@ -585,22 +589,31 @@ describe('RecipeIngredientEditorComponent', () => {
           Math.round(field.getBoundingClientRect().top),
         );
       // Quantity, unit and ingredient are one above the other, and the preparation note is in the column beside them.
-      const stackOf = (tops: number[]) => ({ distinct: new Set(tops).size, inOrder: tops.every((top, index) => index === 0 || top > tops[index - 1]) });
+      const stackOf = (tops: number[]) => ({
+        distinct: new Set(tops).size,
+        inOrder: tops.every((top, index) => index === 0 || top > tops[index - 1]),
+      });
       const noteBeside = (root: HTMLElement) => {
         const fields = root.querySelector('.row-fields')!.getBoundingClientRect();
         const note = root.querySelector('.row-side cp-field')!.getBoundingClientRect();
         return note.left >= fields.right - 1 && Math.abs(note.top - fields.top) < 40;
       };
       expect(fieldTops(element).length).withContext('quantity, unit and ingredient').toBe(3);
-      expect(stackOf(fieldTops(element))).withContext('quantity, unit and ingredient one above the other').toEqual({ distinct: 3, inOrder: true });
+      expect(stackOf(fieldTops(element)))
+        .withContext('quantity, unit and ingredient one above the other')
+        .toEqual({ distinct: 3, inOrder: true });
       expect(noteBeside(element)).withContext('the note in the second column').toBeTrue();
 
       // Same for a single titled group: still no nav, still the full width.
       fixture.componentRef.setInput('initialGroups', [SEEDED_GROUP]);
       fixture.detectChanges();
       expect(nav(fixture)).toBeNull();
-      expect(trackCount(element.querySelector('.grouped-layout')!)).withContext('columns for one group').toBe(1);
-      expect(stackOf(fieldTops(element))).withContext('the same for one group').toEqual({ distinct: 3, inOrder: true });
+      expect(trackCount(element.querySelector('.grouped-layout')!))
+        .withContext('columns for one group')
+        .toBe(1);
+      expect(stackOf(fieldTops(element)))
+        .withContext('the same for one group')
+        .toEqual({ distinct: 3, inOrder: true });
       expect(noteBeside(element)).withContext('and the note beside them for one group').toBeTrue();
     });
 
@@ -618,11 +631,17 @@ describe('RecipeIngredientEditorComponent', () => {
       const fields = box('.row-fields');
       const note = element.querySelector('.row-side textarea')!.getBoundingClientRect();
       expect(element.querySelector('.row-side textarea')).withContext('the note is a text area').toBeTruthy();
-      expect(note.left).withContext('the note is in the right-hand column').toBeGreaterThanOrEqual(fields.right - 1);
+      expect(note.left)
+        .withContext('the note is in the right-hand column')
+        .toBeGreaterThanOrEqual(fields.right - 1);
       // The first column is a vertical stack: three fields, one left edge, each beneath the one before.
-      const stacked = Array.from(element.querySelectorAll('.row-fields > cp-field')).map((field) => field.getBoundingClientRect());
+      const stacked = Array.from(element.querySelectorAll('.row-fields > cp-field')).map((field) =>
+        field.getBoundingClientRect(),
+      );
       expect(stacked.length).toBe(3);
-      expect(stacked.every((box) => Math.abs(box.left - stacked[0].left) < 1.5)).withContext('one left edge').toBeTrue();
+      expect(stacked.every((box) => Math.abs(box.left - stacked[0].left) < 1.5))
+        .withContext('one left edge')
+        .toBeTrue();
       expect(stacked[1].top).toBeGreaterThanOrEqual(stacked[0].bottom - 1);
       expect(stacked[2].top).toBeGreaterThanOrEqual(stacked[1].bottom - 1);
 
@@ -630,9 +649,13 @@ describe('RecipeIngredientEditorComponent', () => {
       const scaling = element.querySelector('.row-toggles cp-field')!.getBoundingClientRect();
       const optional = element.querySelector('.row-toggles cp-checkbox')!.getBoundingClientRect();
       expect(scaling.top).toBeGreaterThanOrEqual(note.bottom - 1);
-      expect(Math.abs(scaling.left - note.left)).withContext('Scaling is left-aligned with the note').toBeLessThan(1.5);
+      expect(Math.abs(scaling.left - note.left))
+        .withContext('Scaling is left-aligned with the note')
+        .toBeLessThan(1.5);
       // Optional is to the right of Scaling, on the same line: after the select, not in front of its label.
-      expect(optional.left).withContext('Optional is to the right of Scaling').toBeGreaterThanOrEqual(scaling.right - 1);
+      expect(optional.left)
+        .withContext('Optional is to the right of Scaling')
+        .toBeGreaterThanOrEqual(scaling.right - 1);
       expect(optional.bottom).withContext('on the same line').toBeGreaterThan(scaling.top);
       expect(optional.top).withContext('on the same line').toBeLessThan(scaling.bottom);
     });
@@ -656,8 +679,12 @@ describe('RecipeIngredientEditorComponent', () => {
       // Scrolled well down the list, the toolbar is still there, just under the fixed topbar.
       window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY + 900);
       fixture.detectChanges();
-      expect(toolbar().getBoundingClientRect().top).withContext('stuck beneath the topbar').toBeCloseTo(4.25 * 16, 0);
-      expect(getComputedStyle(toolbar()).backgroundColor).withContext('opaque, not see-through').not.toBe('rgba(0, 0, 0, 0)');
+      expect(toolbar().getBoundingClientRect().top)
+        .withContext('stuck beneath the topbar')
+        .toBeCloseTo(4.25 * 16, 0);
+      expect(getComputedStyle(toolbar()).backgroundColor)
+        .withContext('opaque, not see-through')
+        .not.toBe('rgba(0, 0, 0, 0)');
 
       element.style.width = '30rem';
       fixture.detectChanges();
@@ -669,7 +696,9 @@ describe('RecipeIngredientEditorComponent', () => {
       const fixture = await createFixture();
       const element = host(fixture);
       const adds = () =>
-        Array.from(element.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add ingredient');
+        Array.from(element.querySelectorAll<HTMLButtonElement>('button')).filter(
+          (button) => button.textContent?.trim() === 'Add ingredient',
+        );
       const toolbar = () => element.querySelector('.toolbar')!;
 
       expect(adds().length).withContext('empty: the toolbar one, and no second one in the empty state').toBe(1);
@@ -681,8 +710,12 @@ describe('RecipeIngredientEditorComponent', () => {
 
       buttonLabelled(fixture, 'Add ingredient group')!.click();
       fixture.detectChanges();
-      expect(adds().length).withContext('grouped: one beneath each group').toBe(fixture.componentInstance.groups().length);
-      expect(adds().some((button) => toolbar().contains(button))).withContext('none left in the toolbar').toBeFalse();
+      expect(adds().length)
+        .withContext('grouped: one beneath each group')
+        .toBe(fixture.componentInstance.groups().length);
+      expect(adds().some((button) => toolbar().contains(button)))
+        .withContext('none left in the toolbar')
+        .toBeFalse();
     });
 
     it('puts move and remove at the top right of the line, level with its status', async () => {
@@ -702,7 +735,9 @@ describe('RecipeIngredientEditorComponent', () => {
       // On the status's line, at the far right of the row, and above the fields rather than beneath them.
       expect(actions.top).toBeLessThan(status.bottom);
       expect(actions.bottom).toBeGreaterThan(status.top);
-      expect(row.right - actions.right).withContext('against the right edge, inside the row\'s padding').toBeLessThan(40);
+      expect(row.right - actions.right)
+        .withContext("against the right edge, inside the row's padding")
+        .toBeLessThan(40);
       expect(actions.bottom).toBeLessThanOrEqual(fields.top + 1);
       expect(element.querySelector('button[aria-label="Remove ingredient 1"]')).toBeTruthy();
     });
@@ -732,15 +767,13 @@ describe('RecipeIngredientEditorComponent', () => {
       fixture.detectChanges();
 
       const layout = element.querySelector('.grouped-layout')!;
-      expect(getComputedStyle(layout).gridTemplateColumns.split(/\s+/).length)
-        .withContext('columns at 22rem')
-        .toBe(1);
-      expect(getComputedStyle(navHost(fixture)!).position).withContext('not a sticky gutter when narrow').toBe('static');
+      expect(getComputedStyle(layout).gridTemplateColumns.split(/\s+/).length).withContext('columns at 22rem').toBe(1);
+      expect(getComputedStyle(navHost(fixture)!).position)
+        .withContext('not a sticky gutter when narrow')
+        .toBe('static');
 
       for (const link of navLinks(fixture)) {
-        expect(link.getBoundingClientRect().height)
-          .withContext(link.textContent?.trim())
-          .toBeGreaterThanOrEqual(40);
+        expect(link.getBoundingClientRect().height).withContext(link.textContent?.trim()).toBeGreaterThanOrEqual(40);
       }
 
       // Nothing spills sideways (WCAG 2.2 SC 1.4.10, Reflow).
@@ -905,7 +938,12 @@ describe('RecipeIngredientEditorComponent', () => {
     }
 
     /** Types into one of the row's four real inputs, the way a creator does. */
-    function typeInto(fixture: ComponentFixture<RecipeIngredientEditorComponent>, field: string, rowKey: string, value: string): void {
+    function typeInto(
+      fixture: ComponentFixture<RecipeIngredientEditorComponent>,
+      field: string,
+      rowKey: string,
+      value: string,
+    ): void {
       // Not `input[...]`: the preparation note is a textarea, and the others are inputs.
       const input: HTMLInputElement = fixture.nativeElement.querySelector(`[id="row-${field}-${rowKey}"]`);
       expect(input).withContext(`the row's ${field} input`).toBeTruthy();
@@ -1042,13 +1080,20 @@ describe('RecipeIngredientEditorComponent', () => {
     });
 
     it('composes from the creator’s words alone, in the order the row reads', () => {
-      const parts = { quantityText: ' 1 1/2 ', unitLabel: ' tablespoons ', ingredientNameText: ' olive oil ', preparationNote: ' warmed ' };
+      const parts = {
+        quantityText: ' 1 1/2 ',
+        unitLabel: ' tablespoons ',
+        ingredientNameText: ' olive oil ',
+        preparationNote: ' warmed ',
+      };
       expect(composeDisplayText(parts)).toBe('1 1/2 tablespoons olive oil, warmed');
 
       // Whatever the creator left out is simply absent — no placeholder, and no wording of this editor's own.
       expect(composeDisplayText({ ...parts, quantityText: '', unitLabel: '' })).toBe('olive oil, warmed');
       expect(composeDisplayText({ ...parts, quantityText: '', unitLabel: '', ingredientNameText: '' })).toBe('warmed');
-      expect(composeDisplayText({ quantityText: '', unitLabel: '', ingredientNameText: 'salt', preparationNote: '' })).toBe('salt');
+      expect(
+        composeDisplayText({ quantityText: '', unitLabel: '', ingredientNameText: 'salt', preparationNote: '' }),
+      ).toBe('salt');
     });
   });
 });

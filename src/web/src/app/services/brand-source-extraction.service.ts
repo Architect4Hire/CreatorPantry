@@ -76,7 +76,11 @@ export class BrandSourceExtractionService {
     );
   }
 
-  async get(workspaceSlug: string, documentId: string, versionNumber: number): Promise<BrandSourceExtractionReadOutcome> {
+  async get(
+    workspaceSlug: string,
+    documentId: string,
+    versionNumber: number,
+  ): Promise<BrandSourceExtractionReadOutcome> {
     const url = this.url(workspaceSlug, documentId, versionNumber);
     if (!url) return { status: 'unavailable' };
     try {
@@ -84,7 +88,9 @@ export class BrandSourceExtractionService {
       const extraction = decodeBrandSourceExtraction(body);
       return extraction ? { status: 'ok', extraction } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 

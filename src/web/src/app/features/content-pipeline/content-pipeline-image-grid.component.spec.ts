@@ -82,9 +82,8 @@ function tiles(): HTMLElement[] {
 
 function labelled(selector: string, name: string): HTMLElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLElement>(selector)).find(
-      (node) => node.getAttribute('aria-label') === name,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLElement>(selector)).find((node) => node.getAttribute('aria-label') === name) ??
+    null
   );
 }
 
@@ -145,9 +144,7 @@ describe('ContentPipelineImageGridComponent', () => {
 
   it('wraps no interactive control inside another, so every one of them is reachable', () => {
     for (const control of Array.from(el.querySelectorAll('button, a[href], input'))) {
-      expect(control.querySelector('button, a[href], input'))
-        .withContext(control.outerHTML.slice(0, 60))
-        .toBeNull();
+      expect(control.querySelector('button, a[href], input')).withContext(control.outerHTML.slice(0, 60)).toBeNull();
     }
   });
 
@@ -293,9 +290,7 @@ describe('ContentPipelineImageGridComponent', () => {
   it('offers no download link when there is no gateway address to build one from', async () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      providers: [
-        { provide: GeneratedImageService, useValue: { preview: () => EMPTY, downloadUrl: () => null } },
-      ],
+      providers: [{ provide: GeneratedImageService, useValue: { preview: () => EMPTY, downloadUrl: () => null } }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(HostComponent);

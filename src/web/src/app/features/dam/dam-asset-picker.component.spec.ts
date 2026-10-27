@@ -220,7 +220,10 @@ describe('DamAssetPickerComponent', () => {
     search().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await settle();
 
-    slow.next({ status: 'found', page: { items: [assetSummary({ id: 'a2', title: 'Late arrival' })], nextCursor: null, totalCount: 2 } });
+    slow.next({
+      status: 'found',
+      page: { items: [assetSummary({ id: 'a2', title: 'Late arrival' })], nextCursor: null, totalCount: 2 },
+    });
     await settle();
 
     expect(text()).toContain('Newer search');
@@ -294,7 +297,9 @@ describe('DamAssetPickerComponent', () => {
   it('offers nothing that would change the library', async () => {
     await create();
 
-    const labels = Array.from(root().querySelectorAll('button, a')).map((each) => (each.textContent ?? '').trim().toLowerCase());
+    const labels = Array.from(root().querySelectorAll('button, a')).map((each) =>
+      (each.textContent ?? '').trim().toLowerCase(),
+    );
 
     expect(labels.some((label) => /upload|edit|delete|remove/.test(label))).toBeFalse();
     expect(root().querySelector('input[type="file"]')).toBeNull();

@@ -43,7 +43,9 @@ describe('CpIllustrationComponent', () => {
     for (const name of CP_ILLUSTRATION_NAMES) {
       fixture.componentInstance.name.set(name);
       fixture.detectChanges();
-      drawings.add((fixture.nativeElement as HTMLElement).querySelector('svg')!.innerHTML.replace(/<!--[\s\S]*?-->/g, ''));
+      drawings.add(
+        (fixture.nativeElement as HTMLElement).querySelector('svg')!.innerHTML.replace(/<!--[\s\S]*?-->/g, ''),
+      );
     }
     expect(drawings.size).toBe(CP_ILLUSTRATION_NAMES.length);
   });

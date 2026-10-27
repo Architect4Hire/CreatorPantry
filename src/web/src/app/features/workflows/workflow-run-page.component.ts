@@ -128,7 +128,11 @@ import { ImagesStudioStepComponent } from './images/images-studio-step.component
           </ng-template>
         } @else if (definitionKey() === recipeImprove) {
           <ng-template cpWorkflowStep="choose" let-run="run" let-slug="workspaceSlug">
-            <cp-recipe-choose-step [run]="run" [workspaceSlug]="slug" intro="You’ll be changing its current version. Every earlier version is kept." />
+            <cp-recipe-choose-step
+              [run]="run"
+              [workspaceSlug]="slug"
+              intro="You’ll be changing its current version. Every earlier version is kept."
+            />
           </ng-template>
           <ng-template cpWorkflowStep="change" let-run="run" let-slug="workspaceSlug">
             <cp-recipe-improve-change-step [run]="run" [workspaceSlug]="slug" />
@@ -144,7 +148,11 @@ import { ImagesStudioStepComponent } from './images/images-studio-step.component
           </ng-template>
         } @else if (definitionKey() === recipeTest) {
           <ng-template cpWorkflowStep="choose" let-run="run" let-slug="workspaceSlug">
-            <cp-recipe-choose-step [run]="run" [workspaceSlug]="slug" intro="You’ll test its current version, exactly as it’s written." />
+            <cp-recipe-choose-step
+              [run]="run"
+              [workspaceSlug]="slug"
+              intro="You’ll test its current version, exactly as it’s written."
+            />
           </ng-template>
           <ng-template cpWorkflowStep="basics" let-run="run" let-slug="workspaceSlug">
             <cp-recipe-test-basics-step [run]="run" [workspaceSlug]="slug" />
@@ -262,7 +270,8 @@ export class WorkflowRunPageComponent {
   protected readonly params = toSignal(
     combineLatest(this.ancestors().map((node) => node.paramMap)).pipe(
       map((maps) => {
-        const get = (key: string): string | null => maps.map((params) => params.get(key)).find((value) => !!value) ?? null;
+        const get = (key: string): string | null =>
+          maps.map((params) => params.get(key)).find((value) => !!value) ?? null;
         const slug = get('workspaceSlug');
         const runId = get('runId');
         return slug && runId ? { slug, runId } : null;

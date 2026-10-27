@@ -28,24 +28,88 @@ interface AiFeatureCopy {
  * words are this client's.
  */
 const COPY: Readonly<Record<string, AiFeatureCopy>> = {
-  'recipe.concepts': { area: 'Recipes', label: 'Recipe concepts', hint: 'Ideas for new recipes from a brief, in the AI Recipe Studio.' },
-  'recipe.first-draft': { area: 'Recipes', label: 'Recipe first drafts', hint: 'A full draft recipe written from a concept you pick.' },
-  'recipe.dish-facets': { area: 'Recipes', label: 'Dish details', hint: 'Suggests a cuisine, course and cooking method from a dish name.' },
-  'recipe.revision': { area: 'Recipes', label: 'Recipe revision', hint: 'Suggested edits to part of a recipe you already have.' },
-  'recipe.substitution': { area: 'Recipes', label: 'Ingredient substitution', hint: 'Advice on swapping one ingredient in a recipe.' },
-  'recipe.adaptation': { area: 'Recipes', label: 'Recipe adaptation', hint: 'Adapts a whole recipe to one goal, such as a different yield.' },
-  'recipe.review': { area: 'Recipes', label: 'Recipe review', hint: 'Reads a recipe and lists possible quality and safety concerns for you to check.' },
-  'recipe.proposal-explanation': { area: 'Recipes', label: 'Explain a suggestion', hint: 'Explains why a set of suggestions was made.' },
-  'content.editorial-package': { area: 'Writing', label: 'Editorial package', hint: 'Blog and newsletter copy for an approved recipe.' },
-  'content.seo-package': { area: 'Writing', label: 'SEO package', hint: 'Titles, descriptions and key phrases for an approved recipe.' },
+  'recipe.concepts': {
+    area: 'Recipes',
+    label: 'Recipe concepts',
+    hint: 'Ideas for new recipes from a brief, in the AI Recipe Studio.',
+  },
+  'recipe.first-draft': {
+    area: 'Recipes',
+    label: 'Recipe first drafts',
+    hint: 'A full draft recipe written from a concept you pick.',
+  },
+  'recipe.dish-facets': {
+    area: 'Recipes',
+    label: 'Dish details',
+    hint: 'Suggests a cuisine, course and cooking method from a dish name.',
+  },
+  'recipe.revision': {
+    area: 'Recipes',
+    label: 'Recipe revision',
+    hint: 'Suggested edits to part of a recipe you already have.',
+  },
+  'recipe.substitution': {
+    area: 'Recipes',
+    label: 'Ingredient substitution',
+    hint: 'Advice on swapping one ingredient in a recipe.',
+  },
+  'recipe.adaptation': {
+    area: 'Recipes',
+    label: 'Recipe adaptation',
+    hint: 'Adapts a whole recipe to one goal, such as a different yield.',
+  },
+  'recipe.review': {
+    area: 'Recipes',
+    label: 'Recipe review',
+    hint: 'Reads a recipe and lists possible quality and safety concerns for you to check.',
+  },
+  'recipe.proposal-explanation': {
+    area: 'Recipes',
+    label: 'Explain a suggestion',
+    hint: 'Explains why a set of suggestions was made.',
+  },
+  'content.editorial-package': {
+    area: 'Writing',
+    label: 'Editorial package',
+    hint: 'Blog and newsletter copy for an approved recipe.',
+  },
+  'content.seo-package': {
+    area: 'Writing',
+    label: 'SEO package',
+    hint: 'Titles, descriptions and key phrases for an approved recipe.',
+  },
   'content.channel-posts': { area: 'Writing', label: 'Social posts', hint: 'Posts written for the channels you pick.' },
-  'content.long-form-outline': { area: 'Writing', label: 'Article and newsletter plans', hint: 'A section plan for a blog article or newsletter issue, for you to edit and approve.' },
-  'content.long-form-section': { area: 'Writing', label: 'Article and newsletter sections', hint: 'The text of each section of an approved plan, written one section at a time for you to edit.' },
-  'brand.guide-proposal': { area: 'Brand', label: 'Brand guide suggestions', hint: 'Proposes a style guide from your own brand documents.' },
-  'brand.style-test-drive': { area: 'Brand', label: 'Style test drive', hint: 'Compares a sample written with and without your style guide.' },
-  'image.photography-concept': { area: 'Pictures', label: 'Photography concepts', hint: 'Shoot ideas for a recipe or an idea, each with a shot list.' },
+  'content.long-form-outline': {
+    area: 'Writing',
+    label: 'Article and newsletter plans',
+    hint: 'A section plan for a blog article or newsletter issue, for you to edit and approve.',
+  },
+  'content.long-form-section': {
+    area: 'Writing',
+    label: 'Article and newsletter sections',
+    hint: 'The text of each section of an approved plan, written one section at a time for you to edit.',
+  },
+  'brand.guide-proposal': {
+    area: 'Brand',
+    label: 'Brand guide suggestions',
+    hint: 'Proposes a style guide from your own brand documents.',
+  },
+  'brand.style-test-drive': {
+    area: 'Brand',
+    label: 'Style test drive',
+    hint: 'Compares a sample written with and without your style guide.',
+  },
+  'image.photography-concept': {
+    area: 'Pictures',
+    label: 'Photography concepts',
+    hint: 'Shoot ideas for a recipe or an idea, each with a shot list.',
+  },
   'image.prompt': { area: 'Pictures', label: 'Image prompts', hint: 'An editable prompt for one shot of a concept.' },
-  'image.reference-analysis': { area: 'Pictures', label: 'Reference pictures', hint: 'Reads a picture you upload and describes what is in it.' },
+  'image.reference-analysis': {
+    area: 'Pictures',
+    label: 'Reference pictures',
+    hint: 'Reads a picture you upload and describes what is in it.',
+  },
 };
 
 /**
@@ -68,7 +132,12 @@ export function decodeAiFeatures(value: unknown): readonly AiFeature[] | null {
     if (!isRecord(entry)) return null;
 
     const { task, enabled, setByWorkspace } = entry;
-    if (typeof task !== 'string' || task === '' || typeof enabled !== 'boolean' || typeof setByWorkspace !== 'boolean') {
+    if (
+      typeof task !== 'string' ||
+      task === '' ||
+      typeof enabled !== 'boolean' ||
+      typeof setByWorkspace !== 'boolean'
+    ) {
       return null;
     }
 

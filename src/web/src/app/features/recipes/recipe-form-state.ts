@@ -51,14 +51,18 @@ const RECIPE_RULES: FormRules<RecipeValidationModel> = {
   yieldUnitId: [
     warn(
       custom<RecipeValidationModel>('yieldUnitNeedsQuantity', (unitId, { model }) =>
-        unitId !== null && model.yieldQuantity === null ? 'Add a yield quantity as well — a unit on its own cannot be saved.' : null,
+        unitId !== null && model.yieldQuantity === null
+          ? 'Add a yield quantity as well — a unit on its own cannot be saved.'
+          : null,
       ),
     ),
   ],
   servingSize: [
     warn(
       custom<RecipeValidationModel>('servingSizeNeedsUnit', (size, { model }) =>
-        size !== null && model.yieldUnitId === null ? 'Pick a yield unit as well — a serving size needs something to be measured in.' : null,
+        size !== null && model.yieldUnitId === null
+          ? 'Pick a yield unit as well — a serving size needs something to be measured in.'
+          : null,
       ),
     ),
   ],
@@ -471,7 +475,9 @@ export class RecipeFormState {
    * Every field or list that has an error showing, once each — the server's keys verbatim, so an indexed line
    * is still `ingredientGroups[0].ingredients[2].quantity`. What the editor counts, locates and reveals from.
    */
-  readonly errorPaths = computed<readonly string[]>(() => [...new Set(this.validator.visibleErrors().map((issue) => issue.path))]);
+  readonly errorPaths = computed<readonly string[]>(() => [
+    ...new Set(this.validator.visibleErrors().map((issue) => issue.path)),
+  ]);
 
   /**
    * Reads the shared unit catalogue for the yield-unit picker, and is the Retry the field offers.
@@ -526,10 +532,16 @@ export class RecipeFormState {
   }
 
   updateInstructionGroupTitle(groupKey: string, title: string): void {
-    this.instructionGroups.update((groups) => groups.map((group) => (group.key === groupKey ? { ...group, title } : group)));
+    this.instructionGroups.update((groups) =>
+      groups.map((group) => (group.key === groupKey ? { ...group, title } : group)),
+    );
   }
 
-  updateInstructionStep(groupKey: string, stepKey: string, patch: Partial<Omit<EditableInstructionStep, 'key' | 'id'>>): void {
+  updateInstructionStep(
+    groupKey: string,
+    stepKey: string,
+    patch: Partial<Omit<EditableInstructionStep, 'key' | 'id'>>,
+  ): void {
     this.instructionGroups.update((groups) =>
       groups.map((group) =>
         group.key === groupKey
@@ -598,13 +610,17 @@ export class RecipeFormState {
 
   removeInstructionStep(groupKey: string, stepKey: string): void {
     this.instructionGroups.update((groups) =>
-      groups.map((group) => (group.key === groupKey ? { ...group, steps: group.steps.filter((step) => step.key !== stepKey) } : group)),
+      groups.map((group) =>
+        group.key === groupKey ? { ...group, steps: group.steps.filter((step) => step.key !== stepKey) } : group,
+      ),
     );
   }
 
   moveInstructionStep(groupKey: string, stepKey: string, direction: -1 | 1): void {
     this.instructionGroups.update((groups) =>
-      groups.map((group) => (group.key === groupKey ? { ...group, steps: moveByKey(group.steps, stepKey, direction) } : group)),
+      groups.map((group) =>
+        group.key === groupKey ? { ...group, steps: moveByKey(group.steps, stepKey, direction) } : group,
+      ),
     );
   }
 
@@ -664,19 +680,17 @@ export class RecipeFormState {
       title: this.orNull(group.title),
       steps: group.steps
         .filter((step) => step.text.trim().length > 0)
-        .map(
-          (step): InstructionStepInput => ({
-            id: step.id,
-            text: step.text.trim(),
-            durationMinutes: step.durationMinutes,
-            note: this.orNull(step.note),
-            // Submitted although no control here sets them: an omitted field is applied as null, so leaving
-            // these out is how a save wipes a step's technique and temperature.
-            techniqueId: step.techniqueId,
-            temperatureValue: step.temperatureValue,
-            temperatureUnitId: step.temperatureUnitId,
-          }),
-        ),
+        .map((step): InstructionStepInput => ({
+          id: step.id,
+          text: step.text.trim(),
+          durationMinutes: step.durationMinutes,
+          note: this.orNull(step.note),
+          // Submitted although no control here sets them: an omitted field is applied as null, so leaving
+          // these out is how a save wipes a step's technique and temperature.
+          techniqueId: step.techniqueId,
+          temperatureValue: step.temperatureValue,
+          temperatureUnitId: step.temperatureUnitId,
+        })),
     }));
   }
 
@@ -687,26 +701,24 @@ export class RecipeFormState {
       title: this.orNull(group.title),
       ingredients: group.ingredients
         .filter((row) => row.displayText.trim().length > 0)
-        .map(
-          (row): IngredientInput => ({
-            id: row.id,
-            displayText: row.displayText.trim(),
-            // Submitted so a line this editor assembled is still assembling one after a reload, and a line the
-            // creator wrote is still theirs. See EditableIngredientRow.displayTextIsComposed.
-            displayTextSource: row.displayTextIsComposed ? 'Composed' : 'Creator',
-            // The creator's own words for the name and the unit. Neither has anywhere else to go: a name that
-            // matched nothing has no ingredientId, and a unit that matched nothing has no measurementUnitId.
-            ingredientNameText: this.orNull(row.ingredientNameText),
-            unitText: this.orNull(row.unitLabel),
-            quantity: this.parseQuantity(row.quantityText),
-            quantityUpper: row.quantityUpper,
-            measurementUnitId: row.unitId,
-            ingredientId: row.ingredientId,
-            preparationNote: this.orNull(row.preparationNote),
-            isOptional: row.isOptional,
-            scalingBehavior: row.scalingBehavior,
-          }),
-        ),
+        .map((row): IngredientInput => ({
+          id: row.id,
+          displayText: row.displayText.trim(),
+          // Submitted so a line this editor assembled is still assembling one after a reload, and a line the
+          // creator wrote is still theirs. See EditableIngredientRow.displayTextIsComposed.
+          displayTextSource: row.displayTextIsComposed ? 'Composed' : 'Creator',
+          // The creator's own words for the name and the unit. Neither has anywhere else to go: a name that
+          // matched nothing has no ingredientId, and a unit that matched nothing has no measurementUnitId.
+          ingredientNameText: this.orNull(row.ingredientNameText),
+          unitText: this.orNull(row.unitLabel),
+          quantity: this.parseQuantity(row.quantityText),
+          quantityUpper: row.quantityUpper,
+          measurementUnitId: row.unitId,
+          ingredientId: row.ingredientId,
+          preparationNote: this.orNull(row.preparationNote),
+          isOptional: row.isOptional,
+          scalingBehavior: row.scalingBehavior,
+        })),
     }));
   }
 
@@ -826,7 +838,9 @@ export class RecipeFormState {
     this.servingSize.set(null);
 
     this.fieldErrors.update((errors) =>
-      Object.fromEntries(Object.entries(errors).filter(([field]) => !['yieldQuantity', 'yieldUnitId', 'servingSize'].includes(field))),
+      Object.fromEntries(
+        Object.entries(errors).filter(([field]) => !['yieldQuantity', 'yieldUnitId', 'servingSize'].includes(field)),
+      ),
     );
     this.measuredBatchRevealed.set(false);
   }
@@ -879,7 +893,10 @@ export class RecipeFormState {
     );
     // More than one group counts even when both are untitled, for the reason hasNamedGroups() gives on the
     // ingredient side: a creator with two lists has phases, whatever they have called them so far.
-    if (detail.instructionGroups.length > 1 || detail.instructionGroups.some((group) => (group.title ?? '').trim().length > 0)) {
+    if (
+      detail.instructionGroups.length > 1 ||
+      detail.instructionGroups.some((group) => (group.title ?? '').trim().length > 0)
+    ) {
       this.showInstructionGroups.set(true);
     }
 

@@ -9,7 +9,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpFactComponent,
+  CpFactsComponent,
+  CpFormSectionComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { ContentChannel } from '../../../models/brand-profile.models';
@@ -64,8 +71,8 @@ type Read =
       }
       @case ('no-picture') {
         <cp-notice role="note">
-          This step works on the picture from the first step, which isn’t there yet. Go back to the first step to add
-          or choose one.
+          This step works on the picture from the first step, which isn’t there yet. Go back to the first step to add or
+          choose one.
         </cp-notice>
       }
       @case ('gone') {
@@ -97,7 +104,10 @@ type Read =
           />
 
           @if (mode() === 'describe') {
-            <cp-form-section heading="Where it came from" intro="What made this picture, and where it is used. Read only.">
+            <cp-form-section
+              heading="Where it came from"
+              intro="What made this picture, and where it is used. Read only."
+            >
               <dl cpFacts>
                 <div cpFact label="How it arrived">{{ kindLabel(shown) }}</div>
                 <div cpFact label="Versions">{{ shown.versions.length }}</div>

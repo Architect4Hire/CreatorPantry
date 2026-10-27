@@ -48,7 +48,10 @@ import {
   DEFAULT_BRAND_LIBRARY_QUERY,
   decodeBrandLibraryStatus,
 } from '../../models/brand-source-document.models';
-import { BRAND_SOURCE_EXTRACTION_STATES, BrandSourceExtractionState } from '../../models/brand-source-extraction.models';
+import {
+  BRAND_SOURCE_EXTRACTION_STATES,
+  BrandSourceExtractionState,
+} from '../../models/brand-source-extraction.models';
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { DOCUMENT_TYPE_LABELS, EXTRACTION_STATE_LABELS, PURPOSE_LABELS } from './brand-library-labels';

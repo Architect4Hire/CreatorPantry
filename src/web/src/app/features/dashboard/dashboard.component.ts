@@ -1,5 +1,16 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injector, Signal, afterNextRender, computed, inject, signal, viewChild, viewChildren } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  Signal,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { combineLatest, firstValueFrom, map } from 'rxjs';
@@ -37,7 +48,14 @@ import {
 import { RECIPE_STATUS_LABELS } from '../../models/recipe-readiness.models';
 import { DashboardOutcome, DashboardService } from '../../services/dashboard.service';
 import { DASHBOARD_TOPIC_KEYS, DashboardTopicDirective, DashboardTopicKey } from './dashboard-topic.directive';
-import { PUBLISHING_STATUS_WORDS, SEVERITY_WORDS, TASK_STATUS_WORDS, attentionWords, runLinkLabel, runName } from './dashboard-presentation';
+import {
+  PUBLISHING_STATUS_WORDS,
+  SEVERITY_WORDS,
+  TASK_STATUS_WORDS,
+  attentionWords,
+  runLinkLabel,
+  runName,
+} from './dashboard-presentation';
 import { platformName } from '../../shared/publishing-names';
 
 /**
@@ -194,8 +212,14 @@ export class DashboardComponent {
       empty(dashboard.recipesInProgress, (recipes) => recipes.counts.every((count) => count.count === 0)) &&
       empty(dashboard.board, (board) => board.total === 0) &&
       empty(dashboard.recentUploads, (uploads) => uploads.length === 0) &&
-      empty(dashboard.workflows, (workflows) => workflows.inProgressCount === 0 && workflows.needsAttentionCount === 0) &&
-      empty(dashboard.publishing, (publishing) => publishing.needsAttentionCount === 0 && publishing.counts.every((count) => count.count === 0)) &&
+      empty(
+        dashboard.workflows,
+        (workflows) => workflows.inProgressCount === 0 && workflows.needsAttentionCount === 0,
+      ) &&
+      empty(
+        dashboard.publishing,
+        (publishing) => publishing.needsAttentionCount === 0 && publishing.counts.every((count) => count.count === 0),
+      ) &&
       empty(dashboard.testFollowUps, (tests) => tests.open === 0) &&
       empty(dashboard.aiProposals, (proposals) => proposals.awaitingDecision === 0) &&
       emptyDayBound(dashboard.upcoming, (upcoming) => upcoming.cardCount === 0 && upcoming.postCount === 0) &&
@@ -245,7 +269,8 @@ export class DashboardComponent {
         key: 'late',
         value: plan === null ? '' : `${plan.overdueCount}`,
         label: plan?.overdueCount === 1 ? 'task late' : 'tasks late',
-        context: plan === null ? '' : `${plan.todayCount} ${plan.todayCount === 1 ? 'task' : 'tasks'} planned for today.`,
+        context:
+          plan === null ? '' : `${plan.todayCount} ${plan.todayCount === 1 ? 'task' : 'tasks'} planned for today.`,
         missing: plan === null ? noPlan : null,
       },
       {
@@ -259,7 +284,10 @@ export class DashboardComponent {
         key: 'tests',
         value: tests === null ? '' : `${tests.open}`,
         label: tests?.open === 1 ? 'test issue open' : 'test issues open',
-        context: tests === null || tests.open === 0 ? '' : `${tests.blocking} blocking, ${tests.major} major and ${tests.minor} minor.`,
+        context:
+          tests === null || tests.open === 0
+            ? ''
+            : `${tests.blocking} blocking, ${tests.major} major and ${tests.minor} minor.`,
         missing: tests === null ? 'read' : null,
       },
       {
@@ -306,7 +334,9 @@ export class DashboardComponent {
   });
 
   /** That topic's card, to draw above the grid. */
-  protected readonly featuredTopic = computed(() => this.topics().find((topic) => topic.key() === this.featured()) ?? null);
+  protected readonly featuredTopic = computed(
+    () => this.topics().find((topic) => topic.key() === this.featured()) ?? null,
+  );
 
   /**
    * Every other topic, in the order `DASHBOARD_TOPIC_KEYS` names rather than the order a view query happens
@@ -321,7 +351,11 @@ export class DashboardComponent {
       .filter((topic): topic is DashboardTopicDirective => topic !== undefined);
   });
 
-  protected readonly link = (...segments: readonly string[]): readonly string[] => ['/', this.workspaceSlug(), ...segments];
+  protected readonly link = (...segments: readonly string[]): readonly string[] => [
+    '/',
+    this.workspaceSlug(),
+    ...segments,
+  ];
 
   constructor() {
     void this.memberships.ensureLoaded();
@@ -374,7 +408,9 @@ export class DashboardComponent {
       if (!wasShowing) afterNextRender(() => this.head().focusHeading(), { injector: this.injector });
     } else if (wasShowing && outcome === 'unavailable') {
       this.messageTone.set('warning');
-      this.message.set("Your dashboard couldn't be refreshed just now. What you see is from the last time it was read.");
+      this.message.set(
+        "Your dashboard couldn't be refreshed just now. What you see is from the last time it was read.",
+      );
     }
   }
 

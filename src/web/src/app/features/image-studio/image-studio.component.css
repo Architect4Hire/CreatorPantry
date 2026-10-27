@@ -19,7 +19,6 @@ cp-content-pipeline-setup-step {
   gap: var(--cp-space-8);
 }
 
-
 /* The flow's frame, as the Content Pipeline's: the steps beside the step's card when there is room for both. */
 .layout {
   display: grid;

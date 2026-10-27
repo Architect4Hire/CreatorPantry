@@ -100,9 +100,7 @@ async function card() {
 async function heading() {
   const text = await headline();
   const marked = 'everything else.';
-  return text.endsWith(marked)
-    ? `${text.slice(0, -marked.length)}<b>${marked}</b>`
-    : text;
+  return text.endsWith(marked) ? `${text.slice(0, -marked.length)}<b>${marked}</b>` : text;
 }
 
 async function main() {

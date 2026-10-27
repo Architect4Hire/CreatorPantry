@@ -85,7 +85,8 @@
               <option value="default">{{ defaultLabel() }}</option>
               @for (choice of otherChoices(); track choiceKey(choice)) {
                 <option [value]="choiceKey(choice)">
-                  {{ choice.name }}, version {{ choice.versionNumber }}{{ choice.isStale ? ' (may be out of date)' : '' }}
+                  {{ choice.name }}, version {{ choice.versionNumber
+                  }}{{ choice.isStale ? ' (may be out of date)' : '' }}
                 </option>
               }
               <option value="none">No brand voice</option>
@@ -102,14 +103,18 @@
           <h4>How this will sound</h4>
 
           <!-- Always present, outside the busy lines (AU.7): the channel's rules arriving are said once. -->
-          <p class="cp-sr-only" role="status">{{ rulesStatus() === 'loading' ? 'Loading how this will sound…' : '' }}</p>
+          <p class="cp-sr-only" role="status">{{
+            rulesStatus() === 'loading' ? 'Loading how this will sound…' : ''
+          }}</p>
           @switch (rulesStatus()) {
             @case ('loading') {
               <!-- The rules as they will arrive: a line or two. -->
               <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
             }
             @case ('error') {
-              <p class="cp-muted measure" role="status">We could not load the rules for this channel. Your guide still applies.</p>
+              <p class="cp-muted measure" role="status"
+                >We could not load the rules for this channel. Your guide still applies.</p
+              >
             }
             @default {
               @if (rules().length === 0) {

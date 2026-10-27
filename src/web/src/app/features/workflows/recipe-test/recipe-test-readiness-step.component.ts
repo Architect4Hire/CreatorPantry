@@ -88,7 +88,11 @@ function movesLeft(offers: readonly RecipeMoveOffer[], from: RecipeStatus): numb
             <cp-notice tone="success" role="status">{{ doneText() }}</cp-notice>
           } @else if (mode() === 'send-for-review' && movesLeft(recipe.status); as left) {
             <p class="plain">
-              {{ left === 1 ? 'One more move and it’s ready for review.' : left + ' moves, one at a time, and it’s ready for review.' }}
+              {{
+                left === 1
+                  ? 'One more move and it’s ready for review.'
+                  : left + ' moves, one at a time, and it’s ready for review.'
+              }}
               Anything in the way is listed first.
             </p>
           } @else if (mode() === 'approve' && recipe.status !== 'ReadyForReview') {
@@ -103,7 +107,8 @@ function movesLeft(offers: readonly RecipeMoveOffer[], from: RecipeStatus): numb
           <cp-notice role="status" [quiet]="!evidenceAsked()">
             @if (evidenceAsked()) {
               That’s fixed on the recipe’s own page.
-              <a [routerLink]="['/', workspaceSlug(), 'recipes', recipe.id]">Open the recipe</a>, then come back here and carry on.
+              <a [routerLink]="['/', workspaceSlug(), 'recipes', recipe.id]">Open the recipe</a>, then come back here
+              and carry on.
             }
           </cp-notice>
 
@@ -155,14 +160,17 @@ export class RecipeTestReadinessStepComponent implements OnInit {
   });
 
   protected readonly doneText = computed(() =>
-    this.ready()?.status === 'Approved' ? 'Approved. This version is the one you said yes to.' : 'It’s ready for review.',
+    this.ready()?.status === 'Approved'
+      ? 'Approved. This version is the one you said yes to.'
+      : 'It’s ready for review.',
   );
 
   /** Whether the reader's role could approve. The server is still the authority; this only chooses what to say. */
   protected readonly mayApprove = computed(() => {
     const state = this.memberships.state();
     if (state.status !== 'ready') return true;
-    const role = state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug())?.role ?? null;
+    const role =
+      state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug())?.role ?? null;
     return roleAllows(role, 'Editor');
   });
 
@@ -199,7 +207,9 @@ export class RecipeTestReadinessStepComponent implements OnInit {
     this.loaded.set({ status: 'ready', recipe });
     this.port.announce(
       DONE[this.mode()].includes(recipe.status)
-        ? recipe.status === 'Approved' ? 'Approved. Continue to finish.' : 'Ready for review. Continue when you’re ready.'
+        ? recipe.status === 'Approved'
+          ? 'Approved. Continue to finish.'
+          : 'Ready for review. Continue when you’re ready.'
         : 'Moved on. The next move is below.',
     );
     // The button that was pressed belongs to the move just made, and is gone: never leave focus on nothing.

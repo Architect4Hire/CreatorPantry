@@ -464,13 +464,7 @@ function applyField(
 }
 
 const STEP_FIELDS = new Set(['note', 'durationMinutes']);
-const INGREDIENT_FIELDS = new Set([
-  'ingredientNameText',
-  'unitText',
-  'quantity',
-  'quantityUpper',
-  'preparationNote',
-]);
+const INGREDIENT_FIELDS = new Set(['ingredientNameText', 'unitText', 'quantity', 'quantityUpper', 'preparationNote']);
 const EQUIPMENT_FIELDS = new Set(['note']);
 
 /** A group has no settable field of its own beyond `isOptional`, which is handled before this. */

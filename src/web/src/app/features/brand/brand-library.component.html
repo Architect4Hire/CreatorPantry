@@ -114,7 +114,9 @@
           <a cpMediaCardTitle [routerLink]="[row.id]">{{ row.title }}</a>
 
           <!-- What state it is in, then what it is. -->
-          <cp-status-pill cpMediaCardBadges [tone]="row.status === 'Archived' ? 'stale' : 'neutral'">{{ row.status }}</cp-status-pill>
+          <cp-status-pill cpMediaCardBadges [tone]="row.status === 'Archived' ? 'stale' : 'neutral'">{{
+            row.status
+          }}</cp-status-pill>
           <cp-status-pill cpMediaCardBadges [tone]="extractionTone(row.extraction.state)">
             {{ extractionLabels[row.extraction.state] }}
           </cp-status-pill>

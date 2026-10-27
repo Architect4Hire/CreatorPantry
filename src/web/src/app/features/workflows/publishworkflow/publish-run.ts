@@ -9,7 +9,9 @@ export const PLAN_AND_PUBLISH_DEFINITION_KEY = 'publishing.plan-and-publish';
  * that step was done — the one that step is keeping. Null before there is any.
  */
 export function runCardId(run: WorkflowRun): string | null {
-  return newestLinked(run, 'ContentCard') ?? run.steps.find((step) => step.draft?.kind === 'ContentCard')?.draft?.id ?? null;
+  return (
+    newestLinked(run, 'ContentCard') ?? run.steps.find((step) => step.draft?.kind === 'ContentCard')?.draft?.id ?? null
+  );
 }
 
 /**

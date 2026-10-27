@@ -33,9 +33,7 @@ describe('recipe-display.models', () => {
     it('decodes each presentation the server can return', () => {
       const presentations: readonly FractionPresentation[] = ['Whole', 'Fraction', 'Decimal'];
       for (const presentation of presentations) {
-        expect(decodeRecipeQuantityDisplayResult(payload({ presentation }))?.result.presentation).toBe(
-          presentation,
-        );
+        expect(decodeRecipeQuantityDisplayResult(payload({ presentation }))?.result.presentation).toBe(presentation);
       }
     });
 

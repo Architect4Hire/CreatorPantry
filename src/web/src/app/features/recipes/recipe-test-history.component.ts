@@ -228,12 +228,12 @@ export class RecipeTestHistoryComponent {
 
   readonly hasActiveFilters = computed(
     () =>
-      this.versionsText().trim().length > 0
-      || this.outcomes().length > 0
-      || this.issueFilter() !== ''
-      || this.testedFromDate().length > 0
-      || this.testedToDate().length > 0
-      || this.mineOnly(),
+      this.versionsText().trim().length > 0 ||
+      this.outcomes().length > 0 ||
+      this.issueFilter() !== '' ||
+      this.testedFromDate().length > 0 ||
+      this.testedToDate().length > 0 ||
+      this.mineOnly(),
   );
 
   readonly hasNextPage = computed(() => this.page()?.nextCursor !== null && this.page()?.nextCursor !== undefined);
@@ -261,8 +261,8 @@ export class RecipeTestHistoryComponent {
     const runs = summary.runsWithUnresolvedIssues === 1 ? 'test' : 'tests';
 
     return (
-      `${summary.totalCount} ${tests}${scope}. `
-      + `${summary.unresolvedIssueCount} unresolved ${issues} across ${summary.runsWithUnresolvedIssues} ${runs}.`
+      `${summary.totalCount} ${tests}${scope}. ` +
+      `${summary.unresolvedIssueCount} unresolved ${issues} across ${summary.runsWithUnresolvedIssues} ${runs}.`
     );
   });
 

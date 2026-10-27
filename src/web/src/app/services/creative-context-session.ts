@@ -39,14 +39,7 @@ export type CreativeContextOpenState = 'idle' | 'loading' | 'ready' | 'not_found
  * - `gone` — the context no longer resolves.
  */
 export type CreativeContextSaveState =
-  | 'saved'
-  | 'pending'
-  | 'saving'
-  | 'unsaved'
-  | 'rejected'
-  | 'conflict'
-  | 'forbidden'
-  | 'gone';
+  'saved' | 'pending' | 'saving' | 'unsaved' | 'rejected' | 'conflict' | 'forbidden' | 'gone';
 
 /**
  * How naming or un-naming a source ended.
@@ -58,13 +51,7 @@ export type CreativeContextSaveState =
  * - `unavailable` — it could not be asked. Nothing changed, and asking again is safe.
  */
 export type CreativeContextReferenceOutcome =
-  | 'saved'
-  | 'source_unavailable'
-  | 'duplicate'
-  | 'limit'
-  | 'forbidden'
-  | 'held'
-  | 'unavailable';
+  'saved' | 'source_unavailable' | 'duplicate' | 'limit' | 'forbidden' | 'held' | 'unavailable';
 
 /** The states in which an edit is kept on screen and deliberately not sent. */
 const HELD: ReadonlySet<CreativeContextSaveState> = new Set(['conflict', 'forbidden', 'gone']);

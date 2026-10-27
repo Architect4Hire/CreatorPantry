@@ -44,7 +44,8 @@ describe('decodeDashboard', () => {
     const broken = [{ ...runs[0], youCanDoIt: 'yes' }, ...runs.slice(1)];
 
     const dashboard = decodeDashboard(
-      body({ workflows: { status: 'Ready', data: { ...workflows.data, continue: broken } } }))!;
+      body({ workflows: { status: 'Ready', data: { ...workflows.data, continue: broken } } }),
+    )!;
 
     expect(dashboard.workflows.status).toBe('unavailable');
   });
@@ -54,7 +55,8 @@ describe('decodeDashboard', () => {
     const plan = fixture['workPlan'] as { status: string; data: Record<string, unknown> };
 
     const dashboard = decodeDashboard(
-      body({ workPlan: { status: 'Ready', data: { ...plan.data, thisWeek: { weekStart: '2026-10-12' } } } }))!;
+      body({ workPlan: { status: 'Ready', data: { ...plan.data, thisWeek: { weekStart: '2026-10-12' } } } }),
+    )!;
 
     expect(dashboard.workPlan.status).toBe('unavailable');
   });

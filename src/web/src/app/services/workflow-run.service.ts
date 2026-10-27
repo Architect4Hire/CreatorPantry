@@ -85,7 +85,12 @@ export class WorkflowRunService {
   }
 
   /** Points the current step at the record its unfinished work is kept in (13A.7). */
-  saveDraft(workspaceSlug: string, run: WorkflowRun, stepKey: string, draft: WorkflowResourcePointer): Promise<WorkflowRunCommandOutcome> {
+  saveDraft(
+    workspaceSlug: string,
+    run: WorkflowRun,
+    stepKey: string,
+    draft: WorkflowResourcePointer,
+  ): Promise<WorkflowRunCommandOutcome> {
     return this.command(workspaceSlug, run.id, `/steps/${encodeURIComponent(stepKey)}/draft`, 'put', {
       kind: draft.kind,
       id: draft.id,
@@ -126,7 +131,12 @@ export class WorkflowRunService {
     });
   }
 
-  skip(workspaceSlug: string, run: WorkflowRun, stepKey: string, reason: string | null = null): Promise<WorkflowRunCommandOutcome> {
+  skip(
+    workspaceSlug: string,
+    run: WorkflowRun,
+    stepKey: string,
+    reason: string | null = null,
+  ): Promise<WorkflowRunCommandOutcome> {
     return this.command(workspaceSlug, run.id, `/steps/${encodeURIComponent(stepKey)}/skip`, 'post', {
       reason,
       expectedConcurrencyToken: run.concurrencyToken,
@@ -135,7 +145,9 @@ export class WorkflowRunService {
 
   /** Finishes the run, once the server finds every required step done (13A.10a). */
   completeRun(workspaceSlug: string, run: WorkflowRun): Promise<WorkflowRunCommandOutcome> {
-    return this.command(workspaceSlug, run.id, '/completion', 'post', { expectedConcurrencyToken: run.concurrencyToken });
+    return this.command(workspaceSlug, run.id, '/completion', 'post', {
+      expectedConcurrencyToken: run.concurrencyToken,
+    });
   }
 
   /** Stops the run for good, keeping it and everything it linked (13A.10b). Confirmed by the caller first. */
@@ -178,11 +190,14 @@ export class WorkflowRunService {
     if (!url) return { status: 'unavailable', offline: isOffline() };
 
     try {
-      const run = decodeWorkflowRun(await firstValueFrom(this.http.post<unknown>(
-        url,
-        startingResource ? { definitionKey, startingResource } : { definitionKey },
-        { withCredentials: true, headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) },
-      )));
+      const run = decodeWorkflowRun(
+        await firstValueFrom(
+          this.http.post<unknown>(url, startingResource ? { definitionKey, startingResource } : { definitionKey }, {
+            withCredentials: true,
+            headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }),
+          }),
+        ),
+      );
       return run ? { status: 'started', run } : { status: 'unavailable', offline: false };
     } catch (error) {
       const outcome = refusal(error);
@@ -244,14 +259,16 @@ function refusal(error: unknown): WorkflowRunCommandOutcome {
       return { status: 'step_moved' };
     case 422:
       if (code === CODES.stepIncomplete) return { status: 'step_incomplete', missing: decodeMissing(body) };
-      if (code === CODES.runIncomplete) return { status: 'run_incomplete', incompleteSteps: decodeIncompleteSteps(body) };
+      if (code === CODES.runIncomplete)
+        return { status: 'run_incomplete', incompleteSteps: decodeIncompleteSteps(body) };
       if (code === CODES.stepRequired) return { status: 'step_required' };
       // The server puts its plain-language sentence in `title`.
       return {
         status: 'unprocessable',
-        message: typeof (body as Record<string, unknown> | null)?.['title'] === 'string'
-          ? ((body as Record<string, unknown>)['title'] as string)
-          : "That couldn't be done right now.",
+        message:
+          typeof (body as Record<string, unknown> | null)?.['title'] === 'string'
+            ? ((body as Record<string, unknown>)['title'] as string)
+            : "That couldn't be done right now.",
       };
     default:
       return { status: 'unavailable', offline: isOffline() };

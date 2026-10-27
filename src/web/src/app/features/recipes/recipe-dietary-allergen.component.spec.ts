@@ -281,9 +281,7 @@ describe('RecipeDietaryAllergenComponent', () => {
   }
 
   function buttonWith(element: HTMLElement, label: string): HTMLButtonElement | undefined {
-    return Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.trim().includes(label),
-    );
+    return Array.from(element.querySelectorAll('button')).find((button) => button.textContent?.trim().includes(label));
   }
 
   async function click(element: HTMLElement, label: string): Promise<void> {
@@ -293,8 +291,8 @@ describe('RecipeDietaryAllergenComponent', () => {
 
   /** Picks an option in one of the two choice groups by its visible label. */
   async function pick(element: HTMLElement, label: string): Promise<void> {
-    const tile = Array.from(element.querySelectorAll('label.tile')).find((candidate) =>
-      candidate.querySelector('.label')?.textContent?.trim() === label,
+    const tile = Array.from(element.querySelectorAll('label.tile')).find(
+      (candidate) => candidate.querySelector('.label')?.textContent?.trim() === label,
     );
     (tile?.querySelector('input') as HTMLInputElement | null)?.click();
     await settle();
@@ -349,9 +347,7 @@ describe('RecipeDietaryAllergenComponent', () => {
     expect(reference.allergenCalls).toBe(1);
     expect(reference.profileCalls).toBe(1);
 
-    const labels = Array.from(element.querySelectorAll('label.tile .label')).map((node) =>
-      node.textContent?.trim(),
-    );
+    const labels = Array.from(element.querySelectorAll('label.tile .label')).map((node) => node.textContent?.trim());
     expect(labels).toEqual(['Milk', 'Egg', 'Vegan']);
 
     // The name without the description is half the fact, so the hint is never dropped.

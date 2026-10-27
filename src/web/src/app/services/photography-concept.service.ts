@@ -10,12 +10,7 @@ import {
   RequestPhotographyConceptsRequest,
   encodeRequestPhotographyConcepts,
 } from '../models/photography-concept.models';
-import {
-  AiRequestOutcome,
-  AiWatchOperationOutcome,
-  mapAiRequestError,
-  mapAiWatchError,
-} from './ai-request';
+import { AiRequestOutcome, AiWatchOperationOutcome, mapAiRequestError, mapAiWatchError } from './ai-request';
 
 /**
  * The typed client for IMG-001: ask for photography concepts, and read where that request has got to.

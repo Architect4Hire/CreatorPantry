@@ -83,7 +83,9 @@ const fact = (label: string): string => {
 };
 
 function buttonWith(label: string, within: ParentNode = document): HTMLButtonElement {
-  return Array.from(within.querySelectorAll('button')).find((each) => each.textContent?.trim() === label) as HTMLButtonElement;
+  return Array.from(within.querySelectorAll('button')).find(
+    (each) => each.textContent?.trim() === label,
+  ) as HTMLButtonElement;
 }
 
 describe('ContentPipelineBrandDefaultsComponent', () => {
@@ -176,7 +178,10 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
   });
 
   it('says there is no active style guide rather than inventing a look', async () => {
-    guide = { status: 'found', guide: { ...GUIDE, activeGuide: null, hasVisualGuidance: false, styleLines: [], negativeGuidance: null } };
+    guide = {
+      status: 'found',
+      guide: { ...GUIDE, activeGuide: null, hasVisualGuidance: false, styleLines: [], negativeGuidance: null },
+    };
     await mount();
 
     expect(fact('The look')).toBe('No style guide is active, so the looks are planned without one.');
@@ -196,7 +201,9 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
     // The brand's count is the answer already given, and only a choice here replaces it.
     expect((document.querySelector('input[type="radio"]:checked') as HTMLInputElement).value).toBe('3');
 
-    const four = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]')).find((each) => each.value === '4')!;
+    const four = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]')).find(
+      (each) => each.value === '4',
+    )!;
     four.click();
     await settle();
 
@@ -215,7 +222,10 @@ describe('ContentPipelineBrandDefaultsComponent', () => {
     await mount();
     expect(guideReads).toEqual(['cozy-fall']);
 
-    guide = { status: 'found', guide: { ...GUIDE, activeGuide: { ...GUIDE.activeGuide!, guideId: 'g2', name: 'Their style' }, styleLines: [] } };
+    guide = {
+      status: 'found',
+      guide: { ...GUIDE, activeGuide: { ...GUIDE.activeGuide!, guideId: 'g2', name: 'Their style' }, styleLines: [] },
+    };
     host.slug.set('other-kitchen');
     fixture.detectChanges();
 

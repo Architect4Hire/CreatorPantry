@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CpFormSectionComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { DamAssetUtilization } from '../../../models/dam-asset.models';
@@ -23,7 +32,9 @@ import { runAssetId } from './assets-run';
   template: `
     @if (assetId(); as id) {
       <!-- Which fields are needed, said once: the shell's legend says only whether the step is. -->
-      <p class="legend cp-muted">To log a use, platform and date are needed; the rest is optional. Leave it empty to log nothing.</p>
+      <p class="legend cp-muted"
+        >To log a use, platform and date are needed; the rest is optional. Leave it empty to log nothing.</p
+      >
       <cp-dam-asset-log-use
         [inline]="true"
         [workspaceSlug]="workspaceSlug()"

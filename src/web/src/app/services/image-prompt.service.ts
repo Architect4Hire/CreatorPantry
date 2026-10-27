@@ -11,12 +11,7 @@ import {
   RequestImagePromptRequest,
   encodeRequestImagePrompt,
 } from '../models/image-prompt.models';
-import {
-  AiRequestOutcome,
-  AiWatchOperationOutcome,
-  mapAiRequestError,
-  mapAiWatchError,
-} from './ai-request';
+import { AiRequestOutcome, AiWatchOperationOutcome, mapAiRequestError, mapAiWatchError } from './ai-request';
 
 /**
  * The typed client for IMG-002: compose an editable image prompt for one shot of one concept, and read where
@@ -75,8 +70,6 @@ export class ImagePromptService {
   }
 
   private url(workspaceSlug: string, suffix = ''): string | null {
-    return this.apiBase.url(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/image-prompt-requests${suffix}`,
-    );
+    return this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/image-prompt-requests${suffix}`);
   }
 }

@@ -34,7 +34,11 @@ function comparisonWire(sections: unknown[], hasChanges = true): Record<string, 
   };
 }
 
-function sectionWire(section: string, fieldChanges: unknown[] = [], itemChanges: unknown[] = []): Record<string, unknown> {
+function sectionWire(
+  section: string,
+  fieldChanges: unknown[] = [],
+  itemChanges: unknown[] = [],
+): Record<string, unknown> {
   return {
     section,
     fieldChanges,
@@ -116,9 +120,7 @@ describe('RecipeService version routes', () => {
 
       const outcome = await call;
       expect(outcome.status).toBe('found');
-      expect(outcome).toEqual(
-        jasmine.objectContaining({ page: { items: [HISTORY_ENTRY_WIRE], nextCursor: 'next' } }),
-      );
+      expect(outcome).toEqual(jasmine.objectContaining({ page: { items: [HISTORY_ENTRY_WIRE], nextCursor: 'next' } }));
     });
 
     it('sends a cursor when one is supplied', async () => {
@@ -165,9 +167,7 @@ describe('RecipeService version routes', () => {
       expect(req.request.params.get('from')).toBe('1');
       expect(req.request.params.get('to')).toBe('2');
 
-      req.flush(
-        comparisonWire([sectionWire('Metadata', [{ field: 'Title', from: 'Chili', to: 'Chilli' }])]),
-      );
+      req.flush(comparisonWire([sectionWire('Metadata', [{ field: 'Title', from: 'Chili', to: 'Chilli' }])]));
 
       const outcome = await call;
       expect(outcome.status).toBe('found');
@@ -238,7 +238,10 @@ describe('RecipeService version routes', () => {
     const token = 'AAAAAAAAB9E=';
 
     it('POSTs to the version’s own restore route, carrying the token and nothing about the recipe', async () => {
-      const call = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: 'Read better.' });
+      const call = service.restoreVersion('cozy-fall', 'r1', 3, {
+        expectedConcurrencyToken: token,
+        reason: 'Read better.',
+      });
       const req = http.expectOne(restoreUrl);
 
       expect(req.request.method).toBe('POST');
@@ -256,7 +259,10 @@ describe('RecipeService version routes', () => {
     });
 
     it('trims the reason, and omits it entirely when there is nothing to record', async () => {
-      const trimmed = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: '  Read better.  ' });
+      const trimmed = service.restoreVersion('cozy-fall', 'r1', 3, {
+        expectedConcurrencyToken: token,
+        reason: '  Read better.  ',
+      });
       const first = http.expectOne(restoreUrl);
       expect(first.request.body).toEqual({ expectedConcurrencyToken: token, reason: 'Read better.' });
       first.flush(RECIPE_DETAIL_WIRE);
@@ -270,7 +276,13 @@ describe('RecipeService version routes', () => {
     });
 
     it('sends the idempotency key it was given, and none when it was given none', async () => {
-      const keyed = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: null }, 'key-1');
+      const keyed = service.restoreVersion(
+        'cozy-fall',
+        'r1',
+        3,
+        { expectedConcurrencyToken: token, reason: null },
+        'key-1',
+      );
       const first = http.expectOne(restoreUrl);
       expect(first.request.headers.get('Idempotency-Key')).toBe('key-1');
       first.flush(RECIPE_DETAIL_WIRE, { headers: { 'Idempotent-Replayed': 'true' } });
@@ -299,7 +311,10 @@ describe('RecipeService version routes', () => {
     });
 
     it('tells a missing version apart from a recipe it may not see', async () => {
-      const missingVersion = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: null });
+      const missingVersion = service.restoreVersion('cozy-fall', 'r1', 3, {
+        expectedConcurrencyToken: token,
+        reason: null,
+      });
       http
         .expectOne(restoreUrl)
         .flush(
@@ -312,14 +327,20 @@ describe('RecipeService version routes', () => {
         fieldErrors: { versionNumber: ['This recipe has no version 3.'] },
       });
 
-      const missingRecipe = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: null });
+      const missingRecipe = service.restoreVersion('cozy-fall', 'r1', 3, {
+        expectedConcurrencyToken: token,
+        reason: null,
+      });
       http.expectOne(restoreUrl).flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
 
       expect(await missingRecipe).toEqual({ status: 'not_found' });
     });
 
     it('reports a refused body with its field errors', async () => {
-      const call = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: 'x'.repeat(1001) });
+      const call = service.restoreVersion('cozy-fall', 'r1', 3, {
+        expectedConcurrencyToken: token,
+        reason: 'x'.repeat(1001),
+      });
       http
         .expectOne(restoreUrl)
         .flush(
@@ -327,7 +348,10 @@ describe('RecipeService version routes', () => {
           { status: 400, statusText: 'Bad Request' },
         );
 
-      expect(await call).toEqual({ status: 'validation_failed', fieldErrors: { reason: ['That reason is too long.'] } });
+      expect(await call).toEqual({
+        status: 'validation_failed',
+        fieldErrors: { reason: ['That reason is too long.'] },
+      });
     });
 
     it('reports the Editor bar as forbidden and a reused key as its own failure', async () => {
@@ -336,7 +360,9 @@ describe('RecipeService version routes', () => {
       expect(await forbidden).toEqual({ status: 'forbidden' });
 
       const reused = service.restoreVersion('cozy-fall', 'r1', 3, { expectedConcurrencyToken: token, reason: null });
-      http.expectOne(restoreUrl).flush({ code: 'idempotency.key.conflict' }, { status: 422, statusText: 'Unprocessable' });
+      http
+        .expectOne(restoreUrl)
+        .flush({ code: 'idempotency.key.conflict' }, { status: 422, statusText: 'Unprocessable' });
       expect(await reused).toEqual({ status: 'idempotency_key_conflict' });
     });
 

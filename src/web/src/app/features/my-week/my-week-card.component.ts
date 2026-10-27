@@ -173,13 +173,27 @@ export class MyWeekCardComponent {
     const { dueDate, status } = this.task();
     if (!dueDate || status === 'Done') return null;
 
-    return dueDate < this.today() ? `${shortDay(dueDate)}, overdue` : dueDate === this.today() ? 'today' : shortDay(dueDate);
+    return dueDate < this.today()
+      ? `${shortDay(dueDate)}, overdue`
+      : dueDate === this.today()
+        ? 'today'
+        : shortDay(dueDate);
   });
 
   /** Tags are one fact, comma-separated (DESIGN-SYSTEM.md, "A card for one thing in a library"). */
-  protected readonly labels = computed(() => this.task().labels.map((label) => label.name).join(', ') || null);
+  protected readonly labels = computed(
+    () =>
+      this.task()
+        .labels.map((label) => label.name)
+        .join(', ') || null,
+  );
 
   protected readonly hasFacts = computed(
-    () => this.priority() !== null || this.estimate() !== null || this.due() !== null || this.link() !== null || this.task().labels.length > 0,
+    () =>
+      this.priority() !== null ||
+      this.estimate() !== null ||
+      this.due() !== null ||
+      this.link() !== null ||
+      this.task().labels.length > 0,
   );
 }

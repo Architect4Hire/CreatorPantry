@@ -1,7 +1,4 @@
-import {
-  BrandStyleGuideSectionContent,
-  BrandStyleGuideVersionContent,
-} from '../../models/brand-style-guide.models';
+import { BrandStyleGuideSectionContent, BrandStyleGuideVersionContent } from '../../models/brand-style-guide.models';
 import {
   BrandGuideChange,
   BrandGuideEditState,
@@ -31,11 +28,7 @@ function version(overrides: Partial<BrandStyleGuideVersionContent> = {}): BrandS
   };
 }
 
-function section(
-  sectionKey: string,
-  body: string,
-  channelKey: string | null = null,
-): BrandStyleGuideSectionContent {
+function section(sectionKey: string, body: string, channelKey: string | null = null): BrandStyleGuideSectionContent {
   return { sectionKey, channelKey, body };
 }
 
@@ -128,32 +121,30 @@ describe('brand guide editor state', () => {
   it('treats one channel variant as independent of another', () => {
     const change = changeFrom(
       version({
-        sections: [
-          section('ChannelVariant', 'Short.', 'instagram'),
-          section('ChannelVariant', 'Tall.', 'pinterest'),
-        ],
+        sections: [section('ChannelVariant', 'Short.', 'instagram'), section('ChannelVariant', 'Tall.', 'pinterest')],
       }),
       (state) => ({
         ...state,
-        sections: [
-          section('ChannelVariant', 'Shorter.', 'instagram'),
-          section('ChannelVariant', 'Tall.', 'pinterest'),
-        ],
+        sections: [section('ChannelVariant', 'Shorter.', 'instagram'), section('ChannelVariant', 'Tall.', 'pinterest')],
       }),
     );
 
-    expect(change.sections).toEqual([
-      { sectionKey: 'ChannelVariant', channelKey: 'instagram', body: 'Shorter.' },
-    ]);
+    expect(change.sections).toEqual([{ sectionKey: 'ChannelVariant', channelKey: 'instagram', body: 'Shorter.' }]);
   });
 
   it('carries the whole rule list once it has been touched, and clears it with an empty one', () => {
     expect(
       changeFrom(version(), (state) => ({
         ...state,
-        rules: [{ kind: 'Do', text: 'Say it plainly.' }, { kind: 'Dont', text: 'Never pad.' }],
+        rules: [
+          { kind: 'Do', text: 'Say it plainly.' },
+          { kind: 'Dont', text: 'Never pad.' },
+        ],
       })).rules,
-    ).toEqual([{ kind: 'Do', text: 'Say it plainly.' }, { kind: 'Dont', text: 'Never pad.' }]);
+    ).toEqual([
+      { kind: 'Do', text: 'Say it plainly.' },
+      { kind: 'Dont', text: 'Never pad.' },
+    ]);
 
     expect(changeFrom(version(), (state) => ({ ...state, rules: [] })).rules).toEqual([]);
   });
@@ -170,11 +161,25 @@ describe('brand guide editor state', () => {
 
   it('reports a reordered rule list as a change', () => {
     const change = changeFrom(
-      version({ rules: [{ kind: 'Do', text: 'First.' }, { kind: 'Do', text: 'Second.' }] }),
-      (state) => ({ ...state, rules: [{ kind: 'Do', text: 'Second.' }, { kind: 'Do', text: 'First.' }] }),
+      version({
+        rules: [
+          { kind: 'Do', text: 'First.' },
+          { kind: 'Do', text: 'Second.' },
+        ],
+      }),
+      (state) => ({
+        ...state,
+        rules: [
+          { kind: 'Do', text: 'Second.' },
+          { kind: 'Do', text: 'First.' },
+        ],
+      }),
     );
 
-    expect(change.rules).toEqual([{ kind: 'Do', text: 'Second.' }, { kind: 'Do', text: 'First.' }]);
+    expect(change.rules).toEqual([
+      { kind: 'Do', text: 'Second.' },
+      { kind: 'Do', text: 'First.' },
+    ]);
   });
 
   it('cites and uncites by exact version, so re-pinning is one of each', () => {
@@ -194,9 +199,9 @@ describe('brand guide editor state', () => {
 
   /** Whitespace is a real edit: two bodies differing only in spacing are two pieces of prose. */
   it('is a change when a body differs only in whitespace', () => {
-    expect(
-      changeFrom(version(), (state) => ({ ...state, sections: [section('Voice', 'Plain. ')] })).sections,
-    ).toEqual([{ sectionKey: 'Voice', body: 'Plain. ' }]);
+    expect(changeFrom(version(), (state) => ({ ...state, sections: [section('Voice', 'Plain. ')] })).sections).toEqual([
+      { sectionKey: 'Voice', body: 'Plain. ' },
+    ]);
   });
 
   // ---- Laying a change over a version ----
@@ -244,13 +249,10 @@ describe('brand guide editor state', () => {
       sections: [section('Voice', 'Plain.'), section('Tone', 'Warm.'), section('Audience', 'Theirs.')],
     });
 
-    expect(applyChange(theirs, change).sections).toEqual([
-      section('Voice', 'Plain.'),
-      section('Audience', 'Theirs.'),
-    ]);
+    expect(applyChange(theirs, change).sections).toEqual([section('Voice', 'Plain.'), section('Audience', 'Theirs.')]);
   });
 
-  it("leaves a rule list it never touched as the newer version has it", () => {
+  it('leaves a rule list it never touched as the newer version has it', () => {
     const change = changeFrom(version(), (state) => ({ ...state, sections: [section('Voice', 'Mine.')] }));
     const theirs = version({ versionNumber: 5, rules: [{ kind: 'Dont', text: 'Theirs.' }] });
 
@@ -289,7 +291,10 @@ describe('brand guide editor state', () => {
     ['a JSON array', '[]'],
     ['an older shape', '{"v":1,"sections":[],"rules":[],"citations":[]}'],
     ['a section with no key', '{"v":2,"sections":[{"body":"x"}],"cite":[],"uncite":[]}'],
-    ['a section body that is neither text nor a clear', '{"v":2,"sections":[{"sectionKey":"Voice","body":3}],"cite":[],"uncite":[]}'],
+    [
+      'a section body that is neither text nor a clear',
+      '{"v":2,"sections":[{"sectionKey":"Voice","body":3}],"cite":[],"uncite":[]}',
+    ],
     ['a rule of no kind', '{"v":2,"sections":[],"rules":[{"text":"x"}],"cite":[],"uncite":[]}'],
     ['a citation with no version', '{"v":2,"sections":[],"cite":[{"documentId":"d1"}],"uncite":[]}'],
   ] as const) {

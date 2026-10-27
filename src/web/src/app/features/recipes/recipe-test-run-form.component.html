@@ -9,8 +9,9 @@
       <!-- h2, not h1: this form is mounted inside the recipe editor, whose page heading is the h1. -->
       <h2 class="title">{{ isEditing() ? 'Correct this test' : 'Record a test' }}</h2>
       <p class="intro">
-        Testing <strong>version {{ versionNumber() }}</strong>. Everything you record here sits beside what that
-        version says — nothing on this form changes the recipe. Only the date is required.
+        Testing <strong>version {{ versionNumber() }}</strong
+        >. Everything you record here sits beside what that version says — nothing on this form changes the recipe. Only
+        the date is required.
       </p>
     </header>
 
@@ -19,8 +20,13 @@
       intro="When you cooked it, and how it went overall."
       [sectionId]="idPrefix + '-section-test'"
     >
-      <cp-field label="Tested on" [forId]="idPrefix + '-testedAt'" [required]="true" [error]="fieldError('testedAt')"
-        hint="When you cooked it, not when you are writing this up.">
+      <cp-field
+        label="Tested on"
+        [forId]="idPrefix + '-testedAt'"
+        [required]="true"
+        [error]="fieldError('testedAt')"
+        hint="When you cooked it, not when you are writing this up."
+      >
         <input
           [id]="idPrefix + '-testedAt'"
           type="datetime-local"
@@ -32,8 +38,12 @@
         />
       </cp-field>
 
-      <cp-field label="Outcome" [forId]="idPrefix + '-outcome'" [error]="fieldError('outcome')"
-        hint="Your verdict. “Not stated” is an answer — nothing reads it as a pass.">
+      <cp-field
+        label="Outcome"
+        [forId]="idPrefix + '-outcome'"
+        [error]="fieldError('outcome')"
+        hint="Your verdict. “Not stated” is an answer — nothing reads it as a pass."
+      >
         <select
           [id]="idPrefix + '-outcome'"
           name="outcome"
@@ -47,8 +57,12 @@
         </select>
       </cp-field>
 
-      <cp-field label="Rating" [forId]="idPrefix + '-rating'" [error]="fieldError('rating')"
-        hint="Out of five, if you scored it.">
+      <cp-field
+        label="Rating"
+        [forId]="idPrefix + '-rating'"
+        [error]="fieldError('rating')"
+        hint="Out of five, if you scored it."
+      >
         <select
           [id]="idPrefix + '-rating'"
           name="rating"
@@ -69,8 +83,12 @@
       intro="What you actually got, however you measured it."
       [sectionId]="idPrefix + '-section-yield'"
     >
-      <cp-field label="In your own words" [forId]="idPrefix + '-actualYieldText'"
-        [error]="fieldError('actualYieldText')" hint="“Got 10, not 12.”">
+      <cp-field
+        label="In your own words"
+        [forId]="idPrefix + '-actualYieldText'"
+        [error]="fieldError('actualYieldText')"
+        hint="“Got 10, not 12.”"
+      >
         <input
           [id]="idPrefix + '-actualYieldText'"
           type="text"
@@ -84,8 +102,11 @@
 
       <!-- A quantity and its unit are short and read as one set, which is what cp-field-row is for. -->
       <cp-field-row minColumn="16rem">
-        <cp-field label="Amount" [forId]="idPrefix + '-actualYieldQuantity'"
-          [error]="fieldError('actualYieldQuantity')">
+        <cp-field
+          label="Amount"
+          [forId]="idPrefix + '-actualYieldQuantity'"
+          [error]="fieldError('actualYieldQuantity')"
+        >
           <input
             [id]="idPrefix + '-actualYieldQuantity'"
             type="number"
@@ -104,8 +125,12 @@
           nothing, and text naming no unit has nowhere to go. Which is also why removing one needs the explicit
           Clear — restricted text reverts to the chosen unit's name when the field is left.
         -->
-        <cp-field label="Unit" [forId]="idPrefix + '-actualYieldUnitId'" [hint]="yieldUnitHint()"
-          [error]="fieldError('actualYieldUnitId')">
+        <cp-field
+          label="Unit"
+          [forId]="idPrefix + '-actualYieldUnitId'"
+          [hint]="yieldUnitHint()"
+          [error]="fieldError('actualYieldUnitId')"
+        >
           <div class="unit-control">
             <cp-combobox
               [inputId]="idPrefix + '-actualYieldUnitId'"
@@ -119,8 +144,14 @@
               (selectedChange)="onYieldUnitPicked($event)"
             />
             @if (actualYieldUnitId() !== null) {
-              <button cpButton variant="text" size="sm" type="button" aria-label="Clear the yield unit"
-                (click)="clearYieldUnit()">
+              <button
+                cpButton
+                variant="text"
+                size="sm"
+                type="button"
+                aria-label="Clear the yield unit"
+                (click)="clearYieldUnit()"
+              >
                 Clear
               </button>
             }
@@ -135,8 +166,12 @@
       [sectionId]="idPrefix + '-section-conditions'"
     >
       <!-- Two textareas, stacked. Prose never shares a row, however short it happens to be. -->
-      <cp-field label="Environment" [forId]="idPrefix + '-environmentNotes'"
-        [error]="fieldError('environmentNotes')" hint="Oven, altitude, weather — whatever mattered.">
+      <cp-field
+        label="Environment"
+        [forId]="idPrefix + '-environmentNotes'"
+        [error]="fieldError('environmentNotes')"
+        hint="Oven, altitude, weather — whatever mattered."
+      >
         <textarea
           [id]="idPrefix + '-environmentNotes'"
           name="environmentNotes"
@@ -148,8 +183,12 @@
         ></textarea>
       </cp-field>
 
-      <cp-field label="Equipment" [forId]="idPrefix + '-equipmentNotes'" [error]="fieldError('equipmentNotes')"
-        hint="What you actually used, where it differed from the recipe.">
+      <cp-field
+        label="Equipment"
+        [forId]="idPrefix + '-equipmentNotes'"
+        [error]="fieldError('equipmentNotes')"
+        hint="What you actually used, where it differed from the recipe."
+      >
         <textarea
           [id]="idPrefix + '-equipmentNotes'"
           name="equipmentNotes"
@@ -168,8 +207,11 @@
       [sectionId]="idPrefix + '-section-times'"
     >
       <cp-field-row>
-        <cp-field label="Prep" [forId]="idPrefix + '-actualPrepTimeMinutes'"
-          [error]="fieldError('actualPrepTimeMinutes')">
+        <cp-field
+          label="Prep"
+          [forId]="idPrefix + '-actualPrepTimeMinutes'"
+          [error]="fieldError('actualPrepTimeMinutes')"
+        >
           <input
             [id]="idPrefix + '-actualPrepTimeMinutes'"
             type="number"
@@ -183,8 +225,11 @@
           />
         </cp-field>
 
-        <cp-field label="Cook" [forId]="idPrefix + '-actualCookTimeMinutes'"
-          [error]="fieldError('actualCookTimeMinutes')">
+        <cp-field
+          label="Cook"
+          [forId]="idPrefix + '-actualCookTimeMinutes'"
+          [error]="fieldError('actualCookTimeMinutes')"
+        >
           <input
             [id]="idPrefix + '-actualCookTimeMinutes'"
             type="number"
@@ -198,8 +243,11 @@
           />
         </cp-field>
 
-        <cp-field label="Rest" [forId]="idPrefix + '-actualRestTimeMinutes'"
-          [error]="fieldError('actualRestTimeMinutes')">
+        <cp-field
+          label="Rest"
+          [forId]="idPrefix + '-actualRestTimeMinutes'"
+          [error]="fieldError('actualRestTimeMinutes')"
+        >
           <input
             [id]="idPrefix + '-actualRestTimeMinutes'"
             type="number"
@@ -218,9 +266,12 @@
         On its own line and never summed. A real kitchen overlaps prep with cooking, so a total below the sum
         of the three above is a measurement rather than a mistake — which is why nothing here derives it.
       -->
-      <cp-field label="Total" [forId]="idPrefix + '-actualTotalTimeMinutes'"
+      <cp-field
+        label="Total"
+        [forId]="idPrefix + '-actualTotalTimeMinutes'"
         [error]="fieldError('actualTotalTimeMinutes')"
-        hint="Recorded exactly as you enter it. Nothing adds the three above together.">
+        hint="Recorded exactly as you enter it. Nothing adds the three above together."
+      >
         <input
           [id]="idPrefix + '-actualTotalTimeMinutes'"
           type="number"
@@ -268,16 +319,35 @@
           <li class="row">
             <div class="row-head">
               <h3 class="row-title" [id]="idPrefix + '-observation-label-' + row.key">Note {{ index + 1 }}</h3>
-              <div class="row-actions" role="group"
-                [attr.aria-labelledby]="idPrefix + '-observation-label-' + row.key">
-                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === 0"
+              <div class="row-actions" role="group" [attr.aria-labelledby]="idPrefix + '-observation-label-' + row.key">
+                <button
+                  cpButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="index === 0"
                   [attr.aria-label]="'Move note ' + (index + 1) + ' earlier'"
-                  (click)="moveObservation(row.key, -1)">↑</button>
-                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === count - 1"
+                  (click)="moveObservation(row.key, -1)"
+                  >↑</button
+                >
+                <button
+                  cpButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="index === count - 1"
                   [attr.aria-label]="'Move note ' + (index + 1) + ' later'"
-                  (click)="moveObservation(row.key, 1)">↓</button>
-                <button cpButton variant="text" size="sm" type="button"
-                  [attr.aria-label]="'Remove note ' + (index + 1)" (click)="removeObservation(row.key)">
+                  (click)="moveObservation(row.key, 1)"
+                  >↓</button
+                >
+                <button
+                  cpButton
+                  variant="text"
+                  size="sm"
+                  type="button"
+                  [attr.aria-label]="'Remove note ' + (index + 1)"
+                  (click)="removeObservation(row.key)"
+                >
                   Remove
                 </button>
               </div>
@@ -287,8 +357,11 @@
               <p class="row-problem" role="alert">{{ rowOtherError('observations', row.key) }}</p>
             }
 
-            <cp-field label="What kind of note" [forId]="idPrefix + '-observations-kind-' + row.key"
-              [error]="rowFieldError('observations', row.key, 'kind')">
+            <cp-field
+              label="What kind of note"
+              [forId]="idPrefix + '-observations-kind-' + row.key"
+              [error]="rowFieldError('observations', row.key, 'kind')"
+            >
               <select
                 [id]="idPrefix + '-observations-kind-' + row.key"
                 [name]="'observation-kind-' + row.key"
@@ -301,8 +374,11 @@
               </select>
             </cp-field>
 
-            <cp-field label="What you noticed" [forId]="idPrefix + '-observations-text-' + row.key"
-              [error]="rowFieldError('observations', row.key, 'text')">
+            <cp-field
+              label="What you noticed"
+              [forId]="idPrefix + '-observations-text-' + row.key"
+              [error]="rowFieldError('observations', row.key, 'text')"
+            >
               <textarea
                 [id]="idPrefix + '-observations-text-' + row.key"
                 [name]="'observation-text-' + row.key"
@@ -318,8 +394,14 @@
       </ol>
 
       <div class="row-add">
-        <button cpButton variant="secondary" size="sm" type="button" [disabled]="!canAddObservation()"
-          (click)="addObservation()">
+        <button
+          cpButton
+          variant="secondary"
+          size="sm"
+          type="button"
+          [disabled]="!canAddObservation()"
+          (click)="addObservation()"
+        >
           Add a note
         </button>
         @if (!canAddObservation()) {
@@ -335,7 +417,9 @@
       [sectionId]="idPrefix + '-section-issues'"
     >
       @if (issues().length === 0) {
-        <p class="empty">No problems recorded. A test with none is not thereby a success — the outcome above says that.</p>
+        <p class="empty"
+          >No problems recorded. A test with none is not thereby a success — the outcome above says that.</p
+        >
       }
 
       <ol class="rows">
@@ -347,26 +431,49 @@
                 <cp-status-pill tone="success">Resolved</cp-status-pill>
               }
               <div class="row-actions" role="group" [attr.aria-labelledby]="idPrefix + '-issue-label-' + row.key">
-                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === 0"
-                  [attr.aria-label]="'Move issue ' + (index + 1) + ' earlier'" (click)="moveIssue(row.key, -1)">↑</button>
-                <button cpButton variant="ghost" size="sm" type="button" [disabled]="index === count - 1"
-                  [attr.aria-label]="'Move issue ' + (index + 1) + ' later'" (click)="moveIssue(row.key, 1)">↓</button>
+                <button
+                  cpButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="index === 0"
+                  [attr.aria-label]="'Move issue ' + (index + 1) + ' earlier'"
+                  (click)="moveIssue(row.key, -1)"
+                  >↑</button
+                >
+                <button
+                  cpButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  [disabled]="index === count - 1"
+                  [attr.aria-label]="'Move issue ' + (index + 1) + ' later'"
+                  (click)="moveIssue(row.key, 1)"
+                  >↓</button
+                >
                 <!--
                   A resolved issue has no Remove at all. Dropping it would erase the decision somebody recorded
                   about it, which the server refuses outright — so the control is absent rather than disabled,
                   and the line below says why.
                 -->
                 @if (!row.resolved) {
-                  <button cpButton variant="text" size="sm" type="button"
-                    [attr.aria-label]="'Remove issue ' + (index + 1)" (click)="removeIssue(row.key)">Remove</button>
+                  <button
+                    cpButton
+                    variant="text"
+                    size="sm"
+                    type="button"
+                    [attr.aria-label]="'Remove issue ' + (index + 1)"
+                    (click)="removeIssue(row.key)"
+                    >Remove</button
+                  >
                 }
               </div>
             </div>
 
             @if (row.resolved) {
               <p class="row-note">
-                Somebody has recorded what was done about this. It stays on the test, and the words below can
-                still be corrected.
+                Somebody has recorded what was done about this. It stays on the test, and the words below can still be
+                corrected.
               </p>
             }
 
@@ -374,8 +481,12 @@
               <p class="row-problem" role="alert">{{ rowOtherError('issues', row.key) }}</p>
             }
 
-            <cp-field label="How bad is it" [forId]="idPrefix + '-issues-severity-' + row.key" [required]="true"
-              [error]="rowFieldError('issues', row.key, 'severity')">
+            <cp-field
+              label="How bad is it"
+              [forId]="idPrefix + '-issues-severity-' + row.key"
+              [required]="true"
+              [error]="rowFieldError('issues', row.key, 'severity')"
+            >
               <select
                 [id]="idPrefix + '-issues-severity-' + row.key"
                 [name]="'issue-severity-' + row.key"
@@ -391,8 +502,12 @@
               </select>
             </cp-field>
 
-            <cp-field label="The problem, in one line" [forId]="idPrefix + '-issues-title-' + row.key" [required]="true"
-              [error]="rowFieldError('issues', row.key, 'title')">
+            <cp-field
+              label="The problem, in one line"
+              [forId]="idPrefix + '-issues-title-' + row.key"
+              [required]="true"
+              [error]="rowFieldError('issues', row.key, 'title')"
+            >
               <input
                 [id]="idPrefix + '-issues-title-' + row.key"
                 type="text"
@@ -405,8 +520,11 @@
               />
             </cp-field>
 
-            <cp-field label="At more length" [forId]="idPrefix + '-issues-description-' + row.key"
-              [error]="rowFieldError('issues', row.key, 'description')">
+            <cp-field
+              label="At more length"
+              [forId]="idPrefix + '-issues-description-' + row.key"
+              [error]="rowFieldError('issues', row.key, 'description')"
+            >
               <textarea
                 [id]="idPrefix + '-issues-description-' + row.key"
                 [name]="'issue-description-' + row.key"
@@ -419,9 +537,12 @@
             </cp-field>
 
             @if (observationLinkOptions().length > 0) {
-              <cp-field label="Came from" [forId]="idPrefix + '-issues-observationIndex-' + row.key"
+              <cp-field
+                label="Came from"
+                [forId]="idPrefix + '-issues-observationIndex-' + row.key"
                 [error]="rowFieldError('issues', row.key, 'observationIndex')"
-                hint="One of your notes above, if this came from one.">
+                hint="One of your notes above, if this came from one."
+              >
                 <select
                   [id]="idPrefix + '-issues-observationIndex-' + row.key"
                   [name]="'issue-observation-' + row.key"
@@ -461,7 +582,13 @@
         send focus. `role="status"` rather than `alert`: the message is also the thing revealFirstError falls
         back to, and announcing it twice would be worse than announcing it once.
       -->
-      <p class="status" [id]="idPrefix + '-status'" tabindex="-1" role="status" [class.status--problem]="stateMessage()">
+      <p
+        class="status"
+        [id]="idPrefix + '-status'"
+        tabindex="-1"
+        role="status"
+        [class.status--problem]="stateMessage()"
+      >
         @if (stateMessage()) {
           {{ stateMessage() }}
         } @else if (isEditing() && isDirty()) {

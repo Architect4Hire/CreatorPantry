@@ -169,11 +169,15 @@ export function decodeWorkTask(value: unknown): WorkTask | null {
   const { id, title, status, priority, owner, assignee, links, labels, createdAt, updatedAt, concurrencyToken } = value;
 
   if (
-    typeof id !== 'string' || id === '' ||
+    typeof id !== 'string' ||
+    id === '' ||
     typeof title !== 'string' ||
-    typeof status !== 'string' || !(STATUSES as readonly string[]).includes(status) ||
-    typeof priority !== 'string' || !(PRIORITIES as readonly string[]).includes(priority) ||
-    typeof createdAt !== 'string' || typeof updatedAt !== 'string' ||
+    typeof status !== 'string' ||
+    !(STATUSES as readonly string[]).includes(status) ||
+    typeof priority !== 'string' ||
+    !(PRIORITIES as readonly string[]).includes(priority) ||
+    typeof createdAt !== 'string' ||
+    typeof updatedAt !== 'string' ||
     typeof concurrencyToken !== 'string'
   ) {
     return null;
@@ -224,7 +228,9 @@ export function decodeTodayWorkTasks(value: unknown): TodayWorkTasks | null {
   if (!overdue || !scheduledToday || !inProgress || !waiting || !completedToday || !suggested) return null;
 
   // Only ids the day actually holds: a pointer the page cannot draw is no emphasis at all.
-  const held = new Set([...overdue, ...scheduledToday, ...inProgress, ...waiting, ...completedToday].map((task) => task.id));
+  const held = new Set(
+    [...overdue, ...scheduledToday, ...inProgress, ...waiting, ...completedToday].map((task) => task.id),
+  );
   const chosen = Array.isArray(value['topThree']) ? value['topThree'] : [];
   const topThree = chosen.filter((id): id is string => typeof id === 'string' && held.has(id));
 
@@ -252,9 +258,12 @@ export function decodeWeekWorkTasks(value: unknown): WeekWorkTasks | null {
 
   const { weekStart, weekEnd, today, timeZoneId } = value;
   if (
-    typeof weekStart !== 'string' || !ISO_DATE.test(weekStart) ||
-    typeof weekEnd !== 'string' || !ISO_DATE.test(weekEnd) ||
-    typeof today !== 'string' || !ISO_DATE.test(today) ||
+    typeof weekStart !== 'string' ||
+    !ISO_DATE.test(weekStart) ||
+    typeof weekEnd !== 'string' ||
+    !ISO_DATE.test(weekEnd) ||
+    typeof today !== 'string' ||
+    !ISO_DATE.test(today) ||
     typeof timeZoneId !== 'string'
   ) {
     return null;

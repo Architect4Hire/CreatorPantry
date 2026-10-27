@@ -138,7 +138,9 @@ describe('DamLibraryComponent', () => {
   async function create(url = `/${SLUG}/dam`): Promise<void> {
     contentSpy ??= jasmine
       .createSpy('content')
-      .and.callFake(() => of<DamAssetContentOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) }));
+      .and.callFake(() =>
+        of<DamAssetContentOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) }),
+      );
     channelsSpy ??= jasmine
       .createSpy('listContentChannels')
       .and.resolveTo({ status: 'found', channels: CHANNELS } as ContentChannelsOutcome);
@@ -146,8 +148,10 @@ describe('DamLibraryComponent', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
-        provideRouter([{ path: ':workspaceSlug/dam', pathMatch: 'full', component: DamLibraryComponent },
-          { path: ':workspaceSlug/dam/:assetId', component: DamLibraryComponent }]),
+        provideRouter([
+          { path: ':workspaceSlug/dam', pathMatch: 'full', component: DamLibraryComponent },
+          { path: ':workspaceSlug/dam/:assetId', component: DamLibraryComponent },
+        ]),
         { provide: DamAssetService, useValue: { search: searchSpy, content: contentSpy } },
         { provide: BrandProfileService, useValue: { listContentChannels: channelsSpy } },
         { provide: VisibilityService, useValue: { whenNearViewport: () => of(undefined) } },
@@ -157,7 +161,16 @@ describe('DamLibraryComponent', () => {
             ensureLoaded: () => Promise.resolve(),
             state: () => ({
               status: 'ready',
-              memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Cozy Fall', membershipId: 'm1', role, status: 'Active' }],
+              memberships: [
+                {
+                  workspaceId: 'w1',
+                  workspaceSlug: SLUG,
+                  workspaceName: 'Cozy Fall',
+                  membershipId: 'm1',
+                  role,
+                  status: 'Active',
+                },
+              ],
             }),
           },
         },
@@ -268,7 +281,9 @@ describe('DamLibraryComponent', () => {
   });
 
   it('says nothing about usage when the server did not send a count', async () => {
-    searchSpy = jasmine.createSpy('search').and.returnValue(found(page([asset('a1', 'Old server', { utilizationCount: null })])));
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.returnValue(found(page([asset('a1', 'Old server', { utilizationCount: null })])));
     await create();
 
     expect(cards()[0].textContent).not.toContain('Usage');
@@ -324,11 +339,13 @@ describe('DamLibraryComponent', () => {
   });
 
   it('keeps the grid when one picture fails, with a retry on that card alone', async () => {
-    contentSpy = jasmine.createSpy('content').and.callFake((_slug: string, id: string) =>
-      of<DamAssetContentOutcome>(
-        id === 'a1' ? { status: 'unavailable' } : { status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) },
-      ),
-    );
+    contentSpy = jasmine
+      .createSpy('content')
+      .and.callFake((_slug: string, id: string) =>
+        of<DamAssetContentOutcome>(
+          id === 'a1' ? { status: 'unavailable' } : { status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) },
+        ),
+      );
     searchSpy = jasmine.createSpy('search').and.returnValue(found(page([asset('a1', 'Broken'), asset('a2', 'Fine')])));
     await create();
 
@@ -340,7 +357,9 @@ describe('DamLibraryComponent', () => {
   });
 
   it('says how many are shown of how many, and in which order', async () => {
-    searchSpy = jasmine.createSpy('search').and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 57 })));
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 57 })));
     await create();
 
     const summaryRegion = root().querySelector('.result-summary') as HTMLElement;
@@ -358,7 +377,9 @@ describe('DamLibraryComponent', () => {
     // AU.6.1: drawn, and inviting the first picture from someone who may add one.
     const empty = root().querySelector('cp-empty-state') as HTMLElement;
     expect(empty.querySelector('cp-illustration')).toBeTruthy();
-    expect(Array.from(empty.querySelectorAll('button')).map((each) => each.textContent?.trim())).toEqual(['Upload a picture']);
+    expect(Array.from(empty.querySelectorAll('button')).map((each) => each.textContent?.trim())).toEqual([
+      'Upload a picture',
+    ]);
   });
 
   it('offers no upload from the empty library to a Viewer', async () => {
@@ -594,7 +615,9 @@ describe('DamLibraryComponent', () => {
   });
 
   it('drops the cursor when a filter or the ordering changes, so one search is never paged with another', async () => {
-    searchSpy = jasmine.createSpy('search').and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 9 })));
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 9 })));
     await create();
 
     choose('day', 'Monday');
@@ -633,12 +656,14 @@ describe('DamLibraryComponent', () => {
 
   // ---- Two workspaces ----
 
-  it("shows nothing of one workspace, releases its pictures, and sends none of its cursor, when the route moves to another", async () => {
+  it('shows nothing of one workspace, releases its pictures, and sends none of its cursor, when the route moves to another', async () => {
     const revoke = spyOn(URL, 'revokeObjectURL').and.callThrough();
     const otherPage = new Subject<DamAssetSearchOutcome>();
-    searchSpy = jasmine.createSpy('search').and.callFake((slug: string) =>
-      slug === SLUG ? found(page(TWO.items, { nextCursor: 'cursor-of-a', totalCount: 9 })) : otherPage,
-    );
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.callFake((slug: string) =>
+        slug === SLUG ? found(page(TWO.items, { nextCursor: 'cursor-of-a', totalCount: 9 })) : otherPage,
+      );
     await create();
     expect(root().querySelectorAll('img').length).toBe(2);
 

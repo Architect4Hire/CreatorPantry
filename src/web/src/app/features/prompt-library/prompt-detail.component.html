@@ -17,7 +17,9 @@
 </cp-page-head>
 
 <!-- Always present, and outside the busy region (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
-<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading the prompt…' : '' }}</p>
+<p class="cp-sr-only" role="status" aria-live="polite">{{
+  state().status === 'loading' ? 'Loading the prompt…' : ''
+}}</p>
 
 @switch (state().status) {
   @case ('loading') {
@@ -43,9 +45,13 @@
   @case ('ready') {
     @if (prompt(); as shown) {
       <!-- Always present, so what Copy just did is announced reliably. -->
-      <cp-notice class="outcome" role="status" [quiet]="copyMessage() === ''" [tone]="copyFailed() ? 'error' : 'success'">{{
-        copyMessage()
-      }}</cp-notice>
+      <cp-notice
+        class="outcome"
+        role="status"
+        [quiet]="copyMessage() === ''"
+        [tone]="copyFailed() ? 'error' : 'success'"
+        >{{ copyMessage() }}</cp-notice
+      >
 
       @if (reuseProblem(); as problem) {
         <cp-notice class="problem" tone="error" role="alert">{{ problem }}</cp-notice>
@@ -75,19 +81,25 @@
              still being read, which is every answer but the three below. -->
         @let access = reuseAccess();
         <p class="cp-sr-only" role="status">
-          {{ access === 'view_only' || access === 'unknown' || access === 'allowed' ? '' : 'Checking what you can do here…' }}
+          {{
+            access === 'view_only' || access === 'unknown' || access === 'allowed'
+              ? ''
+              : 'Checking what you can do here…'
+          }}
         </p>
         @switch (access) {
           @case ('view_only') {
             <cp-notice role="note">
-              You have view-only access to this workspace, so you can't make pictures from this. You can still copy
-              or download it.
+              You have view-only access to this workspace, so you can't make pictures from this. You can still copy or
+              download it.
             </cp-notice>
           }
           @case ('unknown') {
             <cp-notice tone="warning" role="status">
               We couldn't check what you can do in this workspace.
-              <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()">Try again</button>
+              <button cpButton type="button" variant="secondary" size="sm" (click)="retryMemberships()"
+                >Try again</button
+              >
             </cp-notice>
           }
           @case ('allowed') {}

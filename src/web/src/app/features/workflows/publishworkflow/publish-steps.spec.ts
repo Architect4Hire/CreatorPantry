@@ -69,7 +69,14 @@ function card(overrides: Partial<ContentCard> = {}): ContentCard {
 }
 
 function detail(overrides: Partial<ContentCardDetail> = {}): ContentCardDetail {
-  return { card: card(), description: 'Warm from the oven.', lineage: [], history: [], historyTruncated: false, ...overrides };
+  return {
+    card: card(),
+    description: 'Warm from the oven.',
+    lineage: [],
+    history: [],
+    historyTruncated: false,
+    ...overrides,
+  };
 }
 
 function record(overrides: Partial<PublishingRecord> = {}): PublishingRecord {
@@ -126,7 +133,9 @@ function configure(): void {
   port = new WorkflowStepPort();
   keepDraft = jasmine.createSpy('keepDraft').and.resolveTo(true);
   port.connect(keepDraft);
-  list = jasmine.createSpy('list').and.returnValue(of({ status: 'found', page: { items: [card()], nextCursor: null, columns: [] } }));
+  list = jasmine
+    .createSpy('list')
+    .and.returnValue(of({ status: 'found', page: { items: [card()], nextCursor: null, columns: [] } }));
   cardDetail = jasmine.createSpy('detail').and.returnValue(of({ status: 'found', detail: detail() }));
   forCard = jasmine.createSpy('forCard').and.returnValue(of({ status: 'read', list: { items: [], complete: true } }));
   readRecord = jasmine.createSpy('record').and.returnValue(of({ status: 'read', record: record() }));
@@ -215,7 +224,10 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
     });
 
     it('starts on the card the run was started from, without being chosen again', async () => {
-      const fixture = await render(PublishChooseStepComponent, publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: null }]));
+      const fixture = await render(
+        PublishChooseStepComponent,
+        publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: null }]),
+      );
 
       expect(port.registration()!.results!()).toEqual([{ kind: 'ContentCard', id: 'card-1' }]);
       expect(port.registration()!.ready!()).toBe(true);
@@ -227,7 +239,9 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
       const fixture = await render(PublishChooseStepComponent, publishRun());
 
       expect(text(fixture)).toContain('There is nothing on your board yet');
-      expect((fixture.nativeElement as HTMLElement).querySelector('cp-notice a')!.getAttribute('href')).toBe(`/${SLUG}/content-board`);
+      expect((fixture.nativeElement as HTMLElement).querySelector('cp-notice a')!.getAttribute('href')).toBe(
+        `/${SLUG}/content-board`,
+      );
       expect(port.registration()!.ready!()).toBe(false);
     });
 
@@ -249,7 +263,9 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
       expect(text(fixture)).toContain('Soda bread, Friday');
       expect(text(fixture)).toContain('Warm from the oven.');
       expect(text(fixture)).toContain('Nothing is scheduled yet');
-      expect((fixture.nativeElement as HTMLElement).querySelector('a')!.getAttribute('href')).toBe(`/${SLUG}/content-board/card-1`);
+      expect((fixture.nativeElement as HTMLElement).querySelector('a')!.getAttribute('href')).toBe(
+        `/${SLUG}/content-board/card-1`,
+      );
       expect(port.registration()!.ready!()).toBe(true);
     });
 
@@ -301,7 +317,12 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
     });
 
     it('reports the booking this run made, not another the card happens to hold', async () => {
-      forCard.and.returnValue(of({ status: 'read', list: { items: [record({ id: 'rec-other' }), record({ id: 'rec-mine' })], complete: true } }));
+      forCard.and.returnValue(
+        of({
+          status: 'read',
+          list: { items: [record({ id: 'rec-other' }), record({ id: 'rec-mine' })], complete: true },
+        }),
+      );
       await render(
         PublishScheduleStepComponent,
         publishRun([
@@ -354,7 +375,9 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
     });
 
     it('never rounds an uncertain outcome to success or failure', async () => {
-      readRecord.and.returnValue(of({ status: 'read', record: record({ status: 'Submitting', outcomeUncertain: true }) }));
+      readRecord.and.returnValue(
+        of({ status: 'read', record: record({ status: 'Submitting', outcomeUncertain: true }) }),
+      );
       const fixture = await render(PublishConfirmStepComponent, booked());
 
       const said = text(fixture);
@@ -368,7 +391,9 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
     });
 
     it('says a failure is a failure, and the step is not done', async () => {
-      readRecord.and.returnValue(of({ status: 'read', record: record({ status: 'Failed', failureSummary: 'The provider refused it.' }) }));
+      readRecord.and.returnValue(
+        of({ status: 'read', record: record({ status: 'Failed', failureSummary: 'The provider refused it.' }) }),
+      );
       const fixture = await render(PublishConfirmStepComponent, booked());
 
       expect(port.registration()!.ready!()).toBe(false);
@@ -377,7 +402,10 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
 
     it('falls back to the card’s newest booking when the run holds none', async () => {
       forCard.and.returnValue(of({ status: 'read', list: { items: [record({ id: 'rec-newest' })], complete: true } }));
-      const fixture = await render(PublishConfirmStepComponent, publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' }]));
+      const fixture = await render(
+        PublishConfirmStepComponent,
+        publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' }]),
+      );
 
       expect(readRecord).not.toHaveBeenCalled();
       expect(forCard).toHaveBeenCalledWith(SLUG, 'card-1');
@@ -385,7 +413,10 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
     });
 
     it('says nothing has been booked when nothing has, and sends the creator back a step', async () => {
-      const fixture = await render(PublishConfirmStepComponent, publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' }]));
+      const fixture = await render(
+        PublishConfirmStepComponent,
+        publishRun([{ kind: 'ContentCard', resourceId: 'card-1', stepKey: 'choose' }]),
+      );
 
       expect(text(fixture)).toContain('Nothing has been booked for this card yet');
       expect(port.registration()!.ready!()).toBe(false);
@@ -425,7 +456,11 @@ describe('"Plan and publish content" step screens (13A.22)', () => {
         const held = await render(step, run());
         expect(statuses(held)).toEqual([sentence]);
         expect(root(held).querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
-        expect(Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence))).toBeFalse();
+        expect(
+          Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) =>
+            each.textContent?.includes(sentence),
+          ),
+        ).toBeFalse();
         held.destroy();
 
         TestBed.resetTestingModule();

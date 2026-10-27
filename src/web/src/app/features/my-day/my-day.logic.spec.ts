@@ -63,18 +63,30 @@ describe('My Day moves', () => {
     expect(moves[3].request).toEqual({ status: 'Backlog', planningWeekStart: '2038-10-11' });
 
     const sunday = movesFor(task({ scheduledDate: '2038-10-17' }), '2038-10-17');
-    expect(sunday[3]).toEqual({ id: 'next-week', label: 'Next week', request: { status: 'Backlog', planningWeekStart: '2038-10-18' } });
+    expect(sunday[3]).toEqual({
+      id: 'next-week',
+      label: 'Next week',
+      request: { status: 'Backlog', planningWeekStart: '2038-10-18' },
+    });
   });
 
   it('never sends a day or week with in progress or waiting, and offers nothing for a finished task', () => {
-    for (const move of [...movesFor(task(), TODAY), ...movesFor(task({ status: 'InProgress' }), TODAY), ...movesFor(task({ status: 'Waiting' }), TODAY)]) {
+    for (const move of [
+      ...movesFor(task(), TODAY),
+      ...movesFor(task({ status: 'InProgress' }), TODAY),
+      ...movesFor(task({ status: 'Waiting' }), TODAY),
+    ]) {
       if (move.request.status !== 'Backlog') {
         expect(move.request.scheduledDate).toBeUndefined();
         expect(move.request.planningWeekStart).toBeUndefined();
       }
     }
 
-    expect(movesFor(task({ status: 'InProgress' }), TODAY).map((move) => move.id)).toEqual(['waiting', 'not-started', 'tomorrow']);
+    expect(movesFor(task({ status: 'InProgress' }), TODAY).map((move) => move.id)).toEqual([
+      'waiting',
+      'not-started',
+      'tomorrow',
+    ]);
     expect(movesFor(task({ status: 'Waiting' }), TODAY).map((move) => move.id)).toEqual(['in-progress', 'tomorrow']);
     expect(movesFor(task({ status: 'Done' }), TODAY)).toEqual([]);
   });
@@ -96,9 +108,24 @@ describe('My Day links', () => {
       commands: ['/', 'sams-kitchen', 'workflows', 'runs', RUN],
       what: 'the workflow',
     });
-    expect(linkFor(links({ recipeId: 'r-1', contentCardId: 'c-1' }), 'sams-kitchen')!.commands).toEqual(['/', 'sams-kitchen', 'recipes', 'r-1']);
-    expect(linkFor(links({ contentCardId: 'c-1' }), 'sams-kitchen')!.commands).toEqual(['/', 'sams-kitchen', 'content-board', 'c-1']);
-    expect(linkFor(links({ mediaAssetId: 'a-1' }), 'sams-kitchen')!.commands).toEqual(['/', 'sams-kitchen', 'dam', 'a-1']);
+    expect(linkFor(links({ recipeId: 'r-1', contentCardId: 'c-1' }), 'sams-kitchen')!.commands).toEqual([
+      '/',
+      'sams-kitchen',
+      'recipes',
+      'r-1',
+    ]);
+    expect(linkFor(links({ contentCardId: 'c-1' }), 'sams-kitchen')!.commands).toEqual([
+      '/',
+      'sams-kitchen',
+      'content-board',
+      'c-1',
+    ]);
+    expect(linkFor(links({ mediaAssetId: 'a-1' }), 'sams-kitchen')!.commands).toEqual([
+      '/',
+      'sams-kitchen',
+      'dam',
+      'a-1',
+    ]);
     expect(linkFor(task(), 'sams-kitchen')).toBeNull();
   });
 

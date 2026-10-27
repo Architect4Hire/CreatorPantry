@@ -4,10 +4,19 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of } from 'rxjs';
 
 import { MyWorkspaceMembership, WorkspaceRole } from '../../models/auth.models';
-import { AiProposalDetail, AiProposalStatus, AiProposalWarning, AiProposedChange } from '../../models/ai-proposal.models';
+import {
+  AiProposalDetail,
+  AiProposalStatus,
+  AiProposalWarning,
+  AiProposedChange,
+} from '../../models/ai-proposal.models';
 import { RequestRecipeConceptsRequest } from '../../models/recipe-concept.models';
 import { AiRequestOutcome } from '../../services/ai-request';
-import { RecipeConceptService, RequestConceptsOutcome, WatchConceptsOutcome } from '../../services/recipe-concept.service';
+import {
+  RecipeConceptService,
+  RequestConceptsOutcome,
+  WatchConceptsOutcome,
+} from '../../services/recipe-concept.service';
 import { CreativeContextDraft } from '../../models/creative-context.models';
 import {
   CreativeContextCreateOutcome,
@@ -146,11 +155,7 @@ class StubRecipeConceptService {
     });
   }
 
-  requestConcepts(
-    _slug: string,
-    request: RequestRecipeConceptsRequest,
-    key: string,
-  ): Promise<RequestConceptsOutcome> {
+  requestConcepts(_slug: string, request: RequestRecipeConceptsRequest, key: string): Promise<RequestConceptsOutcome> {
     this.requestCalls.push({ request, key });
     return Promise.resolve(this.requestOutcome);
   }
@@ -253,7 +258,10 @@ describe('RecipeConceptStudioComponent', () => {
             },
           },
         },
-        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) } },
+        {
+          provide: Router,
+          useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) },
+        },
         ...(host ? [{ provide: RecipeStudioHost, useValue: host }] : []),
       ],
     });
@@ -424,9 +432,7 @@ describe('RecipeConceptStudioComponent', () => {
 
     click('Get concepts');
 
-    expect(service.requestCalls[0].request.dishName).toBe(
-      'Fattoush Salad with Radishes and Grilled Chicken Shawarma',
-    );
+    expect(service.requestCalls[0].request.dishName).toBe('Fattoush Salad with Radishes and Grilled Chicken Shawarma');
     discardPeriodicTasks();
   }));
 
@@ -609,7 +615,7 @@ describe('RecipeConceptStudioComponent', () => {
     expect(element().querySelector('cp-page-head h1')).toBeTruthy();
 
     const headings = Array.from(element().querySelectorAll('h2')).map((h) => h.textContent?.trim());
-    expect(headings).toEqual(["The dish", "Who it's for", 'Ingredients and limits', 'Your voice']);
+    expect(headings).toEqual(['The dish', "Who it's for", 'Ingredients and limits', 'Your voice']);
   }));
 
   it('reads its concepts through the shared list frame, which owns the results heading', fakeAsync(() => {
@@ -670,11 +676,19 @@ describe('RecipeConceptStudioComponent', () => {
 
   function richConcept(): readonly AiProposedChange[] {
     return [
-      change({ changeId: 'add-1', targetId: 'concept-1', afterValue: 'Maple-butter overnight rolls', proposedPosition: 0 }),
+      change({
+        changeId: 'add-1',
+        targetId: 'concept-1',
+        afterValue: 'Maple-butter overnight rolls',
+        proposedPosition: 0,
+      }),
       setRow('summary', 'Soft rolls brushed with maple butter.'),
       setRow('timeBudgetNote', 'Overnight rise, then a morning window.'),
       setRow('skillLevelFit', 'Weekend home bakers.'),
-      setRow('dietaryNotes', 'Contains wheat and dairy based on the provided components.; Dietary goals were not specified.'),
+      setRow(
+        'dietaryNotes',
+        'Contains wheat and dairy based on the provided components.; Dietary goals were not specified.',
+      ),
       setRow('assumptions', 'The starter is active.; Rolls are small portions.'),
       setRow('suggestedIngredients', 'bread flour; maple syrup; butter'),
       setRow('distinctnessRationale', 'The only one finished in the pan.'),
@@ -725,7 +739,9 @@ describe('RecipeConceptStudioComponent', () => {
     // A list of words is still joined with commas.
     expect(detail.textContent).toContain('bread flour, maple syrup, butter');
     // A list of sentences is a list, never "portions., The" (AU.0).
-    const assumptions = Array.from(detail.querySelectorAll('.concept-sentences li')).map((li) => li.textContent?.trim());
+    const assumptions = Array.from(detail.querySelectorAll('.concept-sentences li')).map((li) =>
+      li.textContent?.trim(),
+    );
     expect(assumptions).toEqual(['The starter is active.', 'Rolls are small portions.']);
     expect(card.textContent).not.toContain('., ');
   }));
@@ -746,7 +762,10 @@ describe('RecipeConceptStudioComponent', () => {
     // The caveat is this page's term, never one of the model's sentences, so no refactor can lose it among them.
     expect(fact.querySelector('dd')?.textContent).not.toContain('guarantee');
     const notes = Array.from(fact.querySelectorAll('dd li')).map((li) => li.textContent?.trim());
-    expect(notes).toEqual(['Contains wheat and dairy based on the provided components.', 'Dietary goals were not specified.']);
+    expect(notes).toEqual([
+      'Contains wheat and dairy based on the provided components.',
+      'Dietary goals were not specified.',
+    ]);
   }));
 
   it("keeps a concept's own cautions on its card, never behind the disclosure", fakeAsync(() => {
@@ -754,7 +773,9 @@ describe('RecipeConceptStudioComponent', () => {
     service.statuses = [
       found({
         status: 'Proposed',
-        proposal: proposal(twoConcepts(), [{ kind: 'SafetyCaution', message: 'Cool the soup quickly.', changeId: 'add-1' }]),
+        proposal: proposal(twoConcepts(), [
+          { kind: 'SafetyCaution', message: 'Cool the soup quickly.', changeId: 'add-1' },
+        ]),
       }),
     ];
     click('Get concepts');
@@ -806,7 +827,10 @@ describe('RecipeConceptStudioComponent', () => {
   it("still shows the model's flags when no concepts came back, since a flag is often why", fakeAsync(() => {
     render();
     service.statuses = [
-      found({ status: 'Proposed', proposal: proposal([], [{ kind: 'Unspecified', message: 'The brief was empty.', changeId: null }]) }),
+      found({
+        status: 'Proposed',
+        proposal: proposal([], [{ kind: 'Unspecified', message: 'The brief was empty.', changeId: null }]),
+      }),
     ];
     click('Get concepts');
 
@@ -982,7 +1006,10 @@ describe('RecipeConceptStudioComponent', () => {
       [{ status: 'idempotency_key_conflict' }, 'clashed with another'],
       [{ status: 'forbidden' }, 'does not permit asking for a recipe draft'],
       [{ status: 'unavailable' }, "Couldn't reach the server"],
-      [{ status: 'validation_failed', fieldErrors: { audience: ['Too long.'] } }, 'needs changing before this can be drafted'],
+      [
+        { status: 'validation_failed', fieldErrors: { audience: ['Too long.'] } },
+        'needs changing before this can be drafted',
+      ],
     ];
 
     for (const [outcome, words] of refusals) {
@@ -1352,7 +1379,9 @@ describe('RecipeConceptStudioComponent', () => {
     it('resumes on the request the host names', fakeAsync(() => {
       host!.conceptRequestId = 'op-kept';
       configure();
-      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      service.statuses = [
+        found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) }),
+      ];
       fixture.detectChanges();
       settle();
       settle();
@@ -1413,12 +1442,16 @@ describe('RecipeConceptStudioComponent', () => {
       host!.showMaker = true;
       host!.conceptRequestId = 'op-kept';
       configure();
-      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      service.statuses = [
+        found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) }),
+      ];
       fixture.detectChanges();
       settle();
       settle();
 
-      expect(element().querySelector('cp-generated cp-generated-label')?.textContent).toContain('phi-4 (foundry-local)');
+      expect(element().querySelector('cp-generated cp-generated-label')?.textContent).toContain(
+        'phi-4 (foundry-local)',
+      );
     }));
 
     it('tells the host when a new brief is asked for, so the flow can go back to it', fakeAsync(() => {
@@ -1444,7 +1477,9 @@ describe('RecipeConceptStudioComponent', () => {
     it('still marks the concepts as drafted by AI in a guided step, without naming the model', fakeAsync(() => {
       host!.conceptRequestId = 'op-kept';
       configure();
-      service.statuses = [found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) })];
+      service.statuses = [
+        found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) }),
+      ];
       fixture.detectChanges();
       settle();
       settle();

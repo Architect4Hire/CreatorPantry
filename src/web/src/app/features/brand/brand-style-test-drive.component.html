@@ -30,51 +30,53 @@
     </cp-empty-state>
   } @else {
     <cp-topic-card heading="What the samples should be about" headingId="cp-style-test-drive-ask-heading">
-        <p class="standing"><cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill></p>
+      <p class="standing"
+        ><cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill></p
+      >
 
-        <cp-field
-          label="Subject"
-          forId="cp-style-test-drive-subject"
-          hint="Optional. A short phrase — a dish, not a brief. Left empty, we use our own example."
-        >
-          <input
-            id="cp-style-test-drive-subject"
-            type="text"
-            [value]="subject()"
-            [attr.maxlength]="subjectMax"
-            [disabled]="working()"
-            (input)="setSubject($event)"
-          />
-        </cp-field>
+      <cp-field
+        label="Subject"
+        forId="cp-style-test-drive-subject"
+        hint="Optional. A short phrase — a dish, not a brief. Left empty, we use our own example."
+      >
+        <input
+          id="cp-style-test-drive-subject"
+          type="text"
+          [value]="subject()"
+          [attr.maxlength]="subjectMax"
+          [disabled]="working()"
+          (input)="setSubject($event)"
+        />
+      </cp-field>
 
+      <cp-notice tone="neutral">
+        Both versions are written about the same subject, so the only difference between them is your guide. Nothing on
+        this page is saved to your recipes, posts or guide.
+      </cp-notice>
+
+      <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
+
+      @if (refusal()) {
+        <cp-notice tone="error">{{ refusal() }}</cp-notice>
+      }
+
+      @if (rolesKnown() && !canRequest()) {
         <cp-notice tone="neutral">
-          Both versions are written about the same subject, so the only difference between them is your guide.
-          Nothing on this page is saved to your recipes, posts or guide.
+          Your role in this workspace can read this page but cannot ask for samples.
         </cp-notice>
+      }
 
-        <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
-
-        @if (refusal()) {
-          <cp-notice tone="error">{{ refusal() }}</cp-notice>
+      <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+      <ng-container ngProjectAs="[cpTopicCardActions]">
+        @if (comparison() === null && !working()) {
+          <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
+            Write both versions
+          </button>
         }
-
-        @if (rolesKnown() && !canRequest()) {
-          <cp-notice tone="neutral">
-            Your role in this workspace can read this page but cannot ask for samples.
-          </cp-notice>
+        @if (comparison() !== null || failed()) {
+          <button cpButton type="button" variant="secondary" (click)="startAnother()">Try it again</button>
         }
-
-        <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
-        <ng-container ngProjectAs="[cpTopicCardActions]">
-          @if (comparison() === null && !working()) {
-            <button cpButton type="button" variant="primary" [disabled]="!canSubmit()" (click)="submit()">
-              Write both versions
-            </button>
-          }
-          @if (comparison() !== null || failed()) {
-            <button cpButton type="button" variant="secondary" (click)="startAnother()">Try it again</button>
-          }
-        </ng-container>
+      </ng-container>
     </cp-topic-card>
 
     @if (working()) {
@@ -135,11 +137,10 @@
       </cp-topic-card>
 
       <cp-topic-card heading="What your guide asked for" headingId="cp-style-test-drive-why-heading">
-
         @if (result.groundingChangedSince) {
           <cp-notice [tone]="groundingNoticeTone()">
-            Your guide or your examples have changed since these samples were written, so the list below is how
-            your guide reads now. The samples are unchanged.
+            Your guide or your examples have changed since these samples were written, so the list below is how your
+            guide reads now. The samples are unchanged.
           </cp-notice>
         }
 
@@ -182,8 +183,8 @@
         }
 
         <p class="cp-muted">
-          Written by {{ result.modelName }} using guidance template {{ result.promptTemplateVersion }}. These
-          are examples of what your guide does, not a measurement of it.
+          Written by {{ result.modelName }} using guidance template {{ result.promptTemplateVersion }}. These are
+          examples of what your guide does, not a measurement of it.
         </p>
 
         <!-- Audit 11A.24a, S5: what this run spent is not repeated here. Tokens, latency and cost are

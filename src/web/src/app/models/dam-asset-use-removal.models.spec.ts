@@ -88,7 +88,12 @@ describe('DAM use and removal models', () => {
 
   describe('the use draft', () => {
     it('starts empty and dated today', () => {
-      expect(emptyDamUseDraft(TODAY)).toEqual({ platformKey: '', utilizedOn: '2026-10-08', campaignName: '', notes: '' });
+      expect(emptyDamUseDraft(TODAY)).toEqual({
+        platformKey: '',
+        utilizedOn: '2026-10-08',
+        campaignName: '',
+        notes: '',
+      });
     });
 
     it('counts as touched once anything is entered or the date is moved, but not for the defaulted date alone', () => {
@@ -123,7 +128,9 @@ describe('DAM use and removal models', () => {
     it("refuses text past each of the server's limits, and accepts it exactly at them", () => {
       const at = (length: number): string => 'x'.repeat(length);
 
-      expect(validateDamUseDraft(draft({ platformKey: at(64), campaignName: at(200), notes: at(2000) }), TODAY)).toEqual({});
+      expect(
+        validateDamUseDraft(draft({ platformKey: at(64), campaignName: at(200), notes: at(2000) }), TODAY),
+      ).toEqual({});
       expect(validateDamUseDraft(draft({ platformKey: at(65) }), TODAY).platformKey).toContain('64');
       expect(validateDamUseDraft(draft({ campaignName: at(201) }), TODAY).campaignName).toContain('200');
       expect(validateDamUseDraft(draft({ notes: at(2001) }), TODAY).notes).toContain('2000');
@@ -235,12 +242,19 @@ describe('DAM use and removal models', () => {
 
   describe('damLinkImpactClauses', () => {
     it('is empty when nothing points at the asset', () => {
-      expect(damLinkImpactClauses({ recipeTitles: [], recipeCount: 0, brandProfileCount: 0, testAttachmentCount: 0 })).toEqual([]);
+      expect(
+        damLinkImpactClauses({ recipeTitles: [], recipeCount: 0, brandProfileCount: 0, testAttachmentCount: 0 }),
+      ).toEqual([]);
     });
 
     it('names up to three recipes, then counts the rest', () => {
       expect(
-        damLinkImpactClauses({ recipeTitles: ['A', 'B', 'C', 'D', 'E'], recipeCount: 5, brandProfileCount: 0, testAttachmentCount: 0 }),
+        damLinkImpactClauses({
+          recipeTitles: ['A', 'B', 'C', 'D', 'E'],
+          recipeCount: 5,
+          brandProfileCount: 0,
+          testAttachmentCount: 0,
+        }),
       ).toEqual(['5 recipes (A, B, C, 2 more)']);
     });
 
@@ -252,7 +266,12 @@ describe('DAM use and removal models', () => {
 
     it('says nothing about a kind whose count is not known', () => {
       expect(
-        damLinkImpactClauses({ recipeTitles: ['A'], recipeCount: 1, brandProfileCount: null, testAttachmentCount: null }),
+        damLinkImpactClauses({
+          recipeTitles: ['A'],
+          recipeCount: 1,
+          brandProfileCount: null,
+          testAttachmentCount: null,
+        }),
       ).toEqual(['1 recipe (A)']);
     });
   });
@@ -269,7 +288,10 @@ describe('DAM use and removal models', () => {
 
     it('never calls it deleting, and never suggests the files go at once', () => {
       const warning = damRemovalWarning(
-        asset({ recipeLinks: [{ recipeId: 'r1', title: 'Soda bread', role: 'Hero', caption: null }], brandProfileCount: 2 }),
+        asset({
+          recipeLinks: [{ recipeId: 'r1', title: 'Soda bread', role: 'Hero', caption: null }],
+          brandProfileCount: 2,
+        }),
       );
 
       expect(warning).not.toMatch(/\bdelet/i);

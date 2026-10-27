@@ -86,7 +86,9 @@ let nextId = 0;
 
       <details class="cp-disclosure detail" [class.empty]="overflow().length === 0">
         <!-- Named with the option too, so a grid of them never offers three identical disclosures. -->
-        <summary [attr.aria-labelledby]="detailTextId + ' ' + headingId"><span [id]="detailTextId">{{ detailLabel() }}</span></summary>
+        <summary [attr.aria-labelledby]="detailTextId + ' ' + headingId"
+          ><span [id]="detailTextId">{{ detailLabel() }}</span></summary
+        >
         @if (overflow().length > 0) {
           <dl class="more">
             @for (fact of overflow(); track $index) {

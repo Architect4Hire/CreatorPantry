@@ -62,19 +62,9 @@ function countSaid(shown: number, total: number | null): string {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <cp-form-section
-      sectionId="recipe-choose"
-      heading="Which recipe?"
-      [intro]="intro()"
-    >
+    <cp-form-section sectionId="recipe-choose" heading="Which recipe?" [intro]="intro()">
       <cp-search-field label="Search your recipes">
-        <input
-          type="search"
-          name="search"
-          autocomplete="off"
-          [value]="searchText()"
-          (input)="onSearch($event)"
-        />
+        <input type="search" name="search" autocomplete="off" [value]="searchText()" (input)="onSearch($event)" />
       </cp-search-field>
 
       <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
@@ -104,7 +94,13 @@ function countSaid(shown: number, total: number | null): string {
             }
             @if (moreCursor()) {
               <div class="cp-actions">
-                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="loadingMore() || null" (click)="loadMore()">
+                <button
+                  cpButton
+                  type="button"
+                  variant="secondary"
+                  [attr.aria-disabled]="loadingMore() || null"
+                  (click)="loadMore()"
+                >
                   {{ loadingMore() ? 'Loading more…' : 'Show more recipes' }}
                 </button>
               </div>
@@ -163,7 +159,8 @@ export class RecipeChooseStepComponent implements OnInit {
     if (found.status !== 'ready') return [];
     // The pick first when this search would not list it: what Continue will link is always the one showing as picked.
     const kept = this.pickedRecipe();
-    const listed = kept && !found.recipes.some((recipe) => recipe.id === kept.id) ? [kept, ...found.recipes] : found.recipes;
+    const listed =
+      kept && !found.recipes.some((recipe) => recipe.id === kept.id) ? [kept, ...found.recipes] : found.recipes;
     return listed.map((recipe) => ({
       value: recipe.id,
       label: recipe.title,
@@ -202,7 +199,8 @@ export class RecipeChooseStepComponent implements OnInit {
             ? { status: 'ready', recipes: outcome.page.items, nextCursor: outcome.page.nextCursor }
             : { status: 'unavailable' },
         );
-        if (outcome.status === 'found') this.port.announce(countSaid(outcome.page.items.length, outcome.page.totalCount));
+        if (outcome.status === 'found')
+          this.port.announce(countSaid(outcome.page.items.length, outcome.page.totalCount));
       });
   }
 
@@ -229,7 +227,8 @@ export class RecipeChooseStepComponent implements OnInit {
     const id = value[0] ?? null;
     this.pickedId.set(id);
     const found = this.found();
-    if (found.status === 'ready') this.pickedRecipe.set(found.recipes.find((recipe) => recipe.id === id) ?? this.pickedRecipe());
+    if (found.status === 'ready')
+      this.pickedRecipe.set(found.recipes.find((recipe) => recipe.id === id) ?? this.pickedRecipe());
     const name = this.options().find((option) => option.value === id)?.label;
     if (name) this.port.announce(`${name} chosen. Continue when you’re ready.`);
   }
@@ -244,16 +243,27 @@ export class RecipeChooseStepComponent implements OnInit {
     this.moreFailed.set(false);
     try {
       const outcome = await firstValueFrom(
-        this.recipes.searchRecipes(this.workspaceSlug(), { ...DEFAULT_RECIPE_SEARCH_QUERY, search: searched, cursor: found.nextCursor }),
+        this.recipes.searchRecipes(this.workspaceSlug(), {
+          ...DEFAULT_RECIPE_SEARCH_QUERY,
+          search: searched,
+          cursor: found.nextCursor,
+        }),
       );
 
       // A page for a search that is no longer the one on screen is dropped, never pasted under another's results.
       const now = this.found();
-      if (this.searchText().trim() !== searched || now.status !== 'ready' || now.nextCursor !== found.nextCursor) return;
+      if (this.searchText().trim() !== searched || now.status !== 'ready' || now.nextCursor !== found.nextCursor)
+        return;
 
       if (outcome.status === 'found') {
-        this.found.set({ status: 'ready', recipes: [...now.recipes, ...outcome.page.items], nextCursor: outcome.page.nextCursor });
-        this.port.announce(`${outcome.page.items.length === 1 ? 'One more recipe' : outcome.page.items.length + ' more recipes'} listed.`);
+        this.found.set({
+          status: 'ready',
+          recipes: [...now.recipes, ...outcome.page.items],
+          nextCursor: outcome.page.nextCursor,
+        });
+        this.port.announce(
+          `${outcome.page.items.length === 1 ? 'One more recipe' : outcome.page.items.length + ' more recipes'} listed.`,
+        );
       } else {
         this.moreFailed.set(true);
       }

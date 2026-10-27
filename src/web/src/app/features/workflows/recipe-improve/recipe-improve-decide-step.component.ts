@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CpNoticeComponent } from '@creator-pantry/ui';
 
 import { AiProposalDispositionResult } from '../../../models/ai-proposal.models';
@@ -35,7 +45,9 @@ import { RecipeOpenSuggestionsComponent } from './recipe-open-suggestions.compon
         </cp-notice>
       }
     } @else {
-      <cp-notice tone="warning" role="status">There’s no recipe chosen yet. Go back to the first step and choose one.</cp-notice>
+      <cp-notice tone="warning" role="status"
+        >There’s no recipe chosen yet. Go back to the first step and choose one.</cp-notice
+      >
     }
   `,
 })
@@ -65,7 +77,9 @@ export class RecipeImproveDecideStepComponent implements OnInit {
 
   protected afterDecision(result: AiProposalDispositionResult): void {
     this.port.announce(
-      result.acceptedChangeCount > 0 ? 'Kept. Your recipe now has those changes.' : 'Declined. Your recipe wasn’t changed.',
+      result.acceptedChangeCount > 0
+        ? 'Kept. Your recipe now has those changes.'
+        : 'Declined. Your recipe wasn’t changed.',
     );
     // The panel that held focus leaves the list: focus goes to the step, never to nothing.
     this.port.focusStep();

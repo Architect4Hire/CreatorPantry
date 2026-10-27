@@ -48,23 +48,13 @@
 
   <div cpChipGroup cpToolbarFilters label="Filter by the tester's verdict">
     @for (outcome of outcomeOptions; track outcome) {
-      <button
-        cpChip
-        [pressed]="isOutcomeSelected(outcome)"
-        (click)="toggleOutcome(outcome)"
-      >
+      <button cpChip [pressed]="isOutcomeSelected(outcome)" (click)="toggleOutcome(outcome)">
         {{ outcomeLabels[outcome] }}
       </button>
     }
 
     @if (canFilterToMine()) {
-      <button
-        cpChip
-        [pressed]="mineOnly()"
-        (click)="toggleMine()"
-      >
-        Cooked by me
-      </button>
+      <button cpChip [pressed]="mineOnly()" (click)="toggleMine()"> Cooked by me </button>
     }
   </div>
 
@@ -165,9 +155,7 @@
             <cp-status-pill [tone]="outcomeTone(row.outcome)">{{ outcomeLabels[row.outcome] }}</cp-status-pill>
 
             @if (row.unresolvedIssueCount > 0) {
-              <cp-status-pill tone="error">
-                {{ row.unresolvedIssueCount }} unresolved
-              </cp-status-pill>
+              <cp-status-pill tone="error"> {{ row.unresolvedIssueCount }} unresolved </cp-status-pill>
             } @else if (row.issueCount > 0) {
               <cp-status-pill tone="success">All {{ row.issueCount }} resolved</cp-status-pill>
             }
@@ -185,8 +173,8 @@
           }
 
           <span class="run-counts">
-            {{ row.observationCount }} {{ row.observationCount === 1 ? 'note' : 'notes' }}
-            · {{ row.issueCount }} {{ row.issueCount === 1 ? 'problem' : 'problems' }}
+            {{ row.observationCount }} {{ row.observationCount === 1 ? 'note' : 'notes' }} · {{ row.issueCount }}
+            {{ row.issueCount === 1 ? 'problem' : 'problems' }}
             @if (row.attachmentCount > 0) {
               · {{ row.attachmentCount }} {{ row.attachmentCount === 1 ? 'photo' : 'photos' }}
             }

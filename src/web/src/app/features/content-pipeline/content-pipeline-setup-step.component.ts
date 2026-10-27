@@ -193,7 +193,6 @@ export class ContentPipelineSetupStepComponent implements OnInit {
   protected readonly sceneAtCap = computed(() => this.sceneRows().length >= CONTENT_PIPELINE_LIMITS.maxOverrides);
   protected readonly styleAtCap = computed(() => this.styleRows().length >= CONTENT_PIPELINE_LIMITS.maxOverrides);
 
-
   constructor() {
     // Rows are seeded from the config, and re-seeded whenever the config's lists stop matching what is on
     // screen. That second case is the host replacing the draft — Start over, or moving to another workspace —

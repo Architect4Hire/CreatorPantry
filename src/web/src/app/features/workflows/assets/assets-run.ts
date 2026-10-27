@@ -9,7 +9,9 @@ export const ORGANIZE_ASSETS_DEFINITION_KEY = 'assets.organize';
  * first step chose — or, before that step was done, the one the step is keeping. Null before there is any.
  */
 export function runAssetId(run: WorkflowRun): string | null {
-  return newestLinked(run, 'MediaAsset') ?? run.steps.find((step) => step.draft?.kind === 'MediaAsset')?.draft?.id ?? null;
+  return (
+    newestLinked(run, 'MediaAsset') ?? run.steps.find((step) => step.draft?.kind === 'MediaAsset')?.draft?.id ?? null
+  );
 }
 
 /** A library picture, as a run names one. */

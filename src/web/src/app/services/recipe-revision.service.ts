@@ -5,10 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiBaseService } from '../core/api-base.service';
 import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
 import { AiProposalStatus, decodeAiProposalStatus } from '../models/ai-proposal.models';
-import {
-  RequestRecipeRevisionRequest,
-  encodeRequestRecipeRevisionRequest,
-} from '../models/recipe-revision.models';
+import { RequestRecipeRevisionRequest, encodeRequestRecipeRevisionRequest } from '../models/recipe-revision.models';
 
 export type RequestRevisionOutcome =
   /** `202`: the request is durable and queued. Nothing has been proposed yet — poll through the proposal route. */

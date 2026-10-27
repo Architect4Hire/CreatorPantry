@@ -84,13 +84,18 @@ export class LongFormTeasersComponent {
   private async read(slug: string, contextId: string): Promise<void> {
     this.teasers.set([]);
 
-    const [outcome, channels] = await Promise.all([this.posts.readPackage(slug, contextId), this.brand.listContentChannels()]);
+    const [outcome, channels] = await Promise.all([
+      this.posts.readPackage(slug, contextId),
+      this.brand.listContentChannels(),
+    ]);
 
     // Another piece of work, or another workspace, arrived while this was being read.
     if (slug !== this.workspaceSlug() || contextId !== this.contextId()) return;
     if (outcome.status !== 'found' || outcome.package === null) return;
 
-    const names = new Map(channels.status === 'found' ? channels.channels.map((channel) => [channel.key, channel.displayName]) : []);
+    const names = new Map(
+      channels.status === 'found' ? channels.channels.map((channel) => [channel.key, channel.displayName]) : [],
+    );
 
     this.teasers.set(
       outcome.package.channels

@@ -110,7 +110,10 @@ export const CORE_SECTIONS: readonly GuideSectionDefinition[] = [
 ];
 
 /** The channels this step offers a part for, and which of the creator's channel answers ask for it. */
-const CHANNEL_SECTIONS: readonly { readonly channels: readonly string[]; readonly definition: GuideSectionDefinition }[] = [
+const CHANNEL_SECTIONS: readonly {
+  readonly channels: readonly string[];
+  readonly definition: GuideSectionDefinition;
+}[] = [
   {
     channels: ['blog'],
     definition: {
@@ -197,7 +200,8 @@ export function decodeGuideSections(slice: Readonly<Record<string, unknown>> | n
   for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue;
     const { id, body, origin, edited, citedDocumentIds } = entry as Record<string, unknown>;
-    if (typeof id !== 'string' || typeof body !== 'string' || typeof origin !== 'string' || !ORIGINS.has(origin)) continue;
+    if (typeof id !== 'string' || typeof body !== 'string' || typeof origin !== 'string' || !ORIGINS.has(origin))
+      continue;
     if (seen.has(id)) continue;
     seen.add(id);
     sections.push({
@@ -205,7 +209,9 @@ export function decodeGuideSections(slice: Readonly<Record<string, unknown>> | n
       body: body.slice(0, SECTION_BODY_MAX),
       origin: origin as SectionOrigin,
       edited: edited === true,
-      citedDocumentIds: Array.isArray(citedDocumentIds) ? citedDocumentIds.filter((each): each is string => typeof each === 'string') : [],
+      citedDocumentIds: Array.isArray(citedDocumentIds)
+        ? citedDocumentIds.filter((each): each is string => typeof each === 'string')
+        : [],
     });
   }
   return sections;
@@ -319,7 +325,8 @@ function toneWords(style: StyleAnswers): string | null {
  * a question travels verbatim, on its own line, because it is the one part they wrote themselves.
  */
 export function composeSection(id: string, goals: GoalsAnswers, style: StyleAnswers): string {
-  const note = (key: StyleQuestionKey): string | null => (style.notes[key].trim() === '' ? null : style.notes[key].trim());
+  const note = (key: StyleQuestionKey): string | null =>
+    style.notes[key].trim() === '' ? null : style.notes[key].trim();
   const body = (main: string, key: StyleQuestionKey): string => {
     const extra = note(key);
     return extra === null ? main : `${main}\n${extra}`;
@@ -333,7 +340,10 @@ export function composeSection(id: string, goals: GoalsAnswers, style: StyleAnsw
     case 'audience':
       return body(sentences(audienceWords(goals), lookup(SPEAKING, picked(style, 'audience'))), 'audience');
     case 'writing-style':
-      return body(sentences(lookup(FORMALITY, picked(style, 'formality')), lookup(RHYTHM, picked(style, 'rhythm'))), 'formality');
+      return body(
+        sentences(lookup(FORMALITY, picked(style, 'formality')), lookup(RHYTHM, picked(style, 'rhythm'))),
+        'formality',
+      );
     case 'words':
       return body(sentences(lookup(WORDS, picked(style, 'words'))), 'words');
     case 'viewpoint':
@@ -341,7 +351,8 @@ export function composeSection(id: string, goals: GoalsAnswers, style: StyleAnsw
     case 'calls-to-action':
       return body(sentences(lookup(ASKING, picked(style, 'cta'))), 'cta');
     case 'notes': {
-      const different = goals.different.trim() === '' ? null : `What makes my food different: ${goals.different.trim()}`;
+      const different =
+        goals.different.trim() === '' ? null : `What makes my food different: ${goals.different.trim()}`;
       const avoid = goals.avoid.trim() === '' ? null : `I never write about: ${goals.avoid.trim()}`;
       return [different, avoid].filter((each): each is string => each !== null).join('\n');
     }

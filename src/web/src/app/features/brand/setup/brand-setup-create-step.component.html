@@ -1,5 +1,8 @@
 <div class="create">
-  <cp-form-section heading="What your guide starts from" intro="Your answers from the earlier steps, plus the examples you added.">
+  <cp-form-section
+    heading="What your guide starts from"
+    intro="Your answers from the earlier steps, plus the examples you added."
+  >
     @if (noSources()) {
       <cp-notice role="status">
         You didn't add any examples, so your guide will be built from your answers alone. You can go back a step to add
@@ -96,8 +99,8 @@
         } @else {
           <!-- Only reachable for a choice saved earlier: the tile itself is disabled while this is true. -->
           <cp-notice tone="warning" role="status">
-            Your allowance can't write a draft just now, so choose "I'll write it myself" to carry on. You can ask for
-            a draft another time.
+            Your allowance can't write a draft just now, so choose "I'll write it myself" to carry on. You can ask for a
+            draft another time.
           </cp-notice>
         }
       </div>

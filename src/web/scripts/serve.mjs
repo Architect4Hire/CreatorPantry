@@ -37,8 +37,19 @@ const ng = fileURLToPath(new URL('../node_modules/@angular/cli/bin/ng.js', impor
 const child = spawn(
   process.execPath,
   [
-    ng, 'serve', '--port', port, '--host', '::', '--proxy-config', 'proxy.conf.mjs',
-    '--ssl', '--ssl-cert', certPath, '--ssl-key', keyPath,
+    ng,
+    'serve',
+    '--port',
+    port,
+    '--host',
+    '::',
+    '--proxy-config',
+    'proxy.conf.mjs',
+    '--ssl',
+    '--ssl-cert',
+    certPath,
+    '--ssl-key',
+    keyPath,
   ],
   { stdio: 'inherit' },
 );

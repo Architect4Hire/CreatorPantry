@@ -1,5 +1,14 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injector, afterNextRender, computed, effect, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
 import { LandingFinalCtaComponent } from './landing-final-cta.component';

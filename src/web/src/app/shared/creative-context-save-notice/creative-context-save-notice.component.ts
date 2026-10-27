@@ -68,8 +68,8 @@ function listed(words: readonly string[]): string {
       }
       @case ('gone') {
         <cp-notice tone="error" role="alert">
-          This piece of work can no longer be found, so your changes are not being saved. What you typed is still
-          here to copy.
+          This piece of work can no longer be found, so your changes are not being saved. What you typed is still here
+          to copy.
         </cp-notice>
       }
     }

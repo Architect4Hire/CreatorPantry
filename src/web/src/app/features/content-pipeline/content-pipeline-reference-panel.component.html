@@ -1,8 +1,8 @@
 <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="quotaRefusal()" />
 
 <p class="cp-muted">
-  A picture you like, read back to you — what it shows, how sure we are of each part, and wording you can
-  start from. One picture at a time. Optional.
+  A picture you like, read back to you — what it shows, how sure we are of each part, and wording you can start from.
+  One picture at a time. Optional.
 </p>
 
 @if (choosing(); as state) {
@@ -130,7 +130,9 @@
                     variant="secondary"
                     size="sm"
                     [disabled]="busyChoosing()"
-                    [attr.aria-label]="'Choose picture ' + (index + 1) + ' of ' + run.images.length + ' as the reference'"
+                    [attr.aria-label]="
+                      'Choose picture ' + (index + 1) + ' of ' + run.images.length + ' as the reference'
+                    "
                     (click)="chooseRunPicture(image, index + 1)"
                   >
                     Choose
@@ -183,9 +185,7 @@
       <p class="cp-muted" role="status">Asking…</p>
     }
     @case ('not_enabled') {
-      <cp-notice tone="warning" role="note">
-        Reading a reference is switched off for this installation.
-      </cp-notice>
+      <cp-notice tone="warning" role="note"> Reading a reference is switched off for this installation. </cp-notice>
     }
     @case ('forbidden') {
       <cp-notice tone="error" role="alert">
@@ -296,9 +296,7 @@
     <!-- Nothing is taken from the reading until one of these: using its wording, or saying "not this one". -->
     <div cpGeneratedActions class="cp-actions">
       @if (result.prompt) {
-        <button cpButton type="button" variant="secondary" (click)="useAsPrompt()">
-          Use this as my prompt
-        </button>
+        <button cpButton type="button" variant="secondary" (click)="useAsPrompt()"> Use this as my prompt </button>
       }
       <button cpButton type="button" variant="text" size="sm" (click)="discardReading()">Discard this reading</button>
     </div>

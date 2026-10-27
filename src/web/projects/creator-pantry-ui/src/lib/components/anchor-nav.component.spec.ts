@@ -124,7 +124,8 @@ describe('CpAnchorNavComponent', () => {
     const hoverRules: { rule: CSSStyleRule; inHoverMedia: boolean }[] = [];
     const walk = (rules: CSSRuleList, inHoverMedia: boolean) => {
       for (const rule of Array.from(rules)) {
-        if (rule instanceof CSSMediaRule) walk(rule.cssRules, inHoverMedia || /hover:\s*hover/.test(rule.conditionText));
+        if (rule instanceof CSSMediaRule)
+          walk(rule.cssRules, inHoverMedia || /hover:\s*hover/.test(rule.conditionText));
         else if (rule instanceof CSSStyleRule && /^a\[_ngcontent[^\]]*\]:hover$/.test(rule.selectorText))
           hoverRules.push({ rule, inHoverMedia });
       }

@@ -20,13 +20,11 @@ import {
 } from '../models/reference.models';
 
 export type ListUnitsOutcome =
-  | { readonly status: 'found'; readonly units: readonly MeasurementUnit[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly units: readonly MeasurementUnit[] } | { readonly status: 'unavailable' };
 
 /** One plain controlled vocabulary, whole. */
 export type ListReferenceEntriesOutcome =
-  | { readonly status: 'found'; readonly entries: readonly ReferenceEntry[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly entries: readonly ReferenceEntry[] } | { readonly status: 'unavailable' };
 
 /**
  * One vocabulary whose entries each carry a required description — the allergens, or the dietary patterns.
@@ -41,12 +39,10 @@ export type ListDescribedReferenceEntriesOutcome =
 
 /** One of the two idea catalogues that are not vocabulary tables: photography styles, or occasions. */
 export type ListIdeaFacetEntriesOutcome =
-  | { readonly status: 'found'; readonly entries: readonly IdeaFacetEntry[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly entries: readonly IdeaFacetEntry[] } | { readonly status: 'unavailable' };
 
 export type ListTechniquesOutcome =
-  | { readonly status: 'found'; readonly techniques: readonly CookingTechnique[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly techniques: readonly CookingTechnique[] } | { readonly status: 'unavailable' };
 
 /**
  * What one ingredient search came back with.
@@ -176,17 +172,16 @@ export class ReferenceService {
    * caution, not a finding that the method is safe (.claude/rules/ai.md).
    */
   listTechniques(): Promise<ListTechniquesOutcome> {
-    this.techniquesInFlight ??= this.readCatalogue(
-      '/api/v1/reference/techniques',
-      decodeCookingTechnique,
-    ).then((techniques) => {
-      if (techniques === null) {
-        this.techniquesInFlight = null;
-        return { status: 'unavailable' } as const;
-      }
+    this.techniquesInFlight ??= this.readCatalogue('/api/v1/reference/techniques', decodeCookingTechnique).then(
+      (techniques) => {
+        if (techniques === null) {
+          this.techniquesInFlight = null;
+          return { status: 'unavailable' } as const;
+        }
 
-      return { status: 'found', techniques } as const;
-    });
+        return { status: 'found', techniques } as const;
+      },
+    );
 
     return this.techniquesInFlight;
   }
@@ -214,12 +209,10 @@ export class ReferenceService {
    * says so where it could be read otherwise.
    */
   listDietaryProfiles(): Promise<ListDescribedReferenceEntriesOutcome> {
-    this.dietaryProfilesInFlight ??= this.readDescribedEntries('/api/v1/reference/dietary-profiles').then(
-      (outcome) => {
-        if (outcome.status !== 'found') this.dietaryProfilesInFlight = null;
-        return outcome;
-      },
-    );
+    this.dietaryProfilesInFlight ??= this.readDescribedEntries('/api/v1/reference/dietary-profiles').then((outcome) => {
+      if (outcome.status !== 'found') this.dietaryProfilesInFlight = null;
+      return outcome;
+    });
 
     return this.dietaryProfilesInFlight;
   }

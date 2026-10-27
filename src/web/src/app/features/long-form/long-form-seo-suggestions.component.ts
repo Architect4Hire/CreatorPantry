@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpFactComponent,
@@ -10,7 +21,11 @@ import {
 
 import { isTerminalAiStatus } from '../../models/ai-proposal.models';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
-import { LongFormSeoPackage, isEmptyLongFormSeoPackage, readLongFormSeoPackage } from '../../models/long-form-seo.models';
+import {
+  LongFormSeoPackage,
+  isEmptyLongFormSeoPackage,
+  readLongFormSeoPackage,
+} from '../../models/long-form-seo.models';
 import { LongFormSeoService } from '../../services/long-form-seo.service';
 
 /** How often a queued package is asked after. */
@@ -38,7 +53,14 @@ type SeoState =
 @Component({
   selector: 'cp-long-form-seo-suggestions',
   standalone: true,
-  imports: [CpButtonComponent, CpFactComponent, CpFactsComponent, CpFormSectionComponent, CpGeneratedLabelComponent, CpNoticeComponent],
+  imports: [
+    CpButtonComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpFormSectionComponent,
+    CpGeneratedLabelComponent,
+    CpNoticeComponent,
+  ],
   templateUrl: './long-form-seo-suggestions.component.html',
   styleUrl: './long-form-seo-suggestions.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -203,12 +225,20 @@ export class LongFormSeoSuggestionsComponent {
     this.state.set(
       proposal
         ? { kind: 'ready', seo: readLongFormSeoPackage(proposal) }
-        : { kind: 'problem', message: 'SEO suggestions could not be written for this piece. Nothing was changed. Try again.' },
+        : {
+            kind: 'problem',
+            message: 'SEO suggestions could not be written for this piece. Nothing was changed. Try again.',
+          },
     );
   }
 
   private stale(slug: string, draftId: string, revisionNumber: number): boolean {
-    return this.gone || slug !== this.workspaceSlug() || draftId !== this.draftId() || revisionNumber !== this.revisionNumber();
+    return (
+      this.gone ||
+      slug !== this.workspaceSlug() ||
+      draftId !== this.draftId() ||
+      revisionNumber !== this.revisionNumber()
+    );
   }
 
   private stopPolling(): void {

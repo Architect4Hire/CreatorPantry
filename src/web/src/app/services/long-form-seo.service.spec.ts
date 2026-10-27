@@ -58,7 +58,11 @@ describe('LongFormSeoService', () => {
   it('carries the server’s sentence when the piece cannot be written about, and tells the other refusals apart', async () => {
     const cases: [number, Record<string, unknown>, string][] = [
       [409, { code: 'ai.seoPackage.longFormDraft.not_accepted.conflict', detail: 'Accept it first.' }, 'refused'],
-      [404, { code: 'ai.seoPackage.longFormDraft.not_found', detail: 'That long-form draft does not exist.' }, 'refused'],
+      [
+        404,
+        { code: 'ai.seoPackage.longFormDraft.not_found', detail: 'That long-form draft does not exist.' },
+        'refused',
+      ],
       [400, { code: 'ai.seoPackageLongFormRevision.invalid_request', detail: 'Not the accepted revision.' }, 'refused'],
       [400, { code: 'ai.seoPackage.not_enabled' }, 'task_not_enabled'],
       [400, { code: 'ai.seoPackage.invalid_request', errors: { sections: ['No.'] } }, 'validation_failed'],
@@ -71,7 +75,9 @@ describe('LongFormSeoService', () => {
       const asking = service.request('cozy-fall', 'd-1', 4, 'key-1');
       http.expectOne(ROOT).flush(body, { status, statusText: 'x' });
 
-      expect((await asking).status).withContext(String(status)).toBe(expected);
+      expect((await asking).status)
+        .withContext(String(status))
+        .toBe(expected);
     }
   });
 
@@ -84,7 +90,11 @@ describe('LongFormSeoService', () => {
     const found = await watching;
     expect(found.status).toBe('found');
 
-    for (const [status, expected] of [[404, 'not_found'], [403, 'forbidden'], [500, 'unavailable']] as const) {
+    for (const [status, expected] of [
+      [404, 'not_found'],
+      [403, 'forbidden'],
+      [500, 'unavailable'],
+    ] as const) {
       const again = service.watch('cozy-fall', 'd-1', 'req-1');
       http.expectOne(`${ROOT}/req-1`).flush({}, { status, statusText: 'x' });
 

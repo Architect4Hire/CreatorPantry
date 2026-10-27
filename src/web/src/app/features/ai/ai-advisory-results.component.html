@@ -87,13 +87,16 @@
           <summary>How this was generated</summary>
           <dl cpFacts class="advisory-provenance-list">
             <div cpFact label="Made by">{{ proposal.modelName }} ({{ proposal.providerName }})</div>
-            <div cpFact label="Instructions used">{{ proposal.promptTemplateId }}, version {{ proposal.promptTemplateVersion }}</div>
+            <div cpFact label="Instructions used"
+              >{{ proposal.promptTemplateId }}, version {{ proposal.promptTemplateVersion }}</div
+            >
             <div cpFact label="Read from recipe version">
               <span class="advisory-provenance-code">{{ op.sourceVersionId ?? 'not recorded' }}</span>
             </div>
             <div cpFact label="Reference">
               <span class="advisory-provenance-code">
-                {{ proposal.proposalId }} · {{ proposal.outputSchemaVersion }} · {{ proposal.promptTemplateBodyChecksum }}
+                {{ proposal.proposalId }} · {{ proposal.outputSchemaVersion }} ·
+                {{ proposal.promptTemplateBodyChecksum }}
               </span>
             </div>
           </dl>

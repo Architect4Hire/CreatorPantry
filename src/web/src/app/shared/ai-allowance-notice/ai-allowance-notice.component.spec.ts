@@ -89,14 +89,17 @@ describe('AiAllowanceNoticeComponent', () => {
   });
 
   it('announces an actual refusal assertively, with what the request needed', async () => {
-    const host = await render({ kind: 'healthy', period: figures({ remaining: 900 }) }, {
-      status: 'quota_exhausted',
-      unit: 'Credits',
-      allowance: 1000,
-      remaining: 5,
-      required: 20,
-      resetsAt: '2026-04-01T00:00:00+01:00',
-    });
+    const host = await render(
+      { kind: 'healthy', period: figures({ remaining: 900 }) },
+      {
+        status: 'quota_exhausted',
+        unit: 'Credits',
+        allowance: 1000,
+        remaining: 5,
+        required: 20,
+        resetsAt: '2026-04-01T00:00:00+01:00',
+      },
+    );
 
     const alert = host.querySelector('[role="alert"]');
     expect(alert).not.toBeNull();
@@ -107,7 +110,10 @@ describe('AiAllowanceNoticeComponent', () => {
   });
 
   it('prefers the refusal over the pre-flight warning', async () => {
-    const host = await render({ kind: 'nearly-spent', period: figures() }, { status: 'account_suspended', unit: 'Credits' });
+    const host = await render(
+      { kind: 'nearly-spent', period: figures() },
+      { status: 'account_suspended', unit: 'Credits' },
+    );
 
     expect(host.querySelector('[role="alert"]')?.textContent).toContain('switched off');
     expect(host.querySelector('[role="status"]')).toBeNull();
@@ -130,14 +136,17 @@ describe('AiAllowanceNoticeComponent', () => {
         expect(host.textContent?.toLowerCase()).not.toContain(jargon);
       }
 
-      const refused = await render({ kind: 'unknown' }, {
-        status: 'quota_exhausted',
-        unit: 'Credits',
-        allowance: 1000,
-        remaining: 5,
-        required: 20,
-        resetsAt: '2026-04-01T00:00:00+01:00',
-      });
+      const refused = await render(
+        { kind: 'unknown' },
+        {
+          status: 'quota_exhausted',
+          unit: 'Credits',
+          allowance: 1000,
+          remaining: 5,
+          required: 20,
+          resetsAt: '2026-04-01T00:00:00+01:00',
+        },
+      );
       expect(refused.textContent?.toLowerCase()).not.toContain(jargon);
     });
   }

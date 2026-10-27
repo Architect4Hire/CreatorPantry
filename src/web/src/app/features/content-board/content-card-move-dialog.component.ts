@@ -51,7 +51,13 @@ interface PlaceOption {
   >
     <form id="content-card-move-form" class="form" (ngSubmit)="submit()">
       <cp-field label="Column" forId="content-card-move-column">
-        <select id="content-card-move-column" name="column" autofocus [ngModel]="column()" (ngModelChange)="setColumn($event)">
+        <select
+          id="content-card-move-column"
+          name="column"
+          autofocus
+          [ngModel]="column()"
+          (ngModelChange)="setColumn($event)"
+        >
           @for (option of columnOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }
@@ -68,8 +74,8 @@ interface PlaceOption {
 
       @if (partlyLoaded()) {
         <cp-notice role="note">
-          Only the first cards of this column are on screen. “At the bottom” puts the card below all of them,
-          including the ones not shown yet.
+          Only the first cards of this column are on screen. “At the bottom” puts the card below all of them, including
+          the ones not shown yet.
         </cp-notice>
       }
 

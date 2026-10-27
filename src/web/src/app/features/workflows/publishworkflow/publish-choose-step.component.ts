@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { CONTENT_BOARD_COLUMN_LABELS, ContentCard, NO_BOARD_FILTERS } from '../../../models/content-board.models';

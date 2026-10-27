@@ -16,7 +16,14 @@ describe('problem-details', () => {
   });
 
   it('answers null for anything that is not a refusal with a body', () => {
-    for (const error of [new Error('x'), 'oops', null, refusal(null), refusal('<html>'), refusal({ code: 3, title: ' ' })]) {
+    for (const error of [
+      new Error('x'),
+      'oops',
+      null,
+      refusal(null),
+      refusal('<html>'),
+      refusal({ code: 3, title: ' ' }),
+    ]) {
       expect(problemCodeOf(error)).toBeNull();
       expect(problemMessageOf(error)).toBeNull();
     }

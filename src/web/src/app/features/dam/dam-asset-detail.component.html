@@ -20,7 +20,9 @@
 </cp-page-head>
 
 <!-- Always present, and outside the busy cards (APP-003): one place the page says it is still loading. -->
-<p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading this picture…' : '' }}</p>
+<p class="cp-sr-only" role="status" aria-live="polite">{{
+  state().status === 'loading' ? 'Loading this picture…' : ''
+}}</p>
 
 @switch (state().status) {
   @case ('loading') {
@@ -51,8 +53,8 @@
         <section class="block" aria-label="Removed from the library">
           <cp-notice tone="success" role="status">
             @if (gone.alreadyDeleted) {
-              “{{ gone.title }}” had already been removed on {{ gone.deletedAt | date: 'medium' }}. Nothing was
-              changed just now.
+              “{{ gone.title }}” had already been removed on {{ gone.deletedAt | date: 'medium' }}. Nothing was changed
+              just now.
             } @else {
               “{{ gone.title }}” was removed on {{ gone.deletedAt | date: 'medium' }}.
             }
@@ -62,7 +64,9 @@
 
           @if (gone.recipes.length > 0 || stillPointing(gone).length > 0) {
             <h2 id="dam-removed-links-heading">Still pointing at it</h2>
-            <p class="plain cp-muted">These links were left as they are, and now point at a picture that is not in the library.</p>
+            <p class="plain cp-muted"
+              >These links were left as they are, and now point at a picture that is not in the library.</p
+            >
             <ul class="links" aria-labelledby="dam-removed-links-heading">
               @for (recipe of gone.recipes; track recipe.id) {
                 <li>
@@ -71,7 +75,9 @@
                 </li>
               }
               @for (clause of stillPointing(gone); track clause) {
-                <li><span>{{ clause }}</span></li>
+                <li
+                  ><span>{{ clause }}</span></li
+                >
               }
             </ul>
           } @else {
@@ -99,8 +105,8 @@
       @switch (changeAccess()) {
         @case ('view_only') {
           <cp-notice role="note">
-            You have view-only access to this workspace, so you can't change this picture's details, add a
-            version or log a use. You can still download it.
+            You have view-only access to this workspace, so you can't change this picture's details, add a version or
+            log a use. You can still download it.
           </cp-notice>
         }
         @case ('unknown') {
@@ -142,7 +148,9 @@
             </a>
           </div>
         } @else if (shown.currentVersion === null) {
-          <cp-notice tone="warning" role="status">This picture's current version can't be read, so there is nothing to download.</cp-notice>
+          <cp-notice tone="warning" role="status"
+            >This picture's current version can't be read, so there is nothing to download.</cp-notice
+          >
         }
       </cp-topic-card>
 
@@ -155,7 +163,9 @@
             <div cpFact label="Tags">
               <ul class="tags" aria-label="Tags">
                 @for (tag of shown.tags; track tag.id) {
-                  <li><cp-badge>{{ tag.name }}</cp-badge></li>
+                  <li
+                    ><cp-badge>{{ tag.name }}</cp-badge></li
+                  >
                 }
               </ul>
             </div>
@@ -166,7 +176,9 @@
 
         @if (changeAccess() === 'allowed') {
           <div cpTopicCardActions class="cp-actions">
-            <button cpButton type="button" variant="secondary" (click)="openDialog('edit', $event)">Edit details</button>
+            <button cpButton type="button" variant="secondary" (click)="openDialog('edit', $event)"
+              >Edit details</button
+            >
           </div>
         }
       </cp-topic-card>
@@ -181,9 +193,7 @@
         } @else {
           <div class="scroll" role="region" tabindex="0" aria-labelledby="dam-versions-heading">
             <table>
-              <caption class="cp-sr-only">
-                Every version of this picture, newest first
-              </caption>
+              <caption class="cp-sr-only"> Every version of this picture, newest first </caption>
               <thead>
                 <tr>
                   <th scope="col">Version</th>
@@ -259,9 +269,8 @@
       @if (canRemove()) {
         <cp-topic-card heading="Remove from the library" headingId="dam-remove-heading">
           <p class="plain">
-            Takes this picture out of the library for everyone in the workspace. Its files, versions and usage
-            history are kept, and anything that links to it is left as it is. You'll be asked before anything
-            happens.
+            Takes this picture out of the library for everyone in the workspace. Its files, versions and usage history
+            are kept, and anything that links to it is left as it is. You'll be asked before anything happens.
           </p>
           <div cpTopicCardActions class="cp-actions">
             <button cpButton type="button" variant="danger" [disabled]="removing()" (click)="remove()">

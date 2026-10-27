@@ -79,7 +79,9 @@ type Read =
       @case ('ready') {
         @if (ready(); as state) {
           @if (isOn()) {
-            <cp-notice tone="success" role="status">“{{ state.guide.displayName }}” is switched on. Continue to finish.</cp-notice>
+            <cp-notice tone="success" role="status"
+              >“{{ state.guide.displayName }}” is switched on. Continue to finish.</cp-notice
+            >
           } @else if (role() === 'loading') {
             <!-- Where what the creator can do will be, while who they are here is read; said by the status above. -->
             <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
@@ -89,12 +91,17 @@ type Read =
               <button cpButton type="button" variant="secondary" size="sm" (click)="retryRole()">Try again</button>
             </cp-notice>
           } @else if (role() !== 'owner') {
-            <p class="plain">The workspace Owner switches a voice on. You can Save and exit — it will be here for them.</p>
+            <p class="plain"
+              >The workspace Owner switches a voice on. You can Save and exit — it will be here for them.</p
+            >
           } @else if (state.guide.isArchived) {
-            <cp-notice tone="warning" role="status">“{{ state.guide.displayName }}” is archived, so it can’t be switched on.</cp-notice>
+            <cp-notice tone="warning" role="status"
+              >“{{ state.guide.displayName }}” is archived, so it can’t be switched on.</cp-notice
+            >
           } @else if (state.target; as version) {
             <p class="plain">
-              Switching on makes version {{ version.versionNumber }} of “{{ state.guide.displayName }}” this workspace’s voice.
+              Switching on makes version {{ version.versionNumber }} of “{{ state.guide.displayName }}” this workspace’s
+              voice.
               @if (state.current; as current) {
                 It replaces “{{ current.displayName }}”, which is kept as it is, and you can switch back later.
               } @else {
@@ -102,7 +109,9 @@ type Read =
               }
             </p>
             <div class="cp-actions">
-              <button #switch cpButton type="button" variant="primary" (click)="confirming.set(true)">Switch it on</button>
+              <button #switch cpButton type="button" variant="primary" (click)="confirming.set(true)"
+                >Switch it on</button
+              >
             </div>
           } @else {
             <cp-notice tone="warning" role="status">
@@ -196,7 +205,10 @@ export class BrandVoiceSwitchOnStepComponent implements OnInit {
       return;
     }
 
-    const [detail, current] = await Promise.all([this.guides.getDetail(this.workspaceSlug(), id), this.guides.getActive(this.workspaceSlug())]);
+    const [detail, current] = await Promise.all([
+      this.guides.getDetail(this.workspaceSlug(), id),
+      this.guides.getActive(this.workspaceSlug()),
+    ]);
     if (detail.status !== 'ok') {
       this.read.set({ status: detail.status === 'not_found' ? 'missing' : 'unavailable' });
       return;

@@ -142,7 +142,9 @@ function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
   return result;
 }
 
-function idempotencyHeaders(idempotencyKey: string | undefined): { headers: Record<string, string> } | Record<string, never> {
+function idempotencyHeaders(
+  idempotencyKey: string | undefined,
+): { headers: Record<string, string> } | Record<string, never> {
   return idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {};
 }
 
@@ -177,7 +179,11 @@ export class RecipeService {
   private readonly http = inject(HttpClient);
   private readonly apiBase = inject(ApiBaseService);
 
-  async createRecipe(workspaceSlug: string, request: CreateRecipeRequest, idempotencyKey?: string): Promise<CreateRecipeOutcome> {
+  async createRecipe(
+    workspaceSlug: string,
+    request: CreateRecipeRequest,
+    idempotencyKey?: string,
+  ): Promise<CreateRecipeOutcome> {
     const url = recipeUrl(this.apiBase, workspaceSlug);
     if (!url) return { status: 'unavailable' };
 
@@ -190,7 +196,9 @@ export class RecipeService {
         }),
       );
       const recipe = decodeCreatedRecipe(response.body);
-      return recipe ? { status: 'created', recipe, replayed: response.headers.has('Idempotent-Replayed') } : { status: 'unavailable' };
+      return recipe
+        ? { status: 'created', recipe, replayed: response.headers.has('Idempotent-Replayed') }
+        : { status: 'unavailable' };
     } catch (error) {
       const code = statusCodeOf(error);
       if (code === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
@@ -274,7 +282,9 @@ export class RecipeService {
         }),
       );
       const recipe = decodeRecipeDetail(response.body);
-      return recipe ? { status: 'updated', recipe, replayed: response.headers.has('Idempotent-Replayed') } : { status: 'unavailable' };
+      return recipe
+        ? { status: 'updated', recipe, replayed: response.headers.has('Idempotent-Replayed') }
+        : { status: 'unavailable' };
     } catch (error) {
       const code = statusCodeOf(error);
       if (code === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
@@ -294,7 +304,11 @@ export class RecipeService {
    * rather than silently paging the wrong history — which arrives here as `cursor_expired`, whose remedy is
    * to start the list again without a cursor.
    */
-  async getVersionHistory(workspaceSlug: string, recipeId: string, cursor?: string): Promise<RecipeVersionHistoryOutcome> {
+  async getVersionHistory(
+    workspaceSlug: string,
+    recipeId: string,
+    cursor?: string,
+  ): Promise<RecipeVersionHistoryOutcome> {
     const url = versionsUrl(this.apiBase, workspaceSlug, recipeId);
     if (!url) return { status: 'unavailable' };
 
@@ -377,7 +391,11 @@ export class RecipeService {
 
     try {
       const raw = await firstValueFrom(
-        this.http.post<unknown>(`${recipe}/${archived ? 'archive' : 'unarchive'}`, { ...request }, { withCredentials: true }),
+        this.http.post<unknown>(
+          `${recipe}/${archived ? 'archive' : 'unarchive'}`,
+          { ...request },
+          { withCredentials: true },
+        ),
       );
       const detail = decodeRecipeDetail(raw);
       return detail ? { status: 'updated', recipe: detail } : { status: 'unavailable' };
@@ -420,7 +438,9 @@ export class RecipeService {
         }),
       );
       const created = decodeCreatedRecipe(response.body);
-      return created ? { status: 'created', recipe: created, replayed: response.headers.has('Idempotent-Replayed') } : { status: 'unavailable' };
+      return created
+        ? { status: 'created', recipe: created, replayed: response.headers.has('Idempotent-Replayed') }
+        : { status: 'unavailable' };
     } catch (error) {
       const status = statusCodeOf(error);
       if (status === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
@@ -474,7 +494,9 @@ export class RecipeService {
         }),
       );
       const recipe = decodeRecipeDetail(response.body);
-      return recipe ? { status: 'restored', recipe, replayed: response.headers.has('Idempotent-Replayed') } : { status: 'unavailable' };
+      return recipe
+        ? { status: 'restored', recipe, replayed: response.headers.has('Idempotent-Replayed') }
+        : { status: 'unavailable' };
     } catch (error) {
       const status = statusCodeOf(error);
       if (status === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
@@ -491,7 +513,9 @@ export class RecipeService {
 
       // Two 409s with opposite remedies, told apart by the stable code rather than by the status.
       if (status === 409) {
-        return problemCodeOf(error) === ARCHIVED_CONFLICT_CODE ? { status: 'archived_conflict' } : { status: 'conflict' };
+        return problemCodeOf(error) === ARCHIVED_CONFLICT_CODE
+          ? { status: 'archived_conflict' }
+          : { status: 'conflict' };
       }
 
       return { status: 'unavailable' };

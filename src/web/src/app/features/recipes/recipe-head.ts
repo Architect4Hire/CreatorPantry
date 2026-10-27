@@ -36,10 +36,14 @@ export function recipeFacts(recipe: RecipeDetail): readonly RecipeFact[] {
   const facts: RecipeFact[] = [];
   if (recipe.yieldText) facts.push({ label: 'Makes', value: recipe.yieldText });
   if (recipe.servingCount !== null) facts.push({ label: 'Serves', value: `${recipe.servingCount}` });
-  if (recipe.prepTimeMinutes !== null) facts.push({ label: 'Prep', value: formatKitchenMinutes(recipe.prepTimeMinutes) });
-  if (recipe.cookTimeMinutes !== null) facts.push({ label: 'Cook', value: formatKitchenMinutes(recipe.cookTimeMinutes) });
-  if (recipe.restTimeMinutes !== null) facts.push({ label: 'Rest', value: formatKitchenMinutes(recipe.restTimeMinutes) });
-  if (recipe.totalTimeMinutes !== null) facts.push({ label: 'Total', value: formatKitchenMinutes(recipe.totalTimeMinutes) });
+  if (recipe.prepTimeMinutes !== null)
+    facts.push({ label: 'Prep', value: formatKitchenMinutes(recipe.prepTimeMinutes) });
+  if (recipe.cookTimeMinutes !== null)
+    facts.push({ label: 'Cook', value: formatKitchenMinutes(recipe.cookTimeMinutes) });
+  if (recipe.restTimeMinutes !== null)
+    facts.push({ label: 'Rest', value: formatKitchenMinutes(recipe.restTimeMinutes) });
+  if (recipe.totalTimeMinutes !== null)
+    facts.push({ label: 'Total', value: formatKitchenMinutes(recipe.totalTimeMinutes) });
 
   return facts;
 }
@@ -132,7 +136,11 @@ export class RecipeHeroPicture {
             ? this.assets.content(workspaceSlug, asset.id, 'web')
             : this.assets.versionContent(workspaceSlug, asset.id, pinned, 'web');
 
-        return bytes.pipe(map((content) => (content.status === 'found' ? { bytes: content.bytes, alt: damThumbnailAltText(asset) } : null)));
+        return bytes.pipe(
+          map((content) =>
+            content.status === 'found' ? { bytes: content.bytes, alt: damThumbnailAltText(asset) } : null,
+          ),
+        );
       }),
     );
   }

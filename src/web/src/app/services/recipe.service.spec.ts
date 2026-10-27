@@ -68,13 +68,27 @@ describe('RecipeService', () => {
       expect(req.request.headers.has('Idempotency-Key')).toBeFalse();
 
       req.flush(
-        { recipeId: 'r1', title: 'Chili', status: 'Approved', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        {
+          recipeId: 'r1',
+          title: 'Chili',
+          status: 'Approved',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
         { status: 201, statusText: 'Created' },
       );
 
       expect(await call).toEqual({
         status: 'created',
-        recipe: { recipeId: 'r1', title: 'Chili', status: 'Approved', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        recipe: {
+          recipeId: 'r1',
+          title: 'Chili',
+          status: 'Approved',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
         replayed: false,
       });
     });
@@ -86,7 +100,14 @@ describe('RecipeService', () => {
       expect(req.request.body).toEqual({ title: 'Chili', tags: ['quick', 'weeknight'], instructions });
 
       req.flush(
-        { recipeId: 'r1', title: 'Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        {
+          recipeId: 'r1',
+          title: 'Chili',
+          status: 'Draft',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
         { status: 201, statusText: 'Created' },
       );
       await call;
@@ -96,7 +117,14 @@ describe('RecipeService', () => {
       const call = service.createRecipe('cozy-fall', { title: 'Chili' }, 'key-123');
       const req = http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes');
       req.flush(
-        { recipeId: 'r1', title: 'Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        {
+          recipeId: 'r1',
+          title: 'Chili',
+          status: 'Draft',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
         { status: 201, statusText: 'Created', headers: { 'Idempotent-Replayed': 'true' } },
       );
       expect((await call) as { replayed: boolean }).toEqual(jasmine.objectContaining({ replayed: true }));
@@ -107,7 +135,14 @@ describe('RecipeService', () => {
       const req = http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes');
       expect(req.request.headers.get('Idempotency-Key')).toBe('key-123');
       req.flush(
-        { recipeId: 'r1', title: 'Chili', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-01-01T00:00:00Z' },
+        {
+          recipeId: 'r1',
+          title: 'Chili',
+          status: 'Draft',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-01-01T00:00:00Z',
+        },
         { status: 201, statusText: 'Created' },
       );
       await call;
@@ -115,32 +150,42 @@ describe('RecipeService', () => {
 
     it('maps 400 to validation_failed', async () => {
       const call = service.createRecipe('cozy-fall', { title: '' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes').flush('bad', { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes')
+        .flush('bad', { status: 400, statusText: 'Bad Request' });
       expect(await call).toEqual({ status: 'validation_failed', fieldErrors: {} });
     });
 
     it('decodes per-field messages from a 400 ValidationProblemDetails body', async () => {
       const call = service.createRecipe('cozy-fall', { title: '' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes').flush(
-        { title: 'Bad Request', errors: { title: ['Title is required.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes')
+        .flush(
+          { title: 'Bad Request', errors: { title: ['Title is required.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
       expect(await call).toEqual({ status: 'validation_failed', fieldErrors: { title: ['Title is required.'] } });
     });
 
     it('maps 422 to idempotency_key_conflict (reused key, different payload) rather than validation_failed', async () => {
       const call = service.createRecipe('cozy-fall', { title: 'x' }, 'reused-key');
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes').flush('dup', { status: 422, statusText: 'Unprocessable' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes')
+        .flush('dup', { status: 422, statusText: 'Unprocessable' });
       expect(await call).toEqual({ status: 'idempotency_key_conflict' });
     });
 
     it('maps 403 to forbidden and anything else to unavailable', async () => {
       const call = service.createRecipe('cozy-fall', { title: 'x' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes').flush('no', { status: 403, statusText: 'Forbidden' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes')
+        .flush('no', { status: 403, statusText: 'Forbidden' });
       expect(await call).toEqual({ status: 'forbidden' });
 
       const call2 = service.createRecipe('cozy-fall', { title: 'x' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes').flush('down', { status: 503, statusText: 'Unavailable' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes')
+        .flush('down', { status: 503, statusText: 'Unavailable' });
       expect(await call2).toEqual({ status: 'unavailable' });
     });
   });
@@ -161,11 +206,15 @@ describe('RecipeService', () => {
 
     it('maps 404 to not_found and anything else to unavailable', async () => {
       const call = service.getRecipeDetail('cozy-fall', 'missing');
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/missing').flush('nope', { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/missing')
+        .flush('nope', { status: 404, statusText: 'Not Found' });
       expect(await call).toEqual({ status: 'not_found' });
 
       const call2 = service.getRecipeDetail('cozy-fall', 'r1');
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1').flush('down', { status: 503, statusText: 'Unavailable' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1')
+        .flush('down', { status: 503, statusText: 'Unavailable' });
       expect(await call2).toEqual({ status: 'unavailable' });
     });
   });
@@ -222,27 +271,37 @@ describe('RecipeService', () => {
 
     it('maps 409 to conflict (stale concurrency token)', async () => {
       const call = service.updateRecipe('cozy-fall', 'r1', { expectedConcurrencyToken: 'stale' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1').flush('conflict', { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1')
+        .flush('conflict', { status: 409, statusText: 'Conflict' });
       expect(await call).toEqual({ status: 'conflict' });
     });
 
     it('maps 404 to not_found, 403 to forbidden, and 400 to validation_failed', async () => {
       const call = service.updateRecipe('cozy-fall', 'missing', { expectedConcurrencyToken: 'tok' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/missing').flush('nope', { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/missing')
+        .flush('nope', { status: 404, statusText: 'Not Found' });
       expect(await call).toEqual({ status: 'not_found' });
 
       const call2 = service.updateRecipe('cozy-fall', 'r1', { expectedConcurrencyToken: 'tok' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1').flush('no', { status: 403, statusText: 'Forbidden' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1')
+        .flush('no', { status: 403, statusText: 'Forbidden' });
       expect(await call2).toEqual({ status: 'forbidden' });
 
       const call3 = service.updateRecipe('cozy-fall', 'r1', { expectedConcurrencyToken: 'tok' });
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1').flush('bad', { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1')
+        .flush('bad', { status: 400, statusText: 'Bad Request' });
       expect(await call3).toEqual({ status: 'validation_failed', fieldErrors: {} });
     });
 
     it('maps 422 to idempotency_key_conflict (reused key, different payload) rather than validation_failed', async () => {
       const call = service.updateRecipe('cozy-fall', 'r1', { expectedConcurrencyToken: 'tok' }, 'reused-key');
-      http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1').flush('dup', { status: 422, statusText: 'Unprocessable' });
+      http
+        .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/recipes/r1')
+        .flush('dup', { status: 422, statusText: 'Unprocessable' });
       expect(await call).toEqual({ status: 'idempotency_key_conflict' });
     });
   });
@@ -301,12 +360,13 @@ describe('RecipeService', () => {
       expect(await missing).toEqual({ status: 'not_found' });
 
       const invalid = service.setArchived('cozy-fall', 'r1', true, { expectedConcurrencyToken: 'not-a-token' });
-      http
-        .expectOne(archiveUrl)
-        .flush(
-          { code: 'recipes.recipe.invalid_request', errors: { expectedConcurrencyToken: ['That is not a token this API issued.'] } },
-          { status: 400, statusText: 'Bad Request' },
-        );
+      http.expectOne(archiveUrl).flush(
+        {
+          code: 'recipes.recipe.invalid_request',
+          errors: { expectedConcurrencyToken: ['That is not a token this API issued.'] },
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
       expect(await invalid).toEqual({
         status: 'validation_failed',
         fieldErrors: { expectedConcurrencyToken: ['That is not a token this API issued.'] },
@@ -333,7 +393,10 @@ describe('RecipeService', () => {
     };
 
     it('POSTs the title and version to the source recipe’s duplicate route, and decodes the copy', async () => {
-      const call = service.duplicateRecipe('cozy-fall', 'r1', { title: '  Cornbread, take two  ', sourceVersionNumber: 3 });
+      const call = service.duplicateRecipe('cozy-fall', 'r1', {
+        title: '  Cornbread, take two  ',
+        sourceVersionNumber: 3,
+      });
       const req = http.expectOne(duplicateUrl);
 
       expect(req.request.method).toBe('POST');
@@ -349,7 +412,10 @@ describe('RecipeService', () => {
     });
 
     it('omits the version entirely when none was named, which the server reads as "as it currently stands"', async () => {
-      const call = service.duplicateRecipe('cozy-fall', 'r1', { title: 'Cornbread, take two', sourceVersionNumber: null });
+      const call = service.duplicateRecipe('cozy-fall', 'r1', {
+        title: 'Cornbread, take two',
+        sourceVersionNumber: null,
+      });
       const req = http.expectOne(duplicateUrl);
 
       expect(req.request.body).toEqual({ title: 'Cornbread, take two' });
@@ -384,7 +450,9 @@ describe('RecipeService', () => {
       });
 
       const missingRecipe = service.duplicateRecipe('cozy-fall', 'r1', { title: 'Copy', sourceVersionNumber: 1 });
-      http.expectOne(duplicateUrl).flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne(duplicateUrl)
+        .flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
 
       expect(await missingRecipe).toEqual({ status: 'not_found' });
     });
@@ -397,14 +465,21 @@ describe('RecipeService', () => {
           { code: 'recipes.recipe.invalid_request', errors: { title: ['Give the copy a title.'] } },
           { status: 400, statusText: 'Bad Request' },
         );
-      expect(await invalid).toEqual({ status: 'validation_failed', fieldErrors: { title: ['Give the copy a title.'] } });
+      expect(await invalid).toEqual({
+        status: 'validation_failed',
+        fieldErrors: { title: ['Give the copy a title.'] },
+      });
 
       const forbidden = service.duplicateRecipe('cozy-fall', 'r1', { title: 'Copy', sourceVersionNumber: 1 });
-      http.expectOne(duplicateUrl).flush({ code: 'recipes.recipe.forbidden' }, { status: 403, statusText: 'Forbidden' });
+      http
+        .expectOne(duplicateUrl)
+        .flush({ code: 'recipes.recipe.forbidden' }, { status: 403, statusText: 'Forbidden' });
       expect(await forbidden).toEqual({ status: 'forbidden' });
 
       const reused = service.duplicateRecipe('cozy-fall', 'r1', { title: 'Copy', sourceVersionNumber: 1 });
-      http.expectOne(duplicateUrl).flush({ code: 'idempotency.key.conflict' }, { status: 422, statusText: 'Unprocessable' });
+      http
+        .expectOne(duplicateUrl)
+        .flush({ code: 'idempotency.key.conflict' }, { status: 422, statusText: 'Unprocessable' });
       expect(await reused).toEqual({ status: 'idempotency_key_conflict' });
     });
 

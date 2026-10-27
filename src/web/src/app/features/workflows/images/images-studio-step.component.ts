@@ -47,8 +47,8 @@ import { contextPointer, newestLinked, runContextId } from '../creative-work/cre
     @if (configured()) {
       @if (missingWork()) {
         <cp-notice role="note">
-          This step works on the picture you chose in the first step, which isn’t there yet. Go back to the first
-          step to choose what the picture is for.
+          This step works on the picture you chose in the first step, which isn’t there yet. Go back to the first step
+          to choose what the picture is for.
         </cp-notice>
       } @else {
         <cp-image-studio />
@@ -107,7 +107,10 @@ export class ImagesStudioStepComponent implements OnInit {
   /** The pictures this work saved to the library, as the run names what a step made. */
   private readonly kept = computed<readonly WorkflowResourcePointer[]>(() =>
     (this.studio()?.workContext()?.references ?? [])
-      .filter((reference) => reference.kind === 'DamAsset' && reference.purpose === 'Keeper' && reference.mediaAssetId !== null)
+      .filter(
+        (reference) =>
+          reference.kind === 'DamAsset' && reference.purpose === 'Keeper' && reference.mediaAssetId !== null,
+      )
       .map((reference) => ({ kind: 'MediaAsset', id: reference.mediaAssetId! })),
   );
 
@@ -192,7 +195,11 @@ export class ImagesStudioStepComponent implements OnInit {
 
     this.host.brand.set(
       outcome.status === 'found'
-        ? { status: 'ready', channelKeys: outcome.profile.channelDefaults, pictureCount: outcome.profile.defaultPictureCount }
+        ? {
+            status: 'ready',
+            channelKeys: outcome.profile.channelDefaults,
+            pictureCount: outcome.profile.defaultPictureCount,
+          }
         : { status: outcome.status === 'first_use' ? 'none' : 'unavailable', channelKeys: [], pictureCount: null },
     );
   }

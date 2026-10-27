@@ -24,7 +24,14 @@ function task(overrides: Partial<WorkTask> = {}): WorkTask {
     estimateMinutes: null,
     owner: { membershipId: 'm-1', displayName: 'Sam' },
     assignee: { membershipId: 'm-1', displayName: 'Sam' },
-    links: { workflowRunId: null, workflowStepKey: null, workflowRunRoute: null, recipeId: null, contentCardId: null, mediaAssetId: null },
+    links: {
+      workflowRunId: null,
+      workflowStepKey: null,
+      workflowRunRoute: null,
+      recipeId: null,
+      contentCardId: null,
+      mediaAssetId: null,
+    },
     labels: [],
     createdAt: '2038-10-14T17:00:00Z',
     updatedAt: '2038-10-14T17:00:00Z',
@@ -36,7 +43,9 @@ function task(overrides: Partial<WorkTask> = {}): WorkTask {
 
 describe('QuickCaptureComponent', () => {
   let fixture: ComponentFixture<QuickCaptureComponent>;
-  let capture: jasmine.Spy<(slug: string, request: CaptureWorkTaskRequest, key: string) => Promise<CaptureWorkTaskOutcome>>;
+  let capture: jasmine.Spy<
+    (slug: string, request: CaptureWorkTaskRequest, key: string) => Promise<CaptureWorkTaskOutcome>
+  >;
   let planningDates: jasmine.Spy<(slug: string) => Promise<PlanningDatesOutcome>>;
   let confirm: jasmine.Spy;
   let online: ReturnType<typeof signal<boolean>>;
@@ -44,10 +53,16 @@ describe('QuickCaptureComponent', () => {
   async function create(link: unknown = null): Promise<void> {
     capture = jasmine.createSpy('capture').and.callFake(async (_slug, request) => ({
       status: 'captured',
-      task: task({ title: request.title, scheduledDate: request.scheduledDate ?? null, planningWeekStart: request.planningWeekStart ?? '2038-10-11' }),
+      task: task({
+        title: request.title,
+        scheduledDate: request.scheduledDate ?? null,
+        planningWeekStart: request.planningWeekStart ?? '2038-10-11',
+      }),
       replayed: false,
     }));
-    planningDates = jasmine.createSpy('planningDates').and.resolveTo({ status: 'found', dates: { today: '2038-10-14', weekStart: '2038-10-11' } });
+    planningDates = jasmine
+      .createSpy('planningDates')
+      .and.resolveTo({ status: 'found', dates: { today: '2038-10-14', weekStart: '2038-10-11' } });
     confirm = jasmine.createSpy('confirm').and.resolveTo(true);
     online = signal(true);
 
@@ -57,7 +72,11 @@ describe('QuickCaptureComponent', () => {
         { provide: WorkTaskService, useValue: { capture, planningDates } },
         {
           provide: WorkspaceTagService,
-          useValue: { list: jasmine.createSpy('list').and.resolveTo({ status: 'found', tags: [{ id: 'tag-1', name: 'Weeknight' }] }) },
+          useValue: {
+            list: jasmine
+              .createSpy('list')
+              .and.resolveTo({ status: 'found', tags: [{ id: 'tag-1', name: 'Weeknight' }] }),
+          },
         },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: NetworkStatusService, useValue: { online } },
@@ -87,7 +106,9 @@ describe('QuickCaptureComponent', () => {
   }
 
   const saveButton = () =>
-    [...host().querySelectorAll<HTMLButtonElement>('button')].find((button) => /^(Save|Saving…)$/.test(button.textContent!.trim()))!;
+    [...host().querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      /^(Save|Saving…)$/.test(button.textContent!.trim()),
+    )!;
 
   function escapeFrom(element: Element): void {
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
@@ -531,7 +552,10 @@ describe('QuickCaptureComponent', () => {
     type('Plan the bake sale');
     await submit();
 
-    expect(capture.calls.mostRecent().args[1]).toEqual({ title: 'Plan the bake sale', planningWeekStart: '2038-10-18' });
+    expect(capture.calls.mostRecent().args[1]).toEqual({
+      title: 'Plan the bake sale',
+      planningWeekStart: '2038-10-18',
+    });
 
     await expand();
     expect($<HTMLInputElement>('#cp-quick-capture-when-week-of')!.checked).toBeTrue();
@@ -543,7 +567,12 @@ describe('QuickCaptureComponent', () => {
     await openDialog();
     await expand();
 
-    for (const id of ['cp-quick-capture-title-input', 'cp-quick-capture-estimate', 'cp-quick-capture-label', 'cp-quick-capture-link']) {
+    for (const id of [
+      'cp-quick-capture-title-input',
+      'cp-quick-capture-estimate',
+      'cp-quick-capture-label',
+      'cp-quick-capture-link',
+    ]) {
       const control = $<HTMLElement>(`#${id}`)!;
       const labelled = host().querySelector(`label[for="${id}"]`) ?? control.closest('label');
       expect(labelled?.textContent?.trim()).withContext(id).toBeTruthy();

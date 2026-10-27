@@ -11,7 +11,12 @@ export type WorkflowStepRunStatus = 'NotStarted' | 'InProgress' | 'Completed' | 
 export type WorkflowStepRequirement = 'Required' | 'Optional';
 
 const RUN_STATUSES: ReadonlySet<string> = new Set<WorkflowRunStatus>(['InProgress', 'Completed', 'Abandoned']);
-const STEP_STATUSES: ReadonlySet<string> = new Set<WorkflowStepRunStatus>(['NotStarted', 'InProgress', 'Completed', 'Skipped']);
+const STEP_STATUSES: ReadonlySet<string> = new Set<WorkflowStepRunStatus>([
+  'NotStarted',
+  'InProgress',
+  'Completed',
+  'Skipped',
+]);
 const REQUIREMENTS: ReadonlySet<string> = new Set<WorkflowStepRequirement>(['Required', 'Optional']);
 
 /**
@@ -181,12 +186,12 @@ function decodeLink(value: unknown): WorkflowRunLink | null {
 
 function decodeAction(value: unknown): WorkflowAction | null {
   if (
-    !isRecord(value)
-    || !isString(value['capabilityKey'])
-    || !isString(value['name'])
-    || !isStringOrNull(value['route'] ?? null)
-    || typeof value['available'] !== 'boolean'
-    || typeof value['youCanDoIt'] !== 'boolean'
+    !isRecord(value) ||
+    !isString(value['capabilityKey']) ||
+    !isString(value['name']) ||
+    !isStringOrNull(value['route'] ?? null) ||
+    typeof value['available'] !== 'boolean' ||
+    typeof value['youCanDoIt'] !== 'boolean'
   ) {
     return null;
   }
@@ -206,12 +211,12 @@ function decodeNextAction(value: unknown): WorkflowNextAction | null {
   const actions = every(value['actions'], decodeAction);
   const waitingFor = strings(value['waitingFor']);
   if (
-    !isString(value['stepKey'])
-    || !isString(value['title'])
-    || !isString(value['help'])
-    || requirement === null
-    || actions === null
-    || waitingFor === null
+    !isString(value['stepKey']) ||
+    !isString(value['title']) ||
+    !isString(value['help']) ||
+    requirement === null ||
+    actions === null ||
+    waitingFor === null
   ) {
     return null;
   }
@@ -225,12 +230,12 @@ function decodeSuggestion(value: unknown): WorkflowSuggestion | null {
   if (!isRecord(value)) return null;
   const kind = decodeEnum<WorkflowSuggestion['kind']>(SUGGESTION_KINDS, value['kind']);
   if (
-    kind === null
-    || !isString(value['key'])
-    || !isString(value['label'])
-    || !isString(value['why'])
-    || typeof value['available'] !== 'boolean'
-    || typeof value['youCanDoIt'] !== 'boolean'
+    kind === null ||
+    !isString(value['key']) ||
+    !isString(value['label']) ||
+    !isString(value['why']) ||
+    typeof value['available'] !== 'boolean' ||
+    typeof value['youCanDoIt'] !== 'boolean'
   ) {
     return null;
   }
@@ -264,28 +269,29 @@ export function decodeWorkflowRun(value: unknown): WorkflowRun | null {
   const steps = every(value['steps'], decodeStep);
   const links = every(value['links'], decodeLink);
   const warnings = value['warnings'] === undefined ? [] : every(value['warnings'], decodeWarning);
-  const nextSuggestions = value['nextSuggestions'] === undefined ? [] : every(value['nextSuggestions'], decodeSuggestion);
+  const nextSuggestions =
+    value['nextSuggestions'] === undefined ? [] : every(value['nextSuggestions'], decodeSuggestion);
   const rawNext = value['nextAction'];
   const nextAction = rawNext === null || rawNext === undefined ? null : decodeNextAction(rawNext);
 
   if (
-    !isString(value['id'])
-    || !isString(value['definitionKey'])
-    || !isNumber(value['definitionVersion'])
-    || !isString(value['goal'])
-    || !isString(value['title'])
-    || status === null
-    || !isNumber(value['stepCount'])
-    || !isNumber(value['completedStepCount'])
-    || !isNumber(value['skippedStepCount'])
-    || !isString(value['startedAt'])
-    || !isString(value['updatedAt'])
-    || !isString(value['concurrencyToken'])
-    || steps === null
-    || links === null
-    || warnings === null
-    || nextSuggestions === null
-    || (rawNext !== null && rawNext !== undefined && nextAction === null)
+    !isString(value['id']) ||
+    !isString(value['definitionKey']) ||
+    !isNumber(value['definitionVersion']) ||
+    !isString(value['goal']) ||
+    !isString(value['title']) ||
+    status === null ||
+    !isNumber(value['stepCount']) ||
+    !isNumber(value['completedStepCount']) ||
+    !isNumber(value['skippedStepCount']) ||
+    !isString(value['startedAt']) ||
+    !isString(value['updatedAt']) ||
+    !isString(value['concurrencyToken']) ||
+    steps === null ||
+    links === null ||
+    warnings === null ||
+    nextSuggestions === null ||
+    (rawNext !== null && rawNext !== undefined && nextAction === null)
   ) {
     return null;
   }

@@ -297,7 +297,9 @@ export class RecipeKitchenViewComponent {
 
     this.temperatureUnits.set(
       units.status === 'found'
-        ? new Map(units.units.filter((unit) => unit.dimension === 'Temperature').map((unit) => [unit.id, unit.abbreviation]))
+        ? new Map(
+            units.units.filter((unit) => unit.dimension === 'Temperature').map((unit) => [unit.id, unit.abbreviation]),
+          )
         : null,
     );
 

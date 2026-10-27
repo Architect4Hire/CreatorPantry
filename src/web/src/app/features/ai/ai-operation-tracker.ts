@@ -79,9 +79,7 @@ export class AiOperationTracker {
   readonly stopped: Signal<boolean> = this.stoppedSignal.asReadonly();
 
   /** `degraded` after a failed poll, so a status line says the reading is stale rather than implying it is live. */
-  readonly connection: Signal<AiStatusConnection> = computed(() =>
-    this.failuresSignal() > 0 ? 'degraded' : 'live',
-  );
+  readonly connection: Signal<AiStatusConnection> = computed(() => (this.failuresSignal() > 0 ? 'degraded' : 'live'));
 
   /** The proposal, once there is one. Null in every other phase. */
   readonly proposal: Signal<AiProposalDetail | null> = computed(() => {
@@ -222,9 +220,7 @@ export class AiOperationTracker {
       // A proposal is what `Proposed` means, so one without it is a shape this client cannot use. Reported as
       // unavailable, with a retry — polling has already stopped at `Proposed`, so leaving it `watching` would
       // strand the screen on "Check again" for something that will never change.
-      this.phaseSignal.set(
-        operation.proposal !== null ? { kind: 'ready', operation } : { kind: 'unavailable' },
-      );
+      this.phaseSignal.set(operation.proposal !== null ? { kind: 'ready', operation } : { kind: 'unavailable' });
       return;
     }
 

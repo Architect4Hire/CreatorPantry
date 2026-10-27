@@ -154,7 +154,9 @@
         }
 
         @if (column.moreFailed) {
-          <cp-notice cpBoardColumnFooter tone="error" role="alert">Couldn't load more. The cards above are still here.</cp-notice>
+          <cp-notice cpBoardColumnFooter tone="error" role="alert"
+            >Couldn't load more. The cards above are still here.</cp-notice
+          >
         }
         @if (column.nextCursor !== null) {
           <button

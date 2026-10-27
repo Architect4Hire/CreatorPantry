@@ -597,10 +597,14 @@ describe('RecipeEditorComponent', () => {
       recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: RECIPE_DETAIL });
 
       expect((await createHarness('/cozy-fall/recipes/r1', recipeService)).component.selectedAreaId()).toBe('edit');
-      expect((await createHarness('/cozy-fall/recipes/r1?area=nowhere', recipeService)).component.selectedAreaId()).toBe('edit');
+      expect(
+        (await createHarness('/cozy-fall/recipes/r1?area=nowhere', recipeService)).component.selectedAreaId(),
+      ).toBe('edit');
 
       // A recipe being created has no readiness to show: the tab is disabled, so it is not opened on.
-      expect((await createHarness('/cozy-fall/recipes/new?area=readiness', recipeService)).component.selectedAreaId()).toBe('edit');
+      expect(
+        (await createHarness('/cozy-fall/recipes/new?area=readiness', recipeService)).component.selectedAreaId(),
+      ).toBe('edit');
     });
 
     it('shows the readiness check on the Readiness tab, with the status the server reported', async () => {
@@ -933,7 +937,8 @@ describe('RecipeEditorComponent', () => {
     });
 
     describe('taking it away again', () => {
-      const removeButton = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('button[aria-label="Remove measured batch"]') ?? undefined;
+      const removeButton = (root: HTMLElement) =>
+        root.querySelector<HTMLButtonElement>('button[aria-label="Remove measured batch"]') ?? undefined;
 
       it('offers a way out once the fields are showing, and closes them without asking when they hold nothing', async () => {
         const recipeService = recipeServiceSpy();
@@ -977,9 +982,25 @@ describe('RecipeEditorComponent', () => {
 
       it('clears the batch, unit and serving size when the answer is yes, and a save sends them as removed', async () => {
         const recipeService = recipeServiceSpy();
-        const loaded: RecipeDetail = { ...RECIPE_DETAIL, yieldQuantity: 4, yieldUnitId: 'u-servings', servingSize: 1, servingCount: 6, yieldText: 'Serves six' };
+        const loaded: RecipeDetail = {
+          ...RECIPE_DETAIL,
+          yieldQuantity: 4,
+          yieldUnitId: 'u-servings',
+          servingSize: 1,
+          servingCount: 6,
+          yieldText: 'Serves six',
+        };
         recipeService.getRecipeDetail.and.resolveTo({ status: 'found', recipe: loaded });
-        recipeService.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...loaded, yieldQuantity: null, yieldUnitId: null, servingSize: null, concurrencyToken: 'AAAAAAAAB9I=' } });
+        recipeService.updateRecipe.and.resolveTo({
+          status: 'updated',
+          recipe: {
+            ...loaded,
+            yieldQuantity: null,
+            yieldUnitId: null,
+            servingSize: null,
+            concurrencyToken: 'AAAAAAAAB9I=',
+          },
+        });
         const { harness, component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
         const root = harness.routeNativeElement!;
         expect(root.querySelector('#recipe-yield-quantity')).withContext('open for a recipe that has one').toBeTruthy();
@@ -1077,25 +1098,33 @@ describe('RecipeEditorComponent', () => {
 
         expect(trackCount('.tab-sections')).withContext(`columns at ${width}`).toBe(1);
         for (let index = 1; index < ids.length; index += 1) {
-          expect(box(ids[index]).top).withContext(`${ids[index]} at ${width}`).toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
+          expect(box(ids[index]).top)
+            .withContext(`${ids[index]} at ${width}`)
+            .toBeGreaterThanOrEqual(box(ids[index - 1]).bottom - 1);
         }
 
         // A text field takes the whole of its section, not a measure's worth of it.
         for (const selector of ['#recipe-title', '#recipe-description', '#recipe-yield-text']) {
           const field = root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect();
           const section = root.querySelector(selector)!.closest('section[id^="section-"]')!.getBoundingClientRect();
-          expect(Math.abs(field.width - section.width)).withContext(`${selector} at ${width}`).toBeLessThan(1.5);
+          expect(Math.abs(field.width - section.width))
+            .withContext(`${selector} at ${width}`)
+            .toBeLessThan(1.5);
         }
       }
 
-      const domOrder = Array.from(root.querySelectorAll('.tab-sections section[id^="section-"]')).map((section) => section.id);
+      const domOrder = Array.from(root.querySelectorAll('.tab-sections section[id^="section-"]')).map(
+        (section) => section.id,
+      );
       expect(domOrder).toEqual(ids);
     });
 
     describe('the General tab nav', () => {
       // The phone nav's links: the four-link row. The wide nav's two are `wideLinksOf`.
-      const navLinksOf = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav a'));
-      const wideLinksOf = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav-wide a'));
+      const navLinksOf = (root: HTMLElement) =>
+        Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav a'));
+      const wideLinksOf = (root: HTMLElement) =>
+        Array.from(root.querySelectorAll<HTMLAnchorElement>('cp-anchor-nav.general-nav-wide a'));
 
       it('names the four sections, each of which exists under the same id and heading', async () => {
         const recipeService = recipeServiceSpy();
@@ -1140,7 +1169,9 @@ describe('RecipeEditorComponent', () => {
         const root = harness.routeNativeElement!;
         const scroll = spyOn(Element.prototype, 'scrollIntoView');
 
-        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
+        navLinksOf(root)
+          .find((link) => link.textContent?.trim() === 'Yield')!
+          .click();
         harness.detectChanges();
 
         // The request, not the animation: a browser window in the background does not run a smooth scroll's
@@ -1161,8 +1192,12 @@ describe('RecipeEditorComponent', () => {
         spyOn(window, 'matchMedia').and.returnValue({ matches: true } as MediaQueryList);
         const scroll = spyOn(Element.prototype, 'scrollIntoView').and.callThrough();
 
-        expect(yieldSection.getBoundingClientRect().top).withContext('before the jump').toBeGreaterThan(window.innerHeight);
-        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
+        expect(yieldSection.getBoundingClientRect().top)
+          .withContext('before the jump')
+          .toBeGreaterThan(window.innerHeight);
+        navLinksOf(root)
+          .find((link) => link.textContent?.trim() === 'Yield')!
+          .click();
         harness.detectChanges();
 
         expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
@@ -1186,7 +1221,9 @@ describe('RecipeEditorComponent', () => {
         harness.detectChanges();
         window.scrollTo(0, 0);
         const current = () =>
-          navLinksOf(root).filter((link) => link.getAttribute('aria-current') === 'true').map((link) => link.textContent?.trim());
+          navLinksOf(root)
+            .filter((link) => link.getAttribute('aria-current') === 'true')
+            .map((link) => link.textContent?.trim());
         // Karma's window is tall enough to show the whole tab, so space the sections a screen apart: the spy
         // is only meaningful when there is somewhere to scroll.
         for (const id of ['section-notes', 'section-timing', 'section-yield']) {
@@ -1223,10 +1260,14 @@ describe('RecipeEditorComponent', () => {
           root.querySelector<HTMLElement>('#' + id)!.style.marginTop = `${window.innerHeight}px`;
         }
         const current = () =>
-          navLinksOf(root).filter((link) => link.getAttribute('aria-current') === 'true').map((link) => link.textContent?.trim());
+          navLinksOf(root)
+            .filter((link) => link.getAttribute('aria-current') === 'true')
+            .map((link) => link.textContent?.trim());
         const seen = new Set<string>();
 
-        navLinksOf(root).find((link) => link.textContent?.trim() === 'Yield')!.click();
+        navLinksOf(root)
+          .find((link) => link.textContent?.trim() === 'Yield')!
+          .click();
         const started = Date.now();
         while (Date.now() - started < 1200) {
           harness.detectChanges();
@@ -1254,7 +1295,9 @@ describe('RecipeEditorComponent', () => {
           // Above the sections, not beside them.
           expect(details().top).toBeGreaterThanOrEqual(phone().getBoundingClientRect().bottom - 1);
           for (const link of navLinksOf(root)) {
-            expect(link.getBoundingClientRect().height).withContext(`${link.textContent} at ${width}`).toBeGreaterThanOrEqual(40);
+            expect(link.getBoundingClientRect().height)
+              .withContext(`${link.textContent} at ${width}`)
+              .toBeGreaterThanOrEqual(40);
           }
         }
 
@@ -1266,7 +1309,9 @@ describe('RecipeEditorComponent', () => {
           expect(getComputedStyle(wide()).position).toBe('sticky');
           expect(getComputedStyle(wide().querySelector('ul')!).flexDirection).toBe('column');
           // Beside, not above: the first section starts to the right of the gutter.
-          expect(details().left).withContext(`beside at ${width}`).toBeGreaterThan(wide().getBoundingClientRect().right - 1);
+          expect(details().left)
+            .withContext(`beside at ${width}`)
+            .toBeGreaterThan(wide().getBoundingClientRect().right - 1);
         }
       });
 
@@ -1275,9 +1320,15 @@ describe('RecipeEditorComponent', () => {
         const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
         const root = harness.routeNativeElement!;
 
-        expect(wideLinksOf(root).map((link) => link.querySelector('.label')?.textContent?.trim())).toEqual(['Details', 'Notes, timing & yield']);
+        expect(wideLinksOf(root).map((link) => link.querySelector('.label')?.textContent?.trim())).toEqual([
+          'Details',
+          'Notes, timing & yield',
+        ]);
         // Each goes to a section that exists: the second to the first of its three.
-        expect(wideLinksOf(root).map((link) => link.getAttribute('href'))).toEqual(['#section-details', '#section-notes']);
+        expect(wideLinksOf(root).map((link) => link.getAttribute('href'))).toEqual([
+          '#section-details',
+          '#section-notes',
+        ]);
 
         wideLinksOf(root)[1].click();
         harness.detectChanges();
@@ -1298,9 +1349,13 @@ describe('RecipeEditorComponent', () => {
           ['Yield', [false, true]],
           ['Notes', [false, true]],
         ] as const) {
-          navLinksOf(root).find((link) => link.textContent?.trim() === section)!.click();
+          navLinksOf(root)
+            .find((link) => link.textContent?.trim() === section)!
+            .click();
           harness.detectChanges();
-          expect(current()).withContext(section).toEqual([...expected]);
+          expect(current())
+            .withContext(section)
+            .toEqual([...expected]);
         }
       });
     });
@@ -1318,18 +1373,31 @@ describe('RecipeEditorComponent', () => {
 
       const box = (selector: string) => root.querySelector(selector)!.getBoundingClientRect();
       const fieldOf = (selector: string) => root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect();
-      const sectionRight = (selector: string) => root.querySelector(selector)!.closest('section[id^="section-"]')!.getBoundingClientRect().right;
+      const sectionRight = (selector: string) =>
+        root.querySelector(selector)!.closest('section[id^="section-"]')!.getBoundingClientRect().right;
 
       // The right edge is the section's own. Nothing in Timing or Yield goes past it — Total time used to.
-      for (const selector of ['#recipe-prep-time', '#recipe-rest-time', '#recipe-total-time', '#recipe-serving-count', '#recipe-yield-quantity', '#recipe-serving-size', '#recipe-yield-text']) {
-        expect(Math.round(fieldOf(selector).right)).withContext(selector).toBeLessThanOrEqual(Math.round(sectionRight(selector)) + 1);
+      for (const selector of [
+        '#recipe-prep-time',
+        '#recipe-rest-time',
+        '#recipe-total-time',
+        '#recipe-serving-count',
+        '#recipe-yield-quantity',
+        '#recipe-serving-size',
+        '#recipe-yield-text',
+      ]) {
+        expect(Math.round(fieldOf(selector).right))
+          .withContext(selector)
+          .toBeLessThanOrEqual(Math.round(sectionRight(selector)) + 1);
       }
 
       // The same quarter of the row, wherever the row has four columns, and on the same left edge where they stack.
       const prep = box('#recipe-prep-time');
       // Timing is the width of the form and the yield rows are held to the measure, so each is compared with its own.
       for (const selector of ['#recipe-cook-time', '#recipe-rest-time']) {
-        expect(Math.abs(box(selector).width - prep.width)).withContext(selector).toBeLessThan(1.5);
+        expect(Math.abs(box(selector).width - prep.width))
+          .withContext(selector)
+          .toBeLessThan(1.5);
       }
       expect(Math.abs(box('#recipe-serving-size').width - box('#recipe-yield-quantity').width)).toBeLessThan(1.5);
       // Four equal columns across the whole section, Total time the last of them.
@@ -1353,7 +1421,8 @@ describe('RecipeEditorComponent', () => {
       root.style.width = '22rem';
       harness.detectChanges();
 
-      const fieldWidth = (selector: string) => root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect().width;
+      const fieldWidth = (selector: string) =>
+        root.querySelector(selector)!.closest('cp-field')!.getBoundingClientRect().width;
       expect(Math.abs(fieldWidth('#recipe-serving-count') - fieldWidth('#recipe-yield-text'))).toBeLessThan(1);
     });
 
@@ -2717,8 +2786,12 @@ describe('RecipeEditorComponent', () => {
       const groupKey = component.form.instructionGroups()[0].key;
       component.form.addInstructionStep(groupKey);
       component.form.addInstructionStep(groupKey);
-      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[0].key, { text: 'First' });
-      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[1].key, { text: 'Second' });
+      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[0].key, {
+        text: 'First',
+      });
+      component.form.updateInstructionStep(groupKey, component.form.instructionGroups()[0].steps[1].key, {
+        text: 'Second',
+      });
       harness.detectChanges();
 
       const firstStepKey = component.form.instructionGroups()[0].steps[0].key;
@@ -2974,7 +3047,9 @@ describe('RecipeEditorComponent', () => {
         component.form.title.set('Weeknight Chili');
         component.form.addInstructionStep();
         const [stepKey] = stepKeys(component);
-        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, stepKey, { text: 'Brown the beef.' });
+        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, stepKey, {
+          text: 'Brown the beef.',
+        });
         harness.detectChanges();
 
         expect(durationBox(harness, stepKey)).withContext('no box until it is asked for').toBeNull();
@@ -3042,7 +3117,9 @@ describe('RecipeEditorComponent', () => {
         });
         const { harness, component } = await openInstructionsTab('/cozy-fall/recipes/r1', recipeService);
 
-        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, 's1', { durationMinutes: null });
+        component.form.updateInstructionStep(component.form.instructionGroups()[0].key, 's1', {
+          durationMinutes: null,
+        });
         harness.detectChanges();
 
         expect(durationBox(harness, 's1')).withContext('still there').toBeTruthy();
@@ -3399,7 +3476,9 @@ describe('RecipeEditorComponent', () => {
       await component.reloadAfterConflict();
       harness.detectChanges();
 
-      expect(component.form.editedIngredientGroups()[0].ingredients[0].displayText).toBe('2 cups all-purpose flour, sifted');
+      expect(component.form.editedIngredientGroups()[0].ingredients[0].displayText).toBe(
+        '2 cups all-purpose flour, sifted',
+      );
       expect(harness.routeNativeElement!.textContent).toContain('2 cups all-purpose flour, sifted');
     });
 
@@ -4153,7 +4232,9 @@ describe('RecipeEditorComponent', () => {
       const { harness } = await createHarness('/cozy-fall/recipes/new', recipeService);
       selectEditTab(harness, 'Instructions');
       const addSteps = () =>
-        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter((button) => button.textContent?.trim() === 'Add step');
+        Array.from(harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('button')).filter(
+          (button) => button.textContent?.trim() === 'Add step',
+        );
 
       expect(addSteps().length).withContext('before anything is added').toBe(1);
       clickButton(harness, 'Add step');
@@ -4162,7 +4243,9 @@ describe('RecipeEditorComponent', () => {
 
       clickButton(harness, 'Add instruction group');
       expect(addSteps().length).withContext('two phases: one beneath each').toBe(2);
-      expect(addSteps().every((button) => !harness.routeNativeElement!.querySelector('.toolbar')!.contains(button))).toBeTrue();
+      expect(
+        addSteps().every((button) => !harness.routeNativeElement!.querySelector('.toolbar')!.contains(button)),
+      ).toBeTrue();
     });
 
     it('opens the duration after the step text and its note, at the foot of the step, and nothing above it moves', async () => {
@@ -4180,7 +4263,9 @@ describe('RecipeEditorComponent', () => {
       root.querySelector<HTMLButtonElement>('button[aria-label="Add a duration to step 1"]')!.click();
       harness.detectChanges();
 
-      expect(root.querySelector(`#step-duration-${key}`)).withContext('the duration field is there').toBeTruthy();
+      expect(root.querySelector(`#step-duration-${key}`))
+        .withContext('the duration field is there')
+        .toBeTruthy();
       // After the note, not between the text and the note.
       expect(top(`#step-duration-${key}`)).toBeGreaterThanOrEqual(bottom(`#step-note-${key}`) - 1);
       // And nothing above it was pushed: the text and the note are exactly where they were.
@@ -4201,12 +4286,20 @@ describe('RecipeEditorComponent', () => {
 
       const stepBox = root.querySelector('.step')!.getBoundingClientRect();
       const head = root.querySelector('.step-head')!.getBoundingClientRect();
-      const text = root.querySelector(`#step-text-${component.form.instructionGroups()[0].steps[0].key}`)!.getBoundingClientRect();
+      const text = root
+        .querySelector(`#step-text-${component.form.instructionGroups()[0].steps[0].key}`)!
+        .getBoundingClientRect();
       const offer = root.querySelector('button[aria-label="Add a duration to step 1"]')!.getBoundingClientRect();
 
-      expect(head.bottom).withContext('above the text').toBeLessThanOrEqual(text.top + 1);
-      expect(stepBox.right - head.right).withContext('at the right edge of the step').toBeLessThan(40);
-      expect(offer.top).withContext('the duration offer is beneath the text').toBeGreaterThanOrEqual(text.bottom - 1);
+      expect(head.bottom)
+        .withContext('above the text')
+        .toBeLessThanOrEqual(text.top + 1);
+      expect(stepBox.right - head.right)
+        .withContext('at the right edge of the step')
+        .toBeLessThan(40);
+      expect(offer.top)
+        .withContext('the duration offer is beneath the text')
+        .toBeGreaterThanOrEqual(text.bottom - 1);
       expect(root.querySelector('button[aria-label="Remove step 1"]')).toBeTruthy();
       expect(root.querySelector('.step-head button[aria-label="Move step 1 up"]')).toBeTruthy();
     });
@@ -4291,7 +4384,9 @@ describe('RecipeEditorComponent', () => {
       const { component } = await createHarness('/cozy-fall/recipes/new', recipeService);
 
       expect(component.isDirty()).toBeFalse();
-      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([
+        editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] }),
+      ]);
       expect(component.isDirty()).toBeTrue();
     });
 
@@ -4301,7 +4396,9 @@ describe('RecipeEditorComponent', () => {
       harness.detectChanges();
       expect(harness.routeNativeElement?.querySelector('.dirty-indicator')).toBeFalsy();
 
-      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([
+        editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] }),
+      ]);
       harness.detectChanges();
 
       const pill = harness.routeNativeElement?.querySelector('.dirty-indicator');
@@ -4390,7 +4487,9 @@ describe('RecipeEditorComponent', () => {
     it('blocks a real router navigation when only an ingredient edit is unsaved, until the user confirms discarding', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
-      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([
+        editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] }),
+      ]);
 
       const navPromise = harness.navigateByUrl('/cozy-fall/elsewhere');
       await waitUntil(() => confirmService.isOpen);
@@ -4413,7 +4512,9 @@ describe('RecipeEditorComponent', () => {
       });
       const { component } = await createHarness('/cozy-fall/recipes/r1', recipeService);
 
-      component.form.editedIngredientGroups.set([editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] })]);
+      component.form.editedIngredientGroups.set([
+        editableGroup({ ingredients: [editableRow({ displayText: 'Salt' })] }),
+      ]);
       expect(component.isDirty()).toBeTrue();
       await component.save();
 
@@ -6029,7 +6130,13 @@ describe('RecipeEditorComponent', () => {
 
     it('shows the yield pairing as a warning beside the unit, and keeps Save available', async () => {
       const recipeService = recipeServiceSpy();
-      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService, undefined, 'Editor', GATEWAY);
+      const { harness, component } = await createHarness(
+        '/cozy-fall/recipes/new',
+        recipeService,
+        undefined,
+        'Editor',
+        GATEWAY,
+      );
       await settleUnits(harness, component);
       revealMeasuredBatch(harness);
       component.form.title.set('Soup');
@@ -6416,8 +6523,8 @@ describe('RecipeEditorComponent', () => {
     };
 
     function factsOf(root: HTMLElement): string[] {
-      return Array.from(root.querySelectorAll('dl[cpFacts] > div')).map((fact) =>
-        `${fact.querySelector('dt')?.textContent?.trim()}: ${fact.querySelector('dd')?.textContent?.trim()}`,
+      return Array.from(root.querySelectorAll('dl[cpFacts] > div')).map(
+        (fact) => `${fact.querySelector('dt')?.textContent?.trim()}: ${fact.querySelector('dd')?.textContent?.trim()}`,
       );
     }
 
@@ -6459,12 +6566,24 @@ describe('RecipeEditorComponent', () => {
 
       recipeService.updateRecipe.and.resolveTo({
         status: 'updated',
-        recipe: { ...TIMED, yieldText: 'Two big pots', prepTimeMinutes: 45, totalTimeMinutes: 165, concurrencyToken: 'AAAAAAAAB9I=' },
+        recipe: {
+          ...TIMED,
+          yieldText: 'Two big pots',
+          prepTimeMinutes: 45,
+          totalTimeMinutes: 165,
+          concurrencyToken: 'AAAAAAAAB9I=',
+        },
       });
       await component.save();
       harness.detectChanges();
 
-      expect(factsOf(root)).toEqual(['Makes: Two big pots', 'Serves: 8', 'Prep: 45 min', 'Cook: 2 hr', 'Total: 2 hr 45 min']);
+      expect(factsOf(root)).toEqual([
+        'Makes: Two big pots',
+        'Serves: 8',
+        'Prep: 45 min',
+        'Cook: 2 hr',
+        'Total: 2 hr 45 min',
+      ]);
     });
 
     it("puts the recipes section's icon in the head's tile", async () => {
@@ -6481,7 +6600,10 @@ describe('RecipeEditorComponent', () => {
     it("shows the recipe's lead picture in the head, described by the alt text the creator wrote", async () => {
       const { root, assets } = await open({
         ...RECIPE_DETAIL,
-        assetLinks: [mediaLink({ id: 'g', role: 'Gallery', mediaAssetId: 'a1' }), mediaLink({ id: 'h', role: 'Hero', mediaAssetId: 'a7' })],
+        assetLinks: [
+          mediaLink({ id: 'g', role: 'Gallery', mediaAssetId: 'a1' }),
+          mediaLink({ id: 'h', role: 'Hero', mediaAssetId: 'a7' }),
+        ],
       });
 
       const picture = root.querySelector<HTMLImageElement>('cp-page-head .media img');

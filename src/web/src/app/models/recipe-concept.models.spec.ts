@@ -122,7 +122,11 @@ describe('recipe-concept.models', () => {
     });
 
     it('attaches a warning to the concept whose Add row it names', () => {
-      const warning: AiProposalWarning = { kind: 'Assumption', message: 'Assumed weeknight cooking.', changeId: 'add-1' };
+      const warning: AiProposalWarning = {
+        kind: 'Assumption',
+        message: 'Assumed weeknight cooking.',
+        changeId: 'add-1',
+      };
       const concepts = conceptsFromProposal(detail([addRow()], [warning]));
 
       expect(concepts[0].warnings).toEqual([warning]);

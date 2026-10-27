@@ -11,7 +11,9 @@
           <h3>{{ item.heading }}</h3>
           <p>{{ item.body }}</p>
           @if (onTour(item.tourPanel)) {
-            <a class="tour-link" [href]="'#tour-' + item.tourPanel">See it in the tour<span class="cp-sr-only">: {{ item.heading }}</span></a>
+            <a class="tour-link" [href]="'#tour-' + item.tourPanel"
+              >See it in the tour<span class="cp-sr-only">: {{ item.heading }}</span></a
+            >
           }
         </cp-card>
       </li>

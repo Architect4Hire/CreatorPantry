@@ -109,7 +109,9 @@ describe('CpFactsComponent', () => {
     const term = fact(0).querySelector('dt')!;
     const value = fact(0).querySelector('dd')!;
     expect(getComputedStyle(term).fontSize).toBe('11px');
-    expect(Math.round(value.getBoundingClientRect().top)).toBeGreaterThanOrEqual(Math.round(term.getBoundingClientRect().bottom));
+    expect(Math.round(value.getBoundingClientRect().top)).toBeGreaterThanOrEqual(
+      Math.round(term.getBoundingClientRect().bottom),
+    );
     expect(getComputedStyle(value).fontWeight).toBe('600');
   });
 });

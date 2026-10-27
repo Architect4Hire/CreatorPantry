@@ -70,7 +70,14 @@ type PictureState = 'waiting' | 'loading' | 'ready' | 'gone' | 'unavailable';
       @case ('unavailable') {
         <cp-notice tone="error" role="status">
           This picture could not be loaded.
-          <button cpButton type="button" variant="secondary" size="sm" [attr.aria-label]="retryLabel()" (click)="reload()">
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            [attr.aria-label]="retryLabel()"
+            (click)="reload()"
+          >
             Try again
           </button>
         </cp-notice>

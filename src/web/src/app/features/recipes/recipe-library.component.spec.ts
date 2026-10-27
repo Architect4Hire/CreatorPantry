@@ -270,17 +270,15 @@ describe('RecipeLibraryComponent', () => {
   });
 
   it('says a state once rather than in the pill and the version badge both', async () => {
-    searchSpy = jasmine
-      .createSpy('searchRecipes')
-      .and.returnValue(
-        found(
-          page([
-            summary('r1', 'Chili', { status: 'Draft', latestVersionNumber: 4, latestVersionReadiness: 'Draft' }),
-            // Approved over a draft version is not a repetition: there the two differ and both matter.
-            summary('r2', 'Gnocchi', { status: 'Approved', latestVersionNumber: 2, latestVersionReadiness: 'Draft' }),
-          ]),
-        ),
-      );
+    searchSpy = jasmine.createSpy('searchRecipes').and.returnValue(
+      found(
+        page([
+          summary('r1', 'Chili', { status: 'Draft', latestVersionNumber: 4, latestVersionReadiness: 'Draft' }),
+          // Approved over a draft version is not a repetition: there the two differ and both matter.
+          summary('r2', 'Gnocchi', { status: 'Approved', latestVersionNumber: 2, latestVersionReadiness: 'Draft' }),
+        ]),
+      ),
+    );
     await create();
 
     const [draft, approved] = cards().map((card) => card.querySelector('.badges')?.textContent ?? '');

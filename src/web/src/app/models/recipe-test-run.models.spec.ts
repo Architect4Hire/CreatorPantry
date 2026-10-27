@@ -229,7 +229,10 @@ describe('recipe-test-run.models', () => {
 
     it('rejects an unknown severity rather than showing the issue without one', () => {
       expect(
-        decodeRecipeTestRun({ ...RUN_PAYLOAD, issues: [{ id: 'i1', severity: 'Catastrophic', title: 'x', sortOrder: 0 }] }),
+        decodeRecipeTestRun({
+          ...RUN_PAYLOAD,
+          issues: [{ id: 'i1', severity: 'Catastrophic', title: 'x', sortOrder: 0 }],
+        }),
       ).toBeNull();
     });
 
@@ -414,7 +417,12 @@ describe('recipe-test-run.models', () => {
       const decoded = decodeTestRunHistoryPage({
         items: [],
         nextCursor: null,
-        summary: { totalCount: 1, byOutcome: { Succeeded: 'two' }, runsWithUnresolvedIssues: 0, unresolvedIssueCount: 0 },
+        summary: {
+          totalCount: 1,
+          byOutcome: { Succeeded: 'two' },
+          runsWithUnresolvedIssues: 0,
+          unresolvedIssueCount: 0,
+        },
       });
 
       expect(decoded).toBeNull();

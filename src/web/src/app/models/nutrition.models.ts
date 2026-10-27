@@ -53,12 +53,7 @@ const SERVINGS_SOURCES: ReadonlySet<string> = new Set<NutritionServingsSource>([
 
 /** What became of one recipe line. Mirrors NutritionLineOutcome. */
 export type NutritionLineOutcome =
-  | 'Included'
-  | 'Unmapped'
-  | 'NeedsReview'
-  | 'Unconvertible'
-  | 'NotQuantified'
-  | 'Optional';
+  'Included' | 'Unmapped' | 'NeedsReview' | 'Unconvertible' | 'NotQuantified' | 'Optional';
 
 const LINE_OUTCOMES: ReadonlySet<string> = new Set<NutritionLineOutcome>([
   'Included',
@@ -137,12 +132,7 @@ const NUTRIENT_CODES: ReadonlySet<string> = new Set<NutrientCode>([
 
 export type NutrientUnit = 'Kilocalorie' | 'Gram' | 'Milligram' | 'Microgram';
 
-const NUTRIENT_UNITS: ReadonlySet<string> = new Set<NutrientUnit>([
-  'Kilocalorie',
-  'Gram',
-  'Milligram',
-  'Microgram',
-]);
+const NUTRIENT_UNITS: ReadonlySet<string> = new Set<NutrientUnit>(['Kilocalorie', 'Gram', 'Milligram', 'Microgram']);
 
 /** Where a mapping stands. Only `Confirmed` is used by an estimate. Mirrors NutritionMappingStatus. */
 export type NutritionMappingStatus = 'Candidate' | 'Confirmed' | 'NeedsReview' | 'Unresolved';
@@ -164,11 +154,7 @@ export type NutritionMatchMethod = 'AutomaticSearch' | 'CreatorSelected';
 const MATCH_METHODS: ReadonlySet<string> = new Set<NutritionMatchMethod>(['AutomaticSearch', 'CreatorSelected']);
 
 /** Why a mapping has no reference. Mirrors NutritionUnresolvedReason. */
-export type NutritionUnresolvedReason =
-  | 'NoCandidates'
-  | 'CreatorDeclined'
-  | 'ReferenceRejected'
-  | 'ReferenceWithdrawn';
+export type NutritionUnresolvedReason = 'NoCandidates' | 'CreatorDeclined' | 'ReferenceRejected' | 'ReferenceWithdrawn';
 
 const UNRESOLVED_REASONS: ReadonlySet<string> = new Set<NutritionUnresolvedReason>([
   'NoCandidates',

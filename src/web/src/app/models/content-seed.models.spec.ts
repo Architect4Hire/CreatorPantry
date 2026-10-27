@@ -83,7 +83,7 @@ describe('content-seed.models', () => {
       expect(decodeContentSeed(seedPayload({ token: 7 }))).toBeNull();
     });
 
-    it('reads which parts are the linked recipe\'s own, and the recipe the idea was built around', () => {
+    it("reads which parts are the linked recipe's own, and the recipe the idea was built around", () => {
       const seed = decodeContentSeed(
         seedPayload({
           cuisine: { ...facet('thai', 'Thai'), fromRecipe: true },

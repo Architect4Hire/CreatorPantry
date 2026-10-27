@@ -12,7 +12,13 @@ function filled(): ImageStudioDraft {
 
   return {
     ...base,
-    config: { ...base.config, channelKey: 'instagram', variantCount: 3, scene: ['a linen cloth'], concept: 'A tight crop.' },
+    config: {
+      ...base.config,
+      channelKey: 'instagram',
+      variantCount: 3,
+      scene: ['a linen cloth'],
+      concept: 'A tight crop.',
+    },
     prompt: {
       ...base.prompt,
       conceptRequestId: 'r-concept',
@@ -77,7 +83,7 @@ describe('image studio draft', () => {
     expect(decodeImageStudioDraft(huge)).toBeNull();
   });
 
-  it('reads an unrecognised prompt source on a non-empty prompt as the creator\'s own words', () => {
+  it("reads an unrecognised prompt source on a non-empty prompt as the creator's own words", () => {
     const base = filled();
     const raw = JSON.stringify({
       v: IMAGE_STUDIO_DRAFT_VERSION,
@@ -90,7 +96,11 @@ describe('image studio draft', () => {
 
   it('carries no day, even when one was stored', () => {
     const base = filled();
-    const raw = JSON.stringify({ v: IMAGE_STUDIO_DRAFT_VERSION, ...base, config: { ...base.config, day: 'Wednesday' } });
+    const raw = JSON.stringify({
+      v: IMAGE_STUDIO_DRAFT_VERSION,
+      ...base,
+      config: { ...base.config, day: 'Wednesday' },
+    });
 
     expect(decodeImageStudioDraft(raw)?.config.day).toBeNull();
   });
@@ -109,7 +119,16 @@ describe('image studio draft', () => {
   it('stores nothing about a picture, a provider or a proposal — ids and decisions only', () => {
     const raw = encodeImageStudioDraft(filled());
 
-    for (const field of ['mediaType', 'sizeBytes', 'width', 'providerName', 'modelName', 'retentionExpiresAt', 'proposal', 'workspaceId']) {
+    for (const field of [
+      'mediaType',
+      'sizeBytes',
+      'width',
+      'providerName',
+      'modelName',
+      'retentionExpiresAt',
+      'proposal',
+      'workspaceId',
+    ]) {
       expect(raw).withContext(field).not.toContain(field);
     }
   });

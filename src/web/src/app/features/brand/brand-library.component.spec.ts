@@ -154,7 +154,10 @@ describe('BrandLibraryComponent', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: ':workspaceSlug/brand/library', component: BrandLibraryComponent }]),
-        { provide: BrandSourceDocumentService, useValue: { searchLibrary: searchSpy, upload: jasmine.createSpy('upload') } },
+        {
+          provide: BrandSourceDocumentService,
+          useValue: { searchLibrary: searchSpy, upload: jasmine.createSpy('upload') },
+        },
         { provide: BrandProfileService, useValue: { listContentChannels: channelsSpy } },
       ],
     }).compileComponents();
@@ -240,10 +243,9 @@ describe('BrandLibraryComponent', () => {
   });
 
   it('reports a failed read and retries the same search when asked', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
-      of<BrandLibraryOutcome>({ status: 'unavailable' }),
-      ok(TWO_EXAMPLES),
-    );
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValues(of<BrandLibraryOutcome>({ status: 'unavailable' }), ok(TWO_EXAMPLES));
     await create();
     await settle();
 
@@ -262,10 +264,9 @@ describe('BrandLibraryComponent', () => {
    * use. `frontend.md` requires this state of every data surface; the version history already had it.
    */
   it('keeps the rows it already had when a later read fails, and says only that', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
-      ok(TWO_EXAMPLES),
-      of<BrandLibraryOutcome>({ status: 'unavailable' }),
-    );
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValues(ok(TWO_EXAMPLES), of<BrandLibraryOutcome>({ status: 'unavailable' }));
     await create();
     await settle();
 
@@ -282,11 +283,13 @@ describe('BrandLibraryComponent', () => {
   });
 
   it('offers no further page of cards that are not the answer to the search in force', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
-      ok(page([row('d1', 'House Style')], 'cursor-1')),
-      of<BrandLibraryOutcome>({ status: 'unavailable' }),
-      ok(TWO_EXAMPLES),
-    );
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValues(
+        ok(page([row('d1', 'House Style')], 'cursor-1')),
+        of<BrandLibraryOutcome>({ status: 'unavailable' }),
+        ok(TWO_EXAMPLES),
+      );
     await create();
     await settle();
     expect(hasButton('Load more')).toBeTrue();
@@ -306,11 +309,13 @@ describe('BrandLibraryComponent', () => {
   });
 
   it('forgets the cards it held once the server refuses the filters, rather than bringing them back degraded', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
-      ok(TWO_EXAMPLES),
-      of<BrandLibraryOutcome>({ status: 'invalid_request' }),
-      of<BrandLibraryOutcome>({ status: 'unavailable' }),
-    );
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValues(
+        ok(TWO_EXAMPLES),
+        of<BrandLibraryOutcome>({ status: 'invalid_request' }),
+        of<BrandLibraryOutcome>({ status: 'unavailable' }),
+      );
     await create();
     await settle();
 
@@ -336,7 +341,9 @@ describe('BrandLibraryComponent', () => {
   });
 
   it('distinguishes a refused filter from a failed read, because the remedies differ', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(of<BrandLibraryOutcome>({ status: 'invalid_request' }));
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValue(of<BrandLibraryOutcome>({ status: 'invalid_request' }));
     await create();
     await settle();
 
@@ -346,7 +353,11 @@ describe('BrandLibraryComponent', () => {
   it('drops back to the first page of the same search when a cursor is refused', async () => {
     searchSpy = jasmine
       .createSpy('searchLibrary')
-      .and.returnValues(ok(page([row('d1', 'House Style')], 'cursor-1')), of<BrandLibraryOutcome>({ status: 'cursor_expired' }), ok(TWO_EXAMPLES));
+      .and.returnValues(
+        ok(page([row('d1', 'House Style')], 'cursor-1')),
+        of<BrandLibraryOutcome>({ status: 'cursor_expired' }),
+        ok(TWO_EXAMPLES),
+      );
     await create();
     await settle();
 
@@ -455,7 +466,9 @@ describe('BrandLibraryComponent', () => {
 
   it('restores its filters from the query string and writes them back', async () => {
     searchSpy = jasmine.createSpy('searchLibrary').and.returnValue(ok(TWO_EXAMPLES));
-    await create('?search=house&status=Archived&documentType=StyleGuide&purpose=WritingStyle&extractionState=Succeeded&channelKey=instagram');
+    await create(
+      '?search=house&status=Archived&documentType=StyleGuide&purpose=WritingStyle&extractionState=Succeeded&channelKey=instagram',
+    );
     await settle();
 
     expect(queries()[0]).toEqual(
@@ -517,7 +530,9 @@ describe('BrandLibraryComponent', () => {
   it("appends the next page under the server's cursor and moves focus to the first new card's title", async () => {
     const first = page([row('d1', 'House Style')], 'cursor-1');
     const second = page([row('d2', 'Reel captions'), row('d3', 'Autumn newsletter')]);
-    searchSpy = jasmine.createSpy('searchLibrary').and.callFake((_slug, query) => ok(query.cursor === null ? first : second));
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.callFake((_slug, query) => ok(query.cursor === null ? first : second));
     await create();
     await settle();
 
@@ -537,11 +552,13 @@ describe('BrandLibraryComponent', () => {
   });
 
   it('keeps the cards already read when a later page fails, and offers the page again', async () => {
-    searchSpy = jasmine.createSpy('searchLibrary').and.returnValues(
-      ok(page([row('d1', 'House Style')], 'cursor-1')),
-      of<BrandLibraryOutcome>({ status: 'unavailable' }),
-      ok(page([row('d2', 'Reel captions')])),
-    );
+    searchSpy = jasmine
+      .createSpy('searchLibrary')
+      .and.returnValues(
+        ok(page([row('d1', 'House Style')], 'cursor-1')),
+        of<BrandLibraryOutcome>({ status: 'unavailable' }),
+        ok(page([row('d2', 'Reel captions')])),
+      );
     await create();
     await settle();
 

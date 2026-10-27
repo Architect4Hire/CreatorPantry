@@ -30,13 +30,15 @@ describe('WorkflowRunService', () => {
 
   afterEach(() => http.verify());
 
-  it('reads a run, and an unknown or another workspace\'s run as not found', async () => {
+  it("reads a run, and an unknown or another workspace's run as not found", async () => {
     const found = service.get('sams-kitchen', 'run-1');
     http.expectOne(`${RUNS}/run-1`).flush(wireRun());
     expect((await found).status).toBe('found');
 
     const missing = service.get('sams-kitchen', 'run-2');
-    http.expectOne(`${RUNS}/run-2`).flush({ code: 'workflows.run.not_found' }, { status: 404, statusText: 'Not Found' });
+    http
+      .expectOne(`${RUNS}/run-2`)
+      .flush({ code: 'workflows.run.not_found' }, { status: 404, statusText: 'Not Found' });
     expect(await missing).toEqual({ status: 'not_found' });
   });
 
@@ -47,20 +49,57 @@ describe('WorkflowRunService', () => {
     expect(await read).toEqual({ status: 'unavailable', offline: false });
   });
 
-  it('sends each command to its route with the run\'s token', async () => {
+  it("sends each command to its route with the run's token", async () => {
     const commands: [Promise<unknown>, string, string, unknown][] = [
-      [service.completeStep('sams-kitchen', run, 'ingredients', [{ kind: 'Recipe', id: 'r-1' }]), 'POST', '/run-1/steps/ingredients/completion',
-        { results: [{ kind: 'Recipe', id: 'r-1' }], expectedConcurrencyToken: run.concurrencyToken }],
-      [service.back('sams-kitchen', run, 'ingredients'), 'POST', '/run-1/steps/ingredients/back', { expectedConcurrencyToken: run.concurrencyToken }],
-      [service.skip('sams-kitchen', run, 'photo'), 'POST', '/run-1/steps/photo/skip', { reason: null, expectedConcurrencyToken: run.concurrencyToken }],
-      [service.saveDraft('sams-kitchen', run, 'ingredients', { kind: 'Recipe', id: 'd-1' }), 'PUT', '/run-1/steps/ingredients/draft',
-        { kind: 'Recipe', id: 'd-1', expectedConcurrencyToken: run.concurrencyToken }],
-      [service.saveAndExit('sams-kitchen', run, 'ingredients', { draft: { kind: 'Recipe', id: 'd-1' }, capabilityKey: 'recipes.edit' }), 'POST',
+      [
+        service.completeStep('sams-kitchen', run, 'ingredients', [{ kind: 'Recipe', id: 'r-1' }]),
+        'POST',
+        '/run-1/steps/ingredients/completion',
+        { results: [{ kind: 'Recipe', id: 'r-1' }], expectedConcurrencyToken: run.concurrencyToken },
+      ],
+      [
+        service.back('sams-kitchen', run, 'ingredients'),
+        'POST',
+        '/run-1/steps/ingredients/back',
+        { expectedConcurrencyToken: run.concurrencyToken },
+      ],
+      [
+        service.skip('sams-kitchen', run, 'photo'),
+        'POST',
+        '/run-1/steps/photo/skip',
+        { reason: null, expectedConcurrencyToken: run.concurrencyToken },
+      ],
+      [
+        service.saveDraft('sams-kitchen', run, 'ingredients', { kind: 'Recipe', id: 'd-1' }),
+        'PUT',
+        '/run-1/steps/ingredients/draft',
+        { kind: 'Recipe', id: 'd-1', expectedConcurrencyToken: run.concurrencyToken },
+      ],
+      [
+        service.saveAndExit('sams-kitchen', run, 'ingredients', {
+          draft: { kind: 'Recipe', id: 'd-1' },
+          capabilityKey: 'recipes.edit',
+        }),
+        'POST',
         '/run-1/steps/ingredients/save-and-exit',
-        { draft: { kind: 'Recipe', id: 'd-1' }, capabilityKey: 'recipes.edit', expectedConcurrencyToken: run.concurrencyToken }],
-      [service.completeRun('sams-kitchen', run), 'POST', '/run-1/completion', { expectedConcurrencyToken: run.concurrencyToken }],
-      [service.abandon('sams-kitchen', run, 'Not this week'), 'POST', '/run-1/abandonment',
-        { confirmed: true, reason: 'Not this week', expectedConcurrencyToken: run.concurrencyToken }],
+        {
+          draft: { kind: 'Recipe', id: 'd-1' },
+          capabilityKey: 'recipes.edit',
+          expectedConcurrencyToken: run.concurrencyToken,
+        },
+      ],
+      [
+        service.completeRun('sams-kitchen', run),
+        'POST',
+        '/run-1/completion',
+        { expectedConcurrencyToken: run.concurrencyToken },
+      ],
+      [
+        service.abandon('sams-kitchen', run, 'Not this week'),
+        'POST',
+        '/run-1/abandonment',
+        { confirmed: true, reason: 'Not this week', expectedConcurrencyToken: run.concurrencyToken },
+      ],
     ];
 
     for (const [pending, method, path, body] of commands) {
@@ -73,7 +112,7 @@ describe('WorkflowRunService', () => {
     }
   });
 
-  it('starts over and starts again under the caller\'s idempotency key', async () => {
+  it("starts over and starts again under the caller's idempotency key", async () => {
     const restart = service.restart('sams-kitchen', run, 'key-1');
     const restartRequest = http.expectOne(`${RUNS}/run-1/restart`);
     expect(restartRequest.request.headers.get('Idempotency-Key')).toBe('key-1');
@@ -95,13 +134,25 @@ describe('WorkflowRunService', () => {
     [409, 'workflows.run.not_in_progress.conflict', {}, { status: 'not_in_progress' }],
     [409, 'workflows.run.at_first_step.conflict', {}, { status: 'at_first_step' }],
     [409, 'workflows.step.not_current.conflict', {}, { status: 'step_moved' }],
-    [422, 'workflows.step.incomplete.unprocessable', { missing: ['Add an ingredient first.'] },
-      { status: 'step_incomplete', missing: ['Add an ingredient first.'] }],
-    [422, 'workflows.run.incomplete.unprocessable', { incompleteSteps: [{ stepKey: 'a', title: 'A', missing: ['x'] }] },
-      { status: 'run_incomplete', incompleteSteps: [{ stepKey: 'a', title: 'A', missing: ['x'] }] }],
+    [
+      422,
+      'workflows.step.incomplete.unprocessable',
+      { missing: ['Add an ingredient first.'] },
+      { status: 'step_incomplete', missing: ['Add an ingredient first.'] },
+    ],
+    [
+      422,
+      'workflows.run.incomplete.unprocessable',
+      { incompleteSteps: [{ stepKey: 'a', title: 'A', missing: ['x'] }] },
+      { status: 'run_incomplete', incompleteSteps: [{ stepKey: 'a', title: 'A', missing: ['x'] }] },
+    ],
     [422, 'workflows.step.required.unprocessable', {}, { status: 'step_required' }],
-    [422, 'workflows.step.result.unprocessable', { title: 'That recipe isn\'t one this workspace has.' },
-      { status: 'unprocessable', message: 'That recipe isn\'t one this workspace has.' }],
+    [
+      422,
+      'workflows.step.result.unprocessable',
+      { title: "That recipe isn't one this workspace has." },
+      { status: 'unprocessable', message: "That recipe isn't one this workspace has." },
+    ],
     [400, 'workflows.step.completion.invalid', {}, { status: 'invalid' }],
     [403, 'workflows.run.forbidden', {}, { status: 'forbidden' }],
     [404, 'workflows.run.not_found', {}, { status: 'not_found' }],
@@ -109,7 +160,9 @@ describe('WorkflowRunService', () => {
   ] as const) {
     it(`reads ${status} ${code} as ${expected.status}`, async () => {
       const pending = service.completeStep('sams-kitchen', run, 'ingredients');
-      http.expectOne(`${RUNS}/run-1/steps/ingredients/completion`).flush({ code, ...body }, { status, statusText: 'x' });
+      http
+        .expectOne(`${RUNS}/run-1/steps/ingredients/completion`)
+        .flush({ code, ...body }, { status, statusText: 'x' });
 
       expect(await pending).toEqual(expected as never);
     });
@@ -127,7 +180,11 @@ describe('WorkflowRunService', () => {
   it('sends nothing before the gateway is known', async () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting(), { provide: ApiBaseService, useValue: { url: () => null } }],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ApiBaseService, useValue: { url: () => null } },
+      ],
     });
     const unready = TestBed.inject(WorkflowRunService);
 

@@ -116,7 +116,8 @@
               <option value="default">{{ defaultLabel() }}</option>
               @for (choice of otherChoices(); track choiceKey(choice)) {
                 <option [value]="choiceKey(choice)">
-                  {{ choice.name }}, version {{ choice.versionNumber }}{{ choice.isStale ? ' (may be out of date)' : '' }}
+                  {{ choice.name }}, version {{ choice.versionNumber
+                  }}{{ choice.isStale ? ' (may be out of date)' : '' }}
                 </option>
               }
               <option value="none">No visual style</option>
@@ -160,7 +161,9 @@
             <div class="measure" aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
           }
           @case ('error') {
-            <p class="cp-muted measure" role="status">We could not load your references. You can still continue without them.</p>
+            <p class="cp-muted measure" role="status"
+              >We could not load your references. You can still continue without them.</p
+            >
           }
           @default {
             @if (references().length === 0) {
@@ -194,7 +197,14 @@
         </p>
 
         <div class="cp-actions">
-          <button cpButton variant="text" size="sm" type="button" [disabled]="!referencesUsed()" (click)="addReference.emit()">
+          <button
+            cpButton
+            variant="text"
+            size="sm"
+            type="button"
+            [disabled]="!referencesUsed()"
+            (click)="addReference.emit()"
+          >
             Add a reference
           </button>
         </div>

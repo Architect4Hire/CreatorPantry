@@ -43,7 +43,14 @@ const PROBLEMS = {
 @Component({
   selector: 'cp-content-card-create-dialog',
   standalone: true,
-  imports: [FormsModule, CpButtonComponent, CpDialogComponent, CpFieldComponent, CpNoticeComponent, ContentCardFieldsComponent],
+  imports: [
+    FormsModule,
+    CpButtonComponent,
+    CpDialogComponent,
+    CpFieldComponent,
+    CpNoticeComponent,
+    ContentCardFieldsComponent,
+  ],
   host: { '(document:keydown.escape)': 'onEscape()' },
   template: `<cp-dialog
     [open]="open()"
@@ -81,8 +88,17 @@ const PROBLEMS = {
       </cp-field>
     </form>
 
-    <button cpDialogActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">Cancel</button>
-    <button cpDialogActions cpButton type="submit" form="content-card-create-form" variant="primary" [disabled]="saving()">
+    <button cpDialogActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()"
+      >Cancel</button
+    >
+    <button
+      cpDialogActions
+      cpButton
+      type="submit"
+      form="content-card-create-form"
+      variant="primary"
+      [disabled]="saving()"
+    >
       {{ saving() ? 'Adding…' : 'Add card' }}
     </button>
   </cp-dialog>`,

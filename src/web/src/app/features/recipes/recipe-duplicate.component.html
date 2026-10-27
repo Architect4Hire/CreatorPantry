@@ -8,8 +8,9 @@
   (closed)="close()"
 >
   <p class="explain">
-    Copying <strong>{{ sourceTitle() }}</strong>, version {{ version().versionNumber }}, into a new recipe of
-    its own. The two are independent afterwards — editing either one does nothing to the other.
+    Copying <strong>{{ sourceTitle() }}</strong
+    >, version {{ version().versionNumber }}, into a new recipe of its own. The two are independent afterwards — editing
+    either one does nothing to the other.
   </p>
 
   <cp-field
@@ -58,8 +59,8 @@
   @switch (state().status) {
     @case ('version_gone') {
       <p class="notice notice--error" role="alert">
-        The history moved on — this recipe no longer has a version {{ version().versionNumber }}. Reload it and
-        choose again.
+        The history moved on — this recipe no longer has a version {{ version().versionNumber }}. Reload it and choose
+        again.
       </p>
     }
     @case ('forbidden') {

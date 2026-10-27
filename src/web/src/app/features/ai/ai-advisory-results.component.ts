@@ -101,7 +101,8 @@ export class AiAdvisoryResultsComponent {
     const warnings = this.operation()?.proposal?.warnings ?? [];
 
     const items: AiAdvisoryItem[] = [];
-    let current: { targetId: string; summary: string; fields: { key: string; label: string; value: string }[] } | null = null;
+    let current: { targetId: string; summary: string; fields: { key: string; label: string; value: string }[] } | null =
+      null;
 
     for (const change of changes) {
       if (change.changeKind === 'Add') {

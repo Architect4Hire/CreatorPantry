@@ -336,9 +336,7 @@ describe('RecipeNutritionComponent', () => {
   }
 
   function buttonWith(element: HTMLElement, label: string): HTMLButtonElement | undefined {
-    return Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.trim().includes(label),
-    );
+    return Array.from(element.querySelectorAll('button')).find((button) => button.textContent?.trim().includes(label));
   }
 
   async function click(element: HTMLElement, label: string): Promise<void> {
@@ -935,9 +933,7 @@ describe('RecipeNutritionComponent', () => {
 
     // Confirming leaves nothing to decide, so the focused button is removed; the region takes focus so the
     // new state is what gets read, and focus does not fall to the body inside an open drawer.
-    const region = document.getElementById(
-      fixture.componentInstance.mappingElementId('l2'),
-    );
+    const region = document.getElementById(fixture.componentInstance.mappingElementId('l2'));
     expect(document.activeElement).toBe(region);
   });
 
@@ -1111,8 +1107,8 @@ describe('RecipeNutritionComponent', () => {
     expect(amountText(amount({ displayLow: 1.5, displayPrecision: 1 }))).toBe('1.5');
     expect(amountText(amount({ displayLow: 2, displayPrecision: 1 }))).toBe('2.0');
     expect(amountText(amount({ trace: true }))).toBe(PANEL_COPY.traceText);
-    expect(
-      amountText(amount({ displayLow: 10, displayHigh: 12, displayPrecision: 1, isRange: true })),
-    ).toBe('10.0 to 12.0');
+    expect(amountText(amount({ displayLow: 10, displayHigh: 12, displayPrecision: 1, isRange: true }))).toBe(
+      '10.0 to 12.0',
+    );
   });
 });

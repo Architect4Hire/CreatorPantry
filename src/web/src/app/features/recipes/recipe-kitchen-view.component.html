@@ -188,7 +188,9 @@
                     <li class="step">
                       <span class="step-number" aria-hidden="true">{{ step.number }}</span>
                       <div class="step-body">
-                        <p class="step-text"><span class="cp-sr-only">Step {{ step.number }}. </span>{{ step.text }}</p>
+                        <p class="step-text"
+                          ><span class="cp-sr-only">Step {{ step.number }}. </span>{{ step.text }}</p
+                        >
 
                         @if (step.facts.length > 0) {
                           <p class="step-facts">{{ step.facts.join(' · ') }}</p>

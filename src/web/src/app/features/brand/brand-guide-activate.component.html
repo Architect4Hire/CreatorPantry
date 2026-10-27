@@ -18,8 +18,8 @@
        those two prompts land, and not before. -->
   <p class="explain">
     Version {{ version().versionNumber }} becomes this workspace's default voice, and the one
-    <strong>Test my style</strong> writes from. Blog, caption and newsletter generation does not read it yet,
-    so nothing you generate today changes.
+    <strong>Test my style</strong> writes from. Blog, caption and newsletter generation does not read it yet, so nothing
+    you generate today changes.
   </p>
 
   @if (replacing(); as previous) {
@@ -28,17 +28,14 @@
       renumbered or rewritten.
     </p>
   } @else {
-    <p class="explain">
-      This workspace has no default voice yet, so nothing is being replaced.
-    </p>
+    <p class="explain"> This workspace has no default voice yet, so nothing is being replaced. </p>
   }
 
   <p class="explain">Nothing is published anywhere, and the version itself is not changed.</p>
 
   @if (isAlreadyActive()) {
     <cp-notice tone="warning">
-      Version {{ version().versionNumber }} is already what this workspace writes with, so this would change
-      nothing.
+      Version {{ version().versionNumber }} is already what this workspace writes with, so this would change nothing.
     </cp-notice>
   }
 
@@ -64,8 +61,8 @@
     @case ('conflict') {
       <cp-notice tone="error" role="alert">
         @if (conflictingVersion()?.versionNumber; as holder) {
-          Version {{ holder }} is what this workspace writes with now, not the version this screen was
-          showing. Nothing was changed.
+          Version {{ holder }} is what this workspace writes with now, not the version this screen was showing. Nothing
+          was changed.
         } @else {
           This workspace's default changed while this dialog was open, so nothing was changed.
         }
@@ -73,20 +70,20 @@
     }
     @case ('unapproved') {
       <cp-notice tone="error" role="alert">
-        Version {{ version().versionNumber }} hasn't been approved yet, so it can't be what the workspace
-        writes with. Approve it first.
+        Version {{ version().versionNumber }} hasn't been approved yet, so it can't be what the workspace writes with.
+        Approve it first.
       </cp-notice>
     }
     @case ('stale') {
       <cp-notice tone="error" role="alert">
-        Version {{ version().versionNumber }} was written from an example that has been replaced since. Write
-        a new version from the current examples before making it the default.
+        Version {{ version().versionNumber }} was written from an example that has been replaced since. Write a new
+        version from the current examples before making it the default.
       </cp-notice>
     }
     @case ('empty') {
       <cp-notice tone="error" role="alert">
-        Version {{ version().versionNumber }} says nothing yet — it has no sections and no rules — so there
-        would be nothing to write with.
+        Version {{ version().versionNumber }} says nothing yet — it has no sections and no rules — so there would be
+        nothing to write with.
       </cp-notice>
     }
     @case ('archived') {
@@ -95,9 +92,7 @@
       </cp-notice>
     }
     @case ('forbidden') {
-      <cp-notice tone="error" role="alert">
-        Choosing what this workspace writes with needs the Owner role.
-      </cp-notice>
+      <cp-notice tone="error" role="alert"> Choosing what this workspace writes with needs the Owner role. </cp-notice>
     }
     @case ('not_found') {
       <cp-notice tone="error" role="alert">This guide could not be found.</cp-notice>

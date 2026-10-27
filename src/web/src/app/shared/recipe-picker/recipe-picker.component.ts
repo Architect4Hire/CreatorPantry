@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { combineLatest, debounce, of, switchMap, timer } from 'rxjs';
@@ -114,7 +125,9 @@ export class RecipePickerComponent {
   /** Unique on the page, so two pickers never share a control id. */
   readonly idPrefix = input('cp-recipe-picker');
   /** What linking a recipe does on this surface, which differs: only the pipeline has an idea to build. */
-  readonly intro = input('Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional.');
+  readonly intro = input(
+    'Link the recipe this picture is of, and the looks and the prompt are planned around it. Optional.',
+  );
 
   /** One sentence for the surface's polite live region when the link changes. */
   readonly announced = output<string>();
@@ -311,7 +324,11 @@ export class RecipePickerComponent {
     if (this.gone) return;
 
     if (outcome !== 'saved') {
-      this.action.set({ status: 'failed', sentence: FAILURES[outcome === 'duplicate' ? 'unavailable' : outcome], retry: () => void this.remove() });
+      this.action.set({
+        status: 'failed',
+        sentence: FAILURES[outcome === 'duplicate' ? 'unavailable' : outcome],
+        retry: () => void this.remove(),
+      });
       return;
     }
 
@@ -366,7 +383,11 @@ export class RecipePickerComponent {
       const removed = await session.removeReference(existing.id);
       if (this.gone) return;
       if (removed !== 'saved') {
-        this.action.set({ status: 'failed', sentence: FAILURES[removed === 'duplicate' ? 'unavailable' : removed], retry });
+        this.action.set({
+          status: 'failed',
+          sentence: FAILURES[removed === 'duplicate' ? 'unavailable' : removed],
+          retry,
+        });
         return;
       }
     }
@@ -384,7 +405,12 @@ export class RecipePickerComponent {
     this.announced.emit(`${title} is linked.`);
   }
 
-  private async readLinked(slug: string, recipeId: string, pinnedVersionId: string | null, key: string | null): Promise<void> {
+  private async readLinked(
+    slug: string,
+    recipeId: string,
+    pinnedVersionId: string | null,
+    key: string | null,
+  ): Promise<void> {
     this.linked.set({ status: 'loading' });
 
     const [detail, history] = await Promise.all([
@@ -416,5 +442,4 @@ export class RecipePickerComponent {
     });
     this.report({ id: recipeId, title: detail.recipe.title });
   }
-
 }

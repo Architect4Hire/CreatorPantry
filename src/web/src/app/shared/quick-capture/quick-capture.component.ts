@@ -25,7 +25,14 @@ import {
 
 import { ConfirmService } from '../../core/confirm.service';
 import { NetworkStatusService } from '../../core/network-status.service';
-import { CaptureWorkTaskRequest, PlanningDates, WorkTaskPriority, addDays, isCalendarDate, weekStartOf } from '../../models/work-task.models';
+import {
+  CaptureWorkTaskRequest,
+  PlanningDates,
+  WorkTaskPriority,
+  addDays,
+  isCalendarDate,
+  weekStartOf,
+} from '../../models/work-task.models';
 import { WorkTaskService } from '../../services/work-task.service';
 import { WorkspaceTagService } from '../../services/workspace-tag.service';
 import { QuickCaptureLink } from './quick-capture-link';
@@ -203,7 +210,8 @@ export class QuickCaptureComponent {
 
     if (today && isCalendarDate(today)) {
       // The page has just read the day from the server, so "Today" can be offered without another round trip.
-      if (this.dates().status !== 'found') this.dates.set({ status: 'found', dates: { today, weekStart: weekStartOf(today) } });
+      if (this.dates().status !== 'found')
+        this.dates.set({ status: 'found', dates: { today, weekStart: weekStartOf(today) } });
       this.defaultWhen.set('today');
     } else if (week) {
       this.defaultWhen.set('week-of');
@@ -309,7 +317,9 @@ export class QuickCaptureComponent {
       case 'captured':
         this.pending = null;
         this.captures.notifyCaptured(outcome.task);
-        this.saved.set(`Added “${outcome.task.title}” to ${this.whereFor(outcome.task.scheduledDate, outcome.task.planningWeekStart)}.`);
+        this.saved.set(
+          `Added “${outcome.task.title}” to ${this.whereFor(outcome.task.scheduledDate, outcome.task.planningWeekStart)}.`,
+        );
         this.reset();
         return;
       case 'invalid': {
@@ -328,11 +338,15 @@ export class QuickCaptureComponent {
       case 'label_refused':
         this.label.set(null);
         this.labelText.set('');
-        this.problem.set('That label is no longer offered, so it has been taken off. Save again without it, or choose another.');
+        this.problem.set(
+          'That label is no longer offered, so it has been taken off. Save again without it, or choose another.',
+        );
         return;
       case 'link_refused':
         this.linked.set(false);
-        this.problem.set('That record can’t be linked any more, so the link has been taken off. Save again to add the task without it.');
+        this.problem.set(
+          'That record can’t be linked any more, so the link has been taken off. Save again to add the task without it.',
+        );
         return;
       case 'key_reused':
         this.pending = null;
@@ -445,22 +459,28 @@ export class QuickCaptureComponent {
     if (this.dates().status === 'idle' || this.dates().status === 'unavailable') {
       this.dates.set({ status: 'loading' });
       work.push(
-        this.tasks.planningDates(slug).then((outcome) =>
-          this.dates.set(outcome.status === 'found' ? { status: 'found', dates: outcome.dates } : { status: outcome.status }),
-        ),
+        this.tasks
+          .planningDates(slug)
+          .then((outcome) =>
+            this.dates.set(
+              outcome.status === 'found' ? { status: 'found', dates: outcome.dates } : { status: outcome.status },
+            ),
+          ),
       );
     }
 
     if (this.tagsState().status === 'idle' || this.tagsState().status === 'unavailable') {
       this.tagsState.set({ status: 'loading' });
       work.push(
-        this.tags.list(slug).then((outcome) =>
-          this.tagsState.set(
-            outcome.status === 'found'
-              ? { status: 'found', options: outcome.tags.map((tag) => ({ id: tag.id, label: tag.name })) }
-              : { status: 'unavailable' },
+        this.tags
+          .list(slug)
+          .then((outcome) =>
+            this.tagsState.set(
+              outcome.status === 'found'
+                ? { status: 'found', options: outcome.tags.map((tag) => ({ id: tag.id, label: tag.name })) }
+                : { status: 'unavailable' },
+            ),
           ),
-        ),
       );
     }
 

@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -206,7 +215,9 @@ export class BrandSettingsComponent {
   /** Whether the degraded channel state applies: the list failed to load, so keys cannot be shown or safely edited. */
   readonly channelsUnavailable = computed(() => this.load().status !== 'loading' && this.channels() === null);
 
-  readonly isDirty = computed(() => this.canEdit() && draftDiffers(this.base(), this.draft(), !this.channelsUnavailable()));
+  readonly isDirty = computed(
+    () => this.canEdit() && draftDiffers(this.base(), this.draft(), !this.channelsUnavailable()),
+  );
 
   readonly isFirstUse = computed(() => this.load().status === 'first_use');
 
@@ -225,7 +236,10 @@ export class BrandSettingsComponent {
 
     const rows: ChannelRow[] = catalogue
       .filter((channel) => channel.isActive || selected.includes(channel.key))
-      .map((channel) => ({ key: channel.key, label: channel.isActive ? channel.displayName : `${channel.displayName} (no longer available)` }));
+      .map((channel) => ({
+        key: channel.key,
+        label: channel.isActive ? channel.displayName : `${channel.displayName} (no longer available)`,
+      }));
 
     // A stored key the catalogue has never heard of still has to be visible, or it could not be unticked.
     for (const key of selected) {
@@ -334,7 +348,9 @@ export class BrandSettingsComponent {
 
     // Catalogue order, so the same ticks always produce the same list; rows the creator did not touch keep
     // their stored order because this is only reached when they change one.
-    const ordered = this.channelRows().map((row) => row.key).filter((candidate) => chosen.has(candidate));
+    const ordered = this.channelRows()
+      .map((row) => row.key)
+      .filter((candidate) => chosen.has(candidate));
     this.draft.update((draft) => ({ ...draft, channelKeys: ordered }));
   }
 
@@ -362,7 +378,9 @@ export class BrandSettingsComponent {
   setLink(id: string, field: 'kind' | 'url' | 'label', value: string): void {
     this.draft.update((draft) => ({
       ...draft,
-      links: draft.links.map((link) => (link.id === id ? { ...link, [field]: field === 'kind' ? (value as BrandLinkKind) : value } : link)),
+      links: draft.links.map((link) =>
+        link.id === id ? { ...link, [field]: field === 'kind' ? (value as BrandLinkKind) : value } : link,
+      ),
     }));
   }
 
@@ -404,9 +422,10 @@ export class BrandSettingsComponent {
 
     const base = this.base();
     const includeChannels = !this.channelsUnavailable();
-    const body = base === null
-      ? buildCreateRequest(this.draft())
-      : buildUpdateRequest(base, this.draft(), { reason: this.reason(), includeChannels });
+    const body =
+      base === null
+        ? buildCreateRequest(this.draft())
+        : buildUpdateRequest(base, this.draft(), { reason: this.reason(), includeChannels });
 
     if (body === null) {
       this.toast('There is nothing new to save.', 'info');
@@ -416,9 +435,10 @@ export class BrandSettingsComponent {
     this.saveState.set({ status: 'saving' });
 
     const key = this.keyFor(body);
-    const outcome = base === null
-      ? await this.service.createBrandProfile(this.workspaceSlug, body, key)
-      : await this.service.updateBrandProfile(this.workspaceSlug, body, key);
+    const outcome =
+      base === null
+        ? await this.service.createBrandProfile(this.workspaceSlug, body, key)
+        : await this.service.updateBrandProfile(this.workspaceSlug, body, key);
 
     switch (outcome.status) {
       case 'saved':
@@ -437,7 +457,9 @@ export class BrandSettingsComponent {
 
         this.lastAttempt = null;
         this.refusedLogoMessage.set(outcome.message);
-        this.refusedLogoIds.set(outcome.positions.map((position) => sent[position]?.mediaAssetId).filter((id) => id !== undefined));
+        this.refusedLogoIds.set(
+          outcome.positions.map((position) => sent[position]?.mediaAssetId).filter((id) => id !== undefined),
+        );
         this.saveState.set({ status: 'invalid' });
         this.focusSoon('section-logo');
         break;
@@ -481,18 +503,28 @@ export class BrandSettingsComponent {
     const theirs = draftFromProfile(latest.profile);
 
     const sameLinks = (a: BrandDraft['links'], b: BrandDraft['links']): boolean =>
-      a.length === b.length && a.every((l, i) => l.kind === b[i].kind && l.url.trim() === b[i].url.trim() && l.label.trim() === b[i].label.trim());
-    const sameKeys = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((k, i) => k === b[i]);
+      a.length === b.length &&
+      a.every(
+        (l, i) => l.kind === b[i].kind && l.url.trim() === b[i].url.trim() && l.label.trim() === b[i].label.trim(),
+      );
+    const sameKeys = (a: readonly string[], b: readonly string[]): boolean =>
+      a.length === b.length && a.every((k, i) => k === b[i]);
     const sameAssets = (a: BrandDraft['assets'], b: BrandDraft['assets']): boolean =>
-      a.length === b.length && a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role);
+      a.length === b.length &&
+      a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role);
 
     const merged: BrandDraft = {
       brandName: mine.brandName.trim() === before.brandName.trim() ? theirs.brandName : mine.brandName,
-      shortDescription: mine.shortDescription.trim() === before.shortDescription.trim() ? theirs.shortDescription : mine.shortDescription,
-      defaultAudience: mine.defaultAudience.trim() === before.defaultAudience.trim() ? theirs.defaultAudience : mine.defaultAudience,
+      shortDescription:
+        mine.shortDescription.trim() === before.shortDescription.trim()
+          ? theirs.shortDescription
+          : mine.shortDescription,
+      defaultAudience:
+        mine.defaultAudience.trim() === before.defaultAudience.trim() ? theirs.defaultAudience : mine.defaultAudience,
       locale: mine.locale.trim() === before.locale.trim() ? theirs.locale : mine.locale,
       timeZoneId: mine.timeZoneId.trim() === before.timeZoneId.trim() ? theirs.timeZoneId : mine.timeZoneId,
-      defaultPictureCount: mine.defaultPictureCount === before.defaultPictureCount ? theirs.defaultPictureCount : mine.defaultPictureCount,
+      defaultPictureCount:
+        mine.defaultPictureCount === before.defaultPictureCount ? theirs.defaultPictureCount : mine.defaultPictureCount,
       channelKeys: sameKeys(mine.channelKeys, before.channelKeys) ? theirs.channelKeys : mine.channelKeys,
       links: sameLinks(mine.links, before.links) ? theirs.links : mine.links,
       assets: sameAssets(mine.assets, before.assets) ? theirs.assets : mine.assets,

@@ -10,9 +10,7 @@ export type RegisterOutcome =
   | { readonly status: 'unavailable' };
 
 export type ConfirmEmailOutcome =
-  | { readonly status: 'success' }
-  | { readonly status: 'invalid_link' }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'success' } | { readonly status: 'invalid_link' } | { readonly status: 'unavailable' };
 
 function decodeFieldErrors(value: unknown): Record<string, readonly string[]> {
   const errors = (value as Record<string, unknown> | null)?.['errors'];

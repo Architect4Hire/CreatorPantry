@@ -40,7 +40,8 @@ export function cpComboboxResultsLabel(count: number): string {
  * before anything has been typed. Focus alone does not open it — see {@link onClick}.
  */
 @Component({
-  selector: 'cp-combobox', standalone: true,
+  selector: 'cp-combobox',
+  standalone: true,
   template: `<input
       type="text"
       role="combobox"
@@ -79,9 +80,13 @@ export function cpComboboxResultsLabel(count: number): string {
         >
           <span class="row">
             <span class="label">{{ option.label }}</span>
-            @if (option.id === selected()?.id) { <span class="chosen" aria-hidden="true">✓</span> }
+            @if (option.id === selected()?.id) {
+              <span class="chosen" aria-hidden="true">✓</span>
+            }
           </span>
-          @if (option.detail) { <span class="detail">{{ option.detail }}</span> }
+          @if (option.detail) {
+            <span class="detail">{{ option.detail }}</span>
+          }
         </li>
       }
       @if (filtered().length === 0) {
@@ -93,26 +98,100 @@ export function cpComboboxResultsLabel(count: number): string {
 
     <!-- How many rows the typing left, for someone who cannot see the list shrink. -->
     <span class="sr-only" role="status" aria-live="polite">{{ announcement() }}</span>`,
-  styles: [`
-    :host { display:block; position:relative; }
-    /* Specific enough to beat the padding cp-field reaches in with, which the caret would otherwise sit on. */
-    :host input[role='combobox'] { padding-inline-end:2rem; }
-    /* Centred on the box whatever height cp-field gives the input, and never a pointer target of its own. */
-    .caret { position:absolute; inset-inline-end:var(--cp-space-3); inset-block:0; display:flex; align-items:center; color:var(--cp-text-muted); font-size:var(--cp-font-size-sm); pointer-events:none; transition:transform .15s ease; }
-    /* Turning over says "open" by shape as well as by the list appearing. Reduced motion is handled globally. */
-    .caret.open { transform:rotate(180deg); }
-    .caret.disabled { color:var(--cp-text-faint); }
-    .popup { position:absolute; z-index:20; inset-inline:0; top:calc(100% + var(--cp-space-1)); max-height:16rem; overflow-y:auto; margin:0; padding:var(--cp-space-1); list-style:none; border:1px solid var(--cp-border); border-radius:var(--cp-radius-md); background:var(--cp-surface); box-shadow:var(--cp-shadow-lg); }
-    .option { display:flex; flex-direction:column; justify-content:center; min-height:2.5rem; padding:var(--cp-space-1) var(--cp-space-2); border-radius:var(--cp-radius-sm); border-inline-start:3px solid transparent; color:var(--cp-text); font-size:var(--cp-font-size-sm); cursor:pointer; overflow-wrap:anywhere; }
-    /* The active option shifts in weight and gains an edge marker, not only a hue. */
-    .option.active { background:var(--cp-surface-subtle); border-inline-start-color:var(--cp-primary); }
-    .option[aria-disabled='true'] { color:var(--cp-text-faint); cursor:not-allowed; }
-    .row { display:flex; align-items:center; justify-content:space-between; gap:var(--cp-space-2); }
-    .chosen { color:var(--cp-primary-text); }
-    .detail { color:var(--cp-text-muted); font-size:var(--cp-font-size-xs); }
-    .empty { padding:var(--cp-space-2); color:var(--cp-text-muted); font-size:var(--cp-font-size-sm); }
-    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-  `],
+  styles: [
+    `
+      :host {
+        display: block;
+        position: relative;
+      }
+      /* Specific enough to beat the padding cp-field reaches in with, which the caret would otherwise sit on. */
+      :host input[role='combobox'] {
+        padding-inline-end: 2rem;
+      }
+      /* Centred on the box whatever height cp-field gives the input, and never a pointer target of its own. */
+      .caret {
+        position: absolute;
+        inset-inline-end: var(--cp-space-3);
+        inset-block: 0;
+        display: flex;
+        align-items: center;
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-sm);
+        pointer-events: none;
+        transition: transform 0.15s ease;
+      }
+      /* Turning over says "open" by shape as well as by the list appearing. Reduced motion is handled globally. */
+      .caret.open {
+        transform: rotate(180deg);
+      }
+      .caret.disabled {
+        color: var(--cp-text-faint);
+      }
+      .popup {
+        position: absolute;
+        z-index: 20;
+        inset-inline: 0;
+        top: calc(100% + var(--cp-space-1));
+        max-height: 16rem;
+        overflow-y: auto;
+        margin: 0;
+        padding: var(--cp-space-1);
+        list-style: none;
+        border: 1px solid var(--cp-border);
+        border-radius: var(--cp-radius-md);
+        background: var(--cp-surface);
+        box-shadow: var(--cp-shadow-lg);
+      }
+      .option {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 2.5rem;
+        padding: var(--cp-space-1) var(--cp-space-2);
+        border-radius: var(--cp-radius-sm);
+        border-inline-start: 3px solid transparent;
+        color: var(--cp-text);
+        font-size: var(--cp-font-size-sm);
+        cursor: pointer;
+        overflow-wrap: anywhere;
+      }
+      /* The active option shifts in weight and gains an edge marker, not only a hue. */
+      .option.active {
+        background: var(--cp-surface-subtle);
+        border-inline-start-color: var(--cp-primary);
+      }
+      .option[aria-disabled='true'] {
+        color: var(--cp-text-faint);
+        cursor: not-allowed;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--cp-space-2);
+      }
+      .chosen {
+        color: var(--cp-primary-text);
+      }
+      .detail {
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-xs);
+      }
+      .empty {
+        padding: var(--cp-space-2);
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-sm);
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpComboboxComponent {
@@ -177,7 +256,6 @@ export class CpComboboxComponent {
   protected optionElementId(option: CpComboboxOption): string {
     return `${this.inputId()}-option-${option.id}`;
   }
-
 
   /**
    * Opens the list when the box is clicked.
@@ -304,7 +382,12 @@ export class CpComboboxComponent {
     const index = options.findIndex((option) => option.id === this.active());
     // Stops at either end rather than wrapping: a list that jumps from last back to first makes a keyboard user
     // count rather than read.
-    const next = index === -1 ? (direction === 1 ? 0 : options.length - 1) : Math.min(Math.max(index + direction, 0), options.length - 1);
+    const next =
+      index === -1
+        ? direction === 1
+          ? 0
+          : options.length - 1
+        : Math.min(Math.max(index + direction, 0), options.length - 1);
     this.activate(options[next].id);
   }
 

@@ -10,11 +10,7 @@ import {
   emptyContentPipelineDraft,
 } from '../../models/content-pipeline.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
-import {
-  GeneratedImageOperationDetail,
-  GeneratedImageStatus,
-  StagedImage,
-} from '../../models/generated-image.models';
+import { GeneratedImageOperationDetail, GeneratedImageStatus, StagedImage } from '../../models/generated-image.models';
 import { AiWatchOperationOutcome } from '../../services/ai-request';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { FakeCreativeContextService } from '../../services/creative-context.fake';
@@ -62,7 +58,10 @@ function operation(images: readonly StagedImage[]): GeneratedImageOperationDetai
   };
 }
 
-function draftWith(images: Partial<ContentPipelineImagesState> = {}, channelKey: string | null = 'instagram'): ContentPipelineDraft {
+function draftWith(
+  images: Partial<ContentPipelineImagesState> = {},
+  channelKey: string | null = 'instagram',
+): ContentPipelineDraft {
   const base = emptyContentPipelineDraft(new Date('2026-10-08T12:00:00Z'));
 
   return {
@@ -399,7 +398,9 @@ describe('ContentPipelineLibraryStepComponent (AF.4.3, FLU-002)', () => {
       await settle();
 
       expect(rows()[0].querySelector('[role="alert"]')?.textContent).toContain('Nothing was saved.');
-      expect(references().some((each) => each.kind === 'DamAsset')).withContext('nothing written').toBeFalse();
+      expect(references().some((each) => each.kind === 'DamAsset'))
+        .withContext('nothing written')
+        .toBeFalse();
 
       // The second is unaffected and goes in.
       await save(2, createdAsset({ id: 'a2', title: 'The second', sourceGeneratedImageId: 'img-2' }));

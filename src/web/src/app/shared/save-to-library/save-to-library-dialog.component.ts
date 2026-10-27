@@ -442,7 +442,9 @@ export class SaveToLibraryDialogComponent {
 
         this.fieldErrors.set(mapped);
         this.stall(
-          Object.keys(mapped).length > 0 ? 'This picture could not be saved as entered. Nothing was saved.' : outcome.message,
+          Object.keys(mapped).length > 0
+            ? 'This picture could not be saved as entered. Nothing was saved.'
+            : outcome.message,
         );
 
         const first = DAM_KEEP_FIELDS.find((field) => mapped[field]);
@@ -456,7 +458,10 @@ export class SaveToLibraryDialogComponent {
         );
         // The sentence the form shows names the tick it is about, which is in the form; the surface behind is
         // told the plain outcome instead.
-        this.progress.emit({ state: 'failed', problem: 'The prompt could not be saved, so the picture was not either.' });
+        this.progress.emit({
+          state: 'failed',
+          problem: 'The prompt could not be saved, so the picture was not either.',
+        });
         this.focus(IDS.prompt);
         return;
 

@@ -2,7 +2,11 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MyWorkspaceMembership, WorkspaceRole } from '../../models/auth.models';
-import { RecipeVersionComparison, RecipeVersionHistoryEntry, RestoreRecipeVersionRequest } from '../../models/recipe-version.models';
+import {
+  RecipeVersionComparison,
+  RecipeVersionHistoryEntry,
+  RestoreRecipeVersionRequest,
+} from '../../models/recipe-version.models';
 import { DuplicateRecipeRequest, RecipeDetail, RecipeVersionSource } from '../../models/recipe.models';
 import {
   DuplicateRecipeOutcome,
@@ -16,10 +20,7 @@ import { RecipeHistoryComponent } from './recipe-history.component';
 import { RecipeDuplicated } from './recipe-duplicate.component';
 import { RecipeVersionRestored } from './recipe-restore.component';
 
-function entry(
-  versionNumber: number,
-  overrides: Partial<RecipeVersionHistoryEntry> = {},
-): RecipeVersionHistoryEntry {
+function entry(versionNumber: number, overrides: Partial<RecipeVersionHistoryEntry> = {}): RecipeVersionHistoryEntry {
   return {
     id: `v${versionNumber}`,
     versionNumber,
@@ -82,8 +83,8 @@ function restoredDetail(versionNumber: number): RecipeDetail {
     yieldText: null,
     yieldQuantity: null,
     yieldUnitId: null,
-  servingCount: null,
-  servingSize: null,
+    servingCount: null,
+    servingSize: null,
     status: 'Draft',
     duplicatedFrom: null,
     createdAt: '2026-01-01T00:00:00Z',
@@ -150,7 +151,11 @@ class StubRecipeService {
 
   duplicateCalls: { request: DuplicateRecipeRequest }[] = [];
 
-  duplicateRecipe(_workspaceSlug: string, _recipeId: string, request: DuplicateRecipeRequest): Promise<DuplicateRecipeOutcome> {
+  duplicateRecipe(
+    _workspaceSlug: string,
+    _recipeId: string,
+    request: DuplicateRecipeRequest,
+  ): Promise<DuplicateRecipeOutcome> {
     this.duplicateCalls.push({ request });
     return Promise.resolve(this.duplicate);
   }
@@ -591,7 +596,9 @@ describe('RecipeHistoryComponent', () => {
     const element = await render();
 
     expect(element.querySelector('cp-list-shell cp-skeleton')).not.toBeNull();
-    const loading = Array.from(element.querySelectorAll('[role="status"]')).filter((each) => each.textContent?.includes('Loading'));
+    const loading = Array.from(element.querySelectorAll('[role="status"]')).filter((each) =>
+      each.textContent?.includes('Loading'),
+    );
     expect(loading.length).toBe(1);
     expect(element.querySelector('p.status[role="status"]')!.textContent!.trim()).toBe('');
   });
@@ -600,7 +607,9 @@ describe('RecipeHistoryComponent', () => {
     service.history = { status: 'found', page: { items: [entry(3), entry(2)], nextCursor: 'cursor-1' } };
     const element = await render();
     const status = () =>
-      Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) => each.textContent?.includes('older versions…'));
+      Array.from(element.querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+        each.textContent?.includes('older versions…'),
+      );
 
     service.holdOlder = true;
     buttonWith(element, 'Load older versions')!.click();
@@ -613,7 +622,9 @@ describe('RecipeHistoryComponent', () => {
     const arriving = element.querySelector('.older-loading[aria-busy="true"]')!;
     expect(arriving.querySelector('cp-skeleton')).not.toBeNull();
     // At the end of the list, where they will land.
-    expect(element.querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      element.querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(rows(element).length).toBe(2);
   });
 

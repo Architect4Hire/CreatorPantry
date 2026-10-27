@@ -171,10 +171,7 @@ export class NutritionService {
    * Included in this client because the decisions owe a concurrency token and nothing else hands one out: the
    * estimate carries a mapping id, not its token. Any member may read.
    */
-  async getMapping(
-    workspaceSlug: string,
-    ingredientId: string,
-  ): Promise<NutritionMappingOutcome> {
+  async getMapping(workspaceSlug: string, ingredientId: string): Promise<NutritionMappingOutcome> {
     const url = this.mappingUrl(workspaceSlug, ingredientId, '');
     if (!url) return { status: 'unavailable' };
 

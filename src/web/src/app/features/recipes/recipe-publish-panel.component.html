@@ -3,12 +3,19 @@
     <div class="heading">
       <h2 class="title">Publish</h2>
       <p class="intro">
-        Download this recipe for the places it goes. Each file is made on the server from the version shown
-        here, using your own wording; nothing is changed in the recipe.
+        Download this recipe for the places it goes. Each file is made on the server from the version shown here, using
+        your own wording; nothing is changed in the recipe.
       </p>
     </div>
 
-    <button cpButton variant="secondary" size="sm" type="button" [disabled]="state().status === 'loading'" (click)="load()">
+    <button
+      cpButton
+      variant="secondary"
+      size="sm"
+      type="button"
+      [disabled]="state().status === 'loading'"
+      (click)="load()"
+    >
       @if (state().status === 'loading') {
         Checking…
       } @else {
@@ -78,10 +85,7 @@
           </ul>
         </section>
 
-        <cp-form-section
-          heading="Layout"
-          intro="These choices shape Markdown and PDF. Structured data has none."
-        >
+        <cp-form-section heading="Layout" intro="These choices shape Markdown and PDF. Structured data has none.">
           <cp-field label="Template" forId="publish-template">
             <select id="publish-template" name="template" [ngModel]="template()" (ngModelChange)="template.set($event)">
               @for (option of templateOptions; track option.value) {
@@ -103,7 +107,12 @@
           </cp-field>
 
           <cp-field label="PDF page size" forId="publish-page-size">
-            <select id="publish-page-size" name="pageSize" [ngModel]="pageSize()" (ngModelChange)="pageSize.set($event)">
+            <select
+              id="publish-page-size"
+              name="pageSize"
+              [ngModel]="pageSize()"
+              (ngModelChange)="pageSize.set($event)"
+            >
               @for (option of pageSizeOptions; track option.value) {
                 <option [value]="option.value">{{ option.label }}</option>
               }

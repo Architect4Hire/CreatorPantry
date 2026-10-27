@@ -48,10 +48,12 @@ describe('resolveBrandVisualUse', () => {
   });
 
   it('never falls back when a chosen guide has gone', () => {
-    expect(resolveBrandVisualUse({ ...base, selection: { kind: 'override', guideId: 'x', versionNumber: 9 } })).toEqual({
-      kind: 'unavailable',
-      blocked: true,
-    });
+    expect(resolveBrandVisualUse({ ...base, selection: { kind: 'override', guideId: 'x', versionNumber: 9 } })).toEqual(
+      {
+        kind: 'unavailable',
+        blocked: true,
+      },
+    );
   });
 
   it('honours the no-visual-style choice', () => {
@@ -74,7 +76,12 @@ describe('resolveBrandVisualConflicts', () => {
 
   it('reports nothing when every chosen reference is usable', () => {
     expect(
-      resolveBrandVisualConflicts({ use: guideUse, activeGuide: active, references: [usable], selectedReferenceIds: ['d1'] }),
+      resolveBrandVisualConflicts({
+        use: guideUse,
+        activeGuide: active,
+        references: [usable],
+        selectedReferenceIds: ['d1'],
+      }),
     ).toEqual([]);
   });
 
@@ -86,7 +93,12 @@ describe('resolveBrandVisualConflicts', () => {
       selectedReferenceIds: ['d2'],
     });
 
-    expect(conflict).toEqual({ kind: 'reference-unusable', documentId: 'd2', title: 'Scan', reason: REFERENCE_UNUSABLE_FALLBACK });
+    expect(conflict).toEqual({
+      kind: 'reference-unusable',
+      documentId: 'd2',
+      title: 'Scan',
+      reason: REFERENCE_UNUSABLE_FALLBACK,
+    });
     expect(REFERENCE_UNUSABLE_FALLBACK).toContain('image is never sent');
   });
 
@@ -103,7 +115,12 @@ describe('resolveBrandVisualConflicts', () => {
 
   it('reports a selected reference that is no longer in the library', () => {
     expect(
-      resolveBrandVisualConflicts({ use: guideUse, activeGuide: active, references: [], selectedReferenceIds: ['gone'] }),
+      resolveBrandVisualConflicts({
+        use: guideUse,
+        activeGuide: active,
+        references: [],
+        selectedReferenceIds: ['gone'],
+      }),
     ).toEqual([{ kind: 'reference-missing', documentId: 'gone' }]);
   });
 
@@ -116,9 +133,9 @@ describe('resolveBrandVisualConflicts', () => {
       hasVisualGuidance: true,
     });
 
-    expect(resolveBrandVisualConflicts({ use, activeGuide: active, references: [], selectedReferenceIds: [] })).toEqual([
-      { kind: 'guide-not-active', name: 'B', versionNumber: 1 },
-    ]);
+    expect(resolveBrandVisualConflicts({ use, activeGuide: active, references: [], selectedReferenceIds: [] })).toEqual(
+      [{ kind: 'guide-not-active', name: 'B', versionNumber: 1 }],
+    );
   });
 
   it('stays silent about references when no guide is in use, because none would be sent', () => {

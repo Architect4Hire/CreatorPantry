@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { RecipeReadiness } from '../../../models/recipe-readiness.models';
@@ -186,7 +196,11 @@ export class RecipeTestBasicsStepComponent implements OnInit {
 
   /** Opens the editor on just what is missing: one part, or all of them when several are. */
   protected openEditor(): void {
-    const parts = new Set(this.items().filter((item) => !item.met).map((item) => item.focus));
+    const parts = new Set(
+      this.items()
+        .filter((item) => !item.met)
+        .map((item) => item.focus),
+    );
     if (parts.size === 0) return;
     this.editorHost.focus = parts.size === 1 ? [...parts][0] : 'all';
     this.editing.set(true);

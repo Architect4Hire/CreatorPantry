@@ -87,9 +87,7 @@ describe('ContentSeedService', () => {
   it('escapes the workspace segment rather than letting it shape the path', async () => {
     const pending = firstValueFrom(service.generate('cozy fall/../other'));
 
-    const request = http.expectOne(
-      'https://gateway.example/api/v1/workspaces/cozy%20fall%2F..%2Fother/content-seeds',
-    );
+    const request = http.expectOne('https://gateway.example/api/v1/workspaces/cozy%20fall%2F..%2Fother/content-seeds');
     request.flush(seedPayload());
 
     await pending;
@@ -98,14 +96,16 @@ describe('ContentSeedService', () => {
   it('reports a refused pin as refused, with the field the server named', async () => {
     const pending = firstValueFrom(service.generate('cozy-fall', { cuisine: 'atlantean' }));
 
-    http.expectOne((candidate) => candidate.url === URL).flush(
-      {
-        code: 'content.seed.invalid',
-        title: 'That idea cannot be put together.',
-        errors: { Cuisine: ['That cuisine is no longer available.'] },
-      },
-      { status: 400, statusText: 'Bad Request' },
-    );
+    http
+      .expectOne((candidate) => candidate.url === URL)
+      .flush(
+        {
+          code: 'content.seed.invalid',
+          title: 'That idea cannot be put together.',
+          errors: { Cuisine: ['That cuisine is no longer available.'] },
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     const outcome = await pending;
     expect(outcome.status).toBe('refused');

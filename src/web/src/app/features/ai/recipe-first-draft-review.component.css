@@ -154,7 +154,7 @@
   font-size: var(--cp-font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   color: var(--cp-text-muted);
 }
 

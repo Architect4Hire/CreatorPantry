@@ -337,9 +337,7 @@ export class RecipeReadinessComponent {
 
   /** Sends focus to the finding a refusal named, so a keyboard reader lands on the thing to fix. */
   revealFinding(ruleId: string): void {
-    const target = this.elementRef.nativeElement.querySelector<HTMLElement>(
-      `[id="${this.findingElementId(ruleId)}"]`,
-    );
+    const target = this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="${this.findingElementId(ruleId)}"]`);
     if (target === null) return;
 
     target.scrollIntoView({ block: 'center' });
@@ -368,8 +366,8 @@ export class RecipeReadinessComponent {
     const offer = this.offer();
     return transitionsFrom(this.status()).filter(
       (move) =>
-        roleAllows(this.role(), move.minimumRole)
-        && (offer === null || offer.some((offered) => offered.from === move.from && offered.to === move.to)),
+        roleAllows(this.role(), move.minimumRole) &&
+        (offer === null || offer.some((offered) => offered.from === move.from && offered.to === move.to)),
     );
   });
 
@@ -433,8 +431,8 @@ export class RecipeReadinessComponent {
         const confirmed = await this.confirmService.confirm({
           title: 'Archive this recipe?',
           message:
-            'It leaves everyone’s library and stops accepting content changes until it is brought back. '
-            + 'Nothing is deleted — every version, note and test stays where it is.',
+            'It leaves everyone’s library and stops accepting content changes until it is brought back. ' +
+            'Nothing is deleted — every version, note and test stays where it is.',
           confirmLabel: 'Archive it',
           cancelLabel: 'Leave it where it is',
           tone: 'danger',

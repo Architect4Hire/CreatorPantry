@@ -46,7 +46,10 @@ describe('MyDayTaskComponent', () => {
   let host: HostComponent;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [HostComponent], providers: [provideRouter([])] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [HostComponent],
+      providers: [provideRouter([])],
+    }).compileComponents();
     fixture = TestBed.createComponent(HostComponent);
     host = fixture.componentInstance;
     fixture.detectChanges();
@@ -104,13 +107,17 @@ describe('MyDayTaskComponent', () => {
     ]);
 
     // Each choice names the task and where it goes, so a list of buttons does not read "Tomorrow" ten times.
-    expect(panel.querySelector('[data-move="tomorrow"]')!.getAttribute('aria-label')).toBe('Move “Shoot the galette” to Tomorrow');
+    expect(panel.querySelector('[data-move="tomorrow"]')!.getAttribute('aria-label')).toBe(
+      'Move “Shoot the galette” to Tomorrow',
+    );
     expect(move.getAttribute('aria-controls')).toBe(panel.id);
 
     panel.querySelector<HTMLButtonElement>('[data-move="tomorrow"]')!.click();
     expect(host.moved[0].request).toEqual({ status: 'Backlog', scheduledDate: '2038-10-15' });
 
-    panel.querySelector('button')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    panel
+      .querySelector('button')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     fixture.detectChanges();
     expect(root().querySelector('[role="group"]')).toBeNull();
     expect(document.activeElement).toBe(named('Move “Shoot the galette”')!);
@@ -118,7 +125,10 @@ describe('MyDayTaskComponent', () => {
 
   it('resumes a started task where its work is, by a link, and offers no Start', () => {
     show({
-      task: task({ status: 'InProgress', links: { ...task().links, workflowRunRoute: `workflows/runs/${RUN}`, workflowRunId: RUN } }),
+      task: task({
+        status: 'InProgress',
+        links: { ...task().links, workflowRunRoute: `workflows/runs/${RUN}`, workflowRunId: RUN },
+      }),
       group: 'inProgress',
     });
 
@@ -128,7 +138,9 @@ describe('MyDayTaskComponent', () => {
     expect(named('Start “Shoot the galette”')).toBeUndefined();
 
     // The title is the same deep link, and the row says what it opens.
-    expect(root().querySelector<HTMLAnchorElement>('.task-title a')!.getAttribute('href')).toBe(`/sams-kitchen/workflows/runs/${RUN}`);
+    expect(root().querySelector<HTMLAnchorElement>('.task-title a')!.getAttribute('href')).toBe(
+      `/sams-kitchen/workflows/runs/${RUN}`,
+    );
     expect(root().textContent).toContain('the workflow');
   });
 

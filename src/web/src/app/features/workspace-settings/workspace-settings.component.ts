@@ -31,7 +31,11 @@ type SaveState =
   | { readonly status: 'failed'; readonly message: string };
 
 const SYSTEM_OPTIONS: readonly CpChoiceOption[] = [
-  { value: 'UsCustomary', label: 'US customary', hint: 'Cups, tablespoons, ounces and pounds, with oven temperatures in °F.' },
+  {
+    value: 'UsCustomary',
+    label: 'US customary',
+    hint: 'Cups, tablespoons, ounces and pounds, with oven temperatures in °F.',
+  },
   { value: 'Metric', label: 'Metric', hint: 'Grams, millilitres and litres, with oven temperatures in °C.' },
 ];
 

@@ -88,8 +88,9 @@ export function writtenParts(
 
   return sectionsFor(goals)
     .map((definition) => ({ definition, section: sections.find((each) => each.id === definition.id) }))
-    .filter((pair): pair is { definition: GuideSectionDefinition; section: NonNullable<typeof pair.section> } =>
-      pair.section !== undefined && isWritten(pair.section),
+    .filter(
+      (pair): pair is { definition: GuideSectionDefinition; section: NonNullable<typeof pair.section> } =>
+        pair.section !== undefined && isWritten(pair.section),
     )
     .map(({ definition, section }) => ({ definition, body: section.body }));
 }
@@ -124,7 +125,7 @@ export const FAILURE_COPY: Readonly<Record<BrandStyleGuideFailure, string>> = {
   invalid: "Something in your guide couldn't be saved. Go back a step and check it.",
   forbidden: "You don't have permission to do that in this workspace. Ask an Owner.",
   not_found: "We couldn't find your guide any more. Go back a step and try again.",
-  unapproved: "Your guide has to be marked finished before it can be switched on. Try again.",
+  unapproved: 'Your guide has to be marked finished before it can be switched on. Try again.',
   stale: 'One of your examples changed since your guide was written, so it cannot be switched on yet.',
   empty: 'Your guide has nothing in it yet. Go back a step and write at least one part.',
   archived: 'This guide has been archived, so it cannot be switched on.',
@@ -137,5 +138,7 @@ export const FAILURE_COPY: Readonly<Record<BrandStyleGuideFailure, string>> = {
 
 /** Which failures are worth a Try again rather than a different course of action. */
 export function canRetry(failure: BrandStyleGuideFailure): boolean {
-  return failure === 'unavailable' || failure === 'approval_conflict' || failure === 'key_reused' || failure === 'unapproved';
+  return (
+    failure === 'unavailable' || failure === 'approval_conflict' || failure === 'key_reused' || failure === 'unapproved'
+  );
 }

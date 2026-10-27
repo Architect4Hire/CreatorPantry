@@ -42,7 +42,11 @@ export type LongFormDocumentOutcome =
 /** What asking for one section, or for the rest, did. */
 export type LongFormWritingOutcome =
   /** Queued. `requests` is empty when "write the rest" found nothing left to write. */
-  | { readonly status: 'accepted'; readonly requests: readonly LongFormSectionWritingRequest[]; readonly replayed: boolean }
+  | {
+      readonly status: 'accepted';
+      readonly requests: readonly LongFormSectionWritingRequest[];
+      readonly replayed: boolean;
+    }
   /**
    * The account cannot pay for this. For "write the rest" the two counts say how many sections were asked
    * for and how many the allowance could have covered; nothing was started.

@@ -195,15 +195,11 @@ describe('channel-post.models', () => {
 
       expect(channelPostCopyText(both, 'Still typing this.')).toBe('Still typing this.');
       expect(channelPostCopyText(both, null)).toBe('What was accepted.');
-      expect(channelPostCopyText(channel({ latest: revision({ body: 'Only a draft.' }) }), null)).toBe(
-        'Only a draft.',
-      );
+      expect(channelPostCopyText(channel({ latest: revision({ body: 'Only a draft.' }) }), null)).toBe('Only a draft.');
     });
 
     it('ignores an empty box rather than copying nothing over real words', () => {
-      expect(channelPostCopyText(channel({ latest: revision({ body: 'Real words.' }) }), '   ')).toBe(
-        'Real words.',
-      );
+      expect(channelPostCopyText(channel({ latest: revision({ body: 'Real words.' }) }), '   ')).toBe('Real words.');
     });
   });
 

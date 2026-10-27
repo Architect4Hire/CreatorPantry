@@ -16,7 +16,10 @@ import { WorkflowNextAction } from '../../models/workflow-run.models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (doable().length > 0) {
-      <p class="lead">This step is done on {{ doable().length === 1 ? 'its own page' : 'one of these pages' }}. Come back here when you’ve finished, and carry on.</p>
+      <p class="lead"
+        >This step is done on {{ doable().length === 1 ? 'its own page' : 'one of these pages' }}. Come back here when
+        you’ve finished, and carry on.</p
+      >
       <div class="cp-actions">
         @for (action of doable(); track action.capabilityKey) {
           <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), action.route]">{{ action.name }}</a>
@@ -46,7 +49,8 @@ export class WorkflowStepFallbackComponent {
   /** The step's actions the reader can take and that have an address, main action first. */
   protected readonly doable = computed(() =>
     this.step().actions.filter(
-      (action): action is typeof action & { route: string } => action.available && action.youCanDoIt && action.route !== null,
+      (action): action is typeof action & { route: string } =>
+        action.available && action.youCanDoIt && action.route !== null,
     ),
   );
 

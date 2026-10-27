@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, map, switchMap } from 'rxjs';
@@ -18,10 +28,22 @@ import {
 } from '@creator-pantry/ui';
 
 import { IngredientScaling, RecipeIngredientGroup } from '../../models/recipe.models';
-import { IngredientMatchCandidate, ParsedIngredientLine, UnitMatchCandidate } from '../../models/ingredient-parse.models';
+import {
+  IngredientMatchCandidate,
+  ParsedIngredientLine,
+  UnitMatchCandidate,
+} from '../../models/ingredient-parse.models';
 import { Ingredient } from '../../models/reference.models';
-import { INGREDIENT_SEARCH_MIN_LENGTH, ReferenceService, SearchIngredientsOutcome } from '../../services/reference.service';
-import { IngredientLinesAccepted, IngredientPasteReviewComponent, PasteTargetGroup } from './ingredient-paste-review.component';
+import {
+  INGREDIENT_SEARCH_MIN_LENGTH,
+  ReferenceService,
+  SearchIngredientsOutcome,
+} from '../../services/reference.service';
+import {
+  IngredientLinesAccepted,
+  IngredientPasteReviewComponent,
+  PasteTargetGroup,
+} from './ingredient-paste-review.component';
 import { IngredientUnitPickerComponent } from './ingredient-unit-picker.component';
 import { UnitCatalogueState } from './recipe-unit-options';
 
@@ -243,7 +265,10 @@ export interface IngredientRowMatchOverrides {
 }
 
 /** Builds a proposal row from one parsed line — a value the creator can still edit or discard, never a fact. */
-export function rowFromParsedLine(line: ParsedIngredientLine, overrides: IngredientRowMatchOverrides = {}): EditableIngredientRow {
+export function rowFromParsedLine(
+  line: ParsedIngredientLine,
+  overrides: IngredientRowMatchOverrides = {},
+): EditableIngredientRow {
   const quantity = line.tokens.quantity;
   const ingredientMatch = line.ingredientMatch;
   const unitMatch = line.unitMatch;
@@ -293,7 +318,10 @@ export function rowFromParsedLine(line: ParsedIngredientLine, overrides: Ingredi
 }
 
 /** Applies one edit to a row, then recomposes its line if the row is still composing one. */
-function patchRow(row: EditableIngredientRow, patch: Partial<Omit<EditableIngredientRow, 'key' | 'id'>>): EditableIngredientRow {
+function patchRow(
+  row: EditableIngredientRow,
+  patch: Partial<Omit<EditableIngredientRow, 'key' | 'id'>>,
+): EditableIngredientRow {
   const patched = { ...row, ...patch };
 
   // A retyped quantity is no longer the range the recipe recorded, and there is no control for the upper bound
@@ -688,12 +716,20 @@ export class RecipeIngredientEditorComponent {
   /** Template-facing wrapper: resolves the picked `<option>` value back to the candidate object it named. */
   onIngredientChoiceSelected(groupKey: string, rowKey: string, ingredientId: string): void {
     const candidates = this.rowIn(groupKey, rowKey)?.ingredientCandidates ?? [];
-    this.confirmIngredientMatch(groupKey, rowKey, candidates.find((candidate) => candidate.ingredientId === ingredientId) ?? null);
+    this.confirmIngredientMatch(
+      groupKey,
+      rowKey,
+      candidates.find((candidate) => candidate.ingredientId === ingredientId) ?? null,
+    );
   }
 
   onUnitChoiceSelected(groupKey: string, rowKey: string, unitId: string): void {
     const candidates = this.rowIn(groupKey, rowKey)?.unitCandidates ?? [];
-    this.confirmUnitMatch(groupKey, rowKey, candidates.find((candidate) => candidate.measurementUnitId === unitId) ?? null);
+    this.confirmUnitMatch(
+      groupKey,
+      rowKey,
+      candidates.find((candidate) => candidate.measurementUnitId === unitId) ?? null,
+    );
   }
 
   /**
@@ -732,7 +768,9 @@ export class RecipeIngredientEditorComponent {
     const targetKey = groupKey ?? this.groups()[0]?.key ?? this.addGroupInternal();
 
     this.groups.update((groups) =>
-      groups.map((group) => (group.key === targetKey ? { ...group, ingredients: [...group.ingredients, blankRow()] } : group)),
+      groups.map((group) =>
+        group.key === targetKey ? { ...group, ingredients: [...group.ingredients, blankRow()] } : group,
+      ),
     );
     this.emitChange();
   }
@@ -740,7 +778,9 @@ export class RecipeIngredientEditorComponent {
   removeRow(groupKey: string, rowKey: string): void {
     this.groups.update((groups) =>
       groups.map((group) =>
-        group.key === groupKey ? { ...group, ingredients: group.ingredients.filter((row) => row.key !== rowKey) } : group,
+        group.key === groupKey
+          ? { ...group, ingredients: group.ingredients.filter((row) => row.key !== rowKey) }
+          : group,
       ),
     );
     this.emitChange();
@@ -751,7 +791,9 @@ export class RecipeIngredientEditorComponent {
     const index = group?.ingredients.findIndex((row) => row.key === rowKey) ?? -1;
     this.groups.update((groups) =>
       groups.map((candidate) =>
-        candidate.key === groupKey ? { ...candidate, ingredients: moveByKey(candidate.ingredients, rowKey, direction) } : candidate,
+        candidate.key === groupKey
+          ? { ...candidate, ingredients: moveByKey(candidate.ingredients, rowKey, direction) }
+          : candidate,
       ),
     );
     if (group) this.announceMove('ingredient', index, direction, group.ingredients.length);
@@ -886,14 +928,26 @@ export class RecipeIngredientEditorComponent {
   }
 
   private rowIn(groupKey: string, rowKey: string): EditableIngredientRow | null {
-    return this.groups().find((group) => group.key === groupKey)?.ingredients.find((row) => row.key === rowKey) ?? null;
+    return (
+      this.groups()
+        .find((group) => group.key === groupKey)
+        ?.ingredients.find((row) => row.key === rowKey) ?? null
+    );
   }
 
   /** Whichever of ingredient/unit is still pending review after this confirmation keeps the row ambiguous. */
-  private combinedMatchState(groupKey: string, rowKey: string, justConfirmed: 'ingredient' | 'unit', confirmedToMatch: boolean): IngredientRowMatchState {
+  private combinedMatchState(
+    groupKey: string,
+    rowKey: string,
+    justConfirmed: 'ingredient' | 'unit',
+    confirmedToMatch: boolean,
+  ): IngredientRowMatchState {
     if (!confirmedToMatch) return 'unmatched';
     const row = this.rowIn(groupKey, rowKey);
-    const otherStillPending = justConfirmed === 'ingredient' ? (row?.unitCandidates.length ?? 0) > 0 : (row?.ingredientCandidates.length ?? 0) > 0;
+    const otherStillPending =
+      justConfirmed === 'ingredient'
+        ? (row?.unitCandidates.length ?? 0) > 0
+        : (row?.ingredientCandidates.length ?? 0) > 0;
     return otherStillPending ? 'ambiguous' : 'matched';
   }
 

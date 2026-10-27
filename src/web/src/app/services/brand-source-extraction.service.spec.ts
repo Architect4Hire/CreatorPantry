@@ -42,17 +42,41 @@ describe('BrandSourceExtractionService', () => {
     req.flush(SUCCEEDED);
     const outcome = await result;
     expect(outcome.status).toBe('ok');
-    if (outcome.status === 'ok') expect(outcome.extraction).toEqual(jasmine.objectContaining({ id: 'x1', text: 'Warm and plain.\n', isReading: false }));
+    if (outcome.status === 'ok')
+      expect(outcome.extraction).toEqual(
+        jasmine.objectContaining({ id: 'x1', text: 'Warm and plain.\n', isReading: false }),
+      );
   });
 
   it('decodes a waiting version and a scan, which carry no text', async () => {
     let result = service.get('w', DOC, 1);
-    http.expectOne(URL).flush({ versionNumber: 1, state: 'NotExtracted', id: null, ordinal: 0, origin: null, text: null, reason: null, at: null, isReading: true });
+    http.expectOne(URL).flush({
+      versionNumber: 1,
+      state: 'NotExtracted',
+      id: null,
+      ordinal: 0,
+      origin: null,
+      text: null,
+      reason: null,
+      at: null,
+      isReading: true,
+    });
     let outcome = await result;
-    expect(outcome.status === 'ok' && outcome.extraction.isReading && outcome.extraction.state === 'NotExtracted').toBeTrue();
+    expect(
+      outcome.status === 'ok' && outcome.extraction.isReading && outcome.extraction.state === 'NotExtracted',
+    ).toBeTrue();
 
     result = service.get('w', DOC, 1);
-    http.expectOne(URL).flush({ versionNumber: 1, state: 'Unsupported', id: 'x2', ordinal: 1, origin: 'Extracted', text: null, reason: 'No text layer.', at: 'now' });
+    http.expectOne(URL).flush({
+      versionNumber: 1,
+      state: 'Unsupported',
+      id: 'x2',
+      ordinal: 1,
+      origin: 'Extracted',
+      text: null,
+      reason: 'No text layer.',
+      at: 'now',
+    });
     outcome = await result;
     expect(outcome.status === 'ok' && outcome.extraction.reason === 'No text layer.').toBeTrue();
   });
@@ -73,7 +97,13 @@ describe('BrandSourceExtractionService', () => {
   });
 
   it('sends a correction as JSON with the key and no workspace field', async () => {
-    const result = service.correct('w', DOC, 1, { expectedExtractionId: 'x1', text: 'Fixed.\n', reason: 'Corrected by me' }, 'key-1');
+    const result = service.correct(
+      'w',
+      DOC,
+      1,
+      { expectedExtractionId: 'x1', text: 'Fixed.\n', reason: 'Corrected by me' },
+      'key-1',
+    );
     const req = http.expectOne(`${URL}/corrections`);
     expect(req.request.headers.get('Idempotency-Key')).toBe('key-1');
     expect(req.request.body).toEqual({ expectedExtractionId: 'x1', text: 'Fixed.\n', reason: 'Corrected by me' });

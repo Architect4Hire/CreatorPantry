@@ -10,12 +10,24 @@ import { LegalInline } from './legal-document';
   imports: [RouterLink],
   template: `@for (span of spans(); track $index) {
     @switch (span.kind) {
-      @case ('strong') {<strong>{{ span.text }}</strong>}
-      @case ('em') {<em>{{ span.text }}</em>}
-      @case ('code') {<code>{{ span.text }}</code>}
-      @case ('route') {<a [routerLink]="span.path">{{ span.text }}</a>}
-      @case ('mail') {<a [href]="'mailto:' + span.text">{{ span.text }}</a>}
-      @default {{{ span.text }}}
+      @case ('strong') {
+        <strong>{{ span.text }}</strong>
+      }
+      @case ('em') {
+        <em>{{ span.text }}</em>
+      }
+      @case ('code') {
+        <code>{{ span.text }}</code>
+      }
+      @case ('route') {
+        <a [routerLink]="span.path">{{ span.text }}</a>
+      }
+      @case ('mail') {
+        <a [href]="'mailto:' + span.text">{{ span.text }}</a>
+      }
+      @default {
+        {{ span.text }}
+      }
     }
   }`,
   styles: `

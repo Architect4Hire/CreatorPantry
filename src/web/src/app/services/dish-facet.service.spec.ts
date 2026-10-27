@@ -60,9 +60,7 @@ describe('DishFacetService', () => {
   it('reports a task switched off for this deployment as that, not as a bad request', async () => {
     const pending = service.request('cozy-fall', 'Fattoush', 'key-1');
 
-    http
-      .expectOne(BASE)
-      .flush({ code: 'ai.dishFacets.not_enabled' }, { status: 400, statusText: 'Bad Request' });
+    http.expectOne(BASE).flush({ code: 'ai.dishFacets.not_enabled' }, { status: 400, statusText: 'Bad Request' });
 
     expect((await pending).status).toBe('task_not_enabled');
   });

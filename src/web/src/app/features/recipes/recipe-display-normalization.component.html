@@ -1,8 +1,8 @@
 <section class="calculation" [attr.aria-labelledby]="headingId">
   <h2 class="calculation-heading" [id]="headingId">How a quantity reads</h2>
   <p class="calculation-intro">
-    Presentation only — this shows how an amount would read, and changes nothing. A recipe records the number,
-    never how it reads, so there is nothing here to save: type the amount you want on the line in Ingredients.
+    Presentation only — this shows how an amount would read, and changes nothing. A recipe records the number, never how
+    it reads, so there is nothing here to save: type the amount you want on the line in Ingredients.
   </p>
 
   @if (sourceVersionNumber() === null) {
@@ -12,7 +12,9 @@
   }
 
   <!-- Always present, so it is there before the catalogue is read and its words change rather than arrive (AU.7). -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{ catalogue().status === 'loading' ? 'Loading the unit catalogue…' : '' }}</p>
+  <p class="cp-sr-only" role="status" aria-live="polite">{{
+    catalogue().status === 'loading' ? 'Loading the unit catalogue…' : ''
+  }}</p>
 
   @switch (catalogue().status) {
     @case ('loading') {
@@ -160,7 +162,6 @@
     <p class="calculation-problem" role="alert">{{ problem }}</p>
   }
 
-
   <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
        region that appears already holding its content is not reliably announced. -->
   <p class="calculation-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
@@ -174,12 +175,15 @@
         <dd>
           <!-- &ngsp; keeps a real space between the two spans. Without it Angular drops the whitespace-only
                text node and the pair is announced as one run-together word. -->
-          <span class="canonical-value">{{ canonicalLabel() }}</span>&ngsp;
+          <span class="canonical-value">{{ canonicalLabel() }}</span
+          >&ngsp;
           <span class="canonical-note">unchanged</span>
         </dd>
 
         <dt>How it reads</dt>
-        <dd><span class="display-value">{{ rendered.result.text }}</span></dd>
+        <dd
+          ><span class="display-value">{{ rendered.result.text }}</span></dd
+        >
       </dl>
 
       <h3 class="result-subheading">How it was rendered</h3>
@@ -205,20 +209,17 @@
       <p class="result-caution">
         <span class="caution-glyph" aria-hidden="true">⚠</span>
         <span>
-          Presentation only. The canonical quantity above is unchanged, and nothing here is saved or fed back
-          into the recipe.
+          Presentation only. The canonical quantity above is unchanged, and nothing here is saved or fed back into the
+          recipe.
         </span>
       </p>
 
-      <p class="result-provenance">
-        Computed against version {{ rendered.sourceVersionNumber }}. Nothing was saved.
-      </p>
+      <p class="result-provenance"> Computed against version {{ rendered.sourceVersionNumber }}. Nothing was saved. </p>
 
       <!-- Worded as a permanent rule rather than as a missing feature, because that is what it is: ING-006
            keeps the canonical quantity unchanged, so there is nothing here an apply could ever write. -->
       <p class="apply-unavailable">
-        There is nothing to apply. This only changes how a quantity reads, and the canonical quantity never
-        changes.
+        There is nothing to apply. This only changes how a quantity reads, and the canonical quantity never changes.
       </p>
     </div>
   } @else if (catalogue().status === 'ready' && !isWorking() && requestProblem() === null) {

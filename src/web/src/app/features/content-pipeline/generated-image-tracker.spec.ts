@@ -97,7 +97,11 @@ describe('GeneratedImageTracker', () => {
 
     watches[0].next({
       status: 'found',
-      operation: run({ status: 'Succeeded', stagedCount: 2, images: [picture(), picture({ id: 'img-2', variantIndex: 2 })] }),
+      operation: run({
+        status: 'Succeeded',
+        stagedCount: 2,
+        images: [picture(), picture({ id: 'img-2', variantIndex: 2 })],
+      }),
     });
 
     const phase = tracker.phase();
@@ -156,9 +160,7 @@ describe('GeneratedImageTracker', () => {
   });
 
   it('maps each refusal to its own phase, because the remedies differ', async () => {
-    await tracker.submit(() =>
-      Promise.resolve<GeneratedImageRequestOutcome>({ status: 'forbidden' }),
-    );
+    await tracker.submit(() => Promise.resolve<GeneratedImageRequestOutcome>({ status: 'forbidden' }));
     expect(tracker.phase().kind).toBe('forbidden');
 
     await tracker.submit(() => Promise.resolve<GeneratedImageRequestOutcome>({ status: 'rate_limited' }));
@@ -265,7 +267,9 @@ describe('GeneratedImageTracker', () => {
     tracker.destroy();
     answer(accepted());
 
-    expect(await pending).withContext('nothing to hand back').toBeNull();
+    expect(await pending)
+      .withContext('nothing to hand back')
+      .toBeNull();
     expect(watched).withContext('no poll was started').toEqual([]);
   });
 

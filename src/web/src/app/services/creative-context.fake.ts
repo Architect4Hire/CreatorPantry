@@ -186,7 +186,12 @@ export class FakeCreativeContextService {
     return of<CreativeContextPicturesOutcome>({ status: 'found', pictures });
   }
 
-  addReference(slug: string, id: string, source: CreativeContextSource, token: string): Observable<CreativeContextWriteOutcome> {
+  addReference(
+    slug: string,
+    id: string,
+    source: CreativeContextSource,
+    token: string,
+  ): Observable<CreativeContextWriteOutcome> {
     if (this.offline) return of<CreativeContextWriteOutcome>({ status: 'unavailable' });
 
     this.added.push({ slug, id, source, token });
@@ -222,7 +227,12 @@ export class FakeCreativeContextService {
     return of<CreativeContextWriteOutcome>({ status: 'saved', context: next });
   }
 
-  removeReference(slug: string, id: string, referenceId: string, token: string): Observable<CreativeContextWriteOutcome> {
+  removeReference(
+    slug: string,
+    id: string,
+    referenceId: string,
+    token: string,
+  ): Observable<CreativeContextWriteOutcome> {
     if (this.offline) return of<CreativeContextWriteOutcome>({ status: 'unavailable' });
 
     this.removed.push({ slug, id, referenceId, token });

@@ -201,7 +201,9 @@ const CHANNEL_POST_SET_RULE = '----------------------------------------';
  * markup — the text is whatever {@link channelPostCopyText} chose for each channel, exactly as written.
  */
 export function channelPostSetText(entries: readonly ChannelPostTextEntry[]): string {
-  return entries.map((entry) => `${entry.channelName}\n\n${entry.text}`).join(`\n\n${CHANNEL_POST_SET_RULE}\n\n`) + '\n';
+  return (
+    entries.map((entry) => `${entry.channelName}\n\n${entry.text}`).join(`\n\n${CHANNEL_POST_SET_RULE}\n\n`) + '\n'
+  );
 }
 
 /**
@@ -212,7 +214,13 @@ export function channelPostSetText(entries: readonly ChannelPostTextEntry[]): st
  */
 export function channelPostFileName(...parts: readonly string[]): string {
   const slug = parts
-    .map((part) => part.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, ''))
+    .map((part) =>
+      part
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '-')
+        .replace(/^-+|-+$/g, ''),
+    )
     .filter((part) => part !== '')
     .join('-')
     .slice(0, 80)
@@ -257,10 +265,7 @@ export function decodeChannelPostRevision(value: unknown): ChannelPostRevision |
 
   const { id, revisionNumber, body, characterCount, characterLimit, aiProposalId, createdAt } = value;
   const source = decodeEnum<ChannelPostSource>(CHANNEL_POST_SOURCE_VALUES, value['source']);
-  const limitStatus = decodeEnum<ChannelPostLimitStatus>(
-    CHANNEL_POST_LIMIT_STATUS_VALUES,
-    value['limitStatus'],
-  );
+  const limitStatus = decodeEnum<ChannelPostLimitStatus>(CHANNEL_POST_LIMIT_STATUS_VALUES, value['limitStatus']);
 
   if (
     typeof id !== 'string' ||

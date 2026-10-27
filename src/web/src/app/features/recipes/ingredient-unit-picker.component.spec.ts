@@ -4,7 +4,12 @@ import { MeasurementUnit } from '../../models/reference.models';
 import { UnitMatchCandidate } from '../../models/ingredient-parse.models';
 import { IngredientUnitPickerComponent } from './ingredient-unit-picker.component';
 
-function unit(id: string, displayName: string, dimension: MeasurementUnit['dimension'], system: MeasurementUnit['system']): MeasurementUnit {
+function unit(
+  id: string,
+  displayName: string,
+  dimension: MeasurementUnit['dimension'],
+  system: MeasurementUnit['system'],
+): MeasurementUnit {
   return {
     id,
     code: id,
@@ -44,7 +49,8 @@ describe('IngredientUnitPickerComponent', () => {
   const box = (fixture: ComponentFixture<unknown>) => host(fixture).querySelector<HTMLInputElement>('input')!;
   const rows = (fixture: ComponentFixture<unknown>) =>
     Array.from(host(fixture).querySelectorAll<HTMLElement>('[role="option"]'));
-  const emptyText = (fixture: ComponentFixture<unknown>) => host(fixture).querySelector('.empty')?.textContent?.trim() ?? '';
+  const emptyText = (fixture: ComponentFixture<unknown>) =>
+    host(fixture).querySelector('.empty')?.textContent?.trim() ?? '';
 
   it('offers cooking names with the region on the second line, and no temperature', async () => {
     const fixture = await createFixture();
@@ -66,9 +72,9 @@ describe('IngredientUnitPickerComponent', () => {
     const picked: UnitMatchCandidate[] = [];
     fixture.componentInstance.unitPicked.subscribe((candidate) => picked.push(candidate));
 
-    host(fixture).querySelector('[id="row-unit-1-option-cup-us"]')!.dispatchEvent(
-      new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
-    );
+    host(fixture)
+      .querySelector('[id="row-unit-1-option-cup-us"]')!
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     fixture.detectChanges();
 
     expect(picked).toEqual([{ measurementUnitId: 'cup-us', displayName: 'cup', kind: 'DisplayName' }]);

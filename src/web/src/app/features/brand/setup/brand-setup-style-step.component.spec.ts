@@ -48,7 +48,9 @@ describe('BrandSetupStyleStepComponent', () => {
     expect(headings).toEqual(STYLE_QUESTIONS.map((q) => q.heading));
     // Only each question's "Not sure yet" is selected; no real choice is.
     expect(el.querySelectorAll('input:checked').length).toBe(STYLE_QUESTIONS.filter((q) => !q.multiple).length);
-    expect(Array.from(el.querySelectorAll<HTMLInputElement>('input:checked')).every((i) => i.id.endsWith('-unsure'))).toBeTrue();
+    expect(
+      Array.from(el.querySelectorAll<HTMLInputElement>('input:checked')).every((i) => i.id.endsWith('-unsure')),
+    ).toBeTrue();
   });
 
   it('always lets the creator continue, and saves nothing while blank', async () => {
@@ -68,7 +70,9 @@ describe('BrandSetupStyleStepComponent', () => {
     await mount();
     await click('cp-style-voice-warm-friend');
     expect(last().isDirty).toBeTrue();
-    expect(last().draft).toEqual(jasmine.objectContaining({ choices: jasmine.objectContaining({ voice: ['warm-friend'] }) }));
+    expect(last().draft).toEqual(
+      jasmine.objectContaining({ choices: jasmine.objectContaining({ voice: ['warm-friend'] }) }),
+    );
     await click('cp-style-voice-unsure');
     expect((last().draft as { choices: Record<string, string[]> }).choices['voice']).toEqual([]);
     expect(input('cp-style-voice-warm-friend').checked).toBeFalse();
@@ -116,7 +120,9 @@ describe('BrandSetupStyleStepComponent', () => {
     expect(groups.length).toBe(STYLE_QUESTIONS.length);
     for (const g of groups) expect(g.getAttribute('aria-label')).toBeTruthy();
     for (const control of Array.from(el.querySelectorAll<HTMLInputElement>('input'))) {
-      expect(control.labels?.length || control.getAttribute('aria-label')).withContext(control.id).toBeTruthy();
+      expect(control.labels?.length || control.getAttribute('aria-label'))
+        .withContext(control.id)
+        .toBeTruthy();
       expect(control.getAttribute('tabindex')).not.toBe('-1');
     }
     expect(el.querySelectorAll('button').length).toBe(0);

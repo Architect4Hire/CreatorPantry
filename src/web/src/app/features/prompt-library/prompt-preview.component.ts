@@ -48,7 +48,9 @@ type PreviewState =
       (closeRequested)="closed.emit()"
     >
       <!-- Always present, and outside the busy lines (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
-      <p class="cp-sr-only" role="status" aria-live="polite">{{ state().status === 'loading' ? 'Loading the prompt…' : '' }}</p>
+      <p class="cp-sr-only" role="status" aria-live="polite">{{
+        state().status === 'loading' ? 'Loading the prompt…' : ''
+      }}</p>
       @switch (state().status) {
         @case ('loading') {
           <!-- The prompt as it will arrive: a few lines of words. -->
@@ -68,9 +70,13 @@ type PreviewState =
         }
       }
 
-      <cp-notice class="copy-status" role="status" [quiet]="copyMessage() === ''" [tone]="copyFailed() ? 'error' : 'success'">{{
-        copyMessage()
-      }}</cp-notice>
+      <cp-notice
+        class="copy-status"
+        role="status"
+        [quiet]="copyMessage() === ''"
+        [tone]="copyFailed() ? 'error' : 'success'"
+        >{{ copyMessage() }}</cp-notice
+      >
 
       <button
         cpDrawerActions

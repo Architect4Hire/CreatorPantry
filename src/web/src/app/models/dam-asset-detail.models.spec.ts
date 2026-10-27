@@ -51,7 +51,15 @@ function detailBody(overrides: Record<string, unknown> = {}): Record<string, unk
     utilizationCount: 5,
     recipeLinkCount: 1,
     recipeLinks: [{ recipeId: 'r1', title: 'Soda bread', role: 'Hero', caption: 'Fresh from the oven.' }],
-    prompts: [{ id: 'p1', label: null, imageKind: 'Hero', source: 'ImagePromptComposition', createdAt: '2026-10-07T09:00:00+00:00' }],
+    prompts: [
+      {
+        id: 'p1',
+        label: null,
+        imageKind: 'Hero',
+        source: 'ImagePromptComposition',
+        createdAt: '2026-10-07T09:00:00+00:00',
+      },
+    ],
     deletedAt: null,
     deletedByMembershipId: null,
     createdAt: '2026-10-08T12:00:00+00:00',
@@ -87,7 +95,9 @@ describe('DAM asset detail models', () => {
       expect(asset.versions.map((version) => version.versionNumber)).toEqual([2, 1]);
       expect(asset.versions[1].source).toBe('GeneratedImage');
       expect(asset.utilizationCount).toBe(5);
-      expect(asset.recipeLinks).toEqual([{ recipeId: 'r1', title: 'Soda bread', role: 'Hero', caption: 'Fresh from the oven.' }]);
+      expect(asset.recipeLinks).toEqual([
+        { recipeId: 'r1', title: 'Soda bread', role: 'Hero', caption: 'Fresh from the oven.' },
+      ]);
       expect(asset.prompts[0].id).toBe('p1');
     });
 
@@ -104,7 +114,9 @@ describe('DAM asset detail models', () => {
       expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: 'g1' }))?.sourceGeneratedImageId).toBe('g1');
       // Null for an upload, and for a server that does not publish the field at all.
       expect(decodeDamAssetDetail(detailBody())?.sourceGeneratedImageId).toBeNull();
-      expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: undefined }))?.sourceGeneratedImageId).toBeNull();
+      expect(
+        decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: undefined }))?.sourceGeneratedImageId,
+      ).toBeNull();
       // A field that is present and not an id fails the read rather than passing as "kept from nothing".
       expect(decodeDamAssetDetail(detailBody({ sourceGeneratedImageId: 42 }))).toBeNull();
     });
@@ -142,8 +154,16 @@ describe('DAM asset detail models', () => {
 
     it('fails the whole asset on one unreadable version, link or prompt rather than quietly dropping it', () => {
       expect(decodeDamAssetDetail(detailBody({ versions: [versionBody(), { versionNumber: 1 }] }))).toBeNull();
-      expect(decodeDamAssetDetail(detailBody({ recipeLinks: [{ recipeId: 'r1', title: 'x', role: 'Poster', caption: null }] }))).toBeNull();
-      expect(decodeDamAssetDetail(detailBody({ prompts: [{ id: 'p1', label: null, imageKind: 'Hologram', source: 'Manual', createdAt: 'x' }] }))).toBeNull();
+      expect(
+        decodeDamAssetDetail(
+          detailBody({ recipeLinks: [{ recipeId: 'r1', title: 'x', role: 'Poster', caption: null }] }),
+        ),
+      ).toBeNull();
+      expect(
+        decodeDamAssetDetail(
+          detailBody({ prompts: [{ id: 'p1', label: null, imageKind: 'Hologram', source: 'Manual', createdAt: 'x' }] }),
+        ),
+      ).toBeNull();
       expect(decodeDamAssetDetail(detailBody({ currentVersion: { versionNumber: 'two' } }))).toBeNull();
     });
 
@@ -161,10 +181,18 @@ describe('DAM asset detail models', () => {
     });
 
     it('reads whether the original carries a location, and anything but an answer as "not checked"', () => {
-      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: true }))?.containsLocationMetadata).toBe(true);
-      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: false }))?.containsLocationMetadata).toBe(false);
-      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: null }))?.containsLocationMetadata).toBeNull();
-      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: 'yes' }))?.containsLocationMetadata).toBeNull();
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: true }))?.containsLocationMetadata).toBe(
+        true,
+      );
+      expect(decodeDamAssetVersion(versionBody({ containsLocationMetadata: false }))?.containsLocationMetadata).toBe(
+        false,
+      );
+      expect(
+        decodeDamAssetVersion(versionBody({ containsLocationMetadata: null }))?.containsLocationMetadata,
+      ).toBeNull();
+      expect(
+        decodeDamAssetVersion(versionBody({ containsLocationMetadata: 'yes' }))?.containsLocationMetadata,
+      ).toBeNull();
       expect(decodeDamAssetVersion(versionBody())?.containsLocationMetadata).toBeNull();
     });
   });
@@ -188,18 +216,22 @@ describe('DAM asset detail models', () => {
     });
 
     it('reads a page, and fails it whole on one unreadable row', () => {
-      expect(decodeDamAssetUtilizationPage({ items: [useBody()], nextCursor: 'c1', totalCount: 9 })?.items.length).toBe(1);
+      expect(decodeDamAssetUtilizationPage({ items: [useBody()], nextCursor: 'c1', totalCount: 9 })?.items.length).toBe(
+        1,
+      );
       expect(decodeDamAssetUtilizationPage({ items: [], nextCursor: null, totalCount: 0 })).toEqual({
         items: [],
         nextCursor: null,
         totalCount: 0,
       });
-      expect(decodeDamAssetUtilizationPage({ items: [useBody(), { id: 'u2' }], nextCursor: null, totalCount: 2 })).toBeNull();
+      expect(
+        decodeDamAssetUtilizationPage({ items: [useBody(), { id: 'u2' }], nextCursor: null, totalCount: 2 }),
+      ).toBeNull();
     });
   });
 
   describe('view helpers', () => {
-    it("shows a calendar date as that date in any timezone — it is never read as an instant", () => {
+    it('shows a calendar date as that date in any timezone — it is never read as an instant', () => {
       // 6 October however far west the browser is: the bug this guards is `new Date('2026-10-06')` rendering
       // as the 5th anywhere behind UTC.
       expect(damCalendarDateText('2026-10-06', 'en-US')).toBe('Oct 6, 2026');

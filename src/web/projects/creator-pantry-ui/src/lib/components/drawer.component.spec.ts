@@ -99,7 +99,9 @@ describe('CpDrawerComponent', () => {
     el.setAttribute('data-cp-tone', 'pink');
     openFrom();
     expect(panel()!.getAttribute('data-cp-tone')).toBe('pink');
-    expect(getComputedStyle(panel()!).getPropertyValue('--cp-tone').trim()).toBe(getComputedStyle(el).getPropertyValue('--cp-tone').trim());
+    expect(getComputedStyle(panel()!).getPropertyValue('--cp-tone').trim()).toBe(
+      getComputedStyle(el).getPropertyValue('--cp-tone').trim(),
+    );
   });
 
   it('takes no tone from an untoned page', () => {

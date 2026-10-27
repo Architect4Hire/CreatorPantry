@@ -54,7 +54,9 @@ export class LongFormSeoService {
     if (!url) return { status: 'unavailable' };
 
     try {
-      const operation = decodeAiProposalStatus(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+      const operation = decodeAiProposalStatus(
+        await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })),
+      );
 
       return operation ? { status: 'found', operation } : { status: 'unavailable' };
     } catch (error) {

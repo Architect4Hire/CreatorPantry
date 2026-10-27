@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  afterRenderEffect,
+  computed,
+  inject,
+  input,
+} from '@angular/core';
 
 /**
  * The label, hint and error of one field, around a control the consumer projects.
@@ -15,22 +23,22 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, comp
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpFieldComponent {
-  readonly label=input.required<string>();
-  readonly forId=input.required<string>();
-  readonly hint=input('');
-  readonly error=input('');
+  readonly label = input.required<string>();
+  readonly forId = input.required<string>();
+  readonly hint = input('');
+  readonly error = input('');
   /** Advice about the value that does not stop anything: it shows beside the control and never marks it invalid. */
-  readonly warning=input('');
-  readonly required=input(false);
+  readonly warning = input('');
+  readonly required = input(false);
 
-  protected readonly hintId=computed(()=>`${this.forId()}-hint`);
-  protected readonly errorId=computed(()=>`${this.forId()}-error`);
-  protected readonly warningId=computed(()=>`${this.forId()}-warning`);
+  protected readonly hintId = computed(() => `${this.forId()}-hint`);
+  protected readonly errorId = computed(() => `${this.forId()}-error`);
+  protected readonly warningId = computed(() => `${this.forId()}-warning`);
 
-  private readonly elementRef:ElementRef<HTMLElement>=inject(ElementRef);
+  private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
 
   /** Whether `aria-invalid` on the control is this field's to take away again — see {@link constructor}. */
-  private markedInvalid=false;
+  private markedInvalid = false;
 
   constructor() {
     afterRenderEffect(() => {

@@ -116,8 +116,7 @@ export const LINE_REASON_TEXT: Readonly<Record<NutritionLineReason, string | nul
     'A reference was proposed for this ingredient and nobody has confirmed it. Nothing automatic is counted.',
   MappingUnderReview:
     "The reference is under review, so it isn't counted until the newer version is accepted or turned down.",
-  SourceVersionChanged:
-    'The source published a newer version of this record. Confirm it to count this line again.',
+  SourceVersionChanged: 'The source published a newer version of this record. Confirm it to count this line again.',
   ReferenceWithdrawn: 'The source no longer publishes the record this ingredient used, so it cannot be counted.',
   NoUnit: "This amount has no unit, so it can't become grams.",
   UnitUnknown: "This line's unit isn't one the catalogue knows, so it can't become grams.",
@@ -268,10 +267,8 @@ export const PANEL_COPY = {
   newTab: '(opens in a new tab)',
   hideMapping: 'Hide this mapping',
   mappingLoading: 'Reading the mapping…',
-  mappingNone:
-    'Nothing has been proposed for this ingredient yet, and nothing on this screen can propose one.',
-  mappingNoIngredient:
-    "This line isn't matched to a platform ingredient, so it has no mapping to review.",
+  mappingNone: 'Nothing has been proposed for this ingredient yet, and nothing on this screen can propose one.',
+  mappingNoIngredient: "This line isn't matched to a platform ingredient, so it has no mapping to review.",
   mappingUnavailable: "The mapping couldn't be read. Check your connection and try again.",
   mappingNeedsEditor: 'Confirming or turning down a reference takes an Editor.',
   mappingNothingToDecide: 'There is nothing to decide on this mapping.',
@@ -915,9 +912,7 @@ export class RecipeNutritionComponent {
   }
 
   rejectedReferencesText(mapping: NutritionMapping): string | null {
-    return mapping.rejectedReferenceCount === 0
-      ? null
-      : rejectedReferencesSentence(mapping.rejectedReferenceCount);
+    return mapping.rejectedReferenceCount === 0 ? null : rejectedReferencesSentence(mapping.rejectedReferenceCount);
   }
 
   /** The label on the button that accepts what the mapping holds: a proposal, or a newer version of it. */

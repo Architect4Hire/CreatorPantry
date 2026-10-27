@@ -418,7 +418,13 @@ describe('GeneratedImageRunComponent', () => {
 
       watches[watches.length - 1].next({
         status: 'found',
-        operation: { ...operation(images), status: 'Running', variantCount: asked, stagedCount: images.length, completedAt: null },
+        operation: {
+          ...operation(images),
+          status: 'Running',
+          variantCount: asked,
+          stagedCount: images.length,
+          completedAt: null,
+        },
       });
       await settle();
     }
@@ -478,7 +484,11 @@ describe('GeneratedImageRunComponent', () => {
       await running([picture(0)], 3);
       expect(el.querySelectorAll('.sheet > li.pending').length).toBe(2);
 
-      (Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Stop checking') as HTMLButtonElement).click();
+      (
+        Array.from(el.querySelectorAll('button')).find(
+          (b) => b.textContent?.trim() === 'Stop checking',
+        ) as HTMLButtonElement
+      ).click();
       await settle();
 
       expect(el.querySelectorAll('.sheet > li.pending').length).toBe(0);
@@ -490,7 +500,9 @@ describe('GeneratedImageRunComponent', () => {
 
       const pending = Array.from(el.querySelectorAll<HTMLElement>('.sheet > li.pending'));
       expect(pending.length).toBe(2);
-      expect(pending[0].querySelector<HTMLElement>('cp-skeleton')!.style.getPropertyValue('--cp-skeleton-picture-aspect')).toBe('1 / 1');
+      expect(
+        pending[0].querySelector<HTMLElement>('cp-skeleton')!.style.getPropertyValue('--cp-skeleton-picture-aspect'),
+      ).toBe('1 / 1');
       // No mark round skeletons alone: there is no output yet to say a model made.
       expect(el.querySelector('cp-generated')).toBeNull();
       expect(el.querySelector('[cpGeneratedActions]')).toBeNull();
@@ -569,9 +581,7 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(host.saves).toEqual([createdAsset()]);
       expect(tiles()[0].textContent).toContain('In your library as “Soda bread hero”.');
-      expect(
-        labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href'),
-      ).toBe('/cozy-fall/dam/a1');
+      expect(labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a1');
       expect(host.announcements).toContain('Saved to your library as “Soda bread hero”.');
       expect(el.textContent).toContain('One picture is in your library.');
     });

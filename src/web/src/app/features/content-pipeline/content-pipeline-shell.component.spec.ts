@@ -151,7 +151,12 @@ async function create(
     const real = window.matchMedia.bind(window);
     spyOn(window, 'matchMedia').and.callFake((query: string) =>
       query === WORKFLOW_SHELL_NARROW_QUERY
-        ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList)
+        ? ({
+            matches: true,
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          } as unknown as MediaQueryList)
         : real(query),
     );
   }
@@ -218,10 +223,7 @@ async function create(
       {
         provide: WorkspaceMembershipService,
         useValue: {
-          state: membershipState(
-            options.role === undefined ? 'Editor' : options.role,
-            options.memberships ?? 'ready',
-          ),
+          state: membershipState(options.role === undefined ? 'Editor' : options.role, options.memberships ?? 'ready'),
           ensureLoaded: () => Promise.resolve(),
           load: () => Promise.resolve(),
         },
@@ -266,8 +268,14 @@ async function create(
           watch: () => of(),
         },
       },
-      { provide: ImagePromptService, useValue: { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: () => of() } },
-      { provide: ReferenceImageService, useValue: { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: () => of() } },
+      {
+        provide: ImagePromptService,
+        useValue: { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: () => of() },
+      },
+      {
+        provide: ReferenceImageService,
+        useValue: { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: () => of() },
+      },
       {
         provide: AiUsageService,
         useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }), ensureLoaded: () => Promise.resolve() },
@@ -329,8 +337,7 @@ function text(): string {
 function button(label: string): HTMLButtonElement | null {
   return (
     (Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === label) as
-      | HTMLButtonElement
-      | undefined) ?? null
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -383,7 +390,10 @@ function reachedImages(): ContentPipelineDraft {
 }
 
 /** A brand profile that states where posts go and how many pictures to try. */
-function brandWith(defaultPictureCount: number | null, channelKeys: readonly string[] = ['instagram']): BrandProfileOutcome {
+function brandWith(
+  defaultPictureCount: number | null,
+  channelKeys: readonly string[] = ['instagram'],
+): BrandProfileOutcome {
   return {
     status: 'found',
     profile: decodeBrandProfile({
@@ -458,7 +468,10 @@ describe('ContentPipelineShellComponent', () => {
       await create({ brand: brandWith(3) });
       expect(text()).toContain('3 pictures');
 
-      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(
+        `/${OTHER_SLUG}/workflows/content-pipeline/about`,
+        ContentPipelineShellComponent,
+      );
       await settle();
 
       expect(brandReads).toEqual([SLUG, OTHER_SLUG]);
@@ -499,7 +512,9 @@ describe('ContentPipelineShellComponent', () => {
 
     const footer = root().querySelector('cp-topic-card .footer') as HTMLElement;
     const rowOf = (label: string): string | undefined =>
-      Array.from(footer.querySelectorAll('button')).find((each) => each.textContent?.trim() === label)?.closest('.cp-actions')?.className;
+      Array.from(footer.querySelectorAll('button'))
+        .find((each) => each.textContent?.trim() === label)
+        ?.closest('.cp-actions')?.className;
 
     expect(rowOf('Back')).toContain('primary-row');
     expect(rowOf('Continue')).toContain('primary-row');
@@ -574,7 +589,7 @@ describe('ContentPipelineShellComponent', () => {
     expect(live.textContent).toContain('Plan the picture. Step 2 of 4.');
   });
 
-  it("says a workspace it cannot find and one the creator is not in alike", async () => {
+  it('says a workspace it cannot find and one the creator is not in alike', async () => {
     await create({ role: null });
 
     expect(text()).toContain("couldn't find this workspace");
@@ -862,7 +877,9 @@ describe('ContentPipelineShellComponent', () => {
       expect(text()).toContain('Step 1 of 4');
       expect(text()).toContain('Saved');
       expect(server.patches.length).withContext('reading is not an edit').toBe(0);
-      expect(localStorage.getItem(keptKey(CTX))).withContext('opening leaves no record').toBeNull();
+      expect(localStorage.getItem(keptKey(CTX)))
+        .withContext('opening leaves no record')
+        .toBeNull();
 
       await click('Continue');
       await click('Suggest an idea');
@@ -888,7 +905,11 @@ describe('ContentPipelineShellComponent', () => {
     });
 
     it('says so when the context could not be read, and reads it on a retry', async () => {
-      await create({ url: `${RUN}/about`, offline: true, setup: (fake) => fake.seed(SLUG, CTX, { pictureBrief: 'A tight crop.' }) });
+      await create({
+        url: `${RUN}/about`,
+        offline: true,
+        setup: (fake) => fake.seed(SLUG, CTX, { pictureBrief: 'A tight crop.' }),
+      });
 
       expect(text()).toContain("couldn't be loaded right now");
       expect(root().querySelector('#cp-pipeline-concept')).toBeNull();
@@ -997,11 +1018,13 @@ describe('ContentPipelineShellComponent', () => {
 
       await linkSodaBread();
 
-      expect(server.stored(SLUG, CTX)?.references.map((each) => [each.kind, each.recipeId, each.recipeVersionId])).toEqual([
-        ['Recipe', 'r-soda', 'v-soda-2'],
-      ]);
+      expect(
+        server.stored(SLUG, CTX)?.references.map((each) => [each.kind, each.recipeId, each.recipeVersionId]),
+      ).toEqual([['Recipe', 'r-soda', 'v-soda-2']]);
       expect(text()).toContain('Version 2, as it was when you linked it.');
-      expect(root().querySelector('[role="status"][aria-live="polite"]')?.textContent).toContain('Soda bread is linked.');
+      expect(root().querySelector('[role="status"][aria-live="polite"]')?.textContent).toContain(
+        'Soda bread is linked.',
+      );
     });
 
     it('is named, with its pinned version, on the photography-concept request', async () => {
@@ -1057,7 +1080,11 @@ describe('ContentPipelineShellComponent', () => {
       expect(text()).not.toContain('Their soda bread');
 
       server.unusableRecipeIds.add('r-theirs');
-      const outcome = await session().addReference({ kind: 'Recipe', recipeId: 'r-theirs', recipeVersionId: 'v-theirs-1' });
+      const outcome = await session().addReference({
+        kind: 'Recipe',
+        recipeId: 'r-theirs',
+        recipeVersionId: 'v-theirs-1',
+      });
 
       expect(outcome).toBe('source_unavailable');
       expect(server.stored(SLUG, CTX)?.references.map((each) => each.recipeId)).toEqual(['r-soda']);
@@ -1110,7 +1137,11 @@ describe('ContentPipelineShellComponent', () => {
       });
       seedToReturn = {
         ...SEED,
-        day: { day: 'Wednesday', pinned: true, theme: { key: 'midweek-noodles', displayName: 'Midweek noodles', pinned: false, fromRecipe: false } },
+        day: {
+          day: 'Wednesday',
+          pinned: true,
+          theme: { key: 'midweek-noodles', displayName: 'Midweek noodles', pinned: false, fromRecipe: false },
+        },
       };
 
       await click('Suggest an idea');
@@ -1133,7 +1164,13 @@ describe('ContentPipelineShellComponent', () => {
 
   describe('a draft from before runs lived on a context', () => {
     const OLD = filledDraft({
-      config: { ...emptyContentPipelineDraft().config, channelKey: 'instagram', day: 'Friday', concept: 'A tight crop.', scene: ['marble slab'] },
+      config: {
+        ...emptyContentPipelineDraft().config,
+        channelKey: 'instagram',
+        day: 'Friday',
+        concept: 'A tight crop.',
+        scene: ['marble slab'],
+      },
       seed: { lastToken: 'abc-123', keep: {}, accepted: SEED },
       furthestStep: 'picture',
     });
@@ -1142,7 +1179,11 @@ describe('ContentPipelineShellComponent', () => {
       await create({ unfiled: OLD });
 
       expect(server.creates.length).toBe(1);
-      expect(server.creates[0].draft).toEqual({ channelKeys: ['instagram'], day: 'Friday', pictureBrief: 'A tight crop.' });
+      expect(server.creates[0].draft).toEqual({
+        channelKeys: ['instagram'],
+        day: 'Friday',
+        pictureBrief: 'A tight crop.',
+      });
       const contextId = session().context()!.id;
       expect(router.url).toBe(`${PIPELINE}/context/${contextId}/picture`);
       expect(text()).toContain('Step 2 of 4');
@@ -1341,7 +1382,9 @@ describe('ContentPipelineShellComponent', () => {
       expect(conceptValue()).toBe('');
       expect(root().querySelector('input[id^="cp-pipeline-scene-"]')).toBeNull();
       expect(text()).not.toContain('Pick up where you left off');
-      expect(server.stored(SLUG, CTX)?.pictureBrief).withContext('nothing on the server is removed').toBe('A tight crop.');
+      expect(server.stored(SLUG, CTX)?.pictureBrief)
+        .withContext('nothing on the server is removed')
+        .toBe('A tight crop.');
     });
   });
 
@@ -1351,7 +1394,10 @@ describe('ContentPipelineShellComponent', () => {
 
       expect(text()).toContain('Step 2 of 4');
 
-      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(
+        `/${OTHER_SLUG}/workflows/content-pipeline/about`,
+        ContentPipelineShellComponent,
+      );
       await settle();
 
       // The other workspace has no run of its own, so neither the first one's progress nor its picture may
@@ -1364,7 +1410,10 @@ describe('ContentPipelineShellComponent', () => {
     it("never offers one workspace's run in the other, and files the other's work under its own key and slug", async () => {
       await create({ run: filledDraft({ furthestStep: 'picture' }) });
 
-      shell = await harness.navigateByUrl(`/${OTHER_SLUG}/workflows/content-pipeline/about`, ContentPipelineShellComponent);
+      shell = await harness.navigateByUrl(
+        `/${OTHER_SLUG}/workflows/content-pipeline/about`,
+        ContentPipelineShellComponent,
+      );
       await settle();
       await typeConcept('For the other kitchen.');
       await saved();

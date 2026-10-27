@@ -21,7 +21,11 @@ export const LONG_FORM_BRIEF_MAX = 1000;
 
 const KINDS: readonly CpChoiceOption[] = [
   { value: 'BlogArticle', label: 'A blog article', hint: 'One full piece, usually about one recipe.' },
-  { value: 'NewsletterIssue', label: 'A newsletter issue', hint: 'A shorter piece to send: a greeting, what is new, a sign-off.' },
+  {
+    value: 'NewsletterIssue',
+    label: 'A newsletter issue',
+    hint: 'A shorter piece to send: a greeting, what is new, a sign-off.',
+  },
 ];
 
 /**
@@ -92,7 +96,10 @@ export class LongFormAboutStepComponent {
 
   /** A saved prompt the work already draws on — put there from the Prompt Library; this step adds none. */
   protected readonly drawsOnSavedPrompt = computed(
-    () => this.session().context()?.references.some((reference) => reference.kind === 'PromptRecord') ?? false,
+    () =>
+      this.session()
+        .context()
+        ?.references.some((reference) => reference.kind === 'PromptRecord') ?? false,
   );
 
   protected onKind(values: readonly string[]): void {

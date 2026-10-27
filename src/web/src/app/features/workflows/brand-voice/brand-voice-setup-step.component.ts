@@ -2,7 +2,12 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, injec
 import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
-import { BRAND_SETUP_STEPS, BrandSetupSession, parseBrandSetupDraft, stepIndexOf } from '../../../models/brand-setup.models';
+import {
+  BRAND_SETUP_STEPS,
+  BrandSetupSession,
+  parseBrandSetupDraft,
+  stepIndexOf,
+} from '../../../models/brand-setup.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { workflowRunQuery } from '../../../shared/workflow-shell/workflow-return';
@@ -43,9 +48,13 @@ type Read =
         </cp-notice>
       }
       @case ('none') {
-        <p class="plain">A few short questions about what you make and how you write, then a guide built from your answers.</p>
+        <p class="plain"
+          >A few short questions about what you make and how you write, then a guide built from your answers.</p
+        >
         <div class="cp-actions">
-          <a cpButton variant="primary" [routerLink]="setupLink('goals')" [queryParams]="returnQuery()">Start the setup</a>
+          <a cpButton variant="primary" [routerLink]="setupLink('goals')" [queryParams]="returnQuery()"
+            >Start the setup</a
+          >
         </div>
       }
       @case ('found') {
@@ -63,17 +72,22 @@ type Read =
             The setup finished without keeping a guide. Start it again to build one.
           </cp-notice>
           <div class="cp-actions">
-            <a cpButton variant="primary" [routerLink]="setupLink('goals')" [queryParams]="returnQuery()">Start the setup again</a>
+            <a cpButton variant="primary" [routerLink]="setupLink('goals')" [queryParams]="returnQuery()"
+              >Start the setup again</a
+            >
           </div>
         } @else {
           <p class="plain">
-            You’re on step {{ stepNumber() }} of {{ stepCount }}: <strong>{{ stepLabel() }}</strong>.
+            You’re on step {{ stepNumber() }} of {{ stepCount }}: <strong>{{ stepLabel() }}</strong
+            >.
             @if (savedOn()) {
               Saved {{ savedOn() }}.
             }
           </p>
           <div class="cp-actions">
-            <a cpButton variant="primary" [routerLink]="setupLink(currentStep())" [queryParams]="returnQuery()">Carry on with the setup</a>
+            <a cpButton variant="primary" [routerLink]="setupLink(currentStep())" [queryParams]="returnQuery()"
+              >Carry on with the setup</a
+            >
           </div>
         }
       }

@@ -1,8 +1,4 @@
-import {
-  UNKNOWN_SCALING_WARNING,
-  decodeRecipeScalingResult,
-  encodeScaleRecipeRequest,
-} from './recipe-scaling.models';
+import { UNKNOWN_SCALING_WARNING, decodeRecipeScalingResult, encodeScaleRecipeRequest } from './recipe-scaling.models';
 
 /** One complete wire payload, shaped exactly as RecipeScalingResultServiceModel serializes. */
 function payload(): Record<string, unknown> {

@@ -21,7 +21,11 @@ function allText(blocks: readonly LegalBlock[]): string {
 
 describe('parseInline', () => {
   it('reads bold, italic, code, a link to a sibling document and an email address', () => {
-    expect(parseInline('**You own it.** See the *policy*, `HttpOnly`, [Terms](terms-of-service.md) or robert@creatorpantry.com.')).toEqual([
+    expect(
+      parseInline(
+        '**You own it.** See the *policy*, `HttpOnly`, [Terms](terms-of-service.md) or robert@creatorpantry.com.',
+      ),
+    ).toEqual([
       { kind: 'strong', text: 'You own it.' },
       { kind: 'text', text: ' See the ' },
       { kind: 'em', text: 'policy' },

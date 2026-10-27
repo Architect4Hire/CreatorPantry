@@ -93,13 +93,7 @@
   }
 
   <div class="cp-actions">
-    <button
-      cpButton
-      type="button"
-      variant="secondary"
-      [attr.aria-disabled]="busy() ? 'true' : null"
-      (click)="ask()"
-    >
+    <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() ? 'true' : null" (click)="ask()">
       {{ busy() ? 'Writing suggestions…' : seo() ? 'Suggest again' : 'Suggest SEO details' }}
     </button>
   </div>

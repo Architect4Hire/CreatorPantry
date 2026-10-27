@@ -69,7 +69,11 @@ const SEARCH_ID = 'cp-dam-picker-search';
       <!-- A search landmark and not a form: a host may itself sit inside a form (brand settings does), and a
            form nested in a form would hand its Enter to the outer one's Save. -->
       <div class="search" role="search">
-        <cp-field label="Search the library" [forId]="searchId" hint="By title, description or alt text. Press Enter to search.">
+        <cp-field
+          label="Search the library"
+          [forId]="searchId"
+          hint="By title, description or alt text. Press Enter to search."
+        >
           <input
             type="search"
             [id]="searchId"
@@ -112,7 +116,9 @@ const SEARCH_ID = 'cp-dam-picker-search';
               description="Try fewer words, or clear the search to see the whole library."
               icon="▧"
             >
-              <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="clearSearch()">Clear the search</button>
+              <button cpEmptyStateActions cpButton type="button" variant="secondary" (click)="clearSearch()"
+                >Clear the search</button
+              >
             </cp-empty-state>
           } @else {
             <cp-empty-state
@@ -147,7 +153,9 @@ const SEARCH_ID = 'cp-dam-picker-search';
           </ul>
 
           @if (loadMoreFailed()) {
-            <cp-notice tone="error" role="alert">More pictures could not be loaded. What is shown is still here.</cp-notice>
+            <cp-notice tone="error" role="alert"
+              >More pictures could not be loaded. What is shown is still here.</cp-notice
+            >
           }
 
           @if (nextCursor() !== null) {
@@ -238,9 +246,11 @@ export class DamAssetPickerComponent {
         switchMap((request) => {
           const slug = this.workspaceSlug();
 
-          return (slug ? this.assets.search(slug, this.queryFor(request.cursor)) : of<DamAssetSearchOutcome>({ status: 'unavailable' })).pipe(
-            tap((outcome) => this.applyPage(request, outcome)),
-          );
+          return (
+            slug
+              ? this.assets.search(slug, this.queryFor(request.cursor))
+              : of<DamAssetSearchOutcome>({ status: 'unavailable' })
+          ).pipe(tap((outcome) => this.applyPage(request, outcome)));
         }),
         takeUntilDestroyed(),
       )

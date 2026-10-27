@@ -132,7 +132,12 @@ describe('recipe version decoders', () => {
             comparison: {
               hasChanges: true,
               sections: [
-                { section: 'Ingredients', fieldChanges: [], itemChanges: [{ ...ITEM, presence: 'Vanished' }], hasChanges: true },
+                {
+                  section: 'Ingredients',
+                  fieldChanges: [],
+                  itemChanges: [{ ...ITEM, presence: 'Vanished' }],
+                  hasChanges: true,
+                },
               ],
             },
           }),
@@ -178,7 +183,12 @@ describe('recipe version decoders', () => {
             comparison: {
               hasChanges: true,
               sections: [
-                { section: 'Ingredients', fieldChanges: [], itemChanges: [{ ...ITEM, fromRank: '2' }], hasChanges: true },
+                {
+                  section: 'Ingredients',
+                  fieldChanges: [],
+                  itemChanges: [{ ...ITEM, fromRank: '2' }],
+                  hasChanges: true,
+                },
               ],
             },
           }),
@@ -191,7 +201,10 @@ describe('recipe version decoders', () => {
 describe('encodeRestoreRecipeVersionRequest', () => {
   it('sends the token and the creator’s trimmed reason', () => {
     expect(
-      encodeRestoreRecipeVersionRequest({ expectedConcurrencyToken: 'AAAAAAAAB9E=', reason: '  Version 3 read better.  ' }),
+      encodeRestoreRecipeVersionRequest({
+        expectedConcurrencyToken: 'AAAAAAAAB9E=',
+        reason: '  Version 3 read better.  ',
+      }),
     ).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', reason: 'Version 3 read better.' });
   });
 

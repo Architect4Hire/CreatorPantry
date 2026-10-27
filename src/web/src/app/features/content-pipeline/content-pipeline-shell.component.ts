@@ -51,10 +51,7 @@ import {
   isContentPipelineDraftEmpty,
   isContentPipelineStepSlug,
 } from '../../models/content-pipeline.models';
-import {
-  ContentPipelineDraftOwner,
-  ContentPipelineDraftService,
-} from '../../services/content-pipeline-draft.service';
+import { ContentPipelineDraftOwner, ContentPipelineDraftService } from '../../services/content-pipeline-draft.service';
 import { CreativeContextFields } from '../../models/creative-context-fields.models';
 import { keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
 import { DamKeepRecipe } from '../../models/dam-asset.models';
@@ -110,7 +107,8 @@ export function contentPipelineContextFields(draft: ContentPipelineDraft): Creat
     channelKey: draft.config.channelKey,
     day: draft.config.day,
     pictureBrief: draft.config.concept,
-    weeklyThemeKey: accepted !== null && accepted.day.day === draft.config.day ? (accepted.day.theme?.key ?? null) : null,
+    weeklyThemeKey:
+      accepted !== null && accepted.day.day === draft.config.day ? (accepted.day.theme?.key ?? null) : null,
     briefSource: draft.config.briefSource,
     workingBrief: draft.config.brief,
   };
@@ -225,7 +223,9 @@ export class ContentPipelineShellComponent {
   private brandKey: string | null = null;
 
   /** How many pictures this run tries: its own answer, else the brand's, else the product's. */
-  protected readonly pictureCount = computed(() => contentPipelinePictureCount(this.draft().config, this.brand().pictureCount));
+  protected readonly pictureCount = computed(() =>
+    contentPipelinePictureCount(this.draft().config, this.brand().pictureCount),
+  );
 
   private stepParam: string | null = null;
 
@@ -280,9 +280,7 @@ export class ContentPipelineShellComponent {
   readonly owner = computed<ContentPipelineDraftOwner | null>(() => {
     const membership = this.membership();
 
-    return membership === null
-      ? null
-      : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
+    return membership === null ? null : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
   });
 
   /**
@@ -318,7 +316,10 @@ export class ContentPipelineShellComponent {
     const current = this.currentSlug();
     const furthest = this.draft().furthestStep;
 
-    return CONTENT_PIPELINE_STEPS.map((step) => ({ step, status: contentPipelineStepStatus(step.slug, current, furthest) }));
+    return CONTENT_PIPELINE_STEPS.map((step) => ({
+      step,
+      status: contentPipelineStepStatus(step.slug, current, furthest),
+    }));
   });
 
   /** The same rows as `cp-stepper` takes them: it owns the word and the glyph for each state. */
@@ -447,7 +448,6 @@ export class ContentPipelineShellComponent {
   });
 
   readonly resumeStep = computed(() => CONTENT_PIPELINE_STEPS[contentPipelineStepIndex(this.draft().furthestStep)]);
-
 
   /**
    * Derived rather than set, so the screen cannot be left claiming a phase the data has moved past.
@@ -696,7 +696,11 @@ export class ContentPipelineShellComponent {
    * having a bad moment — the creator is told their work is still here and offered another try; nothing is
    * shown as an empty run in the meantime.
    */
-  private async fileUnfiled(owner: ContentPipelineDraftOwner, unfiled: ContentPipelineDraft, ticket: number): Promise<void> {
+  private async fileUnfiled(
+    owner: ContentPipelineDraftOwner,
+    unfiled: ContentPipelineDraft,
+    ticket: number,
+  ): Promise<void> {
     this.draft.set(unfiled);
     this.session.begin(this.workspaceSlug(), this.drafts.filing(owner), contentPipelineContextFields(unfiled));
 

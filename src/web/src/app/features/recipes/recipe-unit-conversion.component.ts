@@ -61,12 +61,7 @@ export interface IngredientLineOption {
  * dead end this exists to close.
  */
 export type UnitConversionApplyTarget =
-  | 'nothingToApply'
-  | 'freehand'
-  | 'creatorWording'
-  | 'range'
-  | 'blockedByEdits'
-  | 'ready';
+  'nothingToApply' | 'freehand' | 'creatorWording' | 'range' | 'blockedByEdits' | 'ready';
 
 /**
  * A converted amount the creator has confirmed they want recorded on the line it came from.
@@ -192,10 +187,7 @@ export class RecipeUnitConversionComponent {
   readonly isWorking = computed(() => this.requestSignal().status === 'working');
 
   readonly canSubmit = computed(
-    () =>
-      !this.isWorking() &&
-      this.sourceVersionNumber() !== null &&
-      this.catalogueSignal().status === 'ready',
+    () => !this.isWorking() && this.sourceVersionNumber() !== null && this.catalogueSignal().status === 'ready',
   );
 
   constructor() {
@@ -414,7 +406,14 @@ export class RecipeUnitConversionComponent {
     const line = this.convertedLine();
     const result = this.resultSignal();
     const toUnitId = this.convertedToUnitId();
-    if (this.applyTarget() !== 'ready' || line === null || line.quantity === null || result === null || toUnitId === null) return;
+    if (
+      this.applyTarget() !== 'ready' ||
+      line === null ||
+      line.quantity === null ||
+      result === null ||
+      toUnitId === null
+    )
+      return;
 
     const toUnit = this.unitsById().get(toUnitId);
     if (toUnit === undefined) return;

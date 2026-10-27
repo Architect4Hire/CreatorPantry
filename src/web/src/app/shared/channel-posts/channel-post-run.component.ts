@@ -85,8 +85,7 @@ export const PIPELINE_CHANNEL_POST_WORDING: ChannelPostRunWording = {
     'Pick where these words are going. Your usual channels are already ticked; add or drop any of them. Each channel gets its own post, written to that channel’s own length.',
   noWork:
     'There is nothing to write about yet. Go back and give this piece of work a title, a recipe or an idea first.',
-  forbidden:
-    'You do not have permission to write posts in this workspace. Ask an Owner or Editor to run this step.',
+  forbidden: 'You do not have permission to write posts in this workspace. Ask an Owner or Editor to run this step.',
   reviewHeading: 'Read them through',
   reviewIntro:
     'One post per channel, each on its own. Nothing goes out from here, and nothing counts as yours until you accept it.',
@@ -371,11 +370,7 @@ export class ChannelPostRunComponent {
   protected readonly blocked = computed(() => allowanceBlocksNewRequests(this.allowance()));
 
   protected readonly canAsk = computed(
-    () =>
-      this.creativeContextId() !== null &&
-      this.chosen().length > 0 &&
-      !this.blocked() &&
-      !this.tracker.busy(),
+    () => this.creativeContextId() !== null && this.chosen().length > 0 && !this.blocked() && !this.tracker.busy(),
   );
 
   protected readonly quotaRefusal = computed(() => {

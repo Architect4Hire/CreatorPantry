@@ -15,8 +15,20 @@ const CHANNELS: readonly ContentChannel[] = [
   { key: 'pinterest', displayName: 'Pinterest', isActive: true },
 ];
 
-function summary(id: string, workingTitle: string | null, day: CreativeContextSummary['day'] = null): CreativeContextSummary {
-  return { id, workingTitle, channelKeys: [], day, weeklyThemeKey: null, referenceCount: 1, updatedAt: '2026-10-01T00:00:00Z' };
+function summary(
+  id: string,
+  workingTitle: string | null,
+  day: CreativeContextSummary['day'] = null,
+): CreativeContextSummary {
+  return {
+    id,
+    workingTitle,
+    channelKeys: [],
+    day,
+    weeklyThemeKey: null,
+    referenceCount: 1,
+    updatedAt: '2026-10-01T00:00:00Z',
+  };
 }
 
 function channel(key: string, status: ChannelPostChannel['status'], body = 'A private caption.'): ChannelPostChannel {
@@ -48,7 +60,11 @@ class FakeContexts {
   outcomes: Record<string, CreativeContextListOutcome> = {};
   readonly lists: { slug: string; cursor: string | null; limit: number | null }[] = [];
 
-  list(slug: string, cursor: string | null = null, limit: number | null = null): Observable<CreativeContextListOutcome> {
+  list(
+    slug: string,
+    cursor: string | null = null,
+    limit: number | null = null,
+  ): Observable<CreativeContextListOutcome> {
     this.lists.push({ slug, cursor, limit });
 
     return of(this.outcomes[slug] ?? { status: 'found', page: { items: [], nextCursor: null } });
@@ -120,13 +136,20 @@ describe('SocialStudioRecentComponent', () => {
     contexts.outcomes['cozy-fall'] = {
       status: 'found',
       page: {
-        items: [summary('ctx-a', 'Olive oil cake', 'Monday'), summary('ctx-b', 'No posts yet'), summary('ctx-c', 'Soda bread')],
+        items: [
+          summary('ctx-a', 'Olive oil cake', 'Monday'),
+          summary('ctx-b', 'No posts yet'),
+          summary('ctx-c', 'Soda bread'),
+        ],
         nextCursor: null,
       },
     };
     posts.outcomes['cozy-fall/ctx-a'] = {
       status: 'found',
-      package: pkg('ctx-a', '2026-10-10T12:00:00Z', [channel('instagram', 'Accepted'), channel('pinterest', 'Accepted')]),
+      package: pkg('ctx-a', '2026-10-10T12:00:00Z', [
+        channel('instagram', 'Accepted'),
+        channel('pinterest', 'Accepted'),
+      ]),
     };
     posts.outcomes['cozy-fall/ctx-c'] = {
       status: 'found',
@@ -151,7 +174,9 @@ describe('SocialStudioRecentComponent', () => {
     contexts.outcomes['cozy-fall'] = { status: 'found', page: { items: [summary('ctx-a', null)], nextCursor: null } };
     posts.outcomes['cozy-fall/ctx-a'] = {
       status: 'found',
-      package: pkg('ctx-a', '2026-10-10T12:00:00Z', [channel('instagram', 'NeedsReview', 'A caption nobody should see here.')]),
+      package: pkg('ctx-a', '2026-10-10T12:00:00Z', [
+        channel('instagram', 'NeedsReview', 'A caption nobody should see here.'),
+      ]),
     };
 
     await render();
@@ -222,19 +247,27 @@ describe('SocialStudioRecentComponent', () => {
     expect(el.textContent).toContain("couldn't be listed right now");
 
     contexts.outcomes['cozy-fall'] = { status: 'found', page: { items: [], nextCursor: null } };
-    Array.from(el.querySelectorAll('button')).find((node) => node.textContent?.trim() === 'Try again')!.click();
+    Array.from(el.querySelectorAll('button'))
+      .find((node) => node.textContent?.trim() === 'Try again')!
+      .click();
     await settle();
 
     expect(el.textContent).toContain('Nothing has posts yet');
   });
 
   it('reads the next workspace under its own slug and shows none of the first one’s work', async () => {
-    contexts.outcomes['cozy-fall'] = { status: 'found', page: { items: [summary('ctx-a', 'Workspace A cake')], nextCursor: null } };
+    contexts.outcomes['cozy-fall'] = {
+      status: 'found',
+      page: { items: [summary('ctx-a', 'Workspace A cake')], nextCursor: null },
+    };
     posts.outcomes['cozy-fall/ctx-a'] = {
       status: 'found',
       package: pkg('ctx-a', '2026-10-10T12:00:00Z', [channel('instagram', 'Accepted')]),
     };
-    contexts.outcomes['spring-table'] = { status: 'found', page: { items: [summary('ctx-z', 'Workspace B tart')], nextCursor: null } };
+    contexts.outcomes['spring-table'] = {
+      status: 'found',
+      page: { items: [summary('ctx-z', 'Workspace B tart')], nextCursor: null },
+    };
     posts.outcomes['spring-table/ctx-z'] = {
       status: 'found',
       package: pkg('ctx-z', '2026-10-11T12:00:00Z', [channel('pinterest', 'Accepted')]),

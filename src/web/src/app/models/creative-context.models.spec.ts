@@ -73,7 +73,14 @@ describe('creative context models', () => {
 
     it('reads a context that has nothing but an id', () => {
       const context = decodeCreativeContext(
-        contextBody({ workingTitle: null, pictureBrief: null, channelKeys: [], day: null, weeklyThemeKey: null, references: [] }),
+        contextBody({
+          workingTitle: null,
+          pictureBrief: null,
+          channelKeys: [],
+          day: null,
+          weeklyThemeKey: null,
+          references: [],
+        }),
       );
 
       expect(context?.workingTitle).toBeNull();
@@ -168,7 +175,14 @@ describe('creative context models', () => {
 
   describe('telling a cue from a keeper (AF.4.3)', () => {
     const picture = (purpose: string, generatedImageId: string, sortOrder: number): Record<string, unknown> =>
-      referenceBody({ id: generatedImageId, kind: 'GeneratedImage', purpose, recipeId: null, generatedImageId, sortOrder });
+      referenceBody({
+        id: generatedImageId,
+        kind: 'GeneratedImage',
+        purpose,
+        recipeId: null,
+        generatedImageId,
+        sortOrder,
+      });
 
     function context(...references: Record<string, unknown>[]) {
       return decodeCreativeContext(contextBody({ references }));
@@ -233,20 +247,38 @@ describe('creative context models', () => {
 
   describe('encodeCreativeContextSource', () => {
     const cases: readonly (readonly [CreativeContextSource, Record<string, unknown>])[] = [
-      [{ kind: 'Recipe', recipeId: ID }, { kind: 'Recipe', recipeId: ID }],
-      [{ kind: 'Recipe', recipeId: ID, recipeVersionId: OTHER }, { kind: 'Recipe', recipeId: ID, recipeVersionId: OTHER }],
-      [{ kind: 'Recipe', recipeId: ID, recipeVersionId: null }, { kind: 'Recipe', recipeId: ID }],
+      [
+        { kind: 'Recipe', recipeId: ID },
+        { kind: 'Recipe', recipeId: ID },
+      ],
+      [
+        { kind: 'Recipe', recipeId: ID, recipeVersionId: OTHER },
+        { kind: 'Recipe', recipeId: ID, recipeVersionId: OTHER },
+      ],
+      [
+        { kind: 'Recipe', recipeId: ID, recipeVersionId: null },
+        { kind: 'Recipe', recipeId: ID },
+      ],
       [
         { kind: 'RecipeConcept', conceptRequestId: ID, conceptId: OTHER },
         { kind: 'RecipeConcept', conceptRequestId: ID, conceptId: OTHER },
       ],
-      [{ kind: 'DamAsset', mediaAssetId: ID }, { kind: 'DamAsset', mediaAssetId: ID }],
+      [
+        { kind: 'DamAsset', mediaAssetId: ID },
+        { kind: 'DamAsset', mediaAssetId: ID },
+      ],
       [
         { kind: 'DamAsset', mediaAssetId: ID, mediaAssetVersionNumber: 2 },
         { kind: 'DamAsset', mediaAssetId: ID, mediaAssetVersionNumber: 2 },
       ],
-      [{ kind: 'GeneratedImage', generatedImageId: ID }, { kind: 'GeneratedImage', generatedImageId: ID }],
-      [{ kind: 'PromptRecord', promptRecordId: ID }, { kind: 'PromptRecord', promptRecordId: ID }],
+      [
+        { kind: 'GeneratedImage', generatedImageId: ID },
+        { kind: 'GeneratedImage', generatedImageId: ID },
+      ],
+      [
+        { kind: 'PromptRecord', promptRecordId: ID },
+        { kind: 'PromptRecord', promptRecordId: ID },
+      ],
     ];
 
     for (const [source, body] of cases) {

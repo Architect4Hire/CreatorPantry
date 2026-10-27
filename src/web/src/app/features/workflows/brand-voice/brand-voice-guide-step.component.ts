@@ -42,11 +42,13 @@ export type BrandVoiceGuideStepMode = 'review' | 'try';
       @case ('ready') {
         @if (guide(); as guide) {
           <p class="plain">
-            <strong>{{ guide.displayName }}</strong>, version {{ guide.workingVersion.versionNumber }}.
+            <strong>{{ guide.displayName }}</strong
+            >, version {{ guide.workingVersion.versionNumber }}.
             @if (mode() === 'review') {
               It’s your guide: change any word that doesn’t sound like you. Every version you save is kept.
             } @else {
-              See a short piece written with this version before you decide. Nothing is saved to your recipes, posts or guide.
+              See a short piece written with this version before you decide. Nothing is saved to your recipes, posts or
+              guide.
             }
           </p>
           <div class="cp-actions">
@@ -87,7 +89,10 @@ export class BrandVoiceGuideStepComponent implements OnInit {
 
   constructor() {
     // The guide's pages keep their own work; this step holds none.
-    const unregister = inject(WorkflowStepPort).register({ unsaved: signal(false).asReadonly(), flush: () => Promise.resolve(true) });
+    const unregister = inject(WorkflowStepPort).register({
+      unsaved: signal(false).asReadonly(),
+      flush: () => Promise.resolve(true),
+    });
     inject(DestroyRef).onDestroy(unregister);
   }
 

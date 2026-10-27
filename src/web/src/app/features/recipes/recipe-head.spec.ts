@@ -72,12 +72,17 @@ describe('recipeHeroLink', () => {
   });
 
   it('is null for a recipe with no lead picture', () => {
-    expect(recipeHeroLink([mediaLink({ role: 'Gallery' }), mediaLink({ role: 'Step', instructionStepId: 's1' })])).toBeNull();
+    expect(
+      recipeHeroLink([mediaLink({ role: 'Gallery' }), mediaLink({ role: 'Step', instructionStepId: 's1' })]),
+    ).toBeNull();
   });
 });
 
 class StubDamAssetService {
-  detailOutcome: DamAssetDetailOutcome = { status: 'found', asset: assetDetail({ id: 'a1', altText: 'A sliced cake on a blue plate' }, 3) };
+  detailOutcome: DamAssetDetailOutcome = {
+    status: 'found',
+    asset: assetDetail({ id: 'a1', altText: 'A sliced cake on a blue plate' }, 3),
+  };
   contentOutcome: DamAssetContentOutcome = { status: 'found', bytes: new Blob(['picture'], { type: 'image/png' }) };
   readonly calls: string[] = [];
 
@@ -91,7 +96,12 @@ class StubDamAssetService {
     return of(this.contentOutcome);
   }
 
-  versionContent(workspaceSlug: string, assetId: string, version: number, rendition?: PictureRendition): Observable<DamAssetContentOutcome> {
+  versionContent(
+    workspaceSlug: string,
+    assetId: string,
+    version: number,
+    rendition?: PictureRendition,
+  ): Observable<DamAssetContentOutcome> {
     this.calls.push(`version ${workspaceSlug} ${assetId} ${version} ${rendition}`);
     return of(this.contentOutcome);
   }
@@ -139,12 +149,17 @@ describe('RecipeHeroPicture', () => {
   });
 
   it('names the picture and says it has no description when none was written, and claims nothing about it', () => {
-    assets.detailOutcome = { status: 'found', asset: assetDetail({ id: 'a1', title: 'Cake, overhead', altText: null }) };
+    assets.detailOutcome = {
+      status: 'found',
+      asset: assetDetail({ id: 'a1', title: 'Cake, overhead', altText: null }),
+    };
     const { hero } = create();
     hero.show('cozy-fall', [mediaLink({ role: 'Hero' })]);
 
     const state = hero.state();
-    expect(state.status === 'ready' ? state.alt : null).toBe('Picture titled “Cake, overhead”. No description has been written for it.');
+    expect(state.status === 'ready' ? state.alt : null).toBe(
+      'Picture titled “Cake, overhead”. No description has been written for it.',
+    );
   });
 
   it('shows the version a link is held at, and the current one by its own route when that is the version held', () => {

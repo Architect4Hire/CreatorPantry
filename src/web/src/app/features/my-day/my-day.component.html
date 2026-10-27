@@ -19,16 +19,24 @@
   @if (message()?.action; as action) {
     <button cpButton type="button" variant="text" size="sm" (click)="runAction(action)">
       @switch (action.kind) {
-        @case ('undo') { Undo }
-        @case ('open') { Open {{ action.what }} anyway }
-        @case ('retry') { Try again }
+        @case ('undo') {
+          Undo
+        }
+        @case ('open') {
+          Open {{ action.what }} anyway
+        }
+        @case ('retry') {
+          Try again
+        }
       }
     </button>
   }
 </cp-notice>
 
 @if (!online() && state().status === 'ready' && canAct()) {
-  <cp-notice tone="warning" role="status">You’re offline. Your day is as it was last read; changes can be made when you’re back.</cp-notice>
+  <cp-notice tone="warning" role="status"
+    >You’re offline. Your day is as it was last read; changes can be made when you’re back.</cp-notice
+  >
 }
 
 <!-- Always present, and outside the busy cards (APP-003, AU.7): one place the page says the day is on its way. -->
@@ -62,22 +70,26 @@
         } @else {
           Your day couldn’t be read just now. Nothing has been lost.
         }
-        <button cpButton type="button" variant="secondary" size="sm" (click)="retry()">
-          Try again
-        </button>
+        <button cpButton type="button" variant="secondary" size="sm" (click)="retry()"> Try again </button>
       </cp-notice>
     </cp-card>
   }
   @case ('ready') {
     @if (layout(); as shown) {
       @if (isViewer()) {
-        <cp-notice tone="neutral" role="status">You can see your day here, but this workspace is view-only for you.</cp-notice>
+        <cp-notice tone="neutral" role="status"
+          >You can see your day here, but this workspace is view-only for you.</cp-notice
+        >
       }
 
       <!-- What to do next: the creator's own top three, or the one task the day puts first. Either is what matters
            most on the page, so it is the one featured card. -->
       @if (shown.lead; as lead) {
-        <cp-topic-card featured [heading]="lead.kind === 'top-three' ? 'Your top three' : 'Up next'" headingId="my-day-heading-lead">
+        <cp-topic-card
+          featured
+          [heading]="lead.kind === 'top-three' ? 'Your top three' : 'Up next'"
+          headingId="my-day-heading-lead"
+        >
           <ul class="tasks" id="my-day-list-lead">
             @for (entry of lead.entries; track entry.task.id) {
               <li
@@ -120,7 +132,12 @@
              land. Not featured: nothing to do next is not what matters most. -->
         @if (empty(); as said) {
           <cp-topic-card heading="Up next" headingId="my-day-heading-lead">
-            <cp-empty-state illustration="calendar" [variant]="said.variant" [title]="said.title" [description]="said.description">
+            <cp-empty-state
+              illustration="calendar"
+              [variant]="said.variant"
+              [title]="said.title"
+              [description]="said.description"
+            >
               <div cpEmptyStateActions>
                 <a cpButton variant="secondary" [routerLink]="link('my-week')">Open My Week</a>
               </div>

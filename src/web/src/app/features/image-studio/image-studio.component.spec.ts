@@ -268,7 +268,10 @@ const draftStore = {
       cleared.push(key);
     }
   },
-  readKept: (owner: ImageStudioDraftOwner, contextId: string): { kept: ImageStudioKeptWork | null; discarded: boolean } => {
+  readKept: (
+    owner: ImageStudioDraftOwner,
+    contextId: string,
+  ): { kept: ImageStudioKeptWork | null; discarded: boolean } => {
     const key = ownerKey(owner);
     const draft = contextOf[key] === contextId ? (stored[key] ?? null) : null;
 
@@ -378,7 +381,10 @@ async function create(
   }
   options.setup?.(server);
   server.offline = options.offline === true;
-  membershipSignal = membershipState(options.role === undefined ? 'Editor' : options.role, options.memberships ?? 'ready');
+  membershipSignal = membershipState(
+    options.role === undefined ? 'Editor' : options.role,
+    options.memberships ?? 'ready',
+  );
   discardNext = options.discarded === true;
 
   const neverAnswers = (): Observable<AiWatchOperationOutcome> => of<AiWatchOperationOutcome>();
@@ -408,12 +414,18 @@ async function create(
         { path: ':workspaceSlug/image-studio/context/:contextId', component: ImageStudioComponent },
         { path: ':workspaceSlug/workflows/runs/:runId', component: HostedStudioComponent },
       ]),
-      { provide: BrandVisualGuideService, useValue: { get: () => Promise.resolve({ status: 'unavailable' as const }) } },
+      {
+        provide: BrandVisualGuideService,
+        useValue: { get: () => Promise.resolve({ status: 'unavailable' as const }) },
+      },
       {
         provide: WorkflowRunService,
         useValue: {
           get: () =>
-            Promise.resolve({ status: 'found' as const, run: { goal: 'Create food images' } as unknown as WorkflowRun }),
+            Promise.resolve({
+              status: 'found' as const,
+              run: { goal: 'Create food images' } as unknown as WorkflowRun,
+            }),
         },
       },
       { provide: ImageStudioDraftService, useValue: draftStore },
@@ -623,8 +635,7 @@ function text(): string {
 function button(label: string): HTMLButtonElement | null {
   return (
     (Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === label) as
-      | HTMLButtonElement
-      | undefined) ?? null
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -713,7 +724,10 @@ async function generate(count = 2, status: GeneratedImageOperationStatus = 'Succ
   await click('Make the pictures');
   watches[watches.length - 1].next({
     status: 'found',
-    operation: run(status, Array.from({ length: count }, (_value, index) => picture(index + 1))),
+    operation: run(
+      status,
+      Array.from({ length: count }, (_value, index) => picture(index + 1)),
+    ),
   });
   await settle();
 }
@@ -816,7 +830,11 @@ describe('ImageStudioComponent', () => {
       for (const section of Array.from(root().querySelectorAll('cp-form-section section'))) {
         const labelledBy = section.getAttribute('aria-labelledby');
         expect(labelledBy).withContext('aria-labelledby').toBeTruthy();
-        expect(root().querySelector('#' + labelledBy)?.textContent?.trim().length).toBeGreaterThan(0);
+        expect(
+          root()
+            .querySelector('#' + labelledBy)
+            ?.textContent?.trim().length,
+        ).toBeGreaterThan(0);
       }
     });
 
@@ -971,7 +989,9 @@ describe('ImageStudioComponent', () => {
       await click('Continue');
       expect(stepOnScreen()).toBe('plan');
       expect(document.activeElement?.id).toBe('cp-studio-step-heading');
-      expect(root().querySelector('.studio > [role="status"]')?.textContent).toContain('Step 2 of 3: Plan the picture.');
+      expect(root().querySelector('.studio > [role="status"]')?.textContent).toContain(
+        'Step 2 of 3: Plan the picture.',
+      );
       expect(stepper().map((row) => row.current)).toEqual([false, true, false]);
       expect(root().querySelector('cp-progress')?.textContent).toContain('Step 2 of 3');
 
@@ -1039,7 +1059,9 @@ describe('ImageStudioComponent', () => {
 
       await typePrompt(PROMPT);
 
-      expect(await promptValue()).withContext('the edit stays on screen').toBe(PROMPT);
+      expect(await promptValue())
+        .withContext('the edit stays on screen')
+        .toBe(PROMPT);
       expect(text()).toContain('not being kept on this device');
       expect(text()).not.toContain('Saved at');
     });
@@ -1085,7 +1107,15 @@ describe('ImageStudioComponent', () => {
       expect(last.images).toEqual({ operationId: 'op-1' });
 
       const kept = JSON.stringify(writes.map((write) => write.draft));
-      for (const field of ['mediaType', 'sizeBytes', 'width', 'height', 'providerName', 'modelName', 'retentionExpiresAt']) {
+      for (const field of [
+        'mediaType',
+        'sizeBytes',
+        'width',
+        'height',
+        'providerName',
+        'modelName',
+        'retentionExpiresAt',
+      ]) {
         expect(kept).withContext(field).not.toContain(field);
       }
     });
@@ -1139,7 +1169,9 @@ describe('ImageStudioComponent', () => {
       await create({ drafts: { 'w1.m1': draftWith() } });
       await generate(1, 'Running');
 
-      expect(Array.from(root().querySelectorAll('button')).some((each) => /cancel/i.test(each.textContent ?? ''))).toBeFalse();
+      expect(
+        Array.from(root().querySelectorAll('button')).some((each) => /cancel/i.test(each.textContent ?? '')),
+      ).toBeFalse();
 
       await click('Stop checking');
 
@@ -1217,7 +1249,10 @@ describe('ImageStudioComponent', () => {
       await create({
         url: `${STUDIO}/context/ctx-shared`,
         setup: (fake) =>
-          fake.seed(SLUG, 'ctx-shared', { channelKeys: ['instagram'], pictureBrief: 'A tight crop of the first slice.' }),
+          fake.seed(SLUG, 'ctx-shared', {
+            channelKeys: ['instagram'],
+            pictureBrief: 'A tight crop of the first slice.',
+          }),
       });
 
       expect(await conceptValue()).toBe('A tight crop of the first slice.');
@@ -1260,7 +1295,9 @@ describe('ImageStudioComponent', () => {
     });
 
     it('moves a draft from before contexts onto a new one once, and clears it from where it was', async () => {
-      const old = draftWith({ config: { ...emptyImageStudioDraft().config, channelKey: 'instagram', concept: 'A tight crop.' } });
+      const old = draftWith({
+        config: { ...emptyImageStudioDraft().config, channelKey: 'instagram', concept: 'A tight crop.' },
+      });
       await create({ unfiled: { 'w1.m1': old } });
 
       expect(server.creates.length).toBe(1);
@@ -1268,7 +1305,9 @@ describe('ImageStudioComponent', () => {
       expect(url()).toBe(`${STUDIO}/context/ctx-1`);
       expect(unfiled['w1.m1']).withContext('the old draft is cleared').toBeUndefined();
       expect(contextOf['w1.m1']).toBe('ctx-1');
-      expect(await promptValue()).withContext('the prompt came along').toBe(PROMPT);
+      expect(await promptValue())
+        .withContext('the prompt came along')
+        .toBe(PROMPT);
       expect(await conceptValue()).toBe('A tight crop.');
     });
 
@@ -1362,7 +1401,9 @@ describe('ImageStudioComponent', () => {
 
       expect(confirmCalls).toEqual(['Load the latest?']);
       expect(await conceptValue()).toBe('A wide shot of the table.');
-      expect(await promptValue()).withContext('what is only on this device is not touched').toBe(PROMPT);
+      expect(await promptValue())
+        .withContext('what is only on this device is not touched')
+        .toBe(PROMPT);
     });
   });
 
@@ -1404,7 +1445,9 @@ describe('ImageStudioComponent', () => {
       await settle();
 
       expect(
-        server.stored(SLUG, 'ctx-shared')?.references.map((each) => [each.kind, each.mediaAssetId, each.mediaAssetVersionNumber]),
+        server
+          .stored(SLUG, 'ctx-shared')
+          ?.references.map((each) => [each.kind, each.mediaAssetId, each.mediaAssetVersionNumber]),
       ).toEqual([['DamAsset', 'asset-1', 1]]);
       expect(text()).toContain('In your library as “The first slice”.');
       expect(root().querySelector(`a[href="/${SLUG}/dam/asset-1"]`)).not.toBeNull();
@@ -1622,7 +1665,7 @@ describe('ImageStudioComponent', () => {
       expect(stored['w1.m1']).toBe(cozy);
     });
 
-    it("starts over in the workspace on screen only", async () => {
+    it('starts over in the workspace on screen only', async () => {
       await create({ drafts: { 'w1.m1': cozy, 'w2.m2': draftWith() } });
 
       await harness.navigateByUrl(`/${OTHER_SLUG}/image-studio`);
@@ -1685,9 +1728,9 @@ describe('ImageStudioComponent', () => {
       );
 
       expect(text()).toContain(PROMPT);
-      expect(text()).withContext('the cost, before anything is made').toContain(
-        'Asking for 3 pictures. Making pictures doesn’t use your AI allowance.',
-      );
+      expect(text())
+        .withContext('the cost, before anything is made')
+        .toContain('Asking for 3 pictures. Making pictures doesn’t use your AI allowance.');
       requestOutcome = accepted();
       await click('Make the pictures');
 
@@ -1761,7 +1804,9 @@ describe('ImageStudioComponent', () => {
 
       const notice = root().querySelector('cp-workflow-return-notice');
       expect(notice).not.toBeNull();
-      expect(notice!.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`);
+      expect(notice!.querySelector('a')?.getAttribute('href')).toBe(
+        `/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`,
+      );
     });
 
     it('says nothing of a workflow on an ordinary visit', async () => {

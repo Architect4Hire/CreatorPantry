@@ -10,7 +10,13 @@
     />
     @if (has(answers().purposes, 'other')) {
       <cp-field label="Tell us more" forId="cp-goals-purpose-note">
-        <input id="cp-goals-purpose-note" type="text" [maxLength]="noteMax" [value]="answers().purposeNote" (input)="setText('purposeNote', $event)" />
+        <input
+          id="cp-goals-purpose-note"
+          type="text"
+          [maxLength]="noteMax"
+          [value]="answers().purposeNote"
+          (input)="setText('purposeNote', $event)"
+        />
       </cp-field>
     }
   </cp-form-section>
@@ -25,7 +31,13 @@
     />
     @if (answers().audience === 'other') {
       <cp-field label="Tell us more" forId="cp-goals-audience-note">
-        <input id="cp-goals-audience-note" type="text" [maxLength]="noteMax" [value]="answers().audienceNote" (input)="setText('audienceNote', $event)" />
+        <input
+          id="cp-goals-audience-note"
+          type="text"
+          [maxLength]="noteMax"
+          [value]="answers().audienceNote"
+          (input)="setText('audienceNote', $event)"
+        />
       </cp-field>
     }
   </cp-form-section>
@@ -42,7 +54,13 @@
     />
     @if (has(answers().channels, 'other')) {
       <cp-field label="Where?" forId="cp-goals-channel-note">
-        <input id="cp-goals-channel-note" type="text" [maxLength]="noteMax" [value]="answers().channelNote" (input)="setText('channelNote', $event)" />
+        <input
+          id="cp-goals-channel-note"
+          type="text"
+          [maxLength]="noteMax"
+          [value]="answers().channelNote"
+          (input)="setText('channelNote', $event)"
+        />
       </cp-field>
     }
   </cp-form-section>
@@ -53,12 +71,27 @@
     <summary>More details</summary>
     <div class="more-body">
       <cp-field label="What makes your food different?" forId="cp-goals-different" hint="A sentence is plenty.">
-        <textarea id="cp-goals-different" [maxLength]="differentMax" [value]="answers().different" (input)="setText('different', $event)"></textarea>
+        <textarea
+          id="cp-goals-different"
+          [maxLength]="differentMax"
+          [value]="answers().different"
+          (input)="setText('different', $event)"
+        ></textarea>
       </cp-field>
       <cp-field label="Anything you never want to talk about?" forId="cp-goals-avoid">
-        <textarea id="cp-goals-avoid" [maxLength]="avoidMax" [value]="answers().avoid" (input)="setText('avoid', $event)"></textarea>
+        <textarea
+          id="cp-goals-avoid"
+          [maxLength]="avoidMax"
+          [value]="answers().avoid"
+          (input)="setText('avoid', $event)"
+        ></textarea>
       </cp-field>
-      <cp-field label="Your website address" forId="cp-goals-website" hint="We only save it. We don't visit it." [error]="websiteError()">
+      <cp-field
+        label="Your website address"
+        forId="cp-goals-website"
+        hint="We only save it. We don't visit it."
+        [error]="websiteError()"
+      >
         <input
           id="cp-goals-website"
           type="url"

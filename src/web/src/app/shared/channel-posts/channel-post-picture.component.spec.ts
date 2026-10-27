@@ -61,9 +61,8 @@ function text(): string {
 
 function button(label: string): HTMLButtonElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
-      (node) => node.textContent?.trim() === label,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((node) => node.textContent?.trim() === label) ??
+    null
   );
 }
 

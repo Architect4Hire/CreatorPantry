@@ -22,7 +22,13 @@ describe('workflow-run models', () => {
 
   it('keeps a step draft only when both its kind and its id came', () => {
     const steps = (wireRun()['steps'] as Record<string, unknown>[]).map((step) => ({ ...step }));
-    steps[1] = { ...steps[1], status: 'InProgress', draftKind: 'Recipe', draftResourceId: 'draft-1', draftSavedAt: '2026-10-15T09:20:00Z' };
+    steps[1] = {
+      ...steps[1],
+      status: 'InProgress',
+      draftKind: 'Recipe',
+      draftResourceId: 'draft-1',
+      draftSavedAt: '2026-10-15T09:20:00Z',
+    };
     steps[2] = { ...steps[2], draftKind: 'Recipe' };
 
     const run = decodeWorkflowRun(wireRun({ steps }))!;
@@ -38,22 +44,66 @@ describe('workflow-run models', () => {
   });
 
   it('reads what to do next, with the record to start it from only when both its kind and its id came', () => {
-    const run = decodeWorkflowRun(wireRun({
-      nextSuggestions: [
-        { kind: 'Workflow', key: 'recipe.test-and-approve', label: 'Test and approve a recipe', why: 'Cook it.', route: null, startFromKind: 'Recipe', startFromId: 'recipe-1', available: true, youCanDoIt: true },
-        { kind: 'Workflow', key: 'images.create', label: 'Create food images', why: 'Pictures.', route: null, startFromKind: 'Recipe', startFromId: null, available: true, youCanDoIt: true },
-        { kind: 'Capability', key: 'recipes.lead-picture', label: 'Choose the lead picture', why: 'First photo.', route: 'recipes/recipe-1?area=media', startFromKind: null, startFromId: null, available: true, youCanDoIt: false },
-      ],
-    }));
+    const run = decodeWorkflowRun(
+      wireRun({
+        nextSuggestions: [
+          {
+            kind: 'Workflow',
+            key: 'recipe.test-and-approve',
+            label: 'Test and approve a recipe',
+            why: 'Cook it.',
+            route: null,
+            startFromKind: 'Recipe',
+            startFromId: 'recipe-1',
+            available: true,
+            youCanDoIt: true,
+          },
+          {
+            kind: 'Workflow',
+            key: 'images.create',
+            label: 'Create food images',
+            why: 'Pictures.',
+            route: null,
+            startFromKind: 'Recipe',
+            startFromId: null,
+            available: true,
+            youCanDoIt: true,
+          },
+          {
+            kind: 'Capability',
+            key: 'recipes.lead-picture',
+            label: 'Choose the lead picture',
+            why: 'First photo.',
+            route: 'recipes/recipe-1?area=media',
+            startFromKind: null,
+            startFromId: null,
+            available: true,
+            youCanDoIt: false,
+          },
+        ],
+      }),
+    );
 
-    expect(run!.nextSuggestions.map((suggestion) => suggestion.startFrom)).toEqual([{ kind: 'Recipe', id: 'recipe-1' }, null, null]);
-    expect(run!.nextSuggestions[2]).toEqual(jasmine.objectContaining({ kind: 'Capability', route: 'recipes/recipe-1?area=media', youCanDoIt: false }));
+    expect(run!.nextSuggestions.map((suggestion) => suggestion.startFrom)).toEqual([
+      { kind: 'Recipe', id: 'recipe-1' },
+      null,
+      null,
+    ]);
+    expect(run!.nextSuggestions[2]).toEqual(
+      jasmine.objectContaining({ kind: 'Capability', route: 'recipes/recipe-1?area=media', youCanDoIt: false }),
+    );
   });
 
   it('reads a run from a server that predates suggestions as having none, and refuses a suggestion that is half there', () => {
     expect(decodeWorkflowRun(wireRun())!.nextSuggestions).toEqual([]);
     expect(decodeWorkflowRun(wireRun({ nextSuggestions: [{ kind: 'Workflow', key: 'x' }] }))).toBeNull();
-    expect(decodeWorkflowRun(wireRun({ nextSuggestions: [{ kind: 'Elsewhere', key: 'x', label: 'X', why: 'Y', available: true, youCanDoIt: true }] }))).toBeNull();
+    expect(
+      decodeWorkflowRun(
+        wireRun({
+          nextSuggestions: [{ kind: 'Elsewhere', key: 'x', label: 'X', why: 'Y', available: true, youCanDoIt: true }],
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('reads a run with no next action and an older server with no outcome', () => {
@@ -69,7 +119,10 @@ describe('workflow-run models', () => {
     ['no token', wireRun({ concurrencyToken: undefined })],
     ['a status it does not know', wireRun({ status: 'Paused' })],
     ['a step with no key', wireRun({ steps: [{ title: 'x', requirement: 'Required', status: 'NotStarted' }] })],
-    ['a step with a status it does not know', wireRun({ steps: [{ key: 'a', title: 'A', requirement: 'Required', status: 'Halfway' }] })],
+    [
+      'a step with a status it does not know',
+      wireRun({ steps: [{ key: 'a', title: 'A', requirement: 'Required', status: 'Halfway' }] }),
+    ],
     ['a next action that is half there', wireRun({ nextAction: { stepKey: 'a' } })],
     ['links that are not a list', wireRun({ links: {} })],
   ] as const) {
@@ -79,7 +132,9 @@ describe('workflow-run models', () => {
   }
 
   it('reads what a refused completion says, and nothing that is not what it should be', () => {
-    expect(decodeMissing({ missing: ['Save a change to the recipe first.'] })).toEqual(['Save a change to the recipe first.']);
+    expect(decodeMissing({ missing: ['Save a change to the recipe first.'] })).toEqual([
+      'Save a change to the recipe first.',
+    ]);
     expect(decodeMissing({ missing: 'no' })).toEqual([]);
     expect(decodeMissing(null)).toEqual([]);
 

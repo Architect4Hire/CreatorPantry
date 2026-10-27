@@ -95,8 +95,7 @@ export const PIPELINE_IMAGE_RUN_WORDING: GeneratedImageRunWording = {
   forbidden: 'You do not have permission to make pictures in this workspace. Ask an Owner or Editor to run this step.',
   chooseHeading: 'Choose the keepers',
   chooseIntro: 'Keep the ones worth using. Downloading gives you a copy you keep yourself.',
-  keepNote:
-    'Keeping a picture here marks it for the steps that follow. Nothing is filed in your library on this step.',
+  keepNote: 'Keeping a picture here marks it for the steps that follow. Nothing is filed in your library on this step.',
   expiryRemedy: 'so download anything you want to keep for longer.',
 };
 
@@ -363,9 +362,7 @@ export class GeneratedImageRunComponent {
 
   protected readonly count = computed(() => clampVariantCount(this.variantCount()));
 
-  protected readonly promptTooLong = computed(
-    () => this.sendText().length > CONTENT_PIPELINE_LIMITS.promptMaxLength,
-  );
+  protected readonly promptTooLong = computed(() => this.sendText().length > CONTENT_PIPELINE_LIMITS.promptMaxLength);
 
   protected readonly promptLengthText = computed(
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,

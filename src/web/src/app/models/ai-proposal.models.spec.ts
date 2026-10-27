@@ -68,9 +68,7 @@ describe('ai-proposal.models', () => {
     });
 
     it('decodes a proposal with its changes and warnings', () => {
-      const status = decodeAiProposalStatus(
-        statusPayload({ status: 'Proposed', proposal: proposalPayload() }),
-      );
+      const status = decodeAiProposalStatus(statusPayload({ status: 'Proposed', proposal: proposalPayload() }));
 
       expect(status!.proposal!.changes.length).toBe(1);
       expect(status!.proposal!.changes[0].beforeValue).toBe('Tomato soup');
@@ -137,9 +135,7 @@ describe('ai-proposal.models', () => {
      * the failure is the whole status returning null, not one unreadable field.
      */
     it('decodes the scope a request with no recipe carries', () => {
-      const status = decodeAiProposalStatus(
-        statusPayload({ scope: 'NotApplicable', taskType: 'RecipeFirstDraft' }),
-      );
+      const status = decodeAiProposalStatus(statusPayload({ scope: 'NotApplicable', taskType: 'RecipeFirstDraft' }));
 
       expect(status).not.toBeNull();
       expect(status!.scope).toBe('NotApplicable');

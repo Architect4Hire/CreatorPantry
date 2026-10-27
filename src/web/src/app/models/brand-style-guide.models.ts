@@ -130,13 +130,7 @@ export type BrandStyleGuideRuleKind = 'Do' | 'Dont';
  * — the one thing this screen exists to prevent. An unrecognised state renders as "changed" with its own
  * marker rather than as nothing.
  */
-export type BrandStyleGuideComparisonState =
-  | 'Unchanged'
-  | 'Added'
-  | 'Removed'
-  | 'Changed'
-  | 'Moved'
-  | 'Unknown';
+export type BrandStyleGuideComparisonState = 'Unchanged' | 'Added' | 'Removed' | 'Changed' | 'Moved' | 'Unknown';
 
 /** One row of a guide's version history. Metadata only: no section, rule or body. */
 export interface BrandStyleGuideVersionRow {
@@ -431,8 +425,7 @@ export function decodeBrandStyleGuideDetail(value: unknown): BrandStyleGuideDeta
 export function decodeBrandStyleGuideEditSession(value: unknown): BrandStyleGuideEditSession | null {
   if (!isRecord(value)) return null;
 
-  const { guideId, baselineVersionNumber, workingVersionNumber, isStale, draftJson, updatedUtc, rowVersion } =
-    value;
+  const { guideId, baselineVersionNumber, workingVersionNumber, isStale, draftJson, updatedUtc, rowVersion } = value;
 
   if (
     typeof guideId !== 'string' ||
@@ -597,9 +590,7 @@ function decodeComparisonSide(value: unknown): BrandStyleGuideComparisonSide | n
   return { versionId, versionNumber, status, createdAt };
 }
 
-export function decodeBrandStyleGuideVersionComparison(
-  value: unknown,
-): BrandStyleGuideVersionComparison | null {
+export function decodeBrandStyleGuideVersionComparison(value: unknown): BrandStyleGuideVersionComparison | null {
   if (!isRecord(value) || !isRecord(value['comparison'])) return null;
 
   const from = decodeComparisonSide(value['from']);

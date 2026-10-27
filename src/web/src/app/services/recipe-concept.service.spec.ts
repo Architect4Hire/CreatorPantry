@@ -118,17 +118,18 @@ describe('RecipeConceptService', () => {
     it('tells a suspended account apart from a role refusal', async () => {
       const suspended = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
 
-      http.expectOne(BASE).flush(
-        { ...problem('ai.quota.suspended', 'Switched off.'), unit: 'Credits' },
-        { status: 403, statusText: 'Forbidden' },
-      );
+      http
+        .expectOne(BASE)
+        .flush(
+          { ...problem('ai.quota.suspended', 'Switched off.'), unit: 'Credits' },
+          { status: 403, statusText: 'Forbidden' },
+        );
 
       expect((await suspended).status).toBe('account_suspended');
 
       const forbidden = service.requestConcepts('cozy-fall', BRIEF, 'key-2');
 
-      http.expectOne(BASE).flush(
-        problem('ai.request.forbidden'), { status: 403, statusText: 'Forbidden' });
+      http.expectOne(BASE).flush(problem('ai.request.forbidden'), { status: 403, statusText: 'Forbidden' });
 
       expect((await forbidden).status).toBe('forbidden');
     });
@@ -136,12 +137,10 @@ describe('RecipeConceptService', () => {
     it('maps a different 400 to a field validation outcome', async () => {
       const pending = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
 
-      http
-        .expectOne(BASE)
-        .flush(problem('ai.recipeConcepts.invalid_request', 'Refused', { audience: ['Too long.'] }), {
-          status: 400,
-          statusText: 'Bad Request',
-        });
+      http.expectOne(BASE).flush(problem('ai.recipeConcepts.invalid_request', 'Refused', { audience: ['Too long.'] }), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
 
       const outcome = await pending;
       expect(outcome.status).toBe('validation_failed');
@@ -151,7 +150,9 @@ describe('RecipeConceptService', () => {
     it('reads a reused key as its own outcome, not as a field problem', async () => {
       const pending = service.requestConcepts('cozy-fall', BRIEF, 'key-1');
 
-      http.expectOne(BASE).flush(problem('idempotency.key_reused'), { status: 422, statusText: 'Unprocessable Content' });
+      http
+        .expectOne(BASE)
+        .flush(problem('idempotency.key_reused'), { status: 422, statusText: 'Unprocessable Content' });
 
       expect((await pending).status).toBe('idempotency_key_conflict');
     });

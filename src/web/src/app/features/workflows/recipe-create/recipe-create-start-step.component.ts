@@ -107,18 +107,26 @@ export class RecipeCreateStartStepComponent implements OnInit {
 
   /** The ways to start this reader may take, main way first. */
   protected readonly ways = computed<readonly CpChoiceOption[]>(() =>
-    this.step().actions
-      .filter((action) => action.available && action.youCanDoIt)
+    this.step()
+      .actions.filter((action) => action.available && action.youCanDoIt)
       .flatMap((action): CpChoiceOption[] => {
         if (action.capabilityKey === WRITE_IT) {
-          return [{ value: 'write', label: action.name, hint: 'Type it in yourself. Everything you write is kept exactly as you wrote it.' }];
+          return [
+            {
+              value: 'write',
+              label: action.name,
+              hint: 'Type it in yourself. Everything you write is kept exactly as you wrote it.',
+            },
+          ];
         }
         if (action.capabilityKey === HELP_ME) {
-          return [{
-            value: 'help',
-            label: action.name,
-            hint: 'Say what you’re after, pick one of a few ideas, and get a first draft to change however you like.',
-          }];
+          return [
+            {
+              value: 'help',
+              label: action.name,
+              hint: 'Say what you’re after, pick one of a few ideas, and get a first draft to change however you like.',
+            },
+          ];
         }
         return [];
       }),

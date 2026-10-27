@@ -19,9 +19,7 @@
   </div>
 
   @if (form.instructionGroups().length === 0) {
-    <p class="cp-muted">
-      No instructions yet. Add the first step, and give the method phases only if it has them.
-    </p>
+    <p class="cp-muted"> No instructions yet. Add the first step, and give the method phases only if it has them. </p>
   }
 
   <div class="grouped-layout" [class.has-group-nav]="showInstructionGroupNav()">
@@ -175,9 +173,7 @@
                         placeholder="e.g. 10 min"
                         min="0"
                         [ngModel]="step.durationMinutes"
-                        (ngModelChange)="
-                          form.updateInstructionStep(group.key, step.key, { durationMinutes: $event })
-                        "
+                        (ngModelChange)="form.updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
                         [name]="'stepDuration' + step.key"
                       />
                     </cp-field>

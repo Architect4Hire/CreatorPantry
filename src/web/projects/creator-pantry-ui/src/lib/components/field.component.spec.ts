@@ -15,7 +15,9 @@ import { CpFieldComponent } from './field.component';
         <textarea id="description"></textarea>
       </cp-field>
       <cp-field label="Status" forId="status">
-        <select id="status"><option>Draft</option></select>
+        <select id="status"
+          ><option>Draft</option></select
+        >
       </cp-field>
     </div>
   `,
@@ -41,12 +43,8 @@ describe('CpFieldComponent', () => {
     // column, and a horizontal scrollbar (WCAG 2.2 SC 1.4.10) as soon as one did not.
     for (const id of ['title', 'description', 'status']) {
       const control = host.querySelector('#' + id) as HTMLElement;
-      expect(getComputedStyle(control).boxSizing)
-        .withContext(id)
-        .toBe('border-box');
-      expect(control.getBoundingClientRect().right)
-        .withContext(id)
-        .toBeLessThanOrEqual(limit);
+      expect(getComputedStyle(control).boxSizing).withContext(id).toBe('border-box');
+      expect(control.getBoundingClientRect().right).withContext(id).toBeLessThanOrEqual(limit);
     }
   });
 
@@ -127,7 +125,9 @@ describe('CpFieldComponent', () => {
       await view.settle();
 
       expect(view.input.getAttribute('aria-describedby')).toBe('theirs t-hint t-error t-warning');
-      const classes = Array.from((view.fixture.nativeElement as HTMLElement).querySelectorAll('small')).map((el) => el.className);
+      const classes = Array.from((view.fixture.nativeElement as HTMLElement).querySelectorAll('small')).map(
+        (el) => el.className,
+      );
       expect(classes).toEqual(['', 'error', 'warning']);
     });
   });

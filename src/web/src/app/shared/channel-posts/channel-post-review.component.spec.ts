@@ -75,9 +75,8 @@ function text(): string {
 
 function button(label: string): HTMLButtonElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
-      (node) => node.textContent?.trim() === label,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((node) => node.textContent?.trim() === label) ??
+    null
   );
 }
 
@@ -208,7 +207,9 @@ describe('ChannelPostReviewComponent', () => {
 
   it('holds the bar at full for a post over the limit, and leaves the figure to say by how much', async () => {
     host.channel.set(
-      channel({ latest: revision({ body: 'x'.repeat(312), characterCount: 312, characterLimit: 280, limitStatus: 'Over' }) }),
+      channel({
+        latest: revision({ body: 'x'.repeat(312), characterCount: 312, characterLimit: 280, limitStatus: 'Over' }),
+      }),
     );
     await settle();
 
@@ -220,9 +221,7 @@ describe('ChannelPostReviewComponent', () => {
 
   it('takes the server’s word on the limit, so the bar, the figure and the pill never disagree', async () => {
     // The server counts the way the channel counts, so it may call a post over that the figures alone would not.
-    host.channel.set(
-      channel({ latest: revision({ characterCount: 280, characterLimit: 280, limitStatus: 'Over' }) }),
-    );
+    host.channel.set(channel({ latest: revision({ characterCount: 280, characterLimit: 280, limitStatus: 'Over' }) }));
     await settle();
 
     const progress = el.querySelector('cp-progress');
@@ -234,7 +233,9 @@ describe('ChannelPostReviewComponent', () => {
   });
 
   it('draws no bar for a channel with no limit, and says the count once', async () => {
-    host.channel.set(channel({ latest: revision({ characterCount: 46, characterLimit: null, limitStatus: 'Within' }) }));
+    host.channel.set(
+      channel({ latest: revision({ characterCount: 46, characterLimit: null, limitStatus: 'Within' }) }),
+    );
     await settle();
 
     expect(el.querySelector('cp-progress')).toBeNull();
@@ -254,7 +255,9 @@ describe('ChannelPostReviewComponent', () => {
         .toBeTrue();
     }
     // Writing it again is a request for new words, not a decision about these, so it stays outside.
-    expect(Array.from(surface!.querySelectorAll('button')).some((node) => node.textContent?.trim() === 'Write it again')).toBeFalse();
+    expect(
+      Array.from(surface!.querySelectorAll('button')).some((node) => node.textContent?.trim() === 'Write it again'),
+    ).toBeFalse();
   });
 
   it('takes the generated surface away while the creator types their own words, and after they are accepted', async () => {
@@ -312,9 +315,7 @@ describe('ChannelPostReviewComponent', () => {
   });
 
   it('offers "it still stands" and says why, only for a post whose recipe moved on', async () => {
-    host.channel.set(
-      channel({ status: 'NeedsReview', accepted: revision(), isCurrent: false }),
-    );
+    host.channel.set(channel({ status: 'NeedsReview', accepted: revision(), isCurrent: false }));
     await settle();
 
     expect(hasPill('Needs another look')).toBeTrue();
@@ -407,13 +408,7 @@ describe('ChannelPostReviewComponent', () => {
     await click('Write it again');
     await click('Copy');
 
-    expect(host.intents.map((intent) => intent.kind)).toEqual([
-      'edit',
-      'accept',
-      'reject',
-      'regenerate',
-      'copy',
-    ]);
+    expect(host.intents.map((intent) => intent.kind)).toEqual(['edit', 'accept', 'reject', 'regenerate', 'copy']);
 
     // Nothing on screen changed: the card renders what it is handed, so the caller stays the one authority.
     expect(hasPill('Waiting for you')).toBeTrue();

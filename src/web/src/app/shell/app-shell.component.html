@@ -15,7 +15,12 @@
             <ul [attr.aria-labelledby]="'cp-nav-group-' + group.id">
               @for (item of group.items; track item.path) {
                 <li>
-                  <a [routerLink]="['/', slug, item.path]" routerLinkActive="active" #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+                  <a
+                    [routerLink]="['/', slug, item.path]"
+                    routerLinkActive="active"
+                    #rla="routerLinkActive"
+                    [attr.aria-current]="rla.isActive ? 'page' : null"
+                  >
                     <span aria-hidden="true" class="nav-icon"><cp-shell-nav-icon [name]="item.icon" /></span>
                     <span>{{ item.label }}</span>
                   </a>
@@ -33,7 +38,14 @@
   </aside>
 
   <header class="topbar">
-    <button class="icon-btn mobile" aria-label="Toggle menu" aria-controls="cp-shell-sidebar" [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">☰</button>
+    <button
+      class="icon-btn mobile"
+      aria-label="Toggle menu"
+      aria-controls="cp-shell-sidebar"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="menuOpen.set(!menuOpen())"
+      >☰</button
+    >
     <span class="spacer"></span>
     <!-- Quick capture (13A.31): on every signed-in workspace page, for anyone who can keep work there. -->
     @if (currentWorkspaceSlug() && canKeepWork()) {
@@ -46,7 +58,8 @@
         aria-label="Add a task"
         aria-haspopup="dialog"
         (click)="openQuickCapture($any($event.currentTarget))"
-      ><span aria-hidden="true">+</span><span class="capture-word" aria-hidden="true"> Task</span></button>
+        ><span aria-hidden="true">+</span><span class="capture-word" aria-hidden="true"> Task</span></button
+      >
     }
     <button
       class="icon-btn"
@@ -54,7 +67,8 @@
       [attr.aria-label]="theme.resolved() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
       [attr.aria-pressed]="theme.resolved() === 'dark'"
       (click)="theme.toggle()"
-    ><span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☀' : '☾' }}</span></button>
+      ><span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☀' : '☾' }}</span></button
+    >
     @if (session(); as currentSession) {
       @if (currentSession.status === 'authenticated') {
         <!--

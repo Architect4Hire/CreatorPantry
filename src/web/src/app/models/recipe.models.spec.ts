@@ -77,7 +77,14 @@ const VALID_RECIPE_DETAIL: RecipeDetail = {
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-02T00:00:00Z',
   concurrencyToken: 'AAAAAAAAB9E=',
-  currentVersion: { id: 'v1', versionNumber: 1, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-01-01T00:00:00Z' },
+  currentVersion: {
+    id: 'v1',
+    versionNumber: 1,
+    source: 'CreatorEdit',
+    readiness: 'Draft',
+    reason: null,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
   ingredientGroups: [{ id: 'g1', title: null, sortOrder: 0, ingredients: [VALID_INGREDIENT] }],
   instructionGroups: [{ id: 'ig1', title: null, sortOrder: 0, steps: [VALID_STEP] }],
   equipment: [],
@@ -86,7 +93,7 @@ const VALID_RECIPE_DETAIL: RecipeDetail = {
 };
 
 describe('decodeCreatedRecipe', () => {
-  it('decodes a valid response with the wire\'s PascalCase status name', () => {
+  it("decodes a valid response with the wire's PascalCase status name", () => {
     expect(decodeCreatedRecipe(VALID_CREATED_RECIPE)).toEqual(VALID_CREATED_RECIPE);
   });
 
@@ -155,7 +162,9 @@ describe('decodeRecipeDetail', () => {
   it('rejects a malformed nested ingredient (unknown matchStatus)', () => {
     const malformed = {
       ...VALID_RECIPE_DETAIL,
-      ingredientGroups: [{ id: 'g1', title: null, sortOrder: 0, ingredients: [{ ...VALID_INGREDIENT, matchStatus: 'NotARealStatus' }] }],
+      ingredientGroups: [
+        { id: 'g1', title: null, sortOrder: 0, ingredients: [{ ...VALID_INGREDIENT, matchStatus: 'NotARealStatus' }] },
+      ],
     };
     expect(decodeRecipeDetail(malformed)).toBeNull();
   });
@@ -171,7 +180,9 @@ describe('decodeRecipeDetail', () => {
   it('rejects a malformed nested equipment item (wrong type)', () => {
     const malformed = {
       ...VALID_RECIPE_DETAIL,
-      equipment: [{ id: 'eq1', sortOrder: 0, displayText: 'Dutch oven', equipmentTypeId: null, isOptional: 'yes', note: null }],
+      equipment: [
+        { id: 'eq1', sortOrder: 0, displayText: 'Dutch oven', equipmentTypeId: null, isOptional: 'yes', note: null },
+      ],
     };
     expect(decodeRecipeDetail(malformed)).toBeNull();
   });
@@ -225,7 +236,10 @@ describe('encodeCreateRecipeRequest', () => {
   });
 
   it('passes status through as its wire PascalCase name, unconverted', () => {
-    expect(encodeCreateRecipeRequest({ title: 'Chili', status: 'Approved' })).toEqual({ title: 'Chili', status: 'Approved' });
+    expect(encodeCreateRecipeRequest({ title: 'Chili', status: 'Approved' })).toEqual({
+      title: 'Chili',
+      status: 'Approved',
+    });
   });
 
   it('passes instructions through unchanged, with no id on any group or step', () => {
@@ -236,7 +250,9 @@ describe('encodeCreateRecipeRequest', () => {
 
 describe('encodeUpdateRecipeRequest', () => {
   it('includes only the concurrency token when nothing else is submitted', () => {
-    expect(encodeUpdateRecipeRequest({ expectedConcurrencyToken: 'tok1' })).toEqual({ expectedConcurrencyToken: 'tok1' });
+    expect(encodeUpdateRecipeRequest({ expectedConcurrencyToken: 'tok1' })).toEqual({
+      expectedConcurrencyToken: 'tok1',
+    });
   });
 
   it('omits an absent field entirely (leave-unchanged semantics)', () => {
@@ -246,7 +262,11 @@ describe('encodeUpdateRecipeRequest', () => {
   });
 
   it('includes a submitted field, even when its value is null (clear semantics)', () => {
-    const body = encodeUpdateRecipeRequest({ expectedConcurrencyToken: 'tok1', description: submitted(null), tags: submitted(null) });
+    const body = encodeUpdateRecipeRequest({
+      expectedConcurrencyToken: 'tok1',
+      description: submitted(null),
+      tags: submitted(null),
+    });
     expect(body).toEqual({ expectedConcurrencyToken: 'tok1', description: null, tags: null });
   });
 

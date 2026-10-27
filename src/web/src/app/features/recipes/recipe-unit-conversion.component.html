@@ -1,9 +1,9 @@
 <section class="conversion" [attr.aria-labelledby]="headingId">
   <h2 class="conversion-heading" [id]="headingId">Convert units</h2>
   <p class="conversion-intro">
-    Converting changes nothing by itself. Where the result belongs to a saved line whose wording this recipe
-    assembled, you can record it on that line below — with a confirmation, as a new version. Anywhere else the
-    card says why, and the amount is edited in Ingredients.
+    Converting changes nothing by itself. Where the result belongs to a saved line whose wording this recipe assembled,
+    you can record it on that line below — with a confirmation, as a new version. Anywhere else the card says why, and
+    the amount is edited in Ingredients.
   </p>
 
   @if (sourceVersionNumber() === null) {
@@ -13,7 +13,9 @@
   }
 
   <!-- Always present, so it is there before the catalogue is read and its words change rather than arrive (AU.7). -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{ catalogue().status === 'loading' ? 'Loading the unit catalogue…' : '' }}</p>
+  <p class="cp-sr-only" role="status" aria-live="polite">{{
+    catalogue().status === 'loading' ? 'Loading the unit catalogue…' : ''
+  }}</p>
 
   @switch (catalogue().status) {
     @case ('loading') {
@@ -120,7 +122,6 @@
     <p class="conversion-problem" role="alert">{{ problem }}</p>
   }
 
-
   <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
        region that appears already holding its content is not reliably announced. -->
   <p class="conversion-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
@@ -175,15 +176,14 @@
         }
         @case ('creatorWording') {
           <p class="apply-unavailable">
-            This line's wording is yours, so its amount is edited in Ingredients. Recording a new amount from
-            here would leave the line still reading “{{ applyLineLabel() }}”, and the recipe would contradict
-            itself.
+            This line's wording is yours, so its amount is edited in Ingredients. Recording a new amount from here would
+            leave the line still reading “{{ applyLineLabel() }}”, and the recipe would contradict itself.
           </p>
         }
         @case ('range') {
           <p class="apply-unavailable">
-            “{{ applyLineLabel() }}” records a range, and this converted one end of it. Edit the line in
-            Ingredients so both ends move together.
+            “{{ applyLineLabel() }}” records a range, and this converted one end of it. Edit the line in Ingredients so
+            both ends move together.
           </p>
         }
         @case ('blockedByEdits') {
@@ -193,8 +193,8 @@
         }
         @case ('freehand') {
           <p class="apply-unavailable">
-            This conversion isn't tied to a saved line, so there is nothing to record it on. Start from an
-            ingredient line above to record the result on it.
+            This conversion isn't tied to a saved line, so there is nothing to record it on. Start from an ingredient
+            line above to record the result on it.
           </p>
         }
       }

@@ -28,14 +28,20 @@ function parseColor(value: string): { channels: Channels; alpha: number } {
 
   const rgb = /^rgba?\(([^)]*)\)$/i.exec(resolved);
   if (rgb) {
-    const [r, g, b, a] = rgb[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    const [r, g, b, a] = rgb[1]
+      .split(/[\s,/]+/)
+      .filter(Boolean)
+      .map(Number);
     return { channels: [r, g, b], alpha: a ?? 1 };
   }
 
   // color-mix() in sRGB comes back in this form, with channels as fractions.
   const srgb = /^color\(srgb ([^)]*)\)$/i.exec(resolved);
   if (srgb) {
-    const [r, g, b, a] = srgb[1].split(/[\s/]+/).filter(Boolean).map(Number);
+    const [r, g, b, a] = srgb[1]
+      .split(/[\s/]+/)
+      .filter(Boolean)
+      .map(Number);
     return { channels: [r * 255, g * 255, b * 255], alpha: a ?? 1 };
   }
 
@@ -96,11 +102,23 @@ const SURFACES = ['--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surfac
 /** The controls that draw their own edge, once on the page and once in a card. */
 @Component({
   standalone: true,
-  imports: [NgTemplateOutlet, CpCardComponent, CpCheckboxComponent, CpChoiceGroupComponent, CpButtonComponent, CpSearchFieldComponent],
+  imports: [
+    NgTemplateOutlet,
+    CpCardComponent,
+    CpCheckboxComponent,
+    CpChoiceGroupComponent,
+    CpButtonComponent,
+    CpSearchFieldComponent,
+  ],
   template: `
     <ng-template #controls let-id="id">
       <cp-checkbox label="Keep screen awake" [inputId]="id + '-check'" />
-      <cp-choice-group label="Measurements" [idPrefix]="id + '-'" [options]="[{ value: 'metric', label: 'Metric' }]" [value]="[]" />
+      <cp-choice-group
+        label="Measurements"
+        [idPrefix]="id + '-'"
+        [options]="[{ value: 'metric', label: 'Metric' }]"
+        [value]="[]"
+      />
       <button cpButton variant="secondary" type="button">Print</button>
       <cp-search-field label="Search recipes"><input type="search" /></cp-search-field>
     </ng-template>
@@ -119,7 +137,10 @@ class DrawnControlsHostComponent {}
       <cp-choice-group
         label="Measurements"
         idPrefix="soft-"
-        [options]="[{ value: 'us', label: 'US customary', hint: 'Cups, tablespoons, ounces and pounds' }, { value: 'metric', label: 'Metric' }]"
+        [options]="[
+          { value: 'us', label: 'US customary', hint: 'Cups, tablespoons, ounces and pounds' },
+          { value: 'metric', label: 'Metric' },
+        ]"
         [value]="['us']"
       />
       <cp-notice tone="success">Saved.</cp-notice>
@@ -183,8 +204,12 @@ describe('CreatorPantry UI library', () => {
 
 describe('CreatorPantry design tokens', () => {
   it('keeps the z-index scale ordered topbar < sidebar < overlay < modal', () => {
-    const { '--cp-z-topbar': topbar, '--cp-z-sidebar': sidebar, '--cp-z-overlay': overlay, '--cp-z-modal': modal } =
-      readTokens('light', ['--cp-z-topbar', '--cp-z-sidebar', '--cp-z-overlay', '--cp-z-modal']);
+    const {
+      '--cp-z-topbar': topbar,
+      '--cp-z-sidebar': sidebar,
+      '--cp-z-overlay': overlay,
+      '--cp-z-modal': modal,
+    } = readTokens('light', ['--cp-z-topbar', '--cp-z-sidebar', '--cp-z-overlay', '--cp-z-modal']);
 
     expect(Number(topbar)).toBeLessThan(Number(sidebar));
     expect(Number(sidebar)).toBeLessThan(Number(overlay));
@@ -195,26 +220,52 @@ describe('CreatorPantry design tokens', () => {
     // Every ink on every surface it can sit on: the page, a sheet, the two tinted surfaces and a field. AU.2.2's
     // review found faint text at 3.80:1 on the dark raised surface because only two of these pairs were measured.
     it(`reads every ink at 4.5:1 on every surface in the ${theme} theme`, () => {
-      const inks = ['--cp-text', '--cp-text-muted', '--cp-text-faint', '--cp-primary-text', '--cp-pink-text', '--cp-orange-text', '--cp-purple-text', '--cp-blue-text', '--cp-danger'];
+      const inks = [
+        '--cp-text',
+        '--cp-text-muted',
+        '--cp-text-faint',
+        '--cp-primary-text',
+        '--cp-pink-text',
+        '--cp-orange-text',
+        '--cp-purple-text',
+        '--cp-blue-text',
+        '--cp-danger',
+      ];
       const tokens = readTokens(theme, [...inks, ...SURFACES]);
       for (const ink of inks) {
         for (const surface of SURFACES) {
-          expect(contrastRatio(tokens[ink], tokens[surface])).withContext(`${ink} ${tokens[ink]} on ${surface} ${tokens[surface]}`).toBeGreaterThanOrEqual(4.5);
+          expect(contrastRatio(tokens[ink], tokens[surface]))
+            .withContext(`${ink} ${tokens[ink]} on ${surface} ${tokens[surface]}`)
+            .toBeGreaterThanOrEqual(4.5);
         }
       }
     });
 
     it(`meets WCAG AA (4.5:1) for text-on-accent pairs in the ${theme} theme`, () => {
       const tokens = readTokens(theme, [
-        '--cp-primary', '--cp-primary-soft', '--cp-primary-ink', '--cp-pink', '--cp-pink-soft', '--cp-orange', '--cp-orange-soft',
-        '--cp-purple', '--cp-purple-soft', '--cp-blue', '--cp-blue-soft', '--cp-danger', '--cp-danger-soft',
-        '--cp-ink-on-accent', '--cp-text',
+        '--cp-primary',
+        '--cp-primary-soft',
+        '--cp-primary-ink',
+        '--cp-pink',
+        '--cp-pink-soft',
+        '--cp-orange',
+        '--cp-orange-soft',
+        '--cp-purple',
+        '--cp-purple-soft',
+        '--cp-blue',
+        '--cp-blue-soft',
+        '--cp-danger',
+        '--cp-danger-soft',
+        '--cp-ink-on-accent',
+        '--cp-text',
       ]);
       const holds = (fg: string, bg: string) =>
         expect(contrastRatio(tokens[fg], tokens[bg])).withContext(`${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
 
-      for (const accent of ['primary', 'pink', 'orange', 'purple', 'blue']) holds(`--cp-${accent}`, `--cp-${accent}-soft`);
-      for (const accent of ['pink', 'orange', 'purple', 'blue', 'danger']) holds('--cp-ink-on-accent', `--cp-${accent}`);
+      for (const accent of ['primary', 'pink', 'orange', 'purple', 'blue'])
+        holds(`--cp-${accent}`, `--cp-${accent}-soft`);
+      for (const accent of ['pink', 'orange', 'purple', 'blue', 'danger'])
+        holds('--cp-ink-on-accent', `--cp-${accent}`);
       holds('--cp-primary-ink', '--cp-primary');
       holds('--cp-danger', '--cp-danger-soft');
       holds('--cp-text', '--cp-danger-soft');
@@ -254,7 +305,9 @@ describe('CreatorPantry design tokens', () => {
         };
         for (const [control, element] of Object.entries(edges)) {
           const edge = getComputedStyle(element).borderTopColor;
-          expect(contrastRatio(edge, under)).withContext(`${control} ${edge} on ${under} (${backdrop === page ? 'page' : 'card'})`).toBeGreaterThanOrEqual(3);
+          expect(contrastRatio(edge, under))
+            .withContext(`${control} ${edge} on ${under} (${backdrop === page ? 'page' : 'card'})`)
+            .toBeGreaterThanOrEqual(3);
         }
       }
 
@@ -268,8 +321,16 @@ describe('CreatorPantry design tokens', () => {
     // quick-action card are all drawn on one.
     it(`draws a focus ring at 3:1 or better on every surface in the ${theme} theme`, () => {
       const surfaces = [
-        '--cp-bg', '--cp-surface', '--cp-surface-subtle', '--cp-surface-raised', '--cp-field-bg',
-        '--cp-primary-soft', '--cp-pink-soft', '--cp-orange-soft', '--cp-purple-soft', '--cp-blue-soft',
+        '--cp-bg',
+        '--cp-surface',
+        '--cp-surface-subtle',
+        '--cp-surface-raised',
+        '--cp-field-bg',
+        '--cp-primary-soft',
+        '--cp-pink-soft',
+        '--cp-orange-soft',
+        '--cp-purple-soft',
+        '--cp-blue-soft',
         '--cp-danger-soft',
       ];
       const tokens = readTokens(theme, ['--cp-focus', ...surfaces]);
@@ -320,7 +381,6 @@ describe('CreatorPantry design tokens', () => {
         expect(contrastRatio(tokens['--cp-primary-text'], tokens['--cp-surface-subtle'])).toBeGreaterThanOrEqual(4.5);
       });
     }
-
   });
 
   // Inside a card (AU.2.2). The dark card was parchment and re-declared its own ink, ring and fills; every accent,
@@ -351,16 +411,25 @@ describe('CreatorPantry design tokens', () => {
             expect(contrastRatio(fg, bg)).withContext(`${what}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(floor);
 
           // The tone, whichever it is: as text on everything in a card, and its ink on its own fill.
-          for (const under of [fill, read('--cp-surface-subtle'), read('--cp-surface-raised'), read('--cp-field-bg'), read('--cp-tone-soft')]) {
+          for (const under of [
+            fill,
+            read('--cp-surface-subtle'),
+            read('--cp-surface-raised'),
+            read('--cp-field-bg'),
+            read('--cp-tone-soft'),
+          ]) {
             holds(read('--cp-tone-text'), under, 4.5, '--cp-tone-text');
           }
           holds(read('--cp-tone-on'), read('--cp-tone'), 4.5, '--cp-tone-on on --cp-tone');
 
           if (!tone) {
-            for (const ink of ['--cp-text', '--cp-text-muted', '--cp-text-faint', '--cp-primary-text', ...accents]) holds(read(ink), fill, 4.5, ink);
+            for (const ink of ['--cp-text', '--cp-text-muted', '--cp-text-faint', '--cp-primary-text', ...accents])
+              holds(read(ink), fill, 4.5, ink);
             holds(read('--cp-text-muted'), read('--cp-surface-subtle'), 4.5, '--cp-text-muted on subtle');
             for (const under of [fill, read('--cp-surface-subtle'), read('--cp-field-bg')]) {
-              expect(ringContrast(read('--cp-focus'), under)).withContext(`ring on ${under}`).toBeGreaterThanOrEqual(3);
+              expect(ringContrast(read('--cp-focus'), under))
+                .withContext(`ring on ${under}`)
+                .toBeGreaterThanOrEqual(3);
             }
             holds(read('--cp-border-control'), read('--cp-field-bg'), 3, 'field edge on its fill');
             holds(read('--cp-border-control'), fill, 3, 'field edge on the card');
@@ -439,7 +508,9 @@ describe('CreatorPantry design tokens', () => {
           if (!tone) expect(read('--cp-tone-panel')).not.toBe(read('--cp-primary-soft'));
           // Decorative, so 3:1 (a graphic's bar) rather than text's, and met with room to spare.
           expect(contrastRatio(read('--cp-tone-panel-ink'), read('--cp-tone-panel')))
-            .withContext(`--cp-tone-panel-ink ${read('--cp-tone-panel-ink')} on --cp-tone-panel ${read('--cp-tone-panel')}`)
+            .withContext(
+              `--cp-tone-panel-ink ${read('--cp-tone-panel-ink')} on --cp-tone-panel ${read('--cp-tone-panel')}`,
+            )
             .toBeGreaterThanOrEqual(3);
 
           page.remove();
@@ -526,7 +597,12 @@ describe('CreatorPantry design tokens', () => {
           expect(contrastRatio(text, fill)).withContext(`${part}: ${text} on ${fill}`).toBeGreaterThanOrEqual(4.5);
         }
         // The picked edge is what tells the chosen tile from the others, so it clears 3:1 against the card.
-        expect(contrastRatio(getComputedStyle(tile).borderTopColor, getComputedStyle(root.querySelector('cp-card')!).backgroundColor))
+        expect(
+          contrastRatio(
+            getComputedStyle(tile).borderTopColor,
+            getComputedStyle(root.querySelector('cp-card')!).backgroundColor,
+          ),
+        )
           .withContext('picked edge on the card')
           .toBeGreaterThanOrEqual(3);
 

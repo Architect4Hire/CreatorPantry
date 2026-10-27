@@ -83,9 +83,7 @@ export class BrandStyleTestDriveService {
   private readonly apiBase = inject(ApiBaseService);
 
   private url(workspaceSlug: string, suffix = ''): string | null {
-    return this.apiBase.url(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/brand-style-test-drives${suffix}`,
-    );
+    return this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/brand-style-test-drives${suffix}`);
   }
 
   /**

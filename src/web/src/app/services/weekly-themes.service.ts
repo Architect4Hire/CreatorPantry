@@ -57,7 +57,9 @@ export class WeeklyThemesService {
     if (!url) return { status: 'unavailable' };
 
     try {
-      const themes = decodeWeeklyThemeWeek(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+      const themes = decodeWeeklyThemeWeek(
+        await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })),
+      );
 
       return themes ? { status: 'found', themes } : { status: 'unavailable' };
     } catch (error) {
@@ -104,7 +106,9 @@ export class WeeklyThemesService {
 
     try {
       const themes = decodeWeeklyThemeWeek(
-        await firstValueFrom(this.http.delete<unknown>(`${base}/${encodeURIComponent(key)}`, { withCredentials: true })),
+        await firstValueFrom(
+          this.http.delete<unknown>(`${base}/${encodeURIComponent(key)}`, { withCredentials: true }),
+        ),
       );
 
       return themes ? { status: 'deleted', themes } : { status: 'unavailable' };

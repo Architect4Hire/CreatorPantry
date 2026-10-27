@@ -84,7 +84,8 @@ describe('ReferenceService', () => {
   it('follows the cursor until the catalogue is exhausted', async () => {
     const call = service.listUnits();
 
-    http.expectOne((request) => request.url === UNITS_URL && request.params.get('cursor') === null)
+    http
+      .expectOne((request) => request.url === UNITS_URL && request.params.get('cursor') === null)
       .flush({ items: [unit('u1', 'gram')], nextCursor: 'page-2' });
     await tick();
 
@@ -100,11 +101,13 @@ describe('ReferenceService', () => {
   it('answers unavailable rather than returning a partial catalogue when a later page fails', async () => {
     const call = service.listUnits();
 
-    http.expectOne((request) => request.params.get('cursor') === null)
+    http
+      .expectOne((request) => request.params.get('cursor') === null)
       .flush({ items: [unit('u1', 'gram')], nextCursor: 'page-2' });
     await tick();
 
-    http.expectOne((request) => request.params.get('cursor') === 'page-2')
+    http
+      .expectOne((request) => request.params.get('cursor') === 'page-2')
       .flush({}, { status: 500, statusText: 'Server Error' });
 
     expect(await call).toEqual({ status: 'unavailable' });
@@ -139,7 +142,6 @@ describe('ReferenceService', () => {
     http.expectNone((request) => request.url === UNITS_URL);
   });
 
-
   // The three vocabularies that describe a dish. Global routes: nothing about the request may name a
   // workspace, because reference data has no WorkspaceId to filter by (tenancy.md).
   it('reads each dish vocabulary from its own global route', async () => {
@@ -150,14 +152,19 @@ describe('ReferenceService', () => {
     cuisineReq.flush({ items: [entry('c1', 'levantine', 'Levantine')], nextCursor: null });
 
     const courses = service.listCourses();
-    http.expectOne((request) => request.url === COURSES_URL)
+    http
+      .expectOne((request) => request.url === COURSES_URL)
       .flush({ items: [entry('k1', 'salad', 'Salad')], nextCursor: null });
 
     const techniques = service.listTechniques();
-    http.expectOne((request) => request.url === TECHNIQUES_URL)
+    http
+      .expectOne((request) => request.url === TECHNIQUES_URL)
       .flush({ items: [technique('t1', 'grill')], nextCursor: null });
 
-    expect(await cuisines).toEqual({ status: 'found', entries: [{ id: 'c1', code: 'levantine', displayName: 'Levantine' }] });
+    expect(await cuisines).toEqual({
+      status: 'found',
+      entries: [{ id: 'c1', code: 'levantine', displayName: 'Levantine' }],
+    });
     expect(await courses).toEqual({ status: 'found', entries: [{ id: 'k1', code: 'salad', displayName: 'Salad' }] });
     expect(await techniques).toEqual({
       status: 'found',
@@ -169,10 +176,12 @@ describe('ReferenceService', () => {
   // would turn "no caution attached" into "no caution needed" (.claude/rules/ai.md).
   it('carries each technique’s caution flag through', async () => {
     const call = service.listTechniques();
-    http.expectOne((request) => request.url === TECHNIQUES_URL).flush({
-      items: [technique('t1', 'pressure-canning', true), technique('t2', 'grill')],
-      nextCursor: null,
-    });
+    http
+      .expectOne((request) => request.url === TECHNIQUES_URL)
+      .flush({
+        items: [technique('t1', 'pressure-canning', true), technique('t2', 'grill')],
+        nextCursor: null,
+      });
 
     const outcome = await call;
     expect(outcome.status === 'found' && outcome.techniques.map((each) => each.requiresSafetyCaution)).toEqual([
@@ -184,11 +193,13 @@ describe('ReferenceService', () => {
   it('follows the cursor and caches each vocabulary for the session', async () => {
     const call = service.listCuisines();
 
-    http.expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === null)
+    http
+      .expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === null)
       .flush({ items: [entry('c1', 'levantine', 'Levantine')], nextCursor: 'page-2' });
     await tick();
 
-    http.expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === 'page-2')
+    http
+      .expectOne((request) => request.url === CUISINES_URL && request.params.get('cursor') === 'page-2')
       .flush({ items: [entry('c2', 'thai', 'Thai')], nextCursor: null });
 
     const outcome = await call;
@@ -205,7 +216,8 @@ describe('ReferenceService', () => {
     expect(await failed).toEqual({ status: 'unavailable' });
 
     const retried = service.listCourses();
-    http.expectOne((request) => request.url === COURSES_URL)
+    http
+      .expectOne((request) => request.url === COURSES_URL)
       .flush({ items: [entry('k1', 'salad', 'Salad')], nextCursor: null });
     expect((await retried).status).toBe('found');
   });
@@ -236,7 +248,13 @@ describe('ReferenceService', () => {
     expect(await call).toEqual({
       status: 'found',
       ingredients: [
-        { id: 'i1', canonicalName: 'Green onion', foodCategoryCode: null, defaultCountUnitCode: null, aliases: ['scallion', 'spring onion'] },
+        {
+          id: 'i1',
+          canonicalName: 'Green onion',
+          foodCategoryCode: null,
+          defaultCountUnitCode: null,
+          aliases: ['scallion', 'spring onion'],
+        },
       ],
       hasMore: false,
     });
@@ -246,7 +264,9 @@ describe('ReferenceService', () => {
   // so the caller can say the list is the first of several instead of presenting it as all of them.
   it('reports a truncated result rather than paging through it', async () => {
     const call = firstValueFrom(service.searchIngredients('on'));
-    http.expectOne((request) => request.url === INGREDIENTS_URL).flush({ items: [ingredient('i1', 'Onion')], nextCursor: 'page-2' });
+    http
+      .expectOne((request) => request.url === INGREDIENTS_URL)
+      .flush({ items: [ingredient('i1', 'Onion')], nextCursor: 'page-2' });
 
     const outcome = await call;
     expect(outcome.status === 'found' && outcome.hasMore).toBeTrue();

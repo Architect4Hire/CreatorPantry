@@ -17,9 +17,7 @@ export interface RequestRecipeRevisionRequest {
   readonly goal: string;
 }
 
-export function encodeRequestRecipeRevisionRequest(
-  request: RequestRecipeRevisionRequest,
-): Record<string, unknown> {
+export function encodeRequestRecipeRevisionRequest(request: RequestRecipeRevisionRequest): Record<string, unknown> {
   const goal = request.goal.trim();
 
   return {

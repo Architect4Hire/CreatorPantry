@@ -13,7 +13,12 @@ import { DamLinkedAssetComponent } from './dam-linked-asset.component';
   standalone: true,
   imports: [DamLinkedAssetComponent],
   template: `
-    <cp-dam-linked-asset [workspaceSlug]="slug()" [assetId]="assetId()" [versionNumber]="version()" (resolved)="resolved.push($event)">
+    <cp-dam-linked-asset
+      [workspaceSlug]="slug()"
+      [assetId]="assetId()"
+      [versionNumber]="version()"
+      (resolved)="resolved.push($event)"
+    >
       <p class="projected">Said by the host.</p>
     </cp-dam-linked-asset>
   `,
@@ -32,7 +37,9 @@ describe('DamLinkedAssetComponent', () => {
   let host: HostComponent;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<
+    (slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>
+  >;
 
   function root(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
@@ -57,13 +64,18 @@ describe('DamLinkedAssetComponent', () => {
       .createSpy('detail')
       .and.callFake((_slug, id) => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id }, 3) }));
     contentSpy = jasmine.createSpy('content').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
-    versionContentSpy = jasmine.createSpy('versionContent').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
+    versionContentSpy = jasmine
+      .createSpy('versionContent')
+      .and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
 
     await TestBed.configureTestingModule({
       imports: [HostComponent],
       providers: [
         provideRouter([]),
-        { provide: DamAssetService, useValue: { detail: detailSpy, content: contentSpy, versionContent: versionContentSpy } },
+        {
+          provide: DamAssetService,
+          useValue: { detail: detailSpy, content: contentSpy, versionContent: versionContentSpy },
+        },
         { provide: VisibilityService, useValue: { whenNearViewport: () => of(undefined) } },
       ],
     }).compileComponents();
@@ -128,7 +140,9 @@ describe('DamLinkedAssetComponent', () => {
     expect(root().textContent).toContain('This picture’s details could not be loaded.');
 
     detailSpy.and.callFake((_slug, id) => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id }) }));
-    Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes('Try again'))!.click();
+    Array.from(root().querySelectorAll('button'))
+      .find((each) => each.textContent?.includes('Try again'))!
+      .click();
     await settle();
 
     expect(root().querySelector('a')?.textContent).toContain('Soda bread hero');
@@ -153,7 +167,9 @@ describe('DamLinkedAssetComponent', () => {
   it('ignores an answer for an asset it is no longer showing', async () => {
     const slow = new Subject<DamAssetDetailOutcome>();
     detailSpy.and.callFake((_slug, id) =>
-      id === 'a1' ? slow : of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id, title: 'The second one' }) }),
+      id === 'a1'
+        ? slow
+        : of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id, title: 'The second one' }) }),
     );
     await create();
 

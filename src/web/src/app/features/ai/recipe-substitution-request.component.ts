@@ -240,8 +240,8 @@ export class RecipeSubstitutionRequestComponent {
       case 'source_version_invalid':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the '
-            + 'request is against the version you are looking at.',
+          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the ' +
+            'request is against the version you are looking at.',
         );
         return;
 

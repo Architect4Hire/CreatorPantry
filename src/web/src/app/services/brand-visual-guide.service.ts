@@ -7,8 +7,7 @@ import { BrandVisualGuide, BrandVisualTask, decodeBrandVisualGuide } from '../mo
 
 /** `unavailable` covers every way the read can fail: the caller says the same thing about all of them. */
 export type BrandVisualGuideOutcome =
-  | { readonly status: 'found'; readonly guide: BrandVisualGuide }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly guide: BrandVisualGuide } | { readonly status: 'unavailable' };
 
 /**
  * The typed client for `GET .../brand-visual-guide`: the look the workspace's active style guide describes for

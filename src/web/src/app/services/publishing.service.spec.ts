@@ -253,7 +253,9 @@ describe('PublishingService', () => {
             ? 403
             : 409;
 
-      http.expectOne(RECORDS).flush(problem(code, { publishingRecordId: 'rec-9' }), { status: httpStatus, statusText: 'nope' });
+      http
+        .expectOne(RECORDS)
+        .flush(problem(code, { publishingRecordId: 'rec-9' }), { status: httpStatus, statusText: 'nope' });
 
       expect((await scheduling).status).toBe(status);
     });

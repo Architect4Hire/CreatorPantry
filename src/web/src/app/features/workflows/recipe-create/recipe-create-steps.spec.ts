@@ -7,7 +7,12 @@ import { NEVER, Observable, of } from 'rxjs';
 
 import { ConfirmService } from '../../../core/confirm.service';
 import { RecipeDetail } from '../../../models/recipe.models';
-import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun, decodeWorkflowRun } from '../../../models/workflow-run.models';
+import {
+  WorkflowNextAction,
+  WorkflowResourcePointer,
+  WorkflowRun,
+  decodeWorkflowRun,
+} from '../../../models/workflow-run.models';
 import { wireRun } from '../../../models/workflow-run.testing';
 import { RecipeConceptService, WatchConceptsOutcome } from '../../../services/recipe-concept.service';
 import { RecipeDraftService, WatchRecipeDraftOutcome } from '../../../services/recipe-draft.service';
@@ -62,8 +67,20 @@ const BOTH_WAYS: WorkflowNextAction = {
   help: 'Write it yourself, or get a first draft.',
   requirement: 'Required',
   actions: [
-    { capabilityKey: 'recipes.new', name: 'Write it yourself', route: 'recipes/new', available: true, youCanDoIt: true },
-    { capabilityKey: 'recipes.draft-with-help', name: 'Help me draft it', route: 'ai-recipe-studio', available: true, youCanDoIt: true },
+    {
+      capabilityKey: 'recipes.new',
+      name: 'Write it yourself',
+      route: 'recipes/new',
+      available: true,
+      youCanDoIt: true,
+    },
+    {
+      capabilityKey: 'recipes.draft-with-help',
+      name: 'Help me draft it',
+      route: 'ai-recipe-studio',
+      available: true,
+      youCanDoIt: true,
+    },
   ],
   waitingFor: [],
 };
@@ -81,11 +98,13 @@ function startRun(options: { draft?: WorkflowResourcePointer; linked?: string } 
         }
       : step,
   );
-  const run = decodeWorkflowRun(wireRun({
-    completedStepCount: 0,
-    steps,
-    links: options.linked ? [{ kind: 'Recipe', resourceId: options.linked, stepKey: 'start' }] : [],
-  }));
+  const run = decodeWorkflowRun(
+    wireRun({
+      completedStepCount: 0,
+      steps,
+      links: options.linked ? [{ kind: 'Recipe', resourceId: options.linked, stepKey: 'start' }] : [],
+    }),
+  );
   if (!run) throw new Error('A test run did not decode.');
   return run;
 }
@@ -133,10 +152,16 @@ function configure(): void {
       },
       {
         provide: RecipeConceptService,
-        useValue: { watchStatus: (): Observable<WatchConceptsOutcome> => NEVER, requestConcepts: jasmine.createSpy('requestConcepts') },
+        useValue: {
+          watchStatus: (): Observable<WatchConceptsOutcome> => NEVER,
+          requestConcepts: jasmine.createSpy('requestConcepts'),
+        },
       },
       { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } },
-      { provide: WorkspaceMembershipService, useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() } },
+      {
+        provide: WorkspaceMembershipService,
+        useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() },
+      },
     ],
   });
 }
@@ -174,7 +199,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     const statuses = (host: HTMLElement) => Array.from(host.querySelectorAll('p.cp-sr-only[role="status"]'));
     /** The busy lines drawn beside a status: the step's own, not a child panel's. */
     const busyBeside = (status: Element) =>
-      Array.from(status.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'));
+      Array.from(status.parentElement!.children).find(
+        (each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'),
+      );
 
     function expectLoading(host: HTMLElement, sentence: string): void {
       const status = statuses(host).find((p) => p.textContent === sentence);
@@ -182,7 +209,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       const busy = busyBeside(status!)!;
       expect(busy).toBeTruthy();
       expect(busy.textContent!.trim()).toBe('');
-      expect(Array.from(host.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+      expect(
+        Array.from(host.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence)),
+      ).toBeFalse();
     }
 
     function expectRead(host: HTMLElement, sentence: string): void {
@@ -203,7 +232,11 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       });
       expectLoading(root(fixture), 'Picking up where you left off…');
 
-      const read = await render(RecipeCreateStartStepComponent, { step: BOTH_WAYS, run: startRun(), workspaceSlug: SLUG });
+      const read = await render(RecipeCreateStartStepComponent, {
+        step: BOTH_WAYS,
+        run: startRun(),
+        workspaceSlug: SLUG,
+      });
       expectRead(root(read), 'Picking up where you left off…');
     });
 
@@ -227,7 +260,10 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       return fixture.debugElement.injector.get(RecipeStudioHost);
     }
 
-    async function pick(fixture: ComponentFixture<RecipeCreateStartStepComponent>, value: 'write' | 'help'): Promise<void> {
+    async function pick(
+      fixture: ComponentFixture<RecipeCreateStartStepComponent>,
+      value: 'write' | 'help',
+    ): Promise<void> {
       root(fixture).querySelector<HTMLInputElement>(`#recipe-start-${value}`)!.click();
       await settle(fixture);
     }
@@ -235,7 +271,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     it('offers the two ways to start in plain words, and nothing else until one is picked', async () => {
       const fixture = await start(startRun());
 
-      expect(root(fixture).querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe('How do you want to start?');
+      expect(root(fixture).querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
+        'How do you want to start?',
+      );
       expect(root(fixture).textContent).toContain('Write it yourself');
       expect(root(fixture).textContent).toContain('Help me draft it');
       expect(root(fixture).textContent).not.toMatch(/prompt|model|AI request/i);
@@ -246,7 +284,14 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     it('writes a new recipe in the editor, points the run at it once made, and names it as the step’s result', async () => {
       recipes.createRecipe.and.resolveTo({
         status: 'created',
-        recipe: { recipeId: 'recipe-9', title: 'Soda bread', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-10-15T09:00:00Z' },
+        recipe: {
+          recipeId: 'recipe-9',
+          title: 'Soda bread',
+          status: 'Draft',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-10-15T09:00:00Z',
+        },
         replayed: false,
       });
       const fixture = await start(startRun());
@@ -273,7 +318,14 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     it('does not move on while the run could not be pointed at the recipe, and tries again on the next move', async () => {
       recipes.createRecipe.and.resolveTo({
         status: 'created',
-        recipe: { recipeId: 'recipe-9', title: 'Soda bread', status: 'Draft', versionId: 'v1', versionNumber: 1, createdAt: '2026-10-15T09:00:00Z' },
+        recipe: {
+          recipeId: 'recipe-9',
+          title: 'Soda bread',
+          status: 'Draft',
+          versionId: 'v1',
+          versionNumber: 1,
+          createdAt: '2026-10-15T09:00:00Z',
+        },
         replayed: false,
       });
       keepDraft.and.resolveTo(false);
@@ -309,7 +361,20 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     });
 
     it('opens a draft a reload left it waiting on in the review', async () => {
-      draftStatus = { status: 'found', operation: { aiProposalRequestId: 'draft-1', status: 'Requested', taskType: 'RecipeFirstDraft', scope: 'Unspecified', sourceVersionId: null, requestedAt: '2026-10-15T09:00:00Z', statusChangedAt: '2026-10-15T09:00:00Z', failureCategory: null, proposal: null } };
+      draftStatus = {
+        status: 'found',
+        operation: {
+          aiProposalRequestId: 'draft-1',
+          status: 'Requested',
+          taskType: 'RecipeFirstDraft',
+          scope: 'Unspecified',
+          sourceVersionId: null,
+          requestedAt: '2026-10-15T09:00:00Z',
+          statusChangedAt: '2026-10-15T09:00:00Z',
+          failureCategory: null,
+          proposal: null,
+        },
+      };
       const fixture = await start(startRun({ draft: { kind: 'AiRequest', id: 'draft-1' } }));
 
       expect(root(fixture).querySelector('cp-recipe-first-draft-review')).not.toBeNull();
@@ -332,7 +397,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).textContent).toContain('couldn’t be read just now');
       draftStatus = { status: 'not_found' };
       draftWatches = 0;
-      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Try again'))!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Try again'))!
+        .click();
       await settle(fixture);
 
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).not.toBeNull();
@@ -395,7 +462,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
         actions: BOTH_WAYS.actions.map((action) => ({ ...action, youCanDoIt: false })),
       });
 
-      expect(root(fixture).textContent).toContain('Someone with more access to this workspace needs to start this recipe.');
+      expect(root(fixture).textContent).toContain(
+        'Someone with more access to this workspace needs to start this recipe.',
+      );
       expect(editorOf(fixture)).toBeNull();
     });
   });
@@ -418,7 +487,11 @@ describe('"Create a recipe" step screens (13A.14)', () => {
 
     it('keeps its work by saving the recipe when the shell asks', async () => {
       recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: { ...DETAIL, notes: 'x' }, replayed: false });
-      const fixture = await render(RecipeCreatePartStepComponent, { run: laterRun(), workspaceSlug: SLUG, focus: 'ingredients' });
+      const fixture = await render(RecipeCreatePartStepComponent, {
+        run: laterRun(),
+        workspaceSlug: SLUG,
+        focus: 'ingredients',
+      });
 
       expect(port.unsaved()).toBeFalse();
       editorOf(fixture)!.form.notes.set('x');
@@ -430,7 +503,11 @@ describe('"Create a recipe" step screens (13A.14)', () => {
     });
 
     it('says so, rather than showing an empty form, when the run holds no recipe', async () => {
-      const fixture = await render(RecipeCreatePartStepComponent, { run: startRun(), workspaceSlug: SLUG, focus: 'method' });
+      const fixture = await render(RecipeCreatePartStepComponent, {
+        run: startRun(),
+        workspaceSlug: SLUG,
+        focus: 'method',
+      });
 
       expect(root(fixture).textContent).toContain('There’s no recipe yet.');
       expect(editorOf(fixture)).toBeNull();
@@ -455,7 +532,9 @@ describe('"Create a recipe" step screens (13A.14)', () => {
 
       expect(root(fixture).textContent).toContain('couldn’t be read just now');
       recipes.getRecipeDetail.and.resolveTo({ status: 'found', recipe: DETAIL });
-      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Try again'))!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Try again'))!
+        .click();
       await settle(fixture);
 
       expect(root(fixture).querySelector('cp-recipe-scaling-preview')).not.toBeNull();
@@ -464,7 +543,11 @@ describe('"Create a recipe" step screens (13A.14)', () => {
 
   it('never navigates on its own', async () => {
     const navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-    await render(RecipeCreateStartStepComponent, { step: BOTH_WAYS, run: startRun({ linked: 'recipe-1' }), workspaceSlug: SLUG });
+    await render(RecipeCreateStartStepComponent, {
+      step: BOTH_WAYS,
+      run: startRun({ linked: 'recipe-1' }),
+      workspaceSlug: SLUG,
+    });
 
     expect(navigate).not.toHaveBeenCalled();
   });

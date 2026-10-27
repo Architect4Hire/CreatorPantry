@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpCheckboxComponent,
@@ -102,7 +112,9 @@ export class BrandSetupCreateStepComponent implements OnInit {
     this.rows().map((row) => ({ row, state: sourceStateOf(row, this.checkedIds()) })),
   );
   protected readonly noSources = computed(() => this.rows().length === 0);
-  protected readonly unreachableCount = computed(() => this.entries().filter((entry) => entry.state === 'unreachable').length);
+  protected readonly unreachableCount = computed(
+    () => this.entries().filter((entry) => entry.state === 'unreachable').length,
+  );
   protected readonly summary = computed(() => {
     const used = this.entries().filter((entry) => isUsed(entry.state));
     return usedSummary(
@@ -111,7 +123,9 @@ export class BrandSetupCreateStepComponent implements OnInit {
     );
   });
   protected readonly usedTitles = computed(() =>
-    this.entries().filter((entry) => isUsed(entry.state)).map((entry) => this.titleOf(entry.row)),
+    this.entries()
+      .filter((entry) => isUsed(entry.state))
+      .map((entry) => this.titleOf(entry.row)),
   );
 
   protected readonly picked = computed<readonly string[]>(() => {
@@ -180,7 +194,14 @@ export class BrandSetupCreateStepComponent implements OnInit {
     void this.usage.ensureLoaded();
 
     const selected = selectedSources(this.sources());
-    this.rows.set(selected.map((source) => ({ documentId: source.documentId, kind: source.kind, detail: null, load: 'loading' as const })));
+    this.rows.set(
+      selected.map((source) => ({
+        documentId: source.documentId,
+        kind: source.kind,
+        detail: null,
+        load: 'loading' as const,
+      })),
+    );
     void this.loadAll();
   }
 
@@ -208,7 +229,9 @@ export class BrandSetupCreateStepComponent implements OnInit {
   protected async retry(): Promise<void> {
     if (this.retrying()) return;
     this.retrying.set(true);
-    const again = this.entries().filter((entry) => entry.state === 'unreachable').map((entry) => entry.row.documentId);
+    const again = this.entries()
+      .filter((entry) => entry.state === 'unreachable')
+      .map((entry) => entry.row.documentId);
     await Promise.all(again.map((id) => this.loadRow(id)));
     this.retrying.set(false);
   }
@@ -240,9 +263,15 @@ export class BrandSetupCreateStepComponent implements OnInit {
   }
 
   /** What each state is called and what it means for the guide, in one place. */
-  private static readonly STATES: Readonly<Record<SourceState, { tone: CpStatusPillTone; status: string; note: string }>> = {
+  private static readonly STATES: Readonly<
+    Record<SourceState, { tone: CpStatusPillTone; status: string; note: string }>
+  > = {
     loading: { tone: 'progress', status: 'Looking it up…', note: '' },
-    checked: { tone: 'success', status: 'Checked by you', note: 'The words you checked are used exactly as you left them.' },
+    checked: {
+      tone: 'success',
+      status: 'Checked by you',
+      note: 'The words you checked are used exactly as you left them.',
+    },
     unchecked: {
       tone: 'neutral',
       status: 'Not checked',
@@ -250,7 +279,11 @@ export class BrandSetupCreateStepComponent implements OnInit {
     },
     visual: { tone: 'neutral', status: 'A look you like', note: 'Used for your photo style, not for your words.' },
     'left-out': { tone: 'neutral', status: 'Left out', note: "Left out earlier, so it won't be used here." },
-    missing: { tone: 'warning', status: 'Not available', note: "We can't find this one any more, so it won't be used." },
+    missing: {
+      tone: 'warning',
+      status: 'Not available',
+      note: "We can't find this one any more, so it won't be used.",
+    },
     unreachable: {
       tone: 'warning',
       status: "Couldn't check",

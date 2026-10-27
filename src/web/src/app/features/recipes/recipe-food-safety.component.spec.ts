@@ -27,9 +27,7 @@ function warning(overrides: Partial<FoodSafetyWarning> = {}): FoodSafetyWarning 
     category: 'Canning',
     confidence: 'Detected',
     message: 'This recipe describes canning.',
-    triggers: [
-      { field: 'Step', itemId: 's1', kind: 'Text', matched: 'Pressure-can at 10 lb for 75 minutes' },
-    ],
+    triggers: [{ field: 'Step', itemId: 's1', kind: 'Text', matched: 'Pressure-can at 10 lb for 75 minutes' }],
     evidence: {
       status: 'NoApprovedSource',
       citation: null,
@@ -104,9 +102,7 @@ describe('RecipeFoodSafetyComponent', () => {
   }
 
   function buttonWith(element: HTMLElement, label: string): HTMLButtonElement | undefined {
-    return Array.from(element.querySelectorAll('button')).find((button) =>
-      button.textContent?.trim().includes(label),
-    );
+    return Array.from(element.querySelectorAll('button')).find((button) => button.textContent?.trim().includes(label));
   }
 
   async function click(element: HTMLElement, label: string): Promise<void> {

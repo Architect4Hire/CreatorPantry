@@ -10,7 +10,12 @@ const PARSED_LINE: ParsedIngredientLine = {
   tokens: {
     originalText: '2 tsp kosher salt',
     isGroupMarker: false,
-    quantity: { span: { start: 0, length: 1, text: '2' }, value: { numerator: '2', denominator: '1' }, range: null, isInvalid: false },
+    quantity: {
+      span: { start: 0, length: 1, text: '2' },
+      value: { numerator: '2', denominator: '1' },
+      range: null,
+      isInvalid: false,
+    },
     packageQuantity: null,
     unitCandidate: { start: 2, length: 3, text: 'tsp' },
     ingredientText: { start: 6, length: 11, text: 'kosher salt' },
@@ -79,7 +84,10 @@ describe('IngredientParseService', () => {
       { status: 400, statusText: 'Bad Request' },
     );
 
-    expect(await call).toEqual({ status: 'validation_failed', fieldErrors: { lines: ['At least one line is required.'] } });
+    expect(await call).toEqual({
+      status: 'validation_failed',
+      fieldErrors: { lines: ['At least one line is required.'] },
+    });
   });
 
   it('reports every other failure as unavailable', async () => {

@@ -231,7 +231,8 @@ export class ContentPipelineReferencePanelComponent implements OnInit {
       const operationId = this.runOperationId();
       const slug = this.workspaceSlug();
       const picture = this.picture();
-      const wanted = picture === null ? this.sourceTab() === 'run' && this.session() !== null : picture.source === 'GeneratedImage';
+      const wanted =
+        picture === null ? this.sourceTab() === 'run' && this.session() !== null : picture.source === 'GeneratedImage';
       const key = operationId === null || !wanted ? null : `${slug}|${operationId}`;
       if (key === this.runLoadedFor) return;
 
@@ -461,7 +462,9 @@ export class ContentPipelineReferencePanelComponent implements OnInit {
             ? {
                 status: 'found',
                 // Declined and expired pictures are no longer the creator's to look at, so not theirs to choose.
-                images: outcome.operation.images.filter((image) => image.status === 'Staged' || image.status === 'Kept'),
+                images: outcome.operation.images.filter(
+                  (image) => image.status === 'Staged' || image.status === 'Kept',
+                ),
               }
             : outcome.status === 'not_found'
               ? { status: 'found', images: [] }

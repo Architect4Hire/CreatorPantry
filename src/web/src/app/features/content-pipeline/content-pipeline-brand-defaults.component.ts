@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   CpBadgeComponent,
@@ -93,7 +103,9 @@ export class ContentPipelineBrandDefaultsComponent {
     return key === null ? null : this.nameOf(key);
   });
 
-  protected readonly pictureCount = computed(() => contentPipelinePictureCount(this.config(), this.brandPictureCount()));
+  protected readonly pictureCount = computed(() =>
+    contentPipelinePictureCount(this.config(), this.brandPictureCount()),
+  );
 
   protected readonly pictureCountText = computed(() => {
     const count = this.pictureCount();

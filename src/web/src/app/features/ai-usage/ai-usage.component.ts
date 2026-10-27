@@ -19,7 +19,12 @@ import { injectRouteTitle } from '../../core/route-title';
 
 import { AiTaskType } from '../../models/ai-proposal.models';
 import { AiUsageService } from '../../services/ai-usage.service';
-import { allowanceFigure, allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
+import {
+  allowanceFigure,
+  allowanceIsCountable,
+  formatAllowanceAmount,
+  formatAllowanceReset,
+} from '../../shared/allowance-text';
 
 /**
  * What each capability is called, in the creator's language.
@@ -174,7 +179,12 @@ export class AiUsageComponent {
     return [
       { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
       { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: '' },
-      { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
+      {
+        id: 'allowance',
+        value: whole.value,
+        label: `${whole.noun} in your allowance ${this.periodWord()}`,
+        context: this.carriedOverLine(),
+      },
     ];
   });
 

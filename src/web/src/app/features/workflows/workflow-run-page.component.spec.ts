@@ -38,7 +38,10 @@ describe('WorkflowRunPageComponent', () => {
         ]),
         { provide: WorkflowRunService, useValue: { get } },
         { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } },
-        { provide: WorkspaceMembershipService, useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() } },
+        {
+          provide: WorkspaceMembershipService,
+          useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() },
+        },
       ],
     });
   });
@@ -53,27 +56,43 @@ describe('WorkflowRunPageComponent', () => {
     const page = harness.routeNativeElement!;
     expect(page.querySelectorAll('h1').length).toBe(1);
     expect(page.querySelector('h1')!.textContent).toContain('Create a recipe');
-    expect(page.textContent).toContain('A saved recipe you can keep improving. You can stop at any time and pick up where you left off.');
+    expect(page.textContent).toContain(
+      'A saved recipe you can keep improving. You can stop at any time and pick up where you left off.',
+    );
     expect(page.querySelector('a[cpBackLink]')!.getAttribute('href')).toBe('/sams-kitchen/workflows');
   });
 
   /** A run of `definitionKey` arriving fresh on its first step, so the step shows at once. */
   function freshOn(definitionKey: string, stepKey: string) {
-    const steps = (wireRun()['steps'] as Record<string, unknown>[]).map((step) => ({ ...step, status: 'NotStarted', completedAt: null }));
-    return decodeWorkflowRun(wireRun({
-      definitionKey,
-      completedStepCount: 0,
-      steps: [{ ...steps[0], key: stepKey }, ...steps.slice(1)],
-      links: [],
-      nextAction: {
-        stepKey,
-        title: 'Start your recipe',
-        help: 'Write it yourself, or get a first draft.',
-        requirement: 'Required',
-        actions: [{ capabilityKey: 'recipes.new', name: 'Write it yourself', route: 'recipes/new', available: true, youCanDoIt: true }],
-        waitingFor: [],
-      },
-    }))!;
+    const steps = (wireRun()['steps'] as Record<string, unknown>[]).map((step) => ({
+      ...step,
+      status: 'NotStarted',
+      completedAt: null,
+    }));
+    return decodeWorkflowRun(
+      wireRun({
+        definitionKey,
+        completedStepCount: 0,
+        steps: [{ ...steps[0], key: stepKey }, ...steps.slice(1)],
+        links: [],
+        nextAction: {
+          stepKey,
+          title: 'Start your recipe',
+          help: 'Write it yourself, or get a first draft.',
+          requirement: 'Required',
+          actions: [
+            {
+              capabilityKey: 'recipes.new',
+              name: 'Write it yourself',
+              route: 'recipes/new',
+              available: true,
+              youCanDoIt: true,
+            },
+          ],
+          waitingFor: [],
+        },
+      }),
+    )!;
   }
 
   it('shows "Create a recipe" through its own step screens rather than links elsewhere', async () => {

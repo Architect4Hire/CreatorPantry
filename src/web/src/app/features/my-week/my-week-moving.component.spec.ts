@@ -42,8 +42,12 @@ describe('MyWeekComponent — moving', () => {
     weekSpy = jasmine.createSpy('week').and.callFake(async () => (answers.length > 1 ? answers.shift()! : answers[0]));
     move = jasmine.createSpy('move').and.callFake(async (_slug: string, shown: WorkTask) => saved(shown));
     reorder = jasmine.createSpy('reorder').and.callFake(async (_slug: string, shown: WorkTask) => saved(shown));
-    complete = jasmine.createSpy('complete').and.callFake(async (_slug: string, shown: WorkTask) => saved({ ...shown, status: 'Done' }));
-    reopen = jasmine.createSpy('reopen').and.callFake(async (_slug: string, shown: WorkTask) => saved({ ...shown, status: 'Backlog' }));
+    complete = jasmine
+      .createSpy('complete')
+      .and.callFake(async (_slug: string, shown: WorkTask) => saved({ ...shown, status: 'Done' }));
+    reopen = jasmine
+      .createSpy('reopen')
+      .and.callFake(async (_slug: string, shown: WorkTask) => saved({ ...shown, status: 'Backlog' }));
     online = signal(true);
 
     TestBed.configureTestingModule({
@@ -56,7 +60,16 @@ describe('MyWeekComponent — moving', () => {
           useValue: {
             state: signal<MyMembershipsState>({
               status: 'ready',
-              memberships: [{ workspaceId: 'w', workspaceSlug: SLUG, workspaceName: 'S', membershipId: 'm-1', role: 'Owner', status: 'Active' }],
+              memberships: [
+                {
+                  workspaceId: 'w',
+                  workspaceSlug: SLUG,
+                  workspaceName: 'S',
+                  membershipId: 'm-1',
+                  role: 'Owner',
+                  status: 'Active',
+                },
+              ],
             } as MyMembershipsState),
             ensureLoaded: async () => undefined,
           },
@@ -78,10 +91,13 @@ describe('MyWeekComponent — moving', () => {
   const outcome = () => root().querySelector('cp-notice.outcome')!;
   /** The assertive region, for one that was not. */
   const refusal = () => root().querySelector('cp-notice.outcome-alert')!;
-  const idsIn = (section: string) => [...root().querySelectorAll(`ul[data-section="${section}"] > li`)].map((li) => li.getAttribute('data-task-id'));
-  const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
+  const idsIn = (section: string) =>
+    [...root().querySelectorAll(`ul[data-section="${section}"] > li`)].map((li) => li.getAttribute('data-task-id'));
+  const button = (text: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
   /** A button inside the Move form — the cards have Move buttons too. */
-  const inDialog = (text: string) => [...dialog()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
+  const inDialog = (text: string) =>
+    [...dialog()!.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
 
   function choose(selector: string, value: string): void {
     const select = document.querySelector<HTMLSelectElement>(selector)!;
@@ -201,7 +217,10 @@ describe('MyWeekComponent — moving', () => {
     inDialog('Move').click();
     await settle();
 
-    expect(move).toHaveBeenCalledWith(SLUG, jasmine.objectContaining({ id: 'thu-1' }), { status: 'InProgress', beforeTaskId: 'going' });
+    expect(move).toHaveBeenCalledWith(SLUG, jasmine.objectContaining({ id: 'thu-1' }), {
+      status: 'InProgress',
+      beforeTaskId: 'going',
+    });
     expect(refusal().textContent).toContain('That place isn’t there any more');
     expect(weekSpy).toHaveBeenCalledTimes(2);
   });
@@ -215,12 +234,19 @@ describe('MyWeekComponent — moving', () => {
     await settle();
 
     // The read after the move answered with the week as it was; the board then shows it in Waiting again.
-    component()['state'].set({ status: 'ready', week: applyPlace(fullWeek(), tasksIn(fullWeek(), 'day-2038-10-14')[0], { list: 'waiting', beforeTaskId: null }) });
+    component()['state'].set({
+      status: 'ready',
+      week: applyPlace(fullWeek(), tasksIn(fullWeek(), 'day-2038-10-14')[0], { list: 'waiting', beforeTaskId: null }),
+    });
     await settle();
     button('Undo').click();
     await settle();
 
-    expect(move.calls.mostRecent().args[2]).toEqual({ status: 'Backlog', scheduledDate: '2038-10-14', beforeTaskId: 'thu-2' });
+    expect(move.calls.mostRecent().args[2]).toEqual({
+      status: 'Backlog',
+      scheduledDate: '2038-10-14',
+      beforeTaskId: 'thu-2',
+    });
     expect(outcome().textContent).toContain('Undone');
   });
 
@@ -232,7 +258,10 @@ describe('MyWeekComponent — moving', () => {
     inDialog('Move').click();
     await settle();
 
-    expect(move).toHaveBeenCalledWith(SLUG, jasmine.objectContaining({ id: 'thu-1' }), { status: 'Backlog', planningWeekStart: '2038-10-18' });
+    expect(move).toHaveBeenCalledWith(SLUG, jasmine.objectContaining({ id: 'thu-1' }), {
+      status: 'Backlog',
+      planningWeekStart: '2038-10-18',
+    });
     expect(outcome().textContent).toContain('next week’s backlog');
   });
 
@@ -278,7 +307,11 @@ describe('MyWeekComponent — moving', () => {
     } as never);
     await settle();
 
-    expect(move).toHaveBeenCalledWith(SLUG, thursday, { status: 'Backlog', scheduledDate: '2038-10-11', beforeTaskId: 'mon' });
+    expect(move).toHaveBeenCalledWith(SLUG, thursday, {
+      status: 'Backlog',
+      scheduledDate: '2038-10-11',
+      beforeTaskId: 'mon',
+    });
   });
 
   it('puts a dropped card back and says so when the server refuses it', async () => {
@@ -309,10 +342,20 @@ describe('MyWeekComponent — moving', () => {
     const thursday = tasksIn(fullWeek(), 'day-2038-10-14')[0];
     const same = { item: { data: thursday }, container: { data: 'day-2038-10-14' } };
 
-    await component()['onDrop']({ ...same, previousContainer: same.container, previousIndex: 0, currentIndex: 0 } as never);
+    await component()['onDrop']({
+      ...same,
+      previousContainer: same.container,
+      previousIndex: 0,
+      currentIndex: 0,
+    } as never);
     expect(reorder).not.toHaveBeenCalled();
 
-    await component()['onDrop']({ ...same, previousContainer: same.container, previousIndex: 0, currentIndex: 1 } as never);
+    await component()['onDrop']({
+      ...same,
+      previousContainer: same.container,
+      previousIndex: 0,
+      currentIndex: 1,
+    } as never);
     await settle();
     expect(reorder).toHaveBeenCalledWith(SLUG, thursday, null);
   });
@@ -347,7 +390,9 @@ describe('MyWeekComponent — moving', () => {
     named('Mark “Write the headnote” done').click();
     await settle();
 
-    const busy = [...root().querySelectorAll('cp-board-column')].filter((column) => column.querySelector('[aria-busy="true"]'));
+    const busy = [...root().querySelectorAll('cp-board-column')].filter((column) =>
+      column.querySelector('[aria-busy="true"]'),
+    );
     expect(busy.length).toBeGreaterThan(0);
 
     finish({ status: 'saved', task: { ...tasksIn(fullWeek(), 'day-2038-10-14')[0], status: 'Done' } });
@@ -385,7 +430,13 @@ describe('MyWeekComponent — moving', () => {
   });
 
   it('reopens a finished task, reading the week to find where it went back to', async () => {
-    const reopened = fullWeek({ completed: { ...fullWeek().completed, tasks: [] }, waiting: { ...fullWeek().waiting, tasks: [...fullWeek().waiting.tasks, { ...fullWeek().completed.tasks[0], status: 'Waiting' }] } });
+    const reopened = fullWeek({
+      completed: { ...fullWeek().completed, tasks: [] },
+      waiting: {
+        ...fullWeek().waiting,
+        tasks: [...fullWeek().waiting.tasks, { ...fullWeek().completed.tasks[0], status: 'Waiting' }],
+      },
+    });
     await mount(found(), found(reopened));
 
     named('Reopen “Buy apples”').click();

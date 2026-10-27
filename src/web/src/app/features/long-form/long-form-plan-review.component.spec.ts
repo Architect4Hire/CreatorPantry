@@ -57,7 +57,10 @@ const THREE: readonly LongFormPlannedSection[] = [
   section('c', { role: 'Closing', heading: 'Until next time' }),
 ];
 
-function draft(overrides: Partial<LongFormDraft> = {}, sections: readonly LongFormPlannedSection[] | null = THREE): LongFormDraft {
+function draft(
+  overrides: Partial<LongFormDraft> = {},
+  sections: readonly LongFormPlannedSection[] | null = THREE,
+): LongFormDraft {
   return {
     id: 'd-1',
     creativeContextId: 'ctx-1',
@@ -150,11 +153,7 @@ class FakeLongFormDraftService {
     return Promise.resolve(outcome);
   }
 
-  approvePlan(
-    _slug: string,
-    _draftId: string,
-    request: ApproveLongFormPlanRequest,
-  ): Promise<LongFormPlanWriteOutcome> {
+  approvePlan(_slug: string, _draftId: string, request: ApproveLongFormPlanRequest): Promise<LongFormPlanWriteOutcome> {
     this.approvals.push(request);
     return Promise.resolve(this.approveOutcome(request));
   }
@@ -774,7 +773,9 @@ describe('LongFormPlanReviewComponent', () => {
     expect(dirty.defaultPrevented).toBeTrue();
 
     fixture.destroy();
-    expect(unlisten.calls.allArgs().some(([kind, removed]) => kind === 'beforeunload' && removed === handler)).toBeTrue();
+    expect(
+      unlisten.calls.allArgs().some(([kind, removed]) => kind === 'beforeunload' && removed === handler),
+    ).toBeTrue();
   });
 
   it('does not replace unsaved edits with a plan that arrives while the creator is typing', async () => {
@@ -796,7 +797,9 @@ describe('LongFormPlanReviewComponent', () => {
     await create();
 
     for (const input of Array.from(el.querySelectorAll<HTMLInputElement>('cp-form-section input'))) {
-      expect(el.querySelector(`label[for="${input.id}"]`)).withContext(input.id).not.toBeNull();
+      expect(el.querySelector(`label[for="${input.id}"]`))
+        .withContext(input.id)
+        .not.toBeNull();
       expect(input.getAttribute('aria-required')).withContext(input.id).toBe('true');
     }
 

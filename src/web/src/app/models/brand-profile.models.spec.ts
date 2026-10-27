@@ -120,7 +120,9 @@ describe('buildUpdateRequest', () => {
 
     const withCount = decodeBrandProfile({ ...WIRE, defaultPictureCount: 3 })!;
     expect(withCount.defaultPictureCount).toBe(3);
-    expect(buildUpdateRequest(withCount, { ...draftFromProfile(withCount), defaultPictureCount: null }, options)).toEqual({
+    expect(
+      buildUpdateRequest(withCount, { ...draftFromProfile(withCount), defaultPictureCount: null }, options),
+    ).toEqual({
       expectedConcurrencyToken: 'tok',
       defaultPictureCount: null,
     });
@@ -156,8 +158,12 @@ describe('buildUpdateRequest', () => {
 
   it('carries the trimmed reason only when something changed', () => {
     const draft = { ...draftFromProfile(profile()), brandName: 'Sam Kitchen' };
-    expect(buildUpdateRequest(profile(), draft, { reason: '  Rebrand ', includeChannels: true })?.['reason']).toBe('Rebrand');
-    expect(buildUpdateRequest(profile(), draftFromProfile(profile()), { reason: 'x', includeChannels: true })).toBeNull();
+    expect(buildUpdateRequest(profile(), draft, { reason: '  Rebrand ', includeChannels: true })?.['reason']).toBe(
+      'Rebrand',
+    );
+    expect(
+      buildUpdateRequest(profile(), draftFromProfile(profile()), { reason: 'x', includeChannels: true }),
+    ).toBeNull();
   });
 });
 
@@ -187,7 +193,9 @@ describe('brand logos (12.10k)', () => {
 
   it('sends logos on create only when there are some', () => {
     expect('assets' in buildCreateRequest({ ...EMPTY_BRAND_DRAFT, brandName: 'B' })).toBeFalse();
-    expect(buildCreateRequest({ ...EMPTY_BRAND_DRAFT, brandName: 'B', assets: [PRIMARY] })['assets']).toEqual([PRIMARY]);
+    expect(buildCreateRequest({ ...EMPTY_BRAND_DRAFT, brandName: 'B', assets: [PRIMARY] })['assets']).toEqual([
+      PRIMARY,
+    ]);
   });
 
   it('sends the whole list when the logos change, and nothing when they do not', () => {
@@ -195,11 +203,16 @@ describe('brand logos (12.10k)', () => {
     const draft = draftFromProfile(base);
 
     expect(buildUpdateRequest(base, draft, options)).toBeNull();
-    expect(buildUpdateRequest(base, { ...draft, assets: [PRIMARY, MARK] }, options)?.['assets']).toEqual([PRIMARY, MARK]);
+    expect(buildUpdateRequest(base, { ...draft, assets: [PRIMARY, MARK] }, options)?.['assets']).toEqual([
+      PRIMARY,
+      MARK,
+    ]);
 
     // A reorder is a change: the order is part of what is saved.
     const two: BrandProfile = { ...profile(), assets: [PRIMARY, MARK] };
-    expect(buildUpdateRequest(two, { ...draftFromProfile(two), assets: [MARK, PRIMARY] }, options)?.['assets']).toEqual([MARK, PRIMARY]);
+    expect(buildUpdateRequest(two, { ...draftFromProfile(two), assets: [MARK, PRIMARY] }, options)?.['assets']).toEqual(
+      [MARK, PRIMARY],
+    );
   });
 
   it('unlinks the last logo by sending an empty list, not by leaving the field out', () => {
@@ -214,7 +227,11 @@ describe('brand logos (12.10k)', () => {
   });
 
   it('never sends anything but the asset id and the role', () => {
-    const body = buildCreateRequest({ ...EMPTY_BRAND_DRAFT, brandName: 'B', assets: [{ ...PRIMARY, workspaceId: 'w' } as BrandAsset] });
+    const body = buildCreateRequest({
+      ...EMPTY_BRAND_DRAFT,
+      brandName: 'B',
+      assets: [{ ...PRIMARY, workspaceId: 'w' } as BrandAsset],
+    });
 
     expect(body['assets']).toEqual([{ mediaAssetId: 'a1', role: 'PrimaryLogo' }]);
   });

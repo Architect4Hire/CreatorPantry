@@ -39,10 +39,11 @@ import { WeeklyThemesService } from '../../services/weekly-themes.service';
                own state, and this is what that state means for the run. -->
           <p class="lead" aria-live="polite">
             @if (apply()) {
-              <strong>{{ theme.displayName }}</strong>’s standing notes are in effect. What you generate here will
-              follow them.
+              <strong>{{ theme.displayName }}</strong
+              >’s standing notes are in effect. What you generate here will follow them.
             } @else {
-              <strong>{{ theme.displayName }}</strong>’s standing notes are switched off for this run.
+              <strong>{{ theme.displayName }}</strong
+              >’s standing notes are switched off for this run.
             }
           </p>
 
@@ -56,8 +57,8 @@ import { WeeklyThemesService } from '../../services/weekly-themes.service';
 
           @if (usesAlreadyMade()) {
             <p class="also">
-              The titles of what you have already made for this day are used too, so it is not made again. Switching
-              the notes off does not change that.
+              The titles of what you have already made for this day are used too, so it is not made again. Switching the
+              notes off does not change that.
             </p>
           }
         </div>

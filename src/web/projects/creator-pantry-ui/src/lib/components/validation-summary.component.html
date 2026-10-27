@@ -20,7 +20,9 @@
       </ul>
     }
     @if (advice().length > 0) {
-      <h2 [id]="errors().length > 0 ? adviceHeadingId : headingId" class="heading heading--advice">{{ adviceHeading() }}</h2>
+      <h2 [id]="errors().length > 0 ? adviceHeadingId : headingId" class="heading heading--advice">{{
+        adviceHeading()
+      }}</h2>
       <ul>
         @for (issue of advice(); track $index) {
           <li>

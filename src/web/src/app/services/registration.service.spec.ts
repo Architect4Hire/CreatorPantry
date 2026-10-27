@@ -27,7 +27,11 @@ describe('RegistrationService', () => {
     it('reports success on a 202 pending-confirmation response', async () => {
       const register = service.register('robert@example.com', 'correct horse battery', 'Robert');
       const req = http.expectOne('https://gateway.example/api/v1/auth/register');
-      expect(req.request.body).toEqual({ email: 'robert@example.com', password: 'correct horse battery', displayName: 'Robert' });
+      expect(req.request.body).toEqual({
+        email: 'robert@example.com',
+        password: 'correct horse battery',
+        displayName: 'Robert',
+      });
       expect(req.request.withCredentials).toBeTrue();
       req.flush({ status: 'pending_confirmation' }, { status: 202, statusText: 'Accepted' });
 
@@ -36,10 +40,12 @@ describe('RegistrationService', () => {
 
     it('decodes field errors on a 400 validation failure', async () => {
       const register = service.register('bad', 'short', '');
-      http.expectOne('https://gateway.example/api/v1/auth/register').flush(
-        { errors: { email: ['Enter a valid email address.'], password: ['Use at least 12 characters.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne('https://gateway.example/api/v1/auth/register')
+        .flush(
+          { errors: { email: ['Enter a valid email address.'], password: ['Use at least 12 characters.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       expect(await register).toEqual({
         status: 'invalid',
@@ -49,7 +55,9 @@ describe('RegistrationService', () => {
 
     it('reports unavailable when the API is unreachable', async () => {
       const register = service.register('robert@example.com', 'correct horse battery', 'Robert');
-      http.expectOne('https://gateway.example/api/v1/auth/register').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/api/v1/auth/register')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
 
       expect(await register).toEqual({ status: 'unavailable' });
     });
@@ -67,17 +75,18 @@ describe('RegistrationService', () => {
 
     it('reports invalid_link on a 400 (unknown email, bad, or expired token)', async () => {
       const confirm = service.confirmEmail('robert@example.com', 'stale-token');
-      http.expectOne('https://gateway.example/api/v1/auth/confirm-email').flush(
-        { code: 'auth.email_confirmation.invalid_token' },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne('https://gateway.example/api/v1/auth/confirm-email')
+        .flush({ code: 'auth.email_confirmation.invalid_token' }, { status: 400, statusText: 'Bad Request' });
 
       expect(await confirm).toEqual({ status: 'invalid_link' });
     });
 
     it('reports unavailable when the API is unreachable', async () => {
       const confirm = service.confirmEmail('robert@example.com', 'a-token');
-      http.expectOne('https://gateway.example/api/v1/auth/confirm-email').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/api/v1/auth/confirm-email')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
 
       expect(await confirm).toEqual({ status: 'unavailable' });
     });

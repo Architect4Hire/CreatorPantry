@@ -1,13 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  input,
-  output,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   CpButtonComponent,
@@ -125,7 +116,7 @@ export class ContentPipelineImageLightboxComponent {
   protected readonly save = computed(() => {
     const current = this.current();
 
-    return current === null ? null : this.saves()?.get(current.id) ?? null;
+    return current === null ? null : (this.saves()?.get(current.id) ?? null);
   });
 
   protected readonly canAct = computed(() => {

@@ -78,7 +78,13 @@ function asset(overrides: Partial<DamAssetDetail> = {}): DamAssetDetail {
     brandProfileCount: 0,
     testAttachmentCount: 0,
     prompts: [
-      { id: 'p1', label: 'Linen overhead', imageKind: 'Hero', source: 'ImagePromptComposition', createdAt: '2026-10-07T09:00:00+00:00' },
+      {
+        id: 'p1',
+        label: 'Linen overhead',
+        imageKind: 'Hero',
+        source: 'ImagePromptComposition',
+        createdAt: '2026-10-07T09:00:00+00:00',
+      },
       { id: 'p2', label: null, imageKind: 'DetailShot', source: 'Manual', createdAt: '2026-10-06T09:00:00+00:00' },
     ],
     sourceGeneratedImageId: null,
@@ -90,7 +96,15 @@ function asset(overrides: Partial<DamAssetDetail> = {}): DamAssetDetail {
 }
 
 function use(id: string, overrides: Partial<DamAssetUtilization> = {}): DamAssetUtilization {
-  return { id, platformKey: 'instagram', utilizedOn: '2026-10-06', utilizedDay: 'Tuesday', campaignName: null, notes: null, ...overrides };
+  return {
+    id,
+    platformKey: 'instagram',
+    utilizedOn: '2026-10-06',
+    utilizedDay: 'Tuesday',
+    campaignName: null,
+    notes: null,
+    ...overrides,
+  };
 }
 
 function foundAsset(value: DamAssetDetail): Observable<DamAssetDetailOutcome> {
@@ -101,11 +115,15 @@ describe('DamAssetDetailComponent', () => {
   let harness: RouterTestingHarness;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
-  let usageSpy: jasmine.Spy<(slug: string, id: string, cursor: string | null) => Observable<DamAssetUtilizationOutcome>>;
+  let usageSpy: jasmine.Spy<
+    (slug: string, id: string, cursor: string | null) => Observable<DamAssetUtilizationOutcome>
+  >;
   let patchSpy: jasmine.Spy<
     (slug: string, id: string, body: Record<string, unknown>, key: string) => Promise<DamAssetPatchOutcome>
   >;
-  let addVersionSpy: jasmine.Spy<(slug: string, id: string, file: File, key: string) => Observable<DamVersionUploadEvent>>;
+  let addVersionSpy: jasmine.Spy<
+    (slug: string, id: string, file: File, key: string) => Observable<DamVersionUploadEvent>
+  >;
   let confirmSpy: jasmine.Spy<(request: ConfirmRequest) => Promise<boolean>>;
   let logSpy: jasmine.Spy<
     (slug: string, id: string, body: Record<string, unknown>, key: string) => Promise<DamUseLogOutcome>
@@ -146,12 +164,17 @@ describe('DamAssetDetailComponent', () => {
    * another spec may have left something in.
    */
   function drawerPanel(): HTMLElement | null {
-    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+    return (
+      (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null
+    );
   }
 
   /** Everything matching in the page and in its open drawer. */
   function everywhere<T extends Element>(selector: string): T[] {
-    return [...Array.from(root().querySelectorAll<T>(selector)), ...Array.from(drawerPanel()?.querySelectorAll<T>(selector) ?? [])];
+    return [
+      ...Array.from(root().querySelectorAll<T>(selector)),
+      ...Array.from(drawerPanel()?.querySelectorAll<T>(selector) ?? []),
+    ];
   }
 
   function text(): string {
@@ -209,10 +232,15 @@ describe('DamAssetDetailComponent', () => {
 
     contentSpy ??= jasmine
       .createSpy('content')
-      .and.callFake(() => of<DamAssetContentOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) }));
-    usageSpy ??= jasmine
-      .createSpy('utilization')
-      .and.callFake(() => of<DamAssetUtilizationOutcome>({ status: 'found', page: { items: [use('u1')], nextCursor: null, totalCount: 1 } }));
+      .and.callFake(() =>
+        of<DamAssetContentOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/jpeg' }) }),
+      );
+    usageSpy ??= jasmine.createSpy('utilization').and.callFake(() =>
+      of<DamAssetUtilizationOutcome>({
+        status: 'found',
+        page: { items: [use('u1')], nextCursor: null, totalCount: 1 },
+      }),
+    );
 
     const channels = options.channels === undefined ? CHANNELS : options.channels;
 
@@ -426,7 +454,10 @@ describe('DamAssetDetailComponent', () => {
     expect(about.textContent).toContain('reels');
     expect(about.textContent).toContain('overhead-linen');
     expect(about.textContent).toContain('Sam Baker');
-    expect(Array.from(about.querySelectorAll('.tags li')).map((li) => li.textContent?.trim())).toEqual(['Weeknight', 'Baking']);
+    expect(Array.from(about.querySelectorAll('.tags li')).map((li) => li.textContent?.trim())).toEqual([
+      'Weeknight',
+      'Baking',
+    ]);
     expect(about.textContent).toContain('Oct 8, 2026');
     expect(about.textContent).toContain('Oct 9, 2026');
   });
@@ -515,7 +546,7 @@ describe('DamAssetDetailComponent', () => {
     expect(rows[1].textContent).toContain('None');
   });
 
-  it("downloads each version through its own numbered route, named so the links can be told apart", async () => {
+  it('downloads each version through its own numbered route, named so the links can be told apart', async () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
@@ -531,7 +562,7 @@ describe('DamAssetDetailComponent', () => {
 
   // ---- Usage history ----
 
-  it("reads the usage history for this asset on its own route, and shows it", async () => {
+  it('reads the usage history for this asset on its own route, and shows it', async () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
@@ -541,7 +572,9 @@ describe('DamAssetDetailComponent', () => {
   });
 
   it('keeps the page standing when the usage history fails', async () => {
-    usageSpy = jasmine.createSpy('utilization').and.returnValue(of<DamAssetUtilizationOutcome>({ status: 'unavailable' }));
+    usageSpy = jasmine
+      .createSpy('utilization')
+      .and.returnValue(of<DamAssetUtilizationOutcome>({ status: 'unavailable' }));
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
@@ -698,10 +731,14 @@ describe('DamAssetDetailComponent', () => {
     expect(request.title).toBe('Remove this picture from the library?');
     expect(request.confirmLabel).toBe('Remove from library');
     expect(request.cancelLabel).toBe('Keep it');
-    expect(request.message).toContain('“Soda bread hero” will be taken out of the library for everyone in this workspace.');
+    expect(request.message).toContain(
+      '“Soda bread hero” will be taken out of the library for everyone in this workspace.',
+    );
     expect(request.message).toContain('Its files, versions and usage history are kept, not erased.');
     // A recipe linked twice is one recipe to go and fix.
-    expect(request.message).toContain('2 recipes (Soda bread, Brown bread), 1 brand profile and 3 recipe test pictures');
+    expect(request.message).toContain(
+      '2 recipes (Soda bread, Brown bread), 1 brand profile and 3 recipe test pictures',
+    );
     expect(request.message).toContain('Those links stay');
     expect(request.message).toContain('There is no way to bring it back from the app yet.');
     expect(request.message).not.toMatch(/\bdelet|\bpermanent|\berased? forever/i);
@@ -793,7 +830,9 @@ describe('DamAssetDetailComponent', () => {
     expect(root().querySelectorAll('button').length).toBe(0);
     expect(root().querySelector('cp-dam-asset-log-use, cp-dam-asset-edit, cp-dam-asset-version-upload')).toBeNull();
     expect(root().querySelector('img, table')).toBeNull();
-    expect(Array.from(root().querySelectorAll('a')).some((each) => (each.getAttribute('href') ?? '').includes('/download'))).toBeFalse();
+    expect(
+      Array.from(root().querySelectorAll('a')).some((each) => (each.getAttribute('href') ?? '').includes('/download')),
+    ).toBeFalse();
     expect(text()).toContain('Nothing else in this workspace was using it.');
     expect(await component().confirmLeave()).toBeTrue();
   });
@@ -832,7 +871,9 @@ describe('DamAssetDetailComponent', () => {
     button('Remove from library').click();
     await settle();
 
-    expect(root().querySelector('.problem')?.textContent).toContain('changed since you opened it, so it was not removed');
+    expect(root().querySelector('.problem')?.textContent).toContain(
+      'changed since you opened it, so it was not removed',
+    );
     expect(root().querySelector('h1')?.textContent).toBe('Renamed by someone');
 
     removeSpy.and.resolveTo({ status: 'unavailable' });
@@ -863,9 +904,13 @@ describe('DamAssetDetailComponent', () => {
 
   it("removes nothing if the route moved to another workspace's asset while the question was open", async () => {
     let answer: (value: boolean) => void = () => undefined;
-    detailSpy = jasmine.createSpy('detail').and.callFake((slug: string) =>
-      slug === SLUG ? foundAsset(asset()) : foundAsset(asset({ title: 'Workspace B picture', concurrencyToken: 'token-b' })),
-    );
+    detailSpy = jasmine
+      .createSpy('detail')
+      .and.callFake((slug: string) =>
+        slug === SLUG
+          ? foundAsset(asset())
+          : foundAsset(asset({ title: 'Workspace B picture', concurrencyToken: 'token-b' })),
+      );
     await create({ role: 'Owner' });
     confirmSpy.and.returnValue(new Promise<boolean>((resolve) => (answer = resolve)));
 
@@ -962,7 +1007,11 @@ describe('DamAssetDetailComponent', () => {
   // ---- Adding a version ----
 
   it('adds a version beside the others, then re-reads the asset in place and says nothing was overwritten', async () => {
-    const withThree = asset({ currentVersion: version(3), versions: [version(3), version(2), version(1)], concurrencyToken: 'token-5' });
+    const withThree = asset({
+      currentVersion: version(3),
+      versions: [version(3), version(2), version(1)],
+      concurrencyToken: 'token-5',
+    });
     detailSpy = jasmine.createSpy('detail').and.returnValues(foundAsset(asset()), foundAsset(withThree));
     await create();
     addVersionSpy.and.returnValue(
@@ -985,7 +1034,9 @@ describe('DamAssetDetailComponent', () => {
 
     expect(addVersionSpy.calls.mostRecent().args.slice(0, 3)).toEqual([SLUG, 'a1', file]);
     expect(drawerPanel()).toBeNull();
-    expect(root().querySelector('.outcome')?.textContent).toContain('Version 3 was added. Earlier versions are unchanged.');
+    expect(root().querySelector('.outcome')?.textContent).toContain(
+      'Version 3 was added. Earlier versions are unchanged.',
+    );
 
     const rows = Array.from(section('dam-versions-heading').querySelectorAll('tbody tr'));
     expect(rows.map((row) => row.getAttribute('data-version'))).toEqual(['3', '2', '1']);
@@ -1008,7 +1059,11 @@ describe('DamAssetDetailComponent', () => {
     button('Add as version 3').click();
     await settle();
 
-    (everywhere<HTMLButtonElement>('cp-uploader button').find((each) => each.textContent?.includes('Cancel')) as HTMLButtonElement).click();
+    (
+      everywhere<HTMLButtonElement>('cp-uploader button').find((each) =>
+        each.textContent?.includes('Cancel'),
+      ) as HTMLButtonElement
+    ).click();
     await settle();
 
     expect(pending.observed).toBeFalse();
@@ -1092,9 +1147,13 @@ describe('DamAssetDetailComponent', () => {
   });
 
   it("closes an open dialog, and drops its unsaved edit, when the route moves to another workspace's asset", async () => {
-    detailSpy = jasmine.createSpy('detail').and.callFake((slug: string) =>
-      slug === SLUG ? foundAsset(asset()) : foundAsset(asset({ title: 'Workspace B picture', concurrencyToken: 'token-b' })),
-    );
+    detailSpy = jasmine
+      .createSpy('detail')
+      .and.callFake((slug: string) =>
+        slug === SLUG
+          ? foundAsset(asset())
+          : foundAsset(asset({ title: 'Workspace B picture', concurrencyToken: 'token-b' })),
+      );
     await create();
 
     button('Edit details').click();
@@ -1113,7 +1172,9 @@ describe('DamAssetDetailComponent', () => {
     patchSpy.and.resolveTo({ status: 'updated', asset: asset({ title: 'B edited', concurrencyToken: 'token-b2' }) });
     button('Edit details').click();
     await settle();
-    expect(((drawerPanel() ?? root()).querySelector('[id="cp-dam-edit-title"]') as HTMLInputElement).value).toBe('Workspace B picture');
+    expect(((drawerPanel() ?? root()).querySelector('[id="cp-dam-edit-title"]') as HTMLInputElement).value).toBe(
+      'Workspace B picture',
+    );
 
     typeInto('cp-dam-edit-title', 'B edited');
     await settle();
@@ -1136,7 +1197,9 @@ describe('DamAssetDetailComponent', () => {
       `^(/${SLUG}/(dam|recipes/r1|prompt-library/p[12])|${GATEWAY}/api/v1/workspaces/${SLUG}/dam-assets/a1/(download|versions/[12]/download)([?]rendition=(web|original))?)$`,
     );
     for (const anchor of Array.from(root().querySelectorAll('a'))) {
-      expect(anchor.getAttribute('href')).withContext(anchor.textContent ?? '').toMatch(allowed);
+      expect(anchor.getAttribute('href'))
+        .withContext(anchor.textContent ?? '')
+        .toMatch(allowed);
     }
     for (const element of Array.from(root().querySelectorAll('[src]'))) {
       expect(element.getAttribute('src')).toMatch(/^blob:/);
@@ -1148,7 +1211,9 @@ describe('DamAssetDetailComponent', () => {
   it("shows nothing of one workspace's asset, and releases its picture, while another's is being read", async () => {
     const revoke = spyOn(URL, 'revokeObjectURL').and.callThrough();
     const other = new Subject<DamAssetDetailOutcome>();
-    detailSpy = jasmine.createSpy('detail').and.callFake((slug: string) => (slug === SLUG ? foundAsset(asset()) : other));
+    detailSpy = jasmine
+      .createSpy('detail')
+      .and.callFake((slug: string) => (slug === SLUG ? foundAsset(asset()) : other));
     await create();
     expect(text()).toContain('Soda bread hero');
 
@@ -1172,14 +1237,16 @@ describe('DamAssetDetailComponent', () => {
     expect(usageSpy.calls.allArgs().every(([slug]) => slug === SLUG)).toBeTrue();
   });
 
-  it("builds every link and every read from the workspace on screen", async () => {
+  it('builds every link and every read from the workspace on screen', async () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create({ url: `/${OTHER_SLUG}/dam/a1` });
 
     expect(contentSpy).toHaveBeenCalledOnceWith(OTHER_SLUG, 'a1', 'web');
     expect(usageSpy).toHaveBeenCalledOnceWith(OTHER_SLUG, 'a1', null);
     expect(link('Soda bread', section('dam-lineage-heading')).getAttribute('href')).toBe(`/${OTHER_SLUG}/recipes/r1`);
-    expect(link('Download', section('dam-picture-heading')).getAttribute('href')).toContain(`/workspaces/${OTHER_SLUG}/dam-assets/a1/download`);
+    expect(link('Download', section('dam-picture-heading')).getAttribute('href')).toContain(
+      `/workspaces/${OTHER_SLUG}/dam-assets/a1/download`,
+    );
   });
 
   // ---- Accessibility ----
@@ -1199,13 +1266,14 @@ describe('DamAssetDetailComponent', () => {
 
     for (const each of Array.from(root().querySelectorAll('section[aria-labelledby]'))) {
       const id = each.getAttribute('aria-labelledby') as string;
-      expect(root().querySelector(`#${id}`)?.textContent?.trim()).withContext(id).not.toBe('');
+      expect(root().querySelector(`#${id}`)?.textContent?.trim())
+        .withContext(id)
+        .not.toBe('');
     }
 
-    expect(Array.from(section('dam-lineage-heading').querySelectorAll('h3')).map((h3) => h3.textContent?.trim())).toEqual([
-      'Recipes',
-      'Prompts',
-    ]);
+    expect(
+      Array.from(section('dam-lineage-heading').querySelectorAll('h3')).map((h3) => h3.textContent?.trim()),
+    ).toEqual(['Recipes', 'Prompts']);
   });
 
   it('marks the versions up as a captioned table with headers, in a keyboard-reachable scrolling region', async () => {
@@ -1214,8 +1282,12 @@ describe('DamAssetDetailComponent', () => {
 
     const versions = section('dam-versions-heading');
     expect(versions.querySelector('caption')?.textContent).toContain('newest first');
-    expect(Array.from(versions.querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col')).toBeTrue();
-    expect(Array.from(versions.querySelectorAll('tbody th')).every((th) => th.getAttribute('scope') === 'row')).toBeTrue();
+    expect(
+      Array.from(versions.querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col'),
+    ).toBeTrue();
+    expect(
+      Array.from(versions.querySelectorAll('tbody th')).every((th) => th.getAttribute('scope') === 'row'),
+    ).toBeTrue();
     // The column with no visible heading still has one for a screen reader.
     expect(versions.querySelector('thead th:last-child')?.textContent).toContain('Download');
 

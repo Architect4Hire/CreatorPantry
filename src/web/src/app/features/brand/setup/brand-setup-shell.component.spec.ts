@@ -65,7 +65,13 @@ const guideWrites = {
   approve: () =>
     Promise.resolve({
       status: 'approved' as const,
-      approval: { guideId: 'g-1', versionId: 'v-1', versionNumber: 1, approvedAt: '2026-10-03T10:00:00Z', alreadyApproved: false },
+      approval: {
+        guideId: 'g-1',
+        versionId: 'v-1',
+        versionNumber: 1,
+        approvedAt: '2026-10-03T10:00:00Z',
+        alreadyApproved: false,
+      },
     }),
   activate: () =>
     Promise.resolve({
@@ -85,7 +91,9 @@ const guideWrites = {
 const FINISHABLE_DRAFT = JSON.stringify({
   goals: { purposes: ['blog'], audience: 'home-cooks', channels: ['blog'] },
   edit: {
-    sections: [{ id: 'voice', body: 'I write like a warm friend.', origin: 'answers', edited: false, citedDocumentIds: [] }],
+    sections: [
+      { id: 'voice', body: 'I write like a warm friend.', origin: 'answers', edited: false, citedDocumentIds: [] },
+    ],
   },
 });
 
@@ -95,7 +103,9 @@ let router: Router;
 let stored: Record<string, BrandSetupSession | null>;
 let counter: number;
 let get: jasmine.Spy<(slug: string) => Promise<BrandSetupSessionReadOutcome>>;
-let save: jasmine.Spy<(slug: string, body: BrandSetupSessionWrite, rv: string | null) => Promise<BrandSetupSessionWriteOutcome>>;
+let save: jasmine.Spy<
+  (slug: string, body: BrandSetupSessionWrite, rv: string | null) => Promise<BrandSetupSessionWriteOutcome>
+>;
 let complete: jasmine.Spy<(slug: string, rv: string) => Promise<BrandSetupSessionWriteOutcome>>;
 let del: jasmine.Spy<(slug: string) => Promise<BrandSetupSessionDeleteOutcome>>;
 let confirm: jasmine.Spy;
@@ -119,7 +129,9 @@ async function create(
   get = jasmine.createSpy('get').and.callFake((slug: string) => {
     if (options.hold) return new Promise<BrandSetupSessionReadOutcome>(() => undefined);
     const found = stored[slug];
-    return Promise.resolve<BrandSetupSessionReadOutcome>(found ? { status: 'found', session: found } : { status: 'none' });
+    return Promise.resolve<BrandSetupSessionReadOutcome>(
+      found ? { status: 'found', session: found } : { status: 'none' },
+    );
   });
   defaultSave = (slug: string, body: BrandSetupSessionWrite) => {
     counter += 1;
@@ -134,7 +146,12 @@ async function create(
   };
   save = jasmine.createSpy('save').and.callFake(defaultSave);
   complete = jasmine.createSpy('complete').and.callFake((slug: string) => {
-    const done = session({ ...stored[slug]!, status: 'completed', completedUtc: '2026-10-01T12:00:00Z', rowVersion: 'rv-done' });
+    const done = session({
+      ...stored[slug]!,
+      status: 'completed',
+      completedUtc: '2026-10-01T12:00:00Z',
+      rowVersion: 'rv-done',
+    });
     stored[slug] = done;
     return Promise.resolve<BrandSetupSessionWriteOutcome>({ status: 'saved', session: done });
   });
@@ -157,7 +174,10 @@ async function create(
         { path: ':workspaceSlug/workflows/runs/:runId', component: ElsewhereComponent },
       ]),
       { provide: BRAND_SETUP_AUTOSAVE_MS, useValue: options.autosaveMs ?? 60_000 },
-      { provide: BrandSetupSessionService, useValue: { getSession: get, saveSession: save, completeSession: complete, deleteSession: del } },
+      {
+        provide: BrandSetupSessionService,
+        useValue: { getSession: get, saveSession: save, completeSession: complete, deleteSession: del },
+      },
       { provide: WorkspaceMembershipService, useValue: memberships(options.role ?? 'Editor', options.slugs ?? [SLUG]) },
       { provide: ConfirmService, useValue: { confirm } },
       // The last step writes a guide through this. Stubbed here so the shell's own specs are about the shell.
@@ -198,8 +218,8 @@ function text(): string {
 
 function button(label: string): HTMLButtonElement | null {
   return (
-    (Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === label) as HTMLButtonElement | undefined) ??
-    null
+    (Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim() === label) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -440,7 +460,7 @@ describe('BrandSetupShellComponent', () => {
       expect(text()).not.toContain('Saved at');
       const alerts = Array.from(root().querySelectorAll('[role="alert"]')).map((a) => a.textContent);
       expect(alerts.some((a) => a?.includes('Not saved'))).toBeTrue();
-      expect(alerts.some((a) => a?.includes("still on this step"))).toBeTrue();
+      expect(alerts.some((a) => a?.includes('still on this step'))).toBeTrue();
       expect(button('Retry')).not.toBeNull();
 
       save.and.callFake(defaultSave);
@@ -557,7 +577,9 @@ describe('BrandSetupShellComponent', () => {
       await create({ url: `/${SLUG}/brand/setup/goals?workflowRun=${RUN}` });
 
       expect(backLink()?.textContent?.replace('←', '').trim()).toBe('Brand settings');
-      const carryOn = Array.from(root().querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'));
+      const carryOn = Array.from(root().querySelectorAll('cp-workflow-return-notice a')).find((a) =>
+        a.textContent?.includes('Carry on with it'),
+      );
       expect(carryOn?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/${RUN}`);
     });
 
@@ -659,7 +681,9 @@ describe('BrandSetupShellComponent', () => {
       // Karma treats a real beforeunload as a page reload, so the registered listener is called directly.
       const add = spyOn(window, 'addEventListener').and.callThrough();
       await create();
-      const listener = add.calls.all().find((call) => call.args[0] === 'beforeunload')?.args[1] as (event: BeforeUnloadEvent) => void;
+      const listener = add.calls.all().find((call) => call.args[0] === 'beforeunload')?.args[1] as (
+        event: BeforeUnloadEvent,
+      ) => void;
       const fire = (): jasmine.Spy => {
         const preventDefault = jasmine.createSpy('preventDefault');
         listener({ preventDefault, returnValue: '' } as unknown as BeforeUnloadEvent);
@@ -717,7 +741,9 @@ describe('BrandSetupShellComponent', () => {
       expect(heading().textContent).toBe('Your examples');
       expect(shell.data().completed).toEqual(['goals', 'style']);
       expect(shell.data().draft['examples']).toEqual({ note: 'mine' });
-      const alert = Array.from(root().querySelectorAll('[role="alert"]')).find((a) => a.textContent?.includes("wasn't deleted"));
+      const alert = Array.from(root().querySelectorAll('[role="alert"]')).find((a) =>
+        a.textContent?.includes("wasn't deleted"),
+      );
       expect(alert).toBeDefined();
       expect(alert?.parentElement?.querySelector('button')?.textContent?.trim()).toBe('Try again');
 
@@ -900,11 +926,14 @@ describe('BrandSetupShellComponent', () => {
   });
 
   describe('workspace isolation', () => {
-    it('never shows or writes workspace A\'s session in workspace B', async () => {
+    it("never shows or writes workspace A's session in workspace B", async () => {
       await create({
         slugs: ['ws-a', 'ws-b'],
         url: '/ws-a/brand/setup/goals',
-        sessions: { 'ws-a': session({ currentStep: 'create', furthestStep: 'create', rowVersion: 'rv-a' }), 'ws-b': null },
+        sessions: {
+          'ws-a': session({ currentStep: 'create', furthestStep: 'create', rowVersion: 'rv-a' }),
+          'ws-b': null,
+        },
       });
       expect(text()).toContain('Pick up where you left off');
 
@@ -924,7 +953,11 @@ describe('BrandSetupShellComponent', () => {
     });
 
     it('discards the result of a write that was still in flight for the other workspace', async () => {
-      await create({ slugs: ['ws-a', 'ws-b'], url: '/ws-a/brand/setup/goals', sessions: { 'ws-a': null, 'ws-b': null } });
+      await create({
+        slugs: ['ws-a', 'ws-b'],
+        url: '/ws-a/brand/setup/goals',
+        sessions: { 'ws-a': null, 'ws-b': null },
+      });
       let release: (value: BrandSetupSessionWriteOutcome) => void = () => undefined;
       save.and.callFake(
         () =>
@@ -952,7 +985,11 @@ describe('BrandSetupShellComponent', () => {
       const edited = { note: 'A only' };
 
       it('writes the pending edit to the ORIGINAL workspace, and never to the new one', async () => {
-        await create({ slugs: ['ws-a', 'ws-b'], url: '/ws-a/brand/setup/goals', sessions: { 'ws-a': null, 'ws-b': null } });
+        await create({
+          slugs: ['ws-a', 'ws-b'],
+          url: '/ws-a/brand/setup/goals',
+          sessions: { 'ws-a': null, 'ws-b': null },
+        });
         await edit(edited);
         expect(save).not.toHaveBeenCalled(); // still inside the debounce
 
@@ -971,7 +1008,11 @@ describe('BrandSetupShellComponent', () => {
       });
 
       it('with the route guard: a failed save keeps the edit, stays put and offers Retry', async () => {
-        await create({ slugs: ['ws-a', 'ws-b'], url: '/ws-a/brand/setup/goals', sessions: { 'ws-a': null, 'ws-b': null } });
+        await create({
+          slugs: ['ws-a', 'ws-b'],
+          url: '/ws-a/brand/setup/goals',
+          sessions: { 'ws-a': null, 'ws-b': null },
+        });
         save.and.resolveTo({ status: 'unavailable' });
         confirm.and.resolveTo(false);
         await edit(edited);

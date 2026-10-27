@@ -134,7 +134,8 @@ function decodeDraftBody(parsed: Record<string, unknown>): ImageStudioDraft | nu
   const images = decodeContentPipelineImagesState(parsed['images']);
   // Work kept before the studio had an idea section carries no idea block, and that means none: the version
   // is not raised for it, for the reason it is not raised for `plannedSubject`.
-  const seed = parsed['seed'] === undefined ? emptyContentPipelineSeedState() : decodeContentPipelineSeedState(parsed['seed']);
+  const seed =
+    parsed['seed'] === undefined ? emptyContentPipelineSeedState() : decodeContentPipelineSeedState(parsed['seed']);
   if (config === null || seed === null || prompt === null || images === null) return null;
 
   const savedAt = parsed['savedAt'];

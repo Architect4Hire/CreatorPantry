@@ -74,7 +74,9 @@ export function range(bounds: { readonly min?: number; readonly max?: number }, 
 /** The entered text must match `expression`. A blank value passes. */
 export function pattern(expression: RegExp, message: string): FormRule {
   return (value) =>
-    typeof value === 'string' && !isBlank(value) && !new RegExp(expression.source, expression.flags.replace('g', '')).test(value)
+    typeof value === 'string' &&
+    !isBlank(value) &&
+    !new RegExp(expression.source, expression.flags.replace('g', '')).test(value)
       ? { code: 'pattern', message }
       : null;
 }

@@ -43,11 +43,7 @@ export class FoodSafetyService {
   private readonly apiBase = inject(ApiBaseService);
 
   /** The warnings for one saved version, by the number the history lists it under. */
-  async read(
-    workspaceSlug: string,
-    recipeId: string,
-    versionNumber: number,
-  ): Promise<FoodSafetyWarningsOutcome> {
+  async read(workspaceSlug: string, recipeId: string, versionNumber: number): Promise<FoodSafetyWarningsOutcome> {
     const url = this.apiBase.url(
       `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/recipes/${encodeURIComponent(recipeId)}` +
         `/versions/${versionNumber}/analysis/food-safety`,

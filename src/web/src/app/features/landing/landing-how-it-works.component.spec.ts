@@ -62,7 +62,7 @@ describe('LandingHowItWorksComponent', () => {
     expect(el.querySelector('.sequence h3')?.textContent).toContain('Custom step');
   });
 
-  it("labels the section by its own heading, giving it an accessible name", async () => {
+  it('labels the section by its own heading, giving it an accessible name', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
     const section = el.querySelector('section')!;

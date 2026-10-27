@@ -83,14 +83,20 @@ export class ContentPipelineBoardStepComponent {
    * The piece of work, or null while there is none — or while the session is still pointed at another
    * workspace, whose work must never be asked about or committed here (.claude/rules/tenancy.md).
    */
-  private readonly contextId = computed(() => (this.holdsThisWorkspace() ? this.session().context()?.id ?? null : null));
+  private readonly contextId = computed(() =>
+    this.holdsThisWorkspace() ? (this.session().context()?.id ?? null) : null,
+  );
 
   protected readonly phase = computed<ReadPhase>(() => (this.contextId() === null ? 'loading' : this.readPhase()));
 
-  private readonly keepers = computed(() => (this.holdsThisWorkspace() ? keeperReferencesOf(this.session().context()) : []));
+  private readonly keepers = computed(() =>
+    this.holdsThisWorkspace() ? keeperReferencesOf(this.session().context()) : [],
+  );
 
   /** Kept pictures that are in the library: the work names the asset each one became. */
-  protected readonly savedCount = computed(() => this.keepers().filter((reference) => reference.kind === 'DamAsset').length);
+  protected readonly savedCount = computed(
+    () => this.keepers().filter((reference) => reference.kind === 'DamAsset').length,
+  );
 
   /** Kept pictures still to be saved. Never negative: a saved picture whose staged copy has gone is not owed. */
   protected readonly unsavedCount = computed(() =>

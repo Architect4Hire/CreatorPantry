@@ -104,7 +104,9 @@ export class ChannelPostPictureComponent {
   protected readonly alt = computed(() => {
     const picture = this.picture();
 
-    return picture.altText ?? (picture.kind === 'GeneratedImage' ? 'A picture you made' : 'A picture from your library');
+    return (
+      picture.altText ?? (picture.kind === 'GeneratedImage' ? 'A picture you made' : 'A picture from your library')
+    );
   });
 
   protected readonly observations = computed<readonly ShownObservation[]>(() =>

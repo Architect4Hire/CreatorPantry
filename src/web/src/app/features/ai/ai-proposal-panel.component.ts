@@ -553,9 +553,7 @@ export class AiProposalPanelComponent {
 
   readonly proposal = computed(() => this.operation()?.proposal ?? null);
 
-  readonly connection = computed<AiStatusConnection>(() =>
-    this.consecutiveFailures() > 0 ? 'degraded' : 'live',
-  );
+  readonly connection = computed<AiStatusConnection>(() => (this.consecutiveFailures() > 0 ? 'degraded' : 'live'));
 
   readonly state = computed<AiProposalPanelState>(() => {
     if (this.requestId() === null) return 'idle';
@@ -570,7 +568,8 @@ export class AiProposalPanelComponent {
     // Client-side facts first: a stale refusal means the diff on screen describes content that is no longer
     // there, whatever the operation's own status still says — until it is decided, which a stale proposal can
     // still be, by declining it.
-    const decided = operation.status === 'Accepted' || operation.status === 'PartiallyAccepted' || operation.status === 'Rejected';
+    const decided =
+      operation.status === 'Accepted' || operation.status === 'PartiallyAccepted' || operation.status === 'Rejected';
     if ((this.sourceStale() && !decided) || (this.knownStale() && operation.status === 'Proposed')) return 'stale';
     if (this.deciding() || this.asking()) return 'deciding';
 
@@ -690,7 +689,10 @@ export class AiProposalPanelComponent {
    * beside the disabled button says so.
    */
   readonly canAcceptAll = computed(
-    () => this.acceptableRows().length > 0 && this.acceptableRows().length === this.rows().length && this.editedCount() === 0,
+    () =>
+      this.acceptableRows().length > 0 &&
+      this.acceptableRows().length === this.rows().length &&
+      this.editedCount() === 0,
   );
 
   readonly acceptAllBlockedReason = computed(() => {
@@ -721,7 +723,6 @@ export class AiProposalPanelComponent {
       operation.scope !== 'Unspecified' &&
       operation.sourceVersionId !== null &&
       this.mayDecide() &&
-
       // A spent allowance cannot pay for the second ask either. Offering the button would offer a refusal.
       !allowanceBlocksNewRequests(this.allowance())
     );
@@ -903,7 +904,10 @@ export class AiProposalPanelComponent {
   /** Names every change, because that is what the server requires an accept-all to confirm. */
   async acceptAll(): Promise<void> {
     if (!this.canAcceptAll()) return;
-    await this.decide('AcceptAll', this.rows().map((row) => row.change.changeId));
+    await this.decide(
+      'AcceptAll',
+      this.rows().map((row) => row.change.changeId),
+    );
   }
 
   /**
@@ -950,7 +954,9 @@ export class AiProposalPanelComponent {
         // The reply's status is the operation's new status, so the panel does not need another read to stop
         // showing actions — and must not keep showing them while it waits for one.
         this.operationSignal.update((operation) =>
-          operation === null ? operation : { ...operation, status: outcome.result.status, statusChangedAt: outcome.result.decidedAt },
+          operation === null
+            ? operation
+            : { ...operation, status: outcome.result.status, statusChangedAt: outcome.result.decidedAt },
         );
         this.selectedIds.set(new Set());
         this.decided.emit(outcome.result);
@@ -999,8 +1005,8 @@ export class AiProposalPanelComponent {
         this.refusalSignal.set({
           kind: 'forbidden',
           message:
-            'Your role in this workspace does not permit deciding this proposal. Nothing was changed. Ask an '
-            + 'editor or the owner to decide it.',
+            'Your role in this workspace does not permit deciding this proposal. Nothing was changed. Ask an ' +
+            'editor or the owner to decide it.',
         });
         return;
 
@@ -1011,8 +1017,7 @@ export class AiProposalPanelComponent {
       case 'validation_failed':
         this.refusalSignal.set({
           kind: 'selection',
-          message:
-            Object.values(outcome.fieldErrors)[0]?.[0] ?? 'That decision could not be recorded as submitted.',
+          message: Object.values(outcome.fieldErrors)[0]?.[0] ?? 'That decision could not be recorded as submitted.',
         });
         return;
 
@@ -1024,8 +1029,8 @@ export class AiProposalPanelComponent {
         this.refusalSignal.set({
           kind: 'unavailable',
           message:
-            "Couldn't reach the server, so whether this was recorded is unconfirmed. Checking now — your "
-            + 'selection is still here.',
+            "Couldn't reach the server, so whether this was recorded is unconfirmed. Checking now — your " +
+            'selection is still here.',
         });
         this.checkAgain();
         return;

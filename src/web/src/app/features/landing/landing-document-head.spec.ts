@@ -17,8 +17,9 @@ describe('the public document head', () => {
 
   /** The content of a `<meta>` named by either attribute, with the file's own line wrapping ignored. */
   function meta(key: string): string | null {
-    const match = head.match(new RegExp(`<meta\\s+(?:name|property)="${key}"\\s+content="([^"]*)"`, 's'))
-      ?? head.match(new RegExp(`<meta\\s*\\n?\\s*(?:name|property)="${key}"\\s*\\n?\\s*content="([^"]*)"`, 's'));
+    const match =
+      head.match(new RegExp(`<meta\\s+(?:name|property)="${key}"\\s+content="([^"]*)"`, 's')) ??
+      head.match(new RegExp(`<meta\\s*\\n?\\s*(?:name|property)="${key}"\\s*\\n?\\s*content="([^"]*)"`, 's'));
     return match ? match[1].replace(/\s+/g, ' ').trim() : null;
   }
 

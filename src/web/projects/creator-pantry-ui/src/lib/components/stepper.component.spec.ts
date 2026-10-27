@@ -92,7 +92,11 @@ describe('CpStepperComponent', () => {
   it('follows the steps it is given as the flow moves on', () => {
     fixture.componentInstance.steps.set(
       STEPS.map((step) =>
-        step.id === 'style' ? { ...step, status: 'done' } : step.id === 'finish' ? { ...step, status: 'current' } : step,
+        step.id === 'style'
+          ? { ...step, status: 'done' }
+          : step.id === 'finish'
+            ? { ...step, status: 'current' }
+            : step,
       ),
     );
     fixture.detectChanges();
@@ -109,7 +113,9 @@ describe('CpStepperComponent', () => {
   });
 
   it('wraps a long step name inside the width it has', () => {
-    fixture.componentInstance.steps.set([{ id: 'long', label: 'Supercalifragilisticexpialidocious'.repeat(3), status: 'current' }]);
+    fixture.componentInstance.steps.set([
+      { id: 'long', label: 'Supercalifragilisticexpialidocious'.repeat(3), status: 'current' },
+    ]);
     fixture.detectChanges();
 
     expect(el.querySelector('cp-stepper')!.scrollWidth).toBeLessThanOrEqual(240);

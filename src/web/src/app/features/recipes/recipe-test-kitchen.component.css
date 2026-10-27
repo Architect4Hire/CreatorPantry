@@ -40,7 +40,6 @@
   line-height: var(--cp-leading-tight);
 }
 
-
 .intro,
 
 /* Why a control is unavailable, next to the control. The flag is decorative; the sentence carries it. */
@@ -67,7 +66,6 @@
   gap: var(--cp-space-4);
   min-width: 0;
 }
-
 
 .detail-header {
   display: flex;

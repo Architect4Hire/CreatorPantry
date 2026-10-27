@@ -43,7 +43,12 @@ export function fieldsOf(card: ContentCard, description: string | null): Content
   return { title: card.title, description, channelKey: card.channelKey, plannedDate: card.plannedDate };
 }
 
-export const EMPTY_CARD_FIELDS: ContentCardFields = { title: '', description: null, channelKey: null, plannedDate: null };
+export const EMPTY_CARD_FIELDS: ContentCardFields = {
+  title: '',
+  description: null,
+  channelKey: null,
+  plannedDate: null,
+};
 
 /** What a creator typed, as it is sent: trimmed, and an emptied optional field as null. */
 export function normalizedFields(fields: ContentCardFields): ContentCardFields {

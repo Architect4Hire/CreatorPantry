@@ -16,7 +16,9 @@ describe('WorkspaceGateComponent', () => {
     navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
     ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.callFake(async () => {});
     loadSpy = jasmine.createSpy('load').and.callFake(async () => {});
-    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
+    createSpy = jasmine
+      .createSpy('create')
+      .and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceGateComponent],
@@ -36,10 +38,19 @@ describe('WorkspaceGateComponent', () => {
     return fixture;
   }
 
-  it('redirects to the first membership\'s workspace slug + dashboard', async () => {
+  it("redirects to the first membership's workspace slug + dashboard", async () => {
     state = {
       status: 'ready',
-      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     };
     await createFixture();
 
@@ -60,7 +71,16 @@ describe('WorkspaceGateComponent', () => {
   it('keeps the card while it takes the creator into their workspace, and says where it is going', async () => {
     state = {
       status: 'ready',
-      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     };
     const fixture = await createFixture();
     const el = fixture.nativeElement as HTMLElement;
@@ -105,12 +125,17 @@ describe('WorkspaceGateComponent', () => {
     navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
     ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.callFake(async () => {});
     loadSpy = jasmine.createSpy('load').and.callFake(async () => {});
-    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
+    createSpy = jasmine
+      .createSpy('create')
+      .and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceGateComponent],
       providers: [
-        { provide: WorkspaceMembershipService, useValue: { state: liveState, ensureLoaded: ensureLoadedSpy, load: loadSpy, create: createSpy } },
+        {
+          provide: WorkspaceMembershipService,
+          useValue: { state: liveState, ensureLoaded: ensureLoadedSpy, load: loadSpy, create: createSpy },
+        },
         { provide: Router, useValue: { navigate: navigateSpy } },
       ],
     }).compileComponents();
@@ -124,7 +149,16 @@ describe('WorkspaceGateComponent', () => {
 
     liveState.set({
       status: 'ready',
-      memberships: [{ workspaceId: 'w9', workspaceSlug: 'new-workspace', workspaceName: 'New', membershipId: 'm9', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w9',
+          workspaceSlug: 'new-workspace',
+          workspaceName: 'New',
+          membershipId: 'm9',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     });
     fixture.detectChanges();
 
@@ -145,15 +179,22 @@ describe('WorkspaceGateComponent', () => {
   it('does not navigate if the component is destroyed before the pending load resolves', async () => {
     state = { status: 'loading' };
     let resolveEnsureLoaded!: () => void;
-    ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.returnValue(new Promise<void>((resolve) => (resolveEnsureLoaded = resolve)));
+    ensureLoadedSpy = jasmine
+      .createSpy('ensureLoaded')
+      .and.returnValue(new Promise<void>((resolve) => (resolveEnsureLoaded = resolve)));
     navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
     loadSpy = jasmine.createSpy('load').and.callFake(async () => {});
-    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
+    createSpy = jasmine
+      .createSpy('create')
+      .and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceGateComponent],
       providers: [
-        { provide: WorkspaceMembershipService, useValue: { state: () => state, ensureLoaded: ensureLoadedSpy, load: loadSpy, create: createSpy } },
+        {
+          provide: WorkspaceMembershipService,
+          useValue: { state: () => state, ensureLoaded: ensureLoadedSpy, load: loadSpy, create: createSpy },
+        },
         { provide: Router, useValue: { navigate: navigateSpy } },
       ],
     }).compileComponents();
@@ -164,7 +205,16 @@ describe('WorkspaceGateComponent', () => {
     fixture.destroy();
     state = {
       status: 'ready',
-      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     };
     resolveEnsureLoaded();
     await Promise.resolve().then(() => Promise.resolve());

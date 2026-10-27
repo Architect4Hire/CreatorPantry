@@ -294,9 +294,7 @@ export class BrandGuideHistoryComponent {
     if (versions.status !== 'ok') {
       // A cursor cannot be refused on a first page, so what remains is a guide this workspace cannot read —
       // unknown and another workspace's, indistinguishable by design — or a request that did not arrive.
-      this.loadStateSignal.set(
-        versions.status === 'not_found' ? { status: 'not_found' } : { status: 'unavailable' },
-      );
+      this.loadStateSignal.set(versions.status === 'not_found' ? { status: 'not_found' } : { status: 'unavailable' });
 
       return;
     }

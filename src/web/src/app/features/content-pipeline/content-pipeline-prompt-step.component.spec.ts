@@ -3,10 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Observable, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
-import {
-  ContentPipelineDraft,
-  emptyContentPipelineDraft,
-} from '../../models/content-pipeline.models';
+import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/content-pipeline.models';
 import { LinkedRecipe } from '../../models/creative-context.models';
 import { BrandLibraryOutcome, BrandSourceDocumentService } from '../../services/brand-source-document.service';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';

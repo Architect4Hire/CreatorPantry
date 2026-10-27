@@ -68,7 +68,15 @@
     <cp-field
       label="How long should it be?"
       [forId]="idPrefix() + '-length'"
-      [hint]="'In words, from ' + limits.min + ' to ' + limits.max + '. Leave it empty for the usual length: ' + usualLength() + '. This is for this piece only.'"
+      [hint]="
+        'In words, from ' +
+        limits.min +
+        ' to ' +
+        limits.max +
+        '. Leave it empty for the usual length: ' +
+        usualLength() +
+        '. This is for this piece only.'
+      "
     >
       <input
         type="number"

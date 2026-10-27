@@ -33,9 +33,7 @@ function readinessPayload(overrides: Record<string, unknown> = {}): Record<strin
         status: 'Blocker',
         summary: 'Two ingredient lines have not been matched.',
         detail: 'Match them so scaling and conversion can work on them.',
-        evidence: [
-          { kind: 'RecipeIngredientLine', recordId: 'l1', fieldName: 'ingredientId', label: '1 glug of oil' },
-        ],
+        evidence: [{ kind: 'RecipeIngredientLine', recordId: 'l1', fieldName: 'ingredientId', label: '1 glug of oil' }],
         severityOverridden: false,
       },
       {

@@ -48,8 +48,10 @@ export const FORBIDDEN = [
   [/\bis safe\b/i, 'a screen may not say a recipe or a dish is safe'],
   [/\bperfectly safe\b|\b100% safe\b|\bfood[- ]safe\b/i, 'an assurance about eating it'],
   [/\bsafe (?:to eat|to serve|for)\b/i, 'an assurance about eating it'],
-  [/\b(?:gluten|dairy|nut|peanut|egg|soy|lactose|wheat|sesame|shellfish|allergen|allergy)[- ]free\b/i,
-    'an absence claim the records cannot support'],
+  [
+    /\b(?:gluten|dairy|nut|peanut|egg|soy|lactose|wheat|sesame|shellfish|allergen|allergy)[- ]free\b/i,
+    'an absence claim the records cannot support',
+  ],
   [/\bhypoallergenic\b|\ballergen[- ](?:safe|friendly)\b/i, 'an absence claim the records cannot support'],
   [/\bcertified?\b/i, 'nothing here is certified'],
   [/\bguarantee[ds]?\b/i, 'nothing here is guaranteed'],
@@ -95,9 +97,7 @@ function templateText(template) {
  * actually writes on screen.
  */
 function componentText(source) {
-  const withoutComments = source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n]*/g, ' ');
+  const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
 
   const literals = withoutComments.match(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g) ?? [];
 
@@ -147,9 +147,7 @@ export function staleDenials(watched) {
 
   const haystack = all.toLowerCase();
 
-  return DENIALS.filter(
-    (denial) => !variants(denial).some((variant) => haystack.includes(variant.toLowerCase())),
-  );
+  return DENIALS.filter((denial) => !variants(denial).some((variant) => haystack.includes(variant.toLowerCase())));
 }
 
 export function check(readFile = (path) => readFileSync(resolve(root, path), 'utf8')) {
@@ -172,9 +170,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     for (const problem of problems) {
       console.error(`  ${problem}`);
     }
-    console.error(
-      '\nSay what the records say, or state the limit as a denial and list that sentence in DENIALS.',
-    );
+    console.error('\nSay what the records say, or state the limit as a denial and list that sentence in DENIALS.');
     process.exit(1);
   }
 

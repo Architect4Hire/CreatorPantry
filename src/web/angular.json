@@ -19,10 +19,7 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "projects/creator-pantry-ui/tsconfig.spec.json",
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
+            "polyfills": ["zone.js", "zone.js/testing"],
             "styles": [
               "projects/creator-pantry-ui/src/lib/styles/tokens.css",
               "projects/creator-pantry-ui/src/lib/styles/themes.css",
@@ -33,10 +30,7 @@
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": [
-              "projects/creator-pantry-ui/**/*.ts",
-              "projects/creator-pantry-ui/**/*.html"
-            ],
+            "lintFilePatterns": ["projects/creator-pantry-ui/**/*.ts", "projects/creator-pantry-ui/**/*.html"],
             "eslintConfig": "projects/creator-pantry-ui/eslint.config.js"
           }
         }
@@ -108,19 +102,13 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "tsconfig.spec.json",
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ]
+            "polyfills": ["zone.js", "zone.js/testing"]
           }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",
           "options": {
-            "lintFilePatterns": [
-              "src/**/*.ts",
-              "src/**/*.html"
-            ]
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
           }
         }
       }

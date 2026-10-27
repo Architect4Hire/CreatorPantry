@@ -60,17 +60,25 @@ export class BrandSetupSessionService {
     if (!url) return { status: 'unavailable' };
 
     try {
-      const response = await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true, observe: 'response' }));
+      const response = await firstValueFrom(
+        this.http.get<unknown>(url, { withCredentials: true, observe: 'response' }),
+      );
       if (response.status === 204) return { status: 'none' };
       const session = decodeBrandSetupSession(response.body);
       return session ? { status: 'found', session } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 
   /** Creates the session when `rowVersion` is null (no If-Match); otherwise replaces it, guarded by If-Match. */
-  saveSession(workspaceSlug: string, body: BrandSetupSessionWrite, rowVersion: string | null): Promise<BrandSetupSessionWriteOutcome> {
+  saveSession(
+    workspaceSlug: string,
+    body: BrandSetupSessionWrite,
+    rowVersion: string | null,
+  ): Promise<BrandSetupSessionWriteOutcome> {
     const url = this.url(workspaceSlug);
     if (!url) return Promise.resolve({ status: 'unavailable' });
     return this.write(this.http.put<unknown>(url, body, this.options(rowVersion)));
@@ -104,7 +112,11 @@ export class BrandSetupSessionService {
     observe: 'response';
     headers?: Record<string, string>;
   } {
-    return { withCredentials: true, observe: 'response', ...(rowVersion ? { headers: { 'If-Match': rowVersion } } : {}) };
+    return {
+      withCredentials: true,
+      observe: 'response',
+      ...(rowVersion ? { headers: { 'If-Match': rowVersion } } : {}),
+    };
   }
 
   /** Any 409 that is not the completed code is the stale-version conflict (`brand_setup_session_conflict`). */

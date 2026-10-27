@@ -138,7 +138,7 @@ Some libraries are sorted before they are listed: every thing in them is in exac
 
 - **`[cpBoard]`** goes on the page's own element and sets its `cp-board-column` children side by side in the order they are written. Columns that do not fit move below, four across to two by two to one, so the page never scrolls sideways; `minColumn` (default `15rem`) widens the floor. A route that holds a board asks for `pageWidth: 'wide'`.
 - **`cp-board-column`** is a region named by its `heading`. `count` is the number of things in the column including any not yet loaded, shown as a figure and read with `countLabel`'s noun ("3 cards"). The default slot takes the feature's own `<ul>`, one `<li>` per card; `[cpBoardColumnFooter]` takes "Load more". `busy` sets `aria-busy` while the column is read or changed.
-- **The card in a column** is a `cp-card` holding an `article`: the title as the link at the heading level below the column's, state as `cp-status-pill` then kind as `cp-badge`, measured and dated values as `dl[cpFacts]` with `layout="inline"`, and its actions last in `.cp-actions`. A card whose state *is* the column it sits in — My Week's, where Waiting is the column and not a property of the card — carries no pill for it; a pill that repeats the heading above it is noise. It is not a `cp-media-card`, whose picture panel is for a library shown by its pictures.
+- **The card in a column** is a `cp-card` holding an `article`: the title as the link at the heading level below the column's, state as `cp-status-pill` then kind as `cp-badge`, measured and dated values as `dl[cpFacts]` with `layout="inline"`, and its actions last in `.cp-actions`. A card whose state _is_ the column it sits in — My Week's, where Waiting is the column and not a property of the card — carries no pill for it; a pill that repeats the heading above it is noise. It is not a `cp-media-card`, whose picture panel is for a library shown by its pictures.
 - **Moving is the feature's, and has two paths.** A pointer drag, with whatever the feature uses for it, and a control on every card that does the same thing from the keyboard: it names the column and the place. The second is the complete path and the first is a shortcut for it; a move that can only be dragged is a defect (SC 2.5.7). Every move is announced in a polite live region, in words: what moved, where to, and whether it was kept.
 - **A column that is empty says why,** in a sentence the feature projects: nothing here yet, or nothing matches the filters. The heading and a count of zero stay.
 - **Loading is the board arriving.** The page projects `[cpListShellLoading]` into its list shell: the same `[cpBoard]` with every column under its real name, no count (no number is claimed before the server gives one), and a few skeleton cards in each — uneven, so it reads as work in columns rather than a table. Each is a `cp-card` holding `cp-skeleton` lines. The shell hides the projection from a screen reader (the page may mark it too); it says "Loading…" once and keeps the body busy, and the columns are named to a screen reader when they are real. A board with more than one view draws the view it is in, and a column named after something the server decides is named without it: My Week's Days view loads as Monday to Sunday, not dated, and compact's This week holds a skeleton row per day.
@@ -216,7 +216,7 @@ A form says what is wrong in two places, and they are one stream of messages: th
 
 **One issue shape.** A `FormIssue` is `{ path, severity, code, message, source }`. `path` is the server's own key (`title`, `ingredientGroups[0].ingredients[2].quantity`), so a refused save lands on the field it names with no translation table. A client rule and a server refusal produce the same shape, and a field never asks which it was.
 
-**Three severities, one of which blocks.** An `error` stops a save; a `warning` and an `info` never do. A warning says something the creator may want to know — a total that disagrees with its parts, an unusually large batch — and leaves the decision to them. Only a *client* error blocks: the server stays the authority, so a client rule that passes proves nothing and a refusal is shown whatever the client thought. Rules are conveniences that answer sooner or say something the server does not; do not mirror a server validator into them, since two copies of a rule drift.
+**Three severities, one of which blocks.** An `error` stops a save; a `warning` and an `info` never do. A warning says something the creator may want to know — a total that disagrees with its parts, an unusually large batch — and leaves the decision to them. Only a _client_ error blocks: the server stays the authority, so a client rule that passes proves nothing and a refusal is shown whatever the client thought. Rules are conveniences that answer sooner or say something the server does not; do not mirror a server validator into them, since two copies of a rule drift.
 
 **When a message shows.** A warning shows as soon as it is true, because live help is its whole point. A client error shows after the creator tries to save or leaves that field, so a blank form is not shouted at before anyone has typed. A server error shows until the creator changes that field.
 
@@ -290,7 +290,7 @@ phone, ordered from what needs the creator now to what is worth a glance.
   run (which resumes on the step it is on), a task in My Day at itself (`?task=`). An item with nowhere of its own
   to go is listed without a link.
 - **A topic that is the reader's own comes first.** Most of a dashboard is the workspace — the same for every
-  member — but the work *this* person was in the middle of and what their own day holds are theirs alone, and they
+  member — but the work _this_ person was in the middle of and what their own day holds are theirs alone, and they
   are what they came to the page for. Those topics lead, the workspace's follow, and the page says whose a topic is
   in its own words ("Carry on where you left off", "Your day") rather than leaving two members to wonder why their
   dashboards differ.
@@ -336,7 +336,7 @@ A page that is none of the three — the recipe editor, the kitchen view, a stud
 Three ways to change something on a detail or settings page, and which one is not a matter of taste.
 
 - **Inline** when the page is the form. Fields the page's own Save writes are on the page, in its form card, and never leave it for a drawer or a dialog. An inline form stays inline.
-- **A drawer** when the creator is changing or adding to *the record on screen* and is better off seeing it while they do: editing a picture's details, logging a use of it, adding a version, replacing an example's file, correcting its text. The drawer has its own Save in its footer and writes on its own.
+- **A drawer** when the creator is changing or adding to _the record on screen_ and is better off seeing it while they do: editing a picture's details, logging a use of it, adding a version, replacing an example's file, correcting its text. The drawer has its own Save in its footer and writes on its own.
 - **A dialog** when the task does not need the page: a short question with a field or two ("Write with version 3?" and why), picking one thing from a list (a logo), or creating something that does not exist yet (upload a picture, add an example). A yes-or-no with nothing to type is `ConfirmService`, not a dialog.
 
 What a form owes the drawer it sits in:
@@ -352,7 +352,7 @@ Three surfaces can hold a task, and which one is decided by what the creator nee
 
 **A page** is where the task is the destination. Use it when the creator would link to it, come back to it or leave it half done; when it is more than one screen of fields or more than one step; or when it needs the full width. A form the page's own Save writes is part of that page and never leaves it.
 
-**A drawer** (`CpDrawerComponent`) holds one task the creator does *about the page while still reading it*: a small edit to the record on screen, a preview of something in a library, a tool run beside the thing it works on. It has its own actions in its footer, and they finish the task. `standard` (`--cp-drawer-width`, `30rem`) for a short form; `wide` (`--cp-drawer-width-wide`, `48rem`) for a comparison or a preview. A drawer never holds a form the page's Save writes, a confirmation, navigation or a multi-step flow, and it is not a way to tidy a busy page. It may open on a choice of *which* task — the recipe editor's Tools drawer lists its seven tools first — because choosing the task is not a second task; what it may not do is lead from one finished task into another. Nothing opens on top of a drawer except a confirmation.
+**A drawer** (`CpDrawerComponent`) holds one task the creator does _about the page while still reading it_: a small edit to the record on screen, a preview of something in a library, a tool run beside the thing it works on. It has its own actions in its footer, and they finish the task. `standard` (`--cp-drawer-width`, `30rem`) for a short form; `wide` (`--cp-drawer-width-wide`, `48rem`) for a comparison or a preview. A drawer never holds a form the page's Save writes, a confirmation, navigation or a multi-step flow, and it is not a way to tidy a busy page. It may open on a choice of _which_ task — the recipe editor's Tools drawer lists its seven tools first — because choosing the task is not a second task; what it may not do is lead from one finished task into another. Nothing opens on top of a drawer except a confirmation.
 
 **A dialog** (`CpDialogComponent`) hosts one short thing that does not need the page in view: creating something new from a few fields, or picking one thing from a list. It interrupts, so it is brief.
 
@@ -384,14 +384,14 @@ by hand.
 
 **A tool has one tone (D1).** Five creative tools wear a fruit accent, and nothing else does:
 
-| Tool | Tone |
-| --- | --- |
-| AI Recipe Studio | purple |
-| Image Studio | pink |
-| Social Studio | blue |
-| Long-form, Content Pipeline | orange |
-| Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week, the dashboard | none: evergreen |
-| Workflows hub, a guided run, Quick Recipe, Workspace settings, AI allowance | none: evergreen (not named by D1; untoned by default) |
+| Tool                                                                                    | Tone                                                  |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| AI Recipe Studio                                                                        | purple                                                |
+| Image Studio                                                                            | pink                                                  |
+| Social Studio                                                                           | blue                                                  |
+| Long-form, Content Pipeline                                                             | orange                                                |
+| Recipes, Pictures, Content Board, Brand, Prompt Library, My Day, My Week, the dashboard | none: evergreen                                       |
+| Workflows hub, a guided run, Quick Recipe, Workspace settings, AI allowance             | none: evergreen (not named by D1; untoned by default) |
 
 - **The route owns it.** A route declares `data: { tone }` — on a section's parent route, so every page below it
   inherits the tone — and the shell's page frame sets `data-cp-tone` inside `<main>`, the deepest route that
@@ -530,29 +530,29 @@ Before anything else about a new page, say which of the three shapes it is — a
 
 `scripts/check-page-contract.mjs` runs first in `npm test` and fails the run when a page drifts from this section. Karma runs in a browser and cannot read a stylesheet from disk, which is why it is a script and not a spec; `scripts/check-page-contract.test.mjs` runs before it and proves each rule still fires. Two rules judge routed pages only, and the rest judge every template and stylesheet under `src/app` inside the shell, because a part redrawn in a child component is still redrawn. The public pages under `features/landing/` are judged by every part rule and by the three `public-*` rules in place of `frame`, `one-h1` and `page-head`.
 
-| Rule | Fails when | Use instead |
-| --- | --- | --- |
-| `frame` | a routed page's `:host` sets `padding`, `margin`, `width`, `max-width` or their logical forms | the shell's frame, and `data: { pageWidth }` on the route |
-| `one-h1` | any template renders an `<h1>` | `cp-page-head`, which prints the one `h1` |
-| `page-head` | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back`, `.breadcrumb`, or an icon tile or head picture of its own (`.page-icon`, `.head-icon`, `.title-icon`, `.head-media`, `.page-media`, `.title-media`) | `cp-page-head` and `a[cpBackLink]` |
-| `card-grid` | a stylesheet styles `.grid`, `.card-grid` or `.cards`, or lays out a `repeat(auto-fill, …)` or `repeat(auto-fit, …)` grid | `ul[cpCardGrid]`; `cp-field-row` for short fields; `dl[cpFacts]` for terms and values |
-| `facts` | a stylesheet styles `.facts` or `.fact` | `dl[cpFacts]` of `div[cpFact]` |
-| `toolbar-field` | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field` | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label |
-| `board` | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban` | `cp-board-column` inside `[cpBoard]` |
-| `stepper` | a stylesheet styles `.step-list`, `.steps` or `.stepper` | `cp-stepper` |
-| `chip` | a stylesheet styles `.chip` or `.chips` | `button[cpChip]` in a `[cpChipGroup]` |
-| `option-card` | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's old `.concept-card`, `.concept-title` or `.concept-dietary` | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer |
-| `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
-| `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
-| `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
-| `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
-| `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
-| `loading` | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
-| `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
-| `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
-| `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
-| `public-frame` | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged | the `--cp-public-*` tokens ("The public page") |
-| `public-control` | a public template renders a `<button>` without `cpButton` | `<button cpButton>` or `<a cpButton>` |
+| Rule             | Fails when                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Use instead                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frame`          | a routed page's `:host` sets `padding`, `margin`, `width`, `max-width` or their logical forms                                                                                                                                                                                                                                                                                                                                                                      | the shell's frame, and `data: { pageWidth }` on the route                                                                                                         |
+| `one-h1`         | any template renders an `<h1>`                                                                                                                                                                                                                                                                                                                                                                                                                                     | `cp-page-head`, which prints the one `h1`                                                                                                                         |
+| `page-head`      | a routed page has no `cp-page-head` or renders a `<header>`; a stylesheet styles `.page-head`, `.page-header`, `.page-title`, `.back`, `.breadcrumb`, or an icon tile or head picture of its own (`.page-icon`, `.head-icon`, `.title-icon`, `.head-media`, `.page-media`, `.title-media`)                                                                                                                                                                         | `cp-page-head` and `a[cpBackLink]`                                                                                                                                |
+| `card-grid`      | a stylesheet styles `.grid`, `.card-grid` or `.cards`, or lays out a `repeat(auto-fill, …)` or `repeat(auto-fit, …)` grid                                                                                                                                                                                                                                                                                                                                          | `ul[cpCardGrid]`; `cp-field-row` for short fields; `dl[cpFacts]` for terms and values                                                                             |
+| `facts`          | a stylesheet styles `.facts` or `.fact`                                                                                                                                                                                                                                                                                                                                                                                                                            | `dl[cpFacts]` of `div[cpFact]`                                                                                                                                    |
+| `toolbar-field`  | a stylesheet styles `.search-field`, `.select-field` or `input[type=search]`; a search input sits outside both `cp-search-field` and `cp-field`                                                                                                                                                                                                                                                                                                                    | `cp-search-field` and `cp-select-field` in a toolbar; `cp-field` where the search has a visible label                                                             |
+| `board`          | a stylesheet styles `.board`, `.board-column`, `.lane`, `.lanes` or `.kanban`                                                                                                                                                                                                                                                                                                                                                                                      | `cp-board-column` inside `[cpBoard]`                                                                                                                              |
+| `stepper`        | a stylesheet styles `.step-list`, `.steps` or `.stepper`                                                                                                                                                                                                                                                                                                                                                                                                           | `cp-stepper`                                                                                                                                                      |
+| `chip`           | a stylesheet styles `.chip` or `.chips`                                                                                                                                                                                                                                                                                                                                                                                                                            | `button[cpChip]` in a `[cpChipGroup]`                                                                                                                             |
+| `option-card`    | a stylesheet styles `.option-card`, `.option-cards`, `.variant-card` or the concept studio's old `.concept-card`, `.concept-title` or `.concept-dietary`                                                                                                                                                                                                                                                                                                           | `cp-option-card` in a `ul[cpCardGrid]`; `cp-choice-group` for a form's answer                                                                                     |
+| `stat-tile`      | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles`                                                                                                                                                                                                                                                                                                                                             | `cp-stat-tile` in a `ul[cpCardGrid]`                                                                                                                              |
+| `drawer`         | a feature stylesheet sets `position: fixed` or slides with `translateX`                                                                                                                                                                                                                                                                                                                                                                                            | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture                                                                                                          |
+| `illustration`   | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>`                                                                                                                                                                                                               | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel                                                                                  |
+| `generated`      | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen                                                                                                                                   | `cp-generated-label`, or `cp-generated` around the output                                                                                                         | `cp-generated-label`, or `cp-generated` around the output |
+| `skeleton`       | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position`                                                                                                                                                                                                                                                                                           | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout`                                                                                                               |
+| `loading`        | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
+| `tone`           | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption)                                                                                                                                                                                                                                                                                                                    | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on`                                                                                          |
+| `utilities`      | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions`                                                                                                                                                                                                                                                                                                                                                      | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size                                       |
+| `public-h1`      | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one                                                                                                                                                                                                                                                                                                                       | the hero's `h1`, or the legal document's title; sections start at `h2`                                                                                            |
+| `public-frame`   | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged                                                                                                     | the `--cp-public-*` tokens ("The public page")                                                                                                                    |
+| `public-control` | a public template renders a `<button>` without `cpButton`                                                                                                                                                                                                                                                                                                                                                                                                          | `<button cpButton>` or `<a cpButton>`                                                                                                                             |
 
 The class-name rules are by name on purpose: the names are the ones 94 stylesheets used for these parts, and a private rule under one of them is how each was redrawn. A thing that merely shares a name — a line of file details called `.facts` — is renamed for what it is.
 
@@ -560,7 +560,7 @@ A rule is never loosened to let a file through. The file is fixed, or it is list
 
 ## Confirmations
 
-A confirmation — a question with two answers, one of which loses work the creator cannot recover — is a SweetAlert2 modal raised by `ConfirmService` (`src/app/core/confirm.service.ts`), never hand-built markup and never `CpDialogComponent`. `CpDialogComponent` stays the right surface for a modal that *hosts* something, such as the workspace-creation form.
+A confirmation — a question with two answers, one of which loses work the creator cannot recover — is a SweetAlert2 modal raised by `ConfirmService` (`src/app/core/confirm.service.ts`), never hand-built markup and never `CpDialogComponent`. `CpDialogComponent` stays the right surface for a modal that _hosts_ something, such as the workspace-creation form.
 
 The popup is appended to `<body>`, outside Angular's style encapsulation, so it is themed in `src/styles.css` through the `cp-swal*` class names with `buttonsStyling: false`. Every value there is a `--cp-*` token, which is what makes a confirmation follow `data-cp-theme` into dark mode rather than arriving in SweetAlert2's own palette. Confirm wording names the action ("Discard changes"), never "OK"; the cancelling button holds focus; and dismissing by Escape, backdrop or close always means "stay".
 
@@ -592,7 +592,7 @@ Three things follow, and they are decisions rather than oversights:
 - **The 2px gap is what separates the ring from the control it rings, not the ring's colour.** A focused primary
   button is green fill, 2px of page, green ring — the ring is 1:1 against the fill it haloes. The page showing
   between them is 5.05:1 (light) and 8.70:1 (dark) against both, which is what makes the indicator findable. A
-  single colour that cleared 3:1 against the surfaces *and* against the primary fill would have to be near-black
+  single colour that cleared 3:1 against the surfaces _and_ against the primary fill would have to be near-black
   in the light theme, and in the dark theme does not exist: clearing 3:1 against `#48d593` needs a luminance at
   or under 0.137 and clearing it against the charcoal page `#202020` needs 0.143 or over.
 - **Nothing re-declares the ring, a card included.** Until AU.2.2 a dark `cp-card` was parchment, where the mint
@@ -686,7 +686,7 @@ length, so in a single column it carries a `cp-anchor-nav` over its sections, a 
 reader down the page. Every section stays rendered, so jumping mounts nothing and
 loses no edit.
 
-On a card wide enough that one column would leave a column's width empty down the whole page, the *sections* sit
+On a card wide enough that one column would leave a column's width empty down the whole page, the _sections_ sit
 side by side instead, fields still stacked inside each: the long section takes one column for its full height and
 the rest stack in the other. There the nav is hidden, because the whole form is on screen and a nav that only
 repeats what is visible is clutter. The DOM order is unchanged, so the tab and reading order are the order they
@@ -698,11 +698,11 @@ Type in a form is deliberate: a field's label is `--cp-font-size-sm` bold, its h
 regular, and a section's intro `--cp-font-size-md`. A hint at the extra-small size read as fine print next to the
 label it explains; that is not a size to go back to.
 
-A `cp-field-row` is the exception, not the tool for tidying a long form. It is for values that are short *and*
+A `cp-field-row` is the exception, not the tool for tidying a long form. It is for values that are short _and_
 read as one set: three durations, a quantity and its unit. Prose, lists and anything with a `textarea` stay
 stacked, however many of them there are — `Description` and `Headnote` sit one above the other in the recipe
 editor for that reason, and four comma-separated list fields belong in a column too. Widen `minColumn` when a
-row's fields need more room than the 14rem floor. A row of *quantities* — minutes, a serving count, an amount —
+row's fields need more room than the 14rem floor. A row of _quantities_ — minutes, a serving count, an amount —
 sets `columns` too, because a row that shares the card out reaches past the right edge every field above it keeps
 to, and puts a two-digit number in a box a third of the card wide. `[columns]="4"` holds the row to the measure and
 divides it into four equal columns, so a quantity is a quarter of the line wherever it appears and lines up
@@ -713,14 +713,14 @@ yield's own wording and the serving count — shares a row as `cp-span-3` plus o
 a child the whole row below 30rem, where three columns no longer exist. Put the unit in the section's intro rather than every label, so the
 labels fit a column.
 
-A field projected straight into a section is capped at the measure; a field inside a *component* projected
+A field projected straight into a section is capped at the measure; a field inside a _component_ projected
 there is that component's business and is left alone, which is why the measure rule stops at a direct child.
 
 Optionality is stated once, in a legend above the sections, never field by field: marking one optional field
 among a dozen unmarked ones makes the rest read as required. Which way round the legend runs depends on the
 form — the recipe editor marks its three required fields, the AI brief says every field is optional.
 
-A form inside a multi-step flow puts that legend in the *shell* rather than in each step, with its text on the
+A form inside a multi-step flow puts that legend in the _shell_ rather than in each step, with its text on the
 step's own definition: one implementation, and no step can forget it. `BrandSetupShellComponent` does this —
 the legend is printed inside the step's topic card, above the step's sections — and it is why none of its
 steps marks a field optional. `ContentPipelineShellComponent` does the same.
@@ -735,7 +735,7 @@ Tone never carries the meaning on its own. Each of `neutral | success | warning 
 as a fill, because someone who cannot tell two hues apart still has to be able to tell "saved" from "could not
 save"; a consumer may replace the glyph but not switch it off. Liveness is the consumer's: it sets
 `role="status"` or `role="alert"`, since only the consumer knows whether the sentence interrupts. A live region
-also has to be in the DOM *before* it has text to be announced reliably, which is what `quiet` is for — it
+also has to be in the DOM _before_ it has text to be announced reliably, which is what `quiet` is for — it
 holds the place without a fill, padding or glyph. Content is projected, so an inline `Reload latest` sits in the
 flow of the sentence it belongs to rather than under it.
 
@@ -769,7 +769,7 @@ about the record, not the mark.
 - **Neutral, never a tone.** The label's edge and the surface's are a dashed `--cp-border-control`: the edge a
   creator already reads as "you can change this", dashed because a draft is not finished. Purple would put a
   second tone on four toned tools and make a tone mean "made by AI", which "Warmth inside the app" rules out.
-  A record whose *kind* is AI-made — a DAM asset, a prompt's source — keeps its `cp-badge`: that is what the
+  A record whose _kind_ is AI-made — a DAM asset, a prompt's source — keeps its `cp-badge`: that is what the
   thing is, not a draft awaiting a decision.
 - **Provenance is the feature's text.** What made it and when, composed from what the server returned
   ("Venice, flux-dev", "gpt-4o · 25 Oct, 08:30"), and left out rather than guessed when it returned none. Never a
@@ -794,7 +794,7 @@ A grid track declared `auto` — which is what every `display: grid` gets when n
 ### Composing a control into `CpFieldComponent`
 
 `CpFieldComponent` owns the label, hint and error of a field, and styles any `input`, `select` or `textarea`
-below it. A control that is more than one element — a combobox with a popup, say — composes *inside* it rather
+below it. A control that is more than one element — a combobox with a popup, say — composes _inside_ it rather
 than replacing it: the consumer passes the field's `forId` to the control, which puts that id on the real input,
 so the label labels the thing a screen reader lands on. `CpComboboxComponent` is the reference.
 
@@ -805,7 +805,7 @@ supported inside a field — used bare, its input is unstyled, which is a defect
 the control.
 
 And because it inherits the field's ordinary input styling, it has to say that it is more than an input. A
-combobox that looks exactly like a text box *is* a text box as far as anyone can tell: a creator clicks it,
+combobox that looks exactly like a text box _is_ a text box as far as anyone can tell: a creator clicks it,
 nothing happens, and the picker is reported missing. So a composed control carries its own affordance — a
 caret, and a pointer gesture that opens it — while leaving keyboard focus alone, since tabbing past a field is
 not a request to open anything.
@@ -834,7 +834,7 @@ belongs in one library component rather than in each feature's stylesheet. `CpCh
 reference: the real input stays in the DOM, focusable and in the accessibility tree, and is only visually
 replaced by a box beside it, so keyboard behaviour and what a screen reader announces stay the browser's. Its label is control-sized; a surface read from further away sets `--cp-checkbox-font-size` on the host to a type token.
 
-`CpChoiceGroupComponent` is the same rule applied to a *set* of answers, and the shape to reach for whenever a
+`CpChoiceGroupComponent` is the same rule applied to a _set_ of answers, and the shape to reach for whenever a
 form asks the creator to choose rather than to type. Its options are **tiles**: the whole option is the target,
 which is what keeps an option carrying a label, a line about what it means and a sample sentence scannable, and
 what gets it past 40px without each feature inventing padding. A picked tile fills `--cp-primary-soft` behind an
@@ -843,21 +843,21 @@ gesture as the rest of the product. It takes one answer or several, and a `max` 
 the cap rather than letting a pick disappear.
 
 A single-answer group has no deselect — a radio cannot be unticked by clicking it — so a question that must be
-answerable with *no answer* gives that its own option. The brand questionnaire's "Not sure yet" is one, and it
+answerable with _no answer_ gives that its own option. The brand questionnaire's "Not sure yet" is one, and it
 stands for the empty answer rather than being stored as a choice.
 
-A choice group is a form's answer. Comparing rich alternatives where choosing *does* something — a studio's
+A choice group is a form's answer. Comparing rich alternatives where choosing _does_ something — a studio's
 concepts — is `CpOptionCardComponent` instead ("Choosing between options").
 
 ### Tabs, anchor navs, and one Save
 
-Tabs switch between alternative views of a thing. The danger in using them for parts of *one* form that a single Save writes is that a panel nobody clicked can hide unsaved edits and validation errors, leaving a "there are unsaved changes" indicator able to say only that *something* changed, never where. That danger is answerable, and `RecipeEditorComponent` is the reference for how: its `Edit` area is split into General, Ingredients and Instructions tabs, and
+Tabs switch between alternative views of a thing. The danger in using them for parts of _one_ form that a single Save writes is that a panel nobody clicked can hide unsaved edits and validation errors, leaving a "there are unsaved changes" indicator able to say only that _something_ changed, never where. That danger is answerable, and `RecipeEditorComponent` is the reference for how: its `Edit` area is split into General, Ingredients and Instructions tabs, and
 
 - dirty state and the baseline snapshot are per **form**, never per panel, so the indicator lights for an edit in any tab and one Save writes all of them;
 - a field error reveals itself — `revealFirstFieldError()` selects the tab holding the field before scrolling to and focusing it, which it must, because a panel renders its content only once its tab has been selected and keeps it merely `hidden` afterwards;
 - panels stay mounted once opened, so no edit is discarded by looking somewhere else.
 
-Without those three, prefer one scrolling surface. Tabs stay the right control for the genuinely separate journeys beside the form (Media, History, Test kitchen, Readiness, Publish), which read a *saved* recipe.
+Without those three, prefer one scrolling surface. Tabs stay the right control for the genuinely separate journeys beside the form (Media, History, Test kitchen, Readiness, Publish), which read a _saved_ recipe.
 
 The recipe's tools are not one of those tabs. Scaling, converting, yield and display, and the four AI requests used to be a tab holding a second tab set of seven; they are now one **Tools** control in the page head that opens the wide drawer beside the recipe, so a scaled recipe or a proposed change is read next to the recipe it was made from and the editor has one level of tabs fewer. What holds for it:
 

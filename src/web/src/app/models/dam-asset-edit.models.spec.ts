@@ -83,9 +83,12 @@ describe('DAM asset edit models', () => {
     });
 
     it('names each field that changed', () => {
-      expect(
-        damMetadataChanges(draft(), draft({ title: 'New', altText: '', day: null, tagIds: ['t1'] })),
-      ).toEqual(['title', 'altText', 'day', 'tagIds']);
+      expect(damMetadataChanges(draft(), draft({ title: 'New', altText: '', day: null, tagIds: ['t1'] }))).toEqual([
+        'title',
+        'altText',
+        'day',
+        'tagIds',
+      ]);
     });
   });
 
@@ -105,7 +108,12 @@ describe('DAM asset edit models', () => {
     it('sends an emptied field as null, which is how the route is told to clear it', () => {
       const body = encodeDamAssetPatch('token-1', draft(), draft({ altText: '   ', rightsHolder: '', channelKey: '' }));
 
-      expect(body).toEqual({ expectedConcurrencyToken: 'token-1', altText: null, channelKey: null, rightsHolder: null });
+      expect(body).toEqual({
+        expectedConcurrencyToken: 'token-1',
+        altText: null,
+        channelKey: null,
+        rightsHolder: null,
+      });
     });
 
     it('clears the day with null and sets it by name', () => {
@@ -122,7 +130,15 @@ describe('DAM asset edit models', () => {
     it('never carries a workspace, an owner, a kind or anything about the bytes', () => {
       const body = encodeDamAssetPatch('t', draft(), draft({ title: 'x', description: 'y', tagIds: [] }));
 
-      for (const banned of ['workspaceId', 'kind', 'mediaType', 'versionNumber', 'objectKey', 'cuisineId', 'courseId']) {
+      for (const banned of [
+        'workspaceId',
+        'kind',
+        'mediaType',
+        'versionNumber',
+        'objectKey',
+        'cuisineId',
+        'courseId',
+      ]) {
         expect(Object.keys(body)).not.toContain(banned);
       }
     });
@@ -132,7 +148,17 @@ describe('DAM asset edit models', () => {
     it('accepts a draft with only a title', () => {
       expect(
         validateDamMetadataDraft(
-          draft({ description: '', altText: '', channelKey: '', platformKey: '', styleKey: '', rightsHolder: '', attributionText: '', day: null, tagIds: [] }),
+          draft({
+            description: '',
+            altText: '',
+            channelKey: '',
+            platformKey: '',
+            styleKey: '',
+            rightsHolder: '',
+            attributionText: '',
+            day: null,
+            tagIds: [],
+          }),
         ),
       ).toEqual({});
     });
@@ -145,7 +171,9 @@ describe('DAM asset edit models', () => {
       const at = (length: number): string => 'x'.repeat(length);
 
       expect(validateDamMetadataDraft(draft({ title: at(DAM_ASSET_LIMITS.titleMaxLength) }))).toEqual({});
-      expect(validateDamMetadataDraft(draft({ title: at(DAM_ASSET_LIMITS.titleMaxLength + 1) })).title).toContain('200');
+      expect(validateDamMetadataDraft(draft({ title: at(DAM_ASSET_LIMITS.titleMaxLength + 1) })).title).toContain(
+        '200',
+      );
       expect(validateDamMetadataDraft(draft({ description: at(2001) })).description).toContain('2000');
       expect(validateDamMetadataDraft(draft({ altText: at(1001) })).altText).toContain('1000');
       expect(validateDamMetadataDraft(draft({ platformKey: at(65) })).platformKey).toContain('64');
@@ -204,7 +232,9 @@ describe('DAM asset edit models', () => {
     });
 
     it('carries nothing but the id and the name', () => {
-      const tags = decodeWorkspaceTags([{ id: 't1', name: 'Weeknight', workspaceId: 'w1', normalizedName: 'weeknight' }]);
+      const tags = decodeWorkspaceTags([
+        { id: 't1', name: 'Weeknight', workspaceId: 'w1', normalizedName: 'weeknight' },
+      ]);
 
       expect(Object.keys(tags?.[0] ?? {})).toEqual(['id', 'name']);
     });

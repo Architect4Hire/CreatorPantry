@@ -13,11 +13,41 @@ import { scheduledLocalText, scheduledUtcText, zonedToInstant } from './publishi
 const AHEAD = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
 
 const PROFILES: PublishingProfiles = {
-  connection: { providerKey: 'buffer', status: 'Connected', lastCheckedAt: null, lastSucceededAt: null, retryAfterSeconds: null },
+  connection: {
+    providerKey: 'buffer',
+    status: 'Connected',
+    lastCheckedAt: null,
+    lastSucceededAt: null,
+    retryAfterSeconds: null,
+  },
   profiles: [
-    { id: 'prof-ig', providerKey: 'buffer', platform: 'Instagram', displayName: 'Cozy Fall', timeZoneId: null, status: 'Ready', lastSeenAt: '2026-10-13T10:00:00Z' },
-    { id: 'prof-x', providerKey: 'buffer', platform: 'Twitter', displayName: 'Cozy Fall on X', timeZoneId: null, status: 'Ready', lastSeenAt: '2026-10-13T10:00:00Z' },
-    { id: 'prof-fb', providerKey: 'buffer', platform: 'Facebook', displayName: 'Cozy Fall page', timeZoneId: null, status: 'Ready', lastSeenAt: '2026-10-13T10:00:00Z' },
+    {
+      id: 'prof-ig',
+      providerKey: 'buffer',
+      platform: 'Instagram',
+      displayName: 'Cozy Fall',
+      timeZoneId: null,
+      status: 'Ready',
+      lastSeenAt: '2026-10-13T10:00:00Z',
+    },
+    {
+      id: 'prof-x',
+      providerKey: 'buffer',
+      platform: 'Twitter',
+      displayName: 'Cozy Fall on X',
+      timeZoneId: null,
+      status: 'Ready',
+      lastSeenAt: '2026-10-13T10:00:00Z',
+    },
+    {
+      id: 'prof-fb',
+      providerKey: 'buffer',
+      platform: 'Facebook',
+      displayName: 'Cozy Fall page',
+      timeZoneId: null,
+      status: 'Ready',
+      lastSeenAt: '2026-10-13T10:00:00Z',
+    },
   ],
 };
 
@@ -107,7 +137,11 @@ describe('ContentCardScheduleDrawerComponent, inline on a guided step (13A.22)',
         {
           provide: PublishingService,
           useValue: {
-            schedule: (_slug: string, input: SchedulePublishingInput, key: string): Observable<SchedulePublishingOutcome> => {
+            schedule: (
+              _slug: string,
+              input: SchedulePublishingInput,
+              key: string,
+            ): Observable<SchedulePublishingOutcome> => {
               sent.push({ input, key });
               return of(outcome);
             },
@@ -123,7 +157,9 @@ describe('ContentCardScheduleDrawerComponent, inline on a guided step (13A.22)',
   it('draws in place, with its own Schedule and no drawer', () => {
     expect(el().querySelector('[role="dialog"]')).toBeNull();
     expect(el().querySelector('#content-card-schedule-profile')).not.toBeNull();
-    expect(Array.from(el().querySelectorAll('button')).some((each) => each.textContent?.trim() === 'Schedule')).toBeTrue();
+    expect(
+      Array.from(el().querySelectorAll('button')).some((each) => each.textContent?.trim() === 'Schedule'),
+    ).toBeTrue();
     expect(el().textContent).toContain('Times are in America/Chicago');
   });
 
@@ -163,13 +199,15 @@ describe('ContentCardScheduleDrawerComponent, inline on a guided step (13A.22)',
     await settle();
 
     expect(sent.length).toBe(1);
-    expect(sent[0].input).toEqual(jasmine.objectContaining({
-      contentCardId: 'card-1',
-      publishingProfileId: 'prof-ig',
-      expectedPlatform: 'Instagram',
-      text: 'Kept for Instagram.',
-      scheduledAt: zonedToInstant(AHEAD, '08:30', 'America/Chicago')!,
-    }));
+    expect(sent[0].input).toEqual(
+      jasmine.objectContaining({
+        contentCardId: 'card-1',
+        publishingProfileId: 'prof-ig',
+        expectedPlatform: 'Instagram',
+        text: 'Kept for Instagram.',
+        scheduledAt: zonedToInstant(AHEAD, '08:30', 'America/Chicago')!,
+      }),
+    );
     expect(fixture.componentInstance.confirmed()?.id).toBe('rec-1');
     expect(fixture.componentInstance.form()!.typed()).withContext('the form starts again').toBeFalse();
   });
@@ -199,7 +237,13 @@ describe('ContentCardScheduleDrawerComponent, inline on a guided step (13A.22)',
     const soon = new Date(Date.now() + 60_000);
     const pad = (value: number) => String(value).padStart(2, '0');
     const local = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     }).formatToParts(soon);
     const part = (type: string) => local.find((each) => each.type === type)!.value;
     await type('content-card-schedule-date', `${part('year')}-${part('month')}-${part('day')}`);

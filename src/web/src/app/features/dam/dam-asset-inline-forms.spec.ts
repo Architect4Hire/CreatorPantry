@@ -105,8 +105,27 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
 
     TestBed.configureTestingModule({
       providers: [
-        { provide: DamAssetService, useValue: { patchMetadata: patch, logUtilization: log, detail: () => of({ status: 'found', asset: asset({ title: 'Theirs', concurrencyToken: 'token-2' }) }) } },
-        { provide: WorkspaceTagService, useValue: { list: () => Promise.resolve({ status: 'found', tags: [{ id: 't1', name: 'Weeknight' }, { id: 't2', name: 'Baking' }] }) } },
+        {
+          provide: DamAssetService,
+          useValue: {
+            patchMetadata: patch,
+            logUtilization: log,
+            detail: () => of({ status: 'found', asset: asset({ title: 'Theirs', concurrencyToken: 'token-2' }) }),
+          },
+        },
+        {
+          provide: WorkspaceTagService,
+          useValue: {
+            list: () =>
+              Promise.resolve({
+                status: 'found',
+                tags: [
+                  { id: 't1', name: 'Weeknight' },
+                  { id: 't2', name: 'Baking' },
+                ],
+              }),
+          },
+        },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
       ],
     });
@@ -136,7 +155,10 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
     });
 
     it('saves only what changed on Continue, quoting the token it read, and stays open on what the server answered', async () => {
-      patch.and.resolveTo({ status: 'updated', asset: asset({ altText: 'A torn loaf.', concurrencyToken: 'token-2' }) });
+      patch.and.resolveTo({
+        status: 'updated',
+        asset: asset({ altText: 'A torn loaf.', concurrencyToken: 'token-2' }),
+      });
       await mount('edit');
       await type('cp-dam-edit-alt-text', 'A torn loaf.');
       expect(host.edit()!.dirty()).toBeTrue();
@@ -151,7 +173,10 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
       expect(el().querySelector('#cp-dam-edit-alt-text')).withContext('still open').not.toBeNull();
 
       // The next save quotes the token the server gave.
-      patch.and.resolveTo({ status: 'updated', asset: asset({ altText: 'A torn loaf, again.', concurrencyToken: 'token-3' }) });
+      patch.and.resolveTo({
+        status: 'updated',
+        asset: asset({ altText: 'A torn loaf, again.', concurrencyToken: 'token-3' }),
+      });
       await type('cp-dam-edit-alt-text', 'A torn loaf, again.');
       await host.edit()!.saveForStep();
       expect(patch.calls.mostRecent().args[2]['expectedConcurrencyToken']).toBe('token-2');
@@ -167,7 +192,9 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
 
       expect(el().textContent).toContain('Someone else changed this picture while you were editing');
       expect(el().querySelector<HTMLTextAreaElement>('#cp-dam-edit-alt-text')!.value).toBe('Mine.');
-      expect(await host.edit()!.saveForStep()).withContext('not again until the latest is loaded').toBeFalse();
+      expect(await host.edit()!.saveForStep())
+        .withContext('not again until the latest is loaded')
+        .toBeFalse();
       expect(patch).toHaveBeenCalledTimes(1);
     });
 
@@ -201,7 +228,17 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
     });
 
     it('logs what was entered on Continue, once, and empties for the next use', async () => {
-      log.and.resolveTo({ status: 'logged', use: { id: 'u1', platformKey: 'instagram', utilizedOn: '2026-10-15', utilizedDay: 'Thursday', campaignName: null, notes: null } });
+      log.and.resolveTo({
+        status: 'logged',
+        use: {
+          id: 'u1',
+          platformKey: 'instagram',
+          utilizedOn: '2026-10-15',
+          utilizedDay: 'Thursday',
+          campaignName: null,
+          notes: null,
+        },
+      });
       await mount('use');
       await type('cp-dam-use-platform', 'instagram');
 
@@ -211,7 +248,9 @@ describe('The library’s forms, inline on a guided step (13A.21)', () => {
       expect(log).toHaveBeenCalledTimes(1);
       expect(host.logged.length).toBe(1);
       expect(el().querySelector<HTMLInputElement>('#cp-dam-use-platform')!.value).toBe('');
-      expect(await host.use()!.logForStep()).withContext('nothing left to log').toBeTrue();
+      expect(await host.use()!.logForStep())
+        .withContext('nothing left to log')
+        .toBeTrue();
       expect(log).toHaveBeenCalledTimes(1);
     });
 

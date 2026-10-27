@@ -131,10 +131,12 @@ describe('RecipeCalculationService', () => {
   // Both are 404 and the stable code is the only thing that tells them apart.
   it('distinguishes a missing version from an unreadable recipe on a 404', async () => {
     const versionCall = service.scaleRecipe('cozy-fall', RECIPE_ID, { sourceVersionNumber: 9, multiplier: 2 });
-    http.expectOne(SCALE_URL).flush(
-      { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(SCALE_URL)
+      .flush(
+        { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
+        { status: 404, statusText: 'Not Found' },
+      );
 
     expect(await versionCall).toEqual({
       status: 'version_not_found',
@@ -142,10 +144,7 @@ describe('RecipeCalculationService', () => {
     });
 
     const recipeCall = service.scaleRecipe('cozy-fall', RECIPE_ID, { sourceVersionNumber: 1, multiplier: 2 });
-    http.expectOne(SCALE_URL).flush(
-      { code: 'recipes.recipe.not_found' },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http.expectOne(SCALE_URL).flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
 
     expect(await recipeCall).toEqual({ status: 'not_found' });
   });
@@ -320,10 +319,12 @@ describe('RecipeCalculationService unit conversion', () => {
       fromUnitId: 'unit-gram',
       toUnitId: 'unit-kilogram',
     });
-    http.expectOne(CONVERT_UNITS_URL).flush(
-      { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(CONVERT_UNITS_URL)
+      .flush(
+        { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
+        { status: 404, statusText: 'Not Found' },
+      );
     expect((await versionCall).status).toBe('version_not_found');
 
     const recipeCall = service.convertUnits('cozy-fall', RECIPE_ID, {
@@ -332,10 +333,9 @@ describe('RecipeCalculationService unit conversion', () => {
       fromUnitId: 'unit-gram',
       toUnitId: 'unit-kilogram',
     });
-    http.expectOne(CONVERT_UNITS_URL).flush(
-      { code: 'recipes.recipe.not_found' },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(CONVERT_UNITS_URL)
+      .flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
     expect(await recipeCall).toEqual({ status: 'not_found' });
   });
 });
@@ -551,9 +551,9 @@ describe('RecipeCalculationService yield reconciliation', () => {
       panVolume: null,
       displayPrecision: null,
     });
-    http.expectOne(YIELD_URL).flush(
-      yieldPayload({ status: 'InsufficientInput', servingCount: null, servingSize: null, formula: null }),
-    );
+    http
+      .expectOne(YIELD_URL)
+      .flush(yieldPayload({ status: 'InsufficientInput', servingCount: null, servingSize: null, formula: null }));
 
     const outcome = await call;
     expect(outcome.status).toBe('reconciled');
@@ -623,10 +623,12 @@ describe('RecipeCalculationService yield reconciliation', () => {
     };
 
     const versionCall = service.recalculateYield('cozy-fall', RECIPE_ID, request);
-    http.expectOne(YIELD_URL).flush(
-      { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(YIELD_URL)
+      .flush(
+        { code: 'recipes.version.not_found', errors: { sourceVersionNumber: ['This recipe has no version 9.'] } },
+        { status: 404, statusText: 'Not Found' },
+      );
     expect((await versionCall).status).toBe('version_not_found');
 
     const recipeCall = service.recalculateYield('cozy-fall', RECIPE_ID, request);
@@ -715,9 +717,7 @@ describe('RecipeCalculationService display normalization', () => {
     });
     const req = http.expectOne(DISPLAY_URL);
 
-    expect(req.request.body).toEqual(
-      jasmine.objectContaining({ rounding: 'AwayFromZero', useAbbreviation: true }),
-    );
+    expect(req.request.body).toEqual(jasmine.objectContaining({ rounding: 'AwayFromZero', useAbbreviation: true }));
 
     req.flush(displayPayload({ text: '1.03 c', presentation: 'Decimal', rounding: 'AwayFromZero' }));
     await call;

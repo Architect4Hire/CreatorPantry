@@ -224,7 +224,15 @@ describe('ContentPipelineDraftService', () => {
       service.rememberContext(RAE_AT_COZY, 'ctx-1');
       service.filing(RAE_AT_COZY).write({
         key: 'key-1',
-        fields: { workingTitle: '', channelKey: null, day: null, pictureBrief: 'Rae at Cozy.', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+        fields: {
+          workingTitle: '',
+          channelKey: null,
+          day: null,
+          pictureBrief: 'Rae at Cozy.',
+          weeklyThemeKey: null,
+          briefSource: null,
+          workingBrief: '',
+        },
       });
 
       for (const other of [SAM_AT_COZY, RAE_AT_OTHER]) {
@@ -240,7 +248,15 @@ describe('ContentPipelineDraftService', () => {
       service.rememberContext(RAE_AT_COZY, 'ctx-1');
       service.filing(RAE_AT_COZY).write({
         key: 'key-1',
-        fields: { workingTitle: '', channelKey: null, day: null, pictureBrief: '', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+        fields: {
+          workingTitle: '',
+          channelKey: null,
+          day: null,
+          pictureBrief: '',
+          weeklyThemeKey: null,
+          briefSource: null,
+          workingBrief: '',
+        },
       });
 
       service.forgetContext(RAE_AT_COZY);
@@ -269,7 +285,15 @@ describe('ContentPipelineDraftService', () => {
       service.rememberContext(RAE_AT_COZY, 'ctx-1');
       service.filing(RAE_AT_COZY).write({
         key: 'key-1',
-        fields: { workingTitle: '', channelKey: null, day: null, pictureBrief: 'Words.', weeklyThemeKey: null, briefSource: null, workingBrief: '' },
+        fields: {
+          workingTitle: '',
+          channelKey: null,
+          day: null,
+          pictureBrief: 'Words.',
+          weeklyThemeKey: null,
+          briefSource: null,
+          workingBrief: '',
+        },
       });
 
       session.set({ status: 'anonymous' });

@@ -16,7 +16,11 @@ export function linkedGuideId(run: WorkflowRun): string | null {
 }
 
 /** The run's guide, read for a step: found, gone, or not readable just now. */
-export async function loadGuide(guides: BrandStyleGuideService, workspaceSlug: string, run: WorkflowRun): Promise<LoadedGuide> {
+export async function loadGuide(
+  guides: BrandStyleGuideService,
+  workspaceSlug: string,
+  run: WorkflowRun,
+): Promise<LoadedGuide> {
   const id = linkedGuideId(run);
   if (id === null) return { status: 'missing' };
   const outcome = await guides.getDetail(workspaceSlug, id);
@@ -25,4 +29,3 @@ export async function loadGuide(guides: BrandStyleGuideService, workspaceSlug: s
 }
 
 export const NO_GUIDE_YET = 'There’s no guide yet. Go back to the first step and build one.';
-

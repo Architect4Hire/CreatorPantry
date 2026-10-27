@@ -105,7 +105,10 @@ function stepFrom(value: string | null): SocialStudioPart | null {
 }
 
 function stepIndexOf(part: SocialStudioPart): number {
-  return Math.max(0, STUDIO_STEPS.findIndex((step) => step.part === part));
+  return Math.max(
+    0,
+    STUDIO_STEPS.findIndex((step) => step.part === part),
+  );
 }
 
 /** The run's sentences on the studio's own page, where what the posts are about is a step or two back (AU.5.3). */
@@ -277,7 +280,9 @@ export class SocialStudioComponent {
   );
 
   /** The guided run that sent the creator here, from `?workflowRun=` (13A.20); never on a hosted part. */
-  protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
+  protected readonly workflowRun = this.hosted
+    ? null
+    : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
 
   /**
    * Said once above the step's sections, on the studio's own page — never on each field, where one optional field
@@ -354,9 +359,7 @@ export class SocialStudioComponent {
   readonly owner = computed<SocialStudioDraftOwner | null>(() => {
     const membership = this.membership();
 
-    return membership === null
-      ? null
-      : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
+    return membership === null ? null : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
   });
 
   private readonly ownerKey = computed(() => {
@@ -485,7 +488,10 @@ export class SocialStudioComponent {
 
   /** True once a post is kept for any channel — what "Write and choose your posts" asks of the server. */
   readonly anyPostKept = computed(
-    () => this.postRun()?.package()?.channels.some((channel) => channel.status === 'Accepted') ?? false,
+    () =>
+      this.postRun()
+        ?.package()
+        ?.channels.some((channel) => channel.status === 'Accepted') ?? false,
   );
 
   /** True while an answer is on its way to the server, for a step's "Saving…". */
@@ -533,7 +539,10 @@ export class SocialStudioComponent {
             }
             return null;
           };
-          return { slug: read('workspaceSlug'), contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM) };
+          return {
+            slug: read('workspaceSlug'),
+            contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM),
+          };
         }),
         takeUntilDestroyed(),
       )
@@ -611,7 +620,9 @@ export class SocialStudioComponent {
       .confirm({
         title: 'Leave with unsaved words?',
         message:
-          (count === 1 ? 'You have edited a post without saving it. ' : `You have edited ${count} posts without saving them. `) +
+          (count === 1
+            ? 'You have edited a post without saving it. '
+            : `You have edited ${count} posts without saving them. `) +
           'Your words are kept on this device and will be here when you come back, but they are not in your workspace until you save them.',
         confirmLabel: 'Leave',
         cancelLabel: 'Stay and save',
@@ -893,7 +904,8 @@ export class SocialStudioComponent {
     const next = { ...this.session.fields(), ...change };
     this.session.set(next);
 
-    const hasAnswer = next.workingTitle.trim() !== '' || next.workingBrief.trim() !== '' || next.weeklyThemeKey !== null;
+    const hasAnswer =
+      next.workingTitle.trim() !== '' || next.workingBrief.trim() !== '' || next.weeklyThemeKey !== null;
     if (this.session.context() === null && hasAnswer && this.session.save() === 'saved') void this.session.file();
   }
 

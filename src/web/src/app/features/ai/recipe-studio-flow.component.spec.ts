@@ -15,7 +15,11 @@ import { RecipeStudioHost } from './recipe-studio-host';
 // answers each callback.
 
 /** The ideas screen, as the flow sees it: the host it read, and the callbacks it can make. */
-@Component({ selector: 'cp-recipe-concept-studio', standalone: true, template: `<p class="ideas">{{ host.part() }}</p>` })
+@Component({
+  selector: 'cp-recipe-concept-studio',
+  standalone: true,
+  template: `<p class="ideas">{{ host.part() }}</p>`,
+})
 class IdeasStub {
   readonly host = inject(RecipeStudioHost);
   readonly conceptRequestId = this.host.conceptRequestId;
@@ -53,9 +57,22 @@ async function open(url: string): Promise<void> {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([
-        { path: ':workspaceSlug/ai-recipe-studio', component: RecipeStudioFlowComponent, data: routeData, canDeactivate: [recipeStudioFlowCanDeactivateGuard] },
-        { path: ':workspaceSlug/ai-recipe-studio/context/:contextId', component: RecipeStudioFlowComponent, data: routeData },
-        { path: ':workspaceSlug/ai-recipe-studio/draft', component: RecipeStudioFlowComponent, data: { ...routeData, legacyDraft: true } },
+        {
+          path: ':workspaceSlug/ai-recipe-studio',
+          component: RecipeStudioFlowComponent,
+          data: routeData,
+          canDeactivate: [recipeStudioFlowCanDeactivateGuard],
+        },
+        {
+          path: ':workspaceSlug/ai-recipe-studio/context/:contextId',
+          component: RecipeStudioFlowComponent,
+          data: routeData,
+        },
+        {
+          path: ':workspaceSlug/ai-recipe-studio/draft',
+          component: RecipeStudioFlowComponent,
+          data: { ...routeData, legacyDraft: true },
+        },
         { path: ':workspaceSlug/recipes/:recipeId', component: RecipePage },
         { path: ':workspaceSlug/elsewhere', component: RecipePage },
       ]),
@@ -143,7 +160,9 @@ describe('RecipeStudioFlowComponent', () => {
     expect(path()).toContain('request=op-ideas');
     expect(document.activeElement?.id).toBe('cp-recipe-studio-step-heading');
     // Focus reads the step's name; its place in the flow is said in the page's polite region.
-    expect(root().querySelector('p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe('Step 2 of 3: Choose a concept.');
+    expect(root().querySelector('p.cp-sr-only[role="status"]')?.textContent?.trim()).toBe(
+      'Step 2 of 3: Choose a concept.',
+    );
   });
 
   it('keeps one ideas screen across the first two steps, so Back finds the brief as it was left', async () => {

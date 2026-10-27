@@ -77,7 +77,7 @@ describe('DamAssetService — logging a use and removing', () => {
       }
     });
 
-    it("answers not_found for a removed asset, exactly as for an unknown one — no use is logged against either", async () => {
+    it('answers not_found for a removed asset, exactly as for an unknown one — no use is logged against either', async () => {
       const pending = service.logUtilization('cozy-fall', ID, body, 'key-1');
 
       http
@@ -90,12 +90,16 @@ describe('DamAssetService — logging a use and removing', () => {
     it("carries the server's field errors on a refused entry", async () => {
       const pending = service.logUtilization('cozy-fall', ID, body, 'key-1');
 
-      http
-        .expectOne(`${BASE}/${ID}/utilization`)
-        .flush(problem('media.asset.invalid_request', { title: 'That use could not be logged.', errors: { utilizedOn: ['That date is too far ahead.'] } }), {
+      http.expectOne(`${BASE}/${ID}/utilization`).flush(
+        problem('media.asset.invalid_request', {
+          title: 'That use could not be logged.',
+          errors: { utilizedOn: ['That date is too far ahead.'] },
+        }),
+        {
           status: 400,
           statusText: 'Bad Request',
-        });
+        },
+      );
 
       expect(await pending).toEqual({
         status: 'invalid',
@@ -143,7 +147,9 @@ describe('DamAssetService — logging a use and removing', () => {
     it('reports a conflict as stale, so the creator is shown the latest before being asked again', async () => {
       const pending = service.remove('cozy-fall', ID, 'old-token');
 
-      http.expectOne(`${BASE}/${ID}`).flush(problem('media.asset.stale.conflict'), { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne(`${BASE}/${ID}`)
+        .flush(problem('media.asset.stale.conflict'), { status: 409, statusText: 'Conflict' });
 
       expect(await pending).toEqual({ status: 'stale' });
     });

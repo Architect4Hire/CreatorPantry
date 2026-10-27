@@ -85,7 +85,14 @@ interface MountOptions {
 }
 
 /** Answers that compose nothing, so a spec about emptiness is not fighting the goals step's own defaults. */
-const NO_ANSWERS = { purposes: ['blog'], audience: 'other', audienceNote: '', channels: ['blog'], different: '', avoid: '' };
+const NO_ANSWERS = {
+  purposes: ['blog'],
+  audience: 'other',
+  audienceNote: '',
+  channels: ['blog'],
+  different: '',
+  avoid: '',
+};
 
 async function mount(options: MountOptions = {}): Promise<void> {
   fixture = TestBed.createComponent(HostComponent);
@@ -109,7 +116,8 @@ async function settle(): Promise<void> {
 const last = (): BrandSetupStepReport => host.reports[host.reports.length - 1];
 const text = (): string => el.textContent ?? '';
 const body = (id: string): HTMLTextAreaElement => el.querySelector<HTMLTextAreaElement>(`#cp-guide-body-${id}`)!;
-const headings = (): string[] => Array.from(el.querySelectorAll('cp-form-section h2')).map((each) => each.textContent!.trim());
+const headings = (): string[] =>
+  Array.from(el.querySelectorAll('cp-form-section h2')).map((each) => each.textContent!.trim());
 
 function sectionOf(id: string): GuideSection {
   const slice = last().draft as { sections: readonly GuideSection[] };
@@ -173,7 +181,10 @@ describe('BrandSetupGuideStepComponent', () => {
 
   describe('where a part came from', () => {
     it('says a part back from the earlier answers and marks it as theirs to change', async () => {
-      await mount({ goals: { ...NO_ANSWERS, audience: 'home-cooks' }, style: { choices: { voice: ['warm-friend'] }, notes: {} } });
+      await mount({
+        goals: { ...NO_ANSWERS, audience: 'home-cooks' },
+        style: { choices: { voice: ['warm-friend'] }, notes: {} },
+      });
       expect(body('voice').value).toContain('warm friend');
       expect(body('audience').value).toContain('home cooks');
       expect(text()).toContain('From your answers');
@@ -185,7 +196,10 @@ describe('BrandSetupGuideStepComponent', () => {
     });
 
     it('carries the creator own note for a question through word for word', async () => {
-      await mount({ goals: NO_ANSWERS, style: { choices: { voice: ['calm-teacher'] }, notes: { voice: 'I swear a little.' } } });
+      await mount({
+        goals: NO_ANSWERS,
+        style: { choices: { voice: ['calm-teacher'] }, notes: { voice: 'I swear a little.' } },
+      });
       expect(body('voice').value).toContain('I swear a little.');
     });
 
@@ -213,7 +227,11 @@ describe('BrandSetupGuideStepComponent', () => {
 
     it('does follow a changed answer while the part is still untouched', async () => {
       // Exactly what the answer it was composed from produces, so the spec is about the rule and not a string.
-      const before = composeSection('voice', decodeGoals(NO_ANSWERS), decodeStyle({ choices: { voice: ['warm-friend'] }, notes: {} }));
+      const before = composeSection(
+        'voice',
+        decodeGoals(NO_ANSWERS),
+        decodeStyle({ choices: { voice: ['warm-friend'] }, notes: {} }),
+      );
       await mount({
         draft: saved({ id: 'voice', body: before, origin: 'answers', edited: false }),
         style: { choices: { voice: ['expert-pro'] }, notes: {} },
@@ -253,7 +271,10 @@ describe('BrandSetupGuideStepComponent', () => {
     });
 
     it('names an example that has gone without pretending the part changed', async () => {
-      await mount({ draft: saved({ id: 'voice', body: 'Drafted.', origin: 'draft', citedDocumentIds: ['gone'] }), goals: NO_ANSWERS });
+      await mount({
+        draft: saved({ id: 'voice', body: 'Drafted.', origin: 'draft', citedDocumentIds: ['gone'] }),
+        goals: NO_ANSWERS,
+      });
       expect(text()).toContain('an example that is no longer there');
       expect(body('voice').value).toBe('Drafted.');
     });
@@ -261,7 +282,10 @@ describe('BrandSetupGuideStepComponent', () => {
     it('offers a retry when an example cannot be looked up, and says the guide is untouched', async () => {
       documents.details.set('d1', detail('d1', 'My best post'));
       documents.unavailable.add('d1');
-      await mount({ draft: saved({ id: 'voice', body: 'Drafted.', origin: 'draft', citedDocumentIds: ['d1'] }), goals: NO_ANSWERS });
+      await mount({
+        draft: saved({ id: 'voice', body: 'Drafted.', origin: 'draft', citedDocumentIds: ['d1'] }),
+        goals: NO_ANSWERS,
+      });
 
       expect(text()).toContain("couldn't look up every example");
       expect(text()).toContain('Your guide is unchanged');
@@ -277,7 +301,11 @@ describe('BrandSetupGuideStepComponent', () => {
       expect(decodeGuideSections({ sections: 'nope' })).toEqual([]);
       expect(decodeGuideSections({ sections: [{ id: 'voice', body: 'x', origin: 'magic' }, { id: 7 }] })).toEqual([]);
 
-      await mount({ draft: { sections: [{ id: 'voice' }] }, goals: NO_ANSWERS, style: { choices: { voice: ['warm-friend'] }, notes: {} } });
+      await mount({
+        draft: { sections: [{ id: 'voice' }] },
+        goals: NO_ANSWERS,
+        style: { choices: { voice: ['warm-friend'] }, notes: {} },
+      });
       expect(body('voice').value).toContain('warm friend');
     });
   });

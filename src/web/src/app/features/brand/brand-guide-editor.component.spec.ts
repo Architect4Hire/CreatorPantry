@@ -23,9 +23,7 @@ import {
 import { BRAND_GUIDE_AUTOSAVE_DELAY_MS, BrandGuideEditorComponent } from './brand-guide-editor.component';
 import { WorkflowRunService } from '../../services/workflow-run.service';
 
-function workingVersion(
-  overrides: Partial<BrandStyleGuideVersionContent> = {},
-): BrandStyleGuideVersionContent {
+function workingVersion(overrides: Partial<BrandStyleGuideVersionContent> = {}): BrandStyleGuideVersionContent {
   return {
     id: 'v3',
     versionNumber: 3,
@@ -76,7 +74,8 @@ function session(overrides: Partial<BrandStyleGuideEditSession> = {}): BrandStyl
     baselineVersionNumber: 3,
     workingVersionNumber: 3,
     isStale: false,
-    draftJson: '{"v":2,"baselineVersionNumber":3,"sections":[{"sectionKey":"Voice","body":"Half-typed."}],"rules":null,"cite":[],"uncite":[],"changeReason":""}',
+    draftJson:
+      '{"v":2,"baselineVersionNumber":3,"sections":[{"sectionKey":"Voice","body":"Half-typed."}],"rules":null,"cite":[],"uncite":[],"changeReason":""}',
     updatedUtc: '2026-09-21T09:00:00Z',
     rowVersion: 'draft-token-1',
     ...overrides,
@@ -120,7 +119,10 @@ class StubGuideService {
   versionsOutcome: BrandStyleGuideVersionsOutcome = { status: 'ok', page: { items: [row()], nextCursor: null } };
   sessionOutcome: BrandStyleGuideEditSessionOutcome = { status: 'none' };
   sessionOutcomes: BrandStyleGuideEditSessionOutcome[] | null = null;
-  keepOutcome: BrandStyleGuideEditSessionSaveOutcome = { status: 'kept', session: session({ rowVersion: 'draft-token-2' }) };
+  keepOutcome: BrandStyleGuideEditSessionSaveOutcome = {
+    status: 'kept',
+    session: session({ rowVersion: 'draft-token-2' }),
+  };
   saveOutcome: BrandStyleGuideVersionSaveOutcome = {
     status: 'saved',
     result: {
@@ -203,9 +205,7 @@ describe('BrandGuideEditorComponent', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
-        provideRouter([
-          { path: ':workspaceSlug/brand/style-guide/:guideId', component: BrandGuideEditorComponent },
-        ]),
+        provideRouter([{ path: ':workspaceSlug/brand/style-guide/:guideId', component: BrandGuideEditorComponent }]),
         { provide: BrandStyleGuideService, useValue: service },
         {
           provide: BrandSourceDocumentService,
@@ -238,9 +238,7 @@ describe('BrandGuideEditorComponent', () => {
   }
 
   function maybeButton(label: string): HTMLButtonElement | null {
-    return (
-      Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null
-    );
+    return Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null;
   }
 
   function button(label: string): HTMLButtonElement {
@@ -284,7 +282,9 @@ describe('BrandGuideEditorComponent', () => {
     await create(true, `/sams-kitchen/brand/style-guide/g1?workflowRun=${run}`);
     const page = harness.routeNativeElement!;
     expect(page.querySelector('a[cpBackLink]')!.textContent?.replace('←', '').trim()).toBe('Brand settings');
-    const carryOn = Array.from(page.querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'))!;
+    const carryOn = Array.from(page.querySelectorAll('cp-workflow-return-notice a')).find((a) =>
+      a.textContent?.includes('Carry on with it'),
+    )!;
     expect(carryOn.getAttribute('href')).toBe(`/sams-kitchen/workflows/runs/${run}`);
 
     await create();
@@ -830,7 +830,10 @@ describe('BrandGuideEditorComponent', () => {
     expect(busy.querySelectorAll('cp-skeleton').length).toBe(3);
     // No second, visible sentence beside the skeleton.
     expect(busy.textContent!.trim()).toBe('');
-    expect(Array.from(root().querySelectorAll('p')).filter((each) => each.textContent?.includes('Loading this guide')).length).toBe(1);
+    expect(
+      Array.from(root().querySelectorAll('p')).filter((each) => each.textContent?.includes('Loading this guide'))
+        .length,
+    ).toBe(1);
   });
 
   it('labels every part and the reason field', async () => {

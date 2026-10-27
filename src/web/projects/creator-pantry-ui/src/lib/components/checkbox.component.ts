@@ -23,7 +23,8 @@ let nextId = 0;
  * `--cp-checkbox-font-size` on the host to a type token; the box and the 40px target do not change.
  */
 @Component({
-  selector: 'cp-checkbox', standalone: true,
+  selector: 'cp-checkbox',
+  standalone: true,
   template: `<label [attr.for]="resolvedId()">
     <input
       type="checkbox"
@@ -32,23 +33,76 @@ let nextId = 0;
       [disabled]="disabled()"
       (change)="onToggle($event)"
     />
-    <span class="box" aria-hidden="true">@if (checked()) { <span class="glyph">✓</span> }</span>
+    <span class="box" aria-hidden="true">
+      @if (checked()) {
+        <span class="glyph">✓</span>
+      }
+    </span>
     <span class="text">{{ label() }}</span>
   </label>`,
-  styles: [`
-    :host { display:inline-block; }
-    label { position:relative; display:inline-flex; align-items:center; gap:var(--cp-space-2); min-height:2.5rem; color:var(--cp-text); font-size:var(--cp-checkbox-font-size, var(--cp-font-size-sm)); cursor:pointer; }
-    /* Visually replaced, never removed: still focusable, still announced, still a checkbox to a form. */
-    input { position:absolute; width:1px; height:1px; margin:0; padding:0; opacity:0; pointer-events:none; }
-    .box { display:grid; place-items:center; flex:0 0 auto; width:1.25rem; height:1.25rem; border:1px solid var(--cp-border-control); border-radius:var(--cp-radius-sm); background:var(--cp-surface); color:var(--cp-primary-ink); font-size:.75rem; line-height:1; }
-    input:checked + .box { border-color:var(--cp-primary); background:var(--cp-primary); }
-    label:hover input:not(:disabled) + .box { border-color:var(--cp-primary); }
-    /* The same ring global.css gives every other focused control, moved onto the box the input now stands for. */
-    input:focus-visible + .box { outline:3px solid var(--cp-focus); outline-offset:2px; }
-    input:disabled + .box { border-color:var(--cp-border); background:var(--cp-surface-subtle); color:var(--cp-text-faint); }
-    input:disabled ~ .text { color:var(--cp-text-muted); }
-    :host([data-disabled]) label { cursor:not-allowed; }
-  `],
+  styles: [
+    `
+      :host {
+        display: inline-block;
+      }
+      label {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--cp-space-2);
+        min-height: 2.5rem;
+        color: var(--cp-text);
+        font-size: var(--cp-checkbox-font-size, var(--cp-font-size-sm));
+        cursor: pointer;
+      }
+      /* Visually replaced, never removed: still focusable, still announced, still a checkbox to a form. */
+      input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: 0;
+        padding: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .box {
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 1px solid var(--cp-border-control);
+        border-radius: var(--cp-radius-sm);
+        background: var(--cp-surface);
+        color: var(--cp-primary-ink);
+        font-size: 0.75rem;
+        line-height: 1;
+      }
+      input:checked + .box {
+        border-color: var(--cp-primary);
+        background: var(--cp-primary);
+      }
+      label:hover input:not(:disabled) + .box {
+        border-color: var(--cp-primary);
+      }
+      /* The same ring global.css gives every other focused control, moved onto the box the input now stands for. */
+      input:focus-visible + .box {
+        outline: 3px solid var(--cp-focus);
+        outline-offset: 2px;
+      }
+      input:disabled + .box {
+        border-color: var(--cp-border);
+        background: var(--cp-surface-subtle);
+        color: var(--cp-text-faint);
+      }
+      input:disabled ~ .text {
+        color: var(--cp-text-muted);
+      }
+      :host([data-disabled]) label {
+        cursor: not-allowed;
+      }
+    `,
+  ],
   host: { '[attr.data-disabled]': 'disabled() || null' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

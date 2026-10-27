@@ -9,7 +9,8 @@ import { GeneratedImageRunComponent } from './generated-image-run.component';
 
 /** What stopped a mark from being written, in the creator's terms. Every outcome has a sentence. */
 const MARK_FAILURES: Readonly<Record<Exclude<CreativeContextReferenceOutcome, 'saved' | 'duplicate'>, string>> = {
-  source_unavailable: 'That picture can no longer be kept. It may have been declined, or held past the time pictures are kept for.',
+  source_unavailable:
+    'That picture can no longer be kept. It may have been declined, or held past the time pictures are kept for.',
   limit: 'This piece of work already names as many sources as it can. Remove one to keep another picture.',
   forbidden: 'You do not have permission to change this piece of work.',
   held: 'That could not be done yet. Sort out the notice about your unsaved changes below, then try again.',
@@ -127,9 +128,7 @@ export class ContentPipelineImagesStepComponent {
   /** Stop the work naming a picture as a keeper. Already gone is the outcome the creator asked for. */
   private async release(generatedImageId: string): Promise<CreativeContextReferenceOutcome> {
     const session = this.session();
-    const reference = keeperReferencesOf(session.context()).find(
-      (each) => each.generatedImageId === generatedImageId,
-    );
+    const reference = keeperReferencesOf(session.context()).find((each) => each.generatedImageId === generatedImageId);
 
     return reference === undefined ? 'saved' : session.removeReference(reference.id);
   }

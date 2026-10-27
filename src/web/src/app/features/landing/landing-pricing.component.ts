@@ -2,7 +2,14 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { CpBadgeComponent, CpButtonComponent, CpCardComponent, CpCardGridComponent, CpChoiceGroupComponent, CpChoiceOption } from '@creator-pantry/ui';
+import {
+  CpBadgeComponent,
+  CpButtonComponent,
+  CpCardComponent,
+  CpCardGridComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+} from '@creator-pantry/ui';
 
 import { Plan } from '../../models/plan-catalogue.models';
 import { LandingCount } from './landing-count';
@@ -40,7 +47,14 @@ export interface PlanComparisonColumn {
 @Component({
   selector: 'cp-landing-pricing',
   standalone: true,
-  imports: [RouterLink, CpCardComponent, CpCardGridComponent, CpBadgeComponent, CpButtonComponent, CpChoiceGroupComponent],
+  imports: [
+    RouterLink,
+    CpCardComponent,
+    CpCardGridComponent,
+    CpBadgeComponent,
+    CpButtonComponent,
+    CpChoiceGroupComponent,
+  ],
   templateUrl: './landing-pricing.component.html',
   styleUrl: './landing-pricing.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,7 +67,8 @@ export class LandingPricingComponent {
   });
 
   protected readonly heading = 'Plans that grow with what you make';
-  protected readonly intro = 'Every plan includes the whole workspace. What changes is how much AI work a month includes.';
+  protected readonly intro =
+    'Every plan includes the whole workspace. What changes is how much AI work a month includes.';
   protected readonly periods = BILLING_PERIODS;
   protected readonly recommendedLabel = RECOMMENDED_LABEL;
 
@@ -105,7 +120,8 @@ export class LandingPricingComponent {
 
   /** What the table is and what its prices mean, said once, above it and as its caption. */
   protected readonly comparisonNote = computed(
-    () => `Every plan, one to a row. Prices are ${this.period() === 'annual' ? 'per month, billed yearly' : 'per month'}.`,
+    () =>
+      `Every plan, one to a row. Prices are ${this.period() === 'annual' ? 'per month, billed yearly' : 'per month'}.`,
   );
 
   protected priceOf(plan: Plan): number {
@@ -166,5 +182,4 @@ export class LandingPricingComponent {
   protected planParams(plan: Plan): Record<string, string> {
     return { plan: plan.key };
   }
-
 }

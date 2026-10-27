@@ -6,7 +6,12 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { NetworkStatusService } from '../../core/network-status.service';
 import { MyMembershipsState } from '../../services/workspace-membership.service';
 import { TodayWorkTasks, WorkTask } from '../../models/work-task.models';
-import { TodayOutcome, TopThreeOutcome, WorkTaskChangeOutcome, WorkTaskService } from '../../services/work-task.service';
+import {
+  TodayOutcome,
+  TopThreeOutcome,
+  WorkTaskChangeOutcome,
+  WorkTaskService,
+} from '../../services/work-task.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { QuickCaptureService } from '../../shared/quick-capture/quick-capture.service';
 import { MyDayComponent } from './my-day.component';
@@ -34,7 +39,16 @@ describe('MyDayComponent', () => {
   function membership(role: 'Owner' | 'Viewer'): MyMembershipsState {
     return {
       status: 'ready',
-      memberships: [{ workspaceId: 'w-1', workspaceSlug: SLUG, workspaceName: "Sam's Kitchen", membershipId: 'm-1', role, status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w-1',
+          workspaceSlug: SLUG,
+          workspaceName: "Sam's Kitchen",
+          membershipId: 'm-1',
+          role,
+          status: 'Active',
+        },
+      ],
     } as MyMembershipsState;
   }
 
@@ -57,10 +71,16 @@ describe('MyDayComponent', () => {
       reads += 1;
       return answers.length > 1 ? answers.shift()! : answers[0];
     });
-    complete = jasmine.createSpy('complete').and.callFake(async (_slug, shown: WorkTask) => saved({ ...shown, status: 'Done' }));
-    reopen = jasmine.createSpy('reopen').and.callFake(async (_slug, shown: WorkTask) => saved({ ...shown, status: 'Backlog' }));
+    complete = jasmine
+      .createSpy('complete')
+      .and.callFake(async (_slug, shown: WorkTask) => saved({ ...shown, status: 'Done' }));
+    reopen = jasmine
+      .createSpy('reopen')
+      .and.callFake(async (_slug, shown: WorkTask) => saved({ ...shown, status: 'Backlog' }));
     move = jasmine.createSpy('move').and.callFake(async (_slug: string, shown: WorkTask) => saved(shown));
-    setTopThree = jasmine.createSpy('setTopThree').and.callFake(async (_slug, ids) => ({ status: 'saved', taskIds: ids }));
+    setTopThree = jasmine
+      .createSpy('setTopThree')
+      .and.callFake(async (_slug, ids) => ({ status: 'saved', taskIds: ids }));
     online = signal(true);
     memberships = signal(membership('Owner'));
 
@@ -94,7 +114,9 @@ describe('MyDayComponent', () => {
   const headings = () => [...root().querySelectorAll('cp-topic-card h2')].map((heading) => heading.textContent!.trim());
   const named = (name: string) => root().querySelector<HTMLElement>(`[aria-label="${name}"]`);
   const button = (text: string) =>
-    [...root().querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.textContent!.trim() === text);
+    [...root().querySelectorAll<HTMLButtonElement>('button')].find(
+      (candidate) => candidate.textContent!.trim() === text,
+    );
   const outcome = () => root().querySelector('cp-notice.outcome')!.textContent!.replace(/\s+/g, ' ').trim();
   const rowsIn = (list: string) => [...root().querySelectorAll<HTMLElement>(`#my-day-list-${list} > li`)];
 
@@ -178,7 +200,10 @@ describe('MyDayComponent', () => {
   });
 
   it('focuses the list’s heading when the last task leaves it', async () => {
-    const before = day({ waiting: [task({ id: 'held', title: 'Hear back', status: 'Waiting' })], inProgress: [task({ id: 'going', title: 'Draft', status: 'InProgress' })] });
+    const before = day({
+      waiting: [task({ id: 'held', title: 'Hear back', status: 'Waiting' })],
+      inProgress: [task({ id: 'going', title: 'Draft', status: 'InProgress' })],
+    });
     const after = day({ waiting: [task({ id: 'held', title: 'Hear back', status: 'Waiting' })] });
     await mount(found(before), found(after));
 
@@ -187,18 +212,25 @@ describe('MyDayComponent', () => {
 
     expect(document.activeElement?.id).toBe('my-day-heading-lead');
     expect(document.activeElement?.textContent?.trim()).toBe('Up next');
-    expect(document.activeElement!.closest('cp-topic-card')!.querySelector('cp-empty-state h3')!.textContent).toBe('Nothing to do next');
+    expect(document.activeElement!.closest('cp-topic-card')!.querySelector('cp-empty-state h3')!.textContent).toBe(
+      'Nothing to do next',
+    );
   });
 
   // ---- Move ----
 
   it('moves a task from its inline choices and says where it went', async () => {
     const before = fullDay();
-    const after = fullDay({ inProgress: [], waiting: [...before.waiting, { ...before.inProgress[0], status: 'Waiting' }] });
+    const after = fullDay({
+      inProgress: [],
+      waiting: [...before.waiting, { ...before.inProgress[0], status: 'Waiting' }],
+    });
     await mount(found(before), found(after));
 
     await press(named('Move “Draft the newsletter”'));
-    await press(root().querySelector<HTMLElement>('[aria-label="Move “Draft the newsletter” to"] [data-move="waiting"]'));
+    await press(
+      root().querySelector<HTMLElement>('[aria-label="Move “Draft the newsletter” to"] [data-move="waiting"]'),
+    );
 
     expect(move).toHaveBeenCalledWith(SLUG, before.inProgress[0], { status: 'Waiting' });
     expect(outcome()).toContain('“Draft the newsletter” is now under Waiting.');
@@ -238,7 +270,11 @@ describe('MyDayComponent', () => {
   });
 
   it('starts a task from a workflow by marking it in progress and then opening the run', async () => {
-    const linked = task({ id: 'step', title: 'Shoot the hero picture', links: { ...task().links, workflowRunId: RUN, workflowRunRoute: `workflows/runs/${RUN}` } });
+    const linked = task({
+      id: 'step',
+      title: 'Shoot the hero picture',
+      links: { ...task().links, workflowRunId: RUN, workflowRunRoute: `workflows/runs/${RUN}` },
+    });
     await mount(found(day({ scheduledToday: [linked] })));
 
     await press(named('Start “Shoot the hero picture”'));
@@ -532,7 +568,9 @@ describe('MyDayComponent', () => {
     await mount(found(fullDay()));
 
     for (const id of ['late', 'plan-1', 'plan-2', 'going', 'held', 'done']) {
-      expect(root().querySelector(`#my-day-task-${id}`)).withContext(id).toBeTruthy();
+      expect(root().querySelector(`#my-day-task-${id}`))
+        .withContext(id)
+        .toBeTruthy();
     }
   });
 });

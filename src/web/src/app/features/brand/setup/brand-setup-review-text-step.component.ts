@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  InjectionToken,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpFieldComponent,
@@ -71,7 +83,14 @@ interface Editor {
 @Component({
   selector: 'cp-brand-setup-review-text-step',
   standalone: true,
-  imports: [BrandSetupExampleComponent, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent],
+  imports: [
+    BrandSetupExampleComponent,
+    CpButtonComponent,
+    CpFieldComponent,
+    CpFormSectionComponent,
+    CpNoticeComponent,
+    CpSkeletonComponent,
+  ],
   templateUrl: './brand-setup-review-text-step.component.html',
   styleUrl: './brand-setup-review-text-step.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -114,7 +133,9 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     this.cards().map((card) => ({ card, kind: cardKindOf(card, this.confirmed()) })),
   );
   protected readonly undecided = computed(() => this.entries().filter((e) => NEEDS_DECISION.has(e.kind)).length);
-  protected readonly dirtyEditors = computed(() => Object.values(this.editors()).filter((e) => e.text !== e.original || e.saving).length);
+  protected readonly dirtyEditors = computed(
+    () => Object.values(this.editors()).filter((e) => e.text !== e.original || e.saving).length,
+  );
   protected readonly anyBusy = computed(() => Object.keys(this.busy()).length > 0);
 
   constructor() {
@@ -153,7 +174,15 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     this.ready = true;
 
     const sources = sourcesOf(this.sources());
-    this.cards.set(sources.map((s) => ({ documentId: s.documentId, kind: s.kind, detail: null, extraction: null, load: 'loading' as const })));
+    this.cards.set(
+      sources.map((s) => ({
+        documentId: s.documentId,
+        kind: s.kind,
+        detail: null,
+        extraction: null,
+        load: 'loading' as const,
+      })),
+    );
     void this.loadAll();
   }
 
@@ -167,7 +196,11 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     const gone = this.cards().filter((c) => c.load === 'ready' && c.detail === null).length;
     if (gone > 0) {
       this.cards.update((all) => all.filter((c) => !(c.load === 'ready' && c.detail === null)));
-      this.note.set(gone === 1 ? 'An example you added earlier is no longer available, so it was left off.' : 'Some examples you added earlier are no longer available, so they were left off.');
+      this.note.set(
+        gone === 1
+          ? 'An example you added earlier is no longer available, so it was left off.'
+          : 'Some examples you added earlier are no longer available, so they were left off.',
+      );
     }
     this.pruneConfirmed();
     this.loaded.set(true);
@@ -210,7 +243,11 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     this.timer = setTimeout(async () => {
       this.timer = null;
       this.polls += 1;
-      await Promise.all(this.entries().filter((e) => e.kind === 'waiting').map((e) => this.loadCard(e.card.documentId)));
+      await Promise.all(
+        this.entries()
+          .filter((e) => e.kind === 'waiting')
+          .map((e) => this.loadCard(e.card.documentId)),
+      );
       this.pruneConfirmed();
       this.schedulePoll();
     }, this.pollMs);
@@ -221,7 +258,10 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
   protected confirm(card: ReviewCard): void {
     const id = card.extraction?.id;
     if (!id) return;
-    this.confirmed.update((all) => [...all.filter((c) => c.documentId !== card.documentId), { documentId: card.documentId, extractionId: id }]);
+    this.confirmed.update((all) => [
+      ...all.filter((c) => c.documentId !== card.documentId),
+      { documentId: card.documentId, extractionId: id },
+    ]);
     this.announce(`${this.titleOf(card)} marked as looking right.`);
   }
 
@@ -243,10 +283,19 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
 
     // One key per attempt at the same artifact, so a repeat of the same click cannot queue a second read.
     const previous = this.retryKeys.get(card.documentId);
-    const attempt = previous && previous.expected === extraction.id ? previous : { expected: extraction.id, key: crypto.randomUUID() };
+    const attempt =
+      previous && previous.expected === extraction.id
+        ? previous
+        : { expected: extraction.id, key: crypto.randomUUID() };
     this.retryKeys.set(card.documentId, attempt);
 
-    const outcome = await this.extractions.retry(this.workspaceSlug(), card.documentId, extraction.versionNumber, extraction.id, attempt.key);
+    const outcome = await this.extractions.retry(
+      this.workspaceSlug(),
+      card.documentId,
+      extraction.versionNumber,
+      extraction.id,
+      attempt.key,
+    );
     this.clearBusy(card.documentId);
 
     if (outcome.status === 'ok') {
@@ -265,7 +314,16 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
 
   protected startEdit(card: ReviewCard): void {
     const text = card.extraction?.text ?? '';
-    this.setEditor(card.documentId, { original: text, text, note: '', saving: false, problem: '', conflict: false, key: crypto.randomUUID(), typed: text === '' });
+    this.setEditor(card.documentId, {
+      original: text,
+      text,
+      note: '',
+      saving: false,
+      problem: '',
+      conflict: false,
+      key: crypto.randomUUID(),
+      typed: text === '',
+    });
   }
 
   protected cancelEdit(card: ReviewCard): void {
@@ -307,7 +365,11 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
       this.workspaceSlug(),
       card.documentId,
       extraction.versionNumber,
-      { expectedExtractionId: expected, text: editor.text, reason: editor.note.trim() || (editor.typed ? REASON_TYPED : REASON_CORRECTED) },
+      {
+        expectedExtractionId: expected,
+        text: editor.text,
+        reason: editor.note.trim() || (editor.typed ? REASON_TYPED : REASON_CORRECTED),
+      },
       editor.key,
     );
 
@@ -331,7 +393,11 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     const editor = this.editors()[card.documentId];
     if (!editor) return;
     this.updateEditor(card.documentId, { saving: true, conflict: false, problem: '' });
-    const latest = await this.extractions.get(this.workspaceSlug(), card.documentId, card.extraction?.versionNumber ?? 1);
+    const latest = await this.extractions.get(
+      this.workspaceSlug(),
+      card.documentId,
+      card.extraction?.versionNumber ?? 1,
+    );
     if (latest.status !== 'ok' || !latest.extraction.id) {
       this.updateEditor(card.documentId, { saving: false, problem: FAILURE_COPY.unavailable });
       return;
@@ -344,14 +410,27 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
   /** The text changed under the creator, and they choose the newest: replace their version with it. */
   protected async startFromNewest(card: ReviewCard): Promise<void> {
     this.updateEditor(card.documentId, { saving: true, conflict: false, problem: '' });
-    const latest = await this.extractions.get(this.workspaceSlug(), card.documentId, card.extraction?.versionNumber ?? 1);
+    const latest = await this.extractions.get(
+      this.workspaceSlug(),
+      card.documentId,
+      card.extraction?.versionNumber ?? 1,
+    );
     if (latest.status !== 'ok') {
       this.updateEditor(card.documentId, { saving: false, problem: FAILURE_COPY.unavailable });
       return;
     }
     this.patchCard(card.documentId, { extraction: latest.extraction });
     const text = latest.extraction.text ?? '';
-    this.setEditor(card.documentId, { original: text, text, note: '', saving: false, problem: '', conflict: false, key: crypto.randomUUID(), typed: text === '' });
+    this.setEditor(card.documentId, {
+      original: text,
+      text,
+      note: '',
+      saving: false,
+      problem: '',
+      conflict: false,
+      key: crypto.randomUUID(),
+      typed: text === '',
+    });
   }
 
   // ---- Leaving out and bringing back ----
@@ -374,7 +453,9 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     this.setBusy(card.documentId, command);
     const slug = this.workspaceSlug();
     const run = (token: string): Promise<BrandSourceShelfOutcome> =>
-      command === 'archive' ? this.documents.archive(slug, card.documentId, token) : this.documents.unarchive(slug, card.documentId, token);
+      command === 'archive'
+        ? this.documents.archive(slug, card.documentId, token)
+        : this.documents.unarchive(slug, card.documentId, token);
 
     let outcome = await run(detail.concurrencyToken);
     if (outcome.status === 'conflict') {
@@ -392,7 +473,11 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     }
     this.setProblem(
       card.documentId,
-      outcome.status === 'forbidden' ? SHELF_COPY.forbidden : command === 'archive' ? SHELF_COPY.leaveOut : SHELF_COPY.bringBack,
+      outcome.status === 'forbidden'
+        ? SHELF_COPY.forbidden
+        : command === 'archive'
+          ? SHELF_COPY.leaveOut
+          : SHELF_COPY.bringBack,
     );
   }
 
@@ -420,26 +505,35 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
    * What each state is called and what it means, in one place. Previously a `@switch` of nine markup blocks,
    * which is how the pill tone and the sentence got to disagree about a stopped read.
    */
-  private static readonly STATES: Readonly<Record<CardKind, { tone: CpStatusPillTone; status: string; note: string }>> = {
-    checking: { tone: 'progress', status: 'Checking…', note: '' },
-    waiting: { tone: 'progress', status: 'Reading…', note: "We're still reading this one." },
-    stopped: { tone: 'error', status: "Couldn't read", note: "We couldn't finish reading this one." },
-    failed: { tone: 'error', status: "Couldn't read", note: "We couldn't read this one." },
-    scan: {
-      tone: 'warning',
-      status: 'Needs your help',
-      note: "This looks like a scan or a picture, so there's no text to read. We can't read pictures yet.",
-    },
-    read: { tone: 'warning', status: 'Needs your OK', note: 'We read this from your file. Check that it looks right.' },
-    partial: {
-      tone: 'warning',
-      status: 'Only part of it',
-      note: 'We only kept the beginning of this one. It had more text than we can hold.',
-    },
-    confirmed: { tone: 'success', status: 'Checked', note: '' },
-    'left-out': { tone: 'neutral', status: 'Left out', note: "Left out. It stays in your library, but we won't use it here." },
-    unreachable: { tone: 'error', status: "Couldn't check", note: "We couldn't reach this one just now." },
-  };
+  private static readonly STATES: Readonly<Record<CardKind, { tone: CpStatusPillTone; status: string; note: string }>> =
+    {
+      checking: { tone: 'progress', status: 'Checking…', note: '' },
+      waiting: { tone: 'progress', status: 'Reading…', note: "We're still reading this one." },
+      stopped: { tone: 'error', status: "Couldn't read", note: "We couldn't finish reading this one." },
+      failed: { tone: 'error', status: "Couldn't read", note: "We couldn't read this one." },
+      scan: {
+        tone: 'warning',
+        status: 'Needs your help',
+        note: "This looks like a scan or a picture, so there's no text to read. We can't read pictures yet.",
+      },
+      read: {
+        tone: 'warning',
+        status: 'Needs your OK',
+        note: 'We read this from your file. Check that it looks right.',
+      },
+      partial: {
+        tone: 'warning',
+        status: 'Only part of it',
+        note: 'We only kept the beginning of this one. It had more text than we can hold.',
+      },
+      confirmed: { tone: 'success', status: 'Checked', note: '' },
+      'left-out': {
+        tone: 'neutral',
+        status: 'Left out',
+        note: "Left out. It stays in your library, but we won't use it here.",
+      },
+      unreachable: { tone: 'error', status: "Couldn't check", note: "We couldn't reach this one just now." },
+    };
 
   protected toneOf(kind: CardKind): CpStatusPillTone {
     return BrandSetupReviewTextStepComponent.STATES[kind].tone;
@@ -471,20 +565,25 @@ export class BrandSetupReviewTextStepComponent implements OnInit {
     return card.extraction?.origin === 'Corrected';
   }
 
-
   // ---- Internals ----
 
   private afterFailure(card: ReviewCard, reason: BrandSourceExtractionFailure): void {
     this.setProblem(card.documentId, FAILURE_COPY[reason]);
     // The page the creator is looking at is out of date for these; show what is true now.
-    if (reason === 'conflict' || reason === 'not_retryable' || reason === 'pending') void this.loadCard(card.documentId);
+    if (reason === 'conflict' || reason === 'not_retryable' || reason === 'pending')
+      void this.loadCard(card.documentId);
   }
 
   private pruneConfirmed(): void {
     // Keep only a confirmation that still names the artifact now current for that example.
     const current = new Map(this.cards().map((c) => [c.documentId, c.extraction?.id ?? null]));
     this.confirmed.update((all) => {
-      const kept = all.filter((c) => current.get(c.documentId) === c.extractionId || !current.has(c.documentId) || current.get(c.documentId) === null);
+      const kept = all.filter(
+        (c) =>
+          current.get(c.documentId) === c.extractionId ||
+          !current.has(c.documentId) ||
+          current.get(c.documentId) === null,
+      );
       return kept.length === all.length ? all : kept;
     });
   }

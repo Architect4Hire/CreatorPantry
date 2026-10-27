@@ -11,11 +11,7 @@ import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-req
 import { BrandProfileService } from '../../services/brand-profile.service';
 import { ContentSeedService, GenerateContentSeedOutcome } from '../../services/content-seed.service';
 import { DishFacetService } from '../../services/dish-facet.service';
-import {
-  ListReferenceEntriesOutcome,
-  ListTechniquesOutcome,
-  ReferenceService,
-} from '../../services/reference.service';
+import { ListReferenceEntriesOutcome, ListTechniquesOutcome, ReferenceService } from '../../services/reference.service';
 import { ContentPipelineIdeaStepComponent } from './content-pipeline-idea-step.component';
 
 function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
@@ -23,7 +19,13 @@ function seed(overrides: Partial<ContentSeed> = {}): ContentSeed {
     token: 'abc-123',
     cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: false },
     dishType: { key: 'main-course', displayName: 'Main course', pinned: false, fromRecipe: false },
-    method: { key: 'stir-fry', displayName: 'Stir-fry', pinned: false, fromRecipe: false, requiresSafetyCaution: false },
+    method: {
+      key: 'stir-fry',
+      displayName: 'Stir-fry',
+      pinned: false,
+      fromRecipe: false,
+      requiresSafetyCaution: false,
+    },
     photographyStyle: { key: 'overhead-flat-lay', displayName: 'Overhead flat lay', pinned: false, fromRecipe: false },
     channel: { key: 'instagram', displayName: 'Instagram', pinned: false, fromRecipe: false },
     day: { day: 'Wednesday', pinned: false, theme: null },
@@ -418,7 +420,13 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
+        method: {
+          key: 'pressure-canning',
+          displayName: 'Pressure canning',
+          pinned: false,
+          fromRecipe: false,
+          requiresSafetyCaution: true,
+        },
       }),
     });
 
@@ -440,7 +448,13 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
+        method: {
+          key: 'pressure-canning',
+          displayName: 'Pressure canning',
+          pinned: false,
+          fromRecipe: false,
+          requiresSafetyCaution: true,
+        },
       }),
     });
     await click('Pick this idea');
@@ -466,7 +480,11 @@ describe('ContentPipelineIdeaStepComponent', () => {
     await answer({
       status: 'found',
       seed: seed({
-        day: { day: 'Wednesday', pinned: false, theme: { key: 'midweek', displayName: 'Midweek meals', pinned: false, fromRecipe: false } },
+        day: {
+          day: 'Wednesday',
+          pinned: false,
+          theme: { key: 'midweek', displayName: 'Midweek meals', pinned: false, fromRecipe: false },
+        },
       }),
     });
 
@@ -727,7 +745,9 @@ describe('ContentPipelineIdeaStepComponent', () => {
 
     it('says a picked idea was built around a recipe that is no longer the one linked', async () => {
       const base = emptyContentPipelineDraft();
-      const other = aroundRecipe({ recipe: { recipeId: 'recipe-1', recipeVersionId: 'version-0', title: 'Lemon Tart' } });
+      const other = aroundRecipe({
+        recipe: { recipeId: 'recipe-1', recipeVersionId: 'version-0', title: 'Lemon Tart' },
+      });
       await mountLinked({ ...base, seed: { lastToken: 'abc-123', keep: {}, accepted: other } });
 
       expect(el.textContent).toContain('an earlier version of the one linked now');
@@ -803,21 +823,13 @@ describe('ContentPipelineIdeaStepComponent', () => {
       await mount();
 
       expect(select('cuisine')!.value).toBe('');
-      expect(Array.from(select('cuisine')!.options).map((option) => option.value)).toEqual([
-        '',
-        'levantine',
-        'thai',
-      ]);
+      expect(Array.from(select('cuisine')!.options).map((option) => option.value)).toEqual(['', 'levantine', 'thai']);
       expect(Array.from(select('dishType')!.options).map((option) => option.value)).toEqual([
         '',
         'salad',
         'main-course',
       ]);
-      expect(Array.from(select('method')!.options).map((option) => option.value)).toEqual([
-        '',
-        'grill',
-        'stir-fry',
-      ]);
+      expect(Array.from(select('method')!.options).map((option) => option.value)).toEqual(['', 'grill', 'stir-fry']);
     });
 
     // Before anything has been suggested, which is the whole point: the first idea already honours it.
@@ -856,7 +868,10 @@ describe('ContentPipelineIdeaStepComponent', () => {
       await click('Suggest an idea');
       await answer({ status: 'found', seed: seed() });
       await choose('cuisine', 'levantine');
-      await answer({ status: 'found', seed: seed({ cuisine: { key: 'levantine', displayName: 'Levantine', pinned: true, fromRecipe: false } }) });
+      await answer({
+        status: 'found',
+        seed: seed({ cuisine: { key: 'levantine', displayName: 'Levantine', pinned: true, fromRecipe: false } }),
+      });
 
       const before = queries.length;
       await choose('cuisine', '');
@@ -937,7 +952,13 @@ describe('ContentPipelineIdeaStepComponent', () => {
       await click('Suggest an idea');
       await answer({
         status: 'found',
-        seed: seed({ day: { day: 'Wednesday', pinned: false, theme: { key: 'soup', displayName: 'Soup day', pinned: false, fromRecipe: false } } }),
+        seed: seed({
+          day: {
+            day: 'Wednesday',
+            pinned: false,
+            theme: { key: 'soup', displayName: 'Soup day', pinned: false, fromRecipe: false },
+          },
+        }),
       });
 
       for (const [name, value] of [

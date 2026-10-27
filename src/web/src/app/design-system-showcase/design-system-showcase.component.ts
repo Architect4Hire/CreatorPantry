@@ -137,7 +137,12 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
 })
 export class DesignSystemShowcaseComponent {
   /** The option-card example: three concepts, one chosen at a time, the way a studio offers them. */
-  protected readonly concepts: readonly { id: string; heading: string; summary: string; facts: readonly CpOptionFact[] }[] = [
+  protected readonly concepts: readonly {
+    id: string;
+    heading: string;
+    summary: string;
+    facts: readonly CpOptionFact[];
+  }[] = [
     {
       id: 'miso',
       heading: 'Smoky miso corn',
@@ -186,7 +191,8 @@ export class DesignSystemShowcaseComponent {
     },
     this.validationDraft,
   );
-  protected readonly validationLabelOf = (path: string): string => (path === 'title' ? 'Title' : path === 'servings' ? 'Servings' : '');
+  protected readonly validationLabelOf = (path: string): string =>
+    path === 'title' ? 'Title' : path === 'servings' ? 'Servings' : '';
   private readonly validationSummary = viewChild(CpValidationSummaryComponent);
 
   protected setValidationTitle(title: string): void {
@@ -218,7 +224,14 @@ export class DesignSystemShowcaseComponent {
     this.stepperNames.map((label, index) => ({
       id: label,
       label,
-      status: index === this.stepperAt() ? 'current' : index > this.stepperAt() ? 'upcoming' : index === 1 ? 'skipped' : 'done',
+      status:
+        index === this.stepperAt()
+          ? 'current'
+          : index > this.stepperAt()
+            ? 'upcoming'
+            : index === 1
+              ? 'skipped'
+              : 'done',
     })),
   );
 
@@ -400,12 +413,48 @@ export class DesignSystemShowcaseComponent {
   readonly illustrationNames: readonly CpIllustrationName[] = CP_ILLUSTRATION_NAMES;
 
   /** One head per tool tone (AU.2.5, D3), each with its section's nav icon. */
-  readonly tonedHeads: readonly { tone: 'purple' | 'pink' | 'blue' | 'orange' | null; icon: ShellNavIcon; heading: string; lede: string; action: string }[] = [
-    { tone: null, icon: 'recipes', heading: 'Recipes', lede: 'Every recipe in this workspace. Search and filter to find one.', action: 'New recipe' },
-    { tone: 'purple', icon: 'ai', heading: 'AI Recipe Studio', lede: 'Describe what you are after and get a handful of distinct recipe pitches back.', action: 'Get concepts' },
-    { tone: 'pink', icon: 'image', heading: 'Image Studio', lede: 'Describe a shot, get the words for it, and turn them into pictures.', action: 'Make pictures' },
-    { tone: 'blue', icon: 'social', heading: 'Social Studio', lede: 'Write posts for something you already have.', action: 'Write posts' },
-    { tone: 'orange', icon: 'workflows', heading: 'Long-form', lede: 'From what a piece is about to an article you have accepted, one step at a time.', action: 'Continue' },
+  readonly tonedHeads: readonly {
+    tone: 'purple' | 'pink' | 'blue' | 'orange' | null;
+    icon: ShellNavIcon;
+    heading: string;
+    lede: string;
+    action: string;
+  }[] = [
+    {
+      tone: null,
+      icon: 'recipes',
+      heading: 'Recipes',
+      lede: 'Every recipe in this workspace. Search and filter to find one.',
+      action: 'New recipe',
+    },
+    {
+      tone: 'purple',
+      icon: 'ai',
+      heading: 'AI Recipe Studio',
+      lede: 'Describe what you are after and get a handful of distinct recipe pitches back.',
+      action: 'Get concepts',
+    },
+    {
+      tone: 'pink',
+      icon: 'image',
+      heading: 'Image Studio',
+      lede: 'Describe a shot, get the words for it, and turn them into pictures.',
+      action: 'Make pictures',
+    },
+    {
+      tone: 'blue',
+      icon: 'social',
+      heading: 'Social Studio',
+      lede: 'Write posts for something you already have.',
+      action: 'Write posts',
+    },
+    {
+      tone: 'orange',
+      icon: 'workflows',
+      heading: 'Long-form',
+      lede: 'From what a piece is about to an article you have accepted, one step at a time.',
+      action: 'Continue',
+    },
   ];
 
   /** Every tool tone (AU.1, D1), and no tone, which is the primary. */
@@ -453,8 +502,18 @@ export class DesignSystemShowcaseComponent {
 
   readonly voiceChoices: readonly CpChoiceOption[] = [
     { value: 'warm', label: 'Warm friend', hint: 'Like chatting in the kitchen', example: '“Trust me on this one.”' },
-    { value: 'teacher', label: 'Calm teacher', hint: 'Steady, one step at a time', example: '“Brown the sausage until no pink remains.”' },
-    { value: 'pro', label: 'Expert pro', hint: 'Precise, for cooks who want the why', example: '“Brown it thoroughly to build a deeper base.”' },
+    {
+      value: 'teacher',
+      label: 'Calm teacher',
+      hint: 'Steady, one step at a time',
+      example: '“Brown the sausage until no pink remains.”',
+    },
+    {
+      value: 'pro',
+      label: 'Expert pro',
+      hint: 'Precise, for cooks who want the why',
+      example: '“Brown it thoroughly to build a deeper base.”',
+    },
   ];
 
   readonly toneChoices: readonly CpChoiceOption[] = [
@@ -525,7 +584,10 @@ export class DesignSystemShowcaseComponent {
       warning: 'This recipe is missing a yield.',
       error: 'Publishing failed — check your connection.',
     };
-    this.toasts.update((toasts) => [...toasts, { id: `toast-${++this.toastCounter}`, message: messages[severity], severity }]);
+    this.toasts.update((toasts) => [
+      ...toasts,
+      { id: `toast-${++this.toastCounter}`, message: messages[severity], severity },
+    ]);
   }
 
   onToastDismissed(id: string): void {

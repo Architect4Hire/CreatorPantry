@@ -24,7 +24,11 @@ function unit(id: string, code: string): Record<string, unknown> {
   };
 }
 
-const CATALOGUE = [unit('unit-celsius', 'celsius'), unit('unit-fahrenheit', 'fahrenheit'), unit('unit-kelvin', 'kelvin')];
+const CATALOGUE = [
+  unit('unit-celsius', 'celsius'),
+  unit('unit-fahrenheit', 'fahrenheit'),
+  unit('unit-kelvin', 'kelvin'),
+];
 
 /** Steps covering every case: a recorded temperature, one with no scale, prose heat, and an unknown scale. */
 const SAVED_STEPS: readonly RecipeInstructionGroup[] = [
@@ -295,9 +299,7 @@ describe('RecipeTemperatureConversionComponent', () => {
       expect(req.request.body).toEqual(
         jasmine.objectContaining({ ovenModeContext: 'convection', safetyNote: 'until the centre reads 74 °C' }),
       );
-      req.flush(
-        conversionPayload({ ovenModeContext: 'convection', safetyNote: 'until the centre reads 74 °C' }),
-      );
+      req.flush(conversionPayload({ ovenModeContext: 'convection', safetyNote: 'until the centre reads 74 °C' }));
     });
 
     const card = text(harness.fixture);
@@ -539,9 +541,7 @@ describe('RecipeTemperatureConversionComponent', () => {
     harness.fixture.componentInstance.temperatureValue.set(180);
     harness.fixture.componentInstance.setFromScale('Celsius');
     harness.fixture.componentInstance.safetyNote.set('until the centre reads 74 °C');
-    await convert(harness, (req) =>
-      req.flush(conversionPayload({ safetyNote: 'until the centre reads 74 °C' })),
-    );
+    await convert(harness, (req) => req.flush(conversionPayload({ safetyNote: 'until the centre reads 74 °C' })));
 
     const glyph: HTMLElement = harness.fixture.nativeElement.querySelector('.caution-glyph');
     expect(glyph.getAttribute('aria-hidden')).toBe('true');
