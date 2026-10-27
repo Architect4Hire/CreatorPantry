@@ -43,5 +43,40 @@ internal static class ImageQuotaTestSettings
             })
             .Build();
 
+    /// <summary>The model the Draft test class sends to, rated by itself.</summary>
+    public const string DraftModel = "fake-draft";
+
+    /// <summary>What one Draft test picture costs.</summary>
+    public const decimal DraftRate = 5m;
+
+    /// <summary>The model the High test class sends to, at a quality and a tier, like a real tiered model.</summary>
+    public const string HighModel = "fake-hq";
+
+    /// <summary>What one High test picture costs.</summary>
+    public const decimal HighRate = 40m;
+
+    /// <summary>
+    /// <see cref="For"/> plus three quality classes (AP.3.1): Draft on <see cref="DraftModel"/>, Standard — the
+    /// default — on the fake model every other test prices, and High on <see cref="HighModel"/> at high 1K.
+    /// High2K and High4K are deliberately not offered, so a test can ask for a class this host does not have.
+    /// </summary>
+    public static IConfiguration WithQualityClasses() =>
+        new ConfigurationBuilder()
+            .AddConfiguration(For())
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [$"Ai:Quota:ImageRates:{DraftModel}"] = Text(DraftRate),
+                [$"Ai:Cost:Images:{DraftModel}"] = "0.004",
+                [$"Ai:Quota:ImageRates:{HighModel}/1K/high"] = Text(HighRate),
+                [$"Ai:Cost:Images:{HighModel}/1K/high"] = "0.032",
+                ["Ai:Images:DefaultClass"] = "Standard",
+                ["Ai:Images:Classes:Draft:Model"] = DraftModel,
+                ["Ai:Images:Classes:Standard:Model"] = TestDatabase.FakeImageModel,
+                ["Ai:Images:Classes:High:Model"] = HighModel,
+                ["Ai:Images:Classes:High:Quality"] = "high",
+                ["Ai:Images:Classes:High:Resolution"] = "1K",
+            })
+            .Build();
+
     private static string Text(decimal value) => value.ToString(CultureInfo.InvariantCulture);
 }

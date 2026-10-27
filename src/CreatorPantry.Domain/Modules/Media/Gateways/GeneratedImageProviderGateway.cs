@@ -123,7 +123,16 @@ public interface IGeneratedImageProviderGateway
     GeneratedImageModel Describe();
 
     /// <summary>Generates one image, and makes no claim about what came back beyond its being bytes.</summary>
-    Task<GeneratedImageResult> GenerateAsync(string prompt, string? avoid, CancellationToken cancellationToken);
+    /// <param name="prompt">The creator's prompt.</param>
+    /// <param name="avoid">What to avoid, when the creator said.</param>
+    /// <param name="settings">
+    /// The model and settings a quality class sends (AP.3.1), or null for the deployment's own default. Passed
+    /// through <see cref="ImageGenerationOptions"/> under provider-neutral keys; the generator refuses a value
+    /// its model does not offer rather than sending it.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    Task<GeneratedImageResult> GenerateAsync(
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageProviderGateway"/>
@@ -186,7 +195,7 @@ public sealed class GeneratedImageProviderGateway(
     }
 
     public async Task<GeneratedImageResult> GenerateAsync(
-        string prompt, string? avoid, CancellationToken cancellationToken)
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
 
@@ -204,12 +213,7 @@ public sealed class GeneratedImageProviderGateway(
         {
             response = await generator.GenerateAsync(
                 new ImageGenerationRequest(Compose(prompt, avoid)),
-                new ImageGenerationOptions
-                {
-                    // One, always. See MediaPolicy.ProviderSupportsBatchGeneration.
-                    Count = 1,
-                    ResponseFormat = ImageGenerationResponseFormat.Data,
-                },
+                Options(settings),
                 timeout.Token);
         }
         catch (AiProviderNotConfiguredException)
@@ -313,6 +317,39 @@ public sealed class GeneratedImageProviderGateway(
 
         _ => GeneratedImageProviderOutcome.Unavailable,
     };
+
+    /// <summary>
+    /// The request's options: one picture, as bytes, at the class's model and settings when there is a class.
+    /// </summary>
+    private static ImageGenerationOptions Options(GeneratedImageSettings? settings)
+    {
+        var options = new ImageGenerationOptions
+        {
+            // One, always. See MediaPolicy.ProviderSupportsBatchGeneration.
+            Count = 1,
+            ResponseFormat = ImageGenerationResponseFormat.Data,
+        };
+
+        if (settings is null)
+        {
+            return options;
+        }
+
+        options.ModelId = settings.ModelName;
+        options.AdditionalProperties = [];
+
+        if (settings.Quality is { } quality)
+        {
+            options.AdditionalProperties[ImageGenerationSettings.Quality] = quality;
+        }
+
+        if (settings.Resolution is { } resolution)
+        {
+            options.AdditionalProperties[ImageGenerationSettings.Resolution] = resolution;
+        }
+
+        return options;
+    }
 
     /// <summary>
     /// Puts the avoid list after the prompt, under a plain heading of its own.

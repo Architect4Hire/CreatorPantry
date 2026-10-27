@@ -52,16 +52,33 @@ public interface IGeneratedImageGenerationBusiness
         Guid requestedByMembershipId,
         string idempotencyKey,
         GeneratedImageSubject subject,
+        GeneratedImageQualityClass? qualityClass,
         CancellationToken cancellationToken);
 
     /// <summary>How many images one operation of the resolved workspace has staged.</summary>
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// What a request for <paramref name="variants"/> pictures would cost the caller's account right now, priced
-    /// for the model, tier and quality this deployment would send (AP.2.6). Writes nothing.
+    /// What a request for <paramref name="variants"/> pictures at <paramref name="qualityClass"/> would cost the
+    /// caller's account right now, priced for the model, tier and quality that class sends (AP.2.6, AP.3.1).
+    /// Writes nothing.
     /// </summary>
-    Task<GeneratedImageQuoteServiceModel> QuoteAsync(int variants, CancellationToken cancellationToken);
+    /// <param name="qualityClass">Already resolved by the facade; null on a host that offers no classes.</param>
+    Task<GeneratedImageQuoteServiceModel> QuoteAsync(
+        int variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
+
+    /// <summary>The quality classes this host offers, each at the rate it is charged (AP.3.1, B-55).</summary>
+    GeneratedImageQualityClassesServiceModel ListQualityClasses();
+
+    /// <summary>
+    /// The class a request or quote is made at: the one named, or the default when none was (AP.3.1). False when
+    /// the named class is not offered here — including any class at all on a host that offers none, where a
+    /// request naming none is made at the deployment's own default and <paramref name="chosen"/> is null.
+    /// </summary>
+    bool TryChooseQualityClass(GeneratedImageQualityClass? requested, out GeneratedImageQualityClass? chosen);
+
+    /// <summary>Whether this key has already bought an operation in the resolved workspace.</summary>
+    Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken);
 
     /// <summary>
     /// The in-progress cap and the daily variant budget (15.3), or null when this request may be queued. A key that
@@ -107,8 +124,25 @@ internal sealed class GeneratedImageGenerationBusiness(
     IWorkspaceContext workspace,
     IClock clock,
     IOptions<LimitsOptions> limits,
+    IOptions<GeneratedImageQualityClassOptions> qualityClasses,
     ILogger<GeneratedImageGenerationBusiness> logger) : IGeneratedImageGenerationBusiness
 {
+    /// <summary>
+    /// What a request at <paramref name="qualityClass"/> sends, or null for the deployment's own default — the
+    /// answer on a host that offers no classes.
+    /// </summary>
+    private GeneratedImageSettings? SettingsFor(GeneratedImageQualityClass? qualityClass) =>
+        qualityClass is { } chosen
+            ? GeneratedImageQualityClassCatalogue.Settings(qualityClasses.Value, chosen)
+            : null;
+
+    /// <summary>
+    /// What will actually be sent: the class's model and settings, or the deployment's defaults when there is
+    /// no class. Priced as one, so the quote, the hold and the request can never describe different pictures.
+    /// </summary>
+    private static GeneratedImageSettings Sent(GeneratedImageSettings? settings, GeneratedImageModel model) =>
+        settings ?? new GeneratedImageSettings(null, model.ModelName!, model.Resolution, model.Quality);
+
     public async Task<OperationError?> RefuseIfOverLimitsAsync(
         string idempotencyKey, int variantCount, CancellationToken cancellationToken)
     {
@@ -155,6 +189,7 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid requestedByMembershipId,
         string idempotencyKey,
         GeneratedImageSubject subject,
+        GeneratedImageQualityClass? qualityClass,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subject);
@@ -168,9 +203,14 @@ internal sealed class GeneratedImageGenerationBusiness(
         // before allowance existed.
         var model = dataLayer.DescribeModel();
 
-        var admission = model is { Status: GeneratedImageModelStatus.Identified }
-            ? new GeneratedImageAdmissionRequest(
-                workspace.AccountId, model.ModelName!, model.Resolution, model.Quality)
+        // At the quality class's own model and settings when there is one (AP.3.1): its rate is what is held,
+        // and so what is charged — the class's price is the row it sends, never a figure of its own (B-55).
+        var sent = model is { Status: GeneratedImageModelStatus.Identified }
+            ? Sent(SettingsFor(qualityClass), model)
+            : null;
+
+        var admission = sent is not null
+            ? new GeneratedImageAdmissionRequest(workspace.AccountId, sent.ModelName, sent.Resolution, sent.Quality)
             : null;
 
         return dataLayer.RequestAsync(
@@ -189,6 +229,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 RecipeVersionId = subject.RecipeVersionId,
                 CreativeContextId = subject.CreativeContextId,
                 VariantCount = variantCount,
+                QualityClass = qualityClass,
                 IdempotencyKey = idempotencyKey,
                 RequestedByMembershipId = requestedByMembershipId,
                 RequestedAt = now,
@@ -203,7 +244,8 @@ internal sealed class GeneratedImageGenerationBusiness(
     public Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.StagedCountAsync(operationId, cancellationToken);
 
-    public async Task<GeneratedImageQuoteServiceModel> QuoteAsync(int variants, CancellationToken cancellationToken)
+    public async Task<GeneratedImageQuoteServiceModel> QuoteAsync(
+        int variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
     {
         // The same description RequestAsync admits against, so the quote prices the picture the request would
         // make: the model, the tier and the quality its sizing profile decides. A host with no image provider
@@ -212,11 +254,13 @@ internal sealed class GeneratedImageGenerationBusiness(
 
         if (model is not { Status: GeneratedImageModelStatus.Identified, ModelName: not null })
         {
-            return GeneratedImageQuoteServiceModel.Unavailable(variants);
+            return GeneratedImageQuoteServiceModel.Unavailable(variants, qualityClass);
         }
 
-        // The account from the resolved context — the creator asking — never a request field (USAGE-001).
-        var quote = await dataLayer.QuoteAsync(workspace.AccountId, model, variants, cancellationToken);
+        // The account from the resolved context — the creator asking — never a request field (USAGE-001). Priced
+        // at what the class sends, by the same Sent the request admits with, so the quote is the hold.
+        var quote = await dataLayer.QuoteAsync(
+            workspace.AccountId, Sent(SettingsFor(qualityClass), model), variants, cancellationToken);
 
         return quote.Outcome switch
         {
@@ -234,16 +278,63 @@ internal sealed class GeneratedImageGenerationBusiness(
                 quote.AffordableVariants,
                 quote.LeavesNearlySpent,
                 quote.ResetsAt,
-                quote.TimeZoneId),
+                quote.TimeZoneId,
+                qualityClass),
 
             // No balance and no reset date, as the request's own suspension refusal carries none.
             AiImageQuoteOutcome.Suspended => new GeneratedImageQuoteServiceModel(
                 GeneratedImageQuoteOutcome.Suspended,
-                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null),
+                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null, qualityClass),
 
             // Unpriced is this host's misconfiguration, not the creator's balance; it reads as no provider.
-            _ => GeneratedImageQuoteServiceModel.Unavailable(variants),
+            _ => GeneratedImageQuoteServiceModel.Unavailable(variants, qualityClass),
         };
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Each price is read, never written down (B-55).</strong> The rate <c>Ai:Quota:ImageRates</c> holds
+    /// for what the class sends, through the AiUsage module's own converter — the figure a hold for one picture
+    /// of it takes. A class with no rate is left off rather than shown at nothing: startup refuses such a host,
+    /// so its absence here is a guard for a table changed while running, not a state anyone should see.
+    /// </para>
+    /// <para>
+    /// Reads configuration only. No account and no period: a price list is the same for everyone who may ask.
+    /// </para>
+    /// </remarks>
+    public bool TryChooseQualityClass(GeneratedImageQualityClass? requested, out GeneratedImageQualityClass? chosen)
+    {
+        var options = qualityClasses.Value;
+
+        if (!GeneratedImageQualityClassCatalogue.Offers(options))
+        {
+            chosen = null;
+
+            return requested is null;
+        }
+
+        chosen = GeneratedImageQualityClassCatalogue.Choose(options, requested);
+
+        return chosen is not null;
+    }
+
+    public Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken) =>
+        dataLayer.IsReplayAsync(idempotencyKey, cancellationToken);
+
+    public GeneratedImageQualityClassesServiceModel ListQualityClasses()
+    {
+        var options = qualityClasses.Value;
+
+        var classes = GeneratedImageQualityClassCatalogue.All(options)
+            .Select(settings => (settings.QualityClass!.Value, Price: dataLayer.PriceInCredits(settings)))
+            .Where(priced => priced.Price is not null)
+            .Select(priced => new GeneratedImageQualityClassPriceServiceModel(
+                priced.Value, priced.Price!.Value, priced.Value == options.DefaultClass))
+            .ToList();
+
+        // The default only when it is in the list, so a page never preselects a class it cannot show.
+        return new GeneratedImageQualityClassesServiceModel(
+            classes.Any(entry => entry.IsDefault) ? options.DefaultClass : null, AiQuotaUnit.Credits.ToString(), classes);
     }
 
     public async Task<GeneratedImageRunOutcome> ExecuteAsync(
@@ -336,7 +427,33 @@ internal sealed class GeneratedImageGenerationBusiness(
                     cancellationToken);
         }
 
-        if (await dataLayer.RecordProviderAsync(operationId, leaseToken, model, cancellationToken)
+        // What this generation's class sends, read now (AP.3.1). A class this host no longer offers is not sent
+        // at some other setting: the hold priced that class, and a picture of anything else is not what was
+        // asked for or paid for.
+        var settings = SettingsFor(work.QualityClass);
+
+        if (work.QualityClass is not null && settings is null)
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.ProviderNotConfigured,
+                "The picture quality this request asked for is no longer offered on this host.",
+                cancellationToken);
+        }
+
+        // The model actually asked, which for a class is the class's — not the deployment's default model.
+        var asked = settings is null
+            ? model
+            : model with
+            {
+                ModelName = settings.ModelName,
+                ModelDeployment = settings.ModelName,
+                Resolution = settings.Resolution,
+                Quality = settings.Quality,
+            };
+
+        if (await dataLayer.RecordProviderAsync(operationId, leaseToken, asked, cancellationToken)
             is not GeneratedImageWriteOutcome.Applied)
         {
             return GeneratedImageRunOutcome.Skipped;
@@ -354,7 +471,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 continue;
             }
 
-            if (!await RunVariantAsync(operationId, leaseToken, variant, work, run, cancellationToken))
+            if (!await RunVariantAsync(operationId, leaseToken, variant, work, settings, run, cancellationToken))
             {
                 break;
             }
@@ -376,10 +493,11 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid leaseToken,
         int variant,
         GeneratedImageWork work,
+        GeneratedImageSettings? settings,
         GeneratedImagePassState run,
         CancellationToken cancellationToken)
     {
-        var generated = await dataLayer.GenerateAsync(work.PromptText, work.AvoidText, cancellationToken);
+        var generated = await dataLayer.GenerateAsync(work.PromptText, work.AvoidText, settings, cancellationToken);
 
         switch (generated.Outcome)
         {

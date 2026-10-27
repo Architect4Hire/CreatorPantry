@@ -100,7 +100,7 @@ public static class WorkerHostRegistration
         // The content module resolves a saved prompt's generated-image pin through the Media module, so a
         // host carrying one carries the other. It is also where 12.7's image generation runs, which is why
         // AddGeneratedImageWorker is added below alongside the brand queues.
-        builder.Services.AddMediaModule();
+        builder.Services.AddMediaModule(builder.Configuration);
         builder.Services.AddAudit();
         builder.Services.AddIdempotency(builder.Configuration);
         builder.Services.AddAiOperationWorker();

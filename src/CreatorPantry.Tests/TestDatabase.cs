@@ -39,7 +39,18 @@ internal static class TestDatabase
         // arbitrary; the tests that are about what a picture costs set their own.
         web.UseSetting($"Ai:Quota:ImageRates:{FakeImageModel}", FakeImageRate.ToString(CultureInfo.InvariantCulture));
         web.UseSetting($"Ai:Cost:Images:{FakeImageModel}", "0.008");
+
+        // The default quality class sends to the fake model (AP.3.1), so a request that names no class is priced
+        // and sent exactly as it was before classes: the fake model at its own rate. Blank clears the shipped
+        // quality and resolution, which the fake model takes none of. The other classes keep the shipped
+        // mapping and its real rates, which is what the per-class tests price against.
+        web.UseSetting($"Ai:Images:Classes:{DefaultQualityClass}:Model", FakeImageModel);
+        web.UseSetting($"Ai:Images:Classes:{DefaultQualityClass}:Quality", string.Empty);
+        web.UseSetting($"Ai:Images:Classes:{DefaultQualityClass}:Resolution", string.Empty);
     }
+
+    /// <summary>The class a request that names none is made at, as the shipped configuration says.</summary>
+    public const string DefaultQualityClass = "Standard";
 
     /// <summary>
     /// The model the fake image generator reports, which <see cref="Configure"/> rates so a hosted test can

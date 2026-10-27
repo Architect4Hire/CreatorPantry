@@ -45,7 +45,8 @@ public sealed record GeneratedImageWork(
     Guid? ReservationId = null,
     int BilledVariants = 0,
     int UnusableVariants = 0,
-    int FlaggedVariants = 0);
+    int FlaggedVariants = 0,
+    GeneratedImageQualityClass? QualityClass = null);
 
 /// <summary>What the provider billed this host for on one variant (AP.2.5).</summary>
 /// <remarks>
@@ -96,14 +97,21 @@ public interface IGeneratedImageGenerationDataLayer
     GeneratedImageModel DescribeModel();
 
     /// <summary>
-    /// What <paramref name="variants"/> pictures of <paramref name="model"/> would cost the account, asked of the
-    /// AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
+    /// What <paramref name="variants"/> pictures at <paramref name="settings"/> would cost the account, asked of
+    /// the AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
     /// </summary>
     Task<AiImageQuoteServiceModel> QuoteAsync(
-        string accountId, GeneratedImageModel model, int variants, CancellationToken cancellationToken);
+        string accountId, GeneratedImageSettings settings, int variants, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What one picture at <paramref name="settings"/> is charged, in credits — the rate admission holds — or
+    /// null when this host has none for it (AP.3.1, B-55). Reads configuration only.
+    /// </summary>
+    decimal? PriceInCredits(GeneratedImageSettings settings);
 
     /// <inheritdoc cref="IGeneratedImageProviderGateway.GenerateAsync"/>
-    Task<GeneratedImageResult> GenerateAsync(string prompt, string? avoid, CancellationToken cancellationToken);
+    Task<GeneratedImageResult> GenerateAsync(
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken);
 
     /// <summary>Reads what a claimed operation asks for, if this worker still holds its lease.</summary>
     Task<GeneratedImageWork> OpenAsync(Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
@@ -259,12 +267,19 @@ internal sealed class GeneratedImageGenerationDataLayer(
     public GeneratedImageModel DescribeModel() => provider.Describe();
 
     public Task<AiImageQuoteServiceModel> QuoteAsync(
-        string accountId, GeneratedImageModel model, int variants, CancellationToken cancellationToken)
+        string accountId, GeneratedImageSettings settings, int variants, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(settings);
 
         return quota.QuoteImageAsync(
-            accountId, model.ModelName!, model.Resolution, model.Quality, variants, cancellationToken);
+            accountId, settings.ModelName, settings.Resolution, settings.Quality, variants, cancellationToken);
+    }
+
+    public decimal? PriceInCredits(GeneratedImageSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return quota.ImageCredits(settings.ModelName, settings.Resolution, settings.Quality);
     }
 
     public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
@@ -272,8 +287,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
         details.FindAsync(operationId, cancellationToken);
 
     public Task<GeneratedImageResult> GenerateAsync(
-        string prompt, string? avoid, CancellationToken cancellationToken) =>
-        provider.GenerateAsync(prompt, avoid, cancellationToken);
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken) =>
+        provider.GenerateAsync(prompt, avoid, settings, cancellationToken);
 
     public async Task<GeneratedImageWork> OpenAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken)
@@ -302,7 +317,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
             operation.AiQuotaReservationId,
             operation.BilledVariantCount,
             operation.UnusableVariantCount,
-            operation.FlaggedVariantCount);
+            operation.FlaggedVariantCount,
+            operation.QualityClass);
     }
 
     /// <remarks>

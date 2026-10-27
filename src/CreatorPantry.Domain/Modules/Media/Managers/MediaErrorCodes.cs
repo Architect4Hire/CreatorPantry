@@ -40,6 +40,12 @@ public static class MediaErrorCodes
     public const string GenerationContextUnprocessable = "media.generation.context.unprocessable";
 
     /// <summary>
+    /// The request or quote names a quality class this host does not offer (AP.3.1). Maps to 422, naming
+    /// <c>qualityClass</c>: well formed — it is one of the five — and still not something this host can make.
+    /// </summary>
+    public const string GenerationQualityClassUnprocessable = "media.generation.quality_class.unprocessable";
+
+    /// <summary>
     /// No image-generation operation of this workspace has that id.
     /// </summary>
     /// <remarks>

@@ -138,6 +138,13 @@ internal sealed class GeneratedImageOperationConfiguration
                     + "AND FlaggedVariantCount >= 0 "
                     + "AND UnusableVariantCount <= BilledVariantCount "
                     + "AND FlaggedVariantCount <= UnusableVariantCount");
+
+            // A quality class is one of the declared ones or absent (AP.3.1) — absent only for a request made
+            // on a host that offers none, or before the column existed.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_QualityClass_Declared",
+                $"QualityClass IS NULL OR (QualityClass >= {(int)GeneratedImageQualityClass.Draft} "
+                    + $"AND QualityClass <= {(int)GeneratedImageQualityClass.High4K})");
         });
     }
 

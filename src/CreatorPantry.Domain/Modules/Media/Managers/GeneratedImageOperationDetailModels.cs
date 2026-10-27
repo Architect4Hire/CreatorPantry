@@ -57,7 +57,8 @@ public sealed record GeneratedImageOperationDetailServiceModel(
     IReadOnlyList<StagedImageServiceModel> Images,
     Guid? RecipeId = null,
     Guid? RecipeVersionId = null,
-    Guid? CreativeContextId = null);
+    Guid? CreativeContextId = null,
+    GeneratedImageQualityClass? QualityClass = null);
 
 /// <summary>
 /// One staged image of an operation, as a client needs to show and act on it.

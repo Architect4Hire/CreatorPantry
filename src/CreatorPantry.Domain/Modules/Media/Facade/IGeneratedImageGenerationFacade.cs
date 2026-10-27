@@ -78,8 +78,21 @@ public interface IGeneratedImageGenerationFacade
     /// The count is checked as the request checks it, so a quote can never be for a request that would be refused
     /// as invalid.
     /// </remarks>
+    /// <param name="variants">How many pictures to price.</param>
+    /// <param name="qualityClass">The class to price; null for the host's default (AP.3.1).</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
     Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
-        int? variants, CancellationToken cancellationToken);
+        int? variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The quality classes a creator may ask for here, each with what one picture of it costs (AP.3.1, B-55).
+    /// </summary>
+    /// <remarks>
+    /// Contributor, like the quote and the request: the list exists to choose between, and a Viewer cannot ask.
+    /// Read-only and the same for every member — a price list, not the asker's balance.
+    /// </remarks>
+    Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
+        CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
@@ -158,8 +171,47 @@ internal sealed class GeneratedImageGenerationFacade(
             }),
     };
 
+    public Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
+        CancellationToken cancellationToken) =>
+        Task.FromResult(workspace.Role < WorkspaceRole.Contributor
+            ? OperationResult<GeneratedImageQualityClassesServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()))
+            : OperationResult<GeneratedImageQualityClassesServiceModel>.Success(business.ListQualityClasses()));
+
+    /// <summary>
+    /// Whether a replayed key asked for the same quality as the request that took it (AP.3.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A retry that names no class is the request it retries, whatever class that was made at.</strong>
+    /// A lost answer is retried with the body it was sent with, and the default it resolved to may have changed
+    /// in between; refusing it then would strand a creator on a key that can never succeed. What a key must not
+    /// do is buy a different class by naming one, so a retry that names a class is compared with the class
+    /// stored — which makes naming the default the same request as naming none, while the default stands.
+    /// </para>
+    /// <para>
+    /// An operation with no class was made where no class applied — before this column existed, or on a host
+    /// offering none — and only a retry that names none is that request.
+    /// </para>
+    /// </remarks>
+    private static bool SameQuality(
+        GeneratedImageQualityClass? stored, GeneratedImageQualityClass? requested, GeneratedImageQualityClass? chosen) =>
+        requested is null || (stored is not null && stored == chosen);
+
+    /// <summary>
+    /// The refusal for a class this host does not offer, naming the field, in the same words for a quote and a
+    /// request so a client reads one case.
+    /// </summary>
+    private static OperationError QualityClassNotOffered(string message) =>
+        OperationError.Validation(
+            MediaErrorCodes.GenerationQualityClassUnprocessable,
+            message,
+            [("qualityClass", "That picture quality is not offered here.")]);
+
     public async Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
-        int? variants, CancellationToken cancellationToken)
+        int? variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
     {
         if (workspace.Role < WorkspaceRole.Contributor)
         {
@@ -177,8 +229,14 @@ internal sealed class GeneratedImageGenerationFacade(
                 [("variants", $"Ask about between 1 and {MediaPolicy.MaxVariantsPerOperation} images.")]));
         }
 
+        if (!business.TryChooseQualityClass(qualityClass, out var chosen))
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(
+                QualityClassNotOffered("The images could not be priced."));
+        }
+
         return OperationResult<GeneratedImageQuoteServiceModel>.Success(
-            await business.QuoteAsync(count, cancellationToken));
+            await business.QuoteAsync(count, chosen, cancellationToken));
     }
 
     public async Task<OperationResult<GeneratedImageOperationServiceModel>> RequestAsync(
@@ -203,6 +261,22 @@ internal sealed class GeneratedImageGenerationFacade(
         {
             return OperationResult<GeneratedImageOperationServiceModel>.Failure(OperationError.Validation(
                 MediaErrorCodes.GenerationInvalidRequest, "The images could not be requested.", failures));
+        }
+
+        // The class, decided before anything else about the request is looked up: a request at a quality this
+        // host cannot make is refused in words, and nothing is held or queued for it (AP.3.1). A replayed key is
+        // the exception, because a replay is never refused: its answer is the operation it already bought, even
+        // when the class it was bought at has since been taken off this host — and comparing that operation with
+        // what is asked now is the key check's job below, not this one's.
+        if (!business.TryChooseQualityClass(request.QualityClass, out var qualityClass))
+        {
+            if (!await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+            {
+                return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                    QualityClassNotOffered("The images could not be requested."));
+            }
+
+            qualityClass = request.QualityClass;
         }
 
         var promptText = request.PromptText.Trim();
@@ -268,6 +342,7 @@ internal sealed class GeneratedImageGenerationFacade(
             workspace.MembershipId,
             request.IdempotencyKey.Trim(),
             subject,
+            qualityClass,
             cancellationToken);
 
         // The account could not pay for the pictures (PRICE-001, USAGE-006/007). Nothing was written and
@@ -280,9 +355,9 @@ internal sealed class GeneratedImageGenerationFacade(
         }
 
         // A key names one request. Found again with anything about the request different — the words, the
-        // number of images, the proposal, or who is asking — it is a second request wearing the first one's
-        // key, and answering it with the first one's operation would hand back images of something else
-        // (12.10l). Refused as every other idempotent command refuses it, and nothing is queued.
+        // number of images, the quality, the proposal, or who is asking — it is a second request wearing the
+        // first one's key, and answering it with the first one's operation would hand back images of something
+        // else (12.10l). Refused as every other idempotent command refuses it, and nothing is queued.
         if (result.Replayed
             && !(string.Equals(result.Operation.PromptText, promptText, StringComparison.Ordinal)
                 && string.Equals(result.Operation.AvoidText, avoidText, StringComparison.Ordinal)
@@ -291,6 +366,7 @@ internal sealed class GeneratedImageGenerationFacade(
                 && result.Operation.RecipeVersionId == subject.RecipeVersionId
                 && result.Operation.CreativeContextId == subject.CreativeContextId
                 && result.Operation.VariantCount == request.VariantCount
+                && SameQuality(result.Operation.QualityClass, request.QualityClass, qualityClass)
                 && result.Operation.RequestedByMembershipId == workspace.MembershipId))
         {
             return OperationResult<GeneratedImageOperationServiceModel>.Failure(new OperationError(
@@ -319,7 +395,8 @@ internal sealed class GeneratedImageGenerationFacade(
                 result.Operation.CompletedAt,
                 result.Operation.RecipeId,
                 result.Operation.RecipeVersionId,
-                result.Operation.CreativeContextId));
+                result.Operation.CreativeContextId,
+                result.Operation.QualityClass));
     }
 
     public Task<GeneratedImageRunOutcome> ExecuteAsync(

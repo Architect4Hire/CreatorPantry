@@ -37,6 +37,9 @@ internal interface IAiQuotaAdmissionBusiness
         int variantCount,
         CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ImageCredits"/>
+    decimal? ImageCredits(string modelName, string? resolution, string? quality);
+
     /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.AdmitImageAsync"/>
     Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
         AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
@@ -270,6 +273,14 @@ internal sealed class AiQuotaAdmissionBusiness(
             period.EndsAt,
             period.TimeZoneId);
     }
+
+    /// <remarks>
+    /// Rounded as a hold is, so the per-picture figure a picker shows is the one a quote for one picture shows.
+    /// </remarks>
+    public decimal? ImageCredits(string modelName, string? resolution, string? quality) =>
+        AiImageQuotaConverter.Charge(AiQuotaUnit.Credits, modelName, resolution, quality, _options) is > 0m and var credits
+            ? AiQuotaUnitConverter.Round(credits)
+            : null;
 
     public async Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken)

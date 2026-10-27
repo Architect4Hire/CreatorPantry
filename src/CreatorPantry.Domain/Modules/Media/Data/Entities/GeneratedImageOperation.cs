@@ -77,6 +77,17 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
     /// <summary>How many images were asked for. Between one and four (<see cref="MediaPolicy"/>).</summary>
     public int VariantCount { get; set; }
 
+    /// <summary>
+    /// The quality class the pictures are made at, resolved at the request — the one asked for, or the default
+    /// (AP.3.1). Null for a request made on a host that offers no classes, or before this column existed.
+    /// </summary>
+    /// <remarks>
+    /// The class, not what it sends: the worker resolves the model and settings from configuration when it
+    /// runs, and the hold already fixed the price per picture, so a remapped class cannot re-price a request
+    /// already admitted. Part of what a key names (12.10l): the same key with a different class is refused.
+    /// </remarks>
+    public GeneratedImageQualityClass? QualityClass { get; set; }
+
     /// <summary>The provider the operation was run against, once a worker has chosen one.</summary>
     public string? ProviderName { get; set; }
 

@@ -346,6 +346,107 @@ public sealed class AiRegistrationTests
         Assert.DoesNotContain("Ai:Quota:ImageRates", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A quality class is checked the way a request at it would be (AP.3.1): a class that sends to a model with
+    /// no sizing profile cannot be sent at all, and is refused by class and model before anything starts.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_sending_to_an_unprofiled_model_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "Standard",
+                ["Ai:Images:Classes:Standard:Model"] = "image-model-test",
+                ["Ai:Images:Classes:Standard:Quality"] = "",
+                ["Ai:Images:Classes:Standard:Resolution"] = "",
+                ["Ai:Images:Classes:High:Model"] = "nobody-profiled-this",
+            }));
+
+        Assert.Contains(
+            "High sends to 'nobody-profiled-this', which has no sizing profile", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Standard", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A class asking its model for a setting the model does not take would be refused on every request; it is
+    /// refused here instead. The fixture model is sized by aspect ratio and takes no quality.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_asking_for_a_setting_its_model_does_not_take_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "High",
+                ["Ai:Images:Classes:High:Model"] = "image-model-test",
+                ["Ai:Images:Classes:High:Quality"] = "high",
+                ["Ai:Images:Classes:High:Resolution"] = "",
+            }));
+
+        Assert.Contains("High cannot be sent to 'image-model-test'", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <strong>A class with no rate does not start</strong> (AP.3.1, AP.2.4's rule per class): it would cost
+    /// nothing, or be refused on every request. Here the class asks a tiered model for a quality the profile
+    /// offers and nobody priced, and the refusal names the exact row the class would be charged at.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_with_no_rate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:tiered-model:Sizing"] = "Resolution",
+                ["Venice:Models:tiered-model:Resolutions:0"] = "1K",
+                ["Venice:Models:tiered-model:DefaultResolution"] = "1K",
+                ["Venice:Models:tiered-model:Qualities:0"] = "medium",
+                ["Venice:Models:tiered-model:Qualities:1"] = "high",
+                ["Venice:Models:tiered-model:DefaultQuality"] = "medium",
+                ["Venice:Models:tiered-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:tiered-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:tiered-model:PromptCharacterLimit"] = "10000",
+                ["Ai:Quota:ImageRates:tiered-model/1K/medium"] = "50",
+                ["Ai:Cost:Images:tiered-model/1K/medium"] = "0.04",
+                ["Ai:Images:DefaultClass"] = "High",
+                ["Ai:Images:Classes:High:Model"] = "tiered-model",
+                ["Ai:Images:Classes:High:Quality"] = "high",
+                ["Ai:Images:Classes:High:Resolution"] = "1K",
+            }));
+
+        Assert.Contains("tiered-model/1K/high", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Quota:ImageRates", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Classes that can each be sized and priced start — overridden here, and as shipped.</summary>
+    [Fact]
+    public void Quality_classes_this_host_can_size_and_price_start()
+    {
+        using var host = BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "Standard",
+                ["Ai:Images:Classes:Standard:Model"] = "image-model-test",
+                ["Ai:Images:Classes:Standard:Quality"] = "",
+                ["Ai:Images:Classes:Standard:Resolution"] = "",
+            });
+
+        using var shipped = BuildHost(chat: null, embeddings: null, images: ImagesConnectionString);
+    }
+
     /// <summary>A profile that contradicts itself is refused by name, whichever model is configured.</summary>
     [Fact]
     public void A_sizing_profile_that_cannot_be_used_refuses_to_start()

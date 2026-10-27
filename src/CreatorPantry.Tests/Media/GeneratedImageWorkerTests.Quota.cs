@@ -310,8 +310,11 @@ public sealed partial class GeneratedImageWorkerTests
     {
         _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
 
-        // A model priced per tier and quality, with no rate for the pair it would send.
-        _generator.Defaults = new Domain.Managers.Ai.ImageGenerationDefaults("4K", "high");
+        // The default quality class's model with its rate gone — a table changed after startup checked it.
+        // Since AP.3.1 a request is priced at its class, not at the deployment's own defaults, so this is
+        // where an unpriceable picture now comes from.
+        _provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiQuotaOptions>>()
+            .Value.ImageRates.Remove(TestDatabase.FakeImageModel);
 
         await using var scope = ScopeFor(WorkspaceA, account: AccountA);
 

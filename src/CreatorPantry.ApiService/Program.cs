@@ -129,7 +129,7 @@ builder.Services.AddRecipeExportSeam();
 // The generated-image workspace (12.6). Registered beside the content module rather than on its own
 // account: the prompt library resolves a saved prompt's generated-image pin through this module's lookup
 // facade before writing a row that can never be corrected, so a host serving prompt routes needs both.
-builder.Services.AddMediaModule();
+builder.Services.AddMediaModule(builder.Configuration);
 
 // Publishing (PUB-001/002/003). The module answers "not configured" on its own; AddBufferPublishing replaces
 // that with Buffer only when this host has been handed a key and the workspace it belongs to.

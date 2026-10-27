@@ -158,6 +158,18 @@ public interface IAiQuotaAdmissionFacade
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// What one picture of this model, tier and quality is charged, in credits, or null when this deployment has
+    /// no rate for it (AP.3.1, B-55). Reads configuration only; no account, no period.
+    /// </summary>
+    /// <remarks>
+    /// The price list a quality-class picker and the landing page publish, read through the same converter
+    /// admission holds with, so the figure shown for a class is the figure charged for it — never a second copy.
+    /// In credits whatever an account's own period is counted in, because a price list is the same for
+    /// everybody; a particular account's figures are <see cref="QuoteImageAsync"/>'s.
+    /// </remarks>
+    decimal? ImageCredits(string modelName, string? resolution, string? quality);
+
+    /// <summary>
     /// Whether an account could run this task right now, and what it has left — without holding anything.
     /// </summary>
     /// <param name="accountId">
@@ -280,6 +292,9 @@ internal sealed class AiQuotaAdmissionFacade(
         int variantCount,
         CancellationToken cancellationToken) =>
         business.QuoteImageAsync(accountId, modelName, resolution, quality, variantCount, cancellationToken);
+
+    public decimal? ImageCredits(string modelName, string? resolution, string? quality) =>
+        business.ImageCredits(modelName, resolution, quality);
 
     public Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken) =>

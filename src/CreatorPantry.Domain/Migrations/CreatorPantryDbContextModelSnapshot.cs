@@ -4718,6 +4718,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("QualityClass")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("RecipeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -4773,6 +4776,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_GeneratedImageOperations_BilledVariants_Coherent", "BilledVariantCount >= 0 AND UnusableVariantCount >= 0 AND FlaggedVariantCount >= 0 AND UnusableVariantCount <= BilledVariantCount AND FlaggedVariantCount <= UnusableVariantCount");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_QualityClass_Declared", "QualityClass IS NULL OR (QualityClass >= 1 AND QualityClass <= 5)");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
 

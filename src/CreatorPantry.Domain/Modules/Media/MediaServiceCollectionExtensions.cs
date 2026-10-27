@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.MalwareScanning;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Storage;
 using FluentValidation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -35,9 +36,32 @@ public static class MediaServiceCollectionExtensions
     /// cannot accidentally run a paid generation inside a request.
     /// </para>
     /// </remarks>
-    public static IServiceCollection AddMediaModule(this IServiceCollection services)
+    /// <param name="services">The host's services.</param>
+    /// <param name="configuration">
+    /// The host's configuration, read for <see cref="GeneratedImageQualityClassOptions.SectionName"/> (AP.3.1).
+    /// Optional, so a test can register the module without one and get no quality classes — which is the
+    /// behaviour before AP.3.1: every picture at the image deployment's own default.
+    /// </param>
+    public static IServiceCollection AddMediaModule(this IServiceCollection services, IConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        var classes = services.AddOptions<GeneratedImageQualityClassOptions>()
+            .Validate(
+                options => !GeneratedImageQualityClassCatalogue.Offers(options)
+                    || (options.DefaultClass is { } fallback && options.Classes.ContainsKey(fallback)),
+                $"{GeneratedImageQualityClassOptions.SectionName}:DefaultClass must name one of the configured "
+                    + "quality classes; a request that names none is made at it.")
+            .Validate(
+                options => options.Classes.Values.All(mapping => !string.IsNullOrWhiteSpace(mapping.Model)),
+                $"Every class under {GeneratedImageQualityClassOptions.SectionName}:Classes must name the model it "
+                    + "sends to.")
+            .ValidateOnStart();
+
+        if (configuration is not null)
+        {
+            classes.Bind(configuration.GetSection(GeneratedImageQualityClassOptions.SectionName));
+        }
 
         services.AddScoped<IGeneratedImageRepository, GeneratedImageRepository>();
         services.AddScoped<IGeneratedImageDataLayer, GeneratedImageDataLayer>();

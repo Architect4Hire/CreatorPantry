@@ -50,7 +50,7 @@ public sealed class VeniceImageGeneratorTests
     {
         var gateway = GatewayOver(new StubHandler(_ => Json((HttpStatusCode)status, PromptEchoingBody)));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, result.Outcome);
     }
@@ -60,7 +60,7 @@ public sealed class VeniceImageGeneratorTests
     {
         var gateway = GatewayOver(new StubHandler(_ => throw new HttpRequestException("No connection.")));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.Unavailable, result.Outcome);
     }
@@ -105,7 +105,7 @@ public sealed class VeniceImageGeneratorTests
             return response;
         }));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.Flagged, result.Outcome);
         Assert.True(result.Bytes.IsEmpty);
@@ -127,7 +127,7 @@ public sealed class VeniceImageGeneratorTests
             HttpStatusCode.UnprocessableEntity,
             """{"error":"CONTENT_POLICY_VIOLATION","suggested_prompt":"a loaf","recommended_model":"x"}""")));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.Refused, result.Outcome);
         Assert.NotEqual(GeneratedImageProviderOutcome.Flagged, result.Outcome);
@@ -144,7 +144,7 @@ public sealed class VeniceImageGeneratorTests
         });
 
         var result = await GatewayOver(handler)
-            .GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+            .GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.Generated, result.Outcome);
         Assert.Equal(Picture, result.Bytes.ToArray());
@@ -254,7 +254,7 @@ public sealed class VeniceImageGeneratorTests
         Assert.Equal("1K 1:1", image.AdditionalProperties[ImageGenerationSettings.SizeSent]);
 
         var result = await GatewayOver(new StubHandler(_ => Generated(Picture)))
-            .GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+            .GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal("medium", result.QualitySent);
         Assert.Equal("1K 1:1", result.SizeSent);
@@ -296,7 +296,7 @@ public sealed class VeniceImageGeneratorTests
 
         var result = await new GeneratedImageProviderGateway(
                 new RefusingGenerator(failure), NullLogger<GeneratedImageProviderGateway>.Instance)
-            .GenerateAsync(prompt, avoid: null, TestContext.Current.CancellationToken);
+            .GenerateAsync(prompt, avoid: null, settings: null, TestContext.Current.CancellationToken);
         Assert.Equal(GeneratedImageProviderOutcome.Refused, result.Outcome);
     }
 
@@ -363,7 +363,7 @@ public sealed class VeniceImageGeneratorTests
     {
         var gateway = GatewayOver(new StubHandler(_ => Json(HttpStatusCode.OK, body)));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.InvalidResponse, result.Outcome);
     }
@@ -407,7 +407,7 @@ public sealed class VeniceImageGeneratorTests
             Content = new ByteArrayContent([]) { Headers = { ContentLength = VeniceImageGenerator.ResponseMaxBytes + 1 } },
         }));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.InvalidResponse, result.Outcome);
     }
@@ -421,7 +421,7 @@ public sealed class VeniceImageGeneratorTests
             Content = new StreamContent(endless),
         }));
 
-        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, TestContext.Current.CancellationToken);
+        var result = await gateway.GenerateAsync("a loaf of bread", avoid: null, settings: null, TestContext.Current.CancellationToken);
 
         Assert.Equal(GeneratedImageProviderOutcome.InvalidResponse, result.Outcome);
         Assert.InRange(endless.BytesRead, VeniceImageGenerator.ResponseMaxBytes, VeniceImageGenerator.ResponseMaxBytes + (1024 * 1024));

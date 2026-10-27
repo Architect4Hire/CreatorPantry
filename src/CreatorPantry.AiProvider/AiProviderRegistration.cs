@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -91,6 +92,7 @@ public static class AiProviderRegistration
             var images = ImagesConnection(builder);
             var profiles = ImageModelProfiles(builder, images.Model);
             RequireImageRates(builder, profiles);
+            RequireQualityClasses(builder, profiles);
 
             // Venice.ai, over plain HTTP (B-15 as amended for Venice): Azure.AI.Inference, which serves chat
             // and embeddings, has no image route, and Venice's own needs no SDK. A named client, so the key
@@ -392,6 +394,88 @@ public static class AiProviderRegistration
     /// and a mistyped key is caught anyway, because the row it was meant to be goes missing.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Refuses to start when a quality class this host offers could not be sent or could not be priced (AP.3.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Per class, and in every environment</strong>, for <see cref="RequireImageRates"/>' reasons. A
+    /// class is checked the way a request at it would be: its model has a sizing profile, the profile settles its
+    /// quality and resolution without refusing them, and the exact rate key it would be charged at is in both
+    /// tables. That last part restates what the profile check already implies, deliberately — a class's price
+    /// is that row (B-55), and the message should name the class a creator would have chosen.
+    /// </para>
+    /// <para>
+    /// A host that configures no classes is not refused: it offers no choice, and every picture is the
+    /// configured model's own default, as before AP.3.1.
+    /// </para>
+    /// </remarks>
+    private static void RequireQualityClasses(
+        IHostApplicationBuilder builder, IReadOnlyDictionary<string, VeniceModelProfile> profiles)
+    {
+        var classes = new GeneratedImageQualityClassOptions();
+        builder.Configuration.GetSection(GeneratedImageQualityClassOptions.SectionName).Bind(classes);
+
+        var quota = builder.Configuration.GetSection(AiQuotaOptions.SectionName).Get<AiQuotaOptions>()
+            ?? new AiQuotaOptions();
+        var cost = builder.Configuration.GetSection(AiCostOptions.SectionName).Get<AiCostOptions>()
+            ?? new AiCostOptions();
+
+        var faults = new List<string>();
+
+        foreach (var settings in GeneratedImageQualityClassCatalogue.All(classes))
+        {
+            var name = settings.QualityClass;
+
+            if (!profiles.TryGetValue(settings.ModelName, out var profile))
+            {
+                faults.Add($"{name} sends to '{settings.ModelName}', which has no sizing profile under {VeniceModelProfile.SectionName}");
+                continue;
+            }
+
+            var options = new ImageGenerationOptions { AdditionalProperties = [] };
+
+            if (settings.Quality is { } quality)
+            {
+                options.AdditionalProperties[ImageGenerationSettings.Quality] = quality;
+            }
+
+            if (settings.Resolution is { } resolution)
+            {
+                options.AdditionalProperties[ImageGenerationSettings.Resolution] = resolution;
+            }
+
+            if (profile.Settle(options).Refusal is { } refusal)
+            {
+                faults.Add($"{name} cannot be sent to '{settings.ModelName}': {refusal}");
+                continue;
+            }
+
+            var key = AiImageRateKeys.Key(settings.ModelName, settings.Resolution, settings.Quality);
+
+            if (AiImageRateKeys.Figure(quota.ImageRates, settings.ModelName, settings.Resolution, settings.Quality) is null)
+            {
+                faults.Add($"{name} would be charged at {key}, which has no rate above nought in "
+                    + $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.ImageRates)}");
+            }
+
+            if (AiImageRateKeys.Figure(cost.Images, settings.ModelName, settings.Resolution, settings.Quality) is null)
+            {
+                faults.Add($"{name} would be charged at {key}, which has no price above nought in "
+                    + $"{AiCostOptions.SectionName}:{nameof(AiCostOptions.Images)}");
+            }
+        }
+
+        if (faults.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"A quality class under {GeneratedImageQualityClassOptions.SectionName}:Classes cannot be offered — "
+                + string.Join("; ", faults)
+                + ". A class costs exactly the rate of what it sends (B-55), so it must send something this host can "
+                + "size and price.");
+        }
+    }
+
     private static void RequireImageRates(
         IHostApplicationBuilder builder, IReadOnlyDictionary<string, VeniceModelProfile> profiles)
     {

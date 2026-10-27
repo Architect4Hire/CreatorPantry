@@ -80,8 +80,10 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
                 })
                 .Build())
             // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
-            .AddAiUsageModule(ImageQuotaTestSettings.For())
-            .AddMediaModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.WithQualityClasses())
+            // Three quality classes on fake models (AP.3.1). Standard is the default and sends to the model every
+            // other test here already prices, so a request that names no class is made exactly as before.
+            .AddMediaModule(ImageQuotaTestSettings.WithQualityClasses())
             .AddGeneratedImageWorker()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -1152,7 +1154,13 @@ internal sealed class FakeImageGenerator : IImageGenerator
         Calls = 0;
         _requestedCounts.Clear();
         _prompts.Clear();
+        _options.Clear();
     }
+
+    private readonly List<ImageGenerationOptions?> _options = [];
+
+    /// <summary>The options each call was made with, so a test can see which model and settings were sent.</summary>
+    public IReadOnlyList<ImageGenerationOptions?> RequestedOptions => _options;
 
     public Task<ImageGenerationResponse> GenerateAsync(
         ImageGenerationRequest request,
@@ -1162,6 +1170,7 @@ internal sealed class FakeImageGenerator : IImageGenerator
         var call = Calls++;
         _requestedCounts.Add(options?.Count ?? 0);
         _prompts.Add(request.Prompt ?? string.Empty);
+        _options.Add(options);
         OnCall?.Invoke(Calls);
 
         cancellationToken.ThrowIfCancellationRequested();
