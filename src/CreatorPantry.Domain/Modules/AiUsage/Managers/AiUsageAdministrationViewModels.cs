@@ -65,7 +65,24 @@ public sealed class AccountAiQuotaReasonViewModelValidator : AbstractValidator<A
         RuleFor(model => model.Reason).ApplyReasonRules(nameof(AccountAiQuotaReasonViewModel.Reason));
 }
 
-/// <summary>One definition of a valid reason, so the four commands cannot drift apart on it.</summary>
+/// <summary>
+/// Lifts the platform's image spend breaker for the rest of the current UTC day (AP.2.7). The reason is the
+/// whole payload.
+/// </summary>
+/// <remarks>
+/// <strong>No day.</strong> A lift always means today, in UTC, which is the only day whose admissions it can
+/// still change. A body that named a day could lift tomorrow's breaker before anybody knew what tomorrow held.
+/// </remarks>
+public sealed record PlatformImageSpendLiftViewModel(string Reason);
+
+/// <inheritdoc cref="PlatformImageSpendLiftViewModel"/>
+public sealed class PlatformImageSpendLiftViewModelValidator : AbstractValidator<PlatformImageSpendLiftViewModel>
+{
+    public PlatformImageSpendLiftViewModelValidator() =>
+        RuleFor(model => model.Reason).ApplyReasonRules(nameof(PlatformImageSpendLiftViewModel.Reason));
+}
+
+/// <summary>One definition of a valid reason, so the five commands cannot drift apart on it.</summary>
 internal static class AccountAiQuotaReasonRules
 {
     public static IRuleBuilderOptions<T, string> ApplyReasonRules<T>(

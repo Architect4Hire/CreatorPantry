@@ -344,6 +344,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<AccountAiQuotaReservation> AccountAiQuotaReservations => Set<AccountAiQuotaReservation>();
 
+    /// <remarks>
+    /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
+    /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
+    /// </remarks>
+    public DbSet<PlatformImageSpendDay> PlatformImageSpendDays => Set<PlatformImageSpendDay>();
+
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 
     /// <remarks>

@@ -1,7 +1,7 @@
 # AI Pricing Decisions
 
 *Status: Accepted — 2026-10-26, except B-51, which is **proposed, not decided**. Recorded by AI-pricing prompt
-AP.1.1.*
+AP.1.1. B-55 added 2026-10-27 at the owner's request.*
 
 This record fixes the product decisions behind CreatorPantry's AI pricing — closing the image cost leak, then
 plans, prepaid credit packs and Stripe billing on top of the allowance Phase 9A built — so the AP prompts build
@@ -45,6 +45,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | PRICE-010 | Subscriptions and packs are bought through Stripe; webhooks are verified and idempotent. | 6 |
 | PRICE-011 | Auto top-up is opt-in, buys the smallest pack, and is capped per month by the creator. | 6 |
 | PRICE-012 | Trial accounts cannot generate unbounded images. | 7 |
+| PRICE-013 | Every published picture price — quote, picker, landing page, billing page — is the rate that request is charged at, per quality class, read from one table (added 2026-10-27, B-55). | 3, 4 |
 
 ## Decision table
 
@@ -61,6 +62,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-52 | The trial gate is a lifetime picture cap | PRICE-012 | Decided | No card on file. A trial account may generate at most 10 pictures in all, per Identity account, beside the daily cap. |
 | B-53 | Pictures stay on Venice | PRICE-006 | Decided | Images do not move to Azure Foundry. AP.3.4 (FLUX.2-pro on Foundry) is skipped. |
 | B-54 | Downgrades take effect at period end | PRICE-007, 010 | Decided | A downgrade, a cancellation and a trial running out all take effect when the running period ends. How an upgrade lands is open. |
+| B-55 | A picture's price is the rate it is charged at | PRICE-004, 006, 013 | Decided | Owner, 2026-10-27. A quality class's credits are read from `Ai:Quota:ImageRates` for the model, quality and resolution the class sends. Every page that states a picture price reads that table; there is no second copy. |
 
 ## Decisions
 
@@ -181,7 +183,7 @@ owner can change them without a code change, and no prompt may hard-code them.
 | Pictures per UTC day | 5 · 25 · 75 · 150 |
 | Pictures running at once | 1 · 1 · 2 · 3 |
 | Quality classes | Trial: draft, standard · Creator: + high · Pro: + high-2K · Studio: + high-4K |
-| Picture credits | draft 25 · standard 50 · high 90 · high-2K 190 · high-4K 290 |
+| Picture credits | Not a figure of their own since B-55: each class costs its rate. At today's AP.2.4 table and B-51's models: draft 12.5 (`z-image-turbo`) or 25 (`qwen-image-2-1-turbo`) · standard 50 · high 87.5 · high-2K 187.5 · high-4K 287.5. First proposed as 25 · 50 · 90 · 190 · 290. |
 | Packs | 2,500 for $10 · 7,500 for $25 · 20,000 for $60 |
 | Carry-over of plan credits | None (`AiQuotaOptions.DefaultCarryOver`, the current default) |
 | Draft model | `z-image-turbo` or `qwen-image-2-1-turbo` (Venice) |
@@ -193,7 +195,9 @@ owner can change them without a code change, and no prompt may hard-code them.
   `appsettings.json` keeps it `false`, so no deployment shows a proposed price.
 - **The B-52 trial picture cap (10) is decided, not proposed**, though it is configuration like the rest.
 - **The picture credits are consistent with B-49** at the analysis's list prices: a $0.07 picture is 87.5 credits,
-  published as 90.
+  first published as 90. B-55 (2026-10-27) removes the rounding: what a class costs is now what its model is
+  charged at, so the owner sets a class's price by choosing its model, quality and resolution (AP.3.3), not by
+  typing a figure.
 
 **Consequences:** a figure becomes decided only by the owner, recorded here as a change to this section. Turning
 `Billing:PublishPlans` on outside development waits on that and on the legal gate LP.6 states.
@@ -242,6 +246,33 @@ and quota under "Credentials and external prerequisites" are no longer needed.
 its date.
 **Rules:** `external.md`.
 
+### B-55 A picture's price is the rate it is charged at
+
+- **A quality class has no price of its own.** Its credits per picture are `Ai:Quota:ImageRates` read for the
+  model, quality and resolution `Ai:Images:Classes` maps it to (AP.3.1), through `AiImageQuotaConverter`. Change
+  the class's settings and its price follows; nothing else needs editing.
+- **Every surface that states a picture price reads the same answer:** the quote (AP.2.6, per class from
+  AP.3.1), the quality picker (AP.3.1A), the published plan catalogue and so the landing page (AP.4.5), and the
+  billing page (AP.6.5). The browser formats the server's figure and does no pricing arithmetic.
+- **`Billing:Rates` loses its picture entries** (`ImageDraft`, `ImageStandard`, `ImageHigh`), which were a
+  hand-typed copy of the proposal (LP.7) and had already drifted from what is charged (high: 90 published, 87.5
+  charged; no high-2K or high-4K). It keeps the text entries, which are typical figures and say "about".
+- **A picture's price is exact, not typical.** Text is charged by the tokens a call reports and the menu says
+  "about"; a picture is charged per picture at its class's rate, which is known before the request, so the menu
+  states it without "about".
+- **Owner, 2026-10-27:** "if we are giving the user the ability to create images of a given quality we also
+  need to price them out … not at a static value and need to update the landing page."
+
+**Options considered:** keep `Billing:Rates` per class and assert it equals the charging table — rejected: two
+figures that a test holds equal is still two places to edit, and the per-class menu would need five more keys
+that only restate `Ai:Quota:ImageRates`.
+**Consequences:** the figures in B-51's "Picture credits" row become a reading of the table, not a proposal of
+their own. DL.7's "one rate source … `Billing:Rates:ImageStandard`" and DL.10's "quality classes stay off the
+page" are superseded once AP.3.1 ships: AP.2.5 already charges from `Ai:Quota:ImageRates`, and AP.4.5 puts the
+classes on the page. Until AP.3.1, the one class the deployment sends is standard's row.
+**Rules:** `ai.md` (rates are configuration), `frontend.md` (the browser renders the server's figures),
+`api-contract.md`.
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -256,6 +287,8 @@ its date.
 | AP.5.1, AP.5.2, AP.5.3, AP.6.3 | **Rewritten** to drop pack expiry (B-50). |
 | AP.6.2 | Downgrade and cancellation at period end (B-54); upgrade timing open. |
 | AP.7.1 | Lifetime picture cap of 10, no card (B-52). |
+| AP.3.1, AP.3.1A, AP.4.5, AP.6.5 | **Amended or added** 2026-10-27 so the quote, the picker, the landing page and the billing page read each class's price from the charging table (B-55). |
+| DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |
 
 ## Open items
 

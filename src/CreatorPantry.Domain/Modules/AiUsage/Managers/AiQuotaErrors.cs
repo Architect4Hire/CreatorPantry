@@ -43,4 +43,22 @@ public static class AiQuotaErrors
     /// invitation to try again.
     /// </remarks>
     public const string Suspended = "ai.quota.suspended";
+
+    /// <summary>
+    /// New pictures are not being admitted for anybody right now: the platform's daily image spend breaker has
+    /// tripped (PRICE-005, AP.2.7).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>503, from the <c>.unavailable</c> suffix, and <c>retry: later</c>.</strong> It is not the account's
+    /// allowance, so it is neither of the codes above: a client must not read it as "your month is spent" or
+    /// "you are switched off". It carries no figures and no reset time — not the ceiling, not the day's total,
+    /// not when the UTC day ends — because every one of them describes other people's usage, and an operator
+    /// can lift the breaker before midnight anyway.
+    /// </para>
+    /// <para>
+    /// Not under <c>ai.quota</c>: that prefix means the requesting account's own allowance, and this is not it.
+    /// </para>
+    /// </remarks>
+    public const string CapacityUnavailable = "ai.capacity.unavailable";
 }

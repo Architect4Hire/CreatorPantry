@@ -56,6 +56,22 @@ public interface IAiUsageAdministrationFacade
     Task<OperationResult<AccountAiQuotaChangeServiceModel>> SetSuspensionAsync(
         string accountId, bool suspended, AccountAiQuotaReasonViewModel model, PlatformActor actor,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The platform's estimated image spend for a UTC day, against its ceiling (AP.2.7).
+    /// </summary>
+    /// <param name="day">The UTC day to read; null for today.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <remarks>Reads only. A day nothing was admitted on reads as nought rather than as missing.</remarks>
+    Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lifts the platform's image spend breaker for the rest of the current UTC day (AP.2.7).
+    /// </summary>
+    /// <inheritdoc cref="SetQuotaAsync" path="/param[@name='actor']"/>
+    Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        PlatformImageSpendLiftViewModel model, PlatformActor actor, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiUsageAdministrationFacade"/>
@@ -67,8 +83,26 @@ public interface IAiUsageAdministrationFacade
 internal sealed class AiUsageAdministrationFacade(
     IValidator<SetAccountAiQuotaViewModel> quotaValidator,
     IValidator<AccountAiQuotaReasonViewModel> reasonValidator,
+    IValidator<PlatformImageSpendLiftViewModel> liftValidator,
     IAiUsageAdministrationBusiness business) : IAiUsageAdministrationFacade
 {
+    public Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken) =>
+        business.GetPlatformImageSpendAsync(day, cancellationToken);
+
+    public async Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        PlatformImageSpendLiftViewModel model, PlatformActor actor, CancellationToken cancellationToken)
+    {
+        var validation = await liftValidator.ValidateAsync(model, cancellationToken);
+
+        return validation.IsValid
+            ? await business.LiftPlatformImageSpendAsync(model.Reason.Trim(), actor, cancellationToken)
+            : OperationResult<PlatformImageSpendLiftServiceModel>.Failure(OperationError.Validation(
+                AiUsageAdministrationErrors.ImageSpendLiftInvalid,
+                "The request is invalid.",
+                validation.Errors.Select(error => (error.PropertyName, error.ErrorMessage))));
+    }
+
     public Task<OperationResult<AccountAiUsageAdminServiceModel>> GetAccountAsync(
         string accountId, CancellationToken cancellationToken) =>
         business.GetAccountAsync(accountId, cancellationToken);

@@ -107,6 +107,38 @@ public sealed class OpsAiUsageController(
             accountId, suspended: false, model, User.OpsActor(), cancellationToken));
 
     /// <summary>
+    /// The platform's estimated image spend for a UTC day against its daily ceiling, and whether the breaker
+    /// has tripped or been lifted (PRICE-005, AP.2.7).
+    /// </summary>
+    /// <param name="day">A UTC calendar day, <c>yyyy-MM-dd</c>. Omitted means today.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Figures in US dollars at provider list price, summed over every account — which is exactly why this is
+    /// an ops route and nothing a creator can reach shows any of it.
+    /// </remarks>
+    [HttpGet("platform/image-spend")]
+    public async Task<IActionResult> GetPlatformImageSpend(
+        [FromQuery] DateOnly? day, CancellationToken cancellationToken)
+    {
+        RecordRead("platform-image-spend", day?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? "today");
+
+        return Respond(await facade.GetPlatformImageSpendAsync(day, cancellationToken));
+    }
+
+    /// <summary>
+    /// Lifts the image spend breaker for the rest of the current UTC day. Audited with the reason given.
+    /// </summary>
+    /// <remarks>
+    /// Today only: the next UTC day starts armed again. A day already lifted reports <c>unchanged</c> and writes
+    /// no second audit row, which is what makes a retry safe without an idempotency key. Refused with a 422 on
+    /// a host that has no ceiling configured.
+    /// </remarks>
+    [HttpPost("platform/image-spend/lift")]
+    public async Task<IActionResult> LiftPlatformImageSpend(
+        PlatformImageSpendLiftViewModel model, CancellationToken cancellationToken) =>
+        Respond(await facade.LiftPlatformImageSpendAsync(model, User.OpsActor(), cancellationToken));
+
+    /// <summary>
     /// Leaves a trace of what a machine credential looked at.
     /// </summary>
     /// <remarks>

@@ -135,6 +135,14 @@ internal sealed class GeneratedImageGenerationFacade(
             "Images cannot be generated on this host right now.",
             new Dictionary<string, string[]>()),
 
+        // The platform's daily image spend breaker (AP.2.7). Deliberately no extensions at all: no unit, no
+        // remaining figure, no reset. The account may have plenty left, and every figure behind this answer is
+        // other people's usage. The request the creator filled in is untouched; nothing was written.
+        AiQuotaAdmissionOutcome.PlatformCeiling => new OperationError(
+            AiQuotaErrors.CapacityUnavailable,
+            "Pictures can't be made right now. Please try again later.",
+            new Dictionary<string, string[]>()),
+
         // Exhausted, and Busy with it: a period too contended to admit against is not a statement about the
         // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
         _ => new OperationError(

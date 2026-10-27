@@ -95,11 +95,23 @@ public sealed class BulkOperationBoundaryTests
     /// <c>BrandSourceEmbeddingBackfill</c> carry identifiers and nothing else, and every write they lead to is
     /// made by a facade in a scope whose workspace the Worker has resolved and validated first.
     /// </para>
+    /// <para>
+    /// The platform image spend counter (AP.2.7) is the fifth, and it claims none of tenancy.md's four
+    /// categories because it needs none of them: it ignores no query filter and reads no workspace-owned row.
+    /// What it needs is <c>ExecuteUpdate</c> itself. The daily ceiling is only a ceiling if "add this picture's
+    /// price unless that passes the line" is one statement two instances cannot both win — a conditional
+    /// <c>UPDATE</c> — and the tracked alternative, a row version on the one row every account in the platform
+    /// writes to, would refuse creators under a burst for contention rather than for spend. Neither interceptor
+    /// the ban protects has anything to guard on <c>PlatformImageSpendDay</c>: it has no <c>WorkspaceId</c> and is
+    /// not an <c>IImmutableRecord</c>. The file touches that one table, by its key, and nothing else;
+    /// <c>PlatformImageSpendConcurrencyTests</c> is what the exemption buys.
+    /// </para>
     /// </remarks>
     private static readonly string[] Exemptions =
     [
         "Modules/Ai/Data/AiOperationClaimRepository.cs",
         "Modules/Ai/Data/AiUsageReconciliationRepository.cs",
+        "Modules/AiUsage/Data/PlatformImageSpendRepository.cs",
         "Modules/Brand/Data/BrandSourceEmbeddingClaimRepository.cs",
         "Modules/Brand/Data/BrandSourceExtractionClaimRepository.cs",
         "Modules/Media/Data/GeneratedImageClaimRepository.cs",

@@ -1092,6 +1092,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("PeriodId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long?>("PlatformImageSpendMicros")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTimeOffset?>("PostedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -1146,6 +1149,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Amounts_NotNegative", "ReservedAmount > 0 AND PerAttemptEstimate > 0 AND (SettledAmount IS NULL OR SettledAmount >= 0)");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Outcome_Matches_Status", "(Status IN (1, 4) AND SettledAt IS NULL AND SettledAmount IS NULL) OR (Status IN (2, 3) AND SettledAt IS NOT NULL AND SettledAmount IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_PlatformImageSpend_Positive", "PlatformImageSpendMicros IS NULL OR PlatformImageSpendMicros > 0");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Posted_Requires_Settlement", "PostedAt IS NULL OR SettledAmount IS NOT NULL");
 
@@ -1255,6 +1260,34 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Tokens_NotNegative", "(InputTokens IS NULL OR InputTokens >= 0) AND (OutputTokens IS NULL OR OutputTokens >= 0) AND (TotalTokens IS NULL OR TotalTokens >= 0)");
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_UsageReported_Matches_Tokens", "(UsageReported = 0 AND InputTokens IS NULL AND OutputTokens IS NULL AND TotalTokens IS NULL) OR (UsageReported = 1 AND (InputTokens IS NOT NULL OR OutputTokens IS NOT NULL OR TotalTokens IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.PlatformImageSpendDay", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<long>("AdmittedMicros")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("LiftedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LiftedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("TrippedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Day");
+
+                    b.ToTable("PlatformImageSpendDays", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlatformImageSpendDays_Admitted_NotNegative", "AdmittedMicros >= 0");
+
+                            t.HasCheckConstraint("CK_PlatformImageSpendDays_Lift_Complete", "(LiftedAt IS NULL AND LiftedBy IS NULL) OR (LiftedAt IS NOT NULL AND LiftedBy IS NOT NULL)");
                         });
                 });
 

@@ -29,11 +29,18 @@ internal interface IAiUsageAdministrationBusiness
     Task<OperationResult<AccountAiQuotaChangeServiceModel>> SetSuspensionAsync(
         string accountId, bool suspended, string reason, PlatformActor actor,
         CancellationToken cancellationToken);
+
+    Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken);
+
+    Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        string reason, PlatformActor actor, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiUsageAdministrationBusiness"/>
 internal sealed class AiUsageAdministrationBusiness(
     IAiUsageAdministrationDataLayer dataLayer,
+    IPlatformImageSpendDataLayer imageSpend,
     IAiQuotaPeriodResolver periods,
     IPlatformAccountFacade accounts,
     ITimeZoneConverter zones,
@@ -41,6 +48,113 @@ internal sealed class AiUsageAdministrationBusiness(
     IClock clock) : IAiUsageAdministrationBusiness
 {
     private readonly AiQuotaOptions _options = options.Value;
+
+    public async Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken)
+    {
+        var asked = day ?? PlatformImageSpendPolicy.DayOf(clock.UtcNow);
+
+        return OperationResult<PlatformImageSpendDayServiceModel>.Success(
+            DescribeImageSpend(asked, await imageSpend.FindDayAsync(asked, cancellationToken)));
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Today only, in UTC,</strong> and until that day ends: tomorrow's row starts armed. Admissions
+    /// after a lift are still counted, so the read keeps saying what the day cost.
+    /// </para>
+    /// <para>
+    /// <strong>A lift that changes nothing writes nothing</strong>, including no audit row — the rule
+    /// <see cref="ChangeAsync"/> follows for quota commands, and for the same reason: a retried lift is then
+    /// safe without an idempotency key. The guarded write is the authority on that, not the read before it, so
+    /// two operators lifting at once produce one audit row between them.
+    /// </para>
+    /// <para>
+    /// Lifting before anything has tripped is allowed on purpose: an operator who knows a launch is coming can
+    /// lift the day ahead of the first refusal rather than after it.
+    /// </para>
+    /// </remarks>
+    public async Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        string reason, PlatformActor actor, CancellationToken cancellationToken)
+    {
+        if (_options.PlatformImageSpendPerDay is null)
+        {
+            return OperationResult<PlatformImageSpendLiftServiceModel>.Failure(new OperationError(
+                AiUsageAdministrationErrors.ImageSpendCeilingOff,
+                "No image spend ceiling is configured on this host, so there is no breaker to lift.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var now = clock.UtcNow;
+        var today = PlatformImageSpendPolicy.DayOf(now);
+        var before = DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken));
+
+        if (before.State is not PlatformImageSpendState.Lifted)
+        {
+            var after = before with
+            {
+                State = PlatformImageSpendState.Lifted, LiftedAt = now, LiftedBy = actor.Name,
+            };
+
+            var lifted = await imageSpend.LiftAsync(
+                today,
+                now,
+                actor.Name,
+                new PlatformAuditEntry(
+                    actor.Type,
+                    actor.Id,
+                    actor.Name,
+                    PlatformImageSpendAuditActions.Lifted,
+                    PlatformImageSpendAuditActions.SubjectType,
+                    today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                    CorrelationId(),
+                    reason,
+                    PlatformImageSpendPolicy.AuditReference(before),
+                    PlatformImageSpendPolicy.AuditReference(after)),
+                cancellationToken);
+
+            if (lifted)
+            {
+                return OperationResult<PlatformImageSpendLiftServiceModel>.Success(new PlatformImageSpendLiftServiceModel(
+                    PlatformImageSpendLiftOutcome.Lifted,
+                    DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken))));
+            }
+        }
+
+        return OperationResult<PlatformImageSpendLiftServiceModel>.Success(new PlatformImageSpendLiftServiceModel(
+            PlatformImageSpendLiftOutcome.Unchanged,
+            DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken))));
+    }
+
+    /// <summary>
+    /// A day's row described against the ceiling configured now. A day with no row admitted nothing.
+    /// </summary>
+    /// <remarks>
+    /// The ceiling is read live rather than stored on the row: it is the line the next admission will be held
+    /// to, which is the one an operator needs to see. Remaining never goes below nought — a lifted day can pass
+    /// the ceiling, and "minus four dollars left" says nothing "none left" does not.
+    /// </remarks>
+    private PlatformImageSpendDayServiceModel DescribeImageSpend(DateOnly day, PlatformImageSpendDay? row)
+    {
+        var ceiling = _options.PlatformImageSpendPerDay;
+        var admitted = PlatformImageSpendPolicy.ToDollars(row?.AdmittedMicros ?? 0);
+
+        var state = ceiling is null ? PlatformImageSpendState.Off
+            : row?.LiftedAt is not null ? PlatformImageSpendState.Lifted
+            : row?.TrippedAt is not null ? PlatformImageSpendState.Tripped
+            : PlatformImageSpendState.Armed;
+
+        return new PlatformImageSpendDayServiceModel(
+            day,
+            PlatformImageSpendPolicy.Currency,
+            ceiling,
+            admitted,
+            ceiling is { } line ? Math.Max(0m, line - admitted) : null,
+            state,
+            row?.TrippedAt,
+            row?.LiftedAt,
+            row?.LiftedBy);
+    }
 
     public async Task<OperationResult<AccountAiUsageAdminServiceModel>> GetAccountAsync(
         string accountId, CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,28 @@ internal enum AiQuotaWriteOutcome
     /// judged and refused — the balance did not cover the hold — and the caller carries the reason.
     /// </remarks>
     Refused = 5,
+
+    /// <summary>
+    /// The account could afford it, but the platform's image spend for the day could not (AP.2.7). Nothing was
+    /// written: neither the hold nor the charge.
+    /// </summary>
+    OverPlatformCeiling = 6,
 }
+
+/// <summary>
+/// What a picture adds to the platform's daily image spend, and the line it may not pass (AP.2.7).
+/// </summary>
+/// <param name="Day">The UTC day of the admission instant.</param>
+/// <param name="Micros">The request's list price, in millionths of a dollar. Above nought.</param>
+/// <param name="CeilingMicros">The configured ceiling, in the same unit.</param>
+/// <param name="AiOperationId">The operation the hold is for, with <paramref name="LeaseToken"/> its identity.</param>
+/// <param name="LeaseToken">
+/// Together with <paramref name="AiOperationId"/>, how a re-run of the charge's transaction recognises a hold an
+/// earlier run already committed: an execution strategy re-runs the unit when a fault arrives after the commit
+/// has landed, and charging again then would count one request twice and fail the hold's unique index.
+/// </param>
+internal sealed record PlatformImageSpendCharge(
+    DateOnly Day, long Micros, long CeilingMicros, Guid AiOperationId, Guid LeaseToken);
 
 /// <summary>
 /// Composes the quota's persistence operations, and owns the one thing this module's ledger seam deliberately
@@ -107,16 +129,38 @@ internal interface IAiQuotaDataLayer
     /// as it is at this instant; returns null to refuse. Re-invoked on every retry, against a freshly read
     /// period, because the balance it judged may have moved underneath it.
     /// </param>
+    /// <param name="platform">
+    /// For a picture while a ceiling is configured: what it adds to the platform's day and the line that may
+    /// not be passed. The charge and the hold then commit in one transaction or not at all (AP.2.7). Null for a
+    /// completion, and for a picture on a host with no ceiling.
+    /// </param>
     /// <returns>
     /// The outcome, the hold when one was taken, and the period as it stands after the write — which is not
     /// the instance the caller resolved earlier, because a retry re-reads.
     /// </returns>
+    /// <remarks>
+    /// The account's own balance is judged first, so an account that cannot afford the request is refused as
+    /// <see cref="AiQuotaWriteOutcome.Refused"/> without ever touching the platform row: its refusal is about
+    /// its own allowance, and it must not count toward, or wait on, everybody else's.
+    /// </remarks>
     Task<(AiQuotaWriteOutcome Outcome, AccountAiQuotaReservation? Reservation, AccountAiQuotaPeriod? Period)>
         ReserveAsync(
             string accountId,
             DateTimeOffset instant,
             Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+            PlatformImageSpendCharge? platform,
             CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gives back a picture's hold whose operation was never queued, and what it added to the platform's day.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ExpireAsync"/>, then the platform give-back — only when the expiry was this call's, so a
+    /// release run twice returns the charge once. Two statements, not one transaction: a give-back that is lost
+    /// leaves the day's total high, which a breaker can afford and an account's allowance could not.
+    /// </remarks>
+    Task<AiQuotaWriteOutcome> ReleaseImageAsync(
+        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken);
 
     /// <summary>Stages a decided settlement on the caller's unit of work. Does not save.</summary>
     Task<AiQuotaWriteOutcome> StageSettlementAsync(
@@ -157,7 +201,10 @@ internal interface IAiQuotaDataLayer
 }
 
 /// <inheritdoc cref="IAiQuotaDataLayer"/>
-internal sealed class AiQuotaDataLayer(IAiQuotaRepository quotas) : IAiQuotaDataLayer
+internal sealed class AiQuotaDataLayer(
+    IAiQuotaRepository quotas,
+    IPlatformImageSpendRepository spend,
+    CreatorPantryDbContext context) : IAiQuotaDataLayer
 {
     public Task<AccountAiQuota?> FindCurrentQuotaAsync(
         string accountId, CancellationToken cancellationToken) =>
@@ -242,8 +289,14 @@ internal sealed class AiQuotaDataLayer(IAiQuotaRepository quotas) : IAiQuotaData
         string accountId,
         DateTimeOffset instant,
         Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+        PlatformImageSpendCharge? platform,
         CancellationToken cancellationToken)
     {
+        if (platform is not null)
+        {
+            return await ReserveAgainstPlatformAsync(accountId, instant, admit, platform, cancellationToken);
+        }
+
         AccountAiQuotaPeriod? period = null;
 
         for (var attempt = 0; attempt < AiQuotaPolicy.ContendedWriteAttempts; attempt++)
@@ -283,6 +336,137 @@ internal sealed class AiQuotaDataLayer(IAiQuotaRepository quotas) : IAiQuotaData
         }
 
         return (AiQuotaWriteOutcome.Contended, null, period);
+    }
+
+    /// <summary>
+    /// <see cref="ReserveAsync"/> for a picture under a ceiling: the account's hold and the platform's charge in
+    /// one explicit transaction per attempt (AP.2.7).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Order inside the transaction is the account, then the platform, then the save.</strong> The
+    /// account's balance is judged in memory against a fresh read; only a request it covers reaches the
+    /// platform's conditional <c>UPDATE</c>, whose row lock then holds every other picture admission until this
+    /// one commits or rolls back. Rolling back after losing the period's row version takes the charge with it,
+    /// so a retried attempt is charged once — the counter and the holds can never disagree.
+    /// </para>
+    /// <para>
+    /// <strong>Inside an execution strategy</strong>, because a retrying strategy refuses a user-opened
+    /// transaction it does not own, and re-runs the whole unit on a transient fault — which is why each run
+    /// starts from a clean tracker and re-reads the period rather than reusing one.
+    /// </para>
+    /// <para>
+    /// Lock order is platform row, then period. Nothing takes them the other way round: posting and expiry
+    /// touch only the period, and the release give-back runs after its expiry has committed.
+    /// </para>
+    /// </remarks>
+    private async Task<(AiQuotaWriteOutcome, AccountAiQuotaReservation?, AccountAiQuotaPeriod?)>
+        ReserveAgainstPlatformAsync(
+            string accountId,
+            DateTimeOffset instant,
+            Func<AccountAiQuotaPeriod, AccountAiQuotaReservation?> admit,
+            PlatformImageSpendCharge platform,
+            CancellationToken cancellationToken)
+    {
+        // Its own commit, before the transaction: the charge is an UPDATE, and an update of a row that does not
+        // exist would read as "over the ceiling" on the first picture of every day.
+        await spend.EnsureAsync(platform.Day, cancellationToken);
+
+        AccountAiQuotaPeriod? last = null;
+
+        for (var attempt = 0; attempt < AiQuotaPolicy.ContendedWriteAttempts; attempt++)
+        {
+            var runs = 0;
+
+            var (outcome, reservation, period, settled) = await context.Database.CreateExecutionStrategy()
+                .ExecuteAsync(async () =>
+                {
+                    quotas.Forget();
+
+                    // A second run of this unit means the strategy saw a transient fault — possibly one that
+                    // arrived after the commit had already landed. Then the hold and its charge are both in the
+                    // database, and the answer is that hold: judging again would charge the day twice for one
+                    // request and lose to the unique index on the hold.
+                    if (++runs > 1
+                        && await quotas.FindReservationAsync(platform.AiOperationId, platform.LeaseToken, cancellationToken)
+                            is { } committed)
+                    {
+                        return (AiQuotaWriteOutcome.Applied, (AccountAiQuotaReservation?)committed,
+                            await quotas.GetPeriodAsync(committed.PeriodId, cancellationToken), true);
+                    }
+
+                    await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+                    var current = await quotas.FindPeriodAtAsync(accountId, instant, cancellationToken);
+
+                    if (current is null)
+                    {
+                        return (AiQuotaWriteOutcome.NotFound, (AccountAiQuotaReservation?)null, current, true);
+                    }
+
+                    var hold = admit(current);
+
+                    if (hold is null)
+                    {
+                        return (AiQuotaWriteOutcome.Refused, null, current, true);
+                    }
+
+                    if (!await spend.TryChargeAsync(
+                            platform.Day, platform.Micros, platform.CeilingMicros, cancellationToken))
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+
+                        return (AiQuotaWriteOutcome.OverPlatformCeiling, null, current, true);
+                    }
+
+                    hold.PlatformImageSpendMicros = platform.Micros;
+                    current.Reserved += hold.ReservedAmount;
+                    quotas.AddReservation(hold);
+
+                    try
+                    {
+                        await quotas.SaveAsync(cancellationToken);
+                        await transaction.CommitAsync(cancellationToken);
+
+                        return (AiQuotaWriteOutcome.Applied, hold, current, true);
+                    }
+                    catch (DbUpdateConcurrencyException)
+                    {
+                        // Another admission for this account moved the period. The rollback takes this
+                        // attempt's platform charge back with it, and the next attempt judges both afresh.
+                        await transaction.RollbackAsync(cancellationToken);
+                        quotas.Forget();
+
+                        return (AiQuotaWriteOutcome.Contended, null, current, false);
+                    }
+                });
+
+            if (settled)
+            {
+                return (outcome, reservation, period);
+            }
+
+            last = period;
+        }
+
+        return (AiQuotaWriteOutcome.Contended, null, last);
+    }
+
+    public async Task<AiQuotaWriteOutcome> ReleaseImageAsync(
+        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var outcome = await ExpireAsync(reservationId, now, cancellationToken);
+
+        if (outcome is AiQuotaWriteOutcome.Applied
+            && await quotas.GetReservationWithPeriodAsync(reservationId, cancellationToken)
+                is { PlatformImageSpendMicros: { } micros } released)
+        {
+            // To the day it was counted on, not today's: a request that failed across midnight added to
+            // yesterday's total, and taking it from today's would let today pass its ceiling by that much.
+            await spend.ReturnAsync(PlatformImageSpendPolicy.DayOf(released.HeldAt), micros, cancellationToken);
+        }
+
+        return outcome;
     }
 
     /// <remarks>

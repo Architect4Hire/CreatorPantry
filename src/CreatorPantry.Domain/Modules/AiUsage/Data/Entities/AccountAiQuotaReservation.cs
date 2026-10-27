@@ -170,4 +170,15 @@ public class AccountAiQuotaReservation
     /// When <see cref="SettledAmount"/> was added to the period. Null until it has been.
     /// </summary>
     public DateTimeOffset? PostedAt { get; set; }
+
+    /// <summary>
+    /// What this hold added to the platform's daily image spend, in millionths of a US dollar (AP.2.7). Null
+    /// for a completion, and for a picture admitted while no ceiling was configured.
+    /// </summary>
+    /// <remarks>
+    /// Recorded so the one give-back the counter allows — a request whose operation was never queued — returns
+    /// exactly what it added, to the UTC day of <see cref="HeldAt"/> that it was added to, whatever the price
+    /// table says by then.
+    /// </remarks>
+    public long? PlatformImageSpendMicros { get; set; }
 }

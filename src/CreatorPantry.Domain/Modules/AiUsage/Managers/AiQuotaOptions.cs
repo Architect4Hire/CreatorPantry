@@ -162,6 +162,55 @@ public sealed class AiQuotaOptions
     /// </para>
     /// </remarks>
     public decimal NearlySpentFraction { get; set; } = 0.2m;
+
+    /// <summary>
+    /// The most the whole platform may admit in pictures on one UTC day, in US dollars of provider list price
+    /// (PRICE-005, AP.2.7). Null switches the breaker off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A circuit breaker, not an allowance.</strong> Every account's own allowance still applies first;
+    /// this is the backstop for the day every allowance is honoured and the bill is still more than the platform
+    /// will carry. Priced from <c>Ai:Cost:Images</c> (<see cref="AiImageListPriceOptions"/>), the list price
+    /// itself, rather than from the credits, which carry the margin.
+    /// </para>
+    /// <para>
+    /// Above nought when set. Null is allowed only in Development: the API refuses to start anywhere else
+    /// without one, because a deployment with no ceiling is the leak PRICE-005 exists to close.
+    /// </para>
+    /// </remarks>
+    public decimal? PlatformImageSpendPerDay { get; set; }
+
+    /// <summary>
+    /// The largest ceiling accepted, in US dollars. Far beyond any real day, and well inside what the counter's
+    /// micro-dollars can hold; a figure past it is a typo, not a policy.
+    /// </summary>
+    public const decimal PlatformImageSpendPerDayMax = 1_000_000m;
+}
+
+/// <summary>
+/// The provider list price of one picture, by <see cref="CreatorPantry.Domain.Managers.Ai.AiImageRateKeys"/>
+/// key, in US dollars — read so the platform's daily image spend can be counted in dollars (AP.2.7).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>A second reader of <c>Ai:Cost:Images</c>, not a second table.</strong> The rows belong to the AI
+/// module's <c>AiCostOptions</c>, which this module may not name (<c>ModuleBoundaryTests</c>), so it binds the
+/// same section into a type of its own. There is still one place an operator writes a price, and
+/// <c>ImageRateTableTests</c> already holds each row to its credit rate.
+/// </para>
+/// <para>
+/// Not derived from <see cref="AiQuotaOptions.ImageRates"/> by dividing by 1,250: that would put the pinned
+/// unit of <c>ai-pricing.md</c> B-49 into C# as a literal, and a margin the owner changes in configuration would
+/// then silently move the ceiling.
+/// </para>
+/// </remarks>
+public sealed class AiImageListPriceOptions
+{
+    public const string SectionName = "Ai:Cost";
+
+    /// <summary>List price per picture, keyed as <c>Ai:Quota:ImageRates</c> is.</summary>
+    public Dictionary<string, decimal> Images { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <param name="CreditsPerMillionInputTokens">Credits charged per million reported input tokens.</param>

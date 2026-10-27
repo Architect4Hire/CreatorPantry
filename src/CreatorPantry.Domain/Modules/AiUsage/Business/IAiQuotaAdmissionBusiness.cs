@@ -1,8 +1,13 @@
+using System.Diagnostics;
+using System.Globalization;
+using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.AiUsage.Business;
@@ -64,11 +69,19 @@ internal interface IAiQuotaAdmissionBusiness
 /// <inheritdoc cref="IAiQuotaAdmissionBusiness"/>
 internal sealed class AiQuotaAdmissionBusiness(
     IAiQuotaDataLayer dataLayer,
+    IPlatformImageSpendDataLayer platformSpend,
     IAiQuotaPeriodResolver periods,
     IClock clock,
-    IOptions<AiQuotaOptions> options) : IAiQuotaAdmissionBusiness
+    IOptions<AiQuotaOptions> options,
+    IOptions<AiImageListPriceOptions> listPrices,
+    ILogger<AiQuotaAdmissionBusiness> logger) : IAiQuotaAdmissionBusiness
 {
+    /// <summary>The alerting event for a tripped breaker: one a day, raised by the refusal that tripped it.</summary>
+    private static readonly EventId BreakerTripped = new(9701, "PlatformImageSpendCeilingTripped");
+
     private readonly AiQuotaOptions _options = options.Value;
+
+    private readonly AiImageListPriceOptions _listPrices = listPrices.Value;
 
     public async Task<AiQuotaAdmissionServiceModel> AdmitAsync(
         AiQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
@@ -146,6 +159,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                     ExpiresAt = request.ExpiresAt,
                 }
                 : null,
+            platform: null,
             cancellationToken);
 
         // The period as the write left it, which after a retry is not the instance resolved above.
@@ -527,6 +541,28 @@ internal sealed class AiQuotaAdmissionBusiness(
 
         var hold = AiQuotaUnitConverter.Round(perImage.Value * request.VariantCount);
 
+        // What the request adds to the platform's day, at list price, when a ceiling is configured (AP.2.7). A
+        // picture with a credit rate and no list price cannot be counted, and is refused rather than let through
+        // uncounted — the same reading of an unknown cost as Unrated, and startup refuses such a host anyway.
+        PlatformImageSpendCharge? platform = null;
+
+        if (_options.PlatformImageSpendPerDay is { } ceiling)
+        {
+            if (AiImageRateKeys.Figure(_listPrices.Images, request.ModelName, request.Resolution, request.Quality)
+                is not { } listPrice)
+            {
+                return new AiQuotaAdmissionServiceModel(
+                    AiQuotaAdmissionOutcome.Unrated, null, 0m, Remaining(period), period.Unit, period.EndsAt);
+            }
+
+            platform = new PlatformImageSpendCharge(
+                PlatformImageSpendPolicy.DayOf(now),
+                PlatformImageSpendPolicy.ToMicros(listPrice * request.VariantCount),
+                PlatformImageSpendPolicy.ToMicros(ceiling),
+                request.GeneratedImageOperationId,
+                ImageLeaseToken);
+        }
+
         // Committed here, not staged: the period's row version is what makes two admissions for one account
         // unable to both succeed, and a concurrency check needs its own transaction. So the hold exists before
         // the operation row does, and a caller whose operation then fails to write owes a release —
@@ -555,9 +591,26 @@ internal sealed class AiQuotaAdmissionBusiness(
                     ExpiresAt = request.ExpiresAt,
                 }
                 : null,
+            platform,
             cancellationToken);
 
         var settled = written ?? period;
+
+        if (outcome is AiQuotaWriteOutcome.Applied && platform is not null)
+        {
+            PlatformImageSpendTelemetry.RecordAdmitted(platform.Micros);
+        }
+
+        if (outcome is AiQuotaWriteOutcome.OverPlatformCeiling)
+        {
+            await TripAsync(platform!, now, cancellationToken);
+
+            // No balance, no reset and no figure of any kind: the account's own allowance is not why, and every
+            // number behind the real reason is everybody's. Required stays the account's own hold, which is the
+            // one figure here that is theirs, for a caller that logs it.
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.PlatformCeiling, null, 0m, 0m, settled.Unit, null) { Required = hold };
+        }
 
         return outcome switch
         {
@@ -658,8 +711,107 @@ internal sealed class AiQuotaAdmissionBusiness(
         await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
             is { Status: AiQuotaReservationStatus.Held, ReleasedAt: null };
 
+    /// <remarks>
+    /// Gives back what the hold added to the platform's day as well (AP.2.7): a request that was never queued
+    /// can never reach a provider, so counting it would trip the breaker on spend that cannot happen. This is the
+    /// only give-back the counter has — see <c>PlatformImageSpendDay.AdmittedMicros</c>.
+    /// </remarks>
     public async Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        await dataLayer.ExpireAsync(reservationId, clock.UtcNow, cancellationToken);
+        await dataLayer.ReleaseImageAsync(reservationId, clock.UtcNow, cancellationToken);
+
+    /// <summary>
+    /// Records a refusal for the ceiling and, for the one refusal that trips the day, raises the alert: the
+    /// platform audit row and an error-level log line (PRICE-005).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One alert a day, not one a refusal.</strong> The trip is a guarded write that exactly one caller
+    /// wins, and only that caller logs; every refusal still counts on the metric, so a dashboard sees the
+    /// pressure while the pager sees one event.
+    /// </para>
+    /// <para>
+    /// <strong>A failure to alert never changes the creator's answer.</strong> The refusal has already been
+    /// decided and nothing was written for it; an exception here would turn a deliberate 503 into a 500 that
+    /// tells nobody anything. It is logged at the same level the trip would have been, so it still pages.
+    /// </para>
+    /// <para>
+    /// The log line carries the day and the configured ceiling, never an account, a workspace or a model — what
+    /// tripped it is the sum of everybody.
+    /// </para>
+    /// </remarks>
+    private async Task TripAsync(PlatformImageSpendCharge charge, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        PlatformImageSpendTelemetry.RecordRefused();
+
+        var ceiling = _options.PlatformImageSpendPerDay;
+
+        try
+        {
+            var day = await platformSpend.FindDayAsync(charge.Day, cancellationToken);
+
+            // Already tripped, or lifted since: nothing to raise. Read rather than attempted, so a client
+            // retrying on 503 during an incident costs one read here, not a transaction on the row every
+            // admission is waiting for. The guarded write below is still what decides a race.
+            if (day is null or { TrippedAt: not null } or { LiftedAt: not null })
+            {
+                return;
+            }
+
+            var admitted = PlatformImageSpendPolicy.ToDollars(day.AdmittedMicros);
+
+            var before = new PlatformImageSpendDayServiceModel(
+                charge.Day, PlatformImageSpendPolicy.Currency, ceiling, admitted, null,
+                PlatformImageSpendState.Armed, null, null, null);
+
+            var entry = new PlatformAuditEntry(
+                PlatformImageSpendPolicy.Breaker.Type,
+                PlatformImageSpendPolicy.Breaker.Id,
+                PlatformImageSpendPolicy.Breaker.Name,
+                PlatformImageSpendAuditActions.Tripped,
+                PlatformImageSpendAuditActions.SubjectType,
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                CorrelationId(),
+                PlatformImageSpendPolicy.TripReason,
+                PlatformImageSpendPolicy.AuditReference(before),
+                PlatformImageSpendPolicy.AuditReference(before with { State = PlatformImageSpendState.Tripped }));
+
+            if (!await platformSpend.TripAsync(charge.Day, now, entry, cancellationToken))
+            {
+                return;
+            }
+
+            PlatformImageSpendTelemetry.RecordTripped();
+
+            logger.LogError(
+                BreakerTripped,
+                "The platform's estimated image spend for {ImageSpendDay} reached its ceiling of {ImageSpendCeiling} USD "
+                    + "({ImageSpendAdmitted} USD admitted). New picture requests are refused until the UTC day ends or "
+                    + "an operator lifts the breaker.",
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ceiling,
+                admitted);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(
+                BreakerTripped,
+                exception,
+                "A picture request was refused for the platform's image spend ceiling on {ImageSpendDay}, but the "
+                    + "trip could not be recorded.",
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+    }
+
+    /// <summary>
+    /// The ambient trace id as a Guid, so the trip's audit row ties back to the request that tripped it.
+    /// </summary>
+    /// <remarks>The derivation <c>AiUsageAdministrationBusiness</c> uses, for the same reason.</remarks>
+    private static Guid CorrelationId()
+    {
+        var traceId = Activity.Current?.TraceId;
+
+        return traceId is { } id && id != default ? Guid.ParseExact(id.ToHexString(), "N") : Guid.NewGuid();
+    }
 
     private static bool Covers(AccountAiQuotaPeriod period, decimal hold) =>
         period.Consumed + period.Reserved + hold <= period.Allowance + period.CarriedOver;

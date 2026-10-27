@@ -79,6 +79,16 @@ public enum AiQuotaAdmissionOutcome
     /// reset would not help.
     /// </remarks>
     Unrated = 6,
+
+    /// <summary>
+    /// Admitting this picture would take the whole platform's image spend for the day past its ceiling
+    /// (PRICE-005, AP.2.7). Nothing was held and nothing was counted.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not this account's fact.</strong> The account may have plenty left; it is told only that pictures
+    /// cannot be made right now, with no figure, because every figure behind this answer is everybody's.
+    /// </remarks>
+    PlatformCeiling = 7,
 }
 
 /// <summary>What an admission decided, in the only terms a caller needs.</summary>

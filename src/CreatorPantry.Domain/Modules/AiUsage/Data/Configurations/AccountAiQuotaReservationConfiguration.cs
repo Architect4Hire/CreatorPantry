@@ -54,6 +54,12 @@ internal sealed class AccountAiQuotaReservationConfiguration
             table.HasCheckConstraint(
                 "CK_AccountAiQuotaReservations_Posted_Requires_Settlement",
                 "PostedAt IS NULL OR SettledAmount IS NOT NULL");
+
+            // A hold that counted against the platform's day counted something; nought would give back nothing
+            // and a negative figure would give back more than it took.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_PlatformImageSpend_Positive",
+                "PlatformImageSpendMicros IS NULL OR PlatformImageSpendMicros > 0");
         });
 
         builder.HasKey(reservation => reservation.Id);

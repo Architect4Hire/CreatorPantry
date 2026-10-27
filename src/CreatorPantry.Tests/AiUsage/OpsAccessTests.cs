@@ -23,10 +23,12 @@ public sealed class OpsAccessTests
     private const string Suspend = "/api/v1/ops/ai-usage/accounts/user-sam/ai-access/suspend";
     private const string Restore = "/api/v1/ops/ai-usage/accounts/user-sam/ai-access/restore";
     private const string Clear = "/api/v1/ops/ai-usage/accounts/user-sam/quota/clear";
+    private const string ImageSpend = "/api/v1/ops/ai-usage/platform/image-spend";
+    private const string ImageSpendLift = "/api/v1/ops/ai-usage/platform/image-spend/lift";
 
-    public static TheoryData<string> Reads => [Account, TopConsumers];
+    public static TheoryData<string> Reads => [Account, TopConsumers, ImageSpend];
 
-    public static TheoryData<string> Commands => [Clear, Suspend, Restore];
+    public static TheoryData<string> Commands => [Clear, Suspend, Restore, ImageSpendLift];
 
     [Theory]
     [MemberData(nameof(Reads))]

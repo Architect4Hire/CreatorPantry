@@ -34,6 +34,7 @@ using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -94,6 +95,18 @@ builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 // per-account usage entry and its allowance settlement through these facades in the same transaction
 // (USAGE-001, USAGE-004).
 builder.Services.AddAiUsageModule(builder.Configuration);
+
+// The platform's daily image spend ceiling (PRICE-005, AP.2.7). Pictures are admitted here and nowhere else, so
+// this is the host that must have one: outside Development a missing ceiling is the leak the breaker closes, and
+// it is found at startup rather than on the provider's invoice. Development may run without one.
+if (!builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<decimal?>(
+        $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.PlatformImageSpendPerDay)}") is null)
+{
+    throw new InvalidOperationException(
+        $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.PlatformImageSpendPerDay)} is not set. Outside "
+            + "Development the API needs a daily image spend ceiling in US dollars before it will admit pictures.");
+}
 
 // The ops-only administration seam (USAGE-009). Registered here and not in the worker, which has no ops route.
 builder.Services.AddAiUsageAdministration();
