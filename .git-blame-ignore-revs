@@ -1,0 +1,7 @@
+# Commits that only reformat, skipped by `git blame` so a line is credited to its last real change.
+# GitHub reads this file on its own; locally, once per clone:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Add a commit here only if it is formatter output and nothing else, and use its full SHA as it lands on dev.
+
+# Format the web workspace with Prettier
+3f5512666a2b18ecbca48321fd901dff68ca7f99
