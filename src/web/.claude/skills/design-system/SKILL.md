@@ -28,6 +28,6 @@ dependency-free for its consumers.
 `CpDialogComponent` is still the right thing for a modal that hosts content — a form, a picker — rather than a
 yes/no.
 
-The popup renders into `<body>`, outside style encapsulation, so it is themed in `src/styles.css` through the
+The popup renders into `<body>`, outside style encapsulation, so it is themed in `src/styles.scss` through the
 `cp-swal*` class names against `--cp-*` tokens with `buttonsStyling: false`. Dismissing always means "stay",
 and a browser close/refresh stays a `beforeunload` listener because no library can replace that dialog.

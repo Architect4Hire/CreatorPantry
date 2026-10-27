@@ -33,7 +33,7 @@ function choices(options: readonly GoalOption[]): readonly CpChoiceOption[] {
   standalone: true,
   imports: [CpChoiceGroupComponent, CpFieldComponent, CpFormSectionComponent],
   templateUrl: './brand-setup-goals-step.component.html',
-  styleUrl: './brand-setup-goals-step.component.css',
+  styleUrl: './brand-setup-goals-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupGoalsStepComponent implements OnInit {

@@ -144,7 +144,7 @@ const skeletons = (count: number): readonly unknown[] => Array.from({ length: co
     MyWeekMoveDialogComponent,
   ],
   templateUrl: './my-week.component.html',
-  styleUrl: './my-week.component.css',
+  styleUrl: './my-week.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MyWeekComponent {

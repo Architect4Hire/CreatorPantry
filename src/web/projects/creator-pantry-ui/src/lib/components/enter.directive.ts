@@ -1,6 +1,6 @@
 import { Directive, ElementRef, OnInit, booleanAttribute, inject, input, signal } from '@angular/core';
 
-/** The keyframes in `global.css`. An `animationend` from anything else is a neighbour's animation, not this one. */
+/** The keyframes in `global.scss`. An `animationend` from anything else is a neighbour's animation, not this one. */
 export const CP_ENTER_ANIMATION = 'cp-enter';
 
 /** Past this many steps the stagger stops reading as a set landing and starts reading as a page that is slow. */
@@ -37,11 +37,11 @@ function nextInCohort(): number {
  * and `data-cp-enter` — not the directive itself, which a feature template is free to carry, so that a later
  * document can hand pages the entrance without a check being loosened to let them.
  *
- * **The motion is in `global.css`, keyed on the attribute this sets.** A directive carries no styles, so the
+ * **The motion is in `global.scss`, keyed on the attribute this sets.** A directive carries no styles, so the
  * keyframes have to be global; what matters is the direction. Nothing is hidden by a class that CSS applies
  * and script is trusted to take off — the hiding exists only inside an animation this directive declared — so
  * a stylesheet that never loaded, or an entrance that has finished, leaves a page that was never hidden. The
- * same sheet clears the stagger's delay under `prefers-reduced-motion`, where `global.css` shortens the
+ * same sheet clears the stagger's delay under `prefers-reduced-motion`, where `global.scss` shortens the
  * animation to an instant but would otherwise leave a staggered item waiting invisible for its turn, and
  * turns the animation off for print, which renders the whole document at once and may not run one at all.
  *
@@ -56,7 +56,7 @@ function nextInCohort(): number {
  * **Focus ends it early.** The element is transparent for as long as its delay lasts, so focus reaching it —
  * a creator tabbing into a list the moment it lands, a page moving focus to what just arrived — ends the
  * arrival, and nothing is ever focused while it cannot be seen. Two mechanisms, because they answer different
- * halves: `global.css`'s `:focus-within` stops the animation in the same style recalculation, synchronously,
+ * halves: `global.scss`'s `:focus-within` stops the animation in the same style recalculation, synchronously,
  * while this directive's `focusin` takes the mark off for good on the change detection that follows.
  *
  * ```html

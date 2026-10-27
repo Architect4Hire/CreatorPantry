@@ -193,11 +193,11 @@ describe('CpEnterDirective', () => {
 });
 
 /**
- * The motion itself: `global.css`, which the library's karma target loads along with the tokens. Chrome cannot
+ * The motion itself: `global.scss`, which the library's karma target loads along with the tokens. Chrome cannot
  * be told to prefer reduced motion from a spec, so those two answers are read from the parsed stylesheet — a
  * misspelled condition, property or keyword fails here — while what a marked element actually draws is measured.
  */
-describe('the entrance in global.css', () => {
+describe('the entrance in global.scss', () => {
   /** Every `[data-cp-enter]` rule inside a `@media` rule whose condition matches. */
   function underMedia(condition: RegExp): CSSStyleRule[] {
     const found: CSSStyleRule[] = [];

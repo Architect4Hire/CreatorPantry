@@ -93,7 +93,7 @@ const PRIORITY_OPTIONS: readonly CpChoiceOption[] = [
     CpSkeletonComponent,
   ],
   templateUrl: './quick-capture.component.html',
-  styleUrl: './quick-capture.component.css',
+  styleUrl: './quick-capture.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuickCaptureComponent {

@@ -24,7 +24,7 @@ export interface LandingFooterLink {
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   templateUrl: './landing-footer.component.html',
-  styleUrl: './landing-footer.component.css',
+  styleUrl: './landing-footer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingFooterComponent {

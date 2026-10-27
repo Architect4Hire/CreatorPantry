@@ -10,7 +10,7 @@ import { RecipeFormState } from './recipe-form-state';
   standalone: true,
   imports: [CpFieldComponent, CpFormSectionComponent, FormsModule],
   templateUrl: './recipe-notes-section.component.html',
-  styleUrl: './recipe-notes-section.component.css',
+  styleUrl: './recipe-notes-section.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeNotesSectionComponent {

@@ -83,7 +83,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpCheckboxComponent, CpFieldComponent, CpSkeletonComponent],
   templateUrl: './recipe-display-normalization.component.html',
-  styleUrl: './recipe-display-normalization.component.css',
+  styleUrl: './recipe-display-normalization.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeDisplayNormalizationComponent {

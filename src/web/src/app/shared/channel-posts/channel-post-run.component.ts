@@ -137,7 +137,7 @@ interface ChannelCard {
     CpSkeletonComponent,
   ],
   templateUrl: './channel-post-run.component.html',
-  styleUrl: './channel-post-run.component.css',
+  styleUrl: './channel-post-run.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChannelPostRunComponent {

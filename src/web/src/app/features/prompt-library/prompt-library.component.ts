@@ -117,7 +117,7 @@ const COULD_NOT_LOAD = "Couldn't load your prompts. Check your connection and tr
     PromptPreviewComponent,
   ],
   templateUrl: './prompt-library.component.html',
-  styleUrl: './prompt-library.component.css',
+  styleUrl: './prompt-library.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PromptLibraryComponent {

@@ -174,7 +174,7 @@ const HEADING_ID = 'cp-pipeline-step-heading';
     CpTopicCardComponent,
   ],
   templateUrl: './content-pipeline-shell.component.html',
-  styleUrl: './content-pipeline-shell.component.css',
+  styleUrl: './content-pipeline-shell.component.scss',
   providers: [CreativeContextSession],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

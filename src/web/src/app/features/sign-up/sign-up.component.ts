@@ -11,7 +11,7 @@ import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.compon
   standalone: true,
   imports: [FormsModule, RouterLink, CpButtonComponent, CpFieldComponent, AuthLayoutComponent],
   templateUrl: './sign-up.component.html',
-  styleUrl: './sign-up.component.css',
+  styleUrl: './sign-up.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SignUpComponent {

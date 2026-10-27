@@ -111,7 +111,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
     ShellNavIconComponent,
   ],
   templateUrl: './app-shell.component.html',
-  styleUrl: './app-shell.component.css',
+  styleUrl: './app-shell.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AppShellComponent {

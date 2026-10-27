@@ -248,7 +248,7 @@ type SubjectMismatch = 'picked_before_linking' | 'other_recipe' | 'recipe_unlink
     CpNoticeComponent,
   ],
   templateUrl: './content-pipeline-idea-step.component.html',
-  styleUrl: './content-pipeline-idea-step.component.css',
+  styleUrl: './content-pipeline-idea-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineIdeaStepComponent implements OnInit {

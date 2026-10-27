@@ -474,7 +474,7 @@ let nextInstance = 0;
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-nutrition.component.html',
-  styleUrl: './recipe-nutrition.component.css',
+  styleUrl: './recipe-nutrition.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeNutritionComponent {

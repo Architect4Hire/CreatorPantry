@@ -228,6 +228,29 @@ test('utilities: the global utilities are neither redeclared nor kept under a pr
   assert.deepEqual(stylesheetViolations('.row-actions, .actions-note, .muted-count { margin: 0; }'), []);
 });
 
+test('scss: a nested rule is judged under the selector Sass writes for it', () => {
+  assert.deepEqual(rules(stylesheetViolations('.card {\n  .chip { cursor: pointer; }\n}')), ['chip']);
+  assert.deepEqual(rules(stylesheetViolations('.card { &.facts { margin: 0; } }')), ['facts']);
+  assert.deepEqual(rules(stylesheetViolations('.list, .grid-note { & > .muted { margin: 0; } }')), ['utilities']);
+  assert.deepEqual(rules(stylesheetViolations('.board { margin: 0; &-card-title { margin: 0; } }')), ['board']);
+  assert.equal(stylesheetViolations('.card {\n  color: red;\n  .chip { cursor: pointer; }\n}')[0].line, 3);
+});
+
+test('scss: a nested rule does not hide its parent\'s own declarations', () => {
+  assert.deepEqual(rules(frameViolations(':host {\n  display: block;\n  .inner { margin: 0; }\n  padding: 1rem;\n}')), ['frame']);
+  assert.equal(frameViolations(':host {\n  display: block;\n  .inner { margin: 0; }\n  padding: 1rem;\n}')[0].line, 4);
+  assert.deepEqual(rules(frameViolations(':host { @media (min-width: 40rem) { padding: 1rem; } }')), ['frame']);
+  assert.deepEqual(frameViolations(':host { display: block; .inner { padding: 1rem; } }'), []);
+  assert.deepEqual(rules(stylesheetViolations('.panel { position: fixed; .x { margin: 0; } }')), ['drawer']);
+});
+
+test('scss: a line comment is not a rule, and a `//` in a url or a string is not a comment', () => {
+  assert.deepEqual(stylesheetViolations('// .chip { cursor: pointer; }\n.card { margin: 0; } // .muted'), []);
+  assert.deepEqual(rules(stylesheetViolations('.a { background: url(https://x.test/a.png); } .chip { margin: 0; }')), ['chip']);
+  assert.deepEqual(rules(stylesheetViolations(".a::before { content: '//'; } .chip { margin: 0; }")), ['chip']);
+  assert.deepEqual(rules(stylesheetViolations('@use "sass:math";\n.card-#{$x} { margin: 0; } .chip { margin: 0; }')), ['chip']);
+});
+
 test('inline styles and templates are read from a component file, at their own lines', () => {
   const parts = inlineParts("@Component({\n  template: `\n    <h1>Hi</h1>\n  `,\n  styles: [\n    `\n      .muted { margin: 0; }\n    `,\n  ],\n})");
   assert.deepEqual(rules(templateViolations(parts.template.text)), ['one-h1']);
@@ -237,17 +260,17 @@ test('inline styles and templates are read from a component file, at their own l
 
 test('an exemption excuses one rule in one file, and one that excuses nothing is reported', () => {
   const failures = [
-    { file: 'src/app/a.css', rule: 'facts', line: 3 },
-    { file: 'src/app/a.css', rule: 'chip', line: 9 },
-    { file: 'src/app/b.css', rule: 'facts', line: 1 },
+    { file: 'src/app/a.scss', rule: 'facts', line: 3 },
+    { file: 'src/app/a.scss', rule: 'chip', line: 9 },
+    { file: 'src/app/b.scss', rule: 'facts', line: 1 },
   ];
   const exemptions = [
-    { file: 'src/app/a.css', rule: 'facts', reason: 'prints' },
-    { file: 'src/app/gone.css', rule: 'drawer', reason: 'was fixed since' },
+    { file: 'src/app/a.scss', rule: 'facts', reason: 'prints' },
+    { file: 'src/app/gone.scss', rule: 'drawer', reason: 'was fixed since' },
   ];
   const { standing, stale } = judge(failures, exemptions);
-  assert.deepEqual(standing.map((f) => `${f.file} ${f.rule}`), ['src/app/a.css chip', 'src/app/b.css facts']);
-  assert.deepEqual(stale.map((e) => e.file), ['src/app/gone.css']);
+  assert.deepEqual(standing.map((f) => `${f.file} ${f.rule}`), ['src/app/a.scss chip', 'src/app/b.scss facts']);
+  assert.deepEqual(stale.map((e) => e.file), ['src/app/gone.scss']);
   assert.deepEqual(judge(failures, []).standing, failures);
 });
 

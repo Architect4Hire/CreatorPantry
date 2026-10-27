@@ -6,7 +6,7 @@
  *
  * Nothing on it is invented. The words are the hero's own headline, read out of the component so the card
  * cannot drift from the page it stands for; the logo is the file the page itself loads; the colours and the
- * typefaces are the design system's, taken from `tokens.css` and `themes.css` rather than typed in again. It
+ * typefaces are the design system's, taken from `tokens.scss` and `themes.scss` rather than typed in again. It
  * photographs none of the product and none of anyone's work: a card is seen by people who have not chosen to
  * see anything yet, which is the wrong audience for a screenshot of a real workspace.
  *
@@ -44,8 +44,8 @@ async function headline() {
 /** The real token set, inlined, so the card is the product's paper and ink rather than a guess at them. */
 async function tokens() {
   const [base, themes] = await Promise.all([
-    readFile(join(styles, 'tokens.css'), 'utf8'),
-    readFile(join(styles, 'themes.css'), 'utf8'),
+    readFile(join(styles, 'tokens.scss'), 'utf8'),
+    readFile(join(styles, 'themes.scss'), 'utf8'),
   ]);
   return `${base}\n${themes}`;
 }

@@ -57,7 +57,7 @@ export const BILLING_PROMISES: readonly BillingPromise[] = [
   standalone: true,
   imports: [CpCardComponent, CpCardGridComponent, CpBadgeComponent],
   templateUrl: './landing-promises.component.html',
-  styleUrl: './landing-promises.component.css',
+  styleUrl: './landing-promises.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingPromisesComponent {

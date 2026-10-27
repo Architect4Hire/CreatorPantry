@@ -89,7 +89,7 @@ function indexOf(step: RecipeStudioStep): number {
   ],
   providers: [RecipeStudioHost],
   templateUrl: './recipe-studio-flow.component.html',
-  styleUrl: './recipe-studio-flow.component.css',
+  styleUrl: './recipe-studio-flow.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeStudioFlowComponent {

@@ -139,7 +139,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpStatusPillComponent],
   templateUrl: './recipe-yield-reconciliation.component.html',
-  styleUrl: './recipe-yield-reconciliation.component.css',
+  styleUrl: './recipe-yield-reconciliation.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeYieldReconciliationComponent {

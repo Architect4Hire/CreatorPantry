@@ -26,7 +26,7 @@ const MOST = 24;
  * **It moves by `background-position`.** A band of `--cp-skeleton-shine` sweeps across `--cp-skeleton-base` over
  * `--cp-duration-skeleton`; nothing slides with `translateX`, which the page contract keeps for the drawer. Under
  * `prefers-reduced-motion` it does not move at all and is the plain base colour. That is said here rather than left
- * to global.css, whose clamp only shortens the sweep to one instant pass: still a sweep, just one nobody sees.
+ * to global.scss, whose clamp only shortens the sweep to one instant pass: still a sweep, just one nobody sees.
  *
  * `card` with a `count` lays its cards out as `ul[cpCardGrid]` does — as many columns as fit — so a library's
  * skeleton is the grid that will replace it. Its picture is 4:3, a media card's, unless `pictureAspect` says the

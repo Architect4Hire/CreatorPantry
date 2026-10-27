@@ -6,10 +6,10 @@
     "@angular/common": "^22.0.0",
     "@angular/core": "^22.0.0"
   },
-  "sideEffects": ["**/*.css"],
+  "sideEffects": ["**/*.scss"],
   "exports": {
-    "./styles/tokens.css": "./styles/tokens.css",
-    "./styles/themes.css": "./styles/themes.css",
-    "./styles/global.css": "./styles/global.css"
+    "./styles/tokens.scss": "./styles/tokens.scss",
+    "./styles/themes.scss": "./styles/themes.scss",
+    "./styles/global.scss": "./styles/global.scss"
   }
 }

@@ -42,7 +42,7 @@ type Outcome = 'undecided' | 'kept' | 'activated';
   standalone: true,
   imports: [RouterLink, CpButtonComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
   templateUrl: './brand-setup-finish-step.component.html',
-  styleUrl: './brand-setup-finish-step.component.css',
+  styleUrl: './brand-setup-finish-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandSetupFinishStepComponent implements OnInit {

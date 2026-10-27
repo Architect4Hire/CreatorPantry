@@ -53,7 +53,7 @@ let nextInstance = 0;
   // Escape means "stay", and closing writes nothing. CpDialogComponent handles the backdrop but not the key.
   host: { '(document:keydown.escape)': 'close()' },
   templateUrl: './recipe-duplicate.component.html',
-  styleUrl: './recipe-duplicate.component.css',
+  styleUrl: './recipe-duplicate.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeDuplicateComponent {

@@ -68,7 +68,7 @@ import { IdempotencyKey } from './content-pipeline-idempotency';
     DayNotesNoticeComponent,
   ],
   templateUrl: './content-pipeline-prompt-panel.component.html',
-  styleUrl: './content-pipeline-prompt-panel.component.css',
+  styleUrl: './content-pipeline-prompt-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelinePromptPanelComponent implements OnInit {

@@ -44,12 +44,12 @@ true, so it is absent from production builds.
 
 ## Use the library
 
-Import the three CSS foundations once in the consuming application's global styles, in this order:
+`@use` the three SCSS foundations once in the consuming application's global stylesheet, in this order:
 
-```css
-@import '@creator-pantry/ui/styles/tokens.css';
-@import '@creator-pantry/ui/styles/themes.css';
-@import '@creator-pantry/ui/styles/global.css';
+```scss
+@use '@creator-pantry/ui/styles/tokens';
+@use '@creator-pantry/ui/styles/themes';
+@use '@creator-pantry/ui/styles/global';
 ```
 
 Then import only the standalone components a feature needs:
@@ -79,7 +79,7 @@ import { CpButtonComponent, CpCardComponent } from '@creator-pantry/ui';
 - `CpQuickActionComponent`: branded creator-tool action card
 - `CpStatusPillComponent`: semantic status pill (`neutral | progress | success | warning | error | stale`) with a distinct glyph per tone plus required text — meaning never relies on color alone
 - `CpListShellComponent`: domain-neutral table/list frame with heading association, actions/pagination slots, and loading, error, empty, and ready states. While loading it draws skeletons (`loadingLayout`: `rows`, default, or `cards`) with one visually hidden status sentence, or a projected `[cpListShellLoading]` in their place (a board's columns), which the shell hides from a screen reader; while not ready its pagination footer is said to a screen reader but not shown
-- `CpEnterDirective` (`[cpEnter]`): what has just arrived, fading in and rising `--cp-enter-distance` over `--cp-duration-enter`, once. Marks the element `data-cp-enter`, which `global.css`'s `cp-enter` keyframes are keyed on; everything created in one change-detection pass is one arrival and lands in creation order, `--cp-enter-stagger` apart, capped at five steps. Nothing moves and nothing waits under reduced motion, and nothing is hidden without the stylesheet or on paper. Focus arriving ends it early, synchronously through `:focus-within` and then for good in the directive. Nothing re-animates: the input is read once, and the mark comes off when the animation ends _or is cancelled_, so a `[hidden]` panel does not arrive again when it is shown. `[cpEnter]="false"` writes nothing. The library applies it (a list shell's ready content, a generated result, a group of options); no page does today, and the page contract's `enter` rule guards the tokens, the keyframes and `data-cp-enter` rather than the directive
+- `CpEnterDirective` (`[cpEnter]`): what has just arrived, fading in and rising `--cp-enter-distance` over `--cp-duration-enter`, once. Marks the element `data-cp-enter`, which `global.scss`'s `cp-enter` keyframes are keyed on; everything created in one change-detection pass is one arrival and lands in creation order, `--cp-enter-stagger` apart, capped at five steps. Nothing moves and nothing waits under reduced motion, and nothing is hidden without the stylesheet or on paper. Focus arriving ends it early, synchronously through `:focus-within` and then for good in the directive. Nothing re-animates: the input is read once, and the mark comes off when the animation ends _or is cancelled_, so a `[hidden]` panel does not arrive again when it is shown. `[cpEnter]="false"` writes nothing. The library applies it (a list shell's ready content, a generated result, a group of options); no page does today, and the page contract's `enter` rule guards the tokens, the keyframes and `data-cp-enter` rather than the directive
 - `CpSkeletonComponent`: the shape of what is loading — `line`, `block`, `circle` or `card` (a media-card silhouette, laid out as a card grid), `count` of them; `aria-hidden`, a background-position shimmer from the skeleton tokens, still under reduced motion
 - `CpTabsComponent` / `CpTabPanelComponent`: keyboard-accessible tabs (ARIA tabs pattern, roving tabindex, disabled tabs) with lazy-mounted panels
 - `CpToolbarComponent`: responsive toolbar with search/filters/actions/overflow slots, loading and disabled states, and roving-tabindex keyboard navigation — which yields the arrow, `Home` and `End` keys to a focused text input, `<select>`, `<textarea>` or contenteditable, so a control in the search slot keeps its own caret and value behaviour. The "More actions" disclosure renders only when `[cpToolbarOverflow]` has content, so a toolbar that uses the first three slots shows no empty overflow button

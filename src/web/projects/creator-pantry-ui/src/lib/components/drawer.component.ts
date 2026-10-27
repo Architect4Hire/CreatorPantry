@@ -86,7 +86,7 @@ let nextId = 0;
         z-index: var(--cp-z-modal);
         display: flex;
         flex-direction: column;
-        /* Stated, not inherited from global.css: the width tokens are the panel's whole width, border included. */
+        /* Stated, not inherited from global.scss: the width tokens are the panel's whole width, border included. */
         box-sizing: border-box;
         width: min(var(--cp-drawer-width), 100%);
         border-left: 1px solid var(--cp-border);

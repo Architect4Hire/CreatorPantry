@@ -134,7 +134,7 @@ let nextInstance = 0;
   standalone: true,
   imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpSkeletonComponent],
   templateUrl: './recipe-unit-conversion.component.html',
-  styleUrl: './recipe-unit-conversion.component.css',
+  styleUrl: './recipe-unit-conversion.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeUnitConversionComponent {

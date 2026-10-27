@@ -25,7 +25,7 @@ import { legalPage } from './legal-pages';
   standalone: true,
   imports: [RouterLink, CpLogoComponent, LandingFooterComponent, LegalInlineComponent],
   templateUrl: './legal-page.component.html',
-  styleUrl: './legal-page.component.css',
+  styleUrl: './legal-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LegalPageComponent {

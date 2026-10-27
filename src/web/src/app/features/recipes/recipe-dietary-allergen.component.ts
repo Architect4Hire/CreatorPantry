@@ -344,7 +344,7 @@ let nextInstance = 0;
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-dietary-allergen.component.html',
-  styleUrl: './recipe-dietary-allergen.component.css',
+  styleUrl: './recipe-dietary-allergen.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeDietaryAllergenComponent {

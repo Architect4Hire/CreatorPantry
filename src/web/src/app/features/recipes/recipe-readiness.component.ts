@@ -142,7 +142,7 @@ function evidenceFieldLabel(fieldName: string): string {
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-readiness.component.html',
-  styleUrl: './recipe-readiness.component.css',
+  styleUrl: './recipe-readiness.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeReadinessComponent {

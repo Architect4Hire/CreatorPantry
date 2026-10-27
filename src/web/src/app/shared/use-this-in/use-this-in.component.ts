@@ -52,7 +52,7 @@ let nextId = 0;
   standalone: true,
   imports: [CpButtonComponent, CpNoticeComponent],
   templateUrl: './use-this-in.component.html',
-  styleUrl: './use-this-in.component.css',
+  styleUrl: './use-this-in.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UseThisInComponent {

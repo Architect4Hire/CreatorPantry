@@ -76,7 +76,7 @@ type Stage =
   providers: [RecipeEditorHost, RecipeStudioHost],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './recipe-create-start-step.component.html',
-  styleUrl: './recipe-create-start-step.component.css',
+  styleUrl: './recipe-create-start-step.component.scss',
 })
 export class RecipeCreateStartStepComponent implements OnInit {
   readonly step = input.required<WorkflowNextAction>();

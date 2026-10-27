@@ -42,7 +42,7 @@ export interface PlanComparisonColumn {
   standalone: true,
   imports: [RouterLink, CpCardComponent, CpCardGridComponent, CpBadgeComponent, CpButtonComponent, CpChoiceGroupComponent],
   templateUrl: './landing-pricing.component.html',
-  styleUrl: './landing-pricing.component.css',
+  styleUrl: './landing-pricing.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingPricingComponent {

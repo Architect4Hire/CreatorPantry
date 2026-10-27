@@ -63,7 +63,7 @@ const CHANGED_ELSEWHERE =
     CpSkeletonComponent,
   ],
   templateUrl: './workspace-ai-features.component.html',
-  styleUrl: './workspace-ai-features.component.css',
+  styleUrl: './workspace-ai-features.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceAiFeaturesComponent {

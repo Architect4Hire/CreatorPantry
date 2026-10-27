@@ -54,7 +54,7 @@ const PROBLEMS = {
   standalone: true,
   imports: [RouterLink, CpButtonComponent, CpNoticeComponent, CpSkeletonComponent],
   templateUrl: './content-pipeline-board-step.component.html',
-  styleUrl: './content-pipeline-board-step.component.css',
+  styleUrl: './content-pipeline-board-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineBoardStepComponent {

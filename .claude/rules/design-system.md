@@ -8,9 +8,9 @@ The installed Angular 22 design system is the visual source of truth. Do not cre
 - Workspace instructions: `src/web/CLAUDE.md`
 - Library: `src/web/projects/creator-pantry-ui/`
 - Public API: `src/web/projects/creator-pantry-ui/src/public-api.ts`
-- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.css`
-- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.css`
-- Global styles: `src/web/projects/creator-pantry-ui/src/lib/styles/global.css`
+- Tokens: `src/web/projects/creator-pantry-ui/src/lib/styles/tokens.scss`
+- Themes: `src/web/projects/creator-pantry-ui/src/lib/styles/themes.scss`
+- Global styles: `src/web/projects/creator-pantry-ui/src/lib/styles/global.scss`
 - Showcase: `src/web/src/app/`
 
 ## Visual contract
@@ -21,12 +21,12 @@ Theme is applied with `data-cp-theme="light|dark"` on `<html>`. `CpThemeService`
 
 A tool's tone is applied with `data-cp-tone="purple|pink|blue|orange"`, set by the route's `data: { tone }` on the page frame and never by a feature (the page contract's `tone` rule): AI Recipe Studio purple, Image Studio pink, Social Studio blue, Long-form and the Content Pipeline orange, every other page none. Parts draw with `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`, which are the primary's when no tone is set. A tone marks the tool, never the primary action or a status. An accent as text is `--cp-<accent>-text`, never the raw accent (light orange is darker as text). Loading draws `--cp-skeleton-base`/`--cp-skeleton-shine`; entrance motion is `cpEnter`'s, from `--cp-duration-enter`, `--cp-enter-distance` and `--cp-enter-stagger`. `src/web/DESIGN-SYSTEM.md`, "Warmth inside the app", has the rules.
 
-Consumers import the CSS foundation exactly once, in this order:
+Consumers `@use` the SCSS foundation exactly once, in this order:
 
-```css
-@import '@creator-pantry/ui/styles/tokens.css';
-@import '@creator-pantry/ui/styles/themes.css';
-@import '@creator-pantry/ui/styles/global.css';
+```scss
+@use "@creator-pantry/ui/styles/tokens";
+@use "@creator-pantry/ui/styles/themes";
+@use "@creator-pantry/ui/styles/global";
 ```
 
 ## Implemented public API
@@ -43,7 +43,7 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpQuickActionComponent`: creator-tool action card with tone and activation event
 - `CpStatusPillComponent`: `neutral | progress | success | warning | error | stale`, distinct glyph per tone plus required text
 - `CpListShellComponent`: domain-neutral list/table frame — heading, actions/pagination slots, loading/error/empty/ready states; no columns or data. Loading draws `cp-skeleton` in `loadingLayout` `rows` (default) or `cards`, or a projected `[cpListShellLoading]` (a board's columns), with one visually hidden status sentence; the ready content scrolls in a positioned region, so a `.cp-sr-only` table header cannot widen the page; while not ready the pagination footer is offscreen (said, not shown)
-- `CpEnterDirective` (`[cpEnter]`): what has just arrived, fading in and rising `--cp-enter-distance` over `--cp-duration-enter`, once. It marks the element `data-cp-enter` and `global.css` holds the `cp-enter` keyframes; everything created in one change-detection pass is one arrival, landing in creation order `--cp-enter-stagger` apart, capped at five steps. Nothing moves or waits under reduced motion, nothing is hidden without the sheet or on paper, focus arriving ends it early (`:focus-within` synchronously, then the directive), and nothing re-animates — a cancelled animation clears the mark too. The library applies it — a `cp-list-shell`'s ready content, a `cp-generated` result, a group of `cp-option-card`s; no page does today, and the page contract's `enter` rule guards the entrance tokens, the `cp-enter` keyframes and `data-cp-enter`, not the directive itself
+- `CpEnterDirective` (`[cpEnter]`): what has just arrived, fading in and rising `--cp-enter-distance` over `--cp-duration-enter`, once. It marks the element `data-cp-enter` and `global.scss` holds the `cp-enter` keyframes; everything created in one change-detection pass is one arrival, landing in creation order `--cp-enter-stagger` apart, capped at five steps. Nothing moves or waits under reduced motion, nothing is hidden without the sheet or on paper, focus arriving ends it early (`:focus-within` synchronously, then the directive), and nothing re-animates — a cancelled animation clears the mark too. The library applies it — a `cp-list-shell`'s ready content, a `cp-generated` result, a group of `cp-option-card`s; no page does today, and the page contract's `enter` rule guards the entrance tokens, the `cp-enter` keyframes and `data-cp-enter`, not the directive itself
 - `CpSkeletonComponent`: what is loading, drawn as `line`, `block`, `circle` or `card` (a media-card silhouette, as a card grid), `count` of them. `aria-hidden` — the loading region owns `aria-busy` and its one status sentence; shimmers by `background-position`, still under reduced motion. Use it rather than a "Loading…" sentence or a `.skeleton` in a feature stylesheet
 - `CpTabsComponent` / `CpTabPanelComponent`: ARIA tabs pattern, roving tabindex, disabled tabs, lazy-mounted panels
 - `CpToolbarComponent`: search/filters/actions/overflow slots, loading/disabled states, roving-tabindex keyboard nav
@@ -89,4 +89,3 @@ Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are def
 9. Verify WCAG 2.2 AA, keyboard operation, visible focus, screen-reader naming, 200% zoom, narrow layout, long content, both themes, and reduced motion.
 
 Generated `dist/` output and `node_modules/` are never committed.
-

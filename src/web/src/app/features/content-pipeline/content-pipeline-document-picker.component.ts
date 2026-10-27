@@ -72,7 +72,7 @@ function isImage(row: BrandLibraryRow): boolean {
     CpUploaderComponent,
   ],
   templateUrl: './content-pipeline-document-picker.component.html',
-  styleUrl: './content-pipeline-document-picker.component.css',
+  styleUrl: './content-pipeline-document-picker.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineDocumentPickerComponent {

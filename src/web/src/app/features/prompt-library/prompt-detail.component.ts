@@ -88,7 +88,7 @@ type ReuseAccess = 'checking' | 'unknown' | 'view_only' | 'allowed';
     CpTopicCardComponent,
   ],
   templateUrl: './prompt-detail.component.html',
-  styleUrl: './prompt-detail.component.css',
+  styleUrl: './prompt-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PromptDetailComponent {

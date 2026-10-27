@@ -68,7 +68,7 @@ let nextInstance = 0;
   // Escape means "stay", and closing writes nothing. CpDialogComponent owns the backdrop but not the key.
   host: { '(document:keydown.escape)': 'close()' },
   templateUrl: './brand-guide-activate.component.html',
-  styleUrl: './brand-guide-activate.component.css',
+  styleUrl: './brand-guide-activate.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BrandGuideActivateComponent {

@@ -77,7 +77,7 @@ interface Tile {
     ContentPipelineStagedImageComponent,
   ],
   templateUrl: './content-pipeline-image-grid.component.html',
-  styleUrl: './content-pipeline-image-grid.component.css',
+  styleUrl: './content-pipeline-image-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineImageGridComponent {

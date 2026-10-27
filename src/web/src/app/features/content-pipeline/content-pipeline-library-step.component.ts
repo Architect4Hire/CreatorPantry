@@ -114,7 +114,7 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
     SaveToLibraryDialogComponent,
   ],
   templateUrl: './content-pipeline-library-step.component.html',
-  styleUrl: './content-pipeline-library-step.component.css',
+  styleUrl: './content-pipeline-library-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelineLibraryStepComponent {

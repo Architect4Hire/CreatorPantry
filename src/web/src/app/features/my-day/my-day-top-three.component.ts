@@ -17,7 +17,7 @@ import { MY_DAY_GROUPS, MyDayEntry } from './my-day.logic';
   standalone: true,
   imports: [CpButtonComponent, CpChoiceGroupComponent, CpDialogComponent, CpNoticeComponent],
   templateUrl: './my-day-top-three.component.html',
-  styleUrl: './my-day-top-three.component.css',
+  styleUrl: './my-day-top-three.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MyDayTopThreeComponent {

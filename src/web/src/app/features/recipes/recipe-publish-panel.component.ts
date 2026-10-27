@@ -102,7 +102,7 @@ const DOWNLOADS: readonly Omit<DownloadRow, 'href'>[] = [
     CpStatusPillComponent,
   ],
   templateUrl: './recipe-publish-panel.component.html',
-  styleUrl: './recipe-publish-panel.component.css',
+  styleUrl: './recipe-publish-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipePublishPanelComponent {

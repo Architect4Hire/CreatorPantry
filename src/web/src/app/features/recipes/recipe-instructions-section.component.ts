@@ -46,7 +46,7 @@ const INSTRUCTION_GROUP_ANCHOR_PREFIX = 'instruction-group-';
     FormsModule,
   ],
   templateUrl: './recipe-instructions-section.component.html',
-  styleUrl: './recipe-instructions-section.component.css',
+  styleUrl: './recipe-instructions-section.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeInstructionsSectionComponent {

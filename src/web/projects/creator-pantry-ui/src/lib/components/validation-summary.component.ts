@@ -48,7 +48,7 @@ export interface CpValidationIssue {
   selector: 'cp-validation-summary',
   standalone: true,
   templateUrl: './validation-summary.component.html',
-  styleUrl: './validation-summary.component.css',
+  styleUrl: './validation-summary.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpValidationSummaryComponent {

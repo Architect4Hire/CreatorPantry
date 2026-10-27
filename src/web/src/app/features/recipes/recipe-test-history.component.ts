@@ -117,7 +117,7 @@ let nextInstance = 0;
     CpToolbarComponent,
   ],
   templateUrl: './recipe-test-history.component.html',
-  styleUrl: './recipe-test-history.component.css',
+  styleUrl: './recipe-test-history.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeTestHistoryComponent {

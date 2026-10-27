@@ -224,7 +224,7 @@ function memoryFiling(): CreativeContextFilingStore {
     WorkflowReturnNoticeComponent,
   ],
   templateUrl: './social-studio.component.html',
-  styleUrl: './social-studio.component.css',
+  styleUrl: './social-studio.component.scss',
   providers: [CreativeContextSession],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

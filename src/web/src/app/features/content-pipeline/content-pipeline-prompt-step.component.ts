@@ -50,7 +50,7 @@ import { ContentPipelineReferencePanelComponent } from './content-pipeline-refer
     ContentPipelineReferencePanelComponent,
   ],
   templateUrl: './content-pipeline-prompt-step.component.html',
-  styleUrl: './content-pipeline-prompt-step.component.css',
+  styleUrl: './content-pipeline-prompt-step.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContentPipelinePromptStepComponent {
