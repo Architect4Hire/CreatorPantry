@@ -57,7 +57,7 @@ export interface PlanComparisonColumn {
     CpChoiceGroupComponent,
   ],
   templateUrl: './landing-pricing.component.html',
-  styleUrl: './landing-pricing.component.css',
+  styleUrl: './landing-pricing.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingPricingComponent {

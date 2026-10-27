@@ -10,7 +10,7 @@ import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@an
     }
     /*
      * A card is a sheet in either theme and re-declares no token, so everything inside reads the page's own ink,
-     * accents, ring and field colours at the ratios themes.css holds them to (AU.2.2, D2). Its edge is
+     * accents, ring and field colours at the ratios themes.scss holds them to (AU.2.2, D2). Its edge is
      * --cp-card-edge, shared with cp-dialog and cp-lightbox: a hairline on the light paper, a stronger line on the
      * dark page, where the sheet's fill is only 1.14:1 off the page. The theme decides that, not this component.
      * The dark card used to be parchment, which put every accent, the danger text and anything on a tint out of

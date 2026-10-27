@@ -85,7 +85,7 @@ work like this.
   `--cp-font-size-title`, its own intro and its own layout inside. The page draws the hairline between
   sections once (`landing.component.css`), and a section that rendered nothing draws none.
 - **Its gutter and widths — but only from the public tokens.** With no shell, each section frames itself, and
-  every frame comes from the same five tokens in `tokens.css`: `--cp-public-gutter` at the sides,
+  every frame comes from the same five tokens in `tokens.scss`: `--cp-public-gutter` at the sides,
   `--cp-public-section-space` above and below, and one of three widths — `--cp-public-width-narrow` (one
   centred column: trust, the final CTA), `--cp-public-width` (a section) and `--cp-public-width-wide` (the hero,
   whose copy sits beside its collage). A document read as prose, the FAQ or a legal page, frames itself at
@@ -457,12 +457,12 @@ in and rises `--cp-enter-distance` over `--cp-duration-enter`. Several things ar
 rows inside one list, which rise as the one block the shell marks. The library applies it where it is always
 right — a list shell's ready content, a generated result arriving, a group of options — and pages do not apply
 it themselves. It does not replay on a filter change, a save or a re-render.
-There is no scroll reveal, and under `prefers-reduced-motion` nothing moves and nothing waits. `global.css` zeroes
+There is no scroll reveal, and under `prefers-reduced-motion` nothing moves and nothing waits. `global.scss` zeroes
 durations but not delays, so the entrance clears its stagger delay there too; otherwise a list item would sit
 invisible for its turn.
 
 `CpEnterDirective` (`[cpEnter]`) is how that is done. It marks an arriving element `data-cp-enter`, and
-`global.css` holds the `cp-enter` keyframes keyed on that attribute, because a directive carries no styles of
+`global.scss` holds the `cp-enter` keyframes keyed on that attribute, because a directive carries no styles of
 its own. The marking is the only thing that hides anything: nothing in the sheet touches an element the
 directive has not marked, so a sheet that never loaded, a page without script and an entrance that has finished
 all leave content that was never hidden — the same way round as `LandingRevealDirective`, and the reason neither
@@ -471,7 +471,7 @@ arrival and lands in creation order, capped at five steps, so a group of cards s
 them. It animates once: a CSS animation declares the once, the input is read in `ngOnInit` and never again, and
 the attribute comes off when the animation ends, so a later DOM move cannot restart it. Hiding an element mid-arrival
 cancels its animation without ending it, so a cancelled animation clears the mark too, or a `[hidden]` tab panel
-would arrive again when it was shown. Focus arriving ends it early: `global.css`'s `:focus-within` stops the
+would arrive again when it was shown. Focus arriving ends it early: `global.scss`'s `:focus-within` stops the
 animation in the same style recalculation, synchronously, and the directive's `focusin` then clears the mark on
 the change detection that follows — two mechanisms because a signal written in a handler is a frame late, and
 `cp-list-shell`'s ready region is focusable, so a creator tabbing into a list that has just landed must not find
@@ -545,11 +545,11 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `stat-tile` | a stylesheet styles `.stat`, `.stats`, `.stat-tile`, `.stat-tiles`, `.kpi`, `.kpis`, `.figure-tile` or `.figure-tiles` | `cp-stat-tile` in a `ul[cpCardGrid]` |
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
-| `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
+| `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output |
 | `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
 | `loading` | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
 | `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
-| `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
+| `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.scss`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |
 | `public-frame` | a public rule that caps a width and pads its sides uses anything but a public width (or `--cp-measure-prose`) and `--cp-public-gutter`; a public `:host` sets `padding`, `margin` or `width`; outside the hero, a `max-width` or `max-inline-size` is a literal length. The size of a part — a column, a toggle, a marker — is not a measure and is not judged | the `--cp-public-*` tokens ("The public page") |
 | `public-control` | a public template renders a `<button>` without `cpButton` | `<button cpButton>` or `<a cpButton>` |
@@ -574,7 +574,7 @@ Target WCAG 2.2 AA. Preserve visible focus. Do not communicate status by color a
 
 **The ring is opaque, and it is the one thing on screen that says where the keyboard is.** `--cp-focus` is
 `var(--cp-primary)` at full strength, drawn by one rule — `:focus-visible { outline: 3px solid var(--cp-focus);
-outline-offset: 2px }` in `global.css`. It was a 38% (light) and 42% (dark) mix of the action colour with
+outline-offset: 2px }` in `global.scss`. It was a 38% (light) and 42% (dark) mix of the action colour with
 `transparent` until it was measured: a translucent ring takes the lightness of whatever is under it, so it came
 to 1.66–1.74:1 on every light surface and 2.40–2.71:1 on every dark one, where WCAG 2.2 1.4.11 asks for 3:1.
 Solid, the same green is 5.05:1 on the light page, 5.35:1 on a white sheet, 8.70:1 on the dark charcoal page,

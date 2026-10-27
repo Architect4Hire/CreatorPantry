@@ -76,7 +76,7 @@ export const BEYOND_TOP_PLAN_CONTACT = 'robert@creatorpantry.com';
   standalone: true,
   imports: [CpFieldComponent],
   templateUrl: './landing-credits.component.html',
-  styleUrl: './landing-credits.component.css',
+  styleUrl: './landing-credits.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingCreditsComponent {

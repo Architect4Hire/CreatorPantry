@@ -91,7 +91,7 @@ export const FAQ_ENTRIES: readonly FaqEntry[] = [
   selector: 'cp-landing-faq',
   standalone: true,
   templateUrl: './landing-faq.component.html',
-  styleUrl: './landing-faq.component.css',
+  styleUrl: './landing-faq.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingFaqComponent {

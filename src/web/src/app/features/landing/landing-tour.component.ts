@@ -119,7 +119,7 @@ export const CAPTURED_TOUR_PANELS: readonly LandingTourPanel[] = TOUR_STOPS.filt
   standalone: true,
   imports: [CpTabsComponent, CpTabPanelComponent, CpBadgeComponent],
   templateUrl: './landing-tour.component.html',
-  styleUrl: './landing-tour.component.css',
+  styleUrl: './landing-tour.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LandingTourComponent {

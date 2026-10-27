@@ -49,7 +49,7 @@
   --cp-ease: cubic-bezier(.2,.8,.2,1);
   /* Entrance (AU.1, D4): content fades in and rises this far the first time it renders, once, and never on
      scroll. Shorter than --cp-duration-normal so a page never waits on it. The stagger spaces list items; a
-     list longer than a screen stops staggering rather than queueing. global.css's reduced-motion rule zeroes
+     list longer than a screen stops staggering rather than queueing. global.scss's reduced-motion rule zeroes
      durations but not delays, so the part that animates (AU.3.4) sets animation-delay: 0 there too; otherwise a
      staggered item would sit invisible for its delay with nothing moving. */
   --cp-duration-enter: 200ms;

@@ -39,7 +39,7 @@ export const PARALLAX_QUERY = '(prefers-reduced-motion: no-preference) and (poin
   selector: 'cp-landing-hero-collage',
   standalone: true,
   templateUrl: './landing-hero-collage.component.html',
-  styleUrl: './landing-hero-collage.component.css',
+  styleUrl: './landing-hero-collage.component.scss',
   host: { 'aria-hidden': 'true' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
