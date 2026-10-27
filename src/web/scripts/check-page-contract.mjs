@@ -33,7 +33,7 @@ const PUBLIC_PAGE = /[\\/]features[\\/]landing[\\/]/;
 /** The template that holds each public page's one `h1`: the landing hero, and the legal document. */
 const HEADLINE = /[\\/](?:landing-hero|legal-page)\.component\.html$/;
 /** The hero is the one part of a public page that draws itself: its headline, its collage and their sizes. */
-const HERO = /[\\/]landing-hero(?:-collage)?\.component\.(?:css|html|ts)$/;
+const HERO = /[\\/]landing-hero(?:-collage)?\.component\.(?:scss|html|ts)$/;
 
 /** What each rule protects, printed once under its failures. */
 export const RULES = {
@@ -61,7 +61,7 @@ export const RULES = {
   loading: "Something on its way is drawn as the shape that is coming (`cp-skeleton`, or `cp-list-shell`'s `loadingLayout`) and said once, in a visually hidden status that is always present (`.cp-sr-only`, role=\"status\"). No visible \"Loading…\", \"Reading your…\" or \"Checking…\" sentence stands in for it. A pager button may say \"Loading more…\"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).",
   enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
-  utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
+  utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.scss. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
   'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
   'public-frame': "A public page frames each section from the public tokens: width `--cp-public-width`, `-narrow` or `-wide` (or `--cp-measure-prose`), gutter `--cp-public-gutter`. A section's `:host` sets no padding, margin or width, and a measure inside a section is a token, never a literal length. Only the hero sizes its own parts.",
   'public-control': "A button on a public page is `cpButton` (`<button cpButton>` or `<a cpButton>`), so its size, focus and states are the library's.",
@@ -79,7 +79,7 @@ export const EXEMPTIONS = [
       "The page frame is where a route's tone is set, from its `data: { tone }`, and the one place it may be (AU.2.1).",
   },
   {
-    file: 'src/app/shell/app-shell.component.css',
+    file: 'src/app/shell/app-shell.component.scss',
     rule: 'drawer',
     reason:
       "The sidebar and the top bar are the shell's own chrome: fixed to the viewport, and the sidebar slides in at a narrow width. Nothing else may be.",
@@ -714,7 +714,7 @@ function run() {
     // A feature's own templates also may not draw: the shell's nav icons are chrome and sit outside features/.
     const feature = FEATURE.test(file);
     const markup = (html) => [...templateViolations(html), ...(feature ? featureTemplateViolations(html) : [])];
-    if (file.endsWith('.css')) report(file, 0, stylesheetViolations(read(file)));
+    if (file.endsWith('.scss')) report(file, 0, stylesheetViolations(read(file)));
     else if (file.endsWith('.html')) report(file, 0, markup(read(file)));
     else if (file.endsWith('.ts')) {
       const inline = inlineParts(read(file));
@@ -739,7 +739,7 @@ function run() {
       ...publicTemplateViolations(html, { headline: HEADLINE.test(file) }),
     ];
     const styleFound = (css) => [...stylesheetViolations(css), ...publicStylesheetViolations(css, { hero })];
-    if (file.endsWith('.css')) report(file, 0, styleFound(read(file)));
+    if (file.endsWith('.scss')) report(file, 0, styleFound(read(file)));
     else if (file.endsWith('.html')) report(file, 0, markupFound(read(file)));
     else if (file.endsWith('.ts')) {
       const inline = inlineParts(read(file));

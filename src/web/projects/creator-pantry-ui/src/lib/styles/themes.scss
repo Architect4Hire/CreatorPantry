@@ -73,7 +73,7 @@
      and measured 1.66:1 to 1.74:1 against every surface it can be drawn over, where WCAG 2.2 1.4.11 asks for
      3:1; solid, the same green is 5.05:1 on the page, 5.35:1 on a white sheet and 4.41:1 at its worst, on a
      soft fruit tint. Nothing is mixed into it, because translucency was the whole fault. A focused control's
-     own fill is told apart from the ring by the 2px gap `global.css` leaves between them, not by the ring's
+     own fill is told apart from the ring by the 2px gap `global.scss` leaves between them, not by the ring's
      colour: a primary button and its ring are the same green, and the page showing between them is 5.05:1
      against both. A spec in `design-system.spec.ts` holds every surface at 3:1. */
   --cp-focus: var(--cp-primary);

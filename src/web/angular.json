@@ -22,9 +22,9 @@
             "polyfills": ["zone.js", "zone.js/testing"],
             "inlineStyleLanguage": "scss",
             "styles": [
-              "projects/creator-pantry-ui/src/lib/styles/global.scss",
               "projects/creator-pantry-ui/src/lib/styles/tokens.scss",
-              "projects/creator-pantry-ui/src/lib/styles/themes.scss"
+              "projects/creator-pantry-ui/src/lib/styles/themes.scss",
+              "projects/creator-pantry-ui/src/lib/styles/global.scss"
             ]
           }
         }

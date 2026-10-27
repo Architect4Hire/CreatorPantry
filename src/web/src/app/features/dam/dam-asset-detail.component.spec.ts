@@ -1230,7 +1230,7 @@ describe('DamAssetDetailComponent', () => {
     detailSpy = jasmine.createSpy('detail').and.returnValue(foundAsset(asset()));
     await create();
 
-    // As global.css draws it; showcase specs load no global stylesheet.
+    // As global.scss draws it; showcase specs load no global stylesheet.
     const style = document.createElement('style');
     style.textContent =
       '.cp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}';
