@@ -145,6 +145,8 @@
                       />
                       <!-- The same line for paper, where the box is one to tick with a pen and so is always
                            empty. Not rendered on screen, so it is never read out twice. -->
+                      <!-- Control flow sits flush against the text: splitting it onto its own lines adds rendered whitespace. -->
+                      <!-- prettier-ignore -->
                       <span class="print-only print-line">
                         {{ line.text }}@if (line.isOptional) {<span class="optional"> (optional)</span>}
                       </span>
@@ -159,6 +161,8 @@
                 <h2 class="secondary-heading">Equipment</h2>
                 <ul class="plain-list">
                   @for (item of equipment(); track item.id) {
+                    <!-- Control flow sits flush against the text: splitting it onto its own lines adds rendered whitespace. -->
+                    <!-- prettier-ignore -->
                     <li>
                       {{ item.displayText }}@if (item.isOptional) {<span class="optional"> (optional)</span>}
                       @if (item.note) {

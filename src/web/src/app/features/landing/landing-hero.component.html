@@ -1,6 +1,8 @@
 <section class="hero" aria-labelledby="landing-hero-heading">
   <div class="copy">
     <cp-logo class="mark" [priority]="true" />
+    <!-- Control flow sits flush against the text: splitting it onto its own lines adds rendered whitespace. -->
+    <!-- prettier-ignore -->
     <h1 id="landing-hero-heading">
       {{ parts().before }}@if (parts().marked) {<span class="highlight">{{ parts().marked }}</span>}{{ parts().after }}
     </h1>

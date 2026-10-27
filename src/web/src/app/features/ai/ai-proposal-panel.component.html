@@ -151,6 +151,8 @@
               <button cpButton type="button" variant="text" size="sm" (click)="clearSelection()">
                 Clear selection
               </button>
+              <!-- Control flow sits flush against the text: splitting it onto its own lines adds rendered whitespace. -->
+              <!-- prettier-ignore -->
               <span class="bulk-count" role="status">
                 {{ selectedCount() }} of {{ rows().length }} selected@if (editedCount() > 0) {,
                 {{ editedCount() }} rewritten}.
