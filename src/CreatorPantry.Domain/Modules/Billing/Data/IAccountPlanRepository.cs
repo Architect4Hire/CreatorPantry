@@ -21,6 +21,35 @@ internal interface IAccountPlanRepository
     /// <summary>The end of the account's chain — the row a change must supersede — or null when it has none.</summary>
     Task<AccountPlan?> FindLatestAsync(string accountId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Accounts whose row <em>in force</em> at <paramref name="at"/> names <paramref name="planKey"/>, by account
+    /// id, from <paramref name="afterAccountId"/> exclusive (AP.4.4).
+    /// </summary>
+    /// <param name="includeDefaultRows">
+    /// Whether a row that resolves to the configured default counts. True when the plan asked about <em>is</em>
+    /// the configured default.
+    /// </param>
+    /// <param name="catalogueKeys">
+    /// Every key the catalogue still has, when <paramref name="includeDefaultRows"/> is set. A row naming a key
+    /// outside this set names a plan since withdrawn, which resolves to the default too, so it is listed under
+    /// the default rather than falling out of every answer.
+    /// </param>
+    /// <param name="take">One more than the page, so the caller knows whether a next page exists.</param>
+    /// <remarks>
+    /// "In force" is the row with the latest start that has started — the same rule
+    /// <see cref="FindInForceAsync"/> applies to one account, written here as "no later row of this account has
+    /// also started", which the provider reads as a <c>NOT EXISTS</c>. A scheduled change is therefore not
+    /// listed under the plan it will move the account to, which is the honest answer to "who is on this plan".
+    /// </remarks>
+    Task<IReadOnlyList<AccountPlan>> ListInForceByPlanAsync(
+        string planKey,
+        bool includeDefaultRows,
+        IReadOnlyCollection<string> catalogueKeys,
+        DateTimeOffset at,
+        string? afterAccountId,
+        int take,
+        CancellationToken cancellationToken);
+
     void Add(AccountPlan plan);
 
     /// <summary>Forgets everything tracked, so a rejected write cannot ride along on a later save.</summary>
@@ -64,6 +93,29 @@ internal sealed class AccountPlanRepository(CreatorPantryDbContext context) : IA
             .Where(plan => plan.AccountId == accountId)
             .OrderByDescending(plan => plan.EffectiveFrom)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<AccountPlan>> ListInForceByPlanAsync(
+        string planKey,
+        bool includeDefaultRows,
+        IReadOnlyCollection<string> catalogueKeys,
+        DateTimeOffset at,
+        string? afterAccountId,
+        int take,
+        CancellationToken cancellationToken) =>
+        await context.AccountPlans
+            .AsNoTracking()
+            .Where(plan => plan.EffectiveFrom <= at
+                && (plan.PlanKey == planKey
+                    || (includeDefaultRows
+                        && (plan.PlanKey == null || !catalogueKeys.Contains(plan.PlanKey))))
+                && (afterAccountId == null || plan.AccountId.CompareTo(afterAccountId) > 0)
+                && !context.AccountPlans.Any(later =>
+                    later.AccountId == plan.AccountId
+                    && later.EffectiveFrom > plan.EffectiveFrom
+                    && later.EffectiveFrom <= at))
+            .OrderBy(plan => plan.AccountId)
+            .Take(take)
+            .ToListAsync(cancellationToken);
 
     public void Add(AccountPlan plan) => context.AccountPlans.Add(plan);
 

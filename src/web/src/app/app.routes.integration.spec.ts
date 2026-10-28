@@ -30,10 +30,13 @@ const published: PlanCatalogue = {
       recommended: true,
       trialDays: null,
       trialImageCap: null,
+      picturesAtDefaultQuality: 120,
     },
   ],
   packs: [],
   rates: null,
+  pictureClasses: [],
+  defaultPictureClass: null,
 };
 
 /**

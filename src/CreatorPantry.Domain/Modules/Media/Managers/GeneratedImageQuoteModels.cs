@@ -67,12 +67,33 @@ public sealed record GeneratedImageQuoteServiceModel(
 /// the way admission reads it. Exact, not typical — a picture's price is known before it is made.
 /// </param>
 /// <param name="IsDefault">Whether a request that names no class is made at this one.</param>
+/// <param name="Allowed">
+/// Whether the asking account's plan allows a picture of this class (PRICE-007, AP.4.3). True for every class
+/// on a host with no plans configured, which is what every production deployment does today.
+/// </param>
+/// <param name="RequiresPlan">
+/// The key of the cheapest plan that would allow it, for a class this account's plan does not. Null when the
+/// class is allowed, and null when no plan allows it at all — locked, with no plan to name.
+/// </param>
+/// <param name="RequiresPlanName">That plan's name, under the same conditions.</param>
 /// <remarks>
+/// <para>
 /// <strong>No model, no quality, no resolution.</strong> A request names a class and never a model, so a page
 /// choosing between them needs the class and its price and nothing it could send instead.
+/// </para>
+/// <para>
+/// <strong>A locked class keeps its price.</strong> It is still what a picture of that class costs, and a picker
+/// that hid the figure would make the plan that unlocks it impossible to weigh (AP.3.1A). Hiding it in the
+/// browser is presentation; the refusal is the request's.
+/// </para>
 /// </remarks>
 public sealed record GeneratedImageQualityClassPriceServiceModel(
-    GeneratedImageQualityClass QualityClass, decimal PerPicture, bool IsDefault);
+    GeneratedImageQualityClass QualityClass,
+    decimal PerPicture,
+    bool IsDefault,
+    bool Allowed,
+    string? RequiresPlan,
+    string? RequiresPlanName);
 
 /// <summary>The quality classes this host offers, in ascending order, with their prices (AP.3.1).</summary>
 /// <param name="DefaultClass">What a request that names none is made at. Null when no class is offered.</param>
@@ -81,9 +102,16 @@ public sealed record GeneratedImageQualityClassPriceServiceModel(
 /// Every offered class. Empty on a host that offers none, where every picture is the deployment's own default.
 /// </param>
 /// <remarks>
+/// <para>
 /// The price list, not a promise about the asker's balance: what a particular request would cost and leave is
 /// the quote's. Every figure is the server's (PRICE-013), so the picker and the landing page format and never
 /// multiply.
+/// </para>
+/// <para>
+/// <strong>The prices are the same for every caller; which classes are allowed is not</strong> (AP.4.3). A plan
+/// belongs to the account rather than the workspace (B-47), so two members of one workspace on different plans
+/// read different <c>Allowed</c> flags from the same list. Nothing here may be cached by workspace alone.
+/// </para>
 /// </remarks>
 public sealed record GeneratedImageQualityClassesServiceModel(
     GeneratedImageQualityClass? DefaultClass,

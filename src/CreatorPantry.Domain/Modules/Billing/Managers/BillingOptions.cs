@@ -57,14 +57,22 @@ public sealed class BillingOptions
 }
 
 /// <summary>
-/// The typical credit cost of one action of each kind (LP.7). Published so a visitor can see what a credit
-/// buys and estimate which plan fits what they make.
+/// The typical credit cost of one written action of each kind (LP.7). Published so a visitor can see what a
+/// credit buys and estimate which plan fits what they make.
 /// </summary>
 /// <remarks>
-/// These are the figures the page states, not the ones admission charges. Text settles against
-/// <c>AiQuotaOptions.DefaultTaskEstimate</c> today, and pictures are not charged against an allowance at all
-/// until AP.2.4 and AP.2.5 ship — which is why the whole catalogue stays unpublished outside development.
-/// Publishing a rate the product does not charge would be a claim the product cannot keep.
+/// <para>
+/// <strong>Text only, since AP.4.5.</strong> There used to be three picture figures here as well, typed by
+/// hand. A picture's price is not typical and never was guesswork: it is the <c>Ai:Quota:ImageRates</c> row for
+/// what the chosen quality class sends, which is what admission holds against — so publishing a second copy
+/// invited the page and the charge to disagree. The page now reads those rates themselves
+/// (<c>PictureClassRateServiceModel</c>), and the one source rule in AP.4.5's RESTRICTION is what removed
+/// these.
+/// </para>
+/// <para>
+/// Text stays, because it genuinely is typical: a run settles at the tokens the model reported, against
+/// <c>AiQuotaOptions</c>'s per-call estimate, so the page says "about" for it and nothing else.
+/// </para>
 /// </remarks>
 public sealed class CreditRatesOption
 {
@@ -72,14 +80,8 @@ public sealed class CreditRatesOption
 
     public int LongFormSection { get; set; }
 
-    public int ImageDraft { get; set; }
-
-    public int ImageStandard { get; set; }
-
-    public int ImageHigh { get; set; }
-
     /// <summary>Every rate, for the validation that none of them is nought in a published catalogue.</summary>
-    public IEnumerable<int> All() => [TextDraft, LongFormSection, ImageDraft, ImageStandard, ImageHigh];
+    public IEnumerable<int> All() => [TextDraft, LongFormSection];
 }
 
 /// <summary>One plan as the catalogue publishes it.</summary>

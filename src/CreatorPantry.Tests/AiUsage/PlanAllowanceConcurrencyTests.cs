@@ -153,8 +153,8 @@ public sealed class PlanAllowanceConcurrencyTests : IAsyncLifetime
 
         Assert.Equal(
             AccountPlanChangeOutcome.Changed,
-            await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
-                .ChangeAsync(account, planKey, AccountPlanSource.Ops, null, Ct));
+            (await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
+                .ChangeAsync(account, planKey, AccountPlanSource.Ops, null, audit: null, Ct)).Outcome);
     }
 
     private async Task<AiQuotaAdmissionServiceModel> AdmitAsync(ServiceProvider instance, string account, Task? gate = null)

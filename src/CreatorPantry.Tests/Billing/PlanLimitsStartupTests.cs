@@ -9,9 +9,10 @@ using Microsoft.Extensions.Options;
 namespace CreatorPantry.Tests.Billing;
 
 /// <summary>
-/// A catalogue whose plans the rest of the configuration would make untrue does not start (AP.4.2): a plan's
-/// picture caps above the workspace's flat ones, which a creator in one workspace could never reach, and a plan's
-/// monthly credits granted under some other unit or period.
+/// A catalogue whose plans the rest of the configuration would make untrue does not start (AP.4.2, AP.4.3): a
+/// plan's picture caps above the workspace's flat ones, which a creator in one workspace could never reach, a
+/// plan's monthly credits granted under some other unit or period, a plan naming a quality class that is not one,
+/// and a plan that does not allow the quality class a request naming none is made at.
 /// </summary>
 public sealed class PlanLimitsStartupTests
 {
@@ -52,7 +53,71 @@ public sealed class PlanLimitsStartupTests
         },
         { "monthly credits granted weekly", [.. Pro(), ("Ai:Quota:DefaultPeriodLength", "Weekly"), ("Ai:Quota:DefaultPeriodAnchor", "1")] },
         { "credits granted in another unit", [.. Pro(), ("Ai:Quota:DefaultUnit", "Tokens")] },
+
+        // AP.4.3. A typo would be a class every plan quietly lacks, found by whoever wondered why the top plan
+        // locks High.
+        { "a plan naming a quality class that is not one", [.. Pro(), ("Billing:Plans:0:QualityClasses:0", "stanndard")] },
+
+        // The default-class case lives in Media.QualityClassStartupTests since AP.4.5: Ai:Images:DefaultClass is
+        // Media's, so the check that every plan allows it is Media's, and this section reads none of Media's
+        // configuration any more.
     };
+
+    /// <summary>Two classes as <c>Ai:Images</c> configures them, so there is a default to allow or not allow.</summary>
+    private static (string, string?)[] Classes() =>
+    [
+        ("Ai:Images:DefaultClass", "Standard"),
+        ("Ai:Images:Classes:Standard:Model", "a-model"),
+        ("Ai:Images:Classes:High:Model", "a-model"),
+    ];
+
+    /// <summary>The spelling AP.4.1 left open, settled: the catalogue's hyphens and case carry no meaning.</summary>
+    [Theory]
+    [InlineData("standard")]
+    [InlineData("Standard")]
+    [InlineData("STANDARD")]
+    public void A_plan_may_spell_the_default_class_however_the_landing_page_does(string spelling)
+    {
+        var options = Options([.. Pro(), .. Classes(), ("Billing:Plans:0:QualityClasses:0", spelling)]);
+
+        Assert.Equal("pro", Assert.Single(options.Value.Plans).Key);
+    }
+
+    /// <summary>The hyphenated spellings the catalogue actually ships resolve to the classes they name.</summary>
+    [Theory]
+    [InlineData("high-2k")]
+    [InlineData("High2K")]
+    [InlineData("HIGH-4K")]
+    public void A_hyphenated_class_name_is_the_class_it_names(string spelling)
+    {
+        var options = Options(
+        [
+            .. Pro(),
+            .. Classes(),
+            ("Billing:Plans:0:QualityClasses:0", "standard"),
+            ("Billing:Plans:0:QualityClasses:1", spelling),
+        ]);
+
+        Assert.Equal(2, Assert.Single(options.Value.Plans).QualityClasses.Count);
+    }
+
+    /// <summary>A host that offers no classes has no default to allow, so nothing to check against.</summary>
+    [Fact]
+    public void A_catalogue_starts_on_a_host_that_offers_no_quality_classes()
+    {
+        var options = Options([.. Pro(), ("Ai:Images:DefaultClass", "High")]);
+
+        Assert.Equal("pro", Assert.Single(options.Value.Plans).Key);
+    }
+
+    /// <summary>And classes with no plans: nothing to hold to them.</summary>
+    [Fact]
+    public void Quality_classes_with_no_plans_start()
+    {
+        var options = Options([.. Classes()]);
+
+        Assert.Empty(options.Value.Plans);
+    }
 
     [Theory]
     [MemberData(nameof(RefusedCatalogues))]
@@ -105,6 +170,9 @@ public sealed class PlanLimitsStartupTests
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
+        // Billing alone, with the two sections its own validation reads. It no longer reads any of Media's
+        // (AP.4.5): the one check that related the two — every plan allowing Ai:Images:DefaultClass — is Media's
+        // now, because the default class is Media's.
         return new ServiceCollection()
             .AddLimits(configuration)
             .AddAiUsageModule(configuration)

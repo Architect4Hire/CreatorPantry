@@ -8,7 +8,7 @@ import { PlanCatalogueService } from './plan-catalogue.service';
 
 const URL = 'https://gateway.example/api/v1/plans';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
 
 const plan = {
   key: 'creator',
@@ -24,6 +24,7 @@ const plan = {
   recommended: true,
   trialDays: null,
   trialImageCap: null,
+  picturesAtDefaultQuality: 120,
 };
 
 describe('PlanCatalogueService', () => {
@@ -54,7 +55,7 @@ describe('PlanCatalogueService', () => {
     expect(request.request.method).toBe('GET');
     // Anonymous: nothing about the caller is sent, so a shared cache can hold one answer for everyone.
     expect(request.request.withCredentials).toBeFalse();
-    request.flush({ currency: 'USD', plans: [plan], packs: [], rates });
+    request.flush({ currency: 'USD', plans: [plan], packs: [], rates, pictureClasses: [], defaultPictureClass: null });
 
     const catalogue = await pending;
     expect(catalogue.plans[0].key).toBe('creator');

@@ -36,6 +36,10 @@ public static class AiUsageServiceCollectionExtensions
         services.AddScoped<IAiUsageDataLayer, AiUsageDataLayer>();
         services.AddScoped<IAiUsageRepository, AiUsageRepository>();
 
+        // Options only, so a singleton resolvable from the root provider: what a picture of a given model and
+        // size costs, for the callers that publish a price rather than hold one (AP.4.5).
+        services.AddSingleton<IAiImagePriceFacade, AiImagePriceFacade>();
+
         services.AddScoped<IAiQuotaAdmissionFacade, AiQuotaAdmissionFacade>();
         services.AddScoped<IAiQuotaMaintenanceFacade, AiQuotaMaintenanceFacade>();
         services.AddScoped<IAiQuotaAdmissionBusiness, AiQuotaAdmissionBusiness>();

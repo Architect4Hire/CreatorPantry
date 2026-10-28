@@ -19,15 +19,23 @@ const creator = {
   credits: 6000,
   exampleMix: '50 recipe drafts, 100 social posts and 80 pictures',
   dailyImageCap: 25,
-  qualityClasses: ['draft', 'standard', 'high'],
+  // As the server publishes them since AP.4.5: the enum's spelling, ascending.
+  qualityClasses: ['Draft', 'Standard', 'High', 'High2K'],
   recommended: true,
   trialDays: null,
   trialImageCap: null,
+  // 6,000 credits at 50 a standard picture (AP.4.5); the server's figure, not worked out here.
+  picturesAtDefaultQuality: 120,
 };
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
+const pictureClasses = [
+  { qualityClass: 'Draft' as const, perPicture: 25 },
+  { qualityClass: 'Standard' as const, perPicture: 50 },
+  { qualityClass: 'High' as const, perPicture: 87.5 },
+];
 
-const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5 };
+const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5, qualityClasses: ['Draft', 'Standard'], picturesAtDefaultQuality: 10 };
 
 describe('LandingPricingComponent', () => {
   let fixture: ComponentFixture<LandingPricingComponent>;
@@ -44,7 +52,7 @@ describe('LandingPricingComponent', () => {
     await fixture.whenStable();
   }
 
-  const published: PlanCatalogue = { currency: 'USD', plans: [trial, creator], packs: [], rates };
+  const published: PlanCatalogue = { currency: 'USD', plans: [trial, creator], packs: [], rates, pictureClasses, defaultPictureClass: 'Standard' as const };
   const text = () => host.textContent ?? '';
   const prices = () => Array.from(host.querySelectorAll('.amount')).map((el) => el.textContent?.trim());
   const secondLines = () => Array.from(host.querySelectorAll('.second-line')).map((el) => el.textContent?.trim());
@@ -87,15 +95,79 @@ describe('LandingPricingComponent', () => {
   });
 
   /**
-   * The catalogue carries quality classes for AP.3.1, but a picture has no quality to choose today, so the
-   * page must not offer one — on a card or in the table.
+   * A plan now differs by which picture qualities it includes (AP.4.3), so the page says so: the full list on
+   * the card, where it is read, and the best the plan reaches in the table, where plans are compared. Replaces
+   * the spec that asserted the page claimed no quality at all, which was right only while a creator could not
+   * choose one.
    */
-  it('claims no picture quality the product cannot make', async () => {
+  it('states the picture qualities each plan includes, and the best in the comparison', async () => {
     await create(published);
+
+    // The card lists them in the catalogue's ascending order, in the page's own words.
+    expect(text()).toContain('Picture quality: Draft, Standard');
+    expect(text()).toContain('Picture quality: Draft, Standard, High, High 2K');
+
     host.querySelector<HTMLButtonElement>('.comparison button')!.click();
     fixture.detectChanges();
 
-    expect(text().toLowerCase()).not.toContain('quality');
+    const row = Array.from(host.querySelectorAll('tbody th, tbody td')).map((el) => el.textContent?.trim());
+    expect(host.textContent).toContain('Best picture quality');
+    expect(row).toContain('Standard');
+    expect(row).toContain('High 2K');
+  });
+
+  /**
+   * <strong>What the credits buy in pictures</strong> (AP.4.5) — the figure that decides the plan, since
+   * pictures are what credits mostly go on. The server's number, formatted and never divided here.
+   */
+  it('states how many pictures each plan buys, on the card and in the comparison', async () => {
+    await create(published);
+
+    expect(text()).toContain('About 120 standard pictures a month');
+
+    // "In all" on a trial: its credits are granted once for the whole trial, so "a month" would promise twelve
+    // times what it gives.
+    expect(text()).toContain('About 10 standard pictures in all');
+    expect(text()).not.toContain('About 10 standard pictures a month');
+
+    host.querySelector<HTMLButtonElement>('.comparison button')!.click();
+    fixture.detectChanges();
+
+    const cells = Array.from(host.querySelectorAll('tbody th, tbody td')).map((el) => el.textContent?.trim());
+    expect(host.textContent).toContain('Pictures a month');
+    expect(cells).toContain('120');
+    expect(cells).toContain('10 in all');
+  });
+
+  /** A catalogue that publishes no figure prints no line and a dash in the table, rather than a nought. */
+  it('prints no capacity line when the catalogue publishes no figure', async () => {
+    await create({
+      ...published,
+      plans: [{ ...creator, picturesAtDefaultQuality: null }],
+      defaultPictureClass: null,
+    });
+
+    expect(text()).not.toContain('standard pictures');
+
+    host.querySelector<HTMLButtonElement>('.comparison button')!.click();
+    fixture.detectChanges();
+
+    expect(Array.from(host.querySelectorAll('tbody td')).map((el) => el.textContent?.trim())).toContain('—');
+  });
+
+  /** A plan that states no quality prints no line, rather than an empty one. */
+  it('prints no quality line for a plan that includes none', async () => {
+    await create({ ...published, plans: [{ ...creator, qualityClasses: [] }] });
+
+    expect(text()).not.toContain('Picture quality');
+  });
+
+  /** A class this bundle cannot word is left out rather than shown as a configuration key. */
+  it('leaves out a quality it has no word for', async () => {
+    await create({ ...published, plans: [{ ...creator, qualityClasses: ['Standard', 'Ultra8K'] }] });
+
+    expect(text()).toContain('Picture quality: Standard');
+    expect(text()).not.toContain('Ultra8K');
   });
 
   /**
@@ -199,7 +271,16 @@ describe('LandingPricingComponent', () => {
     const rowHeaders = Array.from(table.querySelectorAll('tbody th')).map((th) => th.textContent?.trim());
 
     expect(table.querySelector('caption')).not.toBeNull();
-    expect(columnHeaders).toEqual(['Plan', 'Price', 'Credits a month', 'Pictures a day', 'Free trial']);
+    expect(columnHeaders).toEqual([
+      'Plan',
+      'Price',
+      'Credits a month',
+      // What the credits buy in pictures, above the daily cap, because it is what decides the plan (AP.4.5).
+      'Pictures a month',
+      'Pictures a day',
+      'Best picture quality',
+      'Free trial',
+    ]);
     expect(rowHeaders).toEqual(['Trial', 'Creator']);
     expect(Array.from(table.querySelectorAll('tbody th')).every((th) => th.getAttribute('scope') === 'row')).toBeTrue();
     expect(Array.from(table.querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col')).toBeTrue();
@@ -270,7 +351,7 @@ describe('LandingPricingComponent', () => {
   });
 
   it('carries no price of its own: every figure on screen came from the catalogue', async () => {
-    await create({ currency: 'USD', plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }], packs: [], rates });
+    await create({ currency: 'USD', plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }], packs: [], rates, pictureClasses, defaultPictureClass: 'Standard' as const });
 
     expect(prices()).toEqual(['$99']);
     expect(secondLines()).toContain('Billed yearly at $1,188 — $288 saved');

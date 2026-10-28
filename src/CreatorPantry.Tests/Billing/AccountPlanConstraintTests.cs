@@ -151,7 +151,7 @@ public sealed class AccountPlanConstraintTests : IAsyncLifetime
             var business = scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>();
             Assert.Equal(
                 AccountPlanChangeOutcome.Changed,
-                await business.ChangeAsync(Alex, "studio", AccountPlanSource.Ops, null, CancellationToken.None));
+                (await business.ChangeAsync(Alex, "studio", AccountPlanSource.Ops, null, audit: null, CancellationToken.None)).Outcome);
         }
 
         Assert.Equal(["trial", "pro"], (await ChainAsync(Sam)).Select(row => row.PlanKey));
@@ -196,10 +196,10 @@ public sealed class AccountPlanConstraintTests : IAsyncLifetime
 
         Assert.Equal(
             AccountPlanChangeOutcome.Changed,
-            await firstData.AppendAsync(Sam, firstRead, "pro", AccountPlanSource.Ops, Start.AddDays(1), CancellationToken.None));
+            await firstData.AppendAsync(Sam, firstRead, "pro", AccountPlanSource.Ops, Start.AddDays(1), audit: null, CancellationToken.None));
         Assert.Equal(
             AccountPlanChangeOutcome.Contended,
-            await secondData.AppendAsync(Sam, secondRead, "studio", AccountPlanSource.Stripe, Start.AddDays(2), CancellationToken.None));
+            await secondData.AppendAsync(Sam, secondRead, "studio", AccountPlanSource.Stripe, Start.AddDays(2), audit: null, CancellationToken.None));
 
         // The refused insert was forgotten, so a later save in the loser's scope commits nothing of it.
         var loserContext = second.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
@@ -224,10 +224,10 @@ public sealed class AccountPlanConstraintTests : IAsyncLifetime
 
         Assert.Equal(
             AccountPlanChangeOutcome.Changed,
-            await firstData.AppendAsync(Sam, null, "pro", AccountPlanSource.Ops, Start, CancellationToken.None));
+            await firstData.AppendAsync(Sam, null, "pro", AccountPlanSource.Ops, Start, audit: null, CancellationToken.None));
         Assert.Equal(
             AccountPlanChangeOutcome.Contended,
-            await secondData.AppendAsync(Sam, null, "studio", AccountPlanSource.Ops, Start.AddSeconds(1), CancellationToken.None));
+            await secondData.AppendAsync(Sam, null, "studio", AccountPlanSource.Ops, Start.AddSeconds(1), audit: null, CancellationToken.None));
 
         Assert.Equal(["pro"], (await ChainAsync(Sam)).Select(row => row.PlanKey));
     }
@@ -247,15 +247,19 @@ public sealed class AccountPlanConstraintTests : IAsyncLifetime
         {
             using var scope = _provider!.CreateScope();
             return await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
-                .ChangeAsync(Sam, key, AccountPlanSource.Ops, effectiveFrom: null, CancellationToken.None);
+                .ChangeAsync(Sam, key, AccountPlanSource.Ops, effectiveFrom: null, audit: null, CancellationToken.None);
         }));
 
+        // Unchanged is among them because the keys repeat (AP.4.4): a writer naming the plan that has just
+        // landed is a repeated command and writes nothing, which is exactly what makes the ops PUT retryable.
         Assert.All(outcomes, outcome => Assert.True(
-            outcome is AccountPlanChangeOutcome.Changed or AccountPlanChangeOutcome.Contended,
-            $"Unexpected outcome {outcome}."));
+            outcome.Outcome is AccountPlanChangeOutcome.Changed
+                or AccountPlanChangeOutcome.Contended
+                or AccountPlanChangeOutcome.Unchanged,
+            $"Unexpected outcome {outcome.Outcome}."));
 
         var chain = await ChainAsync(Sam);
-        var changed = outcomes.Count(outcome => outcome == AccountPlanChangeOutcome.Changed);
+        var changed = outcomes.Count(outcome => outcome.Outcome == AccountPlanChangeOutcome.Changed);
 
         Assert.InRange(changed, 1, keys.Length);
         Assert.Equal(changed, chain.Count);

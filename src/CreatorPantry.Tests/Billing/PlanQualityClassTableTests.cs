@@ -11,9 +11,17 @@ namespace CreatorPantry.Tests.Billing;
 /// for and every plan quietly lacks.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The catalogue spells a class in the landing page's words (<c>high-2k</c>) and the enum in C#'s
-/// (<c>High2K</c>); they are matched here ignoring case and hyphens. Which one spelling admission compares is
-/// AP.4.3's to settle when it refuses a class by plan.
+/// (<c>High2K</c>); they are matched here ignoring case and hyphens.
+/// </para>
+/// <para>
+/// <strong>AP.4.3 settled which spelling admission compares: neither.</strong> The catalogue keeps the landing
+/// page's, because LP.6 publishes those strings to a reader, and <c>PictureQualityVocabulary</c> normalises both
+/// sides — the one implementation, which Billing's startup check and <c>ResolveQualityAsync</c> both come
+/// through. What this file adds is that the <em>development</em> catalogue is spelled right; startup now refuses
+/// any catalogue that is not (<see cref="PlanLimitsStartupTests"/>), on every host.
+/// </para>
 /// </remarks>
 public sealed class PlanQualityClassTableTests
 {

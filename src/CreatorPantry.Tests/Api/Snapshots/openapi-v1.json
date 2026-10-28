@@ -10705,7 +10705,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, quality class, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\n**A request names how good a picture, never which model** (AP.3.1). \u0060qualityClass\u0060 is one of \u0060Draft\u0060,\n\u0060Standard\u0060, \u0060High\u0060, \u0060High2K\u0060 or \u0060High4K\u0060, and is optional: a request that names none is made at the\nhost\u0027s default class, which \u0060GET .../generated-images/quality-classes\u0060 names. A class this host does not\noffer answers \u0060422 media.generation.quality_class.unprocessable\u0060 naming \u0060qualityClass\u0060. The class is part\nof what a key names: the same key naming a different class answers \u0060422 idempotency.key_reused\u0060. A retry\nthat names none is the request it retries, at whatever class that was made \u2014 so a lost answer still finds\nits operation if the default has changed \u2014 and a replayed key is answered even if its class has since\nbeen taken off this host.\n\n**The prompt has to fit the class\u0027s model, and is never cut to fit** (AP.3.2). What is sent is the prompt,\nthen the avoid list under a heading of its own, and each class\u0027s model takes so many characters of it. A\nrequest over that answers \u0060422 media.generation.prompt.unprocessable\u0060 naming \u0060promptText\u0060 when a shorter\nprompt would fit \u2014 \u0060POST .../image-prompt-requests/compactions\u0060 asks for one \u2014 or\n\u0060422 media.generation.avoid.unprocessable\u0060 naming \u0060avoidText\u0060 when the avoid list alone leaves too little\nroom. Both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and \u0060promptBudget\u0060, the most the prompt may be with\nthe avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.\n\n**Pictures are charged to the requesting account\u0027s AI allowance** (AP.2.5), and the whole request is\nheld against it before anything is queued: \u0060variantCount\u0060 \u00D7 the configured rate for the model, tier\nand quality the request\u0027s class sends. An account whose period will not cover all of it answers\n\u0060429 ai.quota.exhausted\u0060 with \u0060unit\u0060, \u0060remaining\u0060, \u0060required\u0060 and \u0060resetsAt\u0060 plus a \u0060Retry-After\u0060, and\none whose AI access is switched off answers \u0060403 ai.quota.suspended\u0060 \u2014 the same codes a text request is\nrefused with, because it is the same allowance. Nothing is queued either way. A replayed key is never\nrefused: its answer is the operation it already bought, and the hold that bought it.\n\nA host with no credit rate for the picture it would make answers \u0060503 media.generation.unavailable\u0060\nand carries no figures: that is this deployment\u0027s misconfiguration, not the caller\u0027s balance.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, quality class, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\n**A request names how good a picture, never which model** (AP.3.1). \u0060qualityClass\u0060 is one of \u0060Draft\u0060,\n\u0060Standard\u0060, \u0060High\u0060, \u0060High2K\u0060 or \u0060High4K\u0060, and is optional: a request that names none is made at the\nhost\u0027s default class, which \u0060GET .../generated-images/quality-classes\u0060 names. A class this host does not\noffer answers \u0060422 media.generation.quality_class.unprocessable\u0060 naming \u0060qualityClass\u0060. The class is part\nof what a key names: the same key naming a different class answers \u0060422 idempotency.key_reused\u0060. A retry\nthat names none is the request it retries, at whatever class that was made \u2014 so a lost answer still finds\nits operation if the default has changed \u2014 and a replayed key is answered even if its class has since\nbeen taken off this host.\n\n**A plan says which qualities an account may ask for** (PRICE-007, AP.4.3). A class this host offers but\nthe account\u0027s plan does not allow answers \u0060403 media.generation.quality_class.forbidden\u0060, naming\n\u0060qualityClass\u0060 and carrying \u0060requiresPlan\u0060 and \u0060requiresPlanName\u0060 \u2014 the cheapest plan that would allow it,\nor null when no plan does. \u0060retry\u0060 is \u0060none\u0060: the same request cannot succeed until the plan changes.\nNothing is held or queued. A request that names no class is never refused this way, because every plan\nallows the host\u0027s default class: \u0060AddBillingModule\u0060\u0027s startup validation refuses a catalogue where one does\nnot, which is what makes the class-less path safe rather than merely untested. A replayed key is never\nrefused, so a downgrade does not strand pictures already paid for, and the worker does not check again.\n\nAsked before the allowance and the suspension, deliberately: it is the cheapest refusal and the most\nspecific, and it writes nothing. A suspended account naming a locked class is told about the class.\n\n**This narrows what the route accepts, on purpose** (PRICE-007). Before plans, every class this host\noffered could be asked for by any member; now an account\u0027s plan decides. No API version was added: the gate\nships with the picker that respects it, and no deployment configures plans yet, so no shipped client is\nrefused anything it was previously granted.\n\n**The prompt has to fit the class\u0027s model, and is never cut to fit** (AP.3.2). What is sent is the prompt,\nthen the avoid list under a heading of its own, and each class\u0027s model takes so many characters of it. A\nrequest over that answers \u0060422 media.generation.prompt.unprocessable\u0060 naming \u0060promptText\u0060 when a shorter\nprompt would fit \u2014 \u0060POST .../image-prompt-requests/compactions\u0060 asks for one \u2014 or\n\u0060422 media.generation.avoid.unprocessable\u0060 naming \u0060avoidText\u0060 when the avoid list alone leaves too little\nroom. Both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and \u0060promptBudget\u0060, the most the prompt may be with\nthe avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.\n\n**Pictures are charged to the requesting account\u0027s AI allowance** (AP.2.5), and the whole request is\nheld against it before anything is queued: \u0060variantCount\u0060 \u00D7 the configured rate for the model, tier\nand quality the request\u0027s class sends. An account whose period will not cover all of it answers\n\u0060429 ai.quota.exhausted\u0060 with \u0060unit\u0060, \u0060remaining\u0060, \u0060required\u0060 and \u0060resetsAt\u0060 plus a \u0060Retry-After\u0060, and\none whose AI access is switched off answers \u0060403 ai.quota.suspended\u0060 \u2014 the same codes a text request is\nrefused with, because it is the same allowance. Nothing is queued either way. A replayed key is never\nrefused: its answer is the operation it already bought, and the hold that bought it.\n\nA host with no credit rate for the picture it would make answers \u0060503 media.generation.unavailable\u0060\nand carries no figures: that is this deployment\u0027s misconfiguration, not the caller\u0027s balance.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -10843,7 +10843,7 @@
           "GeneratedImages"
         ],
         "summary": "What asking for this many pictures would cost the caller, and what it would leave them (PRICE-004).",
-        "description": "Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by\nthe same code that admits the request, for the model, tier and quality the asked-about \u0060qualityClass\u0060\nsends \u2014 the host\u0027s default when none is named \u2014 and the class priced comes back as \u0060qualityClass\u0060. A\nsnapshot: the request is still the decision, and can be refused if the balance moved in between.\n\nRefused as the request it prices would be: \u0060400 media.generation.invalid_request\u0060 for a count outside one\nto four, \u0060422 media.generation.quality_class.unprocessable\u0060 for a class this host does not offer, and\n\u0060403 media.generation.forbidden\u0060 for a member below Contributor.\n\n**A host that cannot price the picture answers \u0060200\u0060 with \u0060outcome: Unavailable\u0060, not \u0060503\u0060.** The request\nanswers \u0060503 media.generation.unavailable\u0060 because it cannot do what was asked; a quote can \u2014 it says there\nis no price to show \u2014 and a page asking on every change of count would otherwise log an error per step for\none misconfiguration.",
+        "description": "Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by\nthe same code that admits the request, for the model, tier and quality the asked-about \u0060qualityClass\u0060\nsends \u2014 the host\u0027s default when none is named \u2014 and the class priced comes back as \u0060qualityClass\u0060. A\nsnapshot: the request is still the decision, and can be refused if the balance moved in between.\n\nRefused as the request it prices would be: \u0060400 media.generation.invalid_request\u0060 for a count outside one\nto four, \u0060422 media.generation.quality_class.unprocessable\u0060 for a class this host does not offer,\n\u0060403 media.generation.quality_class.forbidden\u0060 for one the account\u0027s plan does not allow (AP.4.3), and\n\u0060403 media.generation.forbidden\u0060 for a member below Contributor.\n\n**A host that cannot price the picture answers \u0060200\u0060 with \u0060outcome: Unavailable\u0060, not \u0060503\u0060.** The request\nanswers \u0060503 media.generation.unavailable\u0060 because it cannot do what was asked; a quote can \u2014 it says there\nis no price to show \u2014 and a page asking on every change of count would otherwise log an error per step for\none misconfiguration.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -10951,7 +10951,7 @@
           "GeneratedImages"
         ],
         "summary": "The picture qualities a creator may ask for here, each with what one picture of it costs (PRICE-006, PRICE-013).",
-        "description": "Read-only and the same for every member: a price list, not the caller\u0027s balance \u2014 what a particular\nrequest would cost and leave is the quote\u0027s. Contributor, like the quote and the request it is for.\n\n\u0060classes\u0060 is in ascending order, \u0060Draft\u0060 to \u0060High4K\u0060, and holds only the classes this host offers. Each\n\u0060perPicture\u0060 is in \u0060unit\u0060 (credits) and is the rate the request is charged at for what that class sends\n\u2014 read from the same table admission holds from, so it is exact, not typical (B-55). It names no model:\na request names a class. \u0060defaultClass\u0060 is what a request that names none is made at. A host that offers\nno classes answers an empty list and a null \u0060defaultClass\u0060; every picture there is the deployment\u0027s own\ndefault.",
+        "description": "Read-only: a price list, not the caller\u0027s balance \u2014 what a particular request would cost and leave is the\nquote\u0027s. Contributor, like the quote and the request it is for.\n\n\u0060classes\u0060 is in ascending order, \u0060Draft\u0060 to \u0060High4K\u0060, and holds only the classes this host offers. Each\n\u0060perPicture\u0060 is in \u0060unit\u0060 (credits) and is the rate the request is charged at for what that class sends\n\u2014 read from the same table admission holds from, so it is exact, not typical (B-55). It names no model:\na request names a class. \u0060defaultClass\u0060 is what a request that names none is made at. A host that offers\nno classes answers an empty list and a null \u0060defaultClass\u0060; every picture there is the deployment\u0027s own\ndefault.\n\n**The prices are the same for every member; which classes are allowed is not** (PRICE-007, AP.4.3). Each\nclass carries \u0060allowed\u0060 \u2014 whether the asking account\u0027s plan allows a picture of it \u2014 and, when it does\nnot, \u0060requiresPlan\u0060 and \u0060requiresPlanName\u0060: the cheapest plan that would, or null when no plan does. A\nlocked class stays in the list with its price, so a picker can show it and say what unlocks it; asking\nfor one answers \u0060403 media.generation.quality_class.forbidden\u0060, and hiding it in the browser is\npresentation only. A plan belongs to the account rather than the workspace (B-47), so two members of one\nworkspace can read different flags from this list and nothing may cache it by workspace alone. On a host\nwith no plans configured every class is \u0060allowed\u0060 with no plan named.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -34101,10 +34101,7 @@
       "CreditRates": {
         "required": [
           "textDraft",
-          "longFormSection",
-          "imageDraft",
-          "imageStandard",
-          "imageHigh"
+          "longFormSection"
         ],
         "type": "object",
         "properties": {
@@ -34117,30 +34114,6 @@
             "format": "int32"
           },
           "longFormSection": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageDraft": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageStandard": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageHigh": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -35773,7 +35746,10 @@
         "required": [
           "qualityClass",
           "perPicture",
-          "isDefault"
+          "isDefault",
+          "allowed",
+          "requiresPlan",
+          "requiresPlanName"
         ],
         "type": "object",
         "properties": {
@@ -35790,6 +35766,21 @@
           },
           "isDefault": {
             "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "requiresPlan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiresPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -39629,6 +39620,26 @@
           }
         }
       },
+      "PictureClassRate": {
+        "required": [
+          "qualityClass",
+          "perPicture"
+        ],
+        "type": "object",
+        "properties": {
+          "qualityClass": {
+            "type": "string"
+          },
+          "perPicture": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "Plan": {
         "required": [
           "key",
@@ -39643,7 +39654,8 @@
           "qualityClasses",
           "recommended",
           "trialDays",
-          "trialImageCap"
+          "trialImageCap",
+          "picturesAtDefaultQuality"
         ],
         "type": "object",
         "properties": {
@@ -39730,6 +39742,15 @@
               "string"
             ],
             "format": "int32"
+          },
+          "picturesAtDefaultQuality": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -39738,7 +39759,9 @@
           "currency",
           "plans",
           "packs",
-          "rates"
+          "rates",
+          "pictureClasses",
+          "defaultPictureClass"
         ],
         "type": "object",
         "properties": {
@@ -39759,6 +39782,18 @@
           },
           "rates": {
             "$ref": "#/components/schemas/CreditRates"
+          },
+          "pictureClasses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PictureClassRate"
+            }
+          },
+          "defaultPictureClass": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

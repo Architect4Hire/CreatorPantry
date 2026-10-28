@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Media.Managers;
@@ -48,6 +49,10 @@ public static class ProblemResults
     /// </remarks>
     public static IReadOnlySet<string> RereadCodes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
+        // The account's plan chain moved under an ops change (AP.4.4): read it again and decide against what is
+        // there now, rather than resending a change that was composed against the old end of the chain.
+        AccountPlanAdministrationErrors.Conflict,
+
         ConcurrencyConflictCode,
         AiFeatureErrors.Conflict,
         AiUsageAdministrationErrors.QuotaConflict,

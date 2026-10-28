@@ -67,6 +67,23 @@ public sealed class GeneratedImageQuoteWireMirrorTests
         Assert.Equal(Classes, Names(set));
     }
 
+    /// <summary>
+    /// The browser reads one Media code by name: the plan's quality refusal (AP.4.3), because it shares the 403
+    /// with a role refusal and the two have nothing to do with each other.
+    /// </summary>
+    /// <remarks>
+    /// A renamed code would not break a build on either side — the browser would simply stop telling the two
+    /// apart, and a creator on a Trial plan would be told to ask an Owner for permission nobody can grant.
+    /// </remarks>
+    [Fact]
+    public void The_browser_reads_the_plan_quality_refusal_by_the_code_the_server_sends()
+    {
+        Assert.Contains(
+            $"export const QUALITY_CLASS_FORBIDDEN_CODE = '{MediaErrorCodes.GenerationQualityClassForbidden}';",
+            Read(),
+            StringComparison.Ordinal);
+    }
+
     private static string[] Names(string body) =>
         Regex.Matches(body, @"'([A-Za-z][A-Za-z0-9]*)'").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal).ToArray();
 

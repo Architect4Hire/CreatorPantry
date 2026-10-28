@@ -46,6 +46,29 @@ public static class MediaErrorCodes
     public const string GenerationQualityClassUnprocessable = "media.generation.quality_class.unprocessable";
 
     /// <summary>
+    /// The request or quote names a quality class this host offers but the account's plan does not allow
+    /// (PRICE-006/007, AP.4.3). Maps to 403, naming <c>qualityClass</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 403 and not 422, for the reason <c>ai.quota.suspended</c> is a 403: the class is a real one this host can
+    /// make, and what refuses it is what the account is entitled to. <c>retry</c> is therefore <c>none</c> — the
+    /// same request can never succeed, where a 429 would invite a wait that changes nothing.
+    /// </para>
+    /// <para>
+    /// The problem names the plan that would allow it, in the sentence and in <c>requiresPlan</c> (its key) and
+    /// <c>requiresPlanName</c>, with <c>qualityClass</c> for a client that words the class itself. A class no
+    /// plan allows carries neither, and says so in one sentence rather than naming a plan that does not exist.
+    /// </para>
+    /// <para>
+    /// Refused at the request and at the quote it prices, and never against a replayed key: a replay's answer is
+    /// the operation it already bought, at the class it was bought at. Not re-checked when the worker runs — the
+    /// credits were held at the request, so a downgrade in between does not cancel pictures already paid for.
+    /// </para>
+    /// </remarks>
+    public const string GenerationQualityClassForbidden = "media.generation.quality_class.forbidden";
+
+    /// <summary>
     /// The prompt and its avoid list are longer than the model the chosen quality class sends to takes, and a
     /// shorter prompt would fit (AP.3.2). Maps to 422, naming <c>promptText</c>.
     /// </summary>

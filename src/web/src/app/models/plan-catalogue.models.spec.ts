@@ -1,6 +1,6 @@
 import { decodeCreditRates, decodePlan, decodePlanCatalogue } from './plan-catalogue.models';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
 
 describe('plan catalogue models', () => {
   const plan = {
@@ -17,6 +17,7 @@ describe('plan catalogue models', () => {
     recommended: true,
     trialDays: null,
     trialImageCap: null,
+    picturesAtDefaultQuality: 120,
   };
 
   it('decodes a plan as the server sends it', () => {
@@ -63,6 +64,8 @@ describe('plan catalogue models', () => {
       plans: [plan, { ...plan, key: 'pro', recommended: false }],
       packs: [{ key: 'small', credits: 2500, price: 10 }],
       rates,
+      pictureClasses: [],
+  defaultPictureClass: null,
     });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator', 'pro']);
@@ -72,13 +75,13 @@ describe('plan catalogue models', () => {
 
   /** One plan the browser cannot read is not a reason to show a visitor no pricing at all. */
   it('drops a plan it cannot read and keeps the rest', () => {
-    const catalogue = decodePlanCatalogue({ currency: 'USD', plans: [plan, { key: 'broken' }], packs: [], rates });
+    const catalogue = decodePlanCatalogue({ currency: 'USD', plans: [plan, { key: 'broken' }], packs: [], rates, pictureClasses: [], defaultPictureClass: null });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator']);
   });
 
   it('reads an unpublished catalogue as one with nothing in it', () => {
-    const empty = { currency: 'USD', plans: [], packs: [], rates: { ...rates, textDraft: 0 } };
+    const empty = { currency: 'USD', plans: [], packs: [], rates: { ...rates, textDraft: 0 }, pictureClasses: [], defaultPictureClass: null };
 
     expect(decodePlanCatalogue(empty)).toEqual(empty);
   });
@@ -93,12 +96,12 @@ describe('plan catalogue models', () => {
     expect(decodeCreditRates(rates)).toEqual(rates);
   });
 
-  /** The menu names all five; one missing would have a line price its action at nothing. */
+  /** The menu names both; one missing would have a line price its action at nothing. */
   it('refuses rates with one missing, rather than pricing that action at nothing', () => {
-    const { imageHigh, ...withoutHigh } = rates;
+    const { longFormSection, ...withoutSection } = rates;
 
-    expect(imageHigh).toBe(90);
-    expect(decodeCreditRates(withoutHigh)).toBeNull();
+    expect(longFormSection).toBe(10);
+    expect(decodeCreditRates(withoutSection)).toBeNull();
   });
 
   /**

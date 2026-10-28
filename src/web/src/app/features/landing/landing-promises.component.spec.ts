@@ -5,7 +5,7 @@ import { PlanCatalogue } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { BILLING_PROMISES, COMING_WITH_BILLING, LandingPromisesComponent } from './landing-promises.component';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
 
 const plan = {
   key: 'creator',
@@ -21,6 +21,7 @@ const plan = {
   recommended: true,
   trialDays: null,
   trialImageCap: null,
+  picturesAtDefaultQuality: 120,
 };
 
 const published: PlanCatalogue = {
@@ -31,6 +32,8 @@ const published: PlanCatalogue = {
     { key: 'large', credits: 20000, price: 60 },
   ],
   rates,
+  pictureClasses: [],
+  defaultPictureClass: null,
 };
 
 describe('LandingPromisesComponent', () => {

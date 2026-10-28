@@ -10,6 +10,7 @@ import {
   GeneratedImageQualityClasses,
   GeneratedImageQuote,
   IDEMPOTENCY_KEY_REQUIRED_CODE,
+  QUALITY_CLASS_FORBIDDEN_CODE,
   RequestGeneratedImagesRequest,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
@@ -263,6 +264,17 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
     return {
       status: 'refused',
       message: problemMessageOf(error) ?? 'The pictures could not be asked for.',
+      fieldErrors: decodeFieldErrors(error),
+    };
+  }
+
+  // A plan that does not allow the quality asked for, not a permission the workspace could grant (AP.4.3): the
+  // server's own sentence names the plan that would allow it, so it is reported as a refusal and shown as
+  // written rather than replaced by "ask an Owner or Editor".
+  if (code === 403 && problemCodeOf(error) === QUALITY_CLASS_FORBIDDEN_CODE) {
+    return {
+      status: 'refused',
+      message: problemMessageOf(error) ?? 'That picture quality is not on your plan.',
       fieldErrors: decodeFieldErrors(error),
     };
   }

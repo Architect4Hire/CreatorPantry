@@ -470,13 +470,19 @@ export class GeneratedImageRunComponent {
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,
   );
 
-  /** The class the next request names: the creator's pick from a list that arrived, or none — the host's default. */
+  /**
+   * The class the next request names: the creator's pick from a list that arrived, or none — the host's default.
+   *
+   * Never a class the account's plan locks (AP.4.3). The picker cannot pick one, so this is the guard for a list
+   * that changed under a pick already made; naming it would buy a 403 the browser could have avoided, and leaving
+   * it out falls back to the default, which every plan allows.
+   */
   protected readonly requestClass = computed<GeneratedImageQualityClass | null>(() => {
     const state = this.classesState();
     const chosen = this.chosenClass();
     if (state.status !== 'ready' || chosen === null) return null;
 
-    return state.list.classes.some((row) => row.qualityClass === chosen) ? chosen : null;
+    return state.list.classes.some((row) => row.qualityClass === chosen && row.allowed) ? chosen : null;
   });
 
   /**
@@ -491,18 +497,75 @@ export class GeneratedImageRunComponent {
       const wording = QUALITY_CLASS_WORDING[row.qualityClass];
       const price = formatAllowanceAmount(row.perPicture, state.list.unit);
 
+      // A locked class keeps its price and says what would unlock it (AP.4.3). The reason is in the hint, which
+      // sits inside the tile's own label, so it is part of what the control is called rather than something only
+      // the eye gets — and "Locked" is a word as well as a greyed tile, never colour alone.
+      const purpose = row.allowed
+        ? wording.purpose
+        : row.requiresPlanName
+          ? `Locked — the ${row.requiresPlanName} plan includes it.`
+          : 'Locked — not on any plan yet.';
+
       return {
         value: row.qualityClass,
         label: wording.label,
-        hint: price === null ? wording.purpose : `${price} a picture. ${wording.purpose}`,
+        hint: price === null ? purpose : `${price} a picture. ${purpose}`,
+        disabled: !row.allowed,
       };
     });
   });
 
-  /** The tiles offer a choice only when there are two or more; one class is a sentence, and none is nothing. */
+  /**
+   * What the plan locks, said in reading order rather than only inside tiles nobody can reach (AP.4.3).
+   *
+   * **Why this exists as well as the tile hints.** A locked tile is a disabled radio, so it is out of the tab
+   * order and out of the group's arrow-key movement: a creator moving by keyboard never lands on it, and the
+   * reason in its label is never read to them. `DESIGN-SYSTEM.md` ("locked by what locked the tab") says a
+   * locked control is "described by the line that explains" it — this is that line, and it is wired as the
+   * group's `aria-describedby`, so entering the group says what is not on offer and what would put it there.
+   *
+   * Semicolons rather than commas because two of the labels have commas of their own ("High, 2K").
+   */
+  protected readonly lockedSentence = computed(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return '';
+
+    const locked = state.list.classes.filter((row) => !row.allowed);
+    if (locked.length === 0) return '';
+
+    const parts = locked.map((row) => {
+      const label = QUALITY_CLASS_WORDING[row.qualityClass].label;
+
+      return row.requiresPlanName === null
+        ? `${label} is not on any plan yet`
+        : `${label} comes with the ${row.requiresPlanName} plan`;
+    });
+
+    return `Not on your plan: ${parts.join('; ')}.`;
+  });
+
+  /** The classes the creator may actually pick, in the server's order: the offered ones the plan allows. */
+  protected readonly pickableClasses = computed<readonly GeneratedImageQualityClass[]>(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return [];
+
+    return state.list.classes.filter((row) => row.allowed).map((row) => row.qualityClass);
+  });
+
+  /**
+   * The tiles offer a choice only when there are two or more; one class is a sentence, and none is nothing.
+   *
+   * A list with one class on the plan and the rest locked is still a choice to show: the locked tiles are how a
+   * creator learns the higher qualities exist and what they would cost (AP.4.3).
+   */
   protected readonly offersChoice = computed(() => this.classOptions().length > 1);
 
-  /** The one class a host offers, said rather than offered: "Pictures are made at Standard quality — …". */
+  /**
+   * The one class a host offers, said rather than offered: "Pictures are made at Standard quality — …".
+   *
+   * One class and that class locked cannot happen: a host with plans allows its default class on every one of
+   * them, so the single class is the default and is allowed.
+   */
   protected readonly onlyClassSentence = computed(() => {
     const state = this.classesState();
     if (state.status !== 'ready' || state.list.classes.length !== 1) return '';
@@ -614,8 +677,11 @@ export class GeneratedImageRunComponent {
       return `${pictureCount(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits} ${reset}`;
     }
 
-    const lowest = this.classOptions()[0]?.value === asked;
-    const lower = lowest ? '' : ' You can also choose a lower quality.';
+    // The lowest the creator can actually pick, not the lowest shown: offering "a lower quality" when the only
+    // lower ones are locked by the plan would send them to a tile they cannot choose (AP.4.3). The list is in the
+    // server's order, lowest quality first.
+    const pickable = this.pickableClasses();
+    const lower = pickable[0] === asked || pickable.length < 2 ? '' : ' You can also choose a lower quality.';
 
     return `At ${QUALITY_CLASS_WORDING[asked].label} quality, ${picturesInSentence(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits}${lower} ${reset}`;
   });
@@ -874,13 +940,14 @@ export class GeneratedImageRunComponent {
       return;
     }
 
-    // A pick that is still offered stays — a retry after a failure must not undo a choice — and anything else
-    // starts from the host's default, or the one class there is.
+    // A pick that is still offered and still on the plan stays — a retry after a failure must not undo a choice —
+    // and anything else starts from the host's default, or the one class there is. A class the plan has stopped
+    // allowing since it was picked is let go of here rather than sent and refused (AP.4.3); the default is always
+    // allowed, because the server refuses a catalogue whose plans do not allow it.
     const chosen = this.chosenClass();
-    const offered = list.classes.some((row) => row.qualityClass === chosen);
-    this.chosenClass.set(
-      offered ? chosen : (list.defaultClass ?? (list.classes.length === 1 ? list.classes[0].qualityClass : null)),
-    );
+    const offered = list.classes.some((row) => row.qualityClass === chosen && row.allowed);
+    const only = list.classes.length === 1 && list.classes[0].allowed ? list.classes[0].qualityClass : null;
+    this.chosenClass.set(offered ? chosen : (list.defaultClass ?? only));
     this.classesState.set({ status: 'ready', list });
   }
 
@@ -902,8 +969,9 @@ export class GeneratedImageRunComponent {
           status === 'error'
             ? root.querySelector<HTMLElement>(`#${prefix}-quality-problem button`)
             : status === 'ready' && this.offersChoice()
+              // Never a locked tile: its input is disabled, so focusing it would put focus nowhere (AP.4.3).
               ? root.querySelector<HTMLElement>('.quality input:checked') ??
-                root.querySelector<HTMLElement>('.quality input')
+                root.querySelector<HTMLElement>('.quality input:not(:disabled)')
               : root.querySelector<HTMLElement>('.cp-actions button');
 
         target?.focus();
@@ -916,7 +984,9 @@ export class GeneratedImageRunComponent {
     const state = this.classesState();
     if (state.status !== 'ready') return;
 
-    const picked = state.list.classes.find((row) => row.qualityClass === value[0]);
+    // Allowed only: a disabled tile cannot report a change, so this is the guard for a list that locked the
+    // picked class between the render and the event (AP.4.3).
+    const picked = state.list.classes.find((row) => row.qualityClass === value[0] && row.allowed);
     if (picked) this.chosenClass.set(picked.qualityClass);
   }
 

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Data.SqlClient;
@@ -37,11 +38,23 @@ internal interface IAccountPlanDataLayer
         string? planKey,
         AccountPlanSource source,
         DateTimeOffset effectiveFrom,
+        PlatformAuditEntry? audit,
+        CancellationToken cancellationToken);
+
+    /// <summary>Accounts whose row in force resolves to <paramref name="planKey"/> (AP.4.4).</summary>
+    Task<IReadOnlyList<AccountPlan>> ListInForceByPlanAsync(
+        string planKey,
+        bool includeDefaultRows,
+        IReadOnlyCollection<string> catalogueKeys,
+        DateTimeOffset at,
+        string? afterAccountId,
+        int take,
         CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAccountPlanDataLayer"/>
-internal sealed class AccountPlanDataLayer(IAccountPlanRepository repository) : IAccountPlanDataLayer
+internal sealed class AccountPlanDataLayer(
+    IAccountPlanRepository repository, IPlatformAuditWriter auditWriter) : IAccountPlanDataLayer
 {
     public async Task<AccountPlanSpan> FindSpanAsync(
         string accountId, DateTimeOffset at, CancellationToken cancellationToken)
@@ -55,12 +68,24 @@ internal sealed class AccountPlanDataLayer(IAccountPlanRepository repository) : 
     public Task<AccountPlan?> FindLatestAsync(string accountId, CancellationToken cancellationToken) =>
         repository.FindLatestAsync(accountId, cancellationToken);
 
+    public Task<IReadOnlyList<AccountPlan>> ListInForceByPlanAsync(
+        string planKey,
+        bool includeDefaultRows,
+        IReadOnlyCollection<string> catalogueKeys,
+        DateTimeOffset at,
+        string? afterAccountId,
+        int take,
+        CancellationToken cancellationToken) =>
+        repository.ListInForceByPlanAsync(
+            planKey, includeDefaultRows, catalogueKeys, at, afterAccountId, take, cancellationToken);
+
     public async Task<AccountPlanChangeOutcome> AppendAsync(
         string accountId,
         AccountPlan? latest,
         string? planKey,
         AccountPlanSource source,
         DateTimeOffset effectiveFrom,
+        PlatformAuditEntry? audit,
         CancellationToken cancellationToken)
     {
         repository.Add(new AccountPlan
@@ -73,6 +98,14 @@ internal sealed class AccountPlanDataLayer(IAccountPlanRepository repository) : 
             SupersedesFrom = latest?.EffectiveFrom,
         });
 
+        // Staged on the same DbContext, so the audit row and the plan row commit together or neither does
+        // (AP.4.4). Null for a change nothing audits — nothing writes one today, and AP.6.2's Stripe path will
+        // carry its own provider reference instead of an operator's reason.
+        if (audit is not null)
+        {
+            auditWriter.Record(audit);
+        }
+
         try
         {
             await repository.SaveAsync(cancellationToken);
@@ -80,7 +113,8 @@ internal sealed class AccountPlanDataLayer(IAccountPlanRepository repository) : 
         catch (DbUpdateException exception) when (IsLostRace(exception))
         {
             // Forget first: the insert is staged on the shared scoped DbContext, and leaving it there would let a
-            // later save in the same request commit a change this method just told its caller was refused.
+            // later save in the same request commit a change this method just told its caller was refused. The
+            // audit row goes with it, which is the point — nothing happened, so nothing is recorded as having.
             repository.Forget();
 
             return AccountPlanChangeOutcome.Contended;

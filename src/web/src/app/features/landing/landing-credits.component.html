@@ -6,15 +6,20 @@
     <div class="menu">
       <h3 id="landing-credits-menu">What one of each costs</h3>
       <ul aria-labelledby="landing-credits-menu">
-        @for (line of menu; track line.label) {
+        @for (line of menu(); track line.label) {
           <li>
             <span class="item">{{ line.label }}</span>
             <span class="dots" aria-hidden="true"></span>
-            <span class="cost">{{ line.typical ? 'about ' : '' }}{{ formatCredits(line.rateOf(rates)) }} credits</span>
+            <span class="cost">{{ line.typical ? 'about ' : '' }}{{ formatCredits(line.credits) }} credits</span>
           </li>
         }
       </ul>
-      <p class="typical">Typical figures. What a run costs is settled against the work the model actually did.</p>
+      <!-- Writing says "about" and pictures do not, so the note has to say which is which: a picture's price is
+           the rate it is charged at, known before it is made (AP.4.5). -->
+      <p class="typical">
+        Writing figures are typical — what a run costs is settled against the work the model actually did. A
+        picture costs exactly what its quality says.
+      </p>
     </div>
 
     <div class="estimator">
@@ -33,6 +38,24 @@
         />
       </cp-field>
       <p class="slider-value">{{ formatCredits(picturesAMonth()) }} pictures</p>
+
+      <!-- Which quality the pictures are priced at (AP.4.5). A catalogue that publishes one quality, or none,
+           offers no choice: there is nothing to pick between, and the menu above already states the figure. -->
+      @if (pictureClasses().length > 1) {
+        <cp-field
+          label="Picture quality"
+          forId="landing-credits-quality"
+          [hint]="qualityHint()"
+        >
+          <select id="landing-credits-quality" (change)="qualityChanged($event)">
+            @for (row of pictureClasses(); track row.qualityClass) {
+              <option [value]="row.qualityClass" [selected]="row.qualityClass === pricedClass()?.qualityClass">
+                {{ labelFor(row.qualityClass) }} — {{ formatCredits(row.perPicture) }} credits
+              </option>
+            }
+          </select>
+        </cp-field>
+      }
 
       <cp-field label="AI writing a month" forId="landing-credits-writing" hint="Recipe drafts and posts, each priced as a recipe draft.">
         <input

@@ -3,9 +3,11 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signa
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CpFieldComponent } from '@creator-pantry/ui';
 
-import { CreditRates, Plan } from '../../models/plan-catalogue.models';
+import { GeneratedImageQualityClass } from '../../models/generated-image.models';
+import { PictureClassRate, Plan } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { LandingCount } from './landing-count';
+import { pictureQualityLabel } from './picture-quality';
 
 /** The number a range input has just been moved to. */
 function valueOf(event: Event): number {
@@ -13,18 +15,33 @@ function valueOf(event: Event): number {
 }
 
 /**
- * One line of the menu: what the page calls the action, which rate the catalogue prices it with, and whether
- * that rate is a typical figure ("about") or what the action is charged.
+ * One line of the menu: what the page calls the action, what it costs, and whether that figure is a typical one
+ * ("about") or exactly what the action is charged.
  */
 export interface CreditMenuLine {
   readonly label: string;
-  readonly rateOf: (rates: CreditRates) => number;
+  readonly credits: number;
   /**
    * Writing settles at the tokens the model reported (AP.2.1), so its figure is typical and says "about". A
-   * picture is charged its rate per picture, so it does not.
+   * picture is charged its quality class's rate exactly (AP.4.5), so it never does.
    */
   readonly typical: boolean;
 }
+
+/**
+ * What the page calls each picture quality on the public menu (AP.4.5).
+ *
+ * The studio's own wording is a creator's, mid-task ("Draft — quick, for trying an idea"); a visitor reading a
+ * price list has no task yet, so each line names the thing being priced. Deliberately a second vocabulary: the
+ * two are read in different places for different reasons, and a shared one would be wrong in both.
+ */
+export const PICTURE_CLASS_LABELS: Readonly<Record<GeneratedImageQualityClass, string>> = {
+  Draft: 'A draft picture',
+  Standard: 'A standard picture',
+  High: 'A high-quality picture',
+  High2K: 'A high-quality picture at 2K',
+  High4K: 'A high-quality picture at 4K',
+};
 
 /** Where the estimator's sliders start and stop. Round numbers a creator can aim at, not a computed range. */
 export const PICTURES_PER_MONTH = { min: 0, max: 300, step: 10, start: 60 } as const;
@@ -78,17 +95,27 @@ export class LandingCreditsComponent {
   protected readonly contact = BEYOND_TOP_PLAN_CONTACT;
 
   /**
-   * The menu, in the order LP.2 lists it: what writing costs, then what a picture costs.
+   * The menu, in the order LP.2 lists it: what writing costs, then what a picture of each quality costs.
    *
-   * One picture line, not three. The catalogue still carries draft and high rates for AP.3.1, but the product
-   * makes one kind of picture — the configured model at its own default size, with no quality to ask for — so
-   * a menu pricing a draft and a high-quality one would be pricing pictures nobody can make.
+   * **One line per quality since AP.4.5**, each at the exact credits that class is charged, read from the
+   * charging table itself. Before quality classes shipped the product made one kind of picture and the menu
+   * said so; now a creator chooses, and a single "a picture" line would price four of the five choices wrongly.
+   * A class no plan includes never reaches here — the catalogue leaves it out.
    */
-  protected readonly menu: readonly CreditMenuLine[] = [
-    { label: 'A recipe draft or post', rateOf: (rates) => rates.textDraft, typical: true },
-    { label: 'A long-form section', rateOf: (rates) => rates.longFormSection, typical: true },
-    { label: 'A picture', rateOf: (rates) => rates.imageStandard, typical: false },
-  ];
+  protected readonly menu = computed<readonly CreditMenuLine[]>(() => {
+    const rates = this.rates();
+    if (rates === null) return [];
+
+    return [
+      { label: 'A recipe draft or post', credits: rates.textDraft, typical: true },
+      { label: 'A long-form section', credits: rates.longFormSection, typical: true },
+      ...this.catalogue().pictureClasses.map((row) => ({
+        label: PICTURE_CLASS_LABELS[row.qualityClass],
+        credits: row.perPicture,
+        typical: false,
+      })),
+    ];
+  });
 
   protected readonly picturesAMonth = signal<number>(PICTURES_PER_MONTH.start);
   protected readonly writingAMonth = signal<number>(WRITING_PER_MONTH.start);
@@ -102,13 +129,49 @@ export class LandingCreditsComponent {
    * Both halves need both: a menu with no rates has nothing to price, and an estimate with no plan has nothing
    * to fit into. A catalogue carrying one without the other leaves the section off the page rather than
    * showing half of it.
+   *
+   * Picture prices are not required: a catalogue with none states the writing lines and estimates writing
+   * alone, which is a true if narrow answer. One with none is a deployment whose plans reach no quality class.
    */
   protected readonly renders = computed(() => this.paidPlans().length > 0 && this.rates() !== null);
 
-  /** What those two numbers come to a month, at the catalogue's typical figures. */
+  /**
+   * The picture qualities the estimator offers, cheapest first, and which one it is pricing.
+   *
+   * One count and a choice of quality rather than a slider per class (AP.4.5): five sliders is more of the page
+   * than this section can have, and a creator estimating a month does not plan a mix by quality — they picture
+   * the work they make and how good it has to be.
+   */
+  protected readonly pictureClasses = computed(() => this.catalogue().pictureClasses);
+
+  /** Which quality the estimate prices, defaulting to the cheapest offered until a visitor picks another. */
+  protected readonly chosenClass = signal<GeneratedImageQualityClass | null>(null);
+
+  /**
+   * The class actually priced: the visitor's pick while it is still offered, else what a picture is made at
+   * when nobody chooses, else the cheapest the catalogue lists.
+   *
+   * The catalogue's default rather than the cheapest, because the cheapest would under-estimate a month and
+   * point at a plan too small for it — and the browser does not get to decide which quality is typical.
+   */
+  protected readonly pricedClass = computed<PictureClassRate | null>(() => {
+    const classes = this.pictureClasses();
+    const chosen = this.chosenClass() ?? this.catalogue().defaultPictureClass;
+
+    return classes.find((row) => row.qualityClass === chosen) ?? classes[0] ?? null;
+  });
+
+  /**
+   * What those two numbers come to a month: the writing at its typical rate, and the pictures at the quality
+   * chosen. No arithmetic on a figure this page invented — both rates are the catalogue's.
+   */
   protected readonly estimate = computed(() => {
     const rates = this.rates();
-    return rates === null ? 0 : this.picturesAMonth() * rates.imageStandard + this.writingAMonth() * rates.textDraft;
+    if (rates === null) return 0;
+
+    const perPicture = this.pricedClass()?.perPicture ?? 0;
+
+    return this.picturesAMonth() * perPicture + this.writingAMonth() * rates.textDraft;
   });
 
   private readonly count = new LandingCount(this.document.defaultView);
@@ -159,6 +222,33 @@ export class LandingCreditsComponent {
 
   protected formatCredits(credits: number): string {
     return credits.toLocaleString();
+  }
+
+  /**
+   * What the quality choice says under itself: which quality the estimate starts from, named.
+   *
+   * Said rather than left to the select's own value, because the figure above it is already counting when a
+   * visitor arrives, and a number with no quality attached is the misreading this whole section exists to
+   * avoid — at High the same month costs nearly twice as much.
+   */
+  protected readonly qualityHint = computed(() => {
+    const started = this.catalogue().defaultPictureClass;
+
+    return started === null
+      ? 'Each picture is charged its quality’s own rate.'
+      : `Priced at ${pictureQualityLabel(started)} quality, which is what a picture is unless you choose `
+          + 'another. Each quality is charged its own rate.';
+  });
+
+  /** The label the menu and the quality choice both use, so the two never word a class differently. */
+  protected labelFor(qualityClass: GeneratedImageQualityClass): string {
+    return PICTURE_CLASS_LABELS[qualityClass];
+  }
+
+  protected qualityChanged(event: Event): void {
+    const picked = (event.target as HTMLSelectElement).value as GeneratedImageQualityClass;
+
+    this.moveTo(() => this.chosenClass.set(picked));
   }
 
   protected picturesChanged(event: Event): void {

@@ -59,6 +59,11 @@ public sealed class ProblemCatalogTests
         "content.social.source_stale.conflict",
         "media.staged_image.conflict",
         "nutrition.mapping.state.conflict",
+
+        // A change for now asked while a later one is already scheduled (AP.4.4). Neither a re-read nor a
+        // resend: replacing a scheduled change is AP.6.2's to design, so the operator cancels or waits.
+        "ops.account_plan.change_scheduled.conflict",
+
         "planning.work_task.completed.conflict",
         "planning.work_task.open.conflict",
         "publishing.already_published.conflict",

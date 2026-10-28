@@ -26,7 +26,12 @@ public sealed class OpsAccessTests
     private const string ImageSpend = "/api/v1/ops/ai-usage/platform/image-spend";
     private const string ImageSpendLift = "/api/v1/ops/ai-usage/platform/image-spend/lift";
 
-    public static TheoryData<string> Reads => [Account, TopConsumers, ImageSpend];
+    // Which plan an account is on (AP.4.4). The same gate as the rest: a creator cannot set their own plan, and
+    // the read is no more reachable than the write.
+    private const string Plan = "/api/v1/ops/ai-usage/accounts/user-sam/plan";
+    private const string AccountsByPlan = "/api/v1/ops/ai-usage/accounts/by-plan?planKey=studio";
+
+    public static TheoryData<string> Reads => [Account, TopConsumers, ImageSpend, Plan, AccountsByPlan];
 
     public static TheoryData<string> Commands => [Clear, Suspend, Restore, ImageSpendLift];
 

@@ -27,6 +27,8 @@ export class PlanCatalogueService {
     plans: [],
     packs: [],
     rates: null,
+    pictureClasses: [],
+    defaultPictureClass: null,
   };
 
   catalogue(): Observable<PlanCatalogue> {

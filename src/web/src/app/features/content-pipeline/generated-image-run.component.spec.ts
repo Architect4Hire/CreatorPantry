@@ -200,9 +200,14 @@ let quoteAnswer: (variants: number, qualityClass: GeneratedImageQualityClass | n
 let classesAnswer: () => Promise<GeneratedImageQualityClasses | null>;
 let classesReads: number;
 
-/** The price list a host with three classes would send: Standard the default, cheapest first (AP.3.1). */
+/**
+ * The price list a host with three classes would send: Standard the default, cheapest first (AP.3.1).
+ *
+ * A third element in a row locks that class, as a plan that does not allow it does (AP.4.3): the plan's name, or
+ * `null` for a class no plan allows. A row of two is allowed.
+ */
 function classes(
-  rows: readonly (readonly [GeneratedImageQualityClass, number])[] = [
+  rows: readonly (readonly [GeneratedImageQualityClass, number, (string | null)?])[] = [
     ['Draft', 25],
     ['Standard', 50],
     ['High', 87.5],
@@ -212,10 +217,13 @@ function classes(
   return {
     defaultClass,
     unit: 'Credits',
-    classes: rows.map(([qualityClass, perPicture]) => ({
-      qualityClass,
-      perPicture,
-      isDefault: qualityClass === defaultClass,
+    classes: rows.map((row) => ({
+      qualityClass: row[0],
+      perPicture: row[1],
+      isDefault: row[0] === defaultClass,
+      allowed: row.length < 3,
+      requiresPlan: row.length < 3 || row[2] == null ? null : row[2]!.toLowerCase(),
+      requiresPlanName: row.length < 3 ? null : (row[2] ?? null),
     })),
   };
 }
@@ -1239,6 +1247,127 @@ describe('GeneratedImageRunComponent', () => {
       makeButton().click();
       await settle();
       expect(requests[0].qualityClass).toBeNull();
+    });
+
+    // ---- what the plan allows (AP.4.3) -----------------------------------------------------------------
+
+    it('shows a class the plan does not allow as locked, with its price and the plan that would', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+      );
+      await priced();
+
+      const tiles = Array.from(qualityGroup()!.querySelectorAll('.tile')).map((tile) => [
+        tile.querySelector('.label')?.textContent?.trim(),
+        tile.querySelector('.hint')?.textContent?.trim(),
+        (tile.querySelector('input') as HTMLInputElement).disabled,
+      ]);
+
+      expect(tiles).toEqual([
+        ['Draft', '25 AI credits a picture. Quick, for trying an idea.', false],
+        ['Standard', '50 AI credits a picture. Good for most posts.', false],
+        // Still priced, so the plan can be weighed against the figure, and "Locked" is a word as well as a
+        // greyed tile.
+        ['High', '87.5 AI credits a picture. Locked — the Creator plan includes it.', true],
+      ]);
+
+      // The pick is the default, and the price asked for is the default's: a locked class is never quoted.
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses).toEqual(['Standard']);
+    });
+
+    it('says a class no plan allows is not on one yet, rather than leaving "Locked" as a dead end', async () => {
+      await rebuild(
+        () => (classesAnswer = () => Promise.resolve(classes([['Standard', 50], ['High', 87.5, null]]))),
+      );
+      await priced();
+
+      const locked = qualityGroup()!.querySelectorAll('.tile')[1];
+      expect(locked.querySelector('.hint')?.textContent?.trim()).toBe(
+        '87.5 AI credits a picture. Locked — not on any plan yet.',
+      );
+    });
+
+    /**
+     * The reason has to be reachable, not only inside the tile: a disabled radio is out of the tab order and out
+     * of the group's arrow-key movement, so a creator moving by keyboard never lands on it. DESIGN-SYSTEM.md's
+     * locked-control rule wants the explaining line, and the group points at it.
+     */
+    it('says what the plan locks in reading order, and describes the group by it', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(
+              classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator'], ['High2K', 187.5, null]]),
+            )),
+      );
+      await priced();
+
+      const said = el.querySelector('#cp-studio-images-quality-locked');
+      expect(said?.textContent?.trim()).toBe(
+        'Not on your plan: High comes with the Creator plan; High, 2K is not on any plan yet.',
+      );
+
+      // Said when the group is entered, so it is not visual only.
+      expect(qualityGroup()?.getAttribute('aria-describedby')).toBe('cp-studio-images-quality-locked');
+    });
+
+    it('says nothing about plans, and describes the group by nothing, when every class is on the plan', async () => {
+      await priced();
+
+      expect(el.querySelector('#cp-studio-images-quality-locked')).toBeNull();
+      expect(qualityGroup()?.getAttribute('aria-describedby')).toBeNull();
+      expect(el.textContent).not.toContain('Not on your plan');
+    });
+
+    it('cannot be sent a locked class: the tile is not an answer the keyboard or the pointer can give', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+      );
+      await priced();
+
+      // A disabled radio is out of the group's arrow-key movement as well as out of the tab order, so the
+      // keyboard cannot reach it either; clicking it reports nothing.
+      qualityRadio('High').click();
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeFalse();
+      expect(qualityRadio('Standard').checked).toBeTrue();
+
+      makeButton().click();
+      await settle();
+      expect(requests.at(-1)!.qualityClass).toBe('Standard');
+      expect(quoteClasses).not.toContain('High');
+    });
+
+    it('picks nothing when the one class offered is locked, so the request names none', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([['High', 87.5, 'Studio']], null))));
+      await priced();
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
+
+    it('offers no lower quality in a refusal when every lower one is locked', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: variants * 87.5, remaining: 10, affordableVariants: 0 })
+          : quote(variants);
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25, 'Creator'], ['High', 87.5]], 'High'))),
+      );
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeTrue();
+      expect(el.textContent).toContain('At High quality');
+      expect(el.textContent).not.toContain('lower quality');
     });
   });
 });

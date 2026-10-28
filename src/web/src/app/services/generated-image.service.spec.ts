@@ -149,6 +149,36 @@ describe('GeneratedImageService', () => {
       expect((await pending).status).toBe('forbidden');
     });
 
+    it('reads a plan’s quality refusal as the server’s own sentence, not as a permission to be granted', async () => {
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1, qualityClass: 'High2K' },
+        'key-1',
+      );
+
+      http.expectOne(BASE).flush(
+        {
+          ...problem('media.generation.quality_class.forbidden', {
+            title: 'That picture quality is not on your plan. The Pro plan includes it.',
+            qualityClass: 'High2K',
+            requiresPlan: 'pro',
+            requiresPlanName: 'Pro',
+          }),
+          errors: { qualityClass: ['That picture quality is not on your plan.'] },
+        },
+        { status: 403, statusText: 'Forbidden' },
+      );
+
+      const outcome = await pending;
+
+      // Not `forbidden`, which the run reads as "ask an Owner or Editor" — nobody in the workspace can grant it.
+      expect(outcome).toEqual({
+        status: 'refused',
+        message: 'That picture quality is not on your plan. The Pro plan includes it.',
+        fieldErrors: { qualityClass: ['That picture quality is not on your plan.'] },
+      });
+    });
+
     it('reads the edge’s rate limit as its own outcome, because waiting is the remedy', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
 

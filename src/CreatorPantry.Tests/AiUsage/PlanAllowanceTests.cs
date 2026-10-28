@@ -434,9 +434,9 @@ public sealed class PlanAllowanceTests : IDisposable
         using var scope = _provider!.CreateScope();
 
         var outcome = await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
-            .ChangeAsync(accountId, planKey, AccountPlanSource.Ops, effectiveFrom, Ct);
+            .ChangeAsync(accountId, planKey, AccountPlanSource.Ops, effectiveFrom, audit: null, Ct);
 
-        Assert.Equal(AccountPlanChangeOutcome.Changed, outcome);
+        Assert.Equal(AccountPlanChangeOutcome.Changed, outcome.Outcome);
     }
 
     private async Task GiveQuotaAsync(

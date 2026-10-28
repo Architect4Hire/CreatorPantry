@@ -136,3 +136,39 @@ public static class GeneratedImageQualityClassCatalogue
     /// <summary>Blank reads as absent, so a setting cleared in configuration is a part the model takes none of.</summary>
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
+
+/// <summary>
+/// Why a quality class this host offers may not be asked for by this account: its plan does not allow it
+/// (PRICE-006/007, AP.4.3).
+/// </summary>
+/// <param name="QualityClass">The class that was asked for.</param>
+/// <param name="RequiresPlanKey">
+/// The cheapest plan that would allow it, or null when no plan does — locked with no plan to name.
+/// </param>
+/// <param name="RequiresPlanName">That plan's name, under the same condition.</param>
+public sealed record GeneratedImageQualityPlanRefusal(
+    GeneratedImageQualityClass QualityClass, string? RequiresPlanKey, string? RequiresPlanName);
+
+/// <summary>
+/// One quality this host offers and what a picture of it costs, as anything outside Media reads it (AP.4.5).
+/// </summary>
+/// <param name="QualityClass">
+/// The class's canonical name — <c>PictureQualityVocabulary</c>'s spelling, so a reader needs no knowledge of
+/// how a catalogue or a configuration section writes it.
+/// </param>
+/// <param name="PerPicture">
+/// Credits per picture: the rate admission holds for exactly what this class sends. Exact, not typical.
+/// </param>
+/// <remarks>
+/// It names no model, tier or quality setting. A request names a class; what that class sends is this
+/// deployment's configuration, and a caller publishing prices has no business knowing it.
+/// </remarks>
+public sealed record GeneratedImageQualityOfferServiceModel(string QualityClass, decimal PerPicture);
+
+/// <summary>Every quality this host offers, and the one a request naming none is made at (AP.4.5).</summary>
+/// <param name="DefaultClass">
+/// The canonical name of the default, or null on a host that offers none — or whose default it cannot price.
+/// </param>
+/// <param name="Classes">The offered classes in ascending order, which is cheapest first.</param>
+public sealed record GeneratedImageQualityOffersServiceModel(
+    string? DefaultClass, IReadOnlyList<GeneratedImageQualityOfferServiceModel> Classes);

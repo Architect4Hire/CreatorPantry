@@ -19,13 +19,16 @@ const plan = {
   recommended: true,
   trialDays: null,
   trialImageCap: null,
+  picturesAtDefaultQuality: 120,
 };
 
 const priced: PlanCatalogue = {
   currency: 'USD',
   plans: [plan],
   packs: [],
-  rates: { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 },
+  rates: { textDraft: 10, longFormSection: 10 },
+  pictureClasses: [],
+  defaultPictureClass: null,
 };
 
 describe('LandingFaqComponent', () => {

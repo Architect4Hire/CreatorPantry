@@ -38,7 +38,7 @@ public sealed class PlansEndpointTests
                 },
             ];
             billing.Packs = [new CreditPackOption { Key = "small", Credits = 2500, Price = 10 }];
-            billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10, ImageDraft = 25, ImageStandard = 50, ImageHigh = 90 };
+            billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10 };
         });
 
     /// <summary>
@@ -61,7 +61,16 @@ public sealed class PlansEndpointTests
         Assert.Equal(48m, plan.AnnualSaving);
         Assert.True(plan.Recommended);
         Assert.Single(catalogue.Packs);
-        Assert.Equal(50, catalogue.Rates.ImageStandard);
+        Assert.Equal(10, catalogue.Rates.TextDraft);
+
+        // The qualities the plan includes, published in the enum's spelling rather than the catalogue's
+        // (AP.4.5), so one vocabulary reaches the page.
+        Assert.Equal(["Draft", "Standard", "High"], plan.QualityClasses);
+
+        // And what one picture of each costs, from this host's own charging table. The figures are the
+        // deployment's, so they are compared with the table rather than written down here.
+        Assert.Equal(["Draft", "Standard", "High"], catalogue.PictureClasses.Select(row => row.QualityClass));
+        Assert.All(catalogue.PictureClasses, row => Assert.True(row.PerPicture > 0m));
     }
 
     /// <summary>
@@ -83,6 +92,9 @@ public sealed class PlansEndpointTests
                 DailyImageCap = 5,
                 Period = PlanAllowancePeriod.Once,
                 RunningImages = 1,
+                // Including the host's default class, which every plan must allow (AP.4.3): a plan that does not
+                // would refuse every picture asked for without choosing a quality, and startup refuses it.
+                QualityClasses = ["draft", "standard"],
                 TrialDays = 14,
                 TrialImageCap = 10,
             }));

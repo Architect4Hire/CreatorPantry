@@ -68,8 +68,23 @@ public interface IGeneratedImageGenerationBusiness
     Task<GeneratedImageQuoteServiceModel> QuoteAsync(
         int variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
 
-    /// <summary>The quality classes this host offers, each at the rate it is charged (AP.3.1, B-55).</summary>
-    GeneratedImageQualityClassesServiceModel ListQualityClasses();
+    /// <summary>
+    /// The quality classes this host offers, each at the rate it is charged and each saying whether the caller's
+    /// plan allows it (AP.3.1, B-55, AP.4.3).
+    /// </summary>
+    Task<GeneratedImageQualityClassesServiceModel> ListQualityClassesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The plan that would allow <paramref name="qualityClass"/>, when the caller's own plan does not allow it
+    /// (PRICE-006/007, AP.4.3); null when the plan allows it or no plans are configured.
+    /// </summary>
+    /// <remarks>
+    /// Asked of a class the facade has already resolved against this host's own list, so "not offered here" and
+    /// "not on your plan" stay two answers rather than one. A null <paramref name="qualityClass"/> — a host that
+    /// offers no classes — is never plan-refused: there is no class to weigh.
+    /// </remarks>
+    Task<GeneratedImageQualityPlanRefusal?> RefuseIfPlanDisallowsAsync(
+        GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
 
     /// <summary>
     /// The class a request or quote is made at: the one named, or the default when none was (AP.3.1). False when
@@ -361,20 +376,71 @@ internal sealed class GeneratedImageGenerationBusiness(
             : null;
     }
 
-    public GeneratedImageQualityClassesServiceModel ListQualityClasses()
+    public async Task<GeneratedImageQualityClassesServiceModel> ListQualityClassesAsync(
+        CancellationToken cancellationToken)
     {
         var options = qualityClasses.Value;
 
-        var classes = GeneratedImageQualityClassCatalogue.All(options)
+        var priced = GeneratedImageQualityClassCatalogue.All(options)
             .Select(settings => (settings.QualityClass!.Value, Price: dataLayer.PriceInCredits(settings)))
-            .Where(priced => priced.Price is not null)
-            .Select(priced => new GeneratedImageQualityClassPriceServiceModel(
-                priced.Value, priced.Price!.Value, priced.Value == options.DefaultClass))
+            .Where(entry => entry.Price is not null)
             .ToList();
 
-        // The default only when it is in the list, so a page never preselects a class it cannot show.
+        // Which of them this account's plan allows (AP.4.3), asked once for the whole list rather than per class.
+        // Billing through its facade, keyed by the account the request resolved — never a request field. Null when
+        // no plans are configured, which is every production deployment today: every class this host offers is
+        // then allowed,
+        // exactly as it was before plans existed.
+        var plan = await plans.ResolveQualityAsync(
+            workspace.AccountId,
+            [.. priced.Select(entry => entry.Value.ToString())],
+            cancellationToken);
+
+        var allowance = plan?.Classes.ToDictionary(row => row.QualityClass, StringComparer.Ordinal);
+
+        var classes = priced
+            .Select(entry =>
+            {
+                // Keyed by the name Billing was asked about, which it echoes back unchanged, so nothing here
+                // normalises a class name or knows how a plan spells one.
+                var row = allowance?.GetValueOrDefault(entry.Value.ToString());
+
+                return new GeneratedImageQualityClassPriceServiceModel(
+                    entry.Value,
+                    entry.Price!.Value,
+                    entry.Value == options.DefaultClass,
+                    row?.Allowed ?? true,
+                    row?.RequiresPlanKey,
+                    row?.RequiresPlanName);
+            })
+            .ToList();
+
+        // The default only when it is in the list, so a page never preselects a class it cannot show. It is always
+        // one the plan allows: startup refuses a plan that does not allow Ai:Images:DefaultClass.
         return new GeneratedImageQualityClassesServiceModel(
             classes.Any(entry => entry.IsDefault) ? options.DefaultClass : null, AiQuotaUnit.Credits.ToString(), classes);
+    }
+
+    /// <remarks>
+    /// One class rather than the list, because a request asks for one. The same facade call either way, so the
+    /// picker's locked tile and the refusal a request gets cannot disagree about which plan unlocks a class.
+    /// </remarks>
+    public async Task<GeneratedImageQualityPlanRefusal?> RefuseIfPlanDisallowsAsync(
+        GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
+    {
+        if (qualityClass is not { } asked)
+        {
+            return null;
+        }
+
+        var plan = await plans.ResolveQualityAsync(
+            workspace.AccountId, [asked.ToString()], cancellationToken);
+
+        var row = plan?.Classes.FirstOrDefault();
+
+        return row is null || row.Allowed
+            ? null
+            : new GeneratedImageQualityPlanRefusal(asked, row.RequiresPlanKey, row.RequiresPlanName);
     }
 
     public async Task<GeneratedImageRunOutcome> ExecuteAsync(

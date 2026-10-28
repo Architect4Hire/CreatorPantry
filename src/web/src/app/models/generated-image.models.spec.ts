@@ -322,13 +322,15 @@ describe('generated-image.models', () => {
   });
 
   describe('decodeGeneratedImageQualityClasses', () => {
+    const open = { allowed: true, requiresPlan: null, requiresPlanName: null };
+
     const wire = {
       defaultClass: 'Standard',
       unit: 'Credits',
       classes: [
-        { qualityClass: 'Draft', perPicture: 25, isDefault: false },
-        { qualityClass: 'Standard', perPicture: 50, isDefault: true },
-        { qualityClass: 'High4K', perPicture: 287.5, isDefault: false },
+        { qualityClass: 'Draft', perPicture: 25, isDefault: false, ...open },
+        { qualityClass: 'Standard', perPicture: 50, isDefault: true, ...open },
+        { qualityClass: 'High4K', perPicture: 287.5, isDefault: false, ...open },
       ],
     };
 
@@ -337,17 +339,55 @@ describe('generated-image.models', () => {
         defaultClass: 'Standard',
         unit: 'Credits',
         classes: [
-          { qualityClass: 'Draft', perPicture: 25, isDefault: false },
-          { qualityClass: 'Standard', perPicture: 50, isDefault: true },
-          { qualityClass: 'High4K', perPicture: 287.5, isDefault: false },
+          { qualityClass: 'Draft', perPicture: 25, isDefault: false, ...open },
+          { qualityClass: 'Standard', perPicture: 50, isDefault: true, ...open },
+          { qualityClass: 'High4K', perPicture: 287.5, isDefault: false, ...open },
         ],
       });
+    });
+
+    it('reads a locked class with its price and the plan that would allow it (AP.4.3)', () => {
+      const decoded = decodeGeneratedImageQualityClasses({
+        ...wire,
+        classes: [
+          { qualityClass: 'Draft', perPicture: 25, isDefault: true, ...open },
+          { qualityClass: 'High4K', perPicture: 287.5, isDefault: false, allowed: false, requiresPlan: 'studio', requiresPlanName: 'Studio' },
+        ],
+      });
+
+      expect(decoded?.classes[1]).toEqual({
+        qualityClass: 'High4K',
+        perPicture: 287.5,
+        isDefault: false,
+        allowed: false,
+        requiresPlan: 'studio',
+        requiresPlanName: 'Studio',
+      });
+    });
+
+    it('refuses a list whose rows do not say whether they are allowed, rather than drawing them open', () => {
+      const without = { qualityClass: 'Draft', perPicture: 25, isDefault: true };
+
+      expect(decodeGeneratedImageQualityClasses({ ...wire, classes: [without] })).toBeNull();
+      expect(decodeGeneratedImageQualityClasses({ ...wire, classes: [{ ...without, allowed: 'yes' }] })).toBeNull();
+      expect(
+        decodeGeneratedImageQualityClasses({ ...wire, classes: [{ ...without, allowed: false, requiresPlan: 7 }] }),
+      ).toBeNull();
+    });
+
+    it('has no default when the default is one the plan locks', () => {
+      const locked = decodeGeneratedImageQualityClasses({
+        ...wire,
+        classes: [{ qualityClass: 'Standard', perPicture: 50, isDefault: true, allowed: false, requiresPlan: 'pro', requiresPlanName: 'Pro' }],
+      });
+
+      expect(locked?.defaultClass).toBeNull();
     });
 
     it('drops a class it does not know rather than hiding every class', () => {
       const decoded = decodeGeneratedImageQualityClasses({
         ...wire,
-        classes: [...wire.classes, { qualityClass: 'Ultra8K', perPicture: 900, isDefault: false }],
+        classes: [...wire.classes, { qualityClass: 'Ultra8K', perPicture: 900, isDefault: false, ...open }],
       });
 
       expect(decoded?.classes.map((row) => row.qualityClass)).toEqual(['Draft', 'Standard', 'High4K']);
@@ -364,7 +404,7 @@ describe('generated-image.models', () => {
     });
 
     it('refuses a list with a price that is not a number, rather than showing a class as free', () => {
-      const broken = { ...wire, classes: [{ qualityClass: 'Draft', perPicture: '25', isDefault: false }] };
+      const broken = { ...wire, classes: [{ qualityClass: 'Draft', perPicture: '25', isDefault: false, ...open }] };
 
       expect(decodeGeneratedImageQualityClasses(broken)).toBeNull();
       expect(decodeGeneratedImageQualityClasses({ ...wire, unit: null })).toBeNull();

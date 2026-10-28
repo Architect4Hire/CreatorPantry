@@ -195,16 +195,28 @@ show at once.
 
 ---
 
-## 6. Draft vs final images — **Removed**
+## 6. Picture quality — **Catalogue** (restored 2026-10-27, AP.4.5)
 
-Taken off the page (2026-10-25). The product makes one kind of picture: `VeniceImageGenerator` sends the one
-configured model and no size, quality or resolution, so each model's own default applies. Draft, standard,
-high, 2K and 4K are an AP.3.1 roadmap item that has not been built, and the page had begun to describe them
-as a choice a creator could make — on the plan cards, in the comparison table and in the credit menu.
+Taken off the page on 2026-10-25 because the product made one kind of picture, and back now that it does not.
+AP.3.1 shipped the five quality classes and a creator chooses one in Image Studio and the pipeline; AP.4.3
+made a plan decide which of them an account may ask for. Both are facts a visitor needs before paying, so the
+page states them.
 
-No page copy names a picture quality until AP.3.1 ships and a creator can choose one in the image studio.
-The catalogue's `qualityClasses`, `rates.imageDraft` and `rates.imageHigh` are still in the API contract and
-the development configuration, but the page reads none of them.
+**Where it appears:** one credit-menu line per class at its exact price (section 9), the qualities each plan
+includes on its card and the best it reaches in the comparison table (section 7), and the estimator's quality
+choice (section 9).
+
+**The one rate source.** A picture's price is the `Ai:Quota:ImageRates` row for exactly what its class sends,
+which is what admission holds and settles against. `GET /api/v1/plans` reads those rows (`pictureClasses`) —
+there is no figure for a picture anywhere in `Billing:Rates`, in TypeScript, or in this document. A class no
+plan includes is not published, so the page never advertises a quality nothing on sale reaches.
+
+| Claim | Source |
+| --- | --- |
+| A creator chooses a picture's quality | **Shipped** AP.3.1, AP.3.1A; `GeneratedImageQualityClass`, `cp-generated-image-run` |
+| A plan decides which qualities | **Shipped** AP.4.3; `media.generation.quality_class.forbidden`, `PlanQualityClassNames` |
+| The price shown is the price charged | **Shipped** AP.4.5; `PlanCatalogueBusiness.PictureClasses` prices through `AiImageQuotaConverter`, the calculator admission charges with — not the admission facade, whose graph needs a database this anonymous route must not touch. `PictureClassRateTests` holds the two equal |
+| How many pictures a plan buys | **Shipped** AP.4.5; `PlanServiceModel.PicturesAtDefaultQuality`, derived server-side because the browser may not divide credits by a rate. Bounded by a trial's lifetime cap (B-52), not by the daily cap |
 
 ---
 
@@ -216,8 +228,11 @@ the development configuration, but the page reads none of them.
 
 **Per plan card:** `{plan.name}` · `{plan.monthlyPrice}` a month, or `{plan.annualMonthlyPrice}` billed
 yearly (`{plan.annualSaving}` saved) · `{plan.credits}` AI credits a month · "about `{plan.exampleMix}`" ·
-up to `{plan.dailyImageCap}` pictures a day (on the trial, "`{plan.trialImageCap}` in all" too) · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
-No picture quality, on a card or in the comparison table (section 6).
+up to `{plan.dailyImageCap}` pictures a day (on the trial, "`{plan.trialImageCap}` in all" too) ·
+"Picture quality: `{plan.qualityClasses}`" · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
+
+The comparison table has a **Best picture quality** row — the highest class the plan includes, the comparable
+fact; the full list stays on the card, where it is read rather than compared (AP.4.5, section 6).
 
 "Recommended for most food bloggers" appears on the plan the catalogue flags (`{plan.recommended}`).
 
@@ -242,19 +257,25 @@ whichever model does the job. Your credits belong to you, not to a workspace, an
 workspace you work in.
 
 **Menu board:** a recipe draft or post "about `{rates.textDraft}`" · a long-form section "about
-`{rates.longFormSection}`" · a picture `{rates.imageStandard}`. One picture line, because there is one kind of
-picture (section 6). Writing says "about" because it settles at the tokens the model reported (AP.2.1); a
-picture is charged its rate. Owner, 2026-10-26: a recipe draft is about 5 credits, a long-form section stays 10.
+`{rates.longFormSection}`" · then **one line per picture quality** the catalogue publishes — "A draft picture",
+"A standard picture", "A high-quality picture", "A high-quality picture at 2K", "…at 4K" — each at
+`{pictureClasses[].perPicture}` and none of them saying "about" (AP.4.5, section 6). Writing says "about"
+because it settles at the tokens the model reported (AP.2.1); a picture is charged its quality's rate exactly,
+so the note under the menu says which is which. Owner, 2026-10-26: a recipe draft is about 5 credits, a
+long-form section stays 10.
 
-**Estimator:** "Pictures a month" and "AI writing a month" sliders. "Your **estimate** fits `{plan.name}`, with
-about `{headroom}` credits to spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack,
-or write to robert@creatorpantry.com and we'll work something out." (Contact per owner answer 6.)
+**Estimator:** "Pictures a month" and "AI writing a month" sliders, plus a **Picture quality** choice that
+prices the pictures — one count and a quality rather than a slider per class, because a creator estimating a
+month pictures the work they make and how good it has to be, not a mix. Shown only where the catalogue
+publishes more than one quality. "Your **estimate** fits `{plan.name}`, with about `{headroom}` credits to
+spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack, or write to
+robert@creatorpantry.com and we'll work something out." (Contact per owner answer 6.)
 
 | Claim | Source |
 | --- | --- |
 | Credits measure AI work the same whichever model | **Shipped** `AiQuotaUnit.Credits`, `dom/Modules/AiUsage/Managers/AiQuotaOptions.cs` |
 | Belong to you, shared across workspaces | **Shipped** USAGE-001, `AccountAiQuota` |
-| Picture rates | **Not built** AP.2.4 (images cost no credits today) |
+| Picture rates | **Shipped** AP.2.4, AP.2.5, AP.3.1; published from `Ai:Quota:ImageRates` per class (AP.4.5), the table admission charges |
 | Every figure | **Catalogue** AP.4.1 plus per-action rates (LP.7) |
 
 **Motion:** the menu board's prices tick in once; the estimator's result counts up. Instant under reduced

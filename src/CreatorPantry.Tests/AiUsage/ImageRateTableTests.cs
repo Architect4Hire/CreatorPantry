@@ -3,6 +3,7 @@ using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Tests.Auth;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -235,28 +236,40 @@ public sealed class ImageRateTableTests
     }
 
     /// <summary>
-    /// The landing page's picture figures (LP.7) are each at least what the picture they name actually costs in
-    /// credits, at the models <c>ai-pricing.md</c> B-51 names for the class: a draft on the draft model, and a
-    /// standard and a high picture at 1K on the configured one. The class-to-model mapping is AP.3.1's to
-    /// decide; this only holds the menu to never promising a picture below its cost.
+    /// <strong>Every quality class the shipped configuration offers has a rate and a cost.</strong> Since
+    /// AP.4.5 the landing page publishes a class's price by reading this table, so a class whose mapping is
+    /// unrated would be a quality a creator can choose, be charged for, and never see a figure for.
     /// </summary>
+    /// <remarks>
+    /// This replaces a weaker check that held the old hand-typed menu figures
+    /// (<c>Billing:Rates:ImageDraft</c> and the two beside it) to being no lower than what a picture cost. They
+    /// are gone: the menu is this table now, so the relation is equality rather than "at least", and
+    /// <c>PictureClassRateTests</c> asserts that against a running host. What is left to check here is the
+    /// shipped files themselves — that every class a deployment offers can be priced at all, which is what
+    /// startup refuses over.
+    /// </remarks>
     [Theory]
-    [InlineData("ImageDraft", "qwen-image-2-1-turbo", "1K", null)]
-    [InlineData("ImageStandard", "gpt-image-2-5-flare", "1K", "medium")]
-    [InlineData("ImageHigh", "gpt-image-2-5-flare", "1K", "high")]
-    public void Each_published_picture_rate_is_at_least_what_that_picture_costs(
-        string menuRate, string model, string? resolution, string? quality)
+    [InlineData(ApiSettings)]
+    [InlineData(WorkerSettings)]
+    public void Every_offered_quality_class_has_a_rate_and_a_cost(string file)
     {
-        var (rates, _) = Bind(ApiSettings);
-        var menu = Load("src/CreatorPantry.ApiService/appsettings.Development.json")
-            .GetValue<decimal>($"Billing:Rates:{menuRate}");
+        var (rates, prices) = Bind(file);
+        var classes = new GeneratedImageQualityClassOptions();
+        Load(file).GetSection(GeneratedImageQualityClassOptions.SectionName).Bind(classes);
 
-        var charge = AiImageQuotaConverter.Charge(AiQuotaUnit.Credits, model, resolution, quality, rates);
+        var offered = GeneratedImageQualityClassCatalogue.All(classes);
 
-        Assert.NotNull(charge);
-        Assert.True(
-            menu >= charge,
-            $"The menu's {menuRate} of {menu} credits is under the {charge} a {model} picture costs.");
+        Assert.NotEmpty(offered);
+        Assert.All(offered, settings =>
+        {
+            Assert.NotNull(AiImageQuotaConverter.Charge(
+                AiQuotaUnit.Credits, settings.ModelName, settings.Resolution, settings.Quality, rates));
+
+            // And a cost to put in the ledger beside the charge, so a class cannot be charged for without the
+            // platform knowing what it paid — AP.2.7's daily spend ceiling reads these.
+            Assert.NotNull(new ConfiguredAiCostEstimator(prices)
+                .EstimateImage(settings.ModelName, settings.Resolution, settings.Quality));
+        });
     }
 
     /// <summary>

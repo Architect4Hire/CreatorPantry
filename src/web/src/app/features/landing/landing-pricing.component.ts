@@ -8,6 +8,7 @@ import { Plan } from '../../models/plan-catalogue.models';
 import { LandingCount } from './landing-count';
 import { formatMoney } from './landing-money';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
+import { pictureQualityLabel } from './picture-quality';
 
 /** How a visitor says they would pay. The prices either way are the catalogue's; this picks which to show. */
 export type BillingPeriod = 'monthly' | 'annual';
@@ -90,8 +91,11 @@ export class LandingPricingComponent {
    *
    * Every value here is short on purpose. What a plan's credits buy is a sentence, and a column of sentences is
    * what made this table wider than the page; it is on each card already, where it is read rather than
-   * compared. There is no quality column: the catalogue lists quality classes for AP.3.1, but a picture has
-   * no quality to choose today, so no plan can differ by one.
+   * compared.
+   *
+   * **A picture-quality row since AP.4.5**, because a plan now genuinely differs by one: the qualities it may
+   * ask for are what it includes, and a creator choosing between plans is choosing between those. The best
+   * quality a plan reaches is the comparable fact; the full list is on the card.
    *
    * The labels are the page's; every value is the plan's own, so a figure cannot drift from the card above it
    * and no number is written into this file.
@@ -99,6 +103,9 @@ export class LandingPricingComponent {
   protected readonly comparisonColumns: readonly PlanComparisonColumn[] = [
     { label: 'Price', valueOf: (plan) => this.formatMoney(this.priceOf(plan)) },
     { label: 'Credits a month', valueOf: (plan) => this.formatCredits(plan.credits) },
+    // What the credits buy in pictures, above the daily cap, because it is the figure that decides the plan:
+    // pictures are what a creator's credits mostly go on (AP.4.5).
+    { label: 'Pictures a month', valueOf: (plan) => this.picturesAtDefaultQualityOf(plan) ?? '—' },
     {
       label: 'Pictures a day',
       valueOf: (plan) =>
@@ -106,8 +113,42 @@ export class LandingPricingComponent {
           ? plan.dailyImageCap.toLocaleString()
           : `${plan.dailyImageCap.toLocaleString()} (${plan.trialImageCap.toLocaleString()} in all)`,
     },
+    { label: 'Best picture quality', valueOf: (plan) => this.bestQualityOf(plan) },
     { label: 'Free trial', valueOf: (plan) => (plan.trialDays === null ? 'No' : `${plan.trialDays} days`) },
   ];
+
+  /**
+   * The qualities a plan includes, in the page's words — the card's line (AP.4.5).
+   *
+   * The catalogue publishes them in the enum's spelling (`High2K`) and ascending, so the last is the best — the
+   * section's own `Billing:Plans` writes `high-2k`, and the server normalises it before publishing (AP.4.5), so
+   * nothing here compares spellings. A class this bundle cannot word is left out rather than shown as its raw
+   * key, and a plan whose classes are all unwordable reads as stating none, which the card then does not print.
+   */
+  protected qualitiesOf(plan: Plan): readonly string[] {
+    return plan.qualityClasses.map(pictureQualityLabel).filter((label): label is string => label !== null);
+  }
+
+  /** The best quality a plan reaches, for the comparison row; a dash when it states none. */
+  protected bestQualityOf(plan: Plan): string {
+    return this.qualitiesOf(plan).at(-1) ?? '—';
+  }
+
+  /**
+   * How many pictures the plan's credits buy at the usual quality, as the table and the card say it — or null
+   * when the catalogue publishes no figure.
+   *
+   * "In all" rather than "a month" on a trial: its credits are granted once for the whole trial (B-48), so a
+   * monthly figure would be a promise of twelve times what it gives. The server's number either way; the
+   * choice of words is the only thing decided here.
+   */
+  protected picturesAtDefaultQualityOf(plan: Plan): string | null {
+    if (plan.picturesAtDefaultQuality === null) return null;
+
+    const count = plan.picturesAtDefaultQuality.toLocaleString();
+
+    return plan.trialDays === null ? count : `${count} in all`;
+  }
 
   /** What the table is and what its prices mean, said once, above it and as its caption. */
   protected readonly comparisonNote = computed(
@@ -153,8 +194,48 @@ export class LandingPricingComponent {
     return [
       `${this.formatCredits(plan.credits)} AI credits a month`,
       `About ${plan.exampleMix}`,
+      // What the credits buy in pictures, straight after what they buy in all: the largest single thing a
+      // creator spends them on, and so the line that decides the plan (AP.4.5).
+      ...this.capacityLineOf(plan),
       this.picturesOf(plan),
+      // Which qualities the plan may ask for (AP.4.5), which is now a real difference between plans rather
+      // than a field nothing rendered. Left off when the catalogue states none, rather than printed empty.
+      ...this.qualitiesLineOf(plan),
     ];
+  }
+
+  /**
+   * The card's capacity line: "About 120 standard pictures a month" (AP.4.5).
+   *
+   * Named with the quality it counts, so the figure cannot be read as pictures of any kind — at High it would
+   * be a third of it. "About", because the credits also buy the writing beside them: a creator spending them
+   * all on pictures is the ceiling, not the plan.
+   */
+  protected capacityLineOf(plan: Plan): readonly string[] {
+    const quality = this.defaultQualityWord();
+    if (plan.picturesAtDefaultQuality === null || quality === null) return [];
+
+    const count = plan.picturesAtDefaultQuality.toLocaleString();
+    const when = plan.trialDays === null ? 'a month' : 'in all';
+
+    return [`About ${count} ${quality} pictures ${when}`];
+  }
+
+  /** The default quality in lower case for the middle of a sentence, or null when none is published. */
+  private defaultQualityWord(): string | null {
+    const fallback = this.catalogue().defaultPictureClass;
+
+    return fallback === null ? null : (pictureQualityLabel(fallback)?.toLowerCase() ?? null);
+  }
+
+  /**
+   * "Picture quality: Draft, Standard, High" — the qualities a plan includes, in the catalogue's ascending
+   * order (AP.4.5). An empty array when it states none, so the card prints no line at all.
+   */
+  private qualitiesLineOf(plan: Plan): readonly string[] {
+    const qualities = this.qualitiesOf(plan);
+
+    return qualities.length === 0 ? [] : [`Picture quality: ${qualities.join(', ')}`];
   }
 
   /**

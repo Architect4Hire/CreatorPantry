@@ -1,6 +1,10 @@
 using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
+using CreatorPantry.Domain.Modules.Media.Managers;
+using CreatorPantry.Domain.Modules.Media.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -26,7 +30,18 @@ public sealed class PlanCatalogueTests
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
-        return new ServiceCollection().AddBillingModule(configuration).BuildServiceProvider();
+        var services = new ServiceCollection().AddBillingModule(configuration);
+
+        // The catalogue prices a picture by asking Media what it offers (AP.4.5), so the two facades that read
+        // come with it. Registered rather than AddMediaModule: these are the only parts of Media the catalogue
+        // touches, and both are singletons over configuration with no database behind them.
+        services.AddOptions<GeneratedImageQualityClassOptions>()
+            .Bind(configuration.GetSection(GeneratedImageQualityClassOptions.SectionName));
+        services.AddOptions<AiQuotaOptions>().Bind(configuration.GetSection(AiQuotaOptions.SectionName));
+        services.AddSingleton<IAiImagePriceFacade, AiImagePriceFacade>();
+        services.AddSingleton<IGeneratedImageQualityOfferFacade, GeneratedImageQualityOfferFacade>();
+
+        return services.BuildServiceProvider();
     }
 
     private static (string, string?)[] TwoPlans(bool publish = true) =>
@@ -62,9 +77,6 @@ public sealed class PlanCatalogueTests
         ("Billing:Packs:1:Price", "10"),
         ("Billing:Rates:TextDraft", "10"),
         ("Billing:Rates:LongFormSection", "10"),
-        ("Billing:Rates:ImageDraft", "25"),
-        ("Billing:Rates:ImageStandard", "50"),
-        ("Billing:Rates:ImageHigh", "90"),
     ];
 
     /// <summary>A third plan: the trial, free, with its length and its lifetime picture cap (B-48, B-52).</summary>
@@ -132,10 +144,17 @@ public sealed class PlanCatalogueTests
 
         Assert.Equal(10, rates.TextDraft);
         Assert.Equal(10, rates.LongFormSection);
-        Assert.Equal(25, rates.ImageDraft);
-        Assert.Equal(50, rates.ImageStandard);
-        Assert.Equal(90, rates.ImageHigh);
     }
+
+    /// <summary>
+    /// A picture's price is not on the menu's rates any more (AP.4.5): the three figures that used to be typed
+    /// there were a second copy of what admission charges, and <c>PictureClasses</c> reads the charging table.
+    /// </summary>
+    [Fact]
+    public void The_rates_carry_no_picture_figure_to_drift_from_the_charging_table() =>
+        Assert.Equal(
+            ["TextDraft", "LongFormSection"],
+            typeof(CreditRatesServiceModel).GetProperties().Select(property => property.Name));
 
     /// <summary>
     /// Nothing about what work costs leaks from a catalogue that is not published, any more than a price does.
@@ -145,8 +164,8 @@ public sealed class PlanCatalogueTests
     {
         var rates = Read(TwoPlans(publish: false)).Rates;
 
-        Assert.Equal(0, rates.ImageStandard);
         Assert.Equal(0, rates.TextDraft);
+        Assert.Equal(0, rates.LongFormSection);
     }
 
     /// <summary>
@@ -216,8 +235,10 @@ public sealed class PlanCatalogueTests
             [.. TwoPlans(), ("Billing:Currency", "dollars")]
         },
         {
+            // A written rate, since AP.4.5 took the picture figures out of this section: a picture's price is
+            // the charging table's, and this validation guards the figures that are still typed here.
             "a published rate is nought",
-            [.. TwoPlans(), ("Billing:Rates:ImageStandard", "0")]
+            [.. TwoPlans(), ("Billing:Rates:LongFormSection", "0")]
         },
     };
 

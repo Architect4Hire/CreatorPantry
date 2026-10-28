@@ -5,7 +5,14 @@ import { PlanCatalogue } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { BEYOND_TOP_PLAN_CONTACT, LandingCreditsComponent, NOTHING_CHOSEN } from './landing-credits.component';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
+
+/** Three qualities, as a host offering Draft, Standard and High publishes them (AP.4.5). */
+const pictureClasses = [
+  { qualityClass: 'Draft' as const, perPicture: 25 },
+  { qualityClass: 'Standard' as const, perPicture: 50 },
+  { qualityClass: 'High' as const, perPicture: 87.5 },
+];
 
 const plan = (key: string, name: string, credits: number, trialDays: number | null = null) => ({
   key,
@@ -21,6 +28,7 @@ const plan = (key: string, name: string, credits: number, trialDays: number | nu
   recommended: false,
   trialDays,
   trialImageCap: trialDays === null ? null : 10,
+  picturesAtDefaultQuality: trialDays === null ? Math.floor(credits / 50) : 10,
 });
 
 /** The trial first, as the catalogue publishes it cheapest-first, so the specs prove it is skipped. */
@@ -29,6 +37,9 @@ const published: PlanCatalogue = {
   plans: [plan('trial', 'Trial', 1000, 14), plan('creator', 'Creator', 6000), plan('pro', 'Pro', 18000), plan('studio', 'Studio', 40000)],
   packs: [],
   rates,
+  pictureClasses,
+  // What a picture is made at when nobody chooses, which is what the estimator starts from (AP.4.5).
+  defaultPictureClass: 'Standard' as const,
 };
 
 describe('LandingCreditsComponent', () => {
@@ -86,13 +97,66 @@ describe('LandingCreditsComponent', () => {
       li.querySelector('.cost')?.textContent?.trim(),
     ]);
 
+    // One line per quality the catalogue publishes, each at its exact credits (AP.4.5): a creator chooses a
+    // quality now, so one "a picture" line would misprice every other choice. Writing says "about"; none of
+    // the picture lines does, because a picture is charged its class's rate.
     expect(lines).toEqual([
       ['A recipe draft or post', 'about 10 credits'],
       ['A long-form section', 'about 10 credits'],
-      // One kind of picture: there is no quality to choose, so the draft and high rates are never shown.
-      ['A picture', '50 credits'],
+      ['A draft picture', '25 credits'],
+      ['A standard picture', '50 credits'],
+      ['A high-quality picture', '87.5 credits'],
     ]);
-    expect(host.querySelector('.typical')?.textContent).toContain('Typical figures');
+    expect(host.querySelector('.typical')?.textContent).toContain('Writing figures are typical');
+    expect(host.querySelector('.typical')?.textContent).toContain('exactly what its quality says');
+  });
+
+  /** A catalogue that prices no picture states the written lines alone, rather than half a menu. */
+  it('states only the writing lines when the catalogue prices no picture', async () => {
+    await create({ ...published, pictureClasses: [], defaultPictureClass: null });
+
+    const lines = Array.from(host.querySelectorAll('.menu li')).map((li) =>
+      li.querySelector('.item')?.textContent?.trim(),
+    );
+
+    expect(lines).toEqual(['A recipe draft or post', 'A long-form section']);
+    expect(host.querySelector('#landing-credits-quality')).toBeNull();
+  });
+
+  /**
+   * The estimator prices pictures at the quality a creator gets without choosing, not the cheapest the
+   * catalogue happens to list first — which would under-estimate a month and point at too small a plan.
+   */
+  it('starts from the catalogue’s default quality, and re-prices when another is chosen', async () => {
+    await create(published);
+
+    const quality = host.querySelector<HTMLSelectElement>('#landing-credits-quality')!;
+    expect(quality.value).toBe('Standard');
+
+    // 60 pictures at 50 and 20 writing actions at 10: 3,200.
+    expect(figure()).toBe('3,200');
+
+    // The counter animates to the new figure, as a slider's does, so this waits it out the way `drag` does.
+    quality.value = 'Draft';
+    quality.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    fixture.detectChanges();
+
+    // The same month at 25 a picture: 1,700. Nothing about the sliders changed.
+    expect(figure()).toBe('1,700');
+    expect(host.querySelector<HTMLInputElement>('#landing-credits-pictures')!.value).toBe('60');
+  });
+
+  /** One quality is no choice to offer: the menu above already states its figure. */
+  it('offers no quality choice when the catalogue publishes one', async () => {
+    await create({
+      ...published,
+      pictureClasses: [{ qualityClass: 'Standard', perPicture: 50 }],
+      defaultPictureClass: 'Standard',
+    });
+
+    expect(host.querySelector('#landing-credits-quality')).toBeNull();
   });
 
   it('offers two native sliders a keyboard can move, each with its value in sight', async () => {

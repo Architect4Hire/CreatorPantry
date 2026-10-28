@@ -370,7 +370,12 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         //
         // Seventeen since LF.2.2's outline request, which starts a long-form draft: the first of the dozen
         // generations an article takes, and the one that decides how many follow.
-        Assert.Equal(18, seams.Count);
+        //
+        // Nineteen since AP.3.2's prompt compaction, which shortens a prompt for a short-limit model. It was
+        // gated when it shipped and this count was not raised with it, so the number — not the gate — is what
+        // had been failing since. The assertion below is the invariant; this one is the ledger of how many
+        // seams there are to check.
+        Assert.Equal(19, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()

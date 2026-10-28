@@ -244,9 +244,9 @@ public sealed partial class GeneratedImageWorkerTests
     }
 
     private async Task<GeneratedImageOperationServiceModel> RequestAtAsync(
-        int variants, GeneratedImageQualityClass quality, string? key = null)
+        int variants, GeneratedImageQualityClass quality, string? key = null, string account = DefaultAccount)
     {
-        await using var scope = ScopeFor(WorkspaceA);
+        await using var scope = ScopeFor(WorkspaceA, account: account);
 
         var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>().RequestAsync(
             Request(variants, key: key) with { QualityClass = quality }, TestContext.Current.CancellationToken);

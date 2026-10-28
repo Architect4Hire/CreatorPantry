@@ -2,14 +2,17 @@ using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Gateways;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Managers.MalwareScanning;
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Storage;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Media;
 
@@ -56,12 +59,35 @@ public static class MediaServiceCollectionExtensions
                 options => options.Classes.Values.All(mapping => !string.IsNullOrWhiteSpace(mapping.Model)),
                 $"Every class under {GeneratedImageQualityClassOptions.SectionName}:Classes must name the model it "
                     + "sends to.")
+            .Validate<IOptions<BillingOptions>>(
+                // A request that names no class is made at this default (AP.3.1), and a plan decides which
+                // classes an account may ask for (AP.4.3) — so a plan that does not allow the default would
+                // refuse every picture asked for without choosing, including from every client shipped before
+                // the picker existed. Refused at startup, which is what lets admission treat a class-less
+                // request as never plan-refusable.
+                //
+                // Checked here rather than in Billing because the default class is this module's, so this is
+                // Media asserting its own precondition — and because Media already depends on Billing (a
+                // picture request resolves the account's plan), where the reverse would be a new edge back.
+                (options, billing) => options.DefaultClass is not { } fallback
+                    || !GeneratedImageQualityClassCatalogue.Offers(options)
+                    || billing.Value.Plans.Count == 0
+                    || billing.Value.Plans.All(plan => plan.QualityClasses.Any(listed =>
+                        PictureQualityVocabulary.Normalise(listed)
+                            == PictureQualityVocabulary.Normalise(fallback.ToString()))),
+                $"A plan under Billing:Plans does not allow {GeneratedImageQualityClassOptions.SectionName}"
+                    + ":DefaultClass; a request that names no quality class is made at it, so every plan has to "
+                    + "include it.")
             .ValidateOnStart();
 
         if (configuration is not null)
         {
             classes.Bind(configuration.GetSection(GeneratedImageQualityClassOptions.SectionName));
         }
+
+        // A singleton over configuration: no workspace, no account, no database (AP.4.5). It is what lets the
+        // anonymous plan catalogue publish a class's price without Billing reaching into this module.
+        services.AddSingleton<IGeneratedImageQualityOfferFacade, GeneratedImageQualityOfferFacade>();
 
         services.AddScoped<IGeneratedImageRepository, GeneratedImageRepository>();
         services.AddScoped<IGeneratedImageDataLayer, GeneratedImageDataLayer>();

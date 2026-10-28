@@ -62,8 +62,14 @@
             [name]="sectionIdPrefix() + '-quality'"
             [options]="classOptions()"
             [value]="chosenValue()"
+            [describedBy]="lockedSentence() === '' ? '' : sectionIdPrefix() + '-quality-locked'"
             (valueChange)="chooseClass($event)"
           />
+          <!-- What the plan locks, in reading order and as the group's description: a locked tile is a disabled
+               radio, so the keyboard never reaches the reason inside it (AP.4.3). -->
+          @if (lockedSentence() !== '') {
+            <p class="cp-muted" [id]="sectionIdPrefix() + '-quality-locked'">{{ lockedSentence() }}</p>
+          }
         </div>
       } @else if (onlyClassSentence() !== '') {
         <p class="cp-muted">{{ onlyClassSentence() }}</p>

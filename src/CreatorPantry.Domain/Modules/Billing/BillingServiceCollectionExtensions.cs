@@ -1,11 +1,15 @@
+using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Limits;
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing.Business;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.Configuration;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.Billing;
@@ -125,6 +129,15 @@ public static class BillingServiceCollectionExtensions
                     plan.QualityClasses.All(quality => !string.IsNullOrWhiteSpace(quality))
                     && plan.QualityClasses.Distinct(StringComparer.OrdinalIgnoreCase).Count() == plan.QualityClasses.Count),
                 "A plan under Billing:Plans lists a blank or repeated quality class.")
+            .Validate(
+                // A typo in a class name would otherwise be a class every plan quietly lacks and no creator can
+                // ever ask for, found by whoever first wonders why High is locked on the top plan. Matched
+                // through the shared vocabulary, which is the comparison admission makes too (AP.4.3), so a
+                // plan that starts is a plan whose classes resolve.
+                billing => billing.Plans.All(plan =>
+                    plan.QualityClasses.All(PictureQualityVocabulary.IsKnown)),
+                "A plan under Billing:Plans lists a quality class that is not one of them; the classes are "
+                    + $"{string.Join(", ", PictureQualityVocabulary.Names)}, spelled with or without hyphens.")
             .Validate<IOptions<LimitsOptions>>(
                 // Both caps apply to a request (AP.4.2): the plan's to the account, the workspace's to everyone in
                 // the workspace. A plan above the workspace's could never be reached by a creator who works in one
@@ -150,6 +163,11 @@ public static class BillingServiceCollectionExtensions
             .ValidateOnStart();
 
         services.AddSingleton<RemovedPlanWarnings>();
+
+        // The ops plan change writes a platform audit row in the same save (AP.4.4), as the quota routes do, and
+        // TryAdd so a host that already called AddAudit keeps the one registration.
+        services.TryAddScoped<IPlatformAuditWriter, PlatformAuditWriter>();
+        services.AddScoped<IValidator<SetAccountPlanViewModel>, SetAccountPlanViewModelValidator>();
 
         services.AddScoped<IPlanCatalogueBusiness, PlanCatalogueBusiness>();
         services.AddScoped<IPlanCatalogueFacade, PlanCatalogueFacade>();

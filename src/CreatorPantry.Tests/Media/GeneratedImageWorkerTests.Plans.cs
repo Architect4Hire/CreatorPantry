@@ -223,7 +223,7 @@ public sealed partial class GeneratedImageWorkerTests
 
         Assert.Equal(
             AccountPlanChangeOutcome.Changed,
-            await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
-                .ChangeAsync(accountId, planKey, AccountPlanSource.Ops, null, Ct));
+            (await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
+                .ChangeAsync(accountId, planKey, AccountPlanSource.Ops, null, audit: null, Ct)).Outcome);
     }
 }

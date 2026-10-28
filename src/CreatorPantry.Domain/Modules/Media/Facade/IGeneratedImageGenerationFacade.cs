@@ -90,8 +90,16 @@ public interface IGeneratedImageGenerationFacade
     /// The quality classes a creator may ask for here, each with what one picture of it costs (AP.3.1, B-55).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Contributor, like the quote and the request: the list exists to choose between, and a Viewer cannot ask.
-    /// Read-only and the same for every member — a price list, not the asker's balance.
+    /// Read-only — a price list, not the asker's balance.
+    /// </para>
+    /// <para>
+    /// <strong>The prices are the same for every member; which classes are allowed is not</strong> (AP.4.3). Each
+    /// class says whether the asking account's plan allows it and, when it does not, the cheapest plan that
+    /// would — a plan belongs to the account rather than the workspace (B-47), so this is no longer one answer
+    /// per workspace.
+    /// </para>
     /// </remarks>
     Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
         CancellationToken cancellationToken);
@@ -204,14 +212,20 @@ internal sealed class GeneratedImageGenerationFacade(
             LimitScope.User);
     }
 
-    public Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
-        CancellationToken cancellationToken) =>
-        Task.FromResult(workspace.Role < WorkspaceRole.Contributor
-            ? OperationResult<GeneratedImageQualityClassesServiceModel>.Failure(new OperationError(
+    public async Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
+        CancellationToken cancellationToken)
+    {
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImageQualityClassesServiceModel>.Failure(new OperationError(
                 MediaErrorCodes.GenerationForbidden,
                 "You do not have permission to generate images in this workspace.",
-                new Dictionary<string, string[]>()))
-            : OperationResult<GeneratedImageQualityClassesServiceModel>.Success(business.ListQualityClasses()));
+                new Dictionary<string, string[]>()));
+        }
+
+        return OperationResult<GeneratedImageQualityClassesServiceModel>.Success(
+            await business.ListQualityClassesAsync(cancellationToken));
+    }
 
     /// <summary>
     /// Whether a replayed key asked for the same quality as the request that took it (AP.3.1).
@@ -242,6 +256,41 @@ internal sealed class GeneratedImageGenerationFacade(
             MediaErrorCodes.GenerationQualityClassUnprocessable,
             message,
             [("qualityClass", "That picture quality is not offered here.")]);
+
+    /// <summary>
+    /// The refusal for a class this host offers that the account's plan does not allow (AP.4.3), naming the plan
+    /// that would allow it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The sentence carries the plan rather than a generic "the images could not be requested", because this is an
+    /// entitlement refusal of the family <c>ai.quota.suspended</c> belongs to: there is one fact to state and it
+    /// is the whole remedy. The field error names <c>qualityClass</c> as well, for a client that places a problem
+    /// on the control it came from.
+    /// </para>
+    /// <para>
+    /// The class is named in an extension and not in the sentence, as the prompt-fit refusals name no class
+    /// either: the words a creator reads for <c>High2K</c> are the picker's ("High, 2K"), and a second
+    /// vocabulary on the server would be one to drift.
+    /// </para>
+    /// </remarks>
+    private static OperationError QualityClassNotOnPlan(GeneratedImageQualityPlanRefusal refusal)
+    {
+        var sentence = refusal.RequiresPlanName is { } plan
+            ? $"That picture quality is not on your plan. The {plan} plan includes it."
+            : "That picture quality is not on your plan.";
+
+        return new OperationError(
+            MediaErrorCodes.GenerationQualityClassForbidden,
+            sentence,
+            new Dictionary<string, string[]> { ["qualityClass"] = ["That picture quality is not on your plan."] },
+            new Dictionary<string, object?>
+            {
+                ["qualityClass"] = refusal.QualityClass.ToString(),
+                ["requiresPlan"] = refusal.RequiresPlanKey,
+                ["requiresPlanName"] = refusal.RequiresPlanName,
+            });
+    }
 
     /// <summary>
     /// The refusal for a prompt the chosen class's model cannot take, naming the part that has to change and
@@ -331,6 +380,13 @@ internal sealed class GeneratedImageGenerationFacade(
                 QualityClassNotOffered("The images could not be priced."));
         }
 
+        // Priced only if it could be asked for (AP.4.3). A quote for a class the plan locks would be a figure for
+        // a request that is refused, and the quote exists so that cannot happen.
+        if (await business.RefuseIfPlanDisallowsAsync(chosen, cancellationToken) is { } locked)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(QualityClassNotOnPlan(locked));
+        }
+
         return OperationResult<GeneratedImageQuoteServiceModel>.Success(
             await business.QuoteAsync(count, chosen, cancellationToken));
     }
@@ -373,6 +429,17 @@ internal sealed class GeneratedImageGenerationFacade(
             }
 
             qualityClass = request.QualityClass;
+        }
+
+        // And a quality the account's plan allows (PRICE-007, AP.4.3). Asked straight after "does this host offer
+        // it", because it is the same kind of fact about the class and the cheapest one to state: nothing is read
+        // about the prompt, the proposal or the workspace's own limits before it. A replayed key is the exception
+        // again — a replay is never refused, so a plan that has since been downgraded still answers the operation
+        // the creator already paid for.
+        if (await business.RefuseIfPlanDisallowsAsync(qualityClass, cancellationToken) is { } locked
+            && !await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(QualityClassNotOnPlan(locked));
         }
 
         var promptText = request.PromptText.Trim();

@@ -63,7 +63,9 @@ public sealed class AccountPlanResolutionTests : IDisposable
         Assert.Equal(PlanAllowancePeriod.Once, plan.Period);
         Assert.Equal(5, plan.DailyImageCap);
         Assert.Equal(1, plan.RunningImages);
-        Assert.Equal(["draft", "standard"], plan.QualityClasses);
+        // The enum's spelling, as every Billing read publishes it since AP.4.5 — the catalogue section writes
+        // "draft" and "standard", and nothing outside Billing has to know that.
+        Assert.Equal(["Draft", "Standard"], plan.QualityClasses);
         Assert.Equal(14, plan.TrialDays);
         Assert.Equal(10, plan.TrialImageCap);
 
@@ -210,8 +212,10 @@ public sealed class AccountPlanResolutionTests : IDisposable
         var host = Host([("Billing:PublishPlans", "false")]);
 
         Assert.Null(await ResolveAsync(host, Sam));
-        Assert.Equal(AccountPlanChangeOutcome.UnknownPlan, await ChangeAsync(host, Sam, "pro", AccountPlanSource.Ops));
-        Assert.Equal(AccountPlanChangeOutcome.UnknownPlan, await ChangeAsync(host, Sam, null, AccountPlanSource.Ops));
+        // Its own answer since AP.4.4: a host with no catalogue is a different fact from a key this catalogue
+        // does not have, and the ops route answers them differently (404 against 422).
+        Assert.Equal(AccountPlanChangeOutcome.NoCatalogue, await ChangeAsync(host, Sam, "pro", AccountPlanSource.Ops));
+        Assert.Equal(AccountPlanChangeOutcome.NoCatalogue, await ChangeAsync(host, Sam, null, AccountPlanSource.Ops));
         Assert.Equal(0, await CountAsync(host));
     }
 
@@ -416,8 +420,8 @@ public sealed class AccountPlanResolutionTests : IDisposable
         DateTimeOffset? effectiveFrom = null)
     {
         using var scope = host.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
-            .ChangeAsync(accountId, planKey, source, effectiveFrom, CancellationToken.None);
+        return (await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>()
+            .ChangeAsync(accountId, planKey, source, effectiveFrom, audit: null, CancellationToken.None)).Outcome;
     }
 
     private static Task<int> CountAsync(ServiceProvider host) => WithDbAsync(host, db => db.AccountPlans.CountAsync());

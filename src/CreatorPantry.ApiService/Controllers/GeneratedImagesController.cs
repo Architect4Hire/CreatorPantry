@@ -90,6 +90,23 @@ public sealed class GeneratedImagesController(
     /// its operation if the default has changed — and a replayed key is answered even if its class has since
     /// been taken off this host.
     ///
+    /// **A plan says which qualities an account may ask for** (PRICE-007, AP.4.3). A class this host offers but
+    /// the account's plan does not allow answers `403 media.generation.quality_class.forbidden`, naming
+    /// `qualityClass` and carrying `requiresPlan` and `requiresPlanName` — the cheapest plan that would allow it,
+    /// or null when no plan does. `retry` is `none`: the same request cannot succeed until the plan changes.
+    /// Nothing is held or queued. A request that names no class is never refused this way, because every plan
+    /// allows the host's default class: `AddBillingModule`'s startup validation refuses a catalogue where one does
+    /// not, which is what makes the class-less path safe rather than merely untested. A replayed key is never
+    /// refused, so a downgrade does not strand pictures already paid for, and the worker does not check again.
+    ///
+    /// Asked before the allowance and the suspension, deliberately: it is the cheapest refusal and the most
+    /// specific, and it writes nothing. A suspended account naming a locked class is told about the class.
+    ///
+    /// **This narrows what the route accepts, on purpose** (PRICE-007). Before plans, every class this host
+    /// offered could be asked for by any member; now an account's plan decides. No API version was added: the gate
+    /// ships with the picker that respects it, and no deployment configures plans yet, so no shipped client is
+    /// refused anything it was previously granted.
+    ///
     /// **The prompt has to fit the class's model, and is never cut to fit** (AP.3.2). What is sent is the prompt,
     /// then the avoid list under a heading of its own, and each class's model takes so many characters of it. A
     /// request over that answers `422 media.generation.prompt.unprocessable` naming `promptText` when a shorter
@@ -176,7 +193,8 @@ public sealed class GeneratedImagesController(
     /// snapshot: the request is still the decision, and can be refused if the balance moved in between.
     ///
     /// Refused as the request it prices would be: `400 media.generation.invalid_request` for a count outside one
-    /// to four, `422 media.generation.quality_class.unprocessable` for a class this host does not offer, and
+    /// to four, `422 media.generation.quality_class.unprocessable` for a class this host does not offer,
+    /// `403 media.generation.quality_class.forbidden` for one the account's plan does not allow (AP.4.3), and
     /// `403 media.generation.forbidden` for a member below Contributor.
     ///
     /// **A host that cannot price the picture answers `200` with `outcome: Unavailable`, not `503`.** The request
@@ -211,8 +229,8 @@ public sealed class GeneratedImagesController(
     /// </param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <remarks>
-    /// Read-only and the same for every member: a price list, not the caller's balance — what a particular
-    /// request would cost and leave is the quote's. Contributor, like the quote and the request it is for.
+    /// Read-only: a price list, not the caller's balance — what a particular request would cost and leave is the
+    /// quote's. Contributor, like the quote and the request it is for.
     ///
     /// `classes` is in ascending order, `Draft` to `High4K`, and holds only the classes this host offers. Each
     /// `perPicture` is in `unit` (credits) and is the rate the request is charged at for what that class sends
@@ -220,6 +238,15 @@ public sealed class GeneratedImagesController(
     /// a request names a class. `defaultClass` is what a request that names none is made at. A host that offers
     /// no classes answers an empty list and a null `defaultClass`; every picture there is the deployment's own
     /// default.
+    ///
+    /// **The prices are the same for every member; which classes are allowed is not** (PRICE-007, AP.4.3). Each
+    /// class carries `allowed` — whether the asking account's plan allows a picture of it — and, when it does
+    /// not, `requiresPlan` and `requiresPlanName`: the cheapest plan that would, or null when no plan does. A
+    /// locked class stays in the list with its price, so a picker can show it and say what unlocks it; asking
+    /// for one answers `403 media.generation.quality_class.forbidden`, and hiding it in the browser is
+    /// presentation only. A plan belongs to the account rather than the workspace (B-47), so two members of one
+    /// workspace can read different flags from this list and nothing may cache it by workspace alone. On a host
+    /// with no plans configured every class is `allowed` with no plan named.
     /// </remarks>
     [HttpGet("quality-classes")]
     [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]

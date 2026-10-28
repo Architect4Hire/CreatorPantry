@@ -256,14 +256,23 @@ export function avoidTextFor(avoid: readonly string[]): string | null {
 }
 
 /**
- * The one refusal a client has to read by name.
+ * The refusals a client has to read by name.
  *
  * Every other refusal on these routes is told apart by its status, which `ProblemResults.StatusFor` guarantees
  * from the code's own suffix — `.not_found` is a 404, `.conflict` a 409, `.forbidden` a 403, `.unavailable` a
  * 503. This one shares the 400 with the feature's own validation error and means something quite different, so
- * it is the only code worth naming here.
+ * it is worth naming here.
  */
 export const IDEMPOTENCY_KEY_REQUIRED_CODE = 'idempotency.key_required';
+
+/**
+ * The account's plan does not allow the quality asked for (AP.4.3).
+ *
+ * Named for the same reason: it shares the 403 with "you are not allowed to make pictures in this workspace",
+ * and the two have nothing to do with each other. Telling a creator on a Trial plan to ask an Owner for
+ * permission would send them to someone who cannot help.
+ */
+export const QUALITY_CLASS_FORBIDDEN_CODE = 'media.generation.quality_class.forbidden';
 
 /**
  * A whole count, which the contract types as an integer or its string form.
@@ -492,7 +501,8 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
 /** Mirrors `GeneratedImageQualityClass`: how good a picture is asked to be, never which model makes it (AP.3.1). */
 export type GeneratedImageQualityClass = 'Draft' | 'Standard' | 'High' | 'High2K' | 'High4K';
 
-const GENERATED_IMAGE_QUALITY_CLASS_VALUES: ReadonlySet<string> = new Set<GeneratedImageQualityClass>([
+/** Exported so the landing page's catalogue decoder reads the same set, not a second copy of it (AP.4.5). */
+export const GENERATED_IMAGE_QUALITY_CLASS_VALUES: ReadonlySet<string> = new Set<GeneratedImageQualityClass>([
   'Draft',
   'Standard',
   'High',
@@ -506,6 +516,15 @@ export interface GeneratedImageQualityClassPrice {
   /** The rate a request at this class is charged per picture — the server's figure, shown and never worked with. */
   readonly perPicture: number;
   readonly isDefault: boolean;
+  /**
+   * Whether this account's plan allows a picture of this class (AP.4.3). False is locked: still shown, still
+   * priced, and refused by the server if asked for anyway.
+   */
+  readonly allowed: boolean;
+  /** The key of the cheapest plan that would allow it; null when it is allowed, or when no plan allows it. */
+  readonly requiresPlan: string | null;
+  /** That plan's name, to say in the words a reader sees. Null under the same conditions. */
+  readonly requiresPlanName: string | null;
 }
 
 /**
@@ -528,7 +547,8 @@ export interface GeneratedImageQualityClasses {
  * A row naming a class this bundle does not know is dropped rather than refusing the list: a class added on the
  * server is then simply not offered here, which is safe, where refusing would hide every class. A price that is
  * there but not a number refuses the whole list, as the quote's figures do — a creator shown no price for one
- * class would read it as free.
+ * class would read it as free. A missing or non-boolean `allowed` refuses it for the same reason (AP.4.3): a
+ * locked class drawn as an open one offers a choice the server will refuse.
  */
 export function decodeGeneratedImageQualityClasses(value: unknown): GeneratedImageQualityClasses | null {
   if (!isRecord(value) || typeof value['unit'] !== 'string' || !Array.isArray(value['classes'])) return null;
@@ -546,10 +566,24 @@ export function decodeGeneratedImageQualityClasses(value: unknown): GeneratedIma
       return null;
     }
 
+    // Strictly, like the price beside it: a row whose `allowed` the page cannot read is a tile it cannot say is
+    // locked, and drawing it open would offer a choice the server refuses. The plan names may be absent — an
+    // allowed class has none — but must be strings when they are there.
+    const allowed = row['allowed'];
+    const requiresPlan = row['requiresPlan'] ?? null;
+    const requiresPlanName = row['requiresPlanName'] ?? null;
+    if (
+      typeof allowed !== 'boolean' ||
+      (requiresPlan !== null && typeof requiresPlan !== 'string') ||
+      (requiresPlanName !== null && typeof requiresPlanName !== 'string')
+    ) {
+      return null;
+    }
+
     const qualityClass = decodeEnum<GeneratedImageQualityClass>(GENERATED_IMAGE_QUALITY_CLASS_VALUES, row['qualityClass']);
     if (qualityClass === null) continue;
 
-    classes.push({ qualityClass, perPicture, isDefault: row['isDefault'] });
+    classes.push({ qualityClass, perPicture, isDefault: row['isDefault'], allowed, requiresPlan, requiresPlanName });
   }
 
   const defaultClass =
@@ -558,8 +592,10 @@ export function decodeGeneratedImageQualityClasses(value: unknown): GeneratedIma
       : decodeEnum<GeneratedImageQualityClass>(GENERATED_IMAGE_QUALITY_CLASS_VALUES, rawDefault);
 
   return {
-    // Only a default that is offered here: one this bundle cannot show is no default to pick.
-    defaultClass: classes.some((row) => row.qualityClass === defaultClass) ? defaultClass : null,
+    // Only a default that is offered here and allowed: one this bundle cannot show, or one the plan locks, is no
+    // default to pick. The server refuses a catalogue whose plans do not allow the default class, so the second
+    // half of that is a guard rather than a state anyone should see.
+    defaultClass: classes.some((row) => row.qualityClass === defaultClass && row.allowed) ? defaultClass : null,
     unit: value['unit'],
     classes,
   };

@@ -8,7 +8,11 @@
 // No figure in here has a counterpart in this bundle: prices, credits and caps are the server's, read at
 // runtime, so a price can change without a release and the browser can never disagree with the catalogue.
 
-import { isRecord } from './recipe.models';
+import {
+  GENERATED_IMAGE_QUALITY_CLASS_VALUES,
+  GeneratedImageQualityClass,
+} from './generated-image.models';
+import { decodeEnum, isRecord } from './recipe.models';
 
 /** One plan on offer. Money is a number in the catalogue's currency, formatted for the reader at the edge. */
 export interface Plan {
@@ -31,6 +35,14 @@ export interface Plan {
   readonly trialDays: number | null;
   /** Pictures the whole trial may make, beside its daily cap; null on a paid plan. The trial's gate (B-52). */
   readonly trialImageCap: number | null;
+  /**
+   * How many pictures these credits buy at the catalogue's default quality (AP.4.5) — the figure that decides
+   * which plan a creator needs, since pictures are what credits mostly go on.
+   *
+   * The server's, because the browser may not divide credits by a rate. Already bounded by a trial's lifetime
+   * cap. Null when the catalogue publishes no default quality or cannot price it.
+   */
+  readonly picturesAtDefaultQuality: number | null;
 }
 
 /**
@@ -50,9 +62,18 @@ export interface CreditPack {
 export interface CreditRates {
   readonly textDraft: number;
   readonly longFormSection: number;
-  readonly imageDraft: number;
-  readonly imageStandard: number;
-  readonly imageHigh: number;
+}
+
+/**
+ * What one picture of one quality costs, in credits (PRICE-006, PRICE-013, AP.4.5).
+ *
+ * Not typical, unlike the rates above: this is the figure admission charges for that class, read from the same
+ * table, so no line that states it says "about". Mirrors `PictureClassRateServiceModel`.
+ */
+export interface PictureClassRate {
+  /** Mirrors `GeneratedImageQualityClass`. A class this bundle does not know is dropped from the list. */
+  readonly qualityClass: GeneratedImageQualityClass;
+  readonly perPicture: number;
 }
 
 export interface PlanCatalogue {
@@ -65,6 +86,18 @@ export interface PlanCatalogue {
    * section's missing data is not a reason to take the pricing off the page.
    */
   readonly rates: CreditRates | null;
+  /**
+   * What a picture of each quality costs, cheapest first (AP.4.5). Empty when the catalogue publishes none — a
+   * deployment with no plans, or one whose plans reach no class this bundle knows. The menu then states no
+   * picture line and the estimator offers no quality, rather than pricing every picture as one kind.
+   */
+  readonly pictureClasses: readonly PictureClassRate[];
+  /**
+   * The quality a picture is made at when a creator chooses none (AP.4.5). Null when the catalogue publishes
+   * none, or names one it does not price — the estimator then starts from the cheapest it was given, which is
+   * the only other figure it can honestly use.
+   */
+  readonly defaultPictureClass: GeneratedImageQualityClass | null;
 }
 
 function numberAt(value: Record<string, unknown>, key: string): number | null {
@@ -104,6 +137,7 @@ export function decodePlan(value: unknown): Plan | null {
   const qualityClasses = value['qualityClasses'];
   const trialDays = optionalNumberAt(value, 'trialDays');
   const trialImageCap = optionalNumberAt(value, 'trialImageCap');
+  const picturesAtDefaultQuality = optionalNumberAt(value, 'picturesAtDefaultQuality');
 
   if (
     key === null ||
@@ -117,6 +151,7 @@ export function decodePlan(value: unknown): Plan | null {
     dailyImageCap === null ||
     trialDays === undefined ||
     trialImageCap === undefined ||
+    picturesAtDefaultQuality === undefined ||
     !Array.isArray(qualityClasses)
   ) {
     return null;
@@ -136,6 +171,7 @@ export function decodePlan(value: unknown): Plan | null {
     recommended: value['recommended'] === true,
     trialDays,
     trialImageCap,
+    picturesAtDefaultQuality,
   };
 }
 
@@ -161,9 +197,6 @@ export function decodeCreditRates(value: unknown): CreditRates | null {
   const rates = {
     textDraft: numberAt(value, 'textDraft'),
     longFormSection: numberAt(value, 'longFormSection'),
-    imageDraft: numberAt(value, 'imageDraft'),
-    imageStandard: numberAt(value, 'imageStandard'),
-    imageHigh: numberAt(value, 'imageHigh'),
   };
 
   return Object.values(rates).some((rate) => rate === null) ? null : (rates as CreditRates);
@@ -177,10 +210,49 @@ export function decodePlanCatalogue(value: unknown): PlanCatalogue | null {
   const packs = value['packs'];
   if (currency === null || !Array.isArray(plans) || !Array.isArray(packs)) return null;
 
+  const pictures = decodePictureClassRates(value['pictureClasses']);
+  const fallback = decodeEnum<GeneratedImageQualityClass>(
+    GENERATED_IMAGE_QUALITY_CLASS_VALUES,
+    value['defaultPictureClass'],
+  );
+
   return {
     currency,
     plans: plans.map(decodePlan).filter((plan): plan is Plan => plan !== null),
     packs: packs.map(decodeCreditPack).filter((pack): pack is CreditPack => pack !== null),
     rates: decodeCreditRates(value['rates']),
+    pictureClasses: pictures,
+    // Only a default the list actually prices: one it does not is no quality to start an estimate from.
+    defaultPictureClass: pictures.some((row) => row.qualityClass === fallback) ? fallback : null,
   };
+}
+
+/**
+ * Decodes the per-picture prices, cheapest first as the server sent them.
+ *
+ * A row naming a class this bundle does not know is dropped rather than refusing the list, exactly as the
+ * studio's own price list drops one: a class added on the server is then simply not advertised here, which is
+ * safe, where refusing would take the whole menu off the page. A price that is there but not a number drops its
+ * row too — a quality shown with no figure would read as free.
+ */
+export function decodePictureClassRates(value: unknown): readonly PictureClassRate[] {
+  if (!Array.isArray(value)) return [];
+
+  const rates: PictureClassRate[] = [];
+
+  for (const row of value as unknown[]) {
+    if (!isRecord(row)) continue;
+
+    const qualityClass = decodeEnum<GeneratedImageQualityClass>(
+      GENERATED_IMAGE_QUALITY_CLASS_VALUES,
+      row['qualityClass'],
+    );
+    const perPicture = numberAt(row, 'perPicture');
+
+    if (qualityClass !== null && perPicture !== null) {
+      rates.push({ qualityClass, perPicture });
+    }
+  }
+
+  return rates;
 }
