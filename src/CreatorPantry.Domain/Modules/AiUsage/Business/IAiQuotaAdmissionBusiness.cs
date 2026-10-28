@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Facade;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -75,6 +76,7 @@ internal sealed class AiQuotaAdmissionBusiness(
     IAiQuotaDataLayer dataLayer,
     IPlatformImageSpendDataLayer platformSpend,
     IAiQuotaPeriodResolver periods,
+    IAccountCreditSpendFacade credits,
     IClock clock,
     IOptions<AiQuotaOptions> options,
     IOptions<AiImageListPriceOptions> listPrices,
@@ -146,23 +148,29 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            (current, _) => Covers(current, hold)
-                ? new AccountAiQuotaReservation
-                {
-                    Id = Guid.NewGuid(),
-                    AccountId = request.AccountId,
-                    PeriodId = current.Id,
-                    AiOperationId = request.AiOperationId,
-                    LeaseToken = request.LeaseToken,
-                    TaskType = request.TaskType,
-                    Unit = current.Unit,
-                    ReservedAmount = hold,
-                    PerAttemptEstimate = AiQuotaUnitConverter.Round(perAttempt),
-                    Status = AiQuotaReservationStatus.Held,
-                    HeldAt = now,
-                    ExpiresAt = request.ExpiresAt,
-                }
-                : null,
+            async (current, _, token) =>
+            {
+                var id = Guid.NewGuid();
+
+                return await SplitAsync(current, request.AccountId, id, hold, now, token) is { } fromAllowance
+                    ? new AccountAiQuotaReservation
+                    {
+                        Id = id,
+                        AccountId = request.AccountId,
+                        PeriodId = current.Id,
+                        AiOperationId = request.AiOperationId,
+                        LeaseToken = request.LeaseToken,
+                        TaskType = request.TaskType,
+                        Unit = current.Unit,
+                        ReservedAmount = hold,
+                        ReservedFromAllowance = fromAllowance,
+                        PerAttemptEstimate = AiQuotaUnitConverter.Round(perAttempt),
+                        Status = AiQuotaReservationStatus.Held,
+                        HeldAt = now,
+                        ExpiresAt = request.ExpiresAt,
+                    }
+                    : null;
+            },
             platform: null,
             imageDayStart: null,
             cancellationToken);
@@ -178,7 +186,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                 hold,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt),
+                settled.EndsAt) { PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken) },
 
             AiQuotaWriteOutcome.Refused => new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Exhausted,
@@ -186,7 +194,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                 0m,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt),
+                settled.EndsAt) { PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken) },
 
             // Contended, or a period that vanished between two reads, which nothing does. Neither is a
             // statement about the account's balance, so neither refuses the run: the caller requeues.
@@ -247,18 +255,24 @@ internal sealed class AiQuotaAdmissionBusiness(
         }
 
         var total = AiQuotaUnitConverter.Round(perImage.Value * variantCount);
-        var affordable = Covers(period, total);
+        var packs = await PackBalanceAsync(accountId, period.Unit, cancellationToken);
+        var affordable = AiQuotaSourceSplit.Covers(total, remaining, packs);
 
         // Counted down with admission's own predicate and rounding rather than divided, so "enough for two"
         // is a request for two that admission would then accept.
         var fits = variantCount;
 
-        while (fits > 0 && !Covers(period, AiQuotaUnitConverter.Round(perImage.Value * fits)))
+        while (fits > 0
+            && !AiQuotaSourceSplit.Covers(AiQuotaUnitConverter.Round(perImage.Value * fits), remaining, packs))
         {
             fits--;
         }
 
-        decimal? after = affordable ? remaining - total : null;
+        // Split as admission would split it: the allowance first, then the pack balance (AP.5.2), so each source
+        // says what it would have left and neither is read as the other.
+        var (fromAllowance, fromGrants) = AiQuotaSourceSplit.Hold(total, remaining);
+        decimal? after = affordable ? remaining - fromAllowance : null;
+        decimal? packAfter = affordable ? packs - fromGrants : null;
 
         return new AiImageQuoteServiceModel(
             affordable ? AiImageQuoteOutcome.Affordable : AiImageQuoteOutcome.Exhausted,
@@ -273,7 +287,11 @@ internal sealed class AiQuotaAdmissionBusiness(
             after is { } left
                 && AiQuotaPeriodCalculator.IsNearlySpent(spendable, left, _options.NearlySpentFraction),
             period.EndsAt,
-            period.TimeZoneId);
+            period.TimeZoneId)
+        {
+            PackRemaining = packs,
+            PackRemainingAfter = packAfter,
+        };
     }
 
     /// <remarks>
@@ -307,9 +325,12 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaUnitConverter.Estimate(period.Unit, EstimateFor(taskType), _options) * CallsPerRun())
             : 0m;
 
-        // The same predicate admission applies, so the two cannot disagree about where the line is. At the
-        // limit exactly is available: a hold the balance covers to the penny is one the balance covers.
-        var covered = !isMeterable || Covers(period, required);
+        var packs = await PackBalanceAsync(accountId, period.Unit, cancellationToken);
+
+        // The same predicate admission applies, so the two cannot disagree about where the line is: the allowance
+        // and then the pack balance (AP.5.2). At the limit exactly is available: a hold the balance covers to the
+        // penny is one the balance covers.
+        var covered = !isMeterable || AiQuotaSourceSplit.Covers(required, Remaining(period), packs);
 
         return new AiQuotaStateServiceModel(
             covered ? AiQuotaStateOutcome.Available : AiQuotaStateOutcome.Exhausted,
@@ -317,7 +338,7 @@ internal sealed class AiQuotaAdmissionBusiness(
             Spendable(period),
             Remaining(period),
             required,
-            period.EndsAt);
+            period.EndsAt) { PackRemaining = packs };
     }
 
     /// <remarks>
@@ -400,7 +421,7 @@ internal sealed class AiQuotaAdmissionBusiness(
     }
 
     public async Task PostAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        await dataLayer.PostAsync(reservationId, clock.UtcNow, cancellationToken);
+        await dataLayer.PostAsync(reservationId, clock.UtcNow, ResolveGrantsAsync, cancellationToken);
 
     public async Task RenewAsync(
         Guid reservationId, DateTimeOffset expiresAt, CancellationToken cancellationToken) =>
@@ -418,7 +439,7 @@ internal sealed class AiQuotaAdmissionBusiness(
         // row -- but it would leave the charge unposted for another whole sweep.
         foreach (var id in await dataLayer.FindUnpostedReservationIdsAsync(cancellationToken))
         {
-            if (await dataLayer.PostAsync(id, now, cancellationToken) is AiQuotaWriteOutcome.Applied)
+            if (await dataLayer.PostAsync(id, now, ResolveGrantsAsync, cancellationToken) is AiQuotaWriteOutcome.Applied)
             {
                 posted++;
             }
@@ -426,7 +447,7 @@ internal sealed class AiQuotaAdmissionBusiness(
 
         foreach (var id in await dataLayer.FindLapsedReservationIdsAsync(now, cancellationToken))
         {
-            if (await dataLayer.ExpireAsync(id, now, cancellationToken) is AiQuotaWriteOutcome.Applied)
+            if (await dataLayer.ExpireAsync(id, now, ResolveGrantsAsync, cancellationToken) is AiQuotaWriteOutcome.Applied)
             {
                 expired++;
             }
@@ -590,14 +611,23 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            (current, imagesToday) =>
+            async (current, imagesToday, token) =>
             {
                 // All of this request or none of it, as the workspace's cap is: four with three left is refused.
                 overDay = request.DailyImageCap is { } cap && imagesToday + request.VariantCount > cap;
 
-                return overDay || !Covers(current, hold) ? null : new AccountAiQuotaReservation
+                if (overDay)
                 {
-                    Id = Guid.NewGuid(),
+                    return null;
+                }
+
+                var id = Guid.NewGuid();
+
+                return await SplitAsync(current, request.AccountId, id, hold, now, token) is not { } fromAllowance
+                    ? null
+                    : new AccountAiQuotaReservation
+                {
+                    Id = id,
                     AccountId = request.AccountId,
                     PeriodId = current.Id,
                     AiOperationId = request.GeneratedImageOperationId,
@@ -605,6 +635,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                     TaskType = AiTaskType.ImageGeneration,
                     Unit = current.Unit,
                     ReservedAmount = hold,
+                    ReservedFromAllowance = fromAllowance,
 
                     // The per-picture price. Settlement multiplies it by what was billed, so it never needs
                     // the model, tier or quality again — which is what lets a worker that does not know them
@@ -662,7 +693,11 @@ internal sealed class AiQuotaAdmissionBusiness(
                 hold,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt) { Required = hold },
+                settled.EndsAt)
+            {
+                Required = hold,
+                PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken),
+            },
 
             // Carrying what it would have taken, which is what the refusal has to be able to tell a creator
             // (USAGE-007): "your allowance is spent" alone does not say whether they are one picture over or
@@ -673,7 +708,11 @@ internal sealed class AiQuotaAdmissionBusiness(
                 0m,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt) { Required = hold },
+                settled.EndsAt)
+            {
+                Required = hold,
+                PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken),
+            },
 
             _ => new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Busy, null, 0m, 0m, settled.Unit, settled.EndsAt) { Required = hold },
@@ -768,7 +807,7 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// only give-back the counter has — see <c>PlatformImageSpendDay.AdmittedMicros</c>.
     /// </remarks>
     public async Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        await dataLayer.ReleaseImageAsync(reservationId, clock.UtcNow, cancellationToken);
+        await dataLayer.ReleaseImageAsync(reservationId, clock.UtcNow, ResolveGrantsAsync, cancellationToken);
 
     /// <summary>
     /// Records a refusal for the ceiling and, for the one refusal that trips the day, raises the alert: the
@@ -864,8 +903,54 @@ internal sealed class AiQuotaAdmissionBusiness(
         return traceId is { } id && id != default ? Guid.ParseExact(id.ToHexString(), "N") : Guid.NewGuid();
     }
 
-    private static bool Covers(AccountAiQuotaPeriod period, decimal hold) =>
-        period.Consumed + period.Reserved + hold <= Spendable(period);
+    /// <summary>
+    /// How much of <paramref name="hold"/> the period's allowance covers, with the rest taken from the account's
+    /// grants and staged on this unit of work; null, having staged nothing, when the two together fall short
+    /// (AP.5.2). The admission predicate, and the only place a hold is split.
+    /// </summary>
+    /// <remarks>
+    /// Run inside the reservation's retried write, against the period it has just read. Every hold moves the
+    /// period, so a hold that commits after that read fails this attempt's save; one that committed before it is
+    /// already in the grants read here. A period counted in tokens spends its allowance only — grants are credits,
+    /// and <see cref="AiQuotaUnit.Tokens"/> is declared rather than used.
+    /// </remarks>
+    private async Task<decimal?> SplitAsync(
+        AccountAiQuotaPeriod period,
+        string accountId,
+        Guid holdId,
+        decimal hold,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var (fromAllowance, fromGrants) = AiQuotaSourceSplit.Hold(hold, Remaining(period));
+
+        if (fromGrants == 0m)
+        {
+            return fromAllowance;
+        }
+
+        if (period.Unit is not AiQuotaUnit.Credits)
+        {
+            return null;
+        }
+
+        return await credits.StageDrawAsync(accountId, holdId, fromGrants, now, cancellationToken)
+            ? fromAllowance
+            : null;
+    }
+
+    /// <summary>The account's pack balance, or nought for a period counted in tokens, which never spends it.</summary>
+    private async Task<decimal> PackBalanceAsync(string accountId, AiQuotaUnit unit, CancellationToken cancellationToken) =>
+        unit is AiQuotaUnit.Credits ? await credits.BalanceAsync(accountId, cancellationToken) : 0m;
+
+    /// <summary>
+    /// Ends a hold's draws on the account's grants as part of the write that releases it: what the charge took from
+    /// them is kept, the rest goes back to the grant it came from (AP.5.2). Staged on the same save.
+    /// </summary>
+    private Task ResolveGrantsAsync(
+        AccountAiQuotaReservation reservation, decimal spentFromGrants, CancellationToken cancellationToken) =>
+        credits.StageResolveAsync(
+            reservation.AccountId, reservation.Id, spentFromGrants, clock.UtcNow, cancellationToken);
 
     /// <summary>
     /// What the period may spend in all: what it opened with, what upgrades added (AP.4.2), and what the period

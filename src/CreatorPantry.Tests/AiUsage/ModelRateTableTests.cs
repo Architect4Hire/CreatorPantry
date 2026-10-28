@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
@@ -121,34 +120,6 @@ public sealed class ModelRateTableTests
         Assert.Equal(5m, menu);
         Assert.NotNull(draft);
         Assert.True(draft < menu, $"A typical draft settles at {draft} credits, over the menu's {menu}.");
-    }
-
-    /// <summary>
-    /// Each plan card's "about N recipe drafts, N social posts and N pictures" is priced at the menu's own rates —
-    /// a draft and a post each a <c>TextDraft</c>, a picture an <c>ImageStandard</c> — and adds up to no more than
-    /// the plan's credits, so the card never promises more than the allowance buys.
-    /// </summary>
-    [Fact]
-    public void Each_plans_example_mix_fits_its_credits_at_the_menus_rates()
-    {
-        var billing = Load("src/CreatorPantry.ApiService/appsettings.Development.json").GetSection("Billing");
-        var text = billing.GetValue<int>("Rates:TextDraft");
-        var picture = billing.GetValue<int>("Rates:ImageStandard");
-        var plans = billing.GetSection("Plans").GetChildren().ToList();
-
-        Assert.NotEmpty(plans);
-        Assert.All(plans, plan =>
-        {
-            var mix = Regex.Match(
-                plan["ExampleMix"] ?? string.Empty,
-                @"^(\d+) recipe drafts, (\d+) social posts and (\d+) pictures$");
-            Assert.True(mix.Success, $"{plan["Key"]}'s ExampleMix is not in the priced shape.");
-
-            var cost = ((int.Parse(mix.Groups[1].Value) + int.Parse(mix.Groups[2].Value)) * text)
-                + (int.Parse(mix.Groups[3].Value) * picture);
-
-            Assert.True(cost <= plan.GetValue<int>("Credits"), $"{plan["Key"]}'s example mix costs {cost} credits.");
-        });
     }
 
     /// <summary>

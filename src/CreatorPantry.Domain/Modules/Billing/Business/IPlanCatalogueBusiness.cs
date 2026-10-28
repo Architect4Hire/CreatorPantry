@@ -132,13 +132,37 @@ internal sealed class PlanCatalogueBusiness(
             annualPrice,
             annualSaving,
             plan.Credits,
-            plan.ExampleMix,
+            ExampleMixOf(plan.ExampleCounts),
             plan.DailyImageCap,
             QualityClassesOf(plan),
             plan.Recommended,
             plan.TrialDays,
             plan.TrialImageCap,
-            PicturesAtDefaultQuality(plan, perDefaultPicture));
+            PicturesAtDefaultQuality(plan, perDefaultPicture),
+            plan.ExampleCounts is { } example
+                ? new PlanExampleServiceModel(example.RecipeDrafts, example.SocialPosts, example.Pictures)
+                : null);
+    }
+
+    /// <summary>
+    /// The example as the sentence <c>exampleMix</c> has always carried — "60 recipe drafts, 120 social posts and
+    /// 70 pictures" — so a reader of the field from before <see cref="PlanServiceModel.ExampleCounts"/> reads the same
+    /// figures the card leads with. Empty when the plan states none, as an unset prose field was.
+    /// </summary>
+    private static string ExampleMixOf(PlanExampleOption? example)
+    {
+        if (example is null)
+        {
+            return string.Empty;
+        }
+
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var drafts = example.RecipeDrafts.ToString("N0", culture) + " recipe drafts";
+        var pictures = example.Pictures.ToString("N0", culture) + " pictures";
+
+        return example.SocialPosts > 0
+            ? $"{drafts}, {example.SocialPosts.ToString("N0", culture)} social posts and {pictures}"
+            : $"{drafts} and {pictures}";
     }
 
     /// <summary>

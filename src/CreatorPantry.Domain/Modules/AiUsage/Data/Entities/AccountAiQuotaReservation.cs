@@ -15,9 +15,16 @@ namespace CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 /// counters on the period are, exactly:
 /// </para>
 /// <list type="bullet">
-/// <item><description><c>Reserved</c> = the sum of <see cref="ReservedAmount"/> where <see cref="ReleasedAt"/> is null.</description></item>
-/// <item><description><c>Consumed</c> = the sum of <see cref="SettledAmount"/> where <see cref="PostedAt"/> is not null.</description></item>
+/// <item><description><c>Reserved</c> = the sum of <see cref="ReservedFromAllowance"/> where <see cref="ReleasedAt"/> is null.</description></item>
+/// <item><description><c>GrantReserved</c> = the sum of <see cref="ReservedFromGrants"/> where <see cref="ReleasedAt"/> is null.</description></item>
+/// <item><description><c>Consumed</c> = the sum of <see cref="ChargedToAllowance"/> where <see cref="PostedAt"/> is not null.</description></item>
 /// </list>
+/// <para>
+/// The period's counters are the allowance's alone (AP.5.2): what a hold took from the account's grants is the
+/// grants' to account for (<c>AccountCreditGrantDraw</c>), and counting it on the period would hand it on as
+/// carry-over. <c>GrantReserved</c> is the exception, and exists only so that every hold moves its period's row
+/// version — see that column.
+/// </para>
 /// <para>
 /// Those are invariants a reconciliation pass can assert rather than descriptions of what the code happens to
 /// do, and they are why the two timestamps exist separately from <see cref="Status"/>.
@@ -110,6 +117,20 @@ public class AccountAiQuotaReservation
     public decimal ReservedAmount { get; set; }
 
     /// <summary>
+    /// How much of <see cref="ReservedAmount"/> the period's allowance covered, in <see cref="Unit"/>; the rest was
+    /// taken from the account's grants (AP.5.2).
+    /// </summary>
+    /// <remarks>
+    /// The allowance is spent first, so this is the whole hold whenever the allowance had room for it — and was,
+    /// for every hold taken before grants could be spent.
+    /// </remarks>
+    public decimal ReservedFromAllowance { get; set; }
+
+    /// <summary>What the account's grants covered of the hold: the hold less <see cref="ReservedFromAllowance"/>.</summary>
+    /// <remarks>Derived and not mapped. Which grants, and how much from each, is Billing's record.</remarks>
+    public decimal ReservedFromGrants => ReservedAmount - ReservedFromAllowance;
+
+    /// <summary>
     /// What one provider call of this task was estimated at, in <see cref="Unit"/>.
     /// </summary>
     /// <remarks>
@@ -128,6 +149,17 @@ public class AccountAiQuotaReservation
     /// billable happened.
     /// </remarks>
     public decimal? SettledAmount { get; set; }
+
+    /// <summary>
+    /// How much of <see cref="SettledAmount"/> landed on the period's allowance when it was posted, in
+    /// <see cref="Unit"/>; null until it has been. The rest was spent from the grants the hold drew on.
+    /// </summary>
+    /// <remarks>
+    /// The allowance keeps first, up to what it covered, and the grants keep the next part, up to what they gave —
+    /// the order admission spends in, applied to what the run really cost. A charge beyond the whole hold lands
+    /// here too, never on a grant: a grant is only ever spent by a hold the creator's request took (AP.5.2).
+    /// </remarks>
+    public decimal? ChargedToAllowance { get; set; }
 
     /// <summary>
     /// Whether every billable attempt in this run reported its token counts.

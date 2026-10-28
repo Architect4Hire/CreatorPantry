@@ -1,4 +1,4 @@
-import { decodeCreditRates, decodePlan, decodePlanCatalogue } from './plan-catalogue.models';
+import { decodeCreditRates, decodePlan, decodePlanCatalogue, decodePlanExampleCounts } from './plan-catalogue.models';
 
 const rates = { textDraft: 10, longFormSection: 10 };
 
@@ -18,10 +18,33 @@ describe('plan catalogue models', () => {
     trialDays: null,
     trialImageCap: null,
     picturesAtDefaultQuality: 120,
+    exampleCounts: { recipeDrafts: 50, socialPosts: 100, pictures: 80 },
   };
 
   it('decodes a plan as the server sends it', () => {
     expect(decodePlan(plan)).toEqual(plan);
+  });
+
+  /**
+   * The counts are the card's headline, not a figure the plan is unusable without: a server older than them, or
+   * counts that do not read, leave the plan on the page with the mix said as its sentence instead.
+   */
+  it('reads a plan’s example counts, and keeps the plan when they are missing or unreadable', () => {
+    expect(decodePlan(plan)?.exampleCounts).toEqual({ recipeDrafts: 50, socialPosts: 100, pictures: 80 });
+
+    const { exampleCounts, ...olderServer } = plan;
+    expect(exampleCounts).not.toBeNull();
+    expect(decodePlan(olderServer)?.exampleCounts).toBeNull();
+    expect(decodePlan({ ...plan, exampleCounts: null })?.exampleCounts).toBeNull();
+    expect(decodePlan({ ...plan, exampleCounts: { recipeDrafts: '50', socialPosts: 100, pictures: 80 } })?.key).toBe('creator');
+  });
+
+  it('refuses example counts that are not three whole, non-negative numbers', () => {
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 0, pictures: 80 })).toEqual({ recipeDrafts: 50, socialPosts: 0, pictures: 80 });
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, pictures: 80 })).toBeNull();
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 100, pictures: -1 })).toBeNull();
+    expect(decodePlanExampleCounts({ recipeDrafts: 50.5, socialPosts: 100, pictures: 80 })).toBeNull();
+    expect(decodePlanExampleCounts('50 recipe drafts')).toBeNull();
   });
 
   it('refuses a plan missing a figure the page shows', () => {

@@ -360,6 +360,12 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<AccountCreditGrant> AccountCreditGrants => Set<AccountCreditGrant>();
 
     /// <remarks>
+    /// What one AI hold took from one grant and what became of it (AP.5.2), so a hold that settles low, is released
+    /// or lapses returns credits to the grant they came from. Platform-scoped, counts only, never deleted.
+    /// </remarks>
+    public DbSet<AccountCreditGrantDraw> AccountCreditGrantDraws => Set<AccountCreditGrantDraw>();
+
+    /// <remarks>
     /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
     /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
     /// </remarks>

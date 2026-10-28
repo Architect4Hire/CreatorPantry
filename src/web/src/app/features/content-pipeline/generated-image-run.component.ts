@@ -621,11 +621,15 @@ export class GeneratedImageRunComponent {
 
     const total = this.amount(quote.total, quote.unit);
     const after = this.amount(quote.remainingAfter, quote.unit);
+    const packAfter = this.hasPacks(quote) ? this.amount(quote.packRemainingAfter, quote.unit) : null;
 
-    // A unit this product does not quote figures in is described rather than counted (allowance-text.ts).
-    return total === null || after === null
-      ? 'This uses some of your AI allowance.'
-      : `${pictureCount(quote.variants)} · ${total}. ${after} left after this.`;
+    // A unit this product does not quote figures in is described rather than counted (allowance-text.ts). With a
+    // pack balance, the two are said apart, as the server sends them: only the allowance comes back (AP.5.2).
+    if (total === null || after === null) return 'This uses some of your AI allowance.';
+
+    return packAfter === null
+      ? `${pictureCount(quote.variants)} · ${total}. ${after} left after this.`
+      : `${pictureCount(quote.variants)} · ${total}. ${after} of your allowance and ${packAfter} in credit packs left after this.`;
   });
 
   /** USAGE-010's warning: affordable, but going ahead leaves the allowance nearly spent — the server's line. */
@@ -655,7 +659,12 @@ export class GeneratedImageRunComponent {
     if (quote.outcome !== 'Exhausted') return null;
 
     const total = this.amount(quote.total, quote.unit);
-    const remaining = this.amount(quote.remaining, quote.unit);
+    const allowanceLeft = this.amount(quote.remaining, quote.unit);
+    const packLeft = this.hasPacks(quote) ? this.amount(quote.packRemaining, quote.unit) : null;
+    const remaining =
+      allowanceLeft === null || packLeft === null
+        ? allowanceLeft
+        : `${allowanceLeft} of your allowance and ${packLeft} in credit packs`;
     const reset = this.resetSentence(quote);
 
     if (total === null || remaining === null) {
@@ -992,6 +1001,14 @@ export class GeneratedImageRunComponent {
 
   private amount(value: number | null, unit: string | null): string | null {
     return value === null || unit === null ? null : formatAllowanceAmount(value, unit);
+  }
+
+  /**
+   * Whether the server says the creator has a pack balance at all — credits beyond the allowance (AP.5.2). Not a
+   * comparison of amounts: none and nought both mean there is nothing to name.
+   */
+  private hasPacks(quote: GeneratedImageQuote): boolean {
+    return quote.packRemaining !== null && quote.packRemaining !== 0;
   }
 
   private untilReset(quote: GeneratedImageQuote): string {

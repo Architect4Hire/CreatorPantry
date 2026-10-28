@@ -134,7 +134,9 @@ internal sealed class AiUsageReadRepository(CreatorPantryDbContext context) : IA
                 Amount = reservation.SettledAmount ?? 0m,
 
                 // Null when the run posted no ledger entry, which a settled charge always does. Carried rather
-                // than dropped so the breakdown still sums to the period's Consumed even if it ever happens.
+                // than dropped so the breakdown still sums to what the period's runs cost even if it ever happens —
+                // its Consumed, plus whatever pack credits paid for (AP.5.2), since a run's cost is what it cost
+                // whichever source paid.
                 //
                 // The account predicate is repeated here rather than inferred from the outer reservation: it
                 // is what scopes every other query in this file, and the one place it was left implicit would

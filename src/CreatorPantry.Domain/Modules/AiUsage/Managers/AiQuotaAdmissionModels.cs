@@ -49,7 +49,10 @@ public enum AiQuotaAdmissionOutcome
     /// </summary>
     NotMetered = 2,
 
-    /// <summary>The period's allowance would not cover the estimate. Nothing was written.</summary>
+    /// <summary>
+    /// The period's allowance and the account's grants together would not cover the estimate (AP.5.2). Nothing was
+    /// written.
+    /// </summary>
     Exhausted = 3,
 
     /// <summary>AI access is switched off for this account regardless of any remaining allowance.</summary>
@@ -144,6 +147,17 @@ public sealed record AiQuotaAdmissionServiceModel(
     /// </remarks>
     public decimal Required { get; init; }
 
+    /// <summary>
+    /// The account's unspent grant credits after this admission — its pack balance, which never resets (B-50).
+    /// Reported beside <see cref="Remaining"/>, never folded into it, so a refusal can say what each source has left
+    /// (USAGE-007, AP.5.2).
+    /// </summary>
+    /// <remarks>
+    /// Read on <see cref="AiQuotaAdmissionOutcome.Admitted"/> and <see cref="AiQuotaAdmissionOutcome.Exhausted"/>;
+    /// nought otherwise, and on a period counted in tokens, which never spends grants.
+    /// </remarks>
+    public decimal PackRemaining { get; init; }
+
     /// <summary>The plan's daily picture cap, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
     public int? DailyImageCap { get; init; }
 
@@ -199,7 +213,16 @@ public sealed record AiQuotaStateServiceModel(
     decimal Allowance,
     decimal Remaining,
     decimal Required,
-    DateTimeOffset? ResetsAt);
+    DateTimeOffset? ResetsAt)
+{
+    /// <summary>
+    /// The account's unspent grant credits — its pack balance (B-50). Spent after <see cref="Remaining"/>, so
+    /// <see cref="AiQuotaStateOutcome.Exhausted"/> means the two together do not cover <see cref="Required"/>
+    /// (AP.5.2). Never resets, so <see cref="ResetsAt"/> is not about it. Nought on a suspension, and on a period
+    /// counted in tokens.
+    /// </summary>
+    public decimal PackRemaining { get; init; }
+}
 
 /// <summary>What one maintenance sweep over outstanding holds did.</summary>
 /// <param name="Posted">Settlements applied to a period that a worker did not live long enough to apply.</param>
@@ -331,8 +354,11 @@ public enum AiImageQuoteOutcome
 /// <param name="Total">The whole request's price — exactly the hold admission would take; null when unpriced.</param>
 /// <param name="Allowance">The period's spendable total.</param>
 /// <param name="Remaining">What is left of it now, after settled and outstanding holds.</param>
-/// <param name="RemainingAfter">What would be left after this request; null unless it is affordable.</param>
-/// <param name="AffordableVariants">How many of the asked-for pictures what is left would cover now, by the same test admission applies.</param>
+/// <param name="RemainingAfter">What would be left of the allowance after this request; null unless it is affordable.</param>
+/// <param name="AffordableVariants">
+/// How many of the asked-for pictures what is left — the allowance, then the pack balance — would cover now, by the
+/// same test admission applies.
+/// </param>
 /// <param name="LeavesNearlySpent">Whether going ahead leaves the allowance at or below its nearly-spent line (USAGE-010).</param>
 /// <param name="ResetsAt">When the allowance comes back. Null for a suspension, which does not come back by itself.</param>
 /// <param name="TimeZoneId">The zone <paramref name="ResetsAt"/> is a local midnight in.</param>
@@ -353,4 +379,14 @@ public sealed record AiImageQuoteServiceModel(
     int AffordableVariants,
     bool LeavesNearlySpent,
     DateTimeOffset? ResetsAt,
-    string? TimeZoneId);
+    string? TimeZoneId)
+{
+    /// <summary>The account's unspent grant credits now — its pack balance, spent after the allowance (AP.5.2).</summary>
+    public decimal PackRemaining { get; init; }
+
+    /// <summary>
+    /// What would be left of the pack balance after this request; null unless it is affordable. With
+    /// <see cref="RemainingAfter"/>, which is the allowance's alone, it says where the request's credits come from.
+    /// </summary>
+    public decimal? PackRemainingAfter { get; init; }
+}

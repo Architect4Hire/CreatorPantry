@@ -103,7 +103,18 @@ public sealed record CreditRatesServiceModel(int TextDraft, int LongFormSection)
 /// would need a view about how many days a month has, and a figure resting on one is not a figure this record
 /// should publish. Null when no default quality is published, or when its price is unknown.
 /// </para>
+/// <para>
+/// <strong><paramref name="ExampleCounts"/> and <paramref name="ExampleMix"/> are one fact twice.</strong> The counts
+/// are what the card leads with; the sentence is the same counts as the field said them before there were counts,
+/// kept so the change to this record is an addition.
+/// </para>
 /// </remarks>
+/// <param name="ExampleCounts">
+/// One period's recipes drafted, social posts and pictures, made together and fitting the credits (owner,
+/// 2026-10-28). Null when the plan states none, which a published catalogue refuses at startup. Not called
+/// <c>example</c>, which is OpenAPI's own keyword for a sample value and what <c>OpenApiContractTests</c> keeps
+/// out of the published document.
+/// </param>
 public sealed record PlanServiceModel(
     string Key,
     string Name,
@@ -118,7 +129,19 @@ public sealed record PlanServiceModel(
     bool Recommended,
     int? TrialDays,
     int? TrialImageCap,
-    int? PicturesAtDefaultQuality);
+    int? PicturesAtDefaultQuality,
+    PlanExampleServiceModel? ExampleCounts);
+
+/// <summary>
+/// What a plan's credits make in one period, all of it together: the card's headline (owner, 2026-10-28).
+/// </summary>
+/// <param name="Pictures">Pictures at <see cref="PlanCatalogueServiceModel.DefaultPictureClass"/>.</param>
+/// <remarks>
+/// The owner's figures, not derived: a recipe is a pitch, not a unit anything charges. What is derived is the
+/// guarantee that they fit — priced at the published rates, the three together cost no more than the plan's
+/// credits, which <c>PictureClassRateTests</c> holds for every development plan.
+/// </remarks>
+public sealed record PlanExampleServiceModel(int RecipeDrafts, int SocialPosts, int Pictures);
 
 /// <summary>
 /// A prepaid credit pack. It carries no expiry because a pack does not have one: the credits are bought, and

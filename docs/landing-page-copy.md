@@ -227,9 +227,21 @@ plan includes is not published, so the page never advertises a quality nothing o
 **Body:** Every plan includes the whole workspace. What changes is how much AI work a month includes.
 
 **Per plan card:** `{plan.name}` · `{plan.monthlyPrice}` a month, or `{plan.annualMonthlyPrice}` billed
-yearly (`{plan.annualSaving}` saved) · `{plan.credits}` AI credits a month · "about `{plan.exampleMix}`" ·
-up to `{plan.dailyImageCap}` pictures a day (on the trial, "`{plan.trialImageCap}` in all" too) ·
-"Picture quality: `{plan.qualityClasses}`" · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
+yearly (`{plan.annualSaving}` saved) · **the pitch** · `{plan.credits}` AI credits a month (on the trial, "for
+the trial": its credits come once, B-48) · "Or up to
+`{plan.picturesAtDefaultQuality}` standard pictures a month, if pictures are all you make" (left off when it is
+no more than the pitch's pictures) · up to `{plan.dailyImageCap}` pictures a day (on the trial,
+"`{plan.trialImageCap}` in all" too) · "Picture quality: `{plan.qualityClasses}`" · **Start with `{plan.name}`** →
+`/sign-up?plan={plan.key}`.
+
+**The pitch** (owner, 2026-10-28): "Every month, all together" (on the trial, "In the trial, all together"),
+then up to three rows between hairlines, each a count in the display face and its words beside it —
+**`{plan.exampleCounts.recipeDrafts}`** recipes drafted · **`{plan.exampleCounts.pictures}`** standard pictures ·
+**`{plan.exampleCounts.socialPosts}`** social posts (left off at nought). Rows, not tiles: two boxes side by side
+broke their words mid-letter in a four-column grid. The counts are made *together*, never "or": each plan's
+`Billing:Plans:ExampleCounts` is the owner's, and `PictureClassRateTests` fails when one, priced at the
+published rates, costs more than the plan's credits. A catalogue with no counts keeps the older line, "about `{plan.exampleMix}`". The comparison table carries the same pitch short, as
+**Recipes and pictures a month** ("60 recipes, 70 pictures").
 
 The comparison table has a **Best picture quality** row — the highest class the plan includes, the comparable
 fact; the full list stays on the card, where it is read rather than compared (AP.4.5, section 6).

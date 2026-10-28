@@ -25,7 +25,8 @@ namespace CreatorPantry.Domain.Modules.Billing.Data.Entities;
 /// nothing left to take, and the check constraints keep it from being spent again.
 /// </para>
 /// <para>
-/// <strong>What was spent is derived, never stored</strong>: granted − remaining − clawed back. The schema holds
+/// <strong>What was spent is derived, never stored</strong>: granted − remaining − clawed back, which includes
+/// credits an open hold has taken and not yet spent — <see cref="AccountCreditGrantDraw"/> says which. The schema holds
 /// that difference at or above nought, so no write can spend credits a grant never had, and holds
 /// <see cref="CreditsRemaining"/> at or above nought, so no write can make a balance negative.
 /// </para>
@@ -92,8 +93,19 @@ public class AccountCreditGrant : IRetainedRecord
             return "who a grant is for, where its credits came from, how many it granted, its reference and when are fixed once it is made.";
         }
 
-        return original(nameof(ClawedBackAt)) is null
-            ? null
-            : "a grant that has been clawed back is final.";
+        if (original(nameof(ClawedBackAt)) is null)
+        {
+            return null;
+        }
+
+        // Final, with one exception: a hold that was open when the claw-back came hands its unspent credits to the
+        // claw-back when it resolves (AP.5.2), so that figure may rise. Nothing else moves, and the checks keep the
+        // balance at nought.
+        return Equals(original(nameof(ClawedBackAt)), ClawedBackAt)
+            && Equals(original(nameof(CreditsRemaining)), CreditsRemaining)
+            && original(nameof(CreditsClawedBack)) is decimal before
+            && CreditsClawedBack >= before
+                ? null
+                : "a grant that has been clawed back is final.";
     }
 }

@@ -35896,6 +35896,24 @@
                 "$ref": "#/components/schemas/GeneratedImageQualityClass"
               }
             ]
+          },
+          "packRemaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "packRemainingAfter": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -39655,7 +39673,8 @@
           "recommended",
           "trialDays",
           "trialImageCap",
-          "picturesAtDefaultQuality"
+          "picturesAtDefaultQuality",
+          "exampleCounts"
         ],
         "type": "object",
         "properties": {
@@ -39751,6 +39770,16 @@
               "string"
             ],
             "format": "int32"
+          },
+          "exampleCounts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlanExample"
+              }
+            ]
           }
         }
       },
@@ -39794,6 +39823,40 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "PlanExample": {
+        "required": [
+          "recipeDrafts",
+          "socialPosts",
+          "pictures"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeDrafts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "socialPosts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pictures": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

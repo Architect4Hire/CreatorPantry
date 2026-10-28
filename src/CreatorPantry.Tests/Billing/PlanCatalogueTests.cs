@@ -54,7 +54,9 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:0:MonthlyPrice", "49"),
         ("Billing:Plans:0:AnnualMonthlyPrice", "39"),
         ("Billing:Plans:0:Credits", "18000"),
-        ("Billing:Plans:0:ExampleMix", "150 recipe drafts"),
+        ("Billing:Plans:0:ExampleCounts:RecipeDrafts", "150"),
+        ("Billing:Plans:0:ExampleCounts:SocialPosts", "300"),
+        ("Billing:Plans:0:ExampleCounts:Pictures", "200"),
         ("Billing:Plans:0:DailyImageCap", "75"),
         ("Billing:Plans:0:Period", "Monthly"),
         ("Billing:Plans:0:RunningImages", "2"),
@@ -64,7 +66,9 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:1:MonthlyPrice", "19"),
         ("Billing:Plans:1:AnnualMonthlyPrice", "15"),
         ("Billing:Plans:1:Credits", "6000"),
-        ("Billing:Plans:1:ExampleMix", "50 recipe drafts"),
+        ("Billing:Plans:1:ExampleCounts:RecipeDrafts", "50"),
+        ("Billing:Plans:1:ExampleCounts:SocialPosts", "100"),
+        ("Billing:Plans:1:ExampleCounts:Pictures", "80"),
         ("Billing:Plans:1:DailyImageCap", "25"),
         ("Billing:Plans:1:Period", "Monthly"),
         ("Billing:Plans:1:RunningImages", "1"),
@@ -88,7 +92,9 @@ public sealed class PlanCatalogueTests
         ("Billing:Plans:2:MonthlyPrice", "0"),
         ("Billing:Plans:2:AnnualMonthlyPrice", "0"),
         ("Billing:Plans:2:Credits", "1000"),
-        ("Billing:Plans:2:ExampleMix", "20 recipe drafts"),
+        ("Billing:Plans:2:ExampleCounts:RecipeDrafts", "20"),
+        ("Billing:Plans:2:ExampleCounts:SocialPosts", "20"),
+        ("Billing:Plans:2:ExampleCounts:Pictures", "10"),
         ("Billing:Plans:2:DailyImageCap", "5"),
         ("Billing:Plans:2:Period", "Once"),
         ("Billing:Plans:2:RunningImages", "1"),
@@ -191,6 +197,30 @@ public sealed class PlanCatalogueTests
         Assert.Equal("creator", catalogue.Plans.Single(plan => plan.Recommended).Key);
     }
 
+    /// <summary>
+    /// What a plan's credits make in a month is published as counts, which the card leads with, and as the
+    /// sentence <c>exampleMix</c> carried before there were counts — the same figures both ways (owner,
+    /// 2026-10-28).
+    /// </summary>
+    [Fact]
+    public void A_published_plan_states_its_example_as_counts_and_as_the_same_sentence()
+    {
+        var creator = Read(TwoPlans()).Plans.Single(plan => plan.Key == "creator");
+
+        Assert.Equal(new PlanExampleServiceModel(50, 100, 80), creator.ExampleCounts);
+        Assert.Equal("50 recipe drafts, 100 social posts and 80 pictures", creator.ExampleMix);
+    }
+
+    /// <summary>A mix with no social posts leaves them out of the sentence rather than saying "0 social posts".</summary>
+    [Fact]
+    public void An_example_with_no_social_posts_says_none()
+    {
+        var creator = Read([.. TwoPlans(), ("Billing:Plans:1:ExampleCounts:SocialPosts", "0")])
+            .Plans.Single(plan => plan.Key == "creator");
+
+        Assert.Equal("50 recipe drafts and 80 pictures", creator.ExampleMix);
+    }
+
     public static TheoryData<string, (string, string?)[]> RefusedCatalogues() => new()
     {
         { "publishes nothing", [("Billing:PublishPlans", "true")] },
@@ -225,6 +255,22 @@ public sealed class PlanCatalogueTests
         {
             "a published trial has no picture cap",
             [.. WithTrial(), ("Billing:Plans:2:TrialImageCap", null)]
+        },
+        {
+            "a published plan states no example",
+            [.. TwoPlans(), ("Billing:Plans:1:ExampleCounts:RecipeDrafts", null), ("Billing:Plans:1:ExampleCounts:SocialPosts", null), ("Billing:Plans:1:ExampleCounts:Pictures", null)]
+        },
+        {
+            "a published example has no pictures",
+            [.. TwoPlans(), ("Billing:Plans:1:ExampleCounts:Pictures", "0")]
+        },
+        {
+            "an example count is negative",
+            [.. TwoPlans(), ("Billing:Plans:1:ExampleCounts:SocialPosts", "-1")]
+        },
+        {
+            "a trial's example makes more pictures than its cap",
+            [.. WithTrial(), ("Billing:Plans:2:ExampleCounts:Pictures", "11")]
         },
         {
             "a pack has no credits",

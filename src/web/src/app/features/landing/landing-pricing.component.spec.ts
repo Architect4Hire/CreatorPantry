@@ -26,6 +26,8 @@ const creator = {
   trialImageCap: null,
   // 6,000 credits at 50 a standard picture (AP.4.5); the server's figure, not worked out here.
   picturesAtDefaultQuality: 120,
+  // One month made all together, fitting the credits; the server holds the sum, so nothing is checked here.
+  exampleCounts: { recipeDrafts: 50, socialPosts: 100, pictures: 80 },
 };
 
 const rates = { textDraft: 10, longFormSection: 10 };
@@ -35,7 +37,7 @@ const pictureClasses = [
   { qualityClass: 'High' as const, perPicture: 87.5 },
 ];
 
-const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5, qualityClasses: ['Draft', 'Standard'], picturesAtDefaultQuality: 10 };
+const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5, qualityClasses: ['Draft', 'Standard'], picturesAtDefaultQuality: 10, exampleCounts: { recipeDrafts: 20, socialPosts: 20, pictures: 10 } };
 
 describe('LandingPricingComponent', () => {
   let fixture: ComponentFixture<LandingPricingComponent>;
@@ -90,8 +92,46 @@ describe('LandingPricingComponent', () => {
 
     expect(Array.from(host.querySelectorAll('h3')).map((el) => el.textContent?.trim())).toEqual(['Trial', 'Creator']);
     expect(text()).toContain('6,000 AI credits a month');
-    expect(text()).toContain('About 50 recipe drafts, 100 social posts and 80 pictures');
+    // The trial's credits come once (B-48), and its card says so rather than "a month".
+    expect(text()).toContain('6,000 AI credits for the trial');
+    expect(text()).toContain('50 recipes drafted');
     expect(text()).toContain('Up to 25 pictures a day');
+  });
+
+  /**
+   * The pitch (owner, 2026-10-28): each card leads with what its credits make — recipes drafted and pictures,
+   * as two figures — under a line that says they come together, so the pair is read as "and", not "or".
+   */
+  it('leads each card with the recipes and pictures its credits make together', async () => {
+    await create(published);
+    const pitches = Array.from(host.querySelectorAll('.pitch'));
+
+    expect(pitches.length).toBe(2);
+    const [trialPitch, creatorPitch] = pitches.map((pitch) => pitch.textContent?.replace(/\s+/g, ' ') ?? '');
+
+    expect(creatorPitch).toContain('Every month, all together');
+    expect(creatorPitch).toContain('50 recipes drafted');
+    expect(creatorPitch).toContain('80 standard pictures');
+    expect(creatorPitch).toContain('100 social posts');
+
+    // A trial's credits come once, so its pitch is about the trial, never "every month".
+    expect(trialPitch).toContain('In the trial, all together');
+    expect(trialPitch).not.toContain('Every month');
+
+    // Three rows, each one phrase: the count, then what it counts.
+    expect(pitches[1].querySelectorAll('.pitch-rows > li').length).toBe(3);
+
+    // The sentence the counts replace is not said twice on the same card.
+    expect(text()).not.toContain('About 50 recipe drafts');
+  });
+
+  /** A catalogue with no counts keeps the card it had: the mix as a sentence, and no headline figures. */
+  it('says the mix as a sentence when the catalogue states no counts', async () => {
+    await create({ ...published, plans: [{ ...creator, exampleCounts: null }] });
+
+    expect(host.querySelector('.pitch')).toBeNull();
+    expect(text()).toContain('About 50 recipe drafts, 100 social posts and 80 pictures');
+    expect(text()).toContain('About 120 standard pictures a month');
   });
 
   /**
@@ -123,19 +163,21 @@ describe('LandingPricingComponent', () => {
   it('states how many pictures each plan buys, on the card and in the comparison', async () => {
     await create(published);
 
-    expect(text()).toContain('About 120 standard pictures a month');
+    // Beside the headline, the most pictures alone is the alternative to it, and said as one.
+    expect(text()).toContain('Or up to 120 standard pictures a month, if pictures are all you make');
 
-    // "In all" on a trial: its credits are granted once for the whole trial, so "a month" would promise twelve
-    // times what it gives.
-    expect(text()).toContain('About 10 standard pictures in all');
-    expect(text()).not.toContain('About 10 standard pictures a month');
+    // The trial's headline already makes as many as its cap allows, so offering "up to 10" as well would offer
+    // nothing; the line is left off.
+    expect(text()).not.toContain('Or up to 10');
 
     host.querySelector<HTMLButtonElement>('.comparison button')!.click();
     fixture.detectChanges();
 
     const cells = Array.from(host.querySelectorAll('tbody th, tbody td')).map((el) => el.textContent?.trim());
-    expect(host.textContent).toContain('Pictures a month');
+    expect(host.textContent).toContain('Most pictures a month');
     expect(cells).toContain('120');
+    // "In all" on a trial: its credits are granted once for the whole trial, so "a month" would promise twelve
+    // times what it gives.
     expect(cells).toContain('10 in all');
   });
 
@@ -185,7 +227,7 @@ describe('LandingPricingComponent', () => {
 
   it('marks the recommended plan in words, not by colour alone', async () => {
     await create(published);
-    const recommended = host.querySelectorAll('cp-card')[1];
+    const recommended = host.querySelectorAll('ul[cpCardGrid] > li > cp-card')[1];
 
     expect(recommended.textContent).toContain(RECOMMENDED_LABEL);
     expect(recommended.classList).toContain('recommended');
@@ -225,7 +267,7 @@ describe('LandingPricingComponent', () => {
   /** The trial's gate is a cap on the whole trial (B-52); a reader weighing it needs that beside the daily one. */
   it('says how many pictures a trial makes in all, and says it on the trial alone', async () => {
     await create(published);
-    const cards = Array.from(host.querySelectorAll('cp-card')).map((card) => card.textContent ?? '');
+    const cards = Array.from(host.querySelectorAll('ul[cpCardGrid] > li > cp-card')).map((card) => card.textContent ?? '');
 
     expect(cards[0]).toContain('Up to 5 pictures a day, 10 in all');
     expect(cards[1]).toContain('Up to 25 pictures a day');
@@ -275,8 +317,10 @@ describe('LandingPricingComponent', () => {
       'Plan',
       'Price',
       'Credits a month',
-      // What the credits buy in pictures, above the daily cap, because it is what decides the plan (AP.4.5).
-      'Pictures a month',
+      // The card's headline, short (owner, 2026-10-28).
+      'Recipes and pictures a month',
+      // What the credits buy in pictures alone, above the daily cap (AP.4.5).
+      'Most pictures a month',
       'Pictures a day',
       'Best picture quality',
       'Free trial',
@@ -294,10 +338,14 @@ describe('LandingPricingComponent', () => {
 
     const table = host.querySelector('table')!;
 
-    expect(table.textContent).not.toContain('50 recipe drafts');
-    expect(host.querySelector('.includes')?.textContent).toContain('50 recipe drafts');
-    // The short figure the table does carry for the same plan.
-    expect(Array.from(table.querySelectorAll('tbody td')).map((td) => td.textContent?.trim())).toContain('25');
+    expect(table.textContent).not.toContain('recipes drafted');
+    expect(table.textContent).not.toContain('social posts');
+    expect(host.querySelector('.pitch')?.textContent).toContain('recipes drafted');
+    // The short figures the table does carry for the same plan.
+    const cells = Array.from(table.querySelectorAll('tbody td')).map((td) => td.textContent?.trim());
+    expect(cells).toContain('25');
+    expect(cells).toContain('50 recipes, 80 pictures');
+    expect(cells).toContain('20 recipes, 10 pictures in all');
   });
 
   it('puts the trial’s cap on the whole trial beside its daily cap in the table', async () => {

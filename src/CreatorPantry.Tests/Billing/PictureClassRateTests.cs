@@ -119,66 +119,34 @@ public sealed class PictureClassRateTests
     }
 
     /// <summary>
-    /// Every development plan's <c>ExampleMix</c> is priced at the published rates and still fits its credits
-    /// (AP.4.5). Pictures are counted at the Standard class, which is what "a picture" means on the menu and
-    /// what a request naming no class is made at.
+    /// Every development plan's <c>ExampleCounts</c> — the recipes and pictures its card leads with — is priced at the
+    /// published rates and still fits its credits (AP.4.5; owner, 2026-10-28). A recipe draft and a social post
+    /// are each a <c>TextDraft</c>; a picture is the default class's rate, which is what a request naming no
+    /// class is made at and what the example's pictures are counted in. All three together, because the card
+    /// says "and": a mix that fits only one at a time would promise more than the plan holds.
     /// </summary>
     [Fact]
-    public async Task Each_plans_example_mix_fits_its_credits_at_the_published_rates()
+    public async Task Each_plans_example_fits_its_credits_at_the_published_rates()
     {
         await using var host = await SqliteApiHost.StartAsync(configureServices: services =>
             services.PostConfigure<BillingOptions>(billing => billing.PublishPlans = true));
 
         var catalogue = CatalogueOf(host);
         var perPicture = catalogue.PictureClasses
-            .Single(row => row.QualityClass == nameof(GeneratedImageQualityClass.Standard))
+            .Single(row => row.QualityClass == catalogue.DefaultPictureClass)
             .PerPicture;
 
         Assert.NotEmpty(catalogue.Plans);
         Assert.All(catalogue.Plans, plan =>
         {
-            // "40 recipe drafts, 40 social posts and 10 pictures" — the counts the mix states, priced at the
-            // menu's own figures. Written as a sum rather than parsed: the mix is prose, and a parser for it
-            // would be a second thing to get wrong.
-            var counts = ExampleMixCounts(plan.ExampleMix);
-            var cost = (counts.Text * catalogue.Rates.TextDraft) + (counts.Pictures * perPicture);
+            var example = Assert.IsType<PlanExampleServiceModel>(plan.ExampleCounts);
+            var cost = ((example.RecipeDrafts + example.SocialPosts) * catalogue.Rates.TextDraft)
+                + (example.Pictures * perPicture);
 
             Assert.True(
                 cost <= plan.Credits,
-                $"{plan.Key}'s example mix costs {cost} credits at the published rates but includes {plan.Credits}.");
+                $"{plan.Key}'s example costs {cost} credits at the published rates but includes {plan.Credits}.");
         });
-    }
-
-    /// <summary>
-    /// The written actions and the pictures a mix names. Every shipped mix reads "N recipe drafts, N social
-    /// posts and N pictures", so the figures are pulled out by the noun that follows them.
-    /// </summary>
-    private static (int Text, int Pictures) ExampleMixCounts(string mix)
-    {
-        var words = mix.Replace(",", string.Empty, StringComparison.Ordinal).Split(' ');
-        var text = 0;
-        var pictures = 0;
-
-        for (var index = 0; index < words.Length - 1; index++)
-        {
-            if (!int.TryParse(words[index], System.Globalization.CultureInfo.InvariantCulture, out var count))
-            {
-                continue;
-            }
-
-            if (words[index + 1].StartsWith("picture", StringComparison.OrdinalIgnoreCase))
-            {
-                pictures += count;
-            }
-            else
-            {
-                text += count;
-            }
-        }
-
-        Assert.True(text > 0 && pictures > 0, $"Could not read counts out of '{mix}'.");
-
-        return (text, pictures);
     }
 
     private static decimal PriceOf(SqliteApiHost host, string qualityClass) =>

@@ -239,6 +239,8 @@ function quote(variants: number, overrides: Partial<GeneratedImageQuote> = {}): 
     allowance: 1000,
     remaining: 1000,
     remainingAfter: 1000 - variants * 50,
+    packRemaining: 0,
+    packRemainingAfter: 0,
     affordableVariants: variants,
     leavesNearlySpent: false,
     resetsAt: '2026-11-01T00:00:00+00:00',
@@ -868,6 +870,37 @@ describe('GeneratedImageRunComponent', () => {
       expect(quoteAsks).toEqual([2]);
       expect(quoteLine()).toBe('2 pictures · 100 AI credits. 900 AI credits left after this.');
       expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says the allowance and the pack balance apart when the creator has credit packs (AP.5.2)', async () => {
+      // 30 left in the allowance and 400 in packs: the request takes the 30 first, then 70 from packs. The figures
+      // are the server's; the sentence names each source and does no arithmetic.
+      await answerWith((variants) =>
+        quote(variants, { remaining: 30, remainingAfter: 0, packRemaining: 400, packRemainingAfter: 330 }),
+      );
+
+      expect(quoteLine()).toBe(
+        '2 pictures · 100 AI credits. 0 AI credits of your allowance and 330 AI credits in credit packs left after this.',
+      );
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('names the pack balance in a refusal, beside the allowance that resets (AP.5.2)', async () => {
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'Exhausted',
+          remaining: 20,
+          remainingAfter: null,
+          packRemaining: 40,
+          packRemainingAfter: null,
+          affordableVariants: 1,
+        }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain(
+        '2 pictures need 100 AI credits, and you have 20 AI credits of your allowance and 40 AI credits in credit packs left — enough for one picture.',
+      );
+      expect(makeButton().disabled).toBeTrue();
     });
 
     it('warns when going ahead leaves the allowance nearly spent, and still lets it go ahead', async () => {

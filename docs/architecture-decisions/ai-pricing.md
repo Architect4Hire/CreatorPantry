@@ -170,6 +170,11 @@ never reads it.
 page and its FAQ already say packs keep. The AP document's PRICE-008 row and AP.5.1, AP.5.2, AP.5.3, AP.6.3 and
 the AP.5.3 checkpoint were rewritten in AP.1.1 to drop expiry. With no expiry to order by, which pack is spent
 first is AP.5.2's to propose (oldest first is the suggestion there); it is not decided here.
+*Decided in AP.5.2 (owner, 2026-10-28): grants are spent oldest first whatever their source — purchase, ops or
+promo — the id breaking a tie. A settled charge keeps from the allowance first and grants next, each up to what
+it gave, and the rest returns to the grant it came from (`AccountCreditGrantDraw`). A text run that costs more
+than its hold lands the overshoot on the allowance, never on a grant. Credits a hold had open when its grant was
+clawed back stay spent if the run spent them; the rest join the claw-back, never the balance.*
 **Rules:** `external.md`.
 
 ### B-51 Plan, pack, rate and model figures — PROPOSED

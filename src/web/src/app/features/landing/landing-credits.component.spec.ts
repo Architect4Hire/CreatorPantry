@@ -29,6 +29,7 @@ const plan = (key: string, name: string, credits: number, trialDays: number | nu
   trialDays,
   trialImageCap: trialDays === null ? null : 10,
   picturesAtDefaultQuality: trialDays === null ? Math.floor(credits / 50) : 10,
+  exampleCounts: null,
 });
 
 /** The trial first, as the catalogue publishes it cheapest-first, so the specs prove it is skipped. */

@@ -31,6 +31,7 @@ const published: PlanCatalogue = {
       trialDays: null,
       trialImageCap: null,
       picturesAtDefaultQuality: 120,
+      exampleCounts: { recipeDrafts: 50, socialPosts: 100, pictures: 80 },
     },
   ],
   packs: [],

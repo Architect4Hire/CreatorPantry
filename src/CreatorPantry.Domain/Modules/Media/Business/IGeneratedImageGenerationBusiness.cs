@@ -315,7 +315,11 @@ internal sealed class GeneratedImageGenerationBusiness(
                 quote.LeavesNearlySpent,
                 quote.ResetsAt,
                 quote.TimeZoneId,
-                qualityClass),
+                qualityClass)
+            {
+                PackRemaining = quote.PackRemaining,
+                PackRemainingAfter = quote.PackRemainingAfter,
+            },
 
             // No balance and no reset date, as the request's own suspension refusal carries none.
             AiImageQuoteOutcome.Suspended => new GeneratedImageQuoteServiceModel(

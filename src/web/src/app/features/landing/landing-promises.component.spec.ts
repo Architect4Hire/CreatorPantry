@@ -22,6 +22,7 @@ const plan = {
   trialDays: null,
   trialImageCap: null,
   picturesAtDefaultQuality: 120,
+  exampleCounts: null,
 };
 
 const published: PlanCatalogue = {

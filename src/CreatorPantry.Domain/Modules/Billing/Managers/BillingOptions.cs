@@ -105,10 +105,15 @@ public sealed class PlanOption
     public PlanAllowancePeriod Period { get; set; }
 
     /// <summary>
-    /// What those credits buy, in the creator's terms — "about 20 recipe drafts, 40 social posts and 60
-    /// pictures". Prose, because it is an illustration rather than an entitlement.
+    /// What those credits make in one period, in the creator's terms: recipes drafted, social posts and
+    /// pictures, all in the same month. An illustration rather than an entitlement — the credits are what is
+    /// granted — but one that has to fit them, so it is counts rather than prose.
     /// </summary>
-    public string ExampleMix { get; set; } = string.Empty;
+    /// <remarks>
+    /// Counts, so the landing page can lead each card with the recipes and the pictures as figures, and so a
+    /// test can price the mix at the published rates (<c>PictureClassRateTests</c>) instead of parsing a sentence.
+    /// </remarks>
+    public PlanExampleOption? ExampleCounts { get; set; }
 
     /// <summary>Pictures that may be generated in a UTC day.</summary>
     public int DailyImageCap { get; set; }
@@ -138,6 +143,25 @@ public sealed class PlanOption
     /// <see cref="BillingOptions.PublishPlans"/> stays off outside development.
     /// </remarks>
     public int? TrialImageCap { get; set; }
+}
+
+/// <summary>
+/// One month a plan's credits pay for, all of it at once: the sales pitch on its card (owner, 2026-10-28).
+/// </summary>
+/// <remarks>
+/// <strong>"And", never "or".</strong> Every count here is made in the same period, so the mix is priced as a
+/// sum — writing at <c>Billing:Rates:TextDraft</c>, pictures at the default quality's rate — and that sum must
+/// not exceed the plan's credits. A ceiling for each on its own ("900 drafts or 90 pictures") would read as
+/// "and" on a card and promise twice what the plan holds.
+/// </remarks>
+public sealed class PlanExampleOption
+{
+    public int RecipeDrafts { get; set; }
+
+    public int SocialPosts { get; set; }
+
+    /// <summary>Pictures at the default quality — what a creator gets without choosing one.</summary>
+    public int Pictures { get; set; }
 }
 
 /// <summary>

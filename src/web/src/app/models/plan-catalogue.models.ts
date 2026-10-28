@@ -43,6 +43,24 @@ export interface Plan {
    * cap. Null when the catalogue publishes no default quality or cannot price it.
    */
   readonly picturesAtDefaultQuality: number | null;
+  /**
+   * What the plan's credits make in one period, all of it together — the card's headline (owner, 2026-10-28).
+   * The same figures `exampleMix` says as a sentence. Null when the catalogue states none, or sends counts this
+   * bundle cannot read; the card then says `exampleMix` instead of leading with figures.
+   */
+  readonly exampleCounts: PlanExampleCounts | null;
+}
+
+/**
+ * One period's recipes drafted, social posts and pictures, made together and fitting the plan's credits.
+ * "And", never "or": the server holds the three, priced at the published rates, to the plan's credits.
+ * Mirrors `PlanExampleServiceModel`.
+ */
+export interface PlanExampleCounts {
+  readonly recipeDrafts: number;
+  readonly socialPosts: number;
+  /** Pictures at the catalogue's default quality. */
+  readonly pictures: number;
 }
 
 /**
@@ -121,6 +139,24 @@ function stringAt(value: Record<string, unknown>, key: string): string | null {
   return typeof raw === 'string' ? raw : null;
 }
 
+/**
+ * Decodes a plan's example counts. Null for anything but three whole, non-negative numbers: a pitch the page
+ * cannot read is left off the card, which still says the same mix as `exampleMix` — not a reason to drop the plan.
+ */
+export function decodePlanExampleCounts(value: unknown): PlanExampleCounts | null {
+  if (!isRecord(value)) return null;
+
+  const counts = {
+    recipeDrafts: numberAt(value, 'recipeDrafts'),
+    socialPosts: numberAt(value, 'socialPosts'),
+    pictures: numberAt(value, 'pictures'),
+  };
+
+  return Object.values(counts).every((count) => count !== null && Number.isInteger(count) && count >= 0)
+    ? (counts as PlanExampleCounts)
+    : null;
+}
+
 /** Decodes one plan; returns null unless every field the page shows is present and of the right type. */
 export function decodePlan(value: unknown): Plan | null {
   if (!isRecord(value)) return null;
@@ -172,6 +208,7 @@ export function decodePlan(value: unknown): Plan | null {
     trialDays,
     trialImageCap,
     picturesAtDefaultQuality,
+    exampleCounts: decodePlanExampleCounts(value['exampleCounts']),
   };
 }
 

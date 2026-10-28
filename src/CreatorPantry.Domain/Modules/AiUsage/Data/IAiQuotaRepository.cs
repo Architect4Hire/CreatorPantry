@@ -42,7 +42,7 @@ internal interface IAiQuotaRepository
     Task<AccountAiQuotaReservation?> GetReservationWithPeriodAsync(
         Guid reservationId, CancellationToken cancellationToken);
 
-    /// <summary>What this period still has outstanding, in holds nobody has given back.</summary>
+    /// <summary>What this period's allowance still has outstanding, in holds nobody has given back.</summary>
     Task<decimal> SumOutstandingAsync(Guid periodId, CancellationToken cancellationToken);
 
     /// <summary>
@@ -133,12 +133,13 @@ internal sealed class AiQuotaRepository(CreatorPantryDbContext context) : IAiQuo
     /// <remarks>
     /// <c>ReleasedAt IS NULL</c> is the definition of outstanding, and it is the same predicate
     /// <c>AccountAiQuotaPeriod.Reserved</c> is documented to equal the sum over — so this is the number that
-    /// column is, recomputed, rather than a second opinion about it.
+    /// column is, recomputed, rather than a second opinion about it. The allowance's part of each hold only: what a
+    /// hold took from grants is not this period's to carry over (AP.5.2).
     /// </remarks>
     public async Task<decimal> SumOutstandingAsync(Guid periodId, CancellationToken cancellationToken) =>
         await context.AccountAiQuotaReservations
             .Where(reservation => reservation.PeriodId == periodId && reservation.ReleasedAt == null)
-            .SumAsync(reservation => reservation.ReservedAmount, cancellationToken);
+            .SumAsync(reservation => reservation.ReservedFromAllowance, cancellationToken);
 
     /// <remarks>
     /// Seeks <c>IX_AccountAiQuotaReservations_Account_Images</c>. Counts only — this module never learns which

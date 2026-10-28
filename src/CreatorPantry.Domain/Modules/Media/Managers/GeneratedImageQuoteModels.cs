@@ -5,7 +5,7 @@ public enum GeneratedImageQuoteOutcome
 {
     Unspecified = 0,
 
-    /// <summary>The allowance covers the whole request.</summary>
+    /// <summary>The allowance, then the pack balance, cover the whole request (AP.5.2).</summary>
     Affordable = 1,
 
     /// <summary>It does not; <see cref="GeneratedImageQuoteServiceModel.AffordableVariants"/> says how many it would.</summary>
@@ -28,8 +28,8 @@ public enum GeneratedImageQuoteOutcome
 /// <param name="Total">The whole request's price — the hold its admission would take. Null when it cannot be priced.</param>
 /// <param name="Allowance">The period's spendable allowance.</param>
 /// <param name="Remaining">What is left of it now.</param>
-/// <param name="RemainingAfter">What would be left after this request; null unless it is affordable.</param>
-/// <param name="AffordableVariants">How many pictures what is left covers now.</param>
+/// <param name="RemainingAfter">What would be left of the allowance after this request; null unless it is affordable.</param>
+/// <param name="AffordableVariants">How many pictures what is left — the allowance, then the pack balance — covers now.</param>
 /// <param name="LeavesNearlySpent">Whether going ahead leaves the allowance nearly spent (USAGE-010).</param>
 /// <param name="ResetsAt">When the allowance comes back; null for a suspension or no provider.</param>
 /// <param name="TimeZoneId">The zone <paramref name="ResetsAt"/> is a local midnight in, so it is shown on the right day.</param>
@@ -58,6 +58,18 @@ public sealed record GeneratedImageQuoteServiceModel(
     /// <summary>The answer for a host with no provider or no price for its picture: nothing to quote.</summary>
     public static GeneratedImageQuoteServiceModel Unavailable(int variants, GeneratedImageQualityClass? qualityClass = null) =>
         new(GeneratedImageQuoteOutcome.Unavailable, null, variants, null, null, null, null, null, 0, false, null, null, qualityClass);
+
+    /// <summary>
+    /// The account's pack balance now — credits it was granted beyond its allowance, spent after it and never reset
+    /// (B-50, AP.5.2). Null when there are no figures: a suspension, or no provider.
+    /// </summary>
+    public decimal? PackRemaining { get; init; }
+
+    /// <summary>
+    /// What would be left of the pack balance after this request; null unless it is affordable. Beside
+    /// <see cref="RemainingAfter"/>, it says which of the two the request would spend.
+    /// </summary>
+    public decimal? PackRemainingAfter { get; init; }
 }
 
 /// <summary>One quality class a creator may ask for, and what one picture of it costs (AP.3.1, B-55).</summary>

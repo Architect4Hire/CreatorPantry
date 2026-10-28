@@ -435,8 +435,15 @@ export interface GeneratedImageQuote {
   readonly total: number | null;
   readonly allowance: number | null;
   readonly remaining: number | null;
-  /** What would be left after this request; null unless it is affordable. */
+  /** What would be left of the allowance after this request; null unless it is affordable. */
   readonly remainingAfter: number | null;
+  /**
+   * The pack balance — credits granted beyond the allowance, spent after it and never reset (AP.5.2). Null when the
+   * server sent none.
+   */
+  readonly packRemaining: number | null;
+  /** What would be left of the pack balance after this request; null unless it is affordable. */
+  readonly packRemainingAfter: number | null;
   /** How many pictures what is left would cover now, by the same test the request is admitted by. */
   readonly affordableVariants: number;
   readonly leavesNearlySpent: boolean;
@@ -467,6 +474,8 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     allowance: quoteFigure(value['allowance']),
     remaining: quoteFigure(value['remaining']),
     remainingAfter: quoteFigure(value['remainingAfter']),
+    packRemaining: quoteFigure(value['packRemaining']),
+    packRemainingAfter: quoteFigure(value['packRemainingAfter']),
   };
 
   if (
@@ -491,6 +500,8 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     allowance: figures.allowance ?? null,
     remaining: figures.remaining ?? null,
     remainingAfter: figures.remainingAfter ?? null,
+    packRemaining: figures.packRemaining ?? null,
+    packRemainingAfter: figures.packRemainingAfter ?? null,
     affordableVariants,
     leavesNearlySpent,
     resetsAt: (value['resetsAt'] as string | null) ?? null,

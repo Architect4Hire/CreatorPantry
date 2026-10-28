@@ -164,8 +164,14 @@ public sealed class AccountCreditGrantSqlServerTests : IAsyncLifetime
             row.CreditsRemaining = 120;
         }));
 
+        // The one change it takes (AP.5.2): a hold that was open at the claw-back hands its unspent credits to the
+        // claw-back when it resolves, so that figure may rise — and only rise.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => UpdateAsync(grant.Id, row => row.CreditsClawedBack = 100));
+        await UpdateAsync(grant.Id, row => row.CreditsClawedBack = 150);
+
         var stored = await ReadAsync(grant.Id);
         Assert.Equal(0, stored.CreditsRemaining);
+        Assert.Equal(150, stored.CreditsClawedBack);
         Assert.Equal(Start, stored.ClawedBackAt);
     }
 

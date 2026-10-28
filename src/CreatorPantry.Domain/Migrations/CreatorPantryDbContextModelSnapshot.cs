@@ -1013,6 +1013,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<decimal>("GrantReserved")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<DateOnly>("LocalStartDate")
                         .HasColumnType("date");
 
@@ -1062,6 +1066,8 @@ namespace CreatorPantry.Domain.Migrations
                         {
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Ends_After_Starts", "EndsAt > StartsAt");
 
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_GrantReserved_NotNegative", "CAST(GrantReserved AS FLOAT) >= 0");
+
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Settled_After_End", "SettledAt IS NULL OR SettledAt >= EndsAt");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Totals_NotNegative", "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
@@ -1085,6 +1091,10 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<Guid>("AiOperationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ChargedToAllowance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
@@ -1118,6 +1128,10 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<decimal>("ReservedAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReservedFromAllowance")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -1167,6 +1181,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("AccountAiQuotaReservations", null, t =>
                         {
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Amounts_NotNegative", "ReservedAmount > 0 AND PerAttemptEstimate > 0 AND (SettledAmount IS NULL OR SettledAmount >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_ChargedToAllowance_Matches_Posting", "(PostedAt IS NULL AND ChargedToAllowance IS NULL) OR (PostedAt IS NOT NULL AND ChargedToAllowance IS NOT NULL AND CAST(ChargedToAllowance AS FLOAT) >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_FromAllowance_Within_Hold", "CAST(ReservedFromAllowance AS FLOAT) >= 0 AND CAST(ReservedFromAllowance AS FLOAT) <= CAST(ReservedAmount AS FLOAT)");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Images_Counts", "(ImagesRequested IS NULL OR ImagesRequested >= 1) AND (ImagesBilled IS NULL OR (ImagesRequested IS NOT NULL AND ImagesBilled >= 0))");
 
@@ -1514,6 +1532,62 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountCreditGrants_Remaining_Within_Granted", "CAST(CreditsRemaining AS FLOAT) >= 0 AND CAST(CreditsRemaining AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
 
                             t.HasCheckConstraint("CK_AccountCreditGrants_Source_Declared", "Source <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrantDraw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsHeld")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("CreditsSpent")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("GrantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("HeldAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantId")
+                        .HasDatabaseName("IX_AccountCreditGrantDraws_Grant");
+
+                    b.HasIndex("HoldId", "GrantId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountCreditGrantDraws_Hold_Grant");
+
+                    b.ToTable("AccountCreditGrantDraws", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_ClawedBack_Within_Held", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsHeld AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Held_Positive", "CAST(CreditsHeld AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Resolution_Recorded", "(ResolvedAt IS NULL AND CreditsSpent IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (ResolvedAt IS NOT NULL AND CreditsSpent IS NOT NULL AND ResolvedAt >= HeldAt)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Spent_Within_Held", "CreditsSpent IS NULL OR (CAST(CreditsSpent AS FLOAT) >= 0 AND CAST(CreditsSpent AS FLOAT) <= CAST(CreditsHeld AS FLOAT))");
                         });
                 });
 
@@ -8190,6 +8264,17 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("LastWorkspaceId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrantDraw", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", "Grant")
+                        .WithMany()
+                        .HasForeignKey("GrantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grant");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>

@@ -33,6 +33,12 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
                 "CK_AccountAiQuotaPeriods_UpgradeGranted_FromPlan",
                 "UpgradeGranted >= 0 AND (PlanKey IS NOT NULL OR CAST(UpgradeGranted AS REAL) <= 0)");
 
+            // What this period's open holds took from grants (AP.5.2): never below nought, since a hold gives back
+            // exactly what it added. Cast, for the SQLite reason above.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_GrantReserved_NotNegative",
+                "CAST(GrantReserved AS FLOAT) >= 0");
+
             // Deliberately NOT constrained: Consumed + Reserved <= Allowance + UpgradeGranted + CarriedOver. A provider can use
             // more than the reservation estimated, and refusing to record that overshoot would be far worse
             // than storing it — an unrecordable settlement is a lost attempt. Handling the overshoot is the
@@ -80,6 +86,10 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         builder.Property(period => period.Reserved)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(period => period.GrantReserved)
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 

@@ -140,6 +140,25 @@ public class AccountAiQuotaPeriod
     public decimal Reserved { get; set; }
 
     /// <summary>
+    /// What admitted operations that have not settled are holding from the account's grants rather than from this
+    /// allowance (AP.5.2). Not part of any balance this period reports.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Here so that every hold moves this row.</strong> The row version is what serializes an account's
+    /// admissions, and the daily picture count is judged under it (AP.4.2); a hold taken wholly from grants would
+    /// otherwise write no period column and race past a hold the allowance paid for. Posting and expiry depend on
+    /// it the same way: a hold has no row version of its own, so a settlement and a lapse of one paid wholly from
+    /// grants would otherwise both commit.
+    /// </para>
+    /// <para>
+    /// The grants' own balances are Billing's; this is only a count of what this period's holds took from them, and
+    /// it never carries over.
+    /// </para>
+    /// </remarks>
+    public decimal GrantReserved { get; set; }
+
+    /// <summary>
     /// When the last reservation in this period settled or expired, after which the totals are final. Null
     /// while they may still move — including after <see cref="EndsAt"/> has passed.
     /// </summary>

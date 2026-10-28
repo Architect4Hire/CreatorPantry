@@ -52,7 +52,7 @@ public sealed class OpsAccountPlanTests
         Name = name,
         Credits = credits,
         // The host publishes its catalogue in development, and a published plan has to say what its credits buy.
-        ExampleMix = "20 recipe drafts and 10 pictures",
+        ExampleCounts = new PlanExampleOption { RecipeDrafts = 20, Pictures = 10 },
         DailyImageCap = 5,
         RunningImages = 1,
         Period = trial ? PlanAllowancePeriod.Once : PlanAllowancePeriod.Monthly,

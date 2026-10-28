@@ -197,7 +197,7 @@ internal sealed class AiOperationWorker(
                     : AiFailureCategory.Quota,
                 admission.Outcome is AiQuotaAdmissionOutcome.Suspended
                     ? "AI access is switched off for this account."
-                    : "This account's AI allowance for the current period is spent.",
+                    : "This account's AI allowance for the current period and its pack credits don't cover this.",
                 [],
                 null,
                 cancellationToken);

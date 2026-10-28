@@ -189,12 +189,14 @@ internal sealed class GeneratedImageGenerationFacade(
         // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
         _ => new OperationError(
             AiQuotaErrors.Exhausted,
-            "Your AI allowance for this period is spent. It comes back when the period resets.",
+            "Your AI allowance for this period and your pack credits don't cover this. Your allowance comes back when the period resets.",
             new Dictionary<string, string[]>(),
             new Dictionary<string, object?>
             {
+                // The allowance and the pack balance apart, because only the allowance resets (AP.5.2).
                 ["unit"] = refusal.Unit.ToString(),
                 ["remaining"] = refusal.Remaining,
+                ["packRemaining"] = refusal.PackRemaining,
                 ["required"] = refusal.Required,
                 ["resetsAt"] = refusal.PeriodEndsAt,
             }),

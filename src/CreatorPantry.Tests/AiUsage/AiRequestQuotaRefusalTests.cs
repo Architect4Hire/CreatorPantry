@@ -11,6 +11,8 @@ using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -165,6 +167,86 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         // Nothing about anybody else, and nothing about anywhere else.
         Assert.DoesNotContain("workspace", string.Join(" ", extensions.Keys), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("workspace", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ---- the pack balance (AP.5.2) ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Five left in the allowance and fifteen in a pack cover a request of twenty: the gate judges both sources,
+    /// in the order admission spends them, and lets it through.
+    /// </summary>
+    [Fact]
+    public async Task A_request_the_allowance_cannot_cover_goes_ahead_when_packs_cover_the_rest()
+    {
+        await SpendDownToAsync(5m);
+        await GrantPackAsync(15m);
+
+        Assert.True((await RequestConceptsAsync()).Result.Succeeded);
+    }
+
+    /// <summary>
+    /// When the two together fall short, the refusal names each apart (USAGE-007): the allowance, which resets, and
+    /// the pack balance, which does not.
+    /// </summary>
+    [Fact]
+    public async Task A_refusal_reports_the_pack_balance_apart_from_the_allowance()
+    {
+        await SpendDownToAsync(5m);
+        await GrantPackAsync(10m);
+
+        var error = (await RequestConceptsAsync()).Result.Error!;
+
+        Assert.Equal(AiProposalErrors.QuotaExhausted, error.Code);
+        Assert.Equal(5m, error.Extensions!["remaining"]);
+        Assert.Equal(10m, error.Extensions["packRemaining"]);
+        Assert.Equal(Required, error.Extensions["required"]);
+        Assert.Contains("pack credits", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A request for several runs counts whole runs across both sources: fifteen and thirty cover two runs of
+    /// twenty, not three — and two is what sequential admissions would then admit.
+    /// </summary>
+    [Fact]
+    public async Task A_request_for_several_runs_counts_the_runs_both_sources_cover()
+    {
+        await SpendDownToAsync(15m);
+        await GrantPackAsync(30m);
+
+        using (var scope = _provider.CreateScope())
+        {
+            Resolve(scope, WorkspaceA, MembershipInA, WorkspaceRole.Contributor, Account);
+            var gate = scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>();
+
+            var refused = await gate.RefuseIfRunsUnaffordableAsync(
+                AiTaskType.RecipeConcepts, 3, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken);
+
+            Assert.Equal(AiProposalErrors.QuotaExhausted, refused!.Code);
+            Assert.Equal(2, refused.Extensions!["runsCoverable"]);
+            Assert.Equal(3, refused.Extensions["runsRequested"]);
+            Assert.Equal(Required * 3, refused.Extensions["required"]);
+            Assert.Equal(30m, refused.Extensions["packRemaining"]);
+
+            Assert.Null(await gate.RefuseIfRunsUnaffordableAsync(
+                AiTaskType.RecipeConcepts, 2, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken));
+        }
+
+        using var admit = _provider.CreateScope();
+        var quota = admit.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>();
+        var outcomes = new List<AiQuotaAdmissionOutcome>();
+
+        for (var run = 0; run < 3; run++)
+        {
+            outcomes.Add((await quota.AdmitAsync(
+                new AiQuotaAdmissionRequestServiceModel(
+                    Account, Guid.NewGuid(), Guid.NewGuid(), AiTaskType.RecipeConcepts, true,
+                    _clock.UtcNow + TimeSpan.FromMinutes(10)),
+                TestContext.Current.CancellationToken)).Outcome);
+        }
+
+        Assert.Equal(
+            [AiQuotaAdmissionOutcome.Admitted, AiQuotaAdmissionOutcome.Admitted, AiQuotaAdmissionOutcome.Exhausted],
+            outcomes);
     }
 
     /// <summary>
@@ -452,6 +534,25 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
             row => row.AccountId == Account, TestContext.Current.CancellationToken);
 
         period.Consumed += amount;
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A pack of credits for the account, granted before the period began.</summary>
+    private async Task GrantPackAsync(decimal credits)
+    {
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.AccountCreditGrants.Add(new AccountCreditGrant
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Account,
+            Source = CreditGrantSource.Ops,
+            CreditsGranted = credits,
+            CreditsRemaining = credits,
+            GrantedAt = _clock.UtcNow.AddDays(-3),
+        });
 
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

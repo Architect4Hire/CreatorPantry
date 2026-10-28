@@ -97,8 +97,20 @@ public static class BillingServiceCollectionExtensions
                 billing => billing.Plans.All(plan => plan.Key.All(character => char.IsAsciiLetterLower(character) || char.IsAsciiDigit(character) || character == '-')),
                 "A plan key under Billing:Plans is not url-safe; use lower-case letters, digits and hyphens.")
             .Validate(
-                billing => !billing.PublishPlans || billing.Plans.All(plan => !string.IsNullOrWhiteSpace(plan.ExampleMix)),
-                "A published plan under Billing:Plans has no ExampleMix; every card says what its credits buy.")
+                billing => billing.Plans.All(plan => plan.ExampleCounts is null
+                    || (plan.ExampleCounts.RecipeDrafts >= 0 && plan.ExampleCounts.SocialPosts >= 0 && plan.ExampleCounts.Pictures >= 0)),
+                "A plan under Billing:Plans has a negative count in its ExampleCounts.")
+            .Validate(
+                // The card leads with the recipes and the pictures, so a published plan needs both.
+                billing => !billing.PublishPlans || billing.Plans.All(plan =>
+                    plan.ExampleCounts is { RecipeDrafts: > 0, Pictures: > 0 }),
+                "A published plan under Billing:Plans has no ExampleCounts with recipe drafts and pictures; every card "
+                    + "leads with what its credits make.")
+            .Validate(
+                // A trial's example is a promise about the whole trial, and B-52's cap is the most it may make.
+                billing => billing.Plans.All(plan =>
+                    plan.ExampleCounts is null || plan.TrialImageCap is not { } cap || plan.ExampleCounts.Pictures <= cap),
+                "A trial plan under Billing:Plans has more pictures in its ExampleCounts than its TrialImageCap allows.")
             .Validate(
                 // A rate of nought would have the estimator price that kind of work at nothing, and the menu
                 // tell a visitor it is free.
@@ -186,6 +198,13 @@ public static class BillingServiceCollectionExtensions
         services.AddScoped<IAccountCreditGrantDataLayer, AccountCreditGrantDataLayer>();
         services.AddScoped<IAccountCreditGrantBusiness, AccountCreditGrantBusiness>();
         services.AddScoped<IAccountCreditGrantFacade, AccountCreditGrantFacade>();
+
+        // Spending them after the allowance (AP.5.2): AiUsage's admission, settlement and expiry reach the grants
+        // only through this facade, on the same scoped DbContext, so a split hold commits as one.
+        services.AddScoped<IAccountCreditSpendRepository, AccountCreditSpendRepository>();
+        services.AddScoped<IAccountCreditSpendDataLayer, AccountCreditSpendDataLayer>();
+        services.AddScoped<IAccountCreditSpendBusiness, AccountCreditSpendBusiness>();
+        services.AddScoped<IAccountCreditSpendFacade, AccountCreditSpendFacade>();
 
         return services;
     }

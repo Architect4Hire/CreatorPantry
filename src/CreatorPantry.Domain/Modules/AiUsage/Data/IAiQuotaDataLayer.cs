@@ -53,6 +53,14 @@ internal sealed record PlatformImageSpendCharge(
     DateOnly Day, long Micros, long CeilingMicros, Guid AiOperationId, Guid LeaseToken);
 
 /// <summary>
+/// Stages the end of a hold's draws on the account's grants: <paramref name="spentFromGrants"/> of what it took is
+/// kept and the rest goes back where it came from (AP.5.2). Business's, through Billing's facade; called by the data
+/// layer inside the save that releases the hold, so the two commit together.
+/// </summary>
+internal delegate Task ResolveGrants(
+    AccountAiQuotaReservation reservation, decimal spentFromGrants, CancellationToken cancellationToken);
+
+/// <summary>
 /// Composes the quota's persistence operations, and owns the one thing this module's ledger seam deliberately
 /// does not: transaction boundaries.
 /// </summary>
@@ -127,7 +135,9 @@ internal interface IAiQuotaDataLayer
     /// <param name="admit">
     /// Decides whether the balance covers the hold, and builds the reservation when it does. Given the period
     /// as it is at this instant; returns null to refuse. Re-invoked on every retry, against a freshly read
-    /// period, because the balance it judged may have moved underneath it.
+    /// period, because the balance it judged may have moved underneath it. What it takes from the account's grants
+    /// it stages on this unit of work through Billing's facade (AP.5.2), so it commits with the hold or not at all,
+    /// and a retry forgets it with everything else.
     /// </param>
     /// <param name="platform">
     /// For a picture while a ceiling is configured: what it adds to the platform's day and the line that may
@@ -153,7 +163,7 @@ internal interface IAiQuotaDataLayer
         ReserveAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
+            Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
             PlatformImageSpendCharge? platform,
             DateTimeOffset? imageDayStart,
             CancellationToken cancellationToken);
@@ -181,7 +191,7 @@ internal interface IAiQuotaDataLayer
     /// leaves the day's total high, which a breaker can afford and an account's allowance could not.
     /// </remarks>
     Task<AiQuotaWriteOutcome> ReleaseImageAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken);
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken);
 
     /// <summary>Stages a decided settlement on the caller's unit of work. Does not save.</summary>
     Task<AiQuotaWriteOutcome> StageSettlementAsync(
@@ -198,11 +208,11 @@ internal interface IAiQuotaDataLayer
     /// makes both safe to retry, to re-deliver, and to race against each other.
     /// </remarks>
     Task<AiQuotaWriteOutcome> PostAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken);
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken);
 
     /// <summary>Gives back a hold whose lease lapsed with nothing settled against it.</summary>
     Task<AiQuotaWriteOutcome> ExpireAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken);
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken);
 
     /// <summary>Extends a hold's lifetime, so it tracks the lease the run is actually holding.</summary>
     Task<AiQuotaWriteOutcome> RenewAsync(
@@ -309,7 +319,7 @@ internal sealed class AiQuotaDataLayer(
     public async Task<(AiQuotaWriteOutcome, AccountAiQuotaReservation?, AccountAiQuotaPeriod?)> ReserveAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
+        Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
         PlatformImageSpendCharge? platform,
         DateTimeOffset? imageDayStart,
         CancellationToken cancellationToken)
@@ -331,14 +341,15 @@ internal sealed class AiQuotaDataLayer(
                 return (AiQuotaWriteOutcome.NotFound, null, null);
             }
 
-            var reservation = admit(period, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken));
+            var reservation = await admit(
+                period, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken), cancellationToken);
 
             if (reservation is null)
             {
                 return (AiQuotaWriteOutcome.Refused, null, period);
             }
 
-            period.Reserved += reservation.ReservedAmount;
+            Hold(period, reservation);
             quotas.AddReservation(reservation);
 
             try
@@ -387,7 +398,7 @@ internal sealed class AiQuotaDataLayer(
         ReserveAgainstPlatformAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, int, AccountAiQuotaReservation?> admit,
+            Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
             PlatformImageSpendCharge platform,
             DateTimeOffset? imageDayStart,
             CancellationToken cancellationToken)
@@ -428,7 +439,8 @@ internal sealed class AiQuotaDataLayer(
                         return (AiQuotaWriteOutcome.NotFound, (AccountAiQuotaReservation?)null, current, true);
                     }
 
-                    var hold = admit(current, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken));
+                    var hold = await admit(
+                        current, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken), cancellationToken);
 
                     if (hold is null)
                     {
@@ -440,11 +452,16 @@ internal sealed class AiQuotaDataLayer(
                     {
                         await transaction.RollbackAsync(cancellationToken);
 
+                        // The hold was judged affordable before the ceiling refused it, so admit has already staged
+                        // what it takes from grants (AP.5.2). Forgotten here, so no later save in this scope can
+                        // commit a debit for a picture that was never admitted.
+                        quotas.Forget();
+
                         return (AiQuotaWriteOutcome.OverPlatformCeiling, null, current, true);
                     }
 
                     hold.PlatformImageSpendMicros = platform.Micros;
-                    current.Reserved += hold.ReservedAmount;
+                    Hold(current, hold);
                     quotas.AddReservation(hold);
 
                     try
@@ -527,9 +544,9 @@ internal sealed class AiQuotaDataLayer(
         quotas.HasPeriodUnderPlanAsync(accountId, planKey, cancellationToken);
 
     public async Task<AiQuotaWriteOutcome> ReleaseImageAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken)
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken)
     {
-        var outcome = await ExpireAsync(reservationId, now, cancellationToken);
+        var outcome = await ExpireAsync(reservationId, now, resolveGrants, cancellationToken);
 
         if (outcome is AiQuotaWriteOutcome.Applied
             && await quotas.GetReservationWithPeriodAsync(reservationId, cancellationToken)
@@ -564,8 +581,8 @@ internal sealed class AiQuotaDataLayer(
     }
 
     public Task<AiQuotaWriteOutcome> PostAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken) =>
-        AgainstPeriodAsync(reservationId, (reservation, period) =>
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken) =>
+        AgainstPeriodAsync(reservationId, async (reservation, period, token) =>
         {
             if (reservation.SettledAmount is not { } charge)
             {
@@ -578,27 +595,38 @@ internal sealed class AiQuotaDataLayer(
 
             if (reservation.ReleasedAt is null)
             {
-                period.Reserved -= reservation.ReservedAmount;
+                Release(period, reservation);
                 reservation.ReleasedAt = now;
                 moved = true;
             }
 
             if (reservation.PostedAt is null)
             {
-                // Permitted to push Consumed past the spendable total, and the table deliberately does not
-                // constrain it: a provider can use more than the reservation estimated, and refusing to record
-                // the overshoot would lose the attempt rather than the argument. The next admission refuses.
-                period.Consumed += charge;
+                // The allowance keeps first and the grants next, each up to what it gave (AP.5.2). What lands on
+                // the allowance is permitted to push Consumed past the spendable total, and the table deliberately
+                // does not constrain it: a provider can use more than the reservation estimated, and refusing to
+                // record the overshoot would lose the attempt rather than the argument. The next admission refuses
+                // — or spends grants, which the overshoot itself never does.
+                var (toAllowance, fromGrants) = AiQuotaSourceSplit.Charge(
+                    charge, reservation.ReservedFromAllowance, reservation.ReservedAmount);
+
+                period.Consumed += toAllowance;
+                reservation.ChargedToAllowance = toAllowance;
                 reservation.PostedAt = now;
                 moved = true;
+
+                if (reservation.ReservedFromGrants > 0m)
+                {
+                    await resolveGrants(reservation, fromGrants, token);
+                }
             }
 
             return moved;
         }, cancellationToken);
 
     public Task<AiQuotaWriteOutcome> ExpireAsync(
-        Guid reservationId, DateTimeOffset now, CancellationToken cancellationToken) =>
-        AgainstPeriodAsync(reservationId, (reservation, period) =>
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken) =>
+        AgainstPeriodAsync(reservationId, async (reservation, period, token) =>
         {
             if (reservation.Status is not AiQuotaReservationStatus.Held || reservation.ReleasedAt is not null)
             {
@@ -607,12 +635,37 @@ internal sealed class AiQuotaDataLayer(
                 return false;
             }
 
-            period.Reserved -= reservation.ReservedAmount;
+            Release(period, reservation);
             reservation.Status = AiQuotaReservationStatus.Expired;
             reservation.ReleasedAt = now;
 
+            // Nothing was learned about what it cost, so every grant it drew on gets the whole draw back — the
+            // allowance's part is given back above on the same reading (AP.5.2).
+            if (reservation.ReservedFromGrants > 0m)
+            {
+                await resolveGrants(reservation, 0m, token);
+            }
+
             return true;
         }, cancellationToken);
+
+    /// <summary>A hold taken against a period: its allowance part on <c>Reserved</c>, its grants' part on <c>GrantReserved</c>.</summary>
+    /// <remarks>
+    /// Every hold is above nought, so this always moves the period, and its row version decides any race with another
+    /// hold for the account — including one paid wholly from grants.
+    /// </remarks>
+    private static void Hold(AccountAiQuotaPeriod period, AccountAiQuotaReservation reservation)
+    {
+        period.Reserved += reservation.ReservedFromAllowance;
+        period.GrantReserved += reservation.ReservedFromGrants;
+    }
+
+    /// <summary>The reverse of <see cref="Hold"/>: exactly what the hold added, from the columns it added it to.</summary>
+    private static void Release(AccountAiQuotaPeriod period, AccountAiQuotaReservation reservation)
+    {
+        period.Reserved -= reservation.ReservedFromAllowance;
+        period.GrantReserved -= reservation.ReservedFromGrants;
+    }
 
     public async Task<AiQuotaWriteOutcome> RenewAsync(
         Guid reservationId, DateTimeOffset expiresAt, CancellationToken cancellationToken)
@@ -709,10 +762,12 @@ internal sealed class AiQuotaDataLayer(
     /// The shared shape of posting and expiry: both move <c>Reserved</c>, both are guarded by a stored
     /// timestamp rather than by who calls them, and both lose to the period's row version when they race — at
     /// which point re-reading shows the other one already did the work and the mutation declines to repeat it.
+    /// What a mutation stages on the account's grants rides in the same save, so the grants get their credits back
+    /// with the release or not at all, and a lost race forgets them with everything else (AP.5.2).
     /// </remarks>
     private async Task<AiQuotaWriteOutcome> AgainstPeriodAsync(
         Guid reservationId,
-        Func<AccountAiQuotaReservation, AccountAiQuotaPeriod, bool> mutate,
+        Func<AccountAiQuotaReservation, AccountAiQuotaPeriod, CancellationToken, Task<bool>> mutate,
         CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < AiQuotaPolicy.ContendedWriteAttempts; attempt++)
@@ -724,7 +779,7 @@ internal sealed class AiQuotaDataLayer(
                 return AiQuotaWriteOutcome.NotFound;
             }
 
-            if (!mutate(reservation, reservation.Period))
+            if (!await mutate(reservation, reservation.Period, cancellationToken))
             {
                 return AiQuotaWriteOutcome.AlreadyDone;
             }

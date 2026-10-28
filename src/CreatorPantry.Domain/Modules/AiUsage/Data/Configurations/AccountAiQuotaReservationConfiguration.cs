@@ -55,6 +55,20 @@ internal sealed class AccountAiQuotaReservationConfiguration
                 "CK_AccountAiQuotaReservations_Posted_Requires_Settlement",
                 "PostedAt IS NULL OR SettledAmount IS NOT NULL");
 
+            // The allowance's part of a hold is some of it or all of it (AP.5.2); the rest came from grants. Cast,
+            // because SQLite keeps a decimal as text and '20.0' <= '100.0' is false there.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_FromAllowance_Within_Hold",
+                "CAST(ReservedFromAllowance AS FLOAT) >= 0 "
+                    + "AND CAST(ReservedFromAllowance AS FLOAT) <= CAST(ReservedAmount AS FLOAT)");
+
+            // Posting is the instant and the allowance's share of the charge together: a posted row that said
+            // nothing about the allowance would leave Consumed unexplained.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_ChargedToAllowance_Matches_Posting",
+                "(PostedAt IS NULL AND ChargedToAllowance IS NULL) "
+                    + "OR (PostedAt IS NOT NULL AND ChargedToAllowance IS NOT NULL AND CAST(ChargedToAllowance AS FLOAT) >= 0)");
+
             // A hold that counted against the platform's day counted something; nought would give back nothing
             // and a negative figure would give back more than it took.
             table.HasCheckConstraint(
@@ -95,6 +109,13 @@ internal sealed class AccountAiQuotaReservationConfiguration
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         builder.Property(reservation => reservation.SettledAmount)
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(reservation => reservation.ReservedFromAllowance)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(reservation => reservation.ChargedToAllowance)
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         // The one real relationship in this module. A reservation without its period is uninterpretable rather
