@@ -1447,6 +1447,76 @@ namespace CreatorPantry.Domain.Migrations
                     b.ToTable("OpsApiClients", (string)null);
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset?>("ClawedBackAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsRemaining")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ExternalReferenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Source", "ExternalReferenceId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountCreditGrants_Source_Reference")
+                        .HasFilter("ExternalReferenceId IS NOT NULL");
+
+                    b.HasIndex("AccountId", "GrantedAt", "Id")
+                        .HasDatabaseName("IX_AccountCreditGrants_Account_GrantedAt");
+
+                    b.ToTable("AccountCreditGrants", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountCreditGrants_ClawBack_Recorded", "(ClawedBackAt IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (ClawedBackAt IS NOT NULL AND CAST(CreditsRemaining AS FLOAT) = 0 AND ClawedBackAt >= GrantedAt)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_ClawedBack_Within_Granted", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Granted_Positive", "CAST(CreditsGranted AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Purchase_Referenced", "Source <> 1 OR ExternalReferenceId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Reference_NotBlank", "ExternalReferenceId IS NULL OR trim(ExternalReferenceId) <> ''");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Remaining_Within_Granted", "CAST(CreditsRemaining AS FLOAT) >= 0 AND CAST(CreditsRemaining AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Source_Declared", "Source <> 0");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>
                 {
                     b.Property<Guid>("Id")

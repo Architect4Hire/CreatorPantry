@@ -192,6 +192,13 @@ public sealed class ProblemFamilyWireTests : IAsyncLifetime
     [InlineData(AccountPlanAdministrationErrors.Conflict, HttpStatusCode.Conflict, ProblemRetry.Reread)]
     [InlineData(AccountPlanAdministrationErrors.ChangeScheduled, HttpStatusCode.Conflict, ProblemRetry.None)]
     [InlineData(AccountPlanAdministrationErrors.NoCatalogue, HttpStatusCode.NotFound, ProblemRetry.None)]
+
+    // The ops credit grant routes (AP.5.1). A claw-back that met a moved balance is worth sending again after a
+    // read; a reference that has already granted is not, because a reference grants once.
+    [InlineData(AccountCreditGrantAdministrationErrors.Conflict, HttpStatusCode.Conflict, ProblemRetry.Reread)]
+    [InlineData(AccountCreditGrantAdministrationErrors.ReferenceUsed, HttpStatusCode.Conflict, ProblemRetry.None)]
+    [InlineData(AccountCreditGrantAdministrationErrors.NotFound, HttpStatusCode.NotFound, ProblemRetry.None)]
+    [InlineData(AccountCreditGrantAdministrationErrors.Unprocessable, HttpStatusCode.UnprocessableEntity, ProblemRetry.None)]
     [InlineData("probe.record.gone", HttpStatusCode.Gone, ProblemRetry.None)]
     [InlineData(BrandErrorCodes.SourceFileTooLarge, HttpStatusCode.RequestEntityTooLarge, ProblemRetry.None)]
     [InlineData(IdempotencyPolicy.KeyReusedCode, HttpStatusCode.UnprocessableEntity, ProblemRetry.None)]

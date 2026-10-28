@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Authorization;
 using CreatorPantry.ApiService.Http;
+using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
@@ -12,9 +13,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace CreatorPantry.ApiService.Controllers.Ops;
 
 /// <summary>
-/// Platform administration of any account's AI allowance (USAGE-009) and the plan it is on (PRICE-007): read
-/// them, set or clear its quota, put it on a plan, suspend or restore its access, and list the
-/// highest-consuming accounts for a period or the accounts on a plan.
+/// Platform administration of any account's AI allowance (USAGE-009), the plan it is on (PRICE-007) and the
+/// credits granted to it beyond the allowance (PRICE-008): read them, set or clear its quota, put it on a plan,
+/// grant or claw back credits, suspend or restore its access, and list the highest-consuming accounts for a
+/// period or the accounts on a plan.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -49,6 +51,7 @@ namespace CreatorPantry.ApiService.Controllers.Ops;
 public sealed class OpsAiUsageController(
     IAiUsageAdministrationFacade facade,
     IAccountPlanFacade plans,
+    IAccountCreditGrantFacade grants,
     ILogger<OpsAiUsageController> logger) : ControllerBase
 {
     /// <summary>One account's running period, the terms in force, and what its spend went on.</summary>
@@ -245,6 +248,109 @@ public sealed class OpsAiUsageController(
 
         return Respond(await plans.ListByPlanAsync(planKey, cursor, limit, cancellationToken));
     }
+
+    /// <summary>Grants the account credits beyond its allowance, by hand (PRICE-008, AP.5.1).</summary>
+    /// <param name="accountId">The account the credits go to.</param>
+    /// <param name="model">How many, whether it is goodwill or a promotion, an optional reference, and why.</param>
+    /// <param name="idempotencyKey">Required: a repeat of the same key and body answers with the first grant.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// <para>
+    /// `201` with <c>outcome: Granted</c> and the grant. The credits are spent after the period allowance and do not
+    /// expire (B-50). A <c>reason</c> is required and is stored in the platform audit row with the grant, in one
+    /// transaction.
+    /// </para>
+    /// <para>
+    /// **An `Idempotency-Key` is required**, because a grant is a new row every time: an operator's double submit
+    /// would otherwise grant twice. The same key and body answers with the original response and
+    /// `Idempotent-Replayed: true`; the same key with a different body is `422 idempotency.key_reused`.
+    /// </para>
+    /// <para>
+    /// An <c>externalReferenceId</c> grants once within its source. Sending one that already granted the same
+    /// credits to the same account answers `200` with <c>outcome: Unchanged</c> and writes nothing; one that went
+    /// to another account, or for another figure, is `409 ops.credit_grant.reference_used.conflict`.
+    /// </para>
+    /// <para>
+    /// `422 ops.credit_grant.unprocessable` for credits of nought or below or past four decimal places, a
+    /// <c>source</c> other than <c>Ops</c> or <c>Promo</c> — a <c>Purchase</c> is granted by its payment (AP.6.3),
+    /// never by hand — a blank or over-long reference, no reason, or an account id over 450 characters.
+    /// </para>
+    /// <para>
+    /// **The account identifier is not verified**, as on the plan routes: Billing has no table of accounts, so a
+    /// mistyped id is granted credits nobody holds. Check it against `GET .../accounts/{accountId}` first.
+    /// </para>
+    /// </remarks>
+    [HttpPost("accounts/{accountId}/credit-grants")]
+    public async Task<IActionResult> GrantCredits(
+        string accountId,
+        GrantAccountCreditsViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var outcome = await grants.GrantAsync(accountId, model, User.OpsActor(), idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, change => change.Outcome is AccountCreditGrantChangeReport.Granted
+            ? Created($"/api/v1/ops/ai-usage/accounts/{Uri.EscapeDataString(accountId)}/credit-grants/{change.Grant.Id:D}", change)
+            : Ok(change));
+    }
+
+    /// <summary>The account's credit grants, oldest first, a page at a time, with the unspent total.</summary>
+    /// <param name="accountId">The account to list.</param>
+    /// <param name="cursor">The <c>nextCursor</c> from the previous page; omitted for the first.</param>
+    /// <param name="limit">Clamped to <see cref="AccountCreditGrantAdministrationPolicy.ListMaxLimit"/>.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Oldest first, the order AP.5.2 proposes to spend them in. <c>creditsRemaining</c> is across every grant, not
+    /// just the page. An account with no grants answers an empty list and nought, not 404, for the reason the plan
+    /// read answers the default: Billing cannot tell an account with no grants from an id nobody holds.
+    /// </remarks>
+    [HttpGet("accounts/{accountId}/credit-grants")]
+    public async Task<IActionResult> GetCreditGrants(
+        string accountId,
+        [FromQuery] string? cursor = null,
+        [FromQuery] int limit = AccountCreditGrantAdministrationPolicy.ListDefaultLimit,
+        CancellationToken cancellationToken = default)
+    {
+        RecordRead("credit-grants", accountId);
+
+        return Respond(await grants.ListAsync(accountId, cursor, limit, cancellationToken));
+    }
+
+    /// <summary>One of the account's credit grants.</summary>
+    /// <remarks>`404 ops.credit_grant.not_found` when the account has no grant with that id, another account's included.</remarks>
+    [HttpGet("accounts/{accountId}/credit-grants/{grantId:guid}")]
+    public async Task<IActionResult> GetCreditGrant(string accountId, Guid grantId, CancellationToken cancellationToken)
+    {
+        RecordRead("credit-grant", accountId);
+
+        return Respond(await grants.FindAsync(accountId, grantId, cancellationToken));
+    }
+
+    /// <summary>Claws back the unspent part of one grant (B-50, AP.5.1).</summary>
+    /// <remarks>
+    /// <para>
+    /// What is left on the grant is taken back and recorded on it; spent credits are not recovered, so a grant that
+    /// is fully spent records a claw-back of nought. The grant is never deleted. A <c>reason</c> is required and is
+    /// stored in the platform audit row with the change, in one transaction.
+    /// </para>
+    /// <para>
+    /// **Safe to retry**: a grant already clawed back answers <c>outcome: Unchanged</c> and writes neither a change
+    /// nor an audit entry.
+    /// </para>
+    /// <para>
+    /// `404 ops.credit_grant.not_found` when the account has no grant with that id, another account's included;
+    /// `409 ops.credit_grant.conflict` when the balance moved while it was being clawed back (<c>retry: reread</c>)
+    /// — nothing was taken, and sending it again claws back what is left now; `422 ops.credit_grant.unprocessable`
+    /// with no reason.
+    /// </para>
+    /// </remarks>
+    [HttpPost("accounts/{accountId}/credit-grants/{grantId:guid}/claw-back")]
+    public async Task<IActionResult> ClawBackCreditGrant(
+        string accountId,
+        Guid grantId,
+        ClawBackAccountCreditGrantViewModel model,
+        CancellationToken cancellationToken) =>
+        Respond(await grants.ClawBackAsync(accountId, grantId, model, User.OpsActor(), cancellationToken));
 
     /// <summary>
     /// Leaves a trace of what a machine credential looked at.

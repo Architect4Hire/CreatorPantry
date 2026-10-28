@@ -17,7 +17,8 @@ namespace CreatorPantry.Domain.Modules.Billing;
 public static class BillingServiceCollectionExtensions
 {
     /// <summary>
-    /// The plan catalogue (LP.6) and which plan each account is on (AP.4.1). The API and the Worker both register
+    /// The plan catalogue (LP.6), which plan each account is on (AP.4.1), and the credits granted to it beyond its
+    /// allowance (AP.5.1). The API and the Worker both register
     /// it, with the same <c>Billing</c> section: the Worker opens allowance periods when it admits text work, and
     /// a period opened there has to grant what the API's read of it shows (AP.4.2).
     /// </summary>
@@ -176,6 +177,15 @@ public static class BillingServiceCollectionExtensions
         services.AddScoped<IAccountPlanDataLayer, AccountPlanDataLayer>();
         services.AddScoped<IAccountPlanBusiness, AccountPlanBusiness>();
         services.AddScoped<IAccountPlanFacade, AccountPlanFacade>();
+
+        // Credits beyond the allowance (AP.5.1). The ops grant takes an idempotency key, so a host resolving the
+        // facade needs AddIdempotency too; both hosts that register this module already call it.
+        services.AddScoped<IValidator<GrantAccountCreditsViewModel>, GrantAccountCreditsViewModelValidator>();
+        services.AddScoped<IValidator<ClawBackAccountCreditGrantViewModel>, ClawBackAccountCreditGrantViewModelValidator>();
+        services.AddScoped<IAccountCreditGrantRepository, AccountCreditGrantRepository>();
+        services.AddScoped<IAccountCreditGrantDataLayer, AccountCreditGrantDataLayer>();
+        services.AddScoped<IAccountCreditGrantBusiness, AccountCreditGrantBusiness>();
+        services.AddScoped<IAccountCreditGrantFacade, AccountCreditGrantFacade>();
 
         return services;
     }

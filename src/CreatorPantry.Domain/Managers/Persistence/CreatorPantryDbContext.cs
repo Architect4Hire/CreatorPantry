@@ -353,6 +353,13 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<AccountPlan> AccountPlans => Set<AccountPlan>();
 
     /// <remarks>
+    /// Credits granted to one account beyond its period allowance — a pack bought, an operator's grant, a promotion
+    /// (PRICE-008, AP.5.1) — and what is left of each. Platform-scoped like the plan, and kept until spent (B-50):
+    /// no expiry, and never deleted (<see cref="RetainedRecordInterceptor"/>); a claw-back is recorded on the row.
+    /// </remarks>
+    public DbSet<AccountCreditGrant> AccountCreditGrants => Set<AccountCreditGrant>();
+
+    /// <remarks>
     /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
     /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
     /// </remarks>
@@ -373,7 +380,8 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
         optionsBuilder.AddInterceptors(
             new WorkspaceOwnershipInterceptor(),
             new AuditLogImmutabilityInterceptor(),
-            new ImmutableRecordInterceptor());
+            new ImmutableRecordInterceptor(),
+            new RetainedRecordInterceptor());
     }
 
     /// <remarks>

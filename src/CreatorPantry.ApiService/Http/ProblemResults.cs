@@ -53,6 +53,9 @@ public static class ProblemResults
         // there now, rather than resending a change that was composed against the old end of the chain.
         AccountPlanAdministrationErrors.Conflict,
 
+        // A grant's balance moved under a claw-back (AP.5.1): nothing was taken, and what is left is read again.
+        AccountCreditGrantAdministrationErrors.Conflict,
+
         ConcurrencyConflictCode,
         AiFeatureErrors.Conflict,
         AiUsageAdministrationErrors.QuotaConflict,

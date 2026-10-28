@@ -179,8 +179,8 @@ owner can change them without a code change, and no prompt may hard-code them.
 
 | Item | Proposed value |
 | --- | --- |
-| Plans (monthly / annual per month) | Trial free 14 days · Creator $19 / $15 · Pro $49 / $39 · Studio $99 / $79 |
-| Credits per period | Trial 1,000 once · Creator 6,000 · Pro 18,000 · Studio 40,000 |
+| Plans (monthly / annual per month) | Trial free 14 days · Creator $12 / $9 · Pro $49 / $39 · Studio $99 / $79. First proposed as Creator $19 / $15. |
+| Credits per period | Trial 1,000 once · Creator 4,500 · Pro 18,000 · Studio 36,000, the same on either billing cycle. First proposed as Creator 6,000 and Studio 40,000. |
 | Pictures per UTC day | 5 · 25 · 75 · 150 |
 | Pictures running at once | 1 · 1 · 2 · 3 |
 | Quality classes | Trial: draft, standard · Creator: + high · Pro: + high-2K · Studio: + high-4K |
@@ -199,6 +199,15 @@ owner can change them without a code change, and no prompt may hard-code them.
   first published as 90. B-55 (2026-10-27) removes the rounding: what a class costs is now what its model is
   charged at, so the owner sets a class's price by choosing its model, quality and resolution (AP.3.3), not by
   typing a figure.
+- **Owner, 2026-10-28: the plans were reworked from the annual price down.** Annual Creator $9 with 4,500, Pro
+  $39 and Studio $79 with 36,000; monthly is the same credits at about 20% more ($12, $49, $99). Pro was first
+  given 12,000, which priced its credit at $3.25 per thousand, above Creator ($2.00), Studio ($2.19) and every
+  pack, so Creator plus the 7,500 pack bought Pro's credits for $34. Pro keeps 18,000 ($2.17 per thousand)
+  instead. At B-49's $0.0008 of provider cost a credit, a plan whose every credit is spent still clears about 57%
+  (Creator annual) to 77% (Pro monthly) after card fees. Every pack ($3.00–$4.00 per thousand) still costs more
+  a credit than any plan ($2.00–$2.75), so a heavy user is pointed at an upgrade rather than a pack. Above
+  Creator the plans sell on quality classes and caps, not a cheaper credit: Studio is a hair dearer a credit than
+  Pro ($2.19 against $2.17 annual, $2.75 against $2.72 monthly). The packs are unchanged.
 
 **Consequences:** a figure becomes decided only by the owner, recorded here as a change to this section. Turning
 `Billing:PublishPlans` on outside development waits on that and on the legal gate LP.6 states.
@@ -284,8 +293,8 @@ classes on the page. Until AP.3.1, the one class the deployment sends is standar
   account that is idle across the roll is treated as one that used AI on the first. The opening `Allowance` is
   never rewritten.
 - **An upgrade adds the difference at once.** Owner, 2026-10-27: "if they upgrade they get the difference not
-  the total". The period's grant is raised to the new plan's credits — Creator's 6,000 to Pro's 18,000 adds
-  12,000 — recorded apart from the opening allowance (`AccountAiQuotaPeriod.UpgradeGranted`). The grant is only
+  the total". The period's grant is raised to the new plan's credits — Creator's 4,500 to Pro's 18,000 adds
+  13,500 — recorded apart from the opening allowance (`AccountAiQuotaPeriod.UpgradeGranted`). The grant is only
   ever raised: up, down and up again in one period adds the difference once. Caps and quality classes change at
   once too, because they are read at the request. This settles the open item "Upgrade timing" as option (a),
   with the allowance granted as the difference rather than pro-rated.
