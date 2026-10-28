@@ -43,8 +43,9 @@ on a module, with `CreatorPantryDbContext` the single documented exception.
 - Owns domain invariants, resource authorization, deterministic calculations, and model translation.
 - Calls DataLayer only — with one exception: a Business may call another Business **in its own module** to reuse a
   rule that one owns (its transition gate, its chain), rather than copy the rule or push it into a DataLayer.
-  `PublishingReconciliationBusiness` → `IPublishingRecordBusiness` and `BillingWebhookBusiness` →
-  `IAccountPlanBusiness` are the cases. Never across modules: that is facade to facade.
+  `PublishingReconciliationBusiness` → `IPublishingRecordBusiness`, `BillingWebhookBusiness` →
+  `IAccountPlanBusiness` and `IBillingPackPurchaseBusiness`, and `BillingPackPurchaseBusiness` →
+  `IAccountCreditGrantBusiness` are the cases. Never across modules: that is facade to facade.
 - Does not know about HTTP, EF tracking, provider SDK response types, or cache transport.
 
 ### DataLayer

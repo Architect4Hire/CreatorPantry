@@ -179,13 +179,46 @@ public sealed class StripeWebhookVerifierTests
         Assert.Null(pack.SubscriptionReference);
     }
 
+    /// <summary>
+    /// A refund's object is the charge and a dispute's is the dispute, told apart because each takes back credits in a
+    /// record of its own (AP.6.3) — and each names the payment that is read again, not the one the event carried.
+    /// </summary>
+    [Fact]
+    public void A_refund_and_a_dispute_are_told_apart_and_name_their_own_object()
+    {
+        var refund = Notice("event-charge-refunded");
+        var dispute = Notice("event-charge-dispute");
+
+        Assert.Equal(BillingEventKind.ChargeRefunded, refund.Kind);
+        Assert.Equal("ch_3MmlLrLkdIwHu7ix0snN0B15", refund.ObjectReference);
+        Assert.Null(refund.SubscriptionReference);
+
+        Assert.Equal(BillingEventKind.ChargeDisputed, dispute.Kind);
+        Assert.Equal("du_1MtJUT2eZvKYlo2CNaw2HvEv", dispute.ObjectReference);
+        Assert.Null(dispute.SubscriptionReference);
+    }
+
+    /// <summary>
+    /// An object that is not an id of the kind its type carries is kept as none: the event then has nothing to read
+    /// again, and says so rather than reaching the provider with somebody's text.
+    /// </summary>
+    [Fact]
+    public void An_object_of_another_kind_than_its_type_is_not_kept()
+    {
+        var body = StripeSigning.Fixture("event-charge-refunded")
+            .Replace("\"id\": \"ch_3MmlLrLkdIwHu7ix0snN0B15\"", "\"id\": \"sub_1MowQVLkdIwHu7ixeRlqHVzs\"", StringComparison.Ordinal);
+
+        var notice = Verify(body, StripeSigning.Header(body, Now)).Notice!;
+
+        Assert.Equal(BillingEventKind.ChargeRefunded, notice.Kind);
+        Assert.Null(notice.ObjectReference);
+    }
+
     [Theory]
     [InlineData("invoice.payment_failed", BillingEventKind.InvoicePaymentFailed)]
     [InlineData("invoice.payment_action_required", BillingEventKind.InvoicePaymentFailed)]
     [InlineData("customer.subscription.deleted", BillingEventKind.SubscriptionChanged)]
     [InlineData("customer.subscription.created", BillingEventKind.SubscriptionChanged)]
-    [InlineData("charge.refunded", BillingEventKind.ChargeReversed)]
-    [InlineData("charge.dispute.created", BillingEventKind.ChargeReversed)]
     [InlineData("customer.updated", BillingEventKind.Other)]
     [InlineData("customer.subscription.trial_will_end", BillingEventKind.Other)]
     public void Each_type_is_read_into_what_it_is_about(string type, BillingEventKind kind)

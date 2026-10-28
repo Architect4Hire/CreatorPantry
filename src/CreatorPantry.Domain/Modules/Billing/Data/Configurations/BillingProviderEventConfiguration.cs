@@ -34,6 +34,10 @@ internal sealed class BillingProviderEventConfiguration : IEntityTypeConfigurati
             .IsRequired()
             .HasMaxLength(BillingWebhookPolicy.EventTypeMaxLength);
 
+        // No check constraint: BillingEventKind.Other is a real answer — a type this host does not handle — and a row
+        // stored before AP.6.3 carries it.
+        builder.Property(providerEvent => providerEvent.Kind).IsRequired();
+
         builder.Property(providerEvent => providerEvent.IsLiveMode).IsRequired();
         builder.Property(providerEvent => providerEvent.OccurredAt).IsRequired();
         builder.Property(providerEvent => providerEvent.ReceivedAt).IsRequired();

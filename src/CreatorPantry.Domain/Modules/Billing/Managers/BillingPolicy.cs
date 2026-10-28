@@ -17,6 +17,13 @@ public static class BillingPolicy
     public const int PlanKeyMaxLength = 64;
 
     /// <summary>
+    /// A pack key as <c>BillingPackPurchase</c> stores it (AP.6.3). The width a plan key has, for the same reason:
+    /// startup refuses a catalogue key longer than this, so a pack the catalogue offers is always one a purchase of
+    /// it can be recorded against.
+    /// </summary>
+    public const int PackKeyMaxLength = PlanKeyMaxLength;
+
+    /// <summary>
     /// A credit figure as <c>AccountCreditGrant</c> stores it: the width <c>AiUsagePolicy.AllowancePrecision</c>
     /// and <c>AllowanceScale</c> give a period's allowance, because a grant's credits are spent beside it (AP.5.2)
     /// and a picture costs a fraction of one (87.5, B-49). Restated for the reason <see cref="AccountIdMaxLength"/>

@@ -183,6 +183,85 @@ public sealed record BillingSubscriptionRead(BillingPaymentOutcome Outcome, Bill
 }
 
 /// <summary>
+/// A pack's checkout as the provider holds it now, read again rather than taken from an event (AP.6.3). Only what
+/// deciding whether to grant follows from; what the pack is worth is the catalogue's, never the amount paid.
+/// </summary>
+/// <param name="ExternalSessionId">The provider's id (<c>cs_…</c>), which the grant answers to.</param>
+/// <param name="ExternalCustomerId">The customer it billed (<c>cus_…</c>); null when the session named none.</param>
+/// <param name="AccountId">
+/// The account the session's metadata names, as the checkout wrote it (AP.6.1); null when it names none. Never
+/// trusted alone: it must agree with the customer's account.
+/// </param>
+/// <param name="IsLiveMode">Which of the provider's modes it lives in.</param>
+/// <param name="IsPackPurchase">
+/// Whether this is a pack this host sold: a one-off payment carrying the pack marker the checkout wrote. False for a
+/// subscription's checkout and for a session made in the provider's dashboard.
+/// </param>
+/// <param name="IsPaid">
+/// Whether the provider has the money. False for a delayed payment method still settling, and for one that failed;
+/// either way nothing is granted, and the payment's own event grants when it succeeds.
+/// </param>
+/// <param name="PackKey">
+/// The catalogue key the price the provider charged sells; null when no configured price is it. Read from the price
+/// rather than from the metadata, so a pack key edited in the provider's dashboard grants nothing.
+/// </param>
+/// <param name="ExternalPaymentReference">
+/// The payment the session took (<c>pi_…</c>), which a refund or a dispute arrives about; null when the provider
+/// reported none.
+/// </param>
+public sealed record BillingPackCheckoutSnapshot(
+    string ExternalSessionId,
+    string? ExternalCustomerId,
+    string? AccountId,
+    bool IsLiveMode,
+    bool IsPackPurchase,
+    bool IsPaid,
+    string? PackKey,
+    string? ExternalPaymentReference);
+
+/// <param name="Checkout">Present exactly when the outcome is a success.</param>
+public sealed record BillingPackCheckoutRead(BillingPaymentOutcome Outcome, BillingPackCheckoutSnapshot? Checkout = null)
+{
+    public static BillingPackCheckoutRead Of(BillingPaymentOutcome outcome) => new(outcome);
+}
+
+/// <summary>
+/// A refund or a dispute as the provider holds it now (AP.6.3): which payment it reverses, and nothing about the
+/// money. How many credits come back is this host's arithmetic over its own grant, never a figure from the provider.
+/// </summary>
+/// <param name="ExternalReference">The refund's charge or the dispute, as it was asked for.</param>
+/// <param name="IsLiveMode">Which of the provider's modes it lives in.</param>
+/// <param name="Kind">Which reversal it is, as the event's type said.</param>
+/// <param name="ExternalPaymentReference">
+/// The payment reversed (<c>pi_…</c>), which is what a purchase is found by; null when the provider reports none,
+/// which no pack's payment ever does.
+/// </param>
+/// <param name="AccountId">The account the payment's metadata names, as the checkout wrote it; null when none.</param>
+/// <param name="IsPackPurchase">
+/// Whether the payment carries this host's pack marker. What tells a pack whose checkout has not been recorded yet
+/// from something else the provider charged for — a subscription invoice, which takes no credits back.
+/// </param>
+/// <param name="IsReversed">
+/// Whether the provider confirms money went back: a charge with something refunded, or a dispute that exists. False
+/// takes nothing.
+/// </param>
+public sealed record BillingPaymentReversalSnapshot(
+    string ExternalReference,
+    bool IsLiveMode,
+    BillingPackReversal Kind,
+    string? ExternalPaymentReference,
+    string? AccountId,
+    bool IsPackPurchase,
+    bool IsReversed);
+
+/// <param name="Reversal">Present exactly when the outcome is a success.</param>
+public sealed record BillingPaymentReversalRead(
+    BillingPaymentOutcome Outcome, BillingPaymentReversalSnapshot? Reversal = null)
+{
+    public static BillingPaymentReversalRead Of(BillingPaymentOutcome outcome) => new(outcome);
+}
+
+/// <summary>
 /// An upgrade on a running subscription, confirmed and paid by the creator at the provider (B-56, B-57): a portal page
 /// that shows the proration, takes the payment and handles authentication.
 /// </summary>
@@ -272,6 +351,23 @@ public interface IBillingPaymentGateway
     Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// A pack's checkout as the provider holds it now (AP.6.3), with the price it charged resolved to a catalogue
+    /// key. A read: safe to repeat.
+    /// </summary>
+    Task<BillingPackCheckoutRead> GetPackCheckoutAsync(string externalSessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The refund or dispute <paramref name="externalReference"/> names, and the payment it reverses (AP.6.3). A read:
+    /// safe to repeat.
+    /// </summary>
+    /// <param name="kind">
+    /// Which of the two it is, from the event's type. The provider holds a refund and a dispute as different objects,
+    /// so this says which to ask for rather than leaving the adapter to guess from the reference.
+    /// </param>
+    Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+        string externalReference, BillingPackReversal kind, CancellationToken cancellationToken);
+
+    /// <summary>
     /// A page at the provider where the creator confirms and pays for an upgrade (B-56): the proration invoiced at once,
     /// under the portal configuration that allows exactly that. The plan moves when the paid subscription's webhook
     /// arrives, never when this answers.
@@ -317,6 +413,13 @@ public sealed class UnconfiguredBillingPaymentGateway : IBillingPaymentGateway
 
     public Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken) =>
         Task.FromResult(BillingSubscriptionRead.Of(BillingPaymentOutcome.NotConfigured));
+
+    public Task<BillingPackCheckoutRead> GetPackCheckoutAsync(string externalSessionId, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingPackCheckoutRead.Of(BillingPaymentOutcome.NotConfigured));
+
+    public Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+        string externalReference, BillingPackReversal kind, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingPaymentReversalRead.Of(BillingPaymentOutcome.NotConfigured));
 
     public Task<BillingRedirect> StartPlanUpgradeAsync(PlanUpgradeRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(BillingRedirect.Of(BillingPaymentOutcome.NotConfigured));

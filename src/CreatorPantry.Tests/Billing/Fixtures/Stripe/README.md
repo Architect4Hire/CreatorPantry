@@ -28,6 +28,11 @@ None of them holds a real key, customer or session.
 | `event-invoice-paid.stripe.json` | an `invoice.paid` delivery | — | Authored (AP.6.2) |
 | `event-checkout-subscription.stripe.json` | a subscription's `checkout.session.completed` | — | Authored (AP.6.2) |
 | `event-checkout-pack.stripe.json` | a pack's `checkout.session.completed` | — | Authored (AP.6.2) |
+| `checkout-session-pack.stripe.json` | `GET v1/checkout/sessions/{id}?expand[]=line_items` | 200 | Authored (AP.6.3) |
+| `charge-refunded.stripe.json` | `GET v1/charges/{id}?expand[]=payment_intent` | 200 | Authored (AP.6.3) |
+| `dispute-created.stripe.json` | `GET v1/disputes/{id}?expand[]=payment_intent` | 200 | Authored (AP.6.3) |
+| `event-charge-refunded.stripe.json` | a `charge.refunded` delivery | — | Authored (AP.6.3) |
+| `event-charge-dispute.stripe.json` | a `charge.dispute.created` delivery | — | Authored (AP.6.3) |
 
 **One edit to a transcribed body:** Stripe's checkout example was made with no customer, so its `customer` is
 `null`; it is set here to `cus_NffrFeUfNV2Hib` (the customer example's id), because the gateway refuses a session
@@ -52,3 +57,8 @@ Once a test-mode key exists, replace each 200 with what Stripe returns for the g
 errors with real ones where a test account can produce them (a missing price, a revoked restricted key). Strip
 nothing but the `url` secrets if the session is still open, update the table above, and keep the version the
 gateway pins. A change of `StripeBillingOptions.ApiVersion` is a re-recording, not an edit.
+
+The pack bodies (AP.6.3) use the pack price the stub configures (`price_pack_small`) and the metadata a pack's
+checkout writes, so what a pack grants is read from the price rather than from the metadata. The refund's charge and
+the dispute each carry the payment expanded, because the pack marker and the account travel on the payment and a
+charge does not inherit a payment's metadata. A dispute's id is written `du_…`, as Stripe's own examples write it.

@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Gateways;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -343,6 +344,13 @@ public sealed class BillingCustomerSqlServerTests : IAsyncLifetime
             throw new NotSupportedException();
 
         public Task<BillingRedirect> OpenPortalAsync(BillingPortalRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingPackCheckoutRead> GetPackCheckoutAsync(string externalSessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+            string externalReference, BillingPackReversal kind, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken) =>

@@ -1,0 +1,32 @@
+{
+  "id": "ch_3MmlLrLkdIwHu7ix0snN0B15",
+  "object": "charge",
+  "amount": 1000,
+  "amount_captured": 1000,
+  "amount_refunded": 1000,
+  "captured": true,
+  "created": 2104761600,
+  "currency": "usd",
+  "customer": "cus_NffrFeUfNV2Hib",
+  "disputed": false,
+  "livemode": false,
+  "metadata": {},
+  "paid": true,
+  "payment_intent": {
+    "id": "pi_3MtwBwLkdIwHu7ix28a3tqPa",
+    "object": "payment_intent",
+    "amount": 1000,
+    "amount_received": 1000,
+    "currency": "usd",
+    "customer": "cus_NffrFeUfNV2Hib",
+    "livemode": false,
+    "metadata": {
+      "creatorpantry_account_id": "user-sam-8f2e",
+      "creatorpantry_pack_key": "small",
+      "creatorpantry_purchase": "pack"
+    },
+    "status": "succeeded"
+  },
+  "refunded": true,
+  "status": "succeeded"
+}

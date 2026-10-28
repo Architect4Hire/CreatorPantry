@@ -136,6 +136,10 @@ internal sealed class BillingWebhookDataLayer(
             Id = Guid.NewGuid(),
             ExternalEventId = notice.ExternalEventId,
             EventType = notice.EventType,
+
+            // Stored so processing, which happens later, tells a pack's checkout from a reversed charge without
+            // reading the provider's type string (AP.6.3).
+            Kind = notice.Kind,
             IsLiveMode = notice.IsLiveMode,
             OccurredAt = notice.OccurredAt,
             ReceivedAt = now,

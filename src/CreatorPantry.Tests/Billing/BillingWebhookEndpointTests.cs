@@ -197,6 +197,13 @@ public sealed class BillingWebhookEndpointTests
         public Task<BillingRedirect> OpenPortalAsync(BillingPortalRequest request, CancellationToken cancellationToken) =>
             _calls.OpenPortalAsync(request, cancellationToken);
 
+        public Task<BillingPackCheckoutRead> GetPackCheckoutAsync(string externalSessionId, CancellationToken cancellationToken) =>
+            _calls.GetPackCheckoutAsync(externalSessionId, cancellationToken);
+
+        public Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+            string externalReference, BillingPackReversal kind, CancellationToken cancellationToken) =>
+            _calls.GetPaymentReversalAsync(externalReference, kind, cancellationToken);
+
         public Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken) =>
             _calls.GetSubscriptionAsync(externalSubscriptionId, cancellationToken);
 

@@ -18,7 +18,11 @@ public enum BillingProviderEventStatus
     /// </summary>
     Ignored = 3,
 
-    /// <summary>A pack's checkout, refund or dispute: stored for AP.6.3, which owns them, and left alone here.</summary>
+    /// <summary>
+    /// Historic. A pack's checkout, refund or dispute, stored by AP.6.2 and left for AP.6.3 — which now acts on them
+    /// as they arrive, so nothing is recorded in this state any more. Kept because rows already carry it, and they
+    /// say truthfully that nothing was done with them.
+    /// </summary>
     Deferred = 4,
 
     /// <summary>
@@ -31,7 +35,10 @@ public enum BillingProviderEventStatus
 /// <summary>What one provider event is about, in the application's terms (AP.6.2, B-57's event table).</summary>
 /// <remarks>
 /// The adapter reads the provider's type string into one of these; the type itself is stored as it came, because it
-/// is the provider's record of what happened, but nothing outside the adapter branches on it.
+/// is the provider's record of what happened, but nothing outside the adapter branches on it. Stored since AP.6.3,
+/// because processing happens after the delivery and a pack's checkout and a reversed charge are told apart by
+/// this rather than by the provider's string — so the values are append-only, and <see cref="Other"/> is what a row
+/// written before AP.6.3 carries.
 /// </remarks>
 public enum BillingEventKind
 {
@@ -50,8 +57,11 @@ public enum BillingEventKind
     /// <summary>A checkout finished, or its delayed payment settled either way.</summary>
     CheckoutCompleted = 4,
 
-    /// <summary>A charge was refunded or disputed. AP.6.3's.</summary>
-    ChargeReversed = 5,
+    /// <summary>A charge was refunded, in whole or in part (AP.6.3).</summary>
+    ChargeRefunded = 5,
+
+    /// <summary>A charge was disputed with the card network (AP.6.3).</summary>
+    ChargeDisputed = 6,
 }
 
 /// <summary>Where a provider subscription stands, in the application's terms (AP.6.2).</summary>
@@ -165,6 +175,7 @@ public static class BillingEventDetails
     public const string NotHandled = "not_handled";
     public const string OtherMode = "other_mode";
     public const string NoSubscription = "no_subscription";
+    /// <summary>Historic: what AP.6.2 wrote on a pack's event before AP.6.3 acted on one. Kept for the rows that carry it.</summary>
     public const string PackOwnedByAp63 = "deferred_to_packs";
     public const string ProviderRefused = "provider_refused";
     public const string ProviderUnreadable = "provider_unreadable";
@@ -176,6 +187,39 @@ public static class BillingEventDetails
     public const string OpsChangeScheduled = "ops_change_scheduled";
     public const string Unchanged = "unchanged";
     public const string Changed = "changed";
+
+    // A pack's purchase and its reversal (AP.6.3).
+
+    /// <summary>A checkout event naming no session, so there is nothing to read again.</summary>
+    public const string NoCheckout = "no_checkout";
+
+    /// <summary>A reversal event naming no charge or dispute.</summary>
+    public const string NoCharge = "no_charge";
+
+    /// <summary>
+    /// Not a pack this host sold: a session or payment with no pack marker on it, or a reversal of something else
+    /// the provider charged for — a subscription invoice's refund, which takes no credits back (B-54).
+    /// </summary>
+    public const string NotAPack = "not_a_pack";
+
+    /// <summary>A pack's checkout whose payment has not settled. Nothing granted; the payment's own event grants.</summary>
+    public const string NotPaid = "not_paid";
+
+    /// <summary>A reversal the provider does not confirm on re-reading. Nothing taken back.</summary>
+    public const string NotReversed = "not_reversed";
+
+    public const string Granted = "granted";
+
+    public const string ClawedBack = "clawed_back";
+
+    /// <summary>The purchase names a grant that is not there: an operator's, since nothing deletes one.</summary>
+    public const string GrantMissing = "grant_missing";
+
+    /// <summary>
+    /// The checkout already granted credits to another account, or a different number of them — a pack's configured
+    /// credits changed between two deliveries of one session. Nothing granted.
+    /// </summary>
+    public const string GrantMismatch = "grant_mismatch";
     public const string Held = "held_past_due";
     public const string Pending = "pending_first_payment";
     public const string UpgradeUnpaid = "upgrade_unpaid";

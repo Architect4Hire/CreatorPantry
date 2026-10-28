@@ -1680,6 +1680,98 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingPackPurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ExternalPaymentReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalReversalReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalSessionId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("GrantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PackKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("PurchasedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Reversal")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ReversedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalPaymentReference")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingPackPurchases_Payment")
+                        .HasFilter("ExternalPaymentReference IS NOT NULL");
+
+                    b.HasIndex("ExternalSessionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingPackPurchases_Session");
+
+                    b.HasIndex("GrantId");
+
+                    b.HasIndex("AccountId", "PurchasedAt")
+                        .HasDatabaseName("IX_BillingPackPurchases_Account_PurchasedAt");
+
+                    b.ToTable("BillingPackPurchases", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingPackPurchases_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_ClawedBack_Within_Granted", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Credits_Positive", "CAST(CreditsGranted AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_PackKey_NotBlank", "trim(PackKey) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Payment_NotBlank", "ExternalPaymentReference IS NULL OR trim(ExternalPaymentReference) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Reversal_Recorded", "(Reversal = 0 AND ReversedAt IS NULL AND ExternalReversalReference IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (Reversal <> 0 AND ReversedAt IS NOT NULL AND ReversedAt >= PurchasedAt)");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_SessionId_NotBlank", "trim(ExternalSessionId) <> ''");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingProviderEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1706,6 +1798,9 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<bool>("IsLiveMode")
                         .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
 
                     b.Property<string>("ObjectReference")
                         .HasMaxLength(255)
@@ -8494,6 +8589,17 @@ namespace CreatorPantry.Domain.Migrations
                         .HasPrincipalKey("AccountId", "EffectiveFrom")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("FK_AccountPlans_Superseded");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingPackPurchase", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", "Grant")
+                        .WithMany()
+                        .HasForeignKey("GrantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grant");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>

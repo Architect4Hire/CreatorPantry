@@ -1,0 +1,52 @@
+{
+  "id": "cs_test_b22ZZufWQzNY63zpQ6QSNRQhkUpVph4WRmzW0zWJO2znZKdVujZ0N0S22u",
+  "object": "checkout.session",
+  "amount_subtotal": 1000,
+  "amount_total": 1000,
+  "client_reference_id": "user-sam-8f2e",
+  "created": 2104761600,
+  "currency": "usd",
+  "customer": "cus_NffrFeUfNV2Hib",
+  "expires_at": 2104848000,
+  "line_items": {
+    "object": "list",
+    "data": [
+      {
+        "id": "li_1MtwBwLkdIwHu7ix1Vs2Pzvy",
+        "object": "item",
+        "amount_discount": 0,
+        "amount_subtotal": 1000,
+        "amount_tax": 0,
+        "amount_total": 1000,
+        "currency": "usd",
+        "description": "Credit pack",
+        "price": {
+          "id": "price_pack_small",
+          "object": "price",
+          "active": true,
+          "currency": "usd",
+          "livemode": false,
+          "product": "prod_PackSmall",
+          "recurring": null,
+          "type": "one_time",
+          "unit_amount": 1000
+        },
+        "quantity": 1
+      }
+    ],
+    "has_more": false,
+    "url": "/v1/checkout/sessions/cs_test_b22ZZufWQzNY63zpQ6QSNRQhkUpVph4WRmzW0zWJO2znZKdVujZ0N0S22u/line_items"
+  },
+  "livemode": false,
+  "metadata": {
+    "creatorpantry_account_id": "user-sam-8f2e",
+    "creatorpantry_pack_key": "small",
+    "creatorpantry_purchase": "pack"
+  },
+  "mode": "payment",
+  "payment_intent": "pi_3MtwBwLkdIwHu7ix28a3tqPa",
+  "payment_status": "paid",
+  "status": "complete",
+  "subscription": null,
+  "url": null
+}

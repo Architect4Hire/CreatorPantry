@@ -71,6 +71,27 @@ internal sealed class StripeBillingSettings
         return null;
     }
 
+    /// <summary>
+    /// The pack a configured price sells, or null for a price this host does not sell — a plan's, one made in the
+    /// provider's dashboard, or one since removed from configuration (AP.6.3).
+    /// </summary>
+    /// <remarks>
+    /// The reverse of <see cref="PriceFor(string)"/>, and what a pack's checkout is read by: the price the provider
+    /// charged says which pack was bought, where the session's metadata only says which it was started for.
+    /// </remarks>
+    public string? PackFor(string priceId)
+    {
+        foreach (var (key, price) in Prices.Packs)
+        {
+            if (price is { Length: > 0 } && string.Equals(price, priceId, StringComparison.Ordinal))
+            {
+                return key;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The price for <paramref name="planKey"/> on <paramref name="cycle"/>, or null when it has none.</summary>
     public string? PriceFor(string planKey, BillingCycle cycle) =>
         Prices.Plans.TryGetValue(planKey, out var prices)

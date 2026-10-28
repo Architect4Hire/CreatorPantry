@@ -181,12 +181,11 @@ public sealed class BillingWebhookSqlServerTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// A pack's checkout and a charge are AP.6.3's, an event from the other mode is not this host's, and a type
-    /// nobody handles is nobody's: each stored, so a replay of it is still a replay, and none queued.
+    /// An event from the other mode is not this host's, and a type nobody handles is nobody's: each stored, so a
+    /// replay of it is still a replay, and none queued. A pack's checkout and a charge are acted on, and are
+    /// <see cref="BillingPackPurchaseSqlServerTests"/>'s.
     /// </summary>
     [Theory]
-    [InlineData("checkout.session.completed", "pack", false, BillingProviderEventStatus.Deferred)]
-    [InlineData("charge.refunded", "charge", false, BillingProviderEventStatus.Deferred)]
     [InlineData("customer.subscription.updated", "subscription", true, BillingProviderEventStatus.Ignored)]
     [InlineData("customer.updated", "customer", false, BillingProviderEventStatus.Ignored)]
     [InlineData("invoice.paid", "one-off invoice", false, BillingProviderEventStatus.Ignored)]
@@ -195,8 +194,6 @@ public sealed class BillingWebhookSqlServerTests : IAsyncLifetime
     {
         var item = shape switch
         {
-            "pack" => """{"id":"cs_test_pack1","object":"checkout.session","mode":"payment","subscription":null}""",
-            "charge" => """{"id":"ch_3MmlLrLkdIwHu7ix0snN0B15","object":"charge"}""",
             "customer" => """{"id":"cus_NffrFeUfNV2Hib","object":"customer"}""",
             "one-off invoice" => """{"id":"in_1OneOff","object":"invoice","parent":null}""",
             _ => SubscriptionObject(SamSubscription),
@@ -1104,6 +1101,13 @@ public sealed class BillingWebhookSqlServerTests : IAsyncLifetime
 
             return answer;
         }
+
+        public Task<BillingPackCheckoutRead> GetPackCheckoutAsync(string externalSessionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+            string externalReference, BillingPackReversal kind, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<BillingCustomerCreation> CreateCustomerAsync(string accountId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

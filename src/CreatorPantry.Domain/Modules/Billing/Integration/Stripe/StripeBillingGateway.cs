@@ -21,7 +21,8 @@ namespace CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 /// <strong>The contract this is written against</strong> is Stripe's API v1 at <c>2026-09-30.endive</c>
 /// (docs.stripe.com, read 2026-10-28): <c>POST customers</c>, <c>POST checkout/sessions</c> and
 /// <c>POST billing_portal/sessions</c>, form-encoded, authenticated by a bearer key — and, for a running subscription
-/// (AP.6.2), <c>GET subscriptions/{id}</c> and the <c>subscription_schedules</c> calls. Plain HTTP rather than
+/// (AP.6.2), <c>GET subscriptions/{id}</c> and the <c>subscription_schedules</c> calls, and for a pack (AP.6.3),
+/// <c>GET checkout/sessions/{id}</c>, <c>GET charges/{id}</c> and <c>GET disputes/{id}</c>. Plain HTTP rather than
 /// Stripe.net, as the repository's other providers are: these calls do not need an SDK, the pin is one header here
 /// rather than whatever a package release carries, and no Stripe type exists to leak past this file.
 /// </para>
@@ -220,6 +221,77 @@ internal sealed class StripeBillingGateway(
         return ReadSubscription(reply.Data, externalSubscriptionId) is { } subscription
             ? new BillingSubscriptionRead(BillingPaymentOutcome.Succeeded, subscription)
             : Unreadable("subscription", BillingSubscriptionRead.Of(BillingPaymentOutcome.Unreadable));
+    }
+
+    /// <remarks>
+    /// <c>GET v1/checkout/sessions/{id}</c> with the line items expanded, which a session does not carry by default
+    /// (docs.stripe.com, "The Checkout Session object", read 2026-10-28): the one line's price is what says which pack
+    /// was bought, and the metadata only which one the checkout was started for. <c>payment_status</c> is
+    /// <c>paid</c>, <c>unpaid</c> or <c>no_payment_required</c> — a delayed payment method sits at <c>unpaid</c> until
+    /// it settles, and its own event arrives when it does.
+    /// </remarks>
+    public async Task<BillingPackCheckoutRead> GetPackCheckoutAsync(
+        string externalSessionId, CancellationToken cancellationToken)
+    {
+        RequireReference(externalSessionId, "cs_", nameof(externalSessionId));
+
+        var reply = await ReadAsync(
+            "pack-checkout", $"v1/checkout/sessions/{externalSessionId}?expand%5B%5D=line_items", cancellationToken);
+
+        if (reply.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return BillingPackCheckoutRead.Of(reply.Outcome);
+        }
+
+        return ReadPackCheckout(reply.Data, externalSessionId) is { } checkout
+            ? new BillingPackCheckoutRead(BillingPaymentOutcome.Succeeded, checkout)
+            : Unreadable("pack-checkout", BillingPackCheckoutRead.Of(BillingPaymentOutcome.Unreadable));
+    }
+
+    /// <remarks>
+    /// <para>
+    /// A refund is read from its charge (<c>GET v1/charges/{id}</c>) and a dispute from the dispute
+    /// (<c>GET v1/disputes/{id}</c>), because Stripe holds them as different objects and a dispute event's object is
+    /// the dispute, not the charge (docs.stripe.com, "The Charge object" and "The Dispute object", read 2026-10-28).
+    /// Each is read with the payment expanded: the pack marker and the account travel on the payment
+    /// (<c>payment_intent_data[metadata]</c> at the checkout), and a charge does not inherit a payment's metadata.
+    /// </para>
+    /// <para>
+    /// <strong>What counts as reversed:</strong> a charge with anything refunded — a partial refund included, which
+    /// claws back the whole unspent balance (AP.6.3) — and a dispute at all, since one exists only once the money is
+    /// held back. Nothing about the amount crosses: how many credits come back is this host's arithmetic over its own
+    /// grant.
+    /// </para>
+    /// </remarks>
+    public async Task<BillingPaymentReversalRead> GetPaymentReversalAsync(
+        string externalReference, BillingPackReversal kind, CancellationToken cancellationToken)
+    {
+        var (operation, path) = kind switch
+        {
+            BillingPackReversal.Refund => ("charge", "v1/charges"),
+
+            // Stripe's dispute ids have carried both prefixes over the years; either is an id, neither is interpreted.
+            BillingPackReversal.Dispute => ("dispute", "v1/disputes"),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "A reversal is a refund or a dispute."),
+        };
+
+        RequireReference(
+            externalReference,
+            kind == BillingPackReversal.Refund ? ["ch_"] : ["du_", "dp_"],
+            nameof(externalReference));
+
+        var reply = await ReadAsync(
+            operation, $"{path}/{externalReference}?expand%5B%5D=payment_intent", cancellationToken);
+
+        if (reply.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return BillingPaymentReversalRead.Of(reply.Outcome);
+        }
+
+        return ReadReversal(reply.Data, externalReference, kind) is { } reversal
+            ? new BillingPaymentReversalRead(BillingPaymentOutcome.Succeeded, reversal)
+            : Unreadable(operation, BillingPaymentReversalRead.Of(BillingPaymentOutcome.Unreadable));
     }
 
     /// <remarks>
@@ -733,6 +805,103 @@ internal sealed class StripeBillingGateway(
         return null;
     }
 
+    // ---- reading a pack's purchase and its reversal (AP.6.3) -----------------------------------------------
+
+    /// <summary>
+    /// The pack's checkout in the application's terms; null when it is not the session that was asked for, or is from
+    /// the other mode, or does not say whether it was paid.
+    /// </summary>
+    private BillingPackCheckoutSnapshot? ReadPackCheckout(JsonElement data, string askedFor)
+    {
+        if (ReadId(data, "cs_") != askedFor
+            || !ReadModeMatches(data)
+            || StringOf(data, "payment_status") is not { Length: > 0 } paid)
+        {
+            return null;
+        }
+
+        // A one-off payment carrying the marker this host's pack checkout writes. A subscription's session, or one
+        // made in Stripe's dashboard, is not a pack and grants nothing.
+        var isPack = StringOf(data, "mode") == "payment"
+            && Metadata(data, StripeMetadata.Purchase) == StripeMetadata.PackPurchase;
+
+        return new BillingPackCheckoutSnapshot(
+            askedFor,
+            ReferenceOf(data, "customer", "cus_"),
+            Metadata(data, StripeMetadata.AccountId),
+            options.Mode == BillingPaymentMode.Live,
+            isPack,
+            paid is "paid" or "no_payment_required",
+            PackKeyOf(data),
+            ReferenceOf(data, "payment_intent", "pi_"));
+    }
+
+    /// <summary>
+    /// The catalogue key the session's one line was charged on; null for a price this host does not sell, for line
+    /// items that were not expanded, and for a session with more than one line, which no checkout here makes.
+    /// </summary>
+    private string? PackKeyOf(JsonElement data) =>
+        data.TryGetProperty("line_items", out var items)
+        && items.ValueKind == JsonValueKind.Object
+        && items.TryGetProperty("data", out var lines)
+        && lines.ValueKind == JsonValueKind.Array
+        && lines.GetArrayLength() == 1
+        && PriceOf(lines[0]) is { } price
+            ? settings.Value.PackFor(price)
+            : null;
+
+    /// <summary>
+    /// The reversal in the application's terms; null when it is not the object that was asked for or is from the
+    /// other mode.
+    /// </summary>
+    private BillingPaymentReversalSnapshot? ReadReversal(JsonElement data, string askedFor, BillingPackReversal kind)
+    {
+        // Compared with what was asked for rather than by prefix, which the argument guard has already held.
+        if (StringOf(data, "id") != askedFor || !ReadModeMatches(data))
+        {
+            return null;
+        }
+
+        var reversed = kind == BillingPackReversal.Refund
+            ? AmountRefunded(data) > 0 || Flag(data, "refunded")
+
+            // A dispute exists from the moment the money is held back; its status says where it has got to since.
+            : StringOf(data, "status") is { Length: > 0 };
+
+        var (accountId, isPack) = PaymentMarkers(data);
+
+        return new BillingPaymentReversalSnapshot(
+            askedFor,
+            options.Mode == BillingPaymentMode.Live,
+            kind,
+            ReferenceOf(data, "payment_intent", "pi_"),
+            accountId,
+            isPack,
+            reversed);
+    }
+
+    /// <summary>
+    /// What the expanded payment says about the purchase it paid for. Nothing when it was not expanded, which reads as
+    /// "no pack marker" — and so as a payment this host did not take, never as one it did.
+    /// </summary>
+    private static (string? AccountId, bool IsPack) PaymentMarkers(JsonElement data) =>
+        data.TryGetProperty("payment_intent", out var payment) && payment.ValueKind == JsonValueKind.Object
+            ? (Metadata(payment, StripeMetadata.AccountId),
+                Metadata(payment, StripeMetadata.Purchase) == StripeMetadata.PackPurchase)
+            : (null, false);
+
+    /// <summary>What has been refunded on a charge, in the smallest currency unit; nought when it does not say.</summary>
+    private static long AmountRefunded(JsonElement data) =>
+        data.TryGetProperty("amount_refunded", out var amount)
+        && amount.ValueKind == JsonValueKind.Number
+        && amount.TryGetInt64(out var refunded)
+        && refunded > 0
+            ? refunded
+            : 0;
+
+    private static bool Flag(JsonElement data, string name) =>
+        data.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
+
     /// <summary>A line's price id, whether the price is expanded (a subscription item) or not (a schedule phase).</summary>
     private static string? PriceOf(JsonElement line) => ReferenceOf(line, "price", "price_");
 
@@ -781,16 +950,22 @@ internal sealed class StripeBillingGateway(
         _ => BillingSubscriptionStatus.Unspecified,
     };
 
-    private static void RequireReference(string value, string prefix, string name)
+    private static void RequireReference(string value, string prefix, string name) =>
+        RequireReference(value, [prefix], name);
+
+    /// <summary>
+    /// An id starting with one of <paramref name="prefixes"/>: several where Stripe has used more than one over the
+    /// years, as a dispute's <c>du_</c> and <c>dp_</c>.
+    /// </summary>
+    private static void RequireReference(string value, string[] prefixes, string name)
     {
         ArgumentNullException.ThrowIfNull(value, name);
-        if (!value.StartsWith(prefix, StringComparison.Ordinal)
-            || value.Length <= prefix.Length
+        if (!prefixes.Any(prefix => value.StartsWith(prefix, StringComparison.Ordinal) && value.Length > prefix.Length)
             || value.Length > BillingPolicy.ExternalReferenceMaxLength
             || !value.All(character => char.IsAsciiLetterOrDigit(character) || character == '_'))
         {
             // Also what keeps a value from reaching a request path as anything but an id.
-            throw new ArgumentException($"A Stripe id starting {prefix} is required.", name);
+            throw new ArgumentException($"A Stripe id starting {string.Join(" or ", prefixes)} is required.", name);
         }
     }
 

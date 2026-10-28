@@ -188,6 +188,12 @@ promo — the id breaking a tie. A settled charge keeps from the allowance first
 it gave, and the rest returns to the grant it came from (`AccountCreditGrantDraw`). A text run that costs more
 than its hold lands the overshoot on the allowance, never on a grant. Credits a hold had open when its grant was
 clawed back stay spent if the run spent them; the rest join the claw-back, never the balance.*
+*Built in AP.6.3 (owner, 2026-10-28, approving its mapping): a pack's checkout grants once, keyed by the checkout
+session; a refund or a dispute claws back the **whole unspent balance** of that grant, once, because a partial refund
+cannot fairly unspend credits already spent, and because a grant's claw-back is final by design. A dispute claws back
+when it is opened, and **winning one does not re-grant** — `charge.dispute.closed` is not subscribed (B-57) — so an
+operator re-grants through AP.5.1's ops route. The payment's record is a new integration row, `BillingPackPurchase`,
+which is what lets a reversal find the credits it must take back: a refund names a payment, never a session.*
 **Rules:** `external.md`.
 
 ### B-51 Plan, pack, rate and model figures — PROPOSED

@@ -23,8 +23,9 @@ internal interface IBillingWebhookBusiness
         string? signatureHeader, ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Reads the event's subscription again from the provider and brings the account's plan into line with every
-    /// subscription the account has (B-54, B-56, B-57).
+    /// Reads the event's subject again from the provider and acts on it: a subscription brings the account's plan into
+    /// line with every subscription it has (B-54, B-56, B-57), and a pack's checkout or a reversed payment grants or
+    /// claws back credits (B-50, AP.6.3).
     /// </summary>
     /// <exception cref="BillingWebhookRetryException">
     /// The provider could not be read, or the plan chain moved under the change: the outbox retries the message.
@@ -53,6 +54,12 @@ internal sealed class BillingWebhookRetryException(string reason) : Exception(re
 
 /// <inheritdoc cref="IBillingWebhookBusiness"/>
 /// <remarks>
+/// <para>
+/// <strong>Credits are the other half, and they are a different business's</strong> (AP.6.3): an event about a pack's
+/// checkout or a reversed payment is handed to <see cref="IBillingPackPurchaseBusiness"/>, which owns the grant and
+/// the claw-back, while this class keeps the event row and the plan. A Business calling a Business in its own module,
+/// as the plan chain is reached (backend.md).
+/// </para>
 /// <para>
 /// <strong>What the plan follows is the provider's subscription as it is now, never what an event said.</strong>
 /// Stripe does not deliver in order and may deliver twice, so an event only names which subscription to read
@@ -90,6 +97,7 @@ internal sealed class BillingWebhookRetryException(string reason) : Exception(re
 internal sealed class BillingWebhookBusiness(
     IBillingWebhookDataLayer data,
     IAccountPlanBusiness plans,
+    IBillingPackPurchaseBusiness packs,
     IOptions<BillingOptions> options,
     IClock clock,
     ILogger<BillingWebhookBusiness> logger) : IBillingWebhookBusiness
@@ -151,12 +159,16 @@ internal sealed class BillingWebhookBusiness(
                     ? (BillingProviderEventStatus.Ignored, BillingEventDetails.NoSubscription)
                     : (BillingProviderEventStatus.Received, null),
 
-            // A subscription's checkout links it to its account sooner than its own events might; a pack's is AP.6.3's.
-            BillingEventKind.CheckoutCompleted => notice.SubscriptionReference is null
-                ? (BillingProviderEventStatus.Deferred, BillingEventDetails.PackOwnedByAp63)
+            // A subscription's checkout links it to its account sooner than its own events might; a pack's grants the
+            // credits it paid for (AP.6.3). Either is read again from its session, so one naming none has nothing to do.
+            BillingEventKind.CheckoutCompleted => notice.SubscriptionReference is null && notice.ObjectReference is null
+                ? (BillingProviderEventStatus.Ignored, BillingEventDetails.NoCheckout)
                 : (BillingProviderEventStatus.Received, null),
 
-            BillingEventKind.ChargeReversed => (BillingProviderEventStatus.Deferred, BillingEventDetails.PackOwnedByAp63),
+            // A refund or a dispute takes back the unspent part of the pack its payment bought (B-50, AP.6.3).
+            BillingEventKind.ChargeRefunded or BillingEventKind.ChargeDisputed => notice.ObjectReference is null
+                ? (BillingProviderEventStatus.Ignored, BillingEventDetails.NoCharge)
+                : (BillingProviderEventStatus.Received, null),
 
             _ => (BillingProviderEventStatus.Ignored, BillingEventDetails.NotHandled),
         };
@@ -180,7 +192,24 @@ internal sealed class BillingWebhookBusiness(
 
         if (row.SubscriptionReference is not { } subscriptionId)
         {
-            return await CompleteAsync(row, BillingProviderEventStatus.Ignored, null, BillingEventDetails.NoSubscription, cancellationToken);
+            // Not about a subscription, so not about a plan: a pack's checkout, or a payment reversed (AP.6.3). Which
+            // of them is the stored kind's answer, never the provider's type string, and a row stored before AP.6.3
+            // carries no kind and is left exactly as it was left then.
+            var pack = row.Kind switch
+            {
+                BillingEventKind.CheckoutCompleted =>
+                    await packs.GrantAsync(row.ObjectReference, row.IsLiveMode, cancellationToken),
+
+                BillingEventKind.ChargeRefunded =>
+                    await packs.ReverseAsync(row.ObjectReference, BillingPackReversal.Refund, row.IsLiveMode, cancellationToken),
+
+                BillingEventKind.ChargeDisputed =>
+                    await packs.ReverseAsync(row.ObjectReference, BillingPackReversal.Dispute, row.IsLiveMode, cancellationToken),
+
+                _ => new BillingPackEventOutcome(BillingProviderEventStatus.Ignored, BillingEventDetails.NoSubscription),
+            };
+
+            return await CompleteAsync(row, pack.Status, pack.AccountId, pack.Detail, cancellationToken);
         }
 
         // The record's version before the provider is asked, so a reading that another Worker's newer one overtook

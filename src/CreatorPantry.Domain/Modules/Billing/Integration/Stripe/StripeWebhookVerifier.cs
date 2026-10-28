@@ -29,7 +29,8 @@ namespace CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 /// <para>
 /// <strong>Nothing in the body is read until the signature holds.</strong> Then only the event's id, type, mode and
 /// time, and which object and subscription it is about: never its amounts, its customer's details or anything the
-/// creator entered, since none of it is acted on — processing reads the subscription again.
+/// creator entered, since none of it is acted on — processing reads the subscription, the session or the reversal
+/// again.
 /// </para>
 /// <para>
 /// Shapes are the pinned version's (<c>2026-09-30.endive</c>, as the webhook endpoint is created at): an invoice
@@ -163,24 +164,33 @@ internal sealed class StripeWebhookVerifier(string signingSecret, IClock clock) 
                 return null;
             }
 
-            var objectReference = Id(item, prefix: null);
-            var (kind, subscription) = type switch
+            // The object's id is held to the prefix its type's object carries, so what processing reads again is
+            // always an id of the kind it expects — and an event whose object is not one at all names none.
+            var (kind, objectReference, subscription) = type switch
             {
                 "customer.subscription.created" or "customer.subscription.updated" or "customer.subscription.deleted"
-                    => (BillingEventKind.SubscriptionChanged, Id(item, "sub_")),
+                    => (BillingEventKind.SubscriptionChanged, Id(item, "sub_"), Id(item, "sub_")),
 
-                "invoice.paid" => (BillingEventKind.InvoicePaid, InvoiceSubscription(item)),
+                "invoice.paid" => (BillingEventKind.InvoicePaid, Id(item, "in_"), InvoiceSubscription(item)),
 
                 "invoice.payment_failed" or "invoice.payment_action_required"
-                    => (BillingEventKind.InvoicePaymentFailed, InvoiceSubscription(item)),
+                    => (BillingEventKind.InvoicePaymentFailed, Id(item, "in_"), InvoiceSubscription(item)),
 
-                // A subscription checkout names the subscription it made; a pack's names none and is AP.6.3's.
+                // A subscription checkout names the subscription it made; a pack's names none, and its session is
+                // what AP.6.3 reads again to find which pack was paid for.
                 "checkout.session.completed" or "checkout.session.async_payment_succeeded" or "checkout.session.async_payment_failed"
-                    => (BillingEventKind.CheckoutCompleted, Text(item, "mode") == "subscription" ? Reference(item, "subscription", "sub_") : null),
+                    => (BillingEventKind.CheckoutCompleted,
+                        Id(item, "cs_"),
+                        Text(item, "mode") == "subscription" ? Reference(item, "subscription", "sub_") : null),
 
-                "charge.refunded" or "charge.dispute.created" => (BillingEventKind.ChargeReversed, (string?)null),
+                // A refund's object is the charge; a dispute's is the dispute, whose ids have carried both prefixes
+                // over the years. Each names the payment it reverses, which AP.6.3 reads again.
+                "charge.refunded" => (BillingEventKind.ChargeRefunded, Id(item, "ch_"), (string?)null),
 
-                _ => (BillingEventKind.Other, (string?)null),
+                "charge.dispute.created"
+                    => (BillingEventKind.ChargeDisputed, Id(item, "du_") ?? Id(item, "dp_"), (string?)null),
+
+                _ => (BillingEventKind.Other, Id(item, prefix: null), (string?)null),
             };
 
             return new BillingProviderEventNotice(

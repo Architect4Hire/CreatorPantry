@@ -379,6 +379,13 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<BillingProviderEvent> BillingProviderEvents => Set<BillingProviderEvent>();
 
     /// <remarks>
+    /// Each credit pack a creator paid for and what became of that payment (PRICE-008, B-50, AP.6.3): the integration
+    /// record that ties a checkout session and its payment to the grant they made, so a refund or a dispute can find
+    /// the credits it has to take back. Platform-scoped, never deleted.
+    /// </remarks>
+    public DbSet<BillingPackPurchase> BillingPackPurchases => Set<BillingPackPurchase>();
+
+    /// <remarks>
     /// Each provider subscription and the account it bills, as last read from the provider (AP.6.2): the integration
     /// record that holds the subscription, item and schedule ids, so the plan chain holds none. Platform-scoped.
     /// </remarks>

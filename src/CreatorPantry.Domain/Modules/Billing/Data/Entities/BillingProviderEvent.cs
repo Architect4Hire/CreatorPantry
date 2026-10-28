@@ -35,6 +35,18 @@ public class BillingProviderEvent
     /// <summary>The provider's type, as sent (<c>customer.subscription.updated</c>).</summary>
     public string EventType { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What the event is about in the application's terms, as the adapter read <see cref="EventType"/> at the
+    /// delivery (AP.6.3).
+    /// </summary>
+    /// <remarks>
+    /// Stored because processing happens later, from the outbox, and has to tell a pack's checkout from a reversed
+    /// charge without reading the provider's string — which only the adapter may do. A row written before AP.6.3
+    /// carries <see cref="BillingEventKind.Other"/>, and processing falls back to what it did then: an event naming
+    /// a subscription follows the plan, and anything else is left alone.
+    /// </remarks>
+    public BillingEventKind Kind { get; set; }
+
     public bool IsLiveMode { get; set; }
 
     /// <summary>When the provider made the event. Recorded for an operator; never used to order (B-57).</summary>

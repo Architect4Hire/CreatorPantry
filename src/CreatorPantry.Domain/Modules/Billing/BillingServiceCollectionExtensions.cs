@@ -219,6 +219,12 @@ public static class BillingServiceCollectionExtensions
         // (AddStripeBilling), which only the API is. The writer is the outbox's, TryAdd for the reason Brand gives.
         services.TryAddSingleton<IBillingWebhookVerifier, UnconfiguredBillingWebhookVerifier>();
         services.TryAddScoped<IOutboxWriter, OutboxWriter>();
+        // A pack bought, refunded or disputed (AP.6.3): the credits half of the same webhook, on the same scoped
+        // context, so a grant and the purchase that records it are one request's work.
+        services.AddScoped<IBillingPackPurchaseRepository, BillingPackPurchaseRepository>();
+        services.AddScoped<IBillingPackPurchaseDataLayer, BillingPackPurchaseDataLayer>();
+        services.AddScoped<IBillingPackPurchaseBusiness, BillingPackPurchaseBusiness>();
+
         services.AddScoped<IBillingWebhookRepository, BillingWebhookRepository>();
         services.AddScoped<IBillingWebhookDataLayer, BillingWebhookDataLayer>();
         services.AddScoped<IBillingWebhookBusiness, BillingWebhookBusiness>();
