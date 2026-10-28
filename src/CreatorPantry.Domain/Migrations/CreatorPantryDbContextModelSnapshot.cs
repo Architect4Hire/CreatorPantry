@@ -1640,6 +1640,46 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingCustomer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExternalCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalCustomerId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingCustomers_ExternalCustomerId");
+
+                    b.HasIndex("AccountId", "IsLiveMode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingCustomers_Account_Mode");
+
+                    b.ToTable("BillingCustomers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingCustomers_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingCustomers_ExternalCustomerId_NotBlank", "trim(ExternalCustomerId) <> ''");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>
                 {
                     b.Property<Guid>("Id")

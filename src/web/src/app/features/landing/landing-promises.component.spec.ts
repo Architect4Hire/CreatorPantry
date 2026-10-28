@@ -73,9 +73,19 @@ describe('LandingPromisesComponent', () => {
     expect(Array.from(host.querySelectorAll('h3')).map((el) => el.textContent?.trim())).toEqual([
       'Prepaid, and that is all',
       'At zero, AI waits',
-      'Top-up is yours to switch on',
+      'Running low? You hear first',
       'Need more in a busy month?',
     ]);
+  });
+
+  /**
+   * B-59: nothing is ever bought for a creator. Running low brings a notice offering a pack; a promise of an
+   * automatic purchase would describe a feature that will not exist.
+   */
+  it('never promises to buy anything on the creator’s behalf', () => {
+    const text = BILLING_PROMISES.map((promise) => `${promise.heading} ${promise.body}`).join(' ');
+
+    expect(text).not.toMatch(/automatic|top-?up|auto-?refill/i);
   });
 
   /**

@@ -303,7 +303,7 @@ motion.
 | --- | --- | --- | --- |
 | Prepaid | You pay for credits before you use them. Nothing is billed afterwards. | **Decided** AP decision 3; PRICE-009 | AP.1.1 and AP.6 |
 | At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual."). **Not built** for pictures (AP.2.5) | AP.2.5 |
-| Top-up is yours to switch on | Automatic top-up is off unless you turn it on, and you set its monthly limit. | **Not built** AP.6.4 | AP.6.4 |
+| Running low? You hear first | When your credits run low, we tell you and offer a pack. Nothing is ever bought for you. | **Decided** B-59 (owner, 2026-10-28: no auto top-up). **Not built** AP.6.4 | AP.6.4 |
 
 **Packs:** `{pack.credits}` credits for `{pack.price}`, used after your plan's credits. **Catalogue** AP.5.
 Under the list, once: "A pack is credits you have bought, so they keep until you spend them. They never

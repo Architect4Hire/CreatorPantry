@@ -366,6 +366,13 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<AccountCreditGrantDraw> AccountCreditGrantDraws => Set<AccountCreditGrantDraw>();
 
     /// <remarks>
+    /// Which payment-provider customer one account is, per provider mode (PRICE-010, AP.6.1): the integration record
+    /// that holds a Stripe customer id, so no plan, grant or ServiceModel ever does. Platform-scoped like the plan,
+    /// and write-once.
+    /// </remarks>
+    public DbSet<BillingCustomer> BillingCustomers => Set<BillingCustomer>();
+
+    /// <remarks>
     /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
     /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
     /// </remarks>

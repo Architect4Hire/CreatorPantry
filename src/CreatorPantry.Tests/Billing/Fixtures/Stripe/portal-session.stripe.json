@@ -1,0 +1,13 @@
+{
+  "id": "bps_1MrSjzLkdIwHu7ixex0IvU9b",
+  "object": "billing_portal.session",
+  "configuration": "bpc_1MAhNDLkdIwHu7ixckACO1Jq",
+  "created": 1680210639,
+  "customer": "cus_NciAYcXfLnqBoz",
+  "flow": null,
+  "livemode": false,
+  "locale": null,
+  "on_behalf_of": null,
+  "return_url": "https://example.com/account",
+  "url": "https://billing.stripe.com/p/session?secret=test_YWNjdF8xTTJKVGtMa2RJd0h1N2l4LF9OY2lBYjJXcHY4a2NPck96UjBEbFVYRnU5bjlwVUF50100BUtQs3bl"
+}

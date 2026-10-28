@@ -7,6 +7,13 @@
 > each requires. Text in `[BRACKETS]` is a placeholder or an open decision. Statements marked *(product fact)*
 > describe what the software does today and must be re-checked whenever that changes.
 
+> **Revision for counsel, 2026-10-28.** Updated for the payment decisions in
+> `docs/architecture-decisions/ai-pricing.md` (B-57, B-58, B-59): purchases go through Stripe and are sold through
+> Link, Stripe's merchant-of-record service, so payment details are given to Link at checkout rather than to us,
+> and we keep only a Stripe customer reference. Changed: section 2 ("Payment details"), section 4 ("Billing"),
+> section 6 (Stripe and Link), section 7 (billing records) and section 8 (payment records). Whether Link acts as an
+> independent controller of what it collects is for counsel to confirm.
+
 **Last updated:** [DATE OF PUBLICATION]
 
 ## 1. Who we are
@@ -32,8 +39,12 @@ another.
   show in the app have that metadata removed *(product fact)*. Downloading an original gives you the file with
   its metadata intact.
 - **Messages to us**, such as support emails.
-- **Payment details** [WHEN BILLING SHIPS]: payments will be processed by [Stripe]. We will receive your plan,
-  billing status and the last four digits and expiry of your card, never the full card number.
+- **Payment details** [WHEN BILLING SHIPS]: when you buy a plan or a pack, you give your card or other payment
+  details, billing address and email to **Link**, operated by Stripe, at checkout — not to us. Link is the
+  merchant of record for the purchase and handles that information under its own privacy policy. [COUNSEL:
+  confirm Link's role, e.g. independent controller, and link its policy.] We never see or store your card number.
+  What we keep is a Stripe customer reference linked to your account *(product fact)*, and what Stripe tells us
+  about your purchases: your plan, its billing period and status, and which packs you bought.
 
 ### Information created when you use the Service
 
@@ -83,7 +94,9 @@ disclose it, or self-host the fonts so no request goes to Google.]
 - **To talk to you:** account emails (confirming your address, resetting your password), important notices
   about the Service or these policies, and replies when you contact us. [OWNER DECISION: any product or
   marketing email, which would need opt-in or opt-out as the law requires.]
-- **Billing** [WHEN BILLING SHIPS].
+- **Billing** [WHEN BILLING SHIPS]: to match a purchase to your account, apply your plan and add the credits you
+  bought, and to tell you when your credits run low [PROPOSED: you can turn that notice off]. Link sends your
+  receipts and some subscription emails itself.
 - **Legal reasons:** to meet legal obligations and to protect our rights and our users.
 
 **What we don't do:** we don't sell your personal information, we don't share it for cross-context behavioural
@@ -115,7 +128,10 @@ We share personal information only with:
   - Microsoft (Azure AI Foundry) — text AI features;
   - Venice.ai — picture generation (the picture prompt);
   - [EMAIL PROVIDER — not chosen yet *(product fact)*] — account emails;
-  - [Stripe] — payments, when billing ships;
+  - Stripe — payments, when billing ships. We send Stripe your account identifier, so it can match a purchase
+    to your account, and never your name or anything in your workspaces *(product fact)*. Link, Stripe's
+    merchant-of-record service, collects your payment and billing details from you directly at checkout, and
+    calculates and collects tax (see section 2);
   - Google Fonts — font delivery (see section 3).
 - **Services you choose to connect:** Buffer, when you schedule a post, receives the post and its picture. The
   USDA FoodData Central service receives ingredient names when nutrition evidence is switched on — never your
@@ -133,6 +149,8 @@ We share personal information only with:
 | Sign-in sessions | 8 hours idle, 7 days at most *(product fact)* |
 | Retry records | 24 hours *(product fact)* |
 | Audit and AI usage records | [RETENTION PERIOD] |
+| Your Stripe customer reference | Until your account is closed [CONFIRM: account deletion is not built yet; it must remove this] |
+| Plan and purchase records | [RETENTION PERIOD — COUNSEL: tax and accounting requirements] |
 | Server and telemetry logs | [RETENTION PERIOD] |
 | Backups | [BACKUP RETENTION PERIOD] |
 | After an account is closed | [RETENTION PERIOD, matching the Terms §10], then deleted |
@@ -146,6 +164,9 @@ We share personal information only with:
   *(product fact)*; write to robert@creatorpantry.com and we will do it within [30] days.
 - **Location in photos:** if you'd rather not keep a photo's location, remove it from the file before you
   upload it.
+- **Payment records:** Link and Stripe keep their own records of your purchases as merchant of record, and you
+  can ask Link directly to see or delete them. Closing your CreatorPantry account removes our link to your Stripe
+  customer; it does not delete Link's records.
 - **Depending on where you live,** you may have rights to access, correct, delete, restrict or object to our
   use of your information, to data portability, and to complain to your data protection authority. California
   residents have the right to know, delete and correct, and to not be discriminated against for using these

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "idempotency_key_in_use",
+    "doc_url": "https://docs.stripe.com/error-codes/idempotency-key-in-use",
+    "message": "There is currently another in-progress request using this Idempotent Key (that probably means you submitted twice, and the other request is still going through): cp-pack-checkout-v1-0f3a. Please try again later.",
+    "type": "invalid_request_error"
+  }
+}

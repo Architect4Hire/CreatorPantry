@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing.Business;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Facade;
+using CreatorPantry.Domain.Modules.Billing.Gateways;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.Configuration;
 using FluentValidation;
@@ -205,6 +206,12 @@ public static class BillingServiceCollectionExtensions
         services.AddScoped<IAccountCreditSpendDataLayer, AccountCreditSpendDataLayer>();
         services.AddScoped<IAccountCreditSpendBusiness, AccountCreditSpendBusiness>();
         services.AddScoped<IAccountCreditSpendFacade, AccountCreditSpendFacade>();
+
+        // The payment provider (AP.6.1). "Not configured" unless a host adds one (AddStripeBilling): a TryAdd, so the
+        // provider's registration wins whichever order the two are called in.
+        services.TryAddScoped<IBillingPaymentGateway, UnconfiguredBillingPaymentGateway>();
+        services.AddScoped<IBillingCustomerRepository, BillingCustomerRepository>();
+        services.AddScoped<IBillingCustomerDataLayer, BillingCustomerDataLayer>();
 
         return services;
     }

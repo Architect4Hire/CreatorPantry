@@ -212,6 +212,48 @@ public sealed class AccountAiUsageReadTests : IAsyncDisposable
         Assert.Equal(150m, usage.Pictures);
         Assert.Equal(80m, usage.Writing);
         Assert.Equal(usage.ByTask.Sum(row => row.Amount), usage.Pictures + usage.Writing);
+        Assert.Equal(usage.Pictures + usage.Writing, usage.ByWorkspace.Sum(row => row.Amount));
+    }
+
+    /// <summary>
+    /// A picture's hold and its charges name the generation in different columns. Reading the workspace through
+    /// only the one a completion uses left every picture's spend with no workspace — and the first metered
+    /// picture an account made then failed this whole read.
+    /// </summary>
+    [Fact]
+    public async Task A_pictures_spend_is_counted_in_the_workspace_it_was_made_in()
+    {
+        var periodId = await SeedPeriodAsync(consumed: 100m);
+        await SeedRunAsync(periodId, WorkspaceA, AiTaskType.ImageGeneration, amount: 100m, attempts: 2);
+
+        var usage = await CurrentAsync();
+
+        var workspace = Assert.Single(usage.ByWorkspace);
+        Assert.Equal(WorkspaceA, workspace.WorkspaceId);
+        Assert.Equal("Cozy Fall", workspace.WorkspaceName);
+        Assert.Equal(100m, workspace.Amount);
+        Assert.Equal(2, workspace.Requests);
+    }
+
+    /// <summary>
+    /// A posted charge with no ledger entry to place it is kept, without a workspace, so the breakdown still
+    /// sums to what the period's runs cost. Not knowing where something was spent is a missing label, never a
+    /// reason to fail the read.
+    /// </summary>
+    [Fact]
+    public async Task A_charge_whose_workspace_cannot_be_read_is_kept_without_one()
+    {
+        var periodId = await SeedPeriodAsync(consumed: 65m);
+        await SeedRunAsync(periodId, WorkspaceA, AiTaskType.RecipeConcepts, amount: 40m, attempts: 1);
+        await SeedRunAsync(periodId, WorkspaceA, AiTaskType.RecipeRevision, amount: 25m, attempts: 0);
+
+        var usage = await CurrentAsync();
+
+        var unplaced = usage.ByWorkspace.Single(row => row.WorkspaceId is null);
+        Assert.Null(unplaced.WorkspaceName);
+        Assert.Equal(25m, unplaced.Amount);
+        Assert.Equal(0, unplaced.Requests);
+        Assert.Equal(65m, usage.ByWorkspace.Sum(row => row.Amount));
     }
 
     // ---- the breakdowns --------------------------------------------------------------------------------
@@ -601,6 +643,11 @@ public sealed class AccountAiUsageReadTests : IAsyncDisposable
         }
     }
 
+    /// <remarks>
+    /// A picture's charge names its generation in <c>GeneratedImageOperationId</c> and leaves
+    /// <c>AiOperationId</c> null, as <c>AiUsageRecordingBusiness</c> writes it — while its hold names the same
+    /// generation in <c>AiOperationId</c>. Seeding pictures any other way hides that asymmetry from every read.
+    /// </remarks>
     private async Task SeedLedgerEntryAsync(
         Guid operationId,
         Guid workspaceId,
@@ -611,12 +658,15 @@ public sealed class AccountAiUsageReadTests : IAsyncDisposable
         using var scope = _provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
 
+        var isPicture = taskType is AiTaskType.ImageGeneration;
+
         db.AccountAiUsageEntries.Add(new AccountAiUsageEntry
         {
             Id = Guid.NewGuid(),
             AccountId = accountId,
             OccurredAt = PeriodStart.AddDays(1),
-            AiOperationId = operationId,
+            AiOperationId = isPicture ? null : operationId,
+            GeneratedImageOperationId = isPicture ? operationId : null,
             AttemptNumber = attemptNumber,
             TaskType = taskType,
             WorkspaceId = workspaceId,

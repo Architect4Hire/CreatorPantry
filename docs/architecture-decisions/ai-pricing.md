@@ -1,7 +1,8 @@
 # AI Pricing Decisions
 
 *Status: Accepted — 2026-10-26, except B-51, which is **proposed, not decided**. Recorded by AI-pricing prompt
-AP.1.1. B-55 added 2026-10-27 at the owner's request; B-56 added 2026-10-27 by AP.4.2 with the owner's answers.*
+AP.1.1. B-55 added 2026-10-27 at the owner's request; B-56 added 2026-10-27 by AP.4.2 with the owner's answers;
+B-57 and B-58 added 2026-10-28 by AP.6.1 with the owner's approval; B-59 added 2026-10-28 with the owner's answer.*
 
 This record fixes the product decisions behind CreatorPantry's AI pricing — closing the image cost leak, then
 plans, prepaid credit packs and Stripe billing on top of the allowance Phase 9A built — so the AP prompts build
@@ -26,6 +27,13 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
   (`docs/prompts/creatorpantry-landing-pricing-scrub-prompts-extensions.md`): packs do not expire.
 - Product-owner answers given 2026-10-26 to AP.1.1's open questions — B-50, B-52, B-53 and B-54 (downgrades),
   and the deferral of sales tax.
+- Stripe's first-party documentation, read 2026-10-28 for AP.6.1 (B-57, B-58): Checkout fulfillment, Billing
+  subscriptions and their webhooks, the customer portal (integration, configuration, configuration API, deep
+  links), webhooks, prorations, Stripe Tax with Checkout, Managed Payments (overview, how it works, eligibility,
+  set-up), idempotent requests, errors and low-level error handling, API upgrades, and the Stripe.net changelog.
+- Product-owner approval of 2026-10-28 of AP.6.1's review: "Managed Payment is ok - approved"; and the answer
+  to its auto top-up item the same day: "autotop off will need to use the notice and have them buy a pack --
+  approved" (B-59).
 - `CLAUDE.md` and `.claude/rules/` — architectural source of truth. Nothing here redefines them; B-44 amends
   `CLAUDE.md`'s out-of-bounds list on the owner's explicit request.
 
@@ -43,7 +51,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | PRICE-008 | Prepaid credit packs add to the allowance, are spent after it, and **do not expire** (amended by B-50; the AP document first said 12 months). | 5 |
 | PRICE-009 | There is no post-paid overage. An account at zero is refused at admission, as USAGE-006 already does. | 5 |
 | PRICE-010 | Subscriptions and packs are bought through Stripe; webhooks are verified and idempotent. | 6 |
-| PRICE-011 | Auto top-up is opt-in, buys the smallest pack, and is capped per month by the creator. | 6 |
+| PRICE-011 | When an account's credits run low the creator is told and offered a pack; **nothing is ever bought for them** (amended by B-59; the AP document first said opt-in auto top-up). | 6 |
 | PRICE-012 | Trial accounts cannot generate unbounded images. | 7 |
 | PRICE-013 | Every published picture price — quote, picker, landing page, billing page — is the rate that request is charged at, per quality class, read from one table (added 2026-10-27, B-55). | 3, 4 |
 
@@ -64,6 +72,9 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-54 | Downgrades take effect at period end | PRICE-007, 010 | Decided | A downgrade, a cancellation and a trial running out all take effect when the running period ends. How an upgrade lands is B-56. |
 | B-55 | A picture's price is the rate it is charged at | PRICE-004, 006, 013 | Decided | Owner, 2026-10-27. A quality class's credits are read from `Ai:Quota:ImageRates` for the model, quality and resolution the class sends. Every page that states a picture price reads that table; there is no second copy. |
 | B-56 | The plan sets the allowance and the picture caps | PRICE-007, 012, USAGE-003, 009 | Decided | Owner, 2026-10-27, answering AP.4.2. An ops-set allowance wins; otherwise the plan in force at the period's start. An upgrade adds the difference at once; a trial's credits are granted once. The plan's daily and running picture caps are the account's, beside the workspace's flat ones. |
+| B-57 | Stripe: Checkout to buy, the portal to manage, webhooks to decide | PRICE-010, B-54, B-56 | Decided | Owner, 2026-10-28, approving AP.6.1. Hosted Checkout for a first subscription and every pack; the portal for payment methods, invoices and cancelling at period end, with plan switching off; plan changes from CreatorPantry's own page; webhooks decide every change. API pinned to `2026-09-30.endive`; test mode until the owner says otherwise. |
+| B-58 | Tax: Stripe Managed Payments is the merchant of record | PRICE-010, PRICE-011 | Decided | Owner, 2026-10-28, answering AP.6.1. Stripe, through Link, calculates, collects and remits sales tax, VAT and GST, for 3.5% on top of card fees. AP.6.4 (auto top-up) cannot work as written under it; B-59 replaces it. |
+| B-59 | A low-balance notice instead of auto top-up | PRICE-011 | Decided | Owner, 2026-10-28, answering B-58's open item. No pack is ever bought for a creator. When credits run low the account is told once a period and offered a pack, which the creator buys through Checkout. Amends PRICE-011. |
 
 ## Decisions
 
@@ -72,7 +83,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 - **`CLAUDE.md` listed billing, plans and metering as out of bounds "unless explicitly requested"; the owner
   requested them on 2026-10-24.** Its out-of-bounds line now points here.
 - **In:** plans, the plan catalogue, prepaid credit packs, picture and text metering against the allowance,
-  payment through Stripe, opt-in auto top-up. Which Stripe products (Checkout, Billing, Customer Portal) is
+  payment through Stripe, a low-balance notice (B-59; first opt-in auto top-up). Which Stripe products (Checkout, Billing, Customer Portal) is
   AP.6.1's decision, made after reading Stripe's current documentation (`external.md`).
 - **Out:** per-seat pricing and team billing (a plan is per account; membership is unchanged), usage-based
   invoicing of any kind (B-46), PantryPress billing (it has its own Stripe integration and no AI), and moving
@@ -106,8 +117,8 @@ AP.2.6, narrowed for one kind of picture by DL.7 (`2.creatorpantry-daily-limits-
 - **No post-paid overage.** Nothing is metered and invoiced after the fact.
 - **At zero, work waits.** An account that cannot afford a request is refused at admission (USAGE-006), before
   anything is queued or sent to a provider.
-- **More credits come from a pack or an upgrade**, bought in advance; auto top-up buys a pack, opt-in and capped
-  by the creator (PRICE-011).
+- **More credits come from a pack or an upgrade**, bought in advance and always by the creator; running low brings
+  a notice offering a pack, never a charge (PRICE-011 as amended by B-59).
 
 **Options considered:** metered overage billed at period end — rejected: it is the surprise bill the landing
 page promises never to send, and it moves the provider-cost risk from the platform to a dispute.
@@ -333,6 +344,121 @@ period end. AP.7.1 decides how a trial ends; its credits are already once-only. 
 `GeneratedImageOperation.RequestedByAccountId` with the account's quota and plan rows.
 **Rules:** `backend.md` (Limits), `tenancy.md`.
 
+### B-57 Stripe: Checkout to buy, the portal to manage, webhooks to decide
+
+- **Owner, 2026-10-28, approving AP.6.1's review** of Stripe's current documentation (Sources).
+- **Hosted Checkout for a first purchase only:** an account on the trial or with nothing running buys a plan
+  (`mode=subscription`), and any account buys a pack (`mode=payment`). The account's Stripe customer is made first
+  (`BillingCustomer`) and passed in, and the account id travels as `client_reference_id` and as metadata on the
+  session, on the subscription it makes and on a pack's payment, so every later event names the account. No
+  Stripe trial is ever set: the trial is CreatorPantry's own, with no card (B-48, B-52).
+- **One Stripe product per paid plan, with a monthly and an annual price; one product per pack, with one one-time
+  price.** Stripe's own advice for tiers. The price ids are configuration (`Billing:Stripe:Prices`, set per machine
+  and never committed), checked at startup: every paid plan priced on both cycles, every pack priced, no trial
+  priced, no unknown key, no id twice. `Billing:Plans` stays the published figure (B-51); AP.6.5 checks Stripe's
+  amounts against it.
+- **The customer portal for payment methods, invoices, billing details and cancelling at period end**
+  (`subscription_cancel.mode=at_period_end`, no proration). **Plan switching is off in it.** The portal can defer
+  a switch to period end only between prices of one product, so a Pro → Creator switch there would land at once
+  and break B-54.
+- **A plan change on a running subscription starts from CreatorPantry's billing page.** An upgrade opens a portal
+  `subscription_update_confirm` deep link, under a portal configuration that invoices the proration at once
+  (`always_invoice`), so Stripe handles card authentication and a failed payment; the B-56 difference is granted
+  when the webhook says it was paid. A downgrade, and annual → monthly, is a subscription schedule whose next phase
+  starts at the current period's end (B-54). Both are AP.6.2's to build.
+- **Events handled** (AP.6.2, AP.6.3). Nothing else is subscribed to.
+
+  | Event | Why |
+  | --- | --- |
+  | `checkout.session.completed`, `.async_payment_succeeded`, `.async_payment_failed` | Link a subscription to its account; grant a pack (B-50) |
+  | `customer.subscription.created`, `.updated`, `.deleted` | Plan, period, a scheduled change, cancellation at period end |
+  | `invoice.paid` | Renewal, and a paid upgrade — the subscription re-fetched and `active` before acting |
+  | `invoice.payment_failed`, `invoice.payment_action_required` | Tell the creator; the plan follows the subscription's status |
+  | `charge.refunded`, `charge.dispute.created` | Claw back the unspent part of the pack's grant (B-50) |
+
+  Not subscribed: entitlements, `customer.subscription.trial_will_end` (no Stripe trial), `customer.updated` (no
+  billing detail is stored here) and `invoice.finalization_failed` (only Stripe Tax causes it; B-58).
+- **How an event is taken:** the signature verified on the raw body, with Stripe's five-minute tolerance, before
+  anything is parsed; the event id stored, so a replay changes nothing; 2xx returned at once and the work done from
+  the outbox; and order never assumed — Stripe does not guarantee it, so the subscription or invoice is re-fetched
+  before a state changes. Full-object ("snapshot") payloads, the endpoint created at the pinned version.
+- **The API is pinned to `2026-09-30.endive`** (`Stripe-Version` on every request), through a plain-HTTP gateway
+  (`Modules/Billing/Integration/Stripe`) behind the application-owned `IBillingPaymentGateway`. Classic
+  `Customer` objects, not Accounts v2, which outside Connect is still a public preview needing a preview version.
+- **Test mode only until the owner says otherwise.** A live key stops the API unless `Billing:Stripe:AllowLiveMode`
+  is set on it.
+
+**Options considered:** Stripe.net (53.0.0, which pins `endive`) — not used: the four calls need no SDK, the other
+providers here are plain HTTP, a package release moves the pin and has removed parameters between majors, and
+with no SDK no Stripe type exists outside the adapter to leak. Plan switching in the portal — rejected (B-54, above).
+A Stripe trial — rejected (B-52: no card). Thin event payloads, which Stripe now recommends — not chosen: it could
+not be confirmed that their catalogue carries these v1 subscription and invoice events.
+**Consequences:** AP.6.2 adds the two plan-change operations to the gateway, and the webhook route; AP.6.3 finds a
+refunded or disputed pack through its payment's metadata; AP.6.5's "upgrade via Checkout" means a first
+subscription only, and its return page shows "pending" from the session id Stripe writes into the success URL.
+Account erasure (9A.3) must name `BillingCustomers` beside the plan and quota tables before it ships; the Stripe
+customer itself is Stripe's record as merchant of record (B-58), and a deletion request made through Link is
+Stripe's to carry out.
+**Rules:** `external.md`, `aspire.md`, `gateway.md`, `backend.md`.
+
+### B-58 Tax: Stripe Managed Payments is the merchant of record
+
+- **Owner, 2026-10-28, answering AP.6.1: "Managed Payment is ok - approved".** Every Checkout session sets
+  `managed_payments[enabled]=true`. Stripe, through Link, is the merchant of record: it calculates, collects,
+  files and remits sales tax, VAT and GST in more than 80 countries, and handles fraud, disputes and
+  transaction-level support. Nothing here sets `automatic_tax` or collects an address for tax.
+- **What it costs:** 3.5% of each transaction on top of card processing (2.9% + 30¢, US cards) and, for
+  subscriptions, Billing's 0.7% — against Stripe Tax Basic's 0.5% where registered. Every plan still covers its AI
+  at full credit burn: Creator annual, the thinnest, goes from about 2.4× to about 2.3× its provider cost ($108 a
+  year less about $8 of fees, against $43.20 of AI at B-49's $0.0008 a credit). Every pack still costs more a
+  credit than every plan.
+- **What it changes for a creator:** Checkout, receipts and the card statement say Link (`LINK.COM* …`); Stripe
+  sends the receipts and some subscription emails itself; customers can also manage orders at link.com; Stripe may
+  refund within 60 days without asking; Checkout cannot be on a custom domain.
+- **What it requires:** Stripe's eligibility review, a business in one of its supported countries, and an eligible
+  product tax code on every product — `txcd_10105002` (AI as a service, cloud, business use) is proposed, the
+  owner's to confirm with an accountant. Subscriptions are created only through Checkout, which is already the
+  design (B-57).
+- **AP.6.4 (auto top-up) cannot work as written.** A Managed Payments purchase authorises only Managed Payments
+  to charge the card, and an off-session charge is an integration it does not support. B-59 replaces it.
+
+**Options considered:** Stripe Tax Basic — rejected: the owner would register and file wherever tax is owed —
+generally VAT from the first sale to a consumer abroad, and US states as their thresholds are passed — and it
+collects nothing until a registration exists. No automatic tax — rejected. This record is not tax advice.
+**Consequences:** the open item "Sales tax and VAT" is settled; two follow from it (below), and the auto top-up one
+is answered by B-59.
+**Rules:** `external.md`.
+
+### B-59 A low-balance notice instead of auto top-up
+
+- **Owner, 2026-10-28, answering "Auto top-up under Managed Payments": "autotop off will need to use the notice
+  and have them buy a pack -- approved".** Option (b) of that item.
+- **Nothing is ever bought for a creator.** No saved card is charged and no payment is taken off-session: every
+  pack is a Checkout the creator completes (B-57), which is also the only kind of charge Managed Payments makes
+  (B-58). The landing page's "no surprise bills" now holds without a setting to keep it true.
+- **Running low brings a notice.** When admission leaves an account's spendable credits — the period allowance
+  left plus every pack's balance — under a threshold, the account is told, once for that period, and offered a
+  pack: the notice links to the billing page's pack purchase (AP.6.5). Reaching zero is unchanged: work is refused
+  at admission (USAGE-006) and the exhausted state offers a pack and an upgrade.
+- **Proposed, not decided:** the threshold is 10% of the period allowance (the figure AP.6.4 first gave the
+  top-up), in configuration; the notice is in-app through the notification module, with email only if that
+  module already delivers it; it is on by default and the creator may turn it off. A notice is not a charge, so it
+  needs no opt-in. AP.6.4 presents these before building.
+- **This amends PRICE-011**, which said "auto top-up is opt-in, buys the smallest pack, and is capped per month by
+  the creator".
+
+**Options considered:** dropping auto top-up with nothing in its place — rejected: a creator who runs out mid-task
+learns it only from a refusal. Charging off-session outside Managed Payments — rejected: CreatorPantry would be
+merchant of record and owe the tax on those charges, and it needs consent Managed Payments' checkout does not give.
+**Consequences:** AP.6.4 is rewritten to build the notice. AP.6.5's billing page drops the auto top-up setting
+and shows the notice's on/off instead. The landing tile that promised auto top-up was replaced the same day, on the
+owner's approval — now "Running low? You hear first", still labelled "Coming with billing" until AP.6.4 builds the
+notice, with a spec that no promise names an automatic purchase (`landing-promises.component.ts`,
+`docs/landing-page-copy.md`). The Terms of Service and Privacy Policy drafts were updated the same day for B-48–B-59
+— the trial, packs that do not expire, plan-change timing, Link as merchant of record and the low-balance notice —
+each with a revision note for counsel, whose review LP.6 still requires before either is published.
+**Rules:** `ai.md` (quota enforcement is deterministic), `frontend.md`.
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -350,6 +476,10 @@ period end. AP.7.1 decides how a trial ends; its credits are already once-only. 
 | AP.3.1, AP.3.1A, AP.4.5, AP.6.5 | **Amended or added** 2026-10-27 so the quote, the picker, the landing page and the billing page read each class's price from the charging table (B-55). |
 | AP.4.2, DL.4, DL.5, DL.8 | **Delivered by AP.4.2** (B-56): the plan's allowance and both picture caps, through the account's picture holds rather than DL.4's day-hold table. |
 | DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |
+| AP.6.1 | **Delivered** with B-57 and B-58: the gateway, `BillingCustomer`, the price map and the Aspire parameters. |
+| AP.6.2 | **Extended** by B-57: the upgrade deep link and the period-end schedule, and the event table above. |
+| AP.6.4 | **Rewritten** by B-59: a low-balance notice offering a pack, in place of auto top-up (blocked by B-58). |
+| AP.6.5 | **Narrowed** by B-57: Checkout for a first subscription; a running one changes plan through AP.6.2's operations. |
 
 ## Open items
 
@@ -364,10 +494,43 @@ period end. AP.7.1 decides how a trial ends; its credits are already once-only. 
 - **Default assumed by later prompts:** (b), because it is what AP.4.2 and the AP.4.4 checkpoint already say.
   AP.4.2 presents it to the owner before implementing, and the answer is recorded here.
 
-### Sales tax and VAT — deferred to AP.6.1
+### Sales tax and VAT — decided 2026-10-28, B-58
 
+- **Answer:** neither option as written: Stripe Managed Payments, with Stripe as merchant of record.
 - **Question:** does billing use Stripe Tax?
 - **Options:** (a) Stripe Tax; (b) no automatic tax collection.
 - **Impact:** Checkout configuration, the price shown before tax, and which jurisdictions can buy.
 - **Default assumed by later prompts:** none. AP.6.1 reads Stripe's current docs, presents the answer, and
   records it here as a decision before any Checkout code is written. No prompt before AP.6.1 needs it.
+
+### Prices shown with tax or before it — open, raised by AP.6.1
+
+- **Question:** does a plan's or a pack's published price include tax, or is tax added at Checkout?
+- **Options:** (a) added at Checkout — Stripe's default (`tax_behavior` exclusive), so the landing page's $12 is
+  $12 plus whatever tax applies where the creator is; (b) included — the price is what is paid everywhere, and the
+  net after tax varies by country.
+- **Impact:** what the landing page and the billing page say beside a price ("plus applicable tax"), consumer
+  price-display rules in some countries, and the margin per country under (b).
+- **Default assumed until answered:** (a), because it is a Stripe Dashboard and price setting, not code, and a
+  test-mode price is easily remade. Not to go live undecided.
+
+### Auto top-up under Managed Payments — decided 2026-10-28, B-59
+
+- **Answer:** (b): a low-balance notice, and the creator buys a pack. Nothing is bought for them.
+- **Question:** what does PRICE-011's opt-in auto top-up become, now that a Managed Payments purchase authorises
+  only Managed Payments to charge the card and an off-session charge is not supported under it (B-58)?
+- **Options:** (a) drop auto top-up, and amend PRICE-011; (b) replace it with a low-balance notice and a one-click
+  pack Checkout, which is a purchase the creator makes rather than a charge; (c) charge off-session outside
+  Managed Payments, with CreatorPantry merchant of record for those charges and the tax on them — not recommended.
+- **Impact:** PRICE-011, AP.6.4's scope, and AP.6.5's auto top-up setting.
+- **Default assumed until answered:** none. AP.6.4 does not start until the owner answers.
+
+### Subscription changes made at link.com — to verify in AP.6.2
+
+- **Question:** Managed Payments gives every customer order management at link.com, including "cancel or update
+  subscriptions". Can a creator switch plans there, and if so does a downgrade land at once, around the portal's
+  configuration and B-54?
+- **Impact:** whether AP.6.2 can rely on the portal being the only place a subscription changes. Webhooks are the
+  record either way, so the plan follows whatever Stripe says happened; the question is only whether B-54 can be
+  promised.
+- **To do:** AP.6.2 checks it in test mode before its transitions are written, and records the answer here.

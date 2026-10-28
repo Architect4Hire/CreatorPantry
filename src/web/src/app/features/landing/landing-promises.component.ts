@@ -38,8 +38,9 @@ export const BILLING_PROMISES: readonly BillingPromise[] = [
     body: 'When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to read, edit and download.',
   },
   {
-    heading: 'Top-up is yours to switch on',
-    body: 'Automatic top-up is off unless you turn it on, and you set the most it may spend in a month.',
+    // B-59: there is no automatic top-up. Running low brings a notice offering a pack, which the creator buys.
+    heading: 'Running low? You hear first',
+    body: 'When your credits run low, we tell you and offer a pack. Nothing is ever bought for you.',
     comingLabel: COMING_WITH_BILLING,
   },
 ];

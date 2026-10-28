@@ -284,6 +284,7 @@ else
 AddImages();
 AddPublishing();
 AddEvidence();
+AddPayments();
 
 // Production host for the Angular bundle; serves /runtime-config.json with the gateway's public URL.
 var web = builder.AddProject<Projects.CreatorPantry_Web>("web", launchProfileName: "https")
@@ -470,6 +471,84 @@ void AddEvidence()
     }
 
     api.WithReference(evidence);
+}
+
+// Payment is Stripe (AP.6.1, PRICE-010), OFF by default like publishing: a Stripe key is one person's Stripe
+// account, so there is nothing to prompt every developer for. Test mode only until the owner says otherwise — the
+// API refuses to start on a live key unless Billing:Stripe:AllowLiveMode is set on it. A test key (a restricted
+// rk_test_ key is recommended) and the webhook signing secret turn it on:
+//
+//   dotnet user-secrets set "Stripe:Billing" "true" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Parameters:stripe-secret-key" "<value>" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Parameters:stripe-webhook-secret" "<value>" --project src/CreatorPantry.AppHost
+//
+// plus the price ids of that account's products, one per paid plan and cycle and one per pack — not secrets, but
+// no more shareable than the key, so never committed:
+//
+//   dotnet user-secrets set "Stripe:Prices:Plans:creator:Monthly" "price_…" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Stripe:Prices:Plans:creator:Annual" "price_…" --project src/CreatorPantry.AppHost
+//   dotnet user-secrets set "Stripe:Prices:Packs:small" "price_…" --project src/CreatorPantry.AppHost
+//
+// and the same for pro, studio, medium and large — every paid plan and pack under Billing:Plans and Billing:Packs.
+//
+// The API reads the key and secret back as one connection string, `billing-stripe`; a whole one supplied as
+// ConnectionStrings:billing-stripe — "Endpoint=https://api.stripe.com;Key=<key>;WebhookSecret=<secret>" — takes
+// precedence. With neither, the API starts with no payment provider and says "not configured".
+void AddPayments()
+{
+    const string Name = "billing-stripe";
+    IResourceBuilder<IResourceWithConnectionString> payments;
+
+    if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(Name)))
+    {
+        // Named, not copied, for the reason AddImages gives: the key is never a literal in the app model.
+        payments = builder.AddConnectionString(Name);
+    }
+    else if (builder.Configuration.GetValue("Stripe:Billing", false))
+    {
+        var stripeKey = builder.AddParameter("stripe-secret-key", secret: true)
+            .WithDescription(
+                "A **Stripe test-mode key** (Stripe → Developers → API keys; a restricted `rk_test_` key is "
+                + "recommended), used to create customers, Checkout sessions and portal sessions. Tick *Save to user "
+                + "secret* so it is not asked for again. It is never written to source control, logged, or returned "
+                + "by the API.",
+                enableMarkdown: true);
+
+        var webhookSecret = builder.AddParameter("stripe-webhook-secret", secret: true)
+            .WithDescription(
+                "The **signing secret** (`whsec_…`) of the Stripe webhook endpoint — or the one `stripe listen` "
+                + "prints — that verifies Stripe's events. Tick *Save to user secret*.",
+                enableMarkdown: true);
+
+        var endpoint = builder.Configuration["Stripe:Endpoint"]?.Trim().TrimEnd('/') is { Length: > 0 } configured
+            ? configured
+            : throw new InvalidOperationException("'Stripe:Endpoint' is required when Stripe:Billing is true.");
+
+        payments = builder.AddConnectionString(
+            Name, ReferenceExpression.Create($"Endpoint={endpoint};Key={stripeKey};WebhookSecret={webhookSecret}"));
+    }
+    else
+    {
+        return;
+    }
+
+    // The API alone: checkout and the portal are browser actions, and the webhook route is the API's (AP.6.2).
+    api.WithReference(payments);
+
+    // The account's price ids and portal configuration, forwarded as they are; the API checks them against the
+    // catalogue at startup. Read from configuration rather than typed here, so the AppHost names no price.
+    foreach (var (key, value) in builder.Configuration.GetSection("Stripe:Prices").AsEnumerable(makePathsRelative: true))
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            api.WithEnvironment($"Billing__Stripe__Prices__{key.Replace(":", "__", StringComparison.Ordinal)}", value);
+        }
+    }
+
+    if (builder.Configuration["Stripe:PortalConfiguration"] is { Length: > 0 } portal)
+    {
+        api.WithEnvironment("Billing__Stripe__PortalConfiguration", portal);
+    }
 }
 
 // Images are Venice.ai (B-15 as amended for Venice), not a Foundry deployment, so they are decided here on

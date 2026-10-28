@@ -105,6 +105,26 @@ dotnet user-secrets set "Parameters:usda-fdc-api-key" "<value>" --project src/Cr
 A machine that supplies `ConnectionStrings:evidence-usda-fdc` — `Endpoint=https://api.nal.usda.gov/fdc/v1;Key=<key>`
 — is not prompted.
 
+The eighth and ninth are Stripe's, for plans and packs (AP.6.1, `ai-pricing.md` B-57): `stripe-secret-key` and
+`stripe-webhook-secret`, **off by default** — `Stripe:Billing` is `false` in the AppHost's `appsettings.json` —
+because a Stripe key is one person's Stripe account. **Test mode only:** use a test key (a restricted `rk_test_`
+key is best); the API refuses to start on a live one unless `Billing:Stripe:AllowLiveMode` is set on it, which is
+the owner's call. The API alone takes them, as the connection string `billing-stripe`. That account's price ids —
+one per paid plan and cycle, one per pack — go in the same user secrets, are forwarded to the API, and are checked
+against the catalogue at startup; they are not secrets, but they are never committed:
+
+```
+dotnet user-secrets set "Stripe:Billing" "true" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:stripe-secret-key" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:stripe-webhook-secret" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Stripe:Prices:Plans:creator:Monthly" "price_…" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Stripe:Prices:Packs:small" "price_…" --project src/CreatorPantry.AppHost
+```
+
+A machine that supplies `ConnectionStrings:billing-stripe` —
+`Endpoint=https://api.stripe.com;Key=<key>;WebhookSecret=<secret>` — is not prompted. With none, payment reads
+"not configured".
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider
