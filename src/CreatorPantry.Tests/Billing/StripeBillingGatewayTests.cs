@@ -23,7 +23,7 @@ namespace CreatorPantry.Tests.Billing;
 /// The key and the account are made up and recognisable, so a leak assertion can look for them by name.
 /// </para>
 /// </remarks>
-public sealed class StripeBillingGatewayTests
+public sealed partial class StripeBillingGatewayTests
 {
     private const string SecretKey = "rk_test_SECRET_do_not_log_5c19ab";
 
@@ -592,14 +592,19 @@ public sealed class StripeBillingGatewayTests
             CapturingLoggerProvider? logs = null,
             string? portalConfiguration = null,
             IClock? clock = null,
-            TimeSpan? totalTimeout = null)
+            TimeSpan? totalTimeout = null,
+            string? upgradePortalConfiguration = null)
         {
             // The headers exactly as the host's registration sets them.
             var http = new HttpClient(this, disposeHandler: false);
             http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", SecretKey);
             http.DefaultRequestHeaders.Add("Stripe-Version", StripeBillingOptions.ApiVersion);
 
-            var settings = new StripeBillingSettings { PortalConfiguration = portalConfiguration };
+            var settings = new StripeBillingSettings
+            {
+                PortalConfiguration = portalConfiguration,
+                UpgradePortalConfiguration = upgradePortalConfiguration,
+            };
             settings.Prices.Plans["creator"] = new StripePlanPrices { Monthly = "price_creator_monthly", Annual = "price_creator_annual" };
             settings.Prices.Plans["pro"] = new StripePlanPrices { Monthly = "price_pro_monthly", Annual = "price_pro_annual" };
             settings.Prices.Packs["small"] = "price_pack_small";

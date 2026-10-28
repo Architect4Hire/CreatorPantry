@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Modules.Billing.Managers;
+
 namespace CreatorPantry.Domain.Modules.Billing.Gateways;
 
 /// <summary>Whether this host can take payment, and whether a payment it takes is real money.</summary>
@@ -129,6 +131,92 @@ public sealed record PackCheckoutRequest(
 public sealed record BillingPortalRequest(string ExternalCustomerId, Uri ReturnUrl);
 
 /// <summary>
+/// The change a subscription's schedule has waiting for its next phase (B-54): a lower plan, or another cycle, from
+/// <paramref name="StartsAt"/>.
+/// </summary>
+/// <param name="PlanKey">The catalogue key the next phase's price sells; null when no configured price is it.</param>
+/// <param name="Cycle"><see cref="BillingCycle.Unspecified"/> when the price is not configured.</param>
+public sealed record BillingScheduledPhase(string? PlanKey, BillingCycle Cycle, DateTimeOffset StartsAt);
+
+/// <summary>
+/// A subscription as the provider holds it now, read again rather than taken from an event (AP.6.2). Only what the
+/// plan follows from, in the application's terms: the provider's price is already its catalogue key.
+/// </summary>
+/// <param name="ExternalSubscriptionId">The provider's id (<c>sub_…</c>).</param>
+/// <param name="ExternalCustomerId">The customer it bills (<c>cus_…</c>), which a <c>BillingCustomer</c> maps to an account.</param>
+/// <param name="AccountId">
+/// The account the subscription's metadata names, as the checkout wrote it (AP.6.1); null when it names none. Never
+/// trusted alone: it must agree with the customer's account.
+/// </param>
+/// <param name="IsLiveMode">Which of the provider's modes it lives in.</param>
+/// <param name="ItemId">The subscription's one item (<c>si_…</c>), which an upgrade changes the price of.</param>
+/// <param name="PlanKey">The catalogue key its current price sells; null when no configured price is it.</param>
+/// <param name="CurrentPeriodEnd">When the period being paid for ends: where a downgrade or a cancellation lands.</param>
+/// <param name="CancelAt">When it is set to end, if it is — a cancellation at period end included.</param>
+/// <param name="EndedAt">When it ended, if it has.</param>
+/// <param name="ScheduleId">The schedule managing it (<c>sub_sched_…</c>), if one is.</param>
+/// <param name="NextPhase">What that schedule changes next, if anything still to come.</param>
+/// <param name="LatestInvoicePaid">
+/// Whether the subscription's latest invoice is paid. An upgrade invoices its proration at once (B-57), so a higher
+/// plan whose invoice is still open has not been paid for, and does not land.
+/// </param>
+public sealed record BillingSubscriptionSnapshot(
+    string ExternalSubscriptionId,
+    string ExternalCustomerId,
+    string? AccountId,
+    bool IsLiveMode,
+    BillingSubscriptionStatus Status,
+    string? ItemId,
+    string? PlanKey,
+    BillingCycle Cycle,
+    DateTimeOffset? CurrentPeriodEnd,
+    DateTimeOffset? CancelAt,
+    DateTimeOffset? EndedAt,
+    string? ScheduleId,
+    BillingScheduledPhase? NextPhase,
+    bool LatestInvoicePaid = false);
+
+/// <param name="Subscription">Present exactly when the outcome is a success.</param>
+public sealed record BillingSubscriptionRead(BillingPaymentOutcome Outcome, BillingSubscriptionSnapshot? Subscription = null)
+{
+    public static BillingSubscriptionRead Of(BillingPaymentOutcome outcome) => new(outcome);
+}
+
+/// <summary>
+/// An upgrade on a running subscription, confirmed and paid by the creator at the provider (B-56, B-57): a portal page
+/// that shows the proration, takes the payment and handles authentication.
+/// </summary>
+/// <param name="ExternalCustomerId">The account's provider customer.</param>
+/// <param name="ExternalSubscriptionId">The subscription to change.</param>
+/// <param name="SubscriptionItemId">Its one item, whose price changes.</param>
+/// <param name="PlanKey">The catalogue key to move to. Its price is looked up, never sent in.</param>
+/// <param name="ReturnUrl">Where the page's "back" link goes, if the creator does not confirm.</param>
+/// <param name="CompletedUrl">Where the creator lands once they have confirmed.</param>
+public sealed record PlanUpgradeRequest(
+    string ExternalCustomerId,
+    string ExternalSubscriptionId,
+    string SubscriptionItemId,
+    string PlanKey,
+    BillingCycle Cycle,
+    Uri ReturnUrl,
+    Uri CompletedUrl);
+
+/// <summary>
+/// A change on a running subscription that waits for the end of the period being paid for (B-54): a downgrade, or
+/// annual to monthly. Charged nothing now and refunded nothing.
+/// </summary>
+/// <param name="ExternalSubscriptionId">The subscription to change.</param>
+/// <param name="ExistingScheduleId">The schedule already managing it, if one is; it is changed rather than another made.</param>
+/// <param name="PlanKey">The catalogue key to move to from the period's end.</param>
+/// <param name="IdempotencyKey">The caller's key for this change, as on a checkout.</param>
+public sealed record ScheduledPlanChangeRequest(
+    string ExternalSubscriptionId,
+    string? ExistingScheduleId,
+    string PlanKey,
+    BillingCycle Cycle,
+    string IdempotencyKey);
+
+/// <summary>
 /// The boundary to the payment provider, in the application's own terms (PRICE-010, AP.6.1).
 /// </summary>
 /// <remarks>
@@ -149,8 +237,10 @@ public sealed record BillingPortalRequest(string ExternalCustomerId, Uri ReturnU
 /// may already have made the session; a retry keeps the same idempotency key so it gets that session back.
 /// </para>
 /// <para>
-/// Changing a running subscription — an upgrade charged at once, a downgrade at period end (B-54, B-56) — is not on
-/// this interface yet. It is AP.6.2's, which owns those transitions.
+/// <strong>Changing a running subscription</strong> (AP.6.2) is two operations, because the portal keeps plan
+/// switching off (B-57): an upgrade is a confirmation page the creator pays on, and a downgrade is a schedule whose
+/// next phase starts when the paid period ends (B-54). Neither moves the plan either: the subscription's webhook does,
+/// once the provider says the change happened.
 /// </para>
 /// </remarks>
 public interface IBillingPaymentGateway
@@ -174,6 +264,37 @@ public interface IBillingPaymentGateway
     /// it, because the provider can only defer a switch between prices of one product (AP.6.1 decision, B-54).
     /// </summary>
     Task<BillingRedirect> OpenPortalAsync(BillingPortalRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The subscription as the provider holds it now (AP.6.2). A read: safe to repeat, and repeated within the call
+    /// when the provider fails, which no write here is.
+    /// </summary>
+    Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A page at the provider where the creator confirms and pays for an upgrade (B-56): the proration invoiced at once,
+    /// under the portal configuration that allows exactly that. The plan moves when the paid subscription's webhook
+    /// arrives, never when this answers.
+    /// </summary>
+    /// <returns>
+    /// <see cref="BillingPaymentOutcome.NotConfigured"/> when this host has no upgrade portal configuration;
+    /// <see cref="BillingPaymentOutcome.NotOffered"/> when the plan and cycle have no price.
+    /// </returns>
+    Task<BillingRedirect> StartPlanUpgradeAsync(PlanUpgradeRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Has the subscription move to another price when its paid period ends (B-54), through a schedule whose current
+    /// phase runs to that end unchanged. Nothing is charged or refunded now.
+    /// </summary>
+    Task<BillingPaymentOutcome> SchedulePlanChangeAsync(ScheduledPlanChangeRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lets go of the schedule managing a subscription, so it carries on as it is with nothing waiting — a scheduled
+    /// downgrade withdrawn, or cleared before an upgrade, which the portal will not make on a scheduled subscription.
+    /// </summary>
+    /// <param name="idempotencyKey">The caller's key for this release.</param>
+    Task<BillingPaymentOutcome> ReleaseScheduleAsync(
+        string externalScheduleId, string idempotencyKey, CancellationToken cancellationToken);
 }
 
 /// <summary>The gateway on a host that was given no payment provider: the host starts, and every call says so.</summary>
@@ -193,4 +314,17 @@ public sealed class UnconfiguredBillingPaymentGateway : IBillingPaymentGateway
 
     public Task<BillingRedirect> OpenPortalAsync(BillingPortalRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(BillingRedirect.Of(BillingPaymentOutcome.NotConfigured));
+
+    public Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingSubscriptionRead.Of(BillingPaymentOutcome.NotConfigured));
+
+    public Task<BillingRedirect> StartPlanUpgradeAsync(PlanUpgradeRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingRedirect.Of(BillingPaymentOutcome.NotConfigured));
+
+    public Task<BillingPaymentOutcome> SchedulePlanChangeAsync(ScheduledPlanChangeRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingPaymentOutcome.NotConfigured);
+
+    public Task<BillingPaymentOutcome> ReleaseScheduleAsync(
+        string externalScheduleId, string idempotencyKey, CancellationToken cancellationToken) =>
+        Task.FromResult(BillingPaymentOutcome.NotConfigured);
 }

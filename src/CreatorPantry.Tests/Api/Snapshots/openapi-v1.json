@@ -1032,6 +1032,100 @@
         }
       }
     },
+    "/api/v1/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "BillingWebhooks"
+        ],
+        "summary": "Takes one event delivery from Stripe. 200 for a verified event, new or already stored; 400 for a delivery whose\nsignature does not verify; 503 on a host given no signing secret, which Stripe retries.",
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "description": "The provider\u0027s signature over the raw body. Verified before the body is read.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-guide-proposal-requests": {
       "post": {
         "tags": [
@@ -48984,6 +49078,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "BillingWebhooks"
     },
     {
       "name": "BrandGuideProposalRequests"

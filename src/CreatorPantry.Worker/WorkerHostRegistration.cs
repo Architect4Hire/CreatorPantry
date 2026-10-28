@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.Billing;
+using CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
@@ -84,6 +85,11 @@ public static class WorkerHostRegistration
         // opens periods when it admits text work, so it reads the same Billing section the API does.
         builder.Services.AddBillingModule(builder.Configuration);
 
+        // The payment provider (AP.6.2): the outbox handler that acts on a stored webhook event reads the event's
+        // subscription again from Stripe before it changes a plan. The AppHost gives this host the key and the price
+        // ids but not the signing secret, so it reads subscriptions and verifies nothing.
+        builder.Services.AddStripeBilling(builder.Configuration, verifyWebhooks: false);
+
         // The same in-progress caps and daily budgets the API checks a request against (15.3): the worker checks
         // them again before it spends anything, and shares the queues by them.
         builder.Services.AddLimits(builder.Configuration);
@@ -149,6 +155,7 @@ public static class WorkerHostRegistration
         builder.Services.AddPlanningRecurrence();
         builder.Services.AddBufferPublishing(builder.Configuration);
         builder.Services.AddHostedService<OutboxDispatcherHostedService>();
+        builder.Services.AddHostedService<BillingProviderEventRedriveHostedService>();
         builder.Services.AddHostedService<AiOperationWorkerHostedService>();
         builder.Services.AddHostedService<AiOperationMaintenanceHostedService>();
         builder.Services.AddHostedService<AiQuotaMaintenanceHostedService>();

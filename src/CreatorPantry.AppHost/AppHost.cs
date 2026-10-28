@@ -499,9 +499,14 @@ void AddPayments()
     const string Name = "billing-stripe";
     IResourceBuilder<IResourceWithConnectionString> payments;
 
+    // What the Worker reads the same connection string as (AP.6.2): the key, to read a subscription again when it
+    // processes an event, and never the signing secret — verifying deliveries is the API's alone.
+    ReferenceExpression? workerConnection = null;
+
     if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString(Name)))
     {
-        // Named, not copied, for the reason AddImages gives: the key is never a literal in the app model.
+        // Named, not copied, for the reason AddImages gives: the key is never a literal in the app model. A machine
+        // that supplies the whole string gives both hosts the same one, its secret included.
         payments = builder.AddConnectionString(Name);
     }
     else if (builder.Configuration.GetValue("Stripe:Billing", false))
@@ -526,28 +531,49 @@ void AddPayments()
 
         payments = builder.AddConnectionString(
             Name, ReferenceExpression.Create($"Endpoint={endpoint};Key={stripeKey};WebhookSecret={webhookSecret}"));
+        workerConnection = ReferenceExpression.Create($"Endpoint={endpoint};Key={stripeKey}");
     }
     else
     {
         return;
     }
 
-    // The API alone: checkout and the portal are browser actions, and the webhook route is the API's (AP.6.2).
+    // The API for checkout, the portal and the webhook route; the Worker to read a subscription again when it
+    // processes an event the route stored (AP.6.2).
     api.WithReference(payments);
 
-    // The account's price ids and portal configuration, forwarded as they are; the API checks them against the
-    // catalogue at startup. Read from configuration rather than typed here, so the AppHost names no price.
+    if (workerConnection is not null)
+    {
+        worker.WithEnvironment($"ConnectionStrings__{Name}", workerConnection);
+    }
+    else
+    {
+        worker.WithReference(payments);
+    }
+
+    // The account's price ids and portal configurations, forwarded as they are; each host checks them against the
+    // catalogue at startup, and the Worker reads a subscription's price back to its plan by them. Read from
+    // configuration rather than typed here, so the AppHost names no price.
     foreach (var (key, value) in builder.Configuration.GetSection("Stripe:Prices").AsEnumerable(makePathsRelative: true))
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
-            api.WithEnvironment($"Billing__Stripe__Prices__{key.Replace(":", "__", StringComparison.Ordinal)}", value);
+            var variable = $"Billing__Stripe__Prices__{key.Replace(":", "__", StringComparison.Ordinal)}";
+            api.WithEnvironment(variable, value);
+            worker.WithEnvironment(variable, value);
         }
     }
 
     if (builder.Configuration["Stripe:PortalConfiguration"] is { Length: > 0 } portal)
     {
         api.WithEnvironment("Billing__Stripe__PortalConfiguration", portal);
+    }
+
+    // The configuration an upgrade's confirmation page opens under (AP.6.2): plan switching on and the proration
+    // invoiced at once. Not a secret; one Stripe account's, so set per machine like the price ids.
+    if (builder.Configuration["Stripe:UpgradePortalConfiguration"] is { Length: > 0 } upgrade)
+    {
+        api.WithEnvironment("Billing__Stripe__UpgradePortalConfiguration", upgrade);
     }
 }
 

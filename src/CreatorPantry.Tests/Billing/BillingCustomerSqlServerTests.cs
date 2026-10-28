@@ -344,5 +344,18 @@ public sealed class BillingCustomerSqlServerTests : IAsyncLifetime
 
         public Task<BillingRedirect> OpenPortalAsync(BillingPortalRequest request, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<BillingSubscriptionRead> GetSubscriptionAsync(string externalSubscriptionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingRedirect> StartPlanUpgradeAsync(PlanUpgradeRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingPaymentOutcome> SchedulePlanChangeAsync(ScheduledPlanChangeRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<BillingPaymentOutcome> ReleaseScheduleAsync(
+            string externalScheduleId, string idempotencyKey, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }

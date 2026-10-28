@@ -280,12 +280,24 @@ public sealed class OpenApiContractTests : IDisposable
                 var problem = operation.Value!["responses"]!["default"]!["content"]!["application/problem+json"]!["schema"]!;
                 Assert.Equal("#/components/schemas/ProblemDetails", problem["$ref"]!.GetValue<string>());
 
-                // The gateway requires an antiforgery token on every unsafe request; the contract must say so.
+                // The gateway requires an antiforgery token on every unsafe request; the contract must say so. The
+                // one exemption is the payment provider's webhook (AP.6.2), whose credential is its signature header.
                 if (operation.Key is not ("get" or "head" or "options"))
                 {
                     var parameters = operation.Value["parameters"]?.AsArray() ?? [];
-                    Assert.Contains(parameters, parameter =>
-                        parameter?["$ref"]?.GetValue<string>() == "#/components/parameters/AntiforgeryToken");
+                    if (path.Key == "/api/v1/webhooks/stripe")
+                    {
+                        Assert.DoesNotContain(parameters, parameter =>
+                            parameter?["$ref"]?.GetValue<string>() == "#/components/parameters/AntiforgeryToken");
+                        Assert.Contains(parameters, parameter =>
+                            parameter?["name"]?.GetValue<string>() == "Stripe-Signature"
+                            && parameter["required"]?.GetValue<bool>() == true);
+                    }
+                    else
+                    {
+                        Assert.Contains(parameters, parameter =>
+                            parameter?["$ref"]?.GetValue<string>() == "#/components/parameters/AntiforgeryToken");
+                    }
                 }
             });
         });

@@ -2,7 +2,8 @@
 
 *Status: Accepted — 2026-10-26, except B-51, which is **proposed, not decided**. Recorded by AI-pricing prompt
 AP.1.1. B-55 added 2026-10-27 at the owner's request; B-56 added 2026-10-27 by AP.4.2 with the owner's answers;
-B-57 and B-58 added 2026-10-28 by AP.6.1 with the owner's approval; B-59 added 2026-10-28 with the owner's answer.*
+B-57 and B-58 added 2026-10-28 by AP.6.1 with the owner's approval; B-59 added 2026-10-28 with the owner's answer;
+B-60 added 2026-10-28 by AP.6.2 with the owner's approval.*
 
 This record fixes the product decisions behind CreatorPantry's AI pricing — closing the image cost leak, then
 plans, prepaid credit packs and Stripe billing on top of the allowance Phase 9A built — so the AP prompts build
@@ -75,6 +76,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-57 | Stripe: Checkout to buy, the portal to manage, webhooks to decide | PRICE-010, B-54, B-56 | Decided | Owner, 2026-10-28, approving AP.6.1. Hosted Checkout for a first subscription and every pack; the portal for payment methods, invoices and cancelling at period end, with plan switching off; plan changes from CreatorPantry's own page; webhooks decide every change. API pinned to `2026-09-30.endive`; test mode until the owner says otherwise. |
 | B-58 | Tax: Stripe Managed Payments is the merchant of record | PRICE-010, PRICE-011 | Decided | Owner, 2026-10-28, answering AP.6.1. Stripe, through Link, calculates, collects and remits sales tax, VAT and GST, for 3.5% on top of card fees. AP.6.4 (auto top-up) cannot work as written under it; B-59 replaces it. |
 | B-59 | A low-balance notice instead of auto top-up | PRICE-011 | Decided | Owner, 2026-10-28, answering B-58's open item. No pack is ever bought for a creator. When credits run low the account is told once a period and offered a pack, which the creator buys through Checkout. Amends PRICE-011. |
+| B-60 | The plan follows the subscription, re-read | PRICE-007, 010, B-54, B-56, B-57 | Decided | Owner, 2026-10-28, approving AP.6.2. Every event re-reads its subscription; up at once, down at the end of a paid period wherever it was made, past due holds, ended lapses to the default now. Only the provider's own scheduled rows are withdrawn. |
 
 ## Decisions
 
@@ -459,6 +461,71 @@ notice, with a spec that no promise names an automatic purchase (`landing-promis
 each with a revision note for counsel, whose review LP.6 still requires before either is published.
 **Rules:** `ai.md` (quota enforcement is deterministic), `frontend.md`.
 
+### B-60 The plan follows the subscription, re-read
+
+- **Owner, 2026-10-28, approving AP.6.2's design** ("approved"), including its five recommendations below.
+- **The route.** `POST /api/v1/webhooks/stripe`, through the gateway on a route of its own (`stripe-webhook`): no
+  antiforgery token asked, no browser session carried (no internal token is attached even when a cookie arrives),
+  `Stripe-Signature` forwarded on it alone, a 512 KiB body limit on the route and the action, and 600 deliveries a
+  minute per address. The signature is verified over the raw body before it is parsed — `v1` only, any of several
+  during a secret roll, constant time, five minutes either way. 200 for a stored or already-stored event; 400
+  `billing.webhook.signature_invalid` (or `.unreadable`); 503 `billing.webhook.unavailable` on a host with no signing
+  secret, which Stripe retries.
+- **Stored, then worked.** One `BillingProviderEvent` per event id (unique: the replay guard), with no payload, and
+  its outbox message in the same save. The Worker's handler reads the subscription again (`expand[]=schedule`),
+  records it on `BillingSubscription`, and decides from **every** subscription the account has, so a cancelled one's
+  late event cannot lapse an account another is paying for. Order is never assumed: an older event processed late
+  reads the same subscription and writes nothing.
+- **Whose account.** The subscription's customer must be a `BillingCustomer` in the same mode, and its
+  `creatorpantry_account_id` metadata must be that customer's account. Anything else changes nothing and is
+  `NeedsAttention`.
+- **The transitions.**
+
+  | The subscription, as re-read | The account's plan chain (source `Stripe`) |
+  | --- | --- |
+  | `incomplete` | Nothing until the first payment is taken |
+  | `active`, a higher plan than the one in force, its latest invoice paid | That plan, now. B-56's difference follows at the next admission |
+  | `active`, a higher plan, its latest invoice still open | Nothing yet: an upgrade's proration is unpaid until `invoice.paid` |
+  | `active`, a lower plan, while a plan the creator paid for through Stripe is in force | That plan from the item's `current_period_end` — wherever it was changed, link.com included (B-54) |
+  | `active`, a lower plan, while a trial, ops or default plan is in force | That plan, now: nothing paid for is cut short |
+  | A schedule's next phase, a plan from T | That plan from T. A phase that only changes the cycle writes nothing |
+  | Cancelling at period end (`cancel_at` T) | The default from T; withdrawn, the scheduled row is taken off |
+  | `past_due` | Nothing, in either direction: an unpaid upgrade never lands |
+  | `unpaid`, `canceled`, `incomplete_expired`, `paused` | The default, now — if the plan in force is one a subscription put there; an ops grant or trial made since stays |
+
+- **Ops is not overwritten** (recommendation 2). The reconciler withdraws only scheduled rows it wrote itself; an
+  ops-scheduled row in the way is `NeedsAttention` and the chain is left as it was. An in-force ops plan is superseded
+  normally; an ops-set allowance still wins through `AccountAiQuota` (B-56).
+- **Lapsing is to the configured default** (recommendation 3): `PlanKey` null, which follows `Billing:DefaultPlan`.
+  There is no free or lapsed plan in the catalogue; adding one is a catalogue change and the owner's. Development's
+  default is Studio, so a cancelled local subscriber reads as Studio.
+- **A failed payment is recorded, not yet told** (recommendation 4): the creator's notice is AP.6.4/AP.6.5's.
+- **Plan changes on a running subscription** (B-57's two operations), on `IBillingPaymentGateway` without a route
+  yet (AP.6.5 adds it): an upgrade is a portal `subscription_update_confirm` page under a second portal configuration,
+  `Billing:Stripe:UpgradePortalConfiguration` — plan switching on, which Stripe's confirmation flow appears to need,
+  and `always_invoice`; a deep link hides the rest of the portal, so its switcher is never shown (recommendation 5,
+  the owner to create it in the Dashboard). A downgrade, or annual to monthly, is a schedule made `from_subscription`
+  and set to two phases — the current one as Stripe reported it, then the new price from its end, no proration,
+  `end_behavior=release`. A schedule is released before an upgrade, since the portal will not change a scheduled
+  subscription.
+- **The Worker reads subscriptions, and verifies nothing.** The AppHost gives it the key and the price ids, never the
+  signing secret, and it builds no verifier even from a whole connection string that carries one.
+- **Two Workers, one account** (AP.6.2 review). A subscription's reading is written only if its record has not moved
+  since before the provider was asked, and a reconcile stands only if no record of the account moved while it decided;
+  the loser retries and reads the provider again.
+- **Nothing acknowledged is lost.** The route answers 200, so Stripe will not redeliver; an event whose outbox message
+  gave up while Stripe could not be read stays `Received`, and the Worker's sweep queues it again every quarter hour
+  for a day, then leaves it `NeedsAttention` (`provider_unavailable`).
+
+**Options considered:** acting on the event's own object — rejected (B-57: order is not guaranteed). Applying a lower
+plan the moment Stripe shows it — rejected: a change made at link.com would land at once and break B-54. Letting the
+reconciler overwrite an ops schedule — rejected: an operator's decision is not the provider's to undo.
+**Consequences:** the allowance period does not follow Stripe's billing period, which leaks credits on a
+cancellation or downgrade (Open items, "Allowance period and the billing period"); AP.6.2a closes it before live
+mode. The upgrade and schedule calls are written to Stripe's documented parameters but have not been run against a
+Stripe account; the first test-mode run checks them (Open items, link.com).
+**Rules:** `external.md`, `gateway.md`, `backend.md`, `tenancy.md` (platform-scoped; no workspace).
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -478,6 +545,8 @@ each with a revision note for counsel, whose review LP.6 still requires before e
 | DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |
 | AP.6.1 | **Delivered** with B-57 and B-58: the gateway, `BillingCustomer`, the price map and the Aspire parameters. |
 | AP.6.2 | **Extended** by B-57: the upgrade deep link and the period-end schedule, and the event table above. |
+| AP.6.2 | **Delivered** with B-60: the webhook route, `BillingProviderEvent` and `BillingSubscription`, the transitions, and B-57's plan-change operations on the gateway. |
+| AP.6.2a | **Added** by B-60: the allowance period follows a Stripe-billed account's subscription period. A gate before live mode. |
 | AP.6.4 | **Rewritten** by B-59: a low-balance notice offering a pack, in place of auto top-up (blocked by B-58). |
 | AP.6.5 | **Narrowed** by B-57: Checkout for a first subscription; a running one changes plan through AP.6.2's operations. |
 
@@ -525,12 +594,23 @@ each with a revision note for counsel, whose review LP.6 still requires before e
 - **Impact:** PRICE-011, AP.6.4's scope, and AP.6.5's auto top-up setting.
 - **Default assumed until answered:** none. AP.6.4 does not start until the owner answers.
 
-### Subscription changes made at link.com — to verify in AP.6.2
+### Subscription changes made at link.com — checked in design only, AP.6.2
 
+- **Answer so far:** not verified in test mode — no Stripe account was available to AP.6.2, as to AP.6.1. B-54 no
+  longer depends on it: a lower price Stripe shows while a paid higher plan is in force lands at that period's end,
+  wherever the change was made (B-60). What a creator is charged or refunded for a switch made there stays Stripe's.
 - **Question:** Managed Payments gives every customer order management at link.com, including "cancel or update
   subscriptions". Can a creator switch plans there, and if so does a downgrade land at once, around the portal's
   configuration and B-54?
-- **Impact:** whether AP.6.2 can rely on the portal being the only place a subscription changes. Webhooks are the
-  record either way, so the plan follows whatever Stripe says happened; the question is only whether B-54 can be
-  promised.
-- **To do:** AP.6.2 checks it in test mode before its transitions are written, and records the answer here.
+- **To do:** the first test-mode run makes a switch at link.com and checks what the subscription says afterwards, and
+  confirms the upgrade portal configuration and the schedule update against a real account.
+
+### Allowance period and the billing period — open, raised by AP.6.2; a gate before live mode
+
+- **Question:** the allowance period runs on its own monthly anchor and time zone (`AccountAiQuota`), not on Stripe's
+  billing anchor. A Creator subscriber whose paid month ends on the 2nd has an allowance period that opened on the
+  1st under Creator; cancelled, the plan lapses on the 2nd, and B-56 never rewrites a period's opening allowance — so
+  a month of credits is kept for one paid day. A downgrade leaks the same way. That breaks "never lose money on AI".
+- **Recommended, approved 2026-10-28 as a separate prompt (AP.6.2a):** a Stripe-billed account's allowance period
+  follows its subscription's period, its credits granted on the renewal's `invoice.paid`.
+- **Default assumed until done:** test mode only. Not to go live before AP.6.2a ships.

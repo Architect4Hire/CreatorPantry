@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Billing.Data;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,6 +54,68 @@ internal interface IAccountPlanBusiness
     /// </summary>
     Task<OperationResult<AccountsOnPlanServiceModel>> ListByPlanAsync(
         string planKey, string? cursor, int limit, CancellationToken cancellationToken);
+
+    /// <summary>The account's row in force now and what it has scheduled after it (AP.6.2).</summary>
+    Task<AccountPlanChain> ReadChainAsync(string accountId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Brings the account's chain from now on into line with <paramref name="desired"/>: withdraws scheduled rows it
+    /// does not want, puts the account on the plan it should be on now, and schedules the rest (AP.6.2).
+    /// </summary>
+    /// <param name="source">What is asking. Only a scheduled row this source wrote is ever withdrawn.</param>
+    /// <remarks>
+    /// <para>
+    /// <strong>Idempotent by construction:</strong> what is already as wanted is left alone, so the same desire twice —
+    /// a replayed event, a redelivered message — writes nothing the second time.
+    /// </para>
+    /// <para>
+    /// <strong>Never withdraws another source's schedule.</strong> A scheduled row an operator wrote that is in the way
+    /// is <see cref="AccountPlanReconcileOutcome.Blocked"/>, checked before anything is written, so a blocked reconcile
+    /// leaves the chain exactly as it found it.
+    /// </para>
+    /// <para>
+    /// No audit row: the caller's own record — the provider event — is what a change is traced back to.
+    /// </para>
+    /// </remarks>
+    Task<AccountPlanReconcileOutcome> ReconcileAsync(
+        string accountId, AccountPlanDesire desired, AccountPlanSource source, CancellationToken cancellationToken);
+}
+
+/// <summary>The account's row in force now, and the rows scheduled after it, earliest first.</summary>
+internal sealed record AccountPlanChain(
+    AccountPlan? InForce, IReadOnlyList<AccountPlan> Scheduled);
+
+/// <summary>One step of a desired chain: a plan — null for the configured default — from an instant.</summary>
+internal sealed record AccountPlanStep(string? PlanKey, DateTimeOffset EffectiveFrom);
+
+/// <summary>
+/// What an account's plan should be from now on (AP.6.2).
+/// </summary>
+/// <param name="AdjustNow">
+/// Whether the plan in force now is decided here. False leaves it as it is — a renewal that failed, which holds the
+/// plan where it is — while the schedule after it is still brought into line.
+/// </param>
+/// <param name="NowPlanKey">The plan to be on now, when <paramref name="AdjustNow"/>; null for the default.</param>
+/// <param name="Scheduled">The changes to come, each strictly after the one before and after now.</param>
+internal sealed record AccountPlanDesire(bool AdjustNow, string? NowPlanKey, IReadOnlyList<AccountPlanStep> Scheduled);
+
+/// <summary>What a reconcile did (AP.6.2).</summary>
+internal enum AccountPlanReconcileOutcome
+{
+    Unchanged = 1,
+    Changed = 2,
+
+    /// <summary>A scheduled row another source wrote is in the way. Nothing was written.</summary>
+    Blocked = 3,
+
+    /// <summary>The chain moved under the reconcile; the caller tries again against what is there now.</summary>
+    Contended = 4,
+
+    /// <summary>A key the desire names is not a plan in this catalogue. Nothing was written.</summary>
+    UnknownPlan = 5,
+
+    /// <summary>This host configures no catalogue at all.</summary>
+    NoCatalogue = 6,
 }
 
 /// <summary>Who made a plan change and why, for the audit row (AP.4.4).</summary>
@@ -245,6 +308,143 @@ internal sealed class AccountPlanBusiness(
         return OperationResult<AccountsOnPlanServiceModel>.Success(new AccountsOnPlanServiceModel(
             plan.Key, accounts, rows.Count > page ? accounts[^1].AccountId : null));
     }
+
+    public async Task<AccountPlanChain> ReadChainAsync(string accountId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+
+        var now = clock.UtcNow;
+        var span = await data.FindSpanAsync(accountId, now, cancellationToken);
+        var scheduled = await data.ListScheduledAsync(accountId, now, cancellationToken);
+
+        return new AccountPlanChain(span.InForce, scheduled);
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>The order of the writes is the chain's.</strong> A row can only go on the end, and only the end can be
+    /// taken off, so a reconcile first keeps the scheduled rows that already match the start of what is wanted, takes
+    /// every scheduled row after them off from the end back, then appends what is missing — "now" first, since it has
+    /// to sit before anything scheduled. When "now" has to change, no scheduled row can be kept: each would land
+    /// before it.
+    /// </para>
+    /// <para>
+    /// Each write is its own save, as <see cref="ChangeAsync"/>'s are. A reconcile interrupted half-way — a lost
+    /// race, a crash — leaves a chain that is valid, only not yet as wanted, and the next attempt finishes it from
+    /// what it finds.
+    /// </para>
+    /// </remarks>
+    public async Task<AccountPlanReconcileOutcome> ReconcileAsync(
+        string accountId, AccountPlanDesire desired, AccountPlanSource source, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+        ArgumentNullException.ThrowIfNull(desired);
+
+        var billing = options.Value;
+        if (billing.Plans.Count == 0)
+        {
+            return AccountPlanReconcileOutcome.NoCatalogue;
+        }
+
+        // Every key in the catalogue's own spelling, so a match against a stored row is a match however it was asked.
+        var keys = new List<string?>();
+        foreach (var key in desired.Scheduled.Select(step => step.PlanKey).Prepend(desired.NowPlanKey))
+        {
+            if (key is not null && Find(billing, key) is null)
+            {
+                return AccountPlanReconcileOutcome.UnknownPlan;
+            }
+
+            keys.Add(key is null ? null : Find(billing, key)!.Key);
+        }
+
+        var nowKey = keys[0];
+        var now = clock.UtcNow;
+        var wanted = desired.Scheduled
+            .Select((step, index) => new AccountPlanStep(keys[index + 1], step.EffectiveFrom.ToUniversalTime()))
+            .ToList();
+
+        // A step that is no longer in the future cannot be scheduled. Read as the caller's clock and this one
+        // disagreeing about an instant that has just passed, which the next attempt reads as "now".
+        if (wanted.Any(step => step.EffectiveFrom <= now)
+            || wanted.Zip(wanted.Skip(1)).Any(pair => pair.Second.EffectiveFrom <= pair.First.EffectiveFrom))
+        {
+            return AccountPlanReconcileOutcome.Contended;
+        }
+
+        var chain = await ReadChainAsync(accountId, cancellationToken);
+
+        // An account with no row is on the default already, as one whose row says so is.
+        var nowSatisfied = !desired.AdjustNow || SameKey(chain.InForce?.PlanKey, nowKey);
+
+        var keep = 0;
+        if (nowSatisfied)
+        {
+            while (keep < chain.Scheduled.Count
+                && keep < wanted.Count
+                && SameKey(chain.Scheduled[keep].PlanKey, wanted[keep].PlanKey)
+                && chain.Scheduled[keep].EffectiveFrom == wanted[keep].EffectiveFrom)
+            {
+                keep++;
+            }
+        }
+
+        // Checked before anything is written, so a blocked reconcile changes nothing at all.
+        if (chain.Scheduled.Skip(keep).Any(row => row.Source != source))
+        {
+            return AccountPlanReconcileOutcome.Blocked;
+        }
+
+        var changed = false;
+
+        for (var index = chain.Scheduled.Count - 1; index >= keep; index--)
+        {
+            if (await data.RemoveScheduledAsync(chain.Scheduled[index], cancellationToken) is not AccountPlanChangeOutcome.Changed)
+            {
+                return AccountPlanReconcileOutcome.Contended;
+            }
+
+            changed = true;
+        }
+
+        if (!nowSatisfied)
+        {
+            switch (await AppendStepAsync(accountId, nowKey, effectiveFrom: null))
+            {
+                case AccountPlanChangeOutcome.Changed:
+                    changed = true;
+                    break;
+                case AccountPlanChangeOutcome.Unchanged:
+                    break;
+                default:
+                    return AccountPlanReconcileOutcome.Contended;
+            }
+        }
+
+        foreach (var step in wanted.Skip(keep))
+        {
+            switch (await AppendStepAsync(accountId, step.PlanKey, step.EffectiveFrom))
+            {
+                case AccountPlanChangeOutcome.Changed:
+                    changed = true;
+                    break;
+                case AccountPlanChangeOutcome.Unchanged:
+                    break;
+                default:
+                    return AccountPlanReconcileOutcome.Contended;
+            }
+        }
+
+        return changed ? AccountPlanReconcileOutcome.Changed : AccountPlanReconcileOutcome.Unchanged;
+
+        // Through ChangeAsync, so the reconcile is held to every rule an ops change is: the chain's order, the tick
+        // past a change made on the same clock reading, and "the same change twice writes once".
+        async Task<AccountPlanChangeOutcome> AppendStepAsync(string account, string? key, DateTimeOffset? effectiveFrom) =>
+            (await ChangeAsync(account, key, source, effectiveFrom, audit: null, cancellationToken)).Outcome;
+    }
+
+    private static bool SameKey(string? left, string? right) =>
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
     public async Task<AccountPlanChangeResult> ChangeAsync(
         string accountId,

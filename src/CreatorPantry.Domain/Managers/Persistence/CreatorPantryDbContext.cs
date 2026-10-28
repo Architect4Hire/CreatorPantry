@@ -373,6 +373,18 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<BillingCustomer> BillingCustomers => Set<BillingCustomer>();
 
     /// <remarks>
+    /// Every event the payment provider delivered, verified and stored before anything acted on it (AP.6.2). The
+    /// unique event id is the replay guard; no payload is kept. Platform-scoped.
+    /// </remarks>
+    public DbSet<BillingProviderEvent> BillingProviderEvents => Set<BillingProviderEvent>();
+
+    /// <remarks>
+    /// Each provider subscription and the account it bills, as last read from the provider (AP.6.2): the integration
+    /// record that holds the subscription, item and schedule ids, so the plan chain holds none. Platform-scoped.
+    /// </remarks>
+    public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
+
+    /// <remarks>
     /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
     /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
     /// </remarks>

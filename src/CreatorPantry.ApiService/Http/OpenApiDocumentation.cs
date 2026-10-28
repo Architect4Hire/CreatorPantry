@@ -369,7 +369,21 @@ public static class OpenApiDocumentation
         }
 
         var method = context.Description.HttpMethod ?? string.Empty;
-        if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method) && !HttpMethods.IsOptions(method))
+        if (metadata.OfType<ProviderWebhookAttribute>().FirstOrDefault() is { } webhook)
+        {
+            // A provider's webhook (AP.6.2) is exempt from antiforgery at the gateway, and its one credential is the
+            // provider's signature header, so that is what the document says it takes.
+            operation.Parameters ??= [];
+            operation.Parameters.Add(new OpenApiParameter
+            {
+                Name = webhook.SignatureHeader,
+                In = ParameterLocation.Header,
+                Required = true,
+                Description = "The provider's signature over the raw body. Verified before the body is read.",
+                Schema = new OpenApiSchema { Type = JsonSchemaType.String },
+            });
+        }
+        else if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method) && !HttpMethods.IsOptions(method))
         {
             operation.Parameters ??= [];
             operation.Parameters.Add(new OpenApiParameterReference(AntiforgeryParameter, context.Document));

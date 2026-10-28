@@ -39,7 +39,37 @@ internal sealed class StripeBillingSettings
     /// </summary>
     public string? PortalConfiguration { get; set; }
 
+    /// <summary>
+    /// The second portal configuration (<c>bpc_…</c>), which an upgrade's confirmation page opens under (AP.6.2): plan
+    /// switching on — Stripe's confirmation flow needs it — and the proration invoiced at once (<c>always_invoice</c>).
+    /// A deep link hides the rest of the portal, so the switcher it enables is never shown. Null on a host that offers
+    /// no upgrades, which answers "not configured" to one.
+    /// </summary>
+    public string? UpgradePortalConfiguration { get; set; }
+
     public StripePriceSettings Prices { get; set; } = new();
+
+    /// <summary>
+    /// The plan and cycle a configured price sells, or null for a price this host does not sell — a pack's, one made
+    /// in the provider's dashboard, or one since removed from configuration (AP.6.2).
+    /// </summary>
+    public (string PlanKey, BillingCycle Cycle)? PlanFor(string priceId)
+    {
+        foreach (var (key, prices) in Prices.Plans)
+        {
+            if (string.Equals(prices.Monthly, priceId, StringComparison.Ordinal))
+            {
+                return (key, BillingCycle.Monthly);
+            }
+
+            if (string.Equals(prices.Annual, priceId, StringComparison.Ordinal))
+            {
+                return (key, BillingCycle.Annual);
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>The price for <paramref name="planKey"/> on <paramref name="cycle"/>, or null when it has none.</summary>
     public string? PriceFor(string planKey, BillingCycle cycle) =>

@@ -50,7 +50,19 @@ internal interface IAccountPlanRepository
         int take,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The account's rows that start after <paramref name="at"/> — what is scheduled — earliest first (AP.6.2).
+    /// </summary>
+    Task<IReadOnlyList<AccountPlan>> ListStartingAfterAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken);
+
     void Add(AccountPlan plan);
+
+    /// <summary>
+    /// Stages the deletion of one row read untracked: a scheduled change withdrawn (AP.6.2). The schema lets it
+    /// through only while nothing supersedes it, so only the end of the chain can go.
+    /// </summary>
+    void Remove(AccountPlan plan);
 
     /// <summary>Forgets everything tracked, so a rejected write cannot ride along on a later save.</summary>
     void Forget();
@@ -117,7 +129,21 @@ internal sealed class AccountPlanRepository(CreatorPantryDbContext context) : IA
             .Take(take)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<AccountPlan>> ListStartingAfterAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken) =>
+        await context.AccountPlans
+            .AsNoTracking()
+            .Where(plan => plan.AccountId == accountId && plan.EffectiveFrom > at)
+            .OrderBy(plan => plan.EffectiveFrom)
+            .ToListAsync(cancellationToken);
+
     public void Add(AccountPlan plan) => context.AccountPlans.Add(plan);
+
+    /// <remarks>
+    /// Attached by key and removed, so the DELETE names the row's id alone. A row someone else deleted first affects
+    /// nothing, which EF reports as a concurrency failure; one that has gained a successor fails the foreign key.
+    /// </remarks>
+    public void Remove(AccountPlan plan) => context.AccountPlans.Remove(plan);
 
     public void Forget() => context.ChangeTracker.Clear();
 

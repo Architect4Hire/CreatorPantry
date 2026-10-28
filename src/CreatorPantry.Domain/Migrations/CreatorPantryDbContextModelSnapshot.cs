@@ -1680,6 +1680,175 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingProviderEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ExternalEventId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ObjectReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RedrivenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Redrives")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubscriptionReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalEventId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingProviderEvents_ExternalEventId");
+
+                    b.HasIndex("Status", "ReceivedAt")
+                        .HasDatabaseName("IX_BillingProviderEvents_Status_ReceivedAt");
+
+                    b.ToTable("BillingProviderEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingProviderEvents_EventType_NotBlank", "trim(EventType) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingProviderEvents_ExternalEventId_NotBlank", "trim(ExternalEventId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingProviderEvents_Status_Declared", "Status <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset?>("CancelAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CurrentPeriodEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Cycle")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExternalCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalSubscriptionId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ItemId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("LatestInvoicePaid")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("NextCycle")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("NextPhaseStartsAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NextPlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("ScheduleId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalSubscriptionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingSubscriptions_ExternalSubscriptionId");
+
+                    b.HasIndex("AccountId", "IsLiveMode")
+                        .HasDatabaseName("IX_BillingSubscriptions_Account_Mode");
+
+                    b.ToTable("BillingSubscriptions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingSubscriptions_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_ExternalCustomerId_NotBlank", "trim(ExternalCustomerId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_ExternalSubscriptionId_NotBlank", "trim(ExternalSubscriptionId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_NextPhase_Whole", "(NextPlanKey IS NULL AND NextPhaseStartsAt IS NULL) OR NextPhaseStartsAt IS NOT NULL");
+                        });
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>
                 {
                     b.Property<Guid>("Id")

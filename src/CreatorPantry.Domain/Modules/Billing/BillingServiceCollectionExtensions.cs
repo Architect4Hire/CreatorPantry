@@ -1,5 +1,6 @@
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Limits;
+using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing.Business;
@@ -212,6 +213,17 @@ public static class BillingServiceCollectionExtensions
         services.TryAddScoped<IBillingPaymentGateway, UnconfiguredBillingPaymentGateway>();
         services.AddScoped<IBillingCustomerRepository, BillingCustomerRepository>();
         services.AddScoped<IBillingCustomerDataLayer, BillingCustomerDataLayer>();
+
+        // The provider's webhook (AP.6.2). The API takes deliveries; the Worker, whose outbox dispatcher runs the
+        // handler, acts on them. The verifier says "not configured" unless a host was given a signing secret
+        // (AddStripeBilling), which only the API is. The writer is the outbox's, TryAdd for the reason Brand gives.
+        services.TryAddSingleton<IBillingWebhookVerifier, UnconfiguredBillingWebhookVerifier>();
+        services.TryAddScoped<IOutboxWriter, OutboxWriter>();
+        services.AddScoped<IBillingWebhookRepository, BillingWebhookRepository>();
+        services.AddScoped<IBillingWebhookDataLayer, BillingWebhookDataLayer>();
+        services.AddScoped<IBillingWebhookBusiness, BillingWebhookBusiness>();
+        services.AddScoped<IBillingWebhookFacade, BillingWebhookFacade>();
+        services.AddKeyedScoped<IOutboxMessageHandler, BillingProviderEventOutboxHandler>(BillingWebhookPolicy.OutboxMessageType);
 
         return services;
     }

@@ -9,8 +9,8 @@ using Microsoft.AspNetCore.Mvc.Routing;
 namespace CreatorPantry.Tests.Gateway;
 
 /// <summary>
-/// Every route the gateway lets carry more than the 4 MB default is one the API accepts the same body on, and the
-/// other way round (15.2).
+/// Every route the gateway gives a body limit of its own is one the API accepts the same body on, and the other way
+/// round (15.2) — raised for an upload, or lowered, as the payment provider's webhook is (AP.6.2).
 /// </summary>
 /// <remarks>
 /// The numbers live in two places — the gateway's route configuration and the API action's
@@ -26,9 +26,11 @@ public sealed partial class UploadRouteLimitDriftTests
         var gateway = GatewayRoutes();
         var api = ApiActions();
 
-        // Non-vacuous: the DAM and brand upload routes that exist today are both found on both sides.
+        // Non-vacuous: the DAM and brand upload routes that exist today are both found on both sides, and so is the
+        // one limit below the default.
         Assert.Contains(gateway, route => route.Path.EndsWith("/dam-assets", StringComparison.Ordinal));
         Assert.Contains(api, route => route.Path.EndsWith("/brand-source-documents", StringComparison.Ordinal));
+        Assert.Contains(api, route => route.Path == "/api/v1/webhooks/stripe" && route.Bytes < EdgeDefault);
 
         Assert.Equal(api.Order(), gateway.Order());
     }
@@ -63,7 +65,9 @@ public sealed partial class UploadRouteLimitDriftTests
                 .Select(pair => (pair.controller, pair.action, limit: pair.action.GetCustomAttributes()
                     .OfType<IRequestSizeLimitMetadata>()
                     .FirstOrDefault()?.MaxRequestBodySize))
-                .Where(entry => entry.limit is > EdgeDefault)
+                // Any limit an action states. One equal to the edge's default would need no route of its own, so it
+                // is the one case left out.
+                .Where(entry => entry.limit is { } bytes && bytes != EdgeDefault)
                 .SelectMany(entry => entry.action.GetCustomAttributes<HttpMethodAttribute>().SelectMany(verb =>
                     verb.HttpMethods.Select(method => new RaisedLimit(
                         method,

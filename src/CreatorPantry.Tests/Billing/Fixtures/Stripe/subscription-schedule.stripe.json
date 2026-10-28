@@ -1,0 +1,28 @@
+{
+  "id": "sub_sched_1Mr3YdLkdIwHu7ixjop3qtff",
+  "object": "subscription_schedule",
+  "application": null,
+  "canceled_at": null,
+  "completed_at": null,
+  "created": 2104848000,
+  "current_phase": { "end_date": 2107440000, "start_date": 2104761600 },
+  "customer": "cus_NffrFeUfNV2Hib",
+  "default_settings": { "collection_method": "charge_automatically" },
+  "end_behavior": "release",
+  "livemode": false,
+  "metadata": {},
+  "phases": [
+    {
+      "currency": "usd",
+      "end_date": 2107440000,
+      "items": [ { "metadata": {}, "price": "price_pro_monthly", "quantity": 1 } ],
+      "metadata": {},
+      "proration_behavior": "create_prorations",
+      "start_date": 2104761600
+    }
+  ],
+  "released_at": null,
+  "released_subscription": null,
+  "status": "active",
+  "subscription": "sub_1MowQVLkdIwHu7ixeRlqHVzs"
+}

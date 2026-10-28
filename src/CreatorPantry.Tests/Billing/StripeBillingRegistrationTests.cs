@@ -176,6 +176,8 @@ public sealed class StripeBillingRegistrationTests
 
         var settings = provider.GetRequiredService<IOptions<StripeBillingSettings>>().Value;
         Assert.Equal("price_creator_annual", settings.PriceFor("creator", BillingCycle.Annual));
+        Assert.Equal(("creator", BillingCycle.Annual), settings.PlanFor("price_creator_annual"));
+        Assert.Null(settings.PlanFor("price_pack_small"));
 
         // Keys are matched as the catalogue matches them, without regard to case.
         Assert.Equal("price_pack_small", settings.PriceFor("SMALL"));
@@ -193,6 +195,12 @@ public sealed class StripeBillingRegistrationTests
         { "an id with something after it", [.. Catalogue(), ("Billing:Stripe:Prices:Packs:small", "price_pack_small;x")] },
         { "one price for two things", [.. Catalogue(), ("Billing:Stripe:Prices:Packs:small", "price_creator_monthly")] },
         { "a portal configuration that is not one", [.. Catalogue(), ("Billing:Stripe:PortalConfiguration", "conf_1")] },
+        { "an upgrade configuration that is not one", [.. Catalogue(), ("Billing:Stripe:UpgradePortalConfiguration", "conf_1")] },
+        {
+            // The upgrade configuration has plan switching on; shared with the portal, every creator would see it.
+            "the upgrade configuration the portal's own",
+            [.. Catalogue(), ("Billing:Stripe:PortalConfiguration", "bpc_1Same"), ("Billing:Stripe:UpgradePortalConfiguration", "bpc_1Same")]
+        },
     };
 
     [Theory]
@@ -204,6 +212,63 @@ public sealed class StripeBillingRegistrationTests
 
         var refused = Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IOptions<StripeBillingSettings>>().Value);
         Assert.NotEmpty(refused.Failures);
+    }
+
+    [Fact]
+    public void A_distinct_upgrade_configuration_starts()
+    {
+        using var provider = Build(Connection(), [
+            .. Catalogue(),
+            ("Billing:Stripe:PortalConfiguration", "bpc_1MAhNDLkdIwHu7ixckACO1Jq"),
+            ("Billing:Stripe:UpgradePortalConfiguration", "bpc_1UpgradeOnly"),
+        ]);
+
+        Assert.Equal("bpc_1UpgradeOnly", provider.GetRequiredService<IOptions<StripeBillingSettings>>().Value.UpgradePortalConfiguration);
+    }
+
+    // ---- the webhook verifier (AP.6.2) -------------------------------------------------------------------
+
+    /// <summary>A signing secret on the connection string is what makes this host verify deliveries, in either order.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_signing_secret_registers_the_verifier_in_either_order(bool moduleFirst)
+    {
+        using var provider = Build(Connection(), Catalogue(), moduleFirst: moduleFirst);
+
+        Assert.IsType<StripeWebhookVerifier>(provider.GetRequiredService<IBillingWebhookVerifier>());
+    }
+
+    [Fact]
+    public void No_signing_secret_leaves_the_host_verifying_nothing()
+    {
+        using var provider = Build($"Endpoint=https://api.stripe.example;Key={TestKey}", Catalogue());
+
+        Assert.IsType<UnconfiguredBillingWebhookVerifier>(provider.GetRequiredService<IBillingWebhookVerifier>());
+    }
+
+    /// <summary>The Worker's registration: handed a string with a secret in it, it still builds no verifier.</summary>
+    [Fact]
+    public void A_host_that_takes_no_webhooks_builds_no_verifier_even_with_a_secret()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [$"ConnectionStrings:{StripeBillingOptions.ConnectionName}"] = Connection(),
+        }).Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddApplicationTime();
+        services.AddLimits(configuration);
+        services.AddAiUsageModule(configuration);
+        services.AddBillingModule(configuration);
+        services.AddStripeBilling(configuration, verifyWebhooks: false);
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<UnconfiguredBillingWebhookVerifier>(provider.GetRequiredService<IBillingWebhookVerifier>());
+        using var scope = provider.CreateScope();
+        Assert.Equal(BillingPaymentMode.Test, scope.ServiceProvider.GetRequiredService<IBillingPaymentGateway>().Mode);
     }
 
     // ---- the client --------------------------------------------------------------------------------------

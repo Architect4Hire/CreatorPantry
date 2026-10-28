@@ -125,6 +125,21 @@ A machine that supplies `ConnectionStrings:billing-stripe` —
 `Endpoint=https://api.stripe.com;Key=<key>;WebhookSecret=<secret>` — is not prompted. With none, payment reads
 "not configured".
 
+The Worker takes the key too (AP.6.2): it reads a subscription again before acting on a webhook event. The AppHost
+gives it `billing-stripe` **without** the signing secret, and the same price ids; only the API verifies deliveries. A
+machine that supplies the whole string gives the Worker that same string, secret included, and the Worker still builds
+no verifier from it (`AddStripeBilling(…, verifyWebhooks: false)`).
+An upgrade opens under a second portal configuration — plan switching on, proration invoiced at once — whose id goes
+beside the price ids (not a secret, never committed):
+
+```
+dotnet user-secrets set "Stripe:UpgradePortalConfiguration" "bpc_…" --project src/CreatorPantry.AppHost
+```
+
+Webhooks reach a local run through the gateway: `stripe listen --forward-to https://localhost:<gateway port>/api/v1/webhooks/stripe`,
+with the `whsec_…` it prints as `stripe-webhook-secret`. The route takes no session or antiforgery token, and a host
+with no secret answers 503, which Stripe retries.
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider

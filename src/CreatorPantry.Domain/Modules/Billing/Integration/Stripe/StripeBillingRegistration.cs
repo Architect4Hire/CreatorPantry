@@ -38,7 +38,11 @@ namespace CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 /// The gateway retries what Stripe says is safe to, with the same key, within bounds it can state; the client keeps
 /// only a circuit breaker, which never sends anything twice.
 /// </para>
-/// <para>The API alone registers it today: checkout and the portal are browser actions. AP.6.4's job would add the Worker.</para>
+/// <para>
+/// <strong>Both hosts register it</strong> (AP.6.2): the API for checkout, the portal and the webhook route, the Worker
+/// to read a subscription again when it processes an event. Only a connection string that carries a signing secret
+/// registers the webhook verifier, and the AppHost gives the Worker none — it verifies nothing.
+/// </para>
 /// </remarks>
 public static class StripeBillingRegistration
 {
@@ -49,7 +53,12 @@ public static class StripeBillingRegistration
     /// Read for <c>ConnectionStrings:billing-stripe</c> and <c>Billing:Stripe</c>. Taking the configuration rather
     /// than the host builder is what lets this live beside the module.
     /// </param>
-    public static IServiceCollection AddStripeBilling(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="verifyWebhooks">
+    /// Whether this host takes webhook deliveries and so verifies them with the signing secret. The Worker passes
+    /// false: even handed a connection string that carries a secret, it never builds a verifier from it.
+    /// </param>
+    public static IServiceCollection AddStripeBilling(
+        this IServiceCollection services, IConfiguration configuration, bool verifyWebhooks = true)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -113,6 +122,17 @@ public static class StripeBillingRegistration
                     || (stripe.PortalConfiguration.StartsWith("bpc_", StringComparison.Ordinal)
                         && stripe.PortalConfiguration.Length <= BillingPolicy.ExternalReferenceMaxLength),
                 $"{StripeBillingSettings.SectionName}:PortalConfiguration is not a portal configuration id (bpc_…).")
+            .Validate(
+                stripe => stripe.UpgradePortalConfiguration is null
+                    || (stripe.UpgradePortalConfiguration.StartsWith("bpc_", StringComparison.Ordinal)
+                        && stripe.UpgradePortalConfiguration.Length <= BillingPolicy.ExternalReferenceMaxLength),
+                $"{StripeBillingSettings.SectionName}:UpgradePortalConfiguration is not a portal configuration id (bpc_…).")
+            .Validate(
+                // One configuration for both would put plan switching in front of every creator who opens the portal.
+                stripe => stripe.UpgradePortalConfiguration is null
+                    || !string.Equals(stripe.UpgradePortalConfiguration, stripe.PortalConfiguration, StringComparison.Ordinal),
+                $"{StripeBillingSettings.SectionName}:UpgradePortalConfiguration is the same as PortalConfiguration; "
+                    + "the upgrade configuration allows plan switching, which the portal itself must not.")
             .ValidateOnStart();
 
         // RemoveAllResilienceHandlers is marked experimental (EXTEXP0001); it is the supported opt-out from
@@ -153,6 +173,14 @@ public static class StripeBillingRegistration
             provider.GetRequiredService<IOptions<StripeBillingSettings>>(),
             provider.GetRequiredService<IClock>(),
             provider.GetRequiredService<ILogger<StripeBillingGateway>>()));
+
+        // Registered after the module's TryAdd or before it, this is the verifier that resolves (AP.6.2). The secret is
+        // read once, here, into the verifier's key, and is held nowhere a log or a response could pick it up.
+        if (verifyWebhooks && options.WebhookSecret is { } webhookSecret)
+        {
+            services.AddSingleton<IBillingWebhookVerifier>(provider =>
+                new StripeWebhookVerifier(webhookSecret, provider.GetRequiredService<IClock>()));
+        }
 
         return services;
     }

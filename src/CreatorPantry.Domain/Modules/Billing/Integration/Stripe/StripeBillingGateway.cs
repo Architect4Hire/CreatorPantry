@@ -20,8 +20,9 @@ namespace CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 /// <para>
 /// <strong>The contract this is written against</strong> is Stripe's API v1 at <c>2026-09-30.endive</c>
 /// (docs.stripe.com, read 2026-10-28): <c>POST customers</c>, <c>POST checkout/sessions</c> and
-/// <c>POST billing_portal/sessions</c>, form-encoded, authenticated by a bearer key. Plain HTTP rather than
-/// Stripe.net, as the repository's other providers are: four calls do not need an SDK, the pin is one header here
+/// <c>POST billing_portal/sessions</c>, form-encoded, authenticated by a bearer key — and, for a running subscription
+/// (AP.6.2), <c>GET subscriptions/{id}</c> and the <c>subscription_schedules</c> calls. Plain HTTP rather than
+/// Stripe.net, as the repository's other providers are: these calls do not need an SDK, the pin is one header here
 /// rather than whatever a package release carries, and no Stripe type exists to leak past this file.
 /// </para>
 /// <para>
@@ -196,6 +197,194 @@ internal sealed class StripeBillingGateway(
             && ReadUrl(reply.Data) is { } url
             ? new BillingRedirect(BillingPaymentOutcome.Succeeded, url)
             : Unreadable("portal", BillingRedirect.Of(BillingPaymentOutcome.Unreadable));
+    }
+
+    /// <remarks>
+    /// <c>GET v1/subscriptions/{id}</c> with the schedule and the latest invoice expanded, so a downgrade waiting for
+    /// the period's end and whether an upgrade's proration has been paid are read in the same call (AP.6.2). At the pinned version a subscription's period lives on its item
+    /// (<c>items.data[].current_period_end</c>), not on the subscription, since <c>2025-03-31.basil</c>.
+    /// </remarks>
+    public async Task<BillingSubscriptionRead> GetSubscriptionAsync(
+        string externalSubscriptionId, CancellationToken cancellationToken)
+    {
+        RequireReference(externalSubscriptionId, "sub_", nameof(externalSubscriptionId));
+
+        var reply = await ReadAsync(
+            "subscription", $"v1/subscriptions/{externalSubscriptionId}?expand%5B%5D=schedule&expand%5B%5D=latest_invoice", cancellationToken);
+
+        if (reply.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return BillingSubscriptionRead.Of(reply.Outcome);
+        }
+
+        return ReadSubscription(reply.Data, externalSubscriptionId) is { } subscription
+            ? new BillingSubscriptionRead(BillingPaymentOutcome.Succeeded, subscription)
+            : Unreadable("subscription", BillingSubscriptionRead.Of(BillingPaymentOutcome.Unreadable));
+    }
+
+    /// <remarks>
+    /// <c>POST v1/billing_portal/sessions</c> with a <c>subscription_update_confirm</c> flow (docs.stripe.com,
+    /// "Deep links in the customer portal", read 2026-10-28): the one item, its new price, quantity one. The upgrade
+    /// configuration is what invoices the proration at once and takes the payment; without one there is nothing to
+    /// open the page under, and nothing is sent.
+    /// </remarks>
+    public async Task<BillingRedirect> StartPlanUpgradeAsync(PlanUpgradeRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        RequireCustomer(request.ExternalCustomerId);
+        RequireReference(request.ExternalSubscriptionId, "sub_", nameof(request.ExternalSubscriptionId));
+        RequireReference(request.SubscriptionItemId, "si_", nameof(request.SubscriptionItemId));
+        RequireReturnable(request.ReturnUrl, nameof(request.ReturnUrl));
+        RequireReturnable(request.CompletedUrl, nameof(request.CompletedUrl));
+
+        if (settings.Value.UpgradePortalConfiguration is not { Length: > 0 } configuration)
+        {
+            return BillingRedirect.Of(BillingPaymentOutcome.NotConfigured);
+        }
+
+        if (settings.Value.PriceFor(request.PlanKey, request.Cycle) is not { } price)
+        {
+            return BillingRedirect.Of(BillingPaymentOutcome.NotOffered);
+        }
+
+        var form = new List<KeyValuePair<string, string>>
+        {
+            Pair("customer", request.ExternalCustomerId),
+            Pair("return_url", request.ReturnUrl.AbsoluteUri),
+            Pair("configuration", configuration),
+            Pair("flow_data[type]", "subscription_update_confirm"),
+            Pair("flow_data[subscription_update_confirm][subscription]", request.ExternalSubscriptionId),
+            Pair("flow_data[subscription_update_confirm][items][0][id]", request.SubscriptionItemId),
+            Pair("flow_data[subscription_update_confirm][items][0][price]", price),
+            Pair("flow_data[subscription_update_confirm][items][0][quantity]", "1"),
+            Pair("flow_data[after_completion][type]", "redirect"),
+            Pair("flow_data[after_completion][redirect][return_url]", request.CompletedUrl.AbsoluteUri),
+        };
+
+        // A short-lived link, as the portal's own is: the key only keeps this call's retries from making two.
+        var key = DerivedKey("upgrade", Guid.NewGuid().ToString("N"));
+
+        var reply = await SendAsync("upgrade", "v1/billing_portal/sessions", form, key, cancellationToken);
+        if (reply.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return BillingRedirect.Of(reply.Outcome);
+        }
+
+        return ReadId(reply.Data, "bps_") is not null
+            && ReadModeMatches(reply.Data)
+            && ReadCustomerMatches(reply.Data, request.ExternalCustomerId)
+            && ReadUrl(reply.Data) is { } url
+            ? new BillingRedirect(BillingPaymentOutcome.Succeeded, url)
+            : Unreadable("upgrade", BillingRedirect.Of(BillingPaymentOutcome.Unreadable));
+    }
+
+    /// <remarks>
+    /// <para>
+    /// Two calls (docs.stripe.com, "Subscription schedules", read 2026-10-28): a schedule made from the subscription —
+    /// or the one already managing it, read — then that schedule updated to two phases. The first is the current
+    /// phase exactly as it stands, its own start, end and price, so nothing about the period being paid for moves;
+    /// the second starts at that end on the new price. <c>proration_behavior=none</c>: a change at the boundary owes
+    /// nothing either way. <c>end_behavior=release</c>, so once the second phase has run the subscription carries on
+    /// alone, on its new price.
+    /// </para>
+    /// <para>
+    /// Each call carries its own key derived from the caller's, so a retry of the whole change is the same schedule
+    /// and the same update, never a second schedule.
+    /// </para>
+    /// </remarks>
+    public async Task<BillingPaymentOutcome> SchedulePlanChangeAsync(
+        ScheduledPlanChangeRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        RequireReference(request.ExternalSubscriptionId, "sub_", nameof(request.ExternalSubscriptionId));
+        if (request.ExistingScheduleId is not null)
+        {
+            RequireReference(request.ExistingScheduleId, "sub_sched_", nameof(request.ExistingScheduleId));
+        }
+
+        RequireKey(request.IdempotencyKey);
+
+        if (settings.Value.PriceFor(request.PlanKey, request.Cycle) is not { } price)
+        {
+            return BillingPaymentOutcome.NotOffered;
+        }
+
+        var schedule = request.ExistingScheduleId is { } existing
+            ? await ReadAsync("schedule-read", $"v1/subscription_schedules/{existing}", cancellationToken)
+            : await SendAsync(
+                "schedule-create",
+                "v1/subscription_schedules",
+                [Pair("from_subscription", request.ExternalSubscriptionId)],
+                DerivedKey("schedule-create", request.IdempotencyKey),
+                cancellationToken);
+
+        if (schedule.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return schedule.Outcome;
+        }
+
+        if (ReadId(schedule.Data, "sub_sched_") is not { } scheduleId
+            || !ReadModeMatches(schedule.Data)
+            || CurrentPhase(schedule.Data) is not { } current)
+        {
+            return Unreadable("schedule", BillingPaymentOutcome.Unreadable);
+        }
+
+        var form = new List<KeyValuePair<string, string>>
+        {
+            Pair("end_behavior", "release"),
+            Pair("proration_behavior", "none"),
+            Pair("phases[0][items][0][price]", current.Price),
+            Pair("phases[0][items][0][quantity]", "1"),
+            Pair("phases[0][start_date]", current.Start.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            Pair("phases[0][end_date]", current.End.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            Pair("phases[1][items][0][price]", price),
+            Pair("phases[1][items][0][quantity]", "1"),
+            Pair("phases[1][duration][interval]", request.Cycle == BillingCycle.Annual ? "year" : "month"),
+            Pair("phases[1][duration][interval_count]", "1"),
+        };
+
+        var updated = await SendAsync(
+            "schedule-update",
+            $"v1/subscription_schedules/{scheduleId}",
+            form,
+            DerivedKey("schedule-update", request.IdempotencyKey),
+            cancellationToken);
+
+        if (updated.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return updated.Outcome;
+        }
+
+        return ReadId(updated.Data, "sub_sched_") == scheduleId && ReadModeMatches(updated.Data)
+            ? BillingPaymentOutcome.Succeeded
+            : Unreadable("schedule-update", BillingPaymentOutcome.Unreadable);
+    }
+
+    /// <remarks><c>POST v1/subscription_schedules/{id}/release</c>: the subscription stays exactly as it is.</remarks>
+    public async Task<BillingPaymentOutcome> ReleaseScheduleAsync(
+        string externalScheduleId, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        RequireReference(externalScheduleId, "sub_sched_", nameof(externalScheduleId));
+        RequireKey(idempotencyKey);
+
+        var reply = await SendAsync(
+            "schedule-release",
+            $"v1/subscription_schedules/{externalScheduleId}/release",
+            [],
+            DerivedKey("schedule-release", idempotencyKey),
+            cancellationToken);
+
+        if (reply.Outcome is not BillingPaymentOutcome.Succeeded)
+        {
+            return reply.Outcome;
+        }
+
+        return ReadId(reply.Data, "sub_sched_") == externalScheduleId
+            && ReadModeMatches(reply.Data)
+            && StringOf(reply.Data, "status") == "released"
+                ? BillingPaymentOutcome.Succeeded
+                : Unreadable("schedule-release", BillingPaymentOutcome.Unreadable);
     }
 
     private async Task<BillingRedirect> StartCheckoutAsync(
@@ -383,14 +572,258 @@ internal sealed class StripeBillingGateway(
         return result;
     }
 
+    // ---- reading a subscription (AP.6.2) -------------------------------------------------------------------
+
+    /// <summary>
+    /// The subscription in the application's terms; null when any part the plan follows from is missing or not what
+    /// this contract expects — better unread than half read, since a half-read schedule would withdraw a downgrade.
+    /// </summary>
+    private BillingSubscriptionSnapshot? ReadSubscription(JsonElement data, string askedFor)
+    {
+        if (ReadId(data, "sub_") != askedFor
+            || !ReadModeMatches(data)
+            || ReferenceOf(data, "customer", "cus_") is not { } customer
+            || !data.TryGetProperty("items", out var items)
+            || !items.TryGetProperty("data", out var lines)
+            || lines.ValueKind != JsonValueKind.Array
+            || lines.GetArrayLength() != 1)
+        {
+            // One item is every subscription a CreatorPantry checkout makes; more is one made elsewhere, and an
+            // upgrade's confirmation page cannot change it either.
+            return null;
+        }
+
+        var item = lines[0];
+        if (ReadId(item, "si_") is not { } itemId
+            || PriceOf(item) is not { } price
+            || Seconds(item, "current_period_end") is not { } periodEnd)
+        {
+            return null;
+        }
+
+        var sold = settings.Value.PlanFor(price);
+
+        // A cancellation at period end may be said either way; at this version Stripe also sets cancel_at for it.
+        var cancelAt = Seconds(data, "cancel_at")
+            ?? (data.TryGetProperty("cancel_at_period_end", out var atPeriodEnd) && atPeriodEnd.ValueKind == JsonValueKind.True
+                ? periodEnd
+                : null);
+
+        string? scheduleId = null;
+        BillingScheduledPhase? next = null;
+
+        if (data.TryGetProperty("schedule", out var schedule) && schedule.ValueKind != JsonValueKind.Null)
+        {
+            // Asked for expanded. An id alone would leave what it has waiting unknown, which is not the same as none.
+            if (schedule.ValueKind != JsonValueKind.Object || ReadId(schedule, "sub_sched_") is not { } id)
+            {
+                return null;
+            }
+
+            scheduleId = id;
+
+            if (StringOf(schedule, "status") is "active" or "not_started")
+            {
+                if (!TryNextPhase(schedule, price, out next))
+                {
+                    return null;
+                }
+            }
+        }
+
+        return new BillingSubscriptionSnapshot(
+            askedFor,
+            customer,
+            Metadata(data, StripeMetadata.AccountId),
+            options.Mode == BillingPaymentMode.Live,
+            StatusOf(StringOf(data, "status")),
+            itemId,
+            sold?.PlanKey,
+            sold?.Cycle ?? BillingCycle.Unspecified,
+            periodEnd,
+            cancelAt,
+            Seconds(data, "ended_at"),
+            scheduleId,
+            next,
+            LatestInvoicePaid(data));
+    }
+
+    /// <summary>
+    /// Whether the latest invoice, expanded, says it is paid. Not expanded, absent or anything but <c>paid</c> reads as
+    /// not paid, which holds an upgrade back rather than granting it.
+    /// </summary>
+    private static bool LatestInvoicePaid(JsonElement data) =>
+        data.TryGetProperty("latest_invoice", out var invoice)
+        && invoice.ValueKind == JsonValueKind.Object
+        && StringOf(invoice, "status") == "paid";
+
+    /// <summary>
+    /// The first phase after the current one, if its price differs from the subscription's: what the schedule changes
+    /// next. False when the phases cannot be read.
+    /// </summary>
+    private bool TryNextPhase(JsonElement schedule, string currentPrice, out BillingScheduledPhase? next)
+    {
+        next = null;
+
+        if (!schedule.TryGetProperty("phases", out var phases) || phases.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        var currentStart = schedule.TryGetProperty("current_phase", out var current) && current.ValueKind == JsonValueKind.Object
+            ? Seconds(current, "start_date")
+            : null;
+
+        var upcoming = new List<(DateTimeOffset Start, string Price)>();
+        foreach (var phase in phases.EnumerateArray())
+        {
+            if (Seconds(phase, "start_date") is not { } start
+                || !phase.TryGetProperty("items", out var phaseItems)
+                || phaseItems.ValueKind != JsonValueKind.Array
+                || phaseItems.GetArrayLength() != 1
+                || PriceOf(phaseItems[0]) is not { } phasePrice)
+            {
+                return false;
+            }
+
+            if (currentStart is null || start > currentStart)
+            {
+                upcoming.Add((start, phasePrice));
+            }
+        }
+
+        // A schedule not started yet has no current phase, and its first phase is what comes next.
+        var first = upcoming.OrderBy(phase => phase.Start).Cast<(DateTimeOffset Start, string Price)?>().FirstOrDefault();
+        if (first is { } phaseNext && !string.Equals(phaseNext.Price, currentPrice, StringComparison.Ordinal))
+        {
+            var sold = settings.Value.PlanFor(phaseNext.Price);
+            next = new BillingScheduledPhase(sold?.PlanKey, sold?.Cycle ?? BillingCycle.Unspecified, phaseNext.Start);
+        }
+
+        return true;
+    }
+
+    /// <summary>The schedule's current phase, as an update has to restate it: its price, start and end, in seconds.</summary>
+    private static (string Price, long Start, long End)? CurrentPhase(JsonElement schedule)
+    {
+        if (!schedule.TryGetProperty("phases", out var phases) || phases.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var currentStart = schedule.TryGetProperty("current_phase", out var current) && current.ValueKind == JsonValueKind.Object
+            && current.TryGetProperty("start_date", out var start) && start.TryGetInt64(out var startSeconds)
+                ? startSeconds
+                : (long?)null;
+
+        foreach (var phase in phases.EnumerateArray())
+        {
+            // A schedule just made from a subscription has one phase and may not report it as current yet.
+            if (phase.TryGetProperty("start_date", out var phaseStart) && phaseStart.TryGetInt64(out var phaseSeconds)
+                && (currentStart is null || phaseSeconds == currentStart)
+                && phase.TryGetProperty("end_date", out var phaseEnd) && phaseEnd.TryGetInt64(out var endSeconds)
+                && phase.TryGetProperty("items", out var phaseItems) && phaseItems.ValueKind == JsonValueKind.Array
+                && phaseItems.GetArrayLength() == 1
+                && PriceOf(phaseItems[0]) is { } price)
+            {
+                return (price, phaseSeconds, endSeconds);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A line's price id, whether the price is expanded (a subscription item) or not (a schedule phase).</summary>
+    private static string? PriceOf(JsonElement line) => ReferenceOf(line, "price", "price_");
+
+    /// <summary>A field naming another object: its id, or the object expanded with its id inside.</summary>
+    private static string? ReferenceOf(JsonElement element, string name, string prefix)
+    {
+        if (!element.TryGetProperty(name, out var value))
+        {
+            return null;
+        }
+
+        var id = value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Object => StringOf(value, "id"),
+            _ => null,
+        };
+
+        return id is { Length: <= BillingPolicy.ExternalReferenceMaxLength } && id.StartsWith(prefix, StringComparison.Ordinal) ? id : null;
+    }
+
+    private static string? Metadata(JsonElement data, string key) =>
+        data.TryGetProperty("metadata", out var metadata) && metadata.ValueKind == JsonValueKind.Object
+            ? StringOf(metadata, key)
+            : null;
+
+    /// <summary>A Unix time in seconds, or null when the field is absent, null or not one.</summary>
+    private static DateTimeOffset? Seconds(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt64(out var seconds)
+        && seconds is >= 0 and <= 253402300799
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+            : null;
+
+    private static BillingSubscriptionStatus StatusOf(string? status) => status switch
+    {
+        "incomplete" => BillingSubscriptionStatus.Incomplete,
+        "incomplete_expired" => BillingSubscriptionStatus.IncompleteExpired,
+        "trialing" => BillingSubscriptionStatus.Trialing,
+        "active" => BillingSubscriptionStatus.Active,
+        "past_due" => BillingSubscriptionStatus.PastDue,
+        "unpaid" => BillingSubscriptionStatus.Unpaid,
+        "canceled" => BillingSubscriptionStatus.Canceled,
+        "paused" => BillingSubscriptionStatus.Paused,
+        _ => BillingSubscriptionStatus.Unspecified,
+    };
+
+    private static void RequireReference(string value, string prefix, string name)
+    {
+        ArgumentNullException.ThrowIfNull(value, name);
+        if (!value.StartsWith(prefix, StringComparison.Ordinal)
+            || value.Length <= prefix.Length
+            || value.Length > BillingPolicy.ExternalReferenceMaxLength
+            || !value.All(character => char.IsAsciiLetterOrDigit(character) || character == '_'))
+        {
+            // Also what keeps a value from reaching a request path as anything but an id.
+            throw new ArgumentException($"A Stripe id starting {prefix} is required.", name);
+        }
+    }
+
+    private static void RequireKey(string idempotencyKey)
+    {
+        ArgumentNullException.ThrowIfNull(idempotencyKey);
+        if (string.IsNullOrWhiteSpace(idempotencyKey) || idempotencyKey.Length > IdempotencyKeyMaxLength)
+        {
+            throw new ArgumentException("An idempotency key is required.", nameof(idempotencyKey));
+        }
+    }
+
     // ---- the transport --------------------------------------------------------------------------------------
 
     /// <summary>One POST, retried while Stripe says that is safe, always with the same key and the same fields.</summary>
-    private async Task<Result> SendAsync(
+    private Task<Result> SendAsync(
         string operation,
         string relativePath,
         IReadOnlyList<KeyValuePair<string, string>> form,
         string idempotencyKey,
+        CancellationToken cancellationToken) =>
+        SendAsync(operation, HttpMethod.Post, relativePath, form, idempotencyKey, cancellationToken);
+
+    /// <summary>One GET (AP.6.2): no body and no key, and safe to repeat on anything that may pass, a 5xx included.</summary>
+    private Task<Result> ReadAsync(string operation, string relativePath, CancellationToken cancellationToken) =>
+        SendAsync(operation, HttpMethod.Get, relativePath, form: null, idempotencyKey: null, cancellationToken);
+
+    private async Task<Result> SendAsync(
+        string operation,
+        HttpMethod method,
+        string relativePath,
+        IReadOnlyList<KeyValuePair<string, string>>? form,
+        string? idempotencyKey,
         CancellationToken cancellationToken)
     {
         var started = Stopwatch.GetTimestamp();
@@ -403,9 +836,10 @@ internal sealed class StripeBillingGateway(
 
         for (var attempt = 1; ; attempt++)
         {
-            var reply = await SendOnceAsync(uri, form, idempotencyKey, deadline.Token, cancellationToken);
+            var reply = await SendOnceAsync(method, uri, form, idempotencyKey, deadline.Token, cancellationToken);
 
-            if (attempt < MaxAttempts && ShouldRetry(reply) && await WaitToRetryAsync(attempt, deadline.Token, cancellationToken))
+            if (attempt < MaxAttempts && ShouldRetry(reply, read: method == HttpMethod.Get)
+                && await WaitToRetryAsync(attempt, deadline.Token, cancellationToken))
             {
                 continue;
             }
@@ -429,11 +863,14 @@ internal sealed class StripeBillingGateway(
     /// <summary>
     /// Stripe's own word first: <c>Stripe-Should-Retry</c> overrides the status either way. Without it, what is
     /// repeated is what cannot have been saved against the key — no answer at all, a 409 because the same key is
-    /// still running, a 429 — and never a 5xx, which Stripe has saved and would only replay.
+    /// still running, a 429 — and never a 5xx, which Stripe has saved and would only replay. A read saves nothing
+    /// against any key, so a 5xx is repeated too.
     /// </summary>
-    private static bool ShouldRetry(Reply reply) =>
+    private static bool ShouldRetry(Reply reply, bool read) =>
         reply.Kind is not ReplyKind.CircuitOpen
-        && (reply.ShouldRetry ?? reply.Kind is ReplyKind.NoAnswer or ReplyKind.Conflict or ReplyKind.Throttled);
+        && (reply.ShouldRetry
+            ?? (reply.Kind is ReplyKind.NoAnswer or ReplyKind.Conflict or ReplyKind.Throttled
+                || (read && reply.Kind is ReplyKind.Failed)));
 
     /// <summary>
     /// Exponential backoff with jitter, as Stripe's rate-limit guidance asks, so callers that failed together do
@@ -469,9 +906,10 @@ internal sealed class StripeBillingGateway(
     /// <param name="deadline">The whole call's bound, already linked to the caller's token.</param>
     /// <param name="cancellationToken">The caller's own, so its cancellation is told apart from a timeout.</param>
     private async Task<Reply> SendOnceAsync(
+        HttpMethod method,
         Uri uri,
-        IReadOnlyList<KeyValuePair<string, string>> form,
-        string idempotencyKey,
+        IReadOnlyList<KeyValuePair<string, string>>? form,
+        string? idempotencyKey,
         CancellationToken deadline,
         CancellationToken cancellationToken)
     {
@@ -481,8 +919,16 @@ internal sealed class StripeBillingGateway(
         try
         {
             // The key and the version are on the named client's headers, set by the host; nothing here handles them.
-            using var request = new HttpRequestMessage(HttpMethod.Post, uri) { Content = new FormUrlEncodedContent(form) };
-            request.Headers.Add("Idempotency-Key", idempotencyKey);
+            using var request = new HttpRequestMessage(method, uri);
+            if (form is not null)
+            {
+                request.Content = new FormUrlEncodedContent(form);
+            }
+
+            if (idempotencyKey is not null)
+            {
+                request.Headers.Add("Idempotency-Key", idempotencyKey);
+            }
 
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, attemptTimeout.Token);
             var status = (int)response.StatusCode;

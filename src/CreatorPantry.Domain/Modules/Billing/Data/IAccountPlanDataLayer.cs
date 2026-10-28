@@ -41,6 +41,20 @@ internal interface IAccountPlanDataLayer
         PlatformAuditEntry? audit,
         CancellationToken cancellationToken);
 
+    /// <summary>What the account has scheduled after <paramref name="at"/>, earliest first (AP.6.2).</summary>
+    Task<IReadOnlyList<AccountPlan>> ListScheduledAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Withdraws a scheduled change: deletes <paramref name="scheduled"/>, which the caller read as the end of the
+    /// chain and still in the future (AP.6.2).
+    /// </summary>
+    /// <returns>
+    /// <see cref="AccountPlanChangeOutcome.Changed"/>, or <see cref="AccountPlanChangeOutcome.Contended"/> when the row
+    /// has gone or another writer has since appended after it — the chain moved, and the caller re-reads.
+    /// </returns>
+    Task<AccountPlanChangeOutcome> RemoveScheduledAsync(AccountPlan scheduled, CancellationToken cancellationToken);
+
     /// <summary>Accounts whose row in force resolves to <paramref name="planKey"/> (AP.4.4).</summary>
     Task<IReadOnlyList<AccountPlan>> ListInForceByPlanAsync(
         string planKey,
@@ -78,6 +92,37 @@ internal sealed class AccountPlanDataLayer(
         CancellationToken cancellationToken) =>
         repository.ListInForceByPlanAsync(
             planKey, includeDefaultRows, catalogueKeys, at, afterAccountId, take, cancellationToken);
+
+    public Task<IReadOnlyList<AccountPlan>> ListScheduledAsync(
+        string accountId, DateTimeOffset at, CancellationToken cancellationToken) =>
+        repository.ListStartingAfterAsync(accountId, at, cancellationToken);
+
+    public async Task<AccountPlanChangeOutcome> RemoveScheduledAsync(
+        AccountPlan scheduled, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scheduled);
+
+        repository.Remove(scheduled);
+
+        try
+        {
+            await repository.SaveAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Already gone: another reconcile withdrew it first. Forgotten for the reason AppendAsync gives.
+            repository.Forget();
+            return AccountPlanChangeOutcome.Contended;
+        }
+        catch (DbUpdateException exception) when (IsLostRace(exception))
+        {
+            // A row now supersedes it (547 on FK_AccountPlans_Superseded): it is no longer the end of the chain.
+            repository.Forget();
+            return AccountPlanChangeOutcome.Contended;
+        }
+
+        return AccountPlanChangeOutcome.Changed;
+    }
 
     public async Task<AccountPlanChangeOutcome> AppendAsync(
         string accountId,

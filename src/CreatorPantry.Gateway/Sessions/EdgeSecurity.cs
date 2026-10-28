@@ -22,6 +22,15 @@ public static partial class EdgeSecurity
     /// </summary>
     public const string PublicCatalogueRateLimitPolicy = "public-catalogue";
 
+    /// <summary>
+    /// The route the payment provider delivers webhook events to (AP.6.2), and its own rate limit. The YARP route id
+    /// too, because the header allowlist and the internal token are decided per route.
+    /// </summary>
+    public const string StripeWebhookRoute = "stripe-webhook";
+
+    /// <summary>The webhook's one path. Exactly this, and POST only: any other spelling is an ordinary API request.</summary>
+    public const string StripeWebhookPath = "/api/v1/webhooks/stripe";
+
     public static IHostApplicationBuilder AddBffSession(this IHostApplicationBuilder builder)
     {
         var services = builder.Services;
@@ -102,6 +111,13 @@ public static partial class EdgeSecurity
             options.AddPolicy(PublicCatalogueRateLimitPolicy, context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            // The provider's webhook (AP.6.2) is unauthenticated at the edge — the signature is checked by the API —
+            // so it has its own bound rather than none. Per address, because Stripe delivers from a short published
+            // list; generous, because renewals arrive together at the start of a month, and a 429 is one Stripe
+            // retries for days, so a burst over the line is delayed rather than lost.
+            options.AddPolicy(StripeWebhookRoute, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 600, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.OnRejected = (context, _) =>
             {
                 context.HttpContext.Response.Headers.RetryAfter =
@@ -212,10 +228,20 @@ public static partial class EdgeSecurity
         return [.. configured.Select(origin => origin.TrimEnd('/'))];
     }
 
+    /// <remarks>
+    /// The provider's webhook is the one unsafe <c>/api</c> request exempt (AP.6.2): Stripe is not a browser, holds
+    /// no antiforgery token, and its delivery carries no cookie the token would protect. Exactly the route's path and
+    /// method, so no other spelling of a path slips past the check.
+    /// </remarks>
     private static bool RequiresAntiforgery(HttpRequest request) =>
         !(HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method)
             || HttpMethods.IsOptions(request.Method) || HttpMethods.IsTrace(request.Method))
-        && (request.Path.StartsWithSegments("/bff") || request.Path.StartsWithSegments("/api"));
+        && (request.Path.StartsWithSegments("/bff") || request.Path.StartsWithSegments("/api"))
+        && !IsStripeWebhook(request);
+
+    internal static bool IsStripeWebhook(HttpRequest request) =>
+        HttpMethods.IsPost(request.Method)
+        && string.Equals(request.Path.Value, StripeWebhookPath, StringComparison.Ordinal);
 
     private static Task SetStatus(HttpResponse response, int status)
     {
