@@ -19,6 +19,8 @@ const PAYLOAD = {
   isNearlySpent: false,
   pictures: 0,
   writing: '360.5',
+  packRemaining: '400',
+  plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
   byTask: [
     { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
     { taskType: 'RecipeRevision', amount: 120, requests: 4 },
@@ -158,5 +160,39 @@ describe('decodeAccountAiUsage', () => {
     const usage = decodeAccountAiUsage({ ...PAYLOAD, isSuspended: true });
 
     expect(usage?.isSuspended).toBeTrue();
+  });
+
+  /** The packs and the plan (AP.5.3): the balance is a decimal like every other, and is read either way. */
+  it('reads the pack balance and the plan', () => {
+    const usage = decodeAccountAiUsage(PAYLOAD);
+
+    expect(usage?.packRemaining).toBe(400);
+    expect(usage?.plan).toEqual({ key: 'creator', name: 'Creator', allowanceRenews: true });
+  });
+
+  /**
+   * A missing balance is not "no packs": reading it as nought would lock a creator out of credits they hold, so
+   * the read fails loudly instead.
+   */
+  it('refuses a read missing the pack balance', () => {
+    const { packRemaining, ...withoutPacks } = PAYLOAD;
+
+    expect(packRemaining).toBe('400');
+    expect(decodeAccountAiUsage(withoutPacks)).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, packRemaining: 'lots' })).toBeNull();
+  });
+
+  /** Every production host today names no plan; that is a plan of null, not a failed read. */
+  it('reads a host with no plan catalogue as no plan', () => {
+    const { plan, ...withoutPlan } = PAYLOAD;
+
+    expect(plan.key).toBe('creator');
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: null })?.plan).toBeNull();
+    expect(decodeAccountAiUsage(withoutPlan)?.plan).toBeNull();
+  });
+
+  it('refuses a plan that is not one', () => {
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: 'creator' })).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: { key: 'creator', name: 'Creator' } })).toBeNull();
   });
 });

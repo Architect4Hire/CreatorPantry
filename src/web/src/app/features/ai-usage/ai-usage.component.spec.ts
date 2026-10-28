@@ -18,6 +18,8 @@ function payload(
     writing?: number;
     byTask?: unknown[];
     byWorkspace?: unknown[];
+    packRemaining?: number;
+    plan?: { key: string; name: string; allowanceRenews: boolean } | null;
   } = {},
 ) {
   const allowance = overrides.allowance ?? 1000;
@@ -41,6 +43,9 @@ function payload(
     isNearlySpent: overrides.isNearlySpent ?? (remaining > 0 && remaining <= allowance / 5),
     pictures: overrides.pictures ?? 0,
     writing: overrides.writing ?? 360,
+    // No packs and no plan unless a case says so: what every production host sends today.
+    packRemaining: overrides.packRemaining ?? 0,
+    plan: overrides.plan ?? null,
     byTask: overrides.byTask ?? [
       { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
       { taskType: 'IngredientSubstitution', amount: 120, requests: 4 },
@@ -378,5 +383,118 @@ describe('AiUsageComponent', () => {
 
     expect(region?.textContent).toContain('Nearly spent');
     expect(region?.textContent).toContain('120 AI credits left');
+  });
+
+  // ---- The plan and the credit packs (AP.5.3) ----
+
+  const CREATOR = { key: 'creator', name: 'Creator', allowanceRenews: true };
+  const TRIAL = { key: 'trial', name: 'Trial', allowanceRenews: false };
+  const factTexts = (host: HTMLElement) =>
+    Array.from(host.querySelectorAll('cp-topic-card dl[cpFacts] [cpFact]')).map((fact) =>
+      fact.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+
+  /** Beside the allowance and never added to it: its own figure, and the allowance's figures unchanged. */
+  it('shows the credit packs as a figure of their own, saying they keep', async () => {
+    const host = await render(payload({ packRemaining: 400 }));
+
+    const tiles = tileTexts(host);
+    expect(tiles.length).toBe(4);
+    expect(tiles[3]).toContain('400 AI credits in credit packs');
+    expect(tiles[3]).toContain('Used after your allowance. They don’t expire.');
+    expect(tiles[0]).toContain('640 AI credits left');
+    expect(tiles[2]).toContain('1,000 AI credits in your allowance');
+  });
+
+  it('shows no pack figure when there are no packs', async () => {
+    const host = await render(payload({ packRemaining: 0 }));
+
+    expect(tileTexts(host).length).toBe(3);
+    expect(host.textContent).not.toContain('credit packs');
+  });
+
+  /**
+   * The allowance is gone but the packs are not, so AI help goes on (AP.5.2): said in words and a glyph, not
+   * "Spent", and the meter still the allowance's own.
+   */
+  it('says AI help is coming from the packs once the allowance is used up', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Using credit packs');
+    expect(host.querySelector('cp-status-pill')?.textContent).not.toContain('Spent');
+    expect(host.querySelector('.explanation')?.textContent).toContain(
+      'Your allowance is used up this month, so AI help now comes from your credit packs, which hold 400 AI credits.',
+    );
+    expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('which hold 400 AI credits');
+  });
+
+  /** One state, one reading: the meter does not warn about what the pill and the words call ordinary. */
+  it('does not draw the packs state as a warning', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-progress')?.getAttribute('data-tone')).toBe('default');
+    expect(host.querySelector('cp-status-pill')?.textContent).not.toContain('Nearly spent');
+  });
+
+  it('still says spent when the allowance and the packs are both gone', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 0 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Spent');
+  });
+
+  /** "Not much more" would be untrue with packs behind the allowance; the server's warning stays, with them said. */
+  it('says the packs follow a nearly spent allowance', async () => {
+    const host = await render(payload({ remaining: 120, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Nearly spent');
+    const explanation = host.querySelector('.explanation')?.textContent ?? '';
+    expect(explanation).toContain('After that, AI help comes from your credit packs, which hold 400 AI credits.');
+    expect(explanation).not.toContain('not much more');
+  });
+
+  it('names the plan beside when the allowance comes back', async () => {
+    const host = await render(payload({ plan: CREATOR }));
+
+    const facts = factTexts(host);
+    expect(facts[0]).toContain('Plan');
+    expect(facts[0]).toContain('Creator');
+    expect(facts[1]).toContain('Allowance comes back');
+    expect(facts[1]).toContain('April');
+  });
+
+  /** Said once on screen — the facts hold the date — and still in the one sentence a screen reader hears. */
+  it('says the reset date once in the card when the plan is named', async () => {
+    const healthy = await render(payload({ plan: CREATOR }));
+    expect(healthy.querySelector('.explanation')).toBeNull();
+    expect(healthy.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
+
+    const spent = await render(payload({ plan: CREATOR, remaining: 0 }));
+    expect(spent.querySelector('.explanation')?.textContent?.trim()).toBe('You can keep writing and editing recipes as usual.');
+    expect(spent.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
+  });
+
+  /** Every production host today: no catalogue, so no plan to name and no facts strip. */
+  it('names no plan on a host that has none', async () => {
+    const host = await render(payload({ plan: null }));
+
+    expect(host.querySelector('cp-topic-card dl[cpFacts]')).toBeNull();
+    expect(host.textContent).not.toContain('Plan');
+  });
+
+  /** A trial's credits are granted once (B-48): the page must not promise them back on a date. */
+  it('never promises a trial’s credits back', async () => {
+    const host = await render(payload({ plan: TRIAL, remaining: 0 }));
+
+    expect(host.textContent).not.toContain('Comes back on');
+    expect(host.textContent).not.toContain('Allowance comes back');
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Trial credits are granted once, so they don’t come back.',
+    );
+
+    const facts = factTexts(host);
+    expect(facts[0]).toContain('Trial');
+    expect(facts[1]).toContain('Trial credits');
+    expect(facts[1]).toContain('Not renewed');
   });
 });

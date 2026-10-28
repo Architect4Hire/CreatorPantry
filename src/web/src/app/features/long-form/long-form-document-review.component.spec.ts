@@ -43,6 +43,7 @@ const SPENT: AiAllowanceState = {
     resetsAt: '2026-11-01T00:00:00Z',
     timeZoneId: 'Etc/UTC',
     usedPercent: 100,
+    packRemaining: 0,
   },
 };
 

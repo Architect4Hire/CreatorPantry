@@ -68,6 +68,17 @@ export interface AccountAiUsageWorkspaceTotal {
   readonly requests: number;
 }
 
+/** The plan the account is on, as its usage page names it. Mirrors `AccountAiUsagePlanServiceModel`. */
+export interface AccountAiUsagePlan {
+  readonly key: string;
+  readonly name: string;
+  /**
+   * Whether this period's allowance comes back when it resets — <strong>false for a trial's credits, which are
+   * granted once</strong> (B-48). The server's answer: never promise "comes back on…" when this is false.
+   */
+  readonly allowanceRenews: boolean;
+}
+
 /** The signed-in account's allowance right now, and what it has gone on. Mirrors `AccountAiUsageServiceModel`. */
 export interface AccountAiUsage {
   readonly period: AccountAiUsagePeriod;
@@ -85,6 +96,14 @@ export interface AccountAiUsage {
   readonly pictures: number;
   /** What every other kind of AI help charged this period. */
   readonly writing: number;
+  /**
+   * The account's credit packs, which never expire (B-50) and are spent after the allowance (AP.5.2).
+   * <strong>Beside `period.remaining`, never added to it</strong> — the same figure a quote and a refusal call
+   * `packRemaining`.
+   */
+  readonly packRemaining: number;
+  /** The plan the account is on; null on a host with no plan catalogue. */
+  readonly plan: AccountAiUsagePlan | null;
 }
 
 /**
@@ -104,6 +123,8 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
   const isNearlySpent = value['isNearlySpent'];
   const pictures = amountOf(value['pictures']);
   const writing = amountOf(value['writing']);
+  const packRemaining = amountOf(value['packRemaining']);
+  const plan = decodePlan(value['plan']);
 
   if (
     period === null ||
@@ -112,12 +133,33 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
     byTask === null ||
     byWorkspace === null ||
     pictures === null ||
-    writing === null
+    writing === null ||
+    // Required, though the schema marks it optional: the server always sends it, and a missing balance read as
+    // none would lock a creator out of credits they hold.
+    packRemaining === null ||
+    plan === undefined
   ) {
     return null;
   }
 
-  return { period, isSuspended, byTask, byWorkspace, isNearlySpent, pictures, writing };
+  return { period, isSuspended, byTask, byWorkspace, isNearlySpent, pictures, writing, packRemaining, plan };
+}
+
+/**
+ * The plan, null when the host names none, or undefined when what arrived is not one. Absent reads as null: a
+ * host with no catalogue may leave the field out rather than send it empty.
+ */
+function decodePlan(value: unknown): AccountAiUsagePlan | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return undefined;
+
+  const key = value['key'];
+  const name = value['name'];
+  const allowanceRenews = value['allowanceRenews'];
+
+  if (typeof key !== 'string' || typeof name !== 'string' || typeof allowanceRenews !== 'boolean') return undefined;
+
+  return { key, name, allowanceRenews };
 }
 
 function decodePeriod(value: unknown): AccountAiUsagePeriod | null {

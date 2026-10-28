@@ -94,6 +94,13 @@ public sealed record AccountAiUsageWorkspaceTotalServiceModel(
 /// </param>
 /// <param name="Pictures">What pictures charged this period: the <c>ImageGeneration</c> share of <see cref="ByTask"/>.</param>
 /// <param name="Writing">What every other capability charged this period. With <see cref="Pictures"/>, sums to <c>Consumed</c>.</param>
+/// <param name="PackRemaining">
+/// The account's unspent pack credits — its credit packs, which never reset (B-50). Spent after the period's
+/// allowance (AP.5.2), and reported beside <see cref="AccountAiUsagePeriodServiceModel.Remaining"/>, never folded
+/// into it. The same name and the same number as a quote's and a refusal's <c>packRemaining</c>, so a usage page
+/// and a refusal open at the same moment agree. Nought for a period counted in tokens, which never spends packs.
+/// </param>
+/// <param name="Plan">The plan the account is on (PRICE-007); null when this host configures no plan catalogue.</param>
 /// <remarks>
 /// <para>
 /// <strong>Both breakdowns are in the period's unit and both sum to <c>Consumed</c>.</strong> They are built
@@ -119,4 +126,19 @@ public sealed record AccountAiUsageServiceModel(
     IReadOnlyList<AccountAiUsageWorkspaceTotalServiceModel> ByWorkspace,
     bool IsNearlySpent,
     decimal Pictures,
-    decimal Writing);
+    decimal Writing,
+    decimal PackRemaining,
+    AccountAiUsagePlanServiceModel? Plan);
+
+/// <summary>The plan an account is on, as its own usage page names it (PRICE-007, AP.5.3).</summary>
+/// <param name="Key">The catalogue key of the plan in force.</param>
+/// <param name="Name">Its display name.</param>
+/// <param name="AllowanceRenews">
+/// Whether this period's allowance comes back when it resets. False only when the plan decides the allowance and
+/// grants it once — a trial's credits (B-48) — so a page never promises credits back that will not come.
+/// </param>
+/// <remarks>
+/// <strong>No credit figure.</strong> An ops-set allowance wins over the plan (USAGE-009), so the plan's credits
+/// can disagree with what the account actually has; the period's figures are the only allowance numbers here.
+/// </remarks>
+public sealed record AccountAiUsagePlanServiceModel(string Key, string Name, bool AllowanceRenews);

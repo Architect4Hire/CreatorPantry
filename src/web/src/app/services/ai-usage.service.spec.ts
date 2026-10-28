@@ -3,12 +3,20 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { RuntimeConfigService } from '../core/runtime-config.service';
+import { allowanceBlocksNewRequests } from '../shared/allowance-gate';
 import { AiUsageService } from './ai-usage.service';
 
 const URL = 'https://gateway.example/api/v1/me/ai-usage';
 
 function payload(
-  overrides: { remaining?: number; allowance?: number; consumed?: number; isSuspended?: boolean; isNearlySpent?: boolean } = {},
+  overrides: {
+    remaining?: number;
+    allowance?: number;
+    consumed?: number;
+    isSuspended?: boolean;
+    isNearlySpent?: boolean;
+    packRemaining?: number;
+  } = {},
 ) {
   const allowance = overrides.allowance ?? 1000;
   const remaining = overrides.remaining ?? 640;
@@ -31,6 +39,8 @@ function payload(
     isNearlySpent: overrides.isNearlySpent ?? (remaining > 0 && remaining <= allowance / 5),
     pictures: 0,
     writing: 240,
+    packRemaining: overrides.packRemaining ?? 0,
+    plan: null,
     byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }],
     byWorkspace: [{ workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 }],
   };
@@ -108,6 +118,29 @@ describe('AiUsageService', () => {
     await loading;
 
     expect(service.allowance().kind).toBe('exhausted');
+  });
+
+  /**
+   * Admission spends packs once the allowance is gone (AP.5.2), so a spent allowance with packs left is not
+   * exhausted — and the gate every AI surface reads stays open for a request the server would accept.
+   */
+  it('does not report a spent allowance as exhausted while credit packs are left', async () => {
+    const loading = service.ensureLoaded();
+    http.expectOne(URL).flush(payload({ remaining: 0, packRemaining: 400 }));
+    await loading;
+
+    const allowance = service.allowance();
+    expect(allowance.kind).toBe('healthy');
+    expect(allowance.kind !== 'unknown' && allowance.period.packRemaining).toBe(400);
+    expect(allowanceBlocksNewRequests(allowance)).toBeFalse();
+  });
+
+  it('reports exhausted once the allowance and the packs are both spent', async () => {
+    const loading = service.ensureLoaded();
+    http.expectOne(URL).flush(payload({ remaining: 0, packRemaining: 0 }));
+    await loading;
+
+    expect(allowanceBlocksNewRequests(service.allowance())).toBeTrue();
   });
 
   /** A suspension outranks the balance: there is no reset to wait for, whatever is left. */

@@ -14350,7 +14350,7 @@
           "Me"
         ],
         "summary": "The signed-in account\u0027s AI allowance for the running period, and what it has gone on (USAGE-008).",
-        "description": "The totals are the period\u0027s own unit; both breakdowns are in it too and both sum to \u0060consumed\u0060.\nRequest counts travel beside the amounts because work done before allowances existed was never charged\nagainst one, and would otherwise read as no usage at all.\n\nA workspace the account no longer holds active membership in keeps its totals and is returned with a\nnull name. The spend is the creator\u0027s own history; the name is not theirs to have any more.\n\nTakes no parameters, and there is deliberately nowhere to put an account id \u2014 not a route segment, a\nbody, a query value or a header. The account comes from the validated session.",
+        "description": "The totals are the period\u0027s own unit; both breakdowns are in it too and both sum to \u0060consumed\u0060.\nRequest counts travel beside the amounts because work done before allowances existed was never charged\nagainst one, and would otherwise read as no usage at all.\n\n\u0060packRemaining\u0060 is the account\u0027s credit packs, which never reset (B-50) and are spent after the\nperiod\u0027s allowance; it is reported beside \u0060period.remaining\u0060, never added to it. \u0060plan\u0060 names the\nplan the account is on, and is null on a host with no plan catalogue (PRICE-007, AP.5.3).\n\nA workspace the account no longer holds active membership in keeps its totals and is returned with a\nnull name. The spend is the creator\u0027s own history; the name is not theirs to have any more.\n\nTakes no parameters, and there is deliberately nowhere to put an account id \u2014 not a route segment, a\nbody, a query value or a header. The account comes from the validated session.",
         "responses": {
           "200": {
             "description": "OK",
@@ -27211,7 +27211,9 @@
           "byWorkspace",
           "isNearlySpent",
           "pictures",
-          "writing"
+          "writing",
+          "packRemaining",
+          "plan"
         ],
         "type": "object",
         "properties": {
@@ -27251,6 +27253,24 @@
               "string"
             ],
             "format": "double"
+          },
+          "packRemaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsagePlan"
+              }
+            ]
           }
         }
       },
@@ -27325,6 +27345,25 @@
           "resetsAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "AccountAiUsagePlan": {
+        "required": [
+          "key",
+          "name",
+          "allowanceRenews"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowanceRenews": {
+            "type": "boolean"
           }
         }
       },

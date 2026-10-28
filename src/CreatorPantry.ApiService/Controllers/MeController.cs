@@ -38,6 +38,11 @@ public sealed class MeController(
     /// against one, and would otherwise read as no usage at all.
     /// </para>
     /// <para>
+    /// <c>packRemaining</c> is the account's credit packs, which never reset (B-50) and are spent after the
+    /// period's allowance; it is reported beside <c>period.remaining</c>, never added to it. <c>plan</c> names the
+    /// plan the account is on, and is null on a host with no plan catalogue (PRICE-007, AP.5.3).
+    /// </para>
+    /// <para>
     /// A workspace the account no longer holds active membership in keeps its totals and is returned with a
     /// null name. The spend is the creator's own history; the name is not theirs to have any more.
     /// </para>

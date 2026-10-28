@@ -15,6 +15,7 @@ function figures(overrides: Partial<AllowanceFigures> = {}): AllowanceFigures {
     resetsAt: '2026-04-01T00:00:00+01:00',
     timeZoneId: 'Europe/London',
     usedPercent: 88,
+    packRemaining: 0,
     ...overrides,
   };
 }

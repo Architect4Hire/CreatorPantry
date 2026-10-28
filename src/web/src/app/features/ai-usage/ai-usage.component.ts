@@ -3,6 +3,8 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpCardGridComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
   CpPageHeadComponent,
@@ -55,6 +57,14 @@ const TASK_LABELS: Record<AiTaskType, string> = {
 /** A workspace the account has left keeps its spend and loses its name (USAGE-008). */
 const WITHHELD_WORKSPACE = 'A workspace you’ve left';
 
+/** What a pack tile says beside its figure: when packs are spent, and that they keep (PRICE-008, B-50). */
+const PACK_CONTEXT = 'Used after your allowance. They don’t expire.';
+
+/** Sentences joined with one space, leaving out any that are empty, so nothing trails or doubles a space. */
+function sentences(...parts: readonly string[]): string {
+  return parts.filter((part) => part.length > 0).join(' ');
+}
+
 const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check your connection and try again.';
 
 /**
@@ -77,6 +87,8 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
     CpButtonComponent,
     CpCardComponent,
     CpCardGridComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpListShellComponent,
     CpProgressComponent,
     CpSkeletonComponent,
@@ -172,11 +184,49 @@ export class AiUsageComponent {
     const whole = allowanceFigure(figures.allowance, figures.unit);
     if (left === null || used === null || whole === null) return null;
 
-    return [
+    const tiles = [
       { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
       { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: this.usedContext() },
       { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
     ];
+
+    // The packs as a figure of their own, beside the allowance and never added to it (AP.5.3). None until there
+    // are some: packs cannot be bought yet, and "0 in credit packs" would read as something missing.
+    const packs = figures.packRemaining > 0 ? allowanceFigure(figures.packRemaining, figures.unit) : null;
+    if (packs !== null) {
+      tiles.push({ id: 'packs', value: packs.value, label: `${packs.noun} in credit packs`, context: PACK_CONTEXT });
+    }
+
+    return tiles;
+  });
+
+  /**
+   * The allowance is used up and the packs are what AI help is coming from now (AP.5.2). Not `exhausted` — the
+   * service keeps that for when both are gone — so this is the one healthy state the page has to name itself.
+   */
+  protected readonly onPacks = computed(() => {
+    const allowance = this.allowance();
+    return allowance.kind === 'healthy' && allowance.period.remaining <= 0 && allowance.period.packRemaining > 0;
+  });
+
+  /** The plan, when this host names one. */
+  protected readonly plan = computed(() => this.currentUsage()?.plan ?? null);
+
+  /**
+   * Whether the allowance comes back at the reset — the server's answer, false for a trial's credits (B-48). With
+   * no plan named, it renews as allowances always have.
+   */
+  private readonly renews = computed(() => this.plan()?.allowanceRenews ?? true);
+
+  /** The reset as a fact beside the plan: the date, or that a trial's credits do not come back. */
+  protected readonly resetFact = computed(() => {
+    const figures = this.figures();
+    if (figures === null) return null;
+
+    if (!this.renews()) return { label: 'Trial credits', value: 'Not renewed' };
+
+    const when = formatAllowanceReset(figures.resetsAt, figures.timeZoneId);
+    return when === null ? null : { label: 'Allowance comes back', value: when };
   });
 
   /**
@@ -217,6 +267,9 @@ export class AiUsageComponent {
     const figures = this.figures();
     if (figures === null) return '';
 
+    // A trial's credits are granted once: promising them back on a date would be a promise the server will not keep.
+    if (!this.renews()) return 'Trial credits are granted once, so they don’t come back.';
+
     const when = formatAllowanceReset(figures.resetsAt, figures.timeZoneId);
 
     return when === null ? 'Your allowance comes back when the period resets.' : `Comes back on ${when}.`;
@@ -235,6 +288,10 @@ export class AiUsageComponent {
   });
 
   protected readonly meterTone = computed<CpProgressTone>(() => {
+    // Nothing is wrong: the packs are doing what they were bought for. The untoned fill, so the meter does not
+    // warn about a state the pill and the words call ordinary.
+    if (this.onPacks()) return 'default';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'warning';
@@ -248,6 +305,8 @@ export class AiUsageComponent {
 
   /** The state in words and a glyph. The meter's colour repeats this; it never carries it alone. */
   protected readonly statusLabel = computed(() => {
+    if (this.onPacks()) return 'Using credit packs';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'Nearly spent';
@@ -263,6 +322,8 @@ export class AiUsageComponent {
   });
 
   protected readonly statusTone = computed<CpStatusPillTone>(() => {
+    if (this.onPacks()) return 'progress';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'warning';
@@ -281,19 +342,33 @@ export class AiUsageComponent {
    * allowance comes back on its own and a suspension does not.
    */
   protected readonly explanation = computed(() => {
+    // Said once in the card: when the facts beside the plan carry the reset, the sentence leaves it to them.
+    const reset = this.resetInFacts() ? '' : this.resetLine();
+
+    if (this.onPacks()) {
+      return sentences(`Your allowance is used up ${this.periodWord()}, so AI help now comes from ${this.packsPhrase()}.`, reset);
+    }
+
     switch (this.allowance().kind) {
       case 'suspended':
         return 'AI assistance is switched off for your account. Get in touch and we can look into it. Everything else in CreatorPantry works as usual.';
       case 'exhausted':
-        return `You can keep writing and editing recipes as usual. ${this.resetLine()}`;
+        return sentences('You can keep writing and editing recipes as usual.', reset);
       case 'nearly-spent':
-        return `You can still ask for AI help, but not much more ${this.periodWord()}. ${this.resetLine()}`;
+        // The server's line is about the allowance alone, as a picture quote's is (AP.2.6); the packs are why
+        // "not much more" would be untrue, so they are said rather than folded into the warning.
+        return this.figures()!.packRemaining > 0
+          ? sentences(`Your allowance is nearly spent ${this.periodWord()}. After that, AI help comes from ${this.packsPhrase()}.`, reset)
+          : sentences(`You can still ask for AI help, but not much more ${this.periodWord()}.`, reset);
       case 'degraded':
         return 'We couldn’t check just now, so these are the last figures we had.';
       default:
-        return this.resetLine();
+        return reset;
     }
   });
+
+  /** Whether the plan's facts say when the allowance comes back, so the explanation need not say it again. */
+  private readonly resetInFacts = computed(() => this.plan() !== null && this.resetFact() !== null);
 
   protected readonly byTask = computed(() => {
     const usage = this.currentUsage();
@@ -349,8 +424,13 @@ export class AiUsageComponent {
       case 'error':
         return this.attempts() === 0 ? COULD_NOT_LOAD : `Still couldn’t load your AI allowance. ${COULD_NOT_LOAD}`;
 
+      // The reset is the facts' alone on screen when a plan is named, and still part of the one sentence heard.
       default:
-        return `${this.statusLabel()}. ${this.headline()}. ${this.explanation()}`;
+        return sentences(
+          `${this.statusLabel()}. ${this.headline()}.`,
+          this.explanation(),
+          this.resetInFacts() ? this.resetLine() : '',
+        );
     }
   });
 
@@ -366,6 +446,14 @@ export class AiUsageComponent {
       this.retrying.set(false);
       this.attempts.update((count) => count + 1);
     }
+  }
+
+  /** "your credit packs, which hold 400 AI credits" — without the count for a unit this page does not quote. */
+  private packsPhrase(): string {
+    const figures = this.figures();
+    const held = figures === null ? null : formatAllowanceAmount(figures.packRemaining, figures.unit);
+
+    return held === null ? 'your credit packs' : `your credit packs, which hold ${held}`;
   }
 
   /** A breakdown row's amount, in the period's own unit. Shortened: the header already says what these are. */

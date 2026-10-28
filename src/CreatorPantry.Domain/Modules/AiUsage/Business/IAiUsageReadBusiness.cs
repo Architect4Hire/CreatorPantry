@@ -3,6 +3,8 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Facade;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
 using Microsoft.Extensions.Options;
@@ -23,6 +25,8 @@ internal sealed class AiUsageReadBusiness(
     IAiUsageReadDataLayer usage,
     IAiQuotaPeriodResolver periods,
     IWorkspaceFacade workspaces,
+    IAccountPlanFacade plans,
+    IAccountCreditSpendFacade credits,
     IClock clock,
     IOptions<AiQuotaOptions> options) : IAiUsageReadBusiness
 {
@@ -65,7 +69,31 @@ internal sealed class AiUsageReadBusiness(
                 && AiQuotaPeriodCalculator.IsNearlySpent(
                     described.Allowance, described.Remaining, options.Value.NearlySpentFraction),
             Pictures: pictures,
-            Writing: writing);
+            Writing: writing,
+
+            // The balance admission spends after the allowance, read where admission reads it, so the page and the
+            // next refusal cannot disagree. A period in tokens never spends packs, so it reports none (AP.5.2).
+            PackRemaining: period.Unit is AiQuotaUnit.Credits
+                ? await credits.BalanceAsync(accountId, cancellationToken)
+                : 0m,
+            Plan: await PlanAsync(accountId, terms, cancellationToken));
+    }
+
+    /// <summary>The plan the account is on, and whether the allowance it is spending comes back at the reset.</summary>
+    /// <remarks>
+    /// The terms carry the plan only when it decides the allowance. When an ops-set allowance or other terms do,
+    /// the account is still on exactly one plan (PRICE-007) and is told its name — but that allowance renews as
+    /// those terms say, so only a plan that grants once and is deciding makes it not come back.
+    /// </remarks>
+    private async Task<AccountAiUsagePlanServiceModel?> PlanAsync(
+        string accountId, AiQuotaTerms terms, CancellationToken cancellationToken)
+    {
+        var plan = terms.Plan ?? await plans.ResolveAsync(accountId, cancellationToken);
+
+        return plan is null
+            ? null
+            : new AccountAiUsagePlanServiceModel(
+                plan.Key, plan.Name, AllowanceRenews: terms.Plan?.Period is not PlanAllowancePeriod.Once);
     }
 
     /// <remarks>

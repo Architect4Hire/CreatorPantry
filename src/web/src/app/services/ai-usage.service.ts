@@ -58,6 +58,11 @@ export interface AllowanceFigures {
    * precisely when something is in flight.
    */
   readonly usedPercent: number;
+  /**
+   * The account's credit packs, spent after `remaining` and never expiring (B-50). Beside it, never added to it:
+   * a meter of the allowance does not count them.
+   */
+  readonly packRemaining: number;
 }
 
 /**
@@ -89,7 +94,11 @@ export class AiUsageService {
 
     if (state.status === 'degraded') return { kind: 'degraded', period };
     if (state.usage.isSuspended) return { kind: 'suspended', period };
-    if (period.remaining <= 0) return { kind: 'exhausted', period };
+
+    // Spent only when the packs are too: admission takes from them once the allowance is gone (AP.5.2), so a
+    // spent allowance with packs left must not disable a request the server would accept. Two of the server's
+    // figures compared, never summed.
+    if (period.remaining <= 0 && period.packRemaining <= 0) return { kind: 'exhausted', period };
 
     // The server's line, not one kept here (AP.2.6): the page, the notice and an image quote all read the same
     // answer, so none of them can come to warn at a different point from the others.
@@ -182,5 +191,6 @@ function figuresOf(usage: AccountAiUsage): AllowanceFigures {
     // Clamped, because the total may legitimately exceed the allowance: settlement charges what a run
     // actually cost and the next admission refuses, rather than the total being capped on the way in.
     usedPercent: allowance > 0 ? Math.min(100, Math.max(0, Math.round((spokenFor / allowance) * 100))) : 100,
+    packRemaining: usage.packRemaining,
   };
 }

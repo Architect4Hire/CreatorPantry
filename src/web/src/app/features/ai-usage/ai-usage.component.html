@@ -85,7 +85,22 @@
           }
 
           <!-- What carried over is said with the allowance figure it is part of, in that tile's context. -->
-          <p class="explanation">{{ explanation() }}</p>
+          <!-- Empty only on a healthy allowance whose reset the facts below already say. -->
+          @if (explanation()) {
+            <p class="explanation">{{ explanation() }}</p>
+          }
+
+          <!-- The plan, and whether this allowance comes back (PRICE-007, AP.5.3). Absent on a host with no plan
+               catalogue, where the explanation above says when it resets instead. No credit figure for the plan:
+               an ops-set allowance can differ from it, and the tiles are the account's real figures. -->
+          @if (plan(); as plan) {
+            <dl cpFacts>
+              <div cpFact label="Plan">{{ plan.name }}</div>
+              @if (resetFact(); as reset) {
+                <div cpFact [label]="reset.label">{{ reset.value }}</div>
+              }
+            </dl>
+          }
 
           @if (state().status === 'degraded') {
             <div cpTopicCardActions class="cp-actions">
