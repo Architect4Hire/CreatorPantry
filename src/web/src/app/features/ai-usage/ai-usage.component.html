@@ -10,6 +10,14 @@
   -->
   <p class="cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
 
+  <!-- The one fixed place on this page for what it has just done, directly under the head, wherever the
+       control that did it happens to sit (DESIGN-SYSTEM.md, "Composing a page"). -->
+  @if (noticeProblem()) {
+    <cp-notice tone="error" role="alert">
+      We couldn’t save your low-credit notice setting just now. Check your connection and try again.
+    </cp-notice>
+  }
+
   @switch (summaryState()) {
     @case ('loading') {
       <!-- The page as it will arrive: the figures, the allowance's card, then the two lists. The status above
@@ -127,18 +135,16 @@
           for you — a pack is always a purchase you make yourself.
         </p>
 
+        <!--
+          No `disabled` while the save is in flight: disabling the control a creator has just pressed drops
+          focus to the body, which is the trap the error state's button below already documents. A second
+          press is ignored in the handler instead.
+        -->
         <cp-checkbox
           label="Tell me when my credits are running low"
           [checked]="noticeEnabled()"
-          [disabled]="savingNotice()"
           (checkedChange)="setNoticeEnabled($event)"
         />
-
-        @if (noticeProblem()) {
-          <cp-notice tone="error" role="alert">
-            We couldn’t save that just now. Check your connection and try again.
-          </cp-notice>
-        }
       </cp-topic-card>
 
       <div class="breakdowns">

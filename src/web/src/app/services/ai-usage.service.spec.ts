@@ -359,13 +359,33 @@ describe('AiUsageService', () => {
     expect(service.lowCreditNoticeEnabled()).toBeTrue();
   });
 
-  /** Turning it back on shows a notice the account is already owed, rather than waiting for the next spend. */
-  it('brings back a dismissed notice when the setting is turned on again', async () => {
+  /**
+   * A notice the creator put away stays away for the period, whatever they then do with the setting: the
+   * server keeps the dismissal, and turning the notice off and on again does not clear it. Turning it on
+   * does show one they have *not* yet put away, which is why the local hide is dropped.
+   */
+  it('leaves a dismissed notice dismissed when the setting is turned on again', async () => {
     await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
 
     const dismissing = service.dismissLowCreditNotice();
     http.expectOne(`${NOTICE}/dismissal`).flush(null, { status: 204, statusText: 'No Content' });
     await dismissing;
+
+    const saving = service.setLowCreditNoticeEnabled(true);
+    http.expectOne(NOTICE).flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+
+    // What the server really sends after a dismissal: it is still dismissed.
+    http.expectOne(URL).flush(payload({ remaining: 90, lowCredit: { isNoticed: true, isDismissed: true } }));
+    await saving;
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  /** One the account is owed and has not put away does appear when the notice is switched back on. */
+  it('shows an undismissed notice when the setting is turned on again', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true, noticeEnabled: false } });
+    expect(service.lowCredit()).toBeNull();
 
     const saving = service.setLowCreditNoticeEnabled(true);
     http.expectOne(NOTICE).flush(null, { status: 204, statusText: 'No Content' });

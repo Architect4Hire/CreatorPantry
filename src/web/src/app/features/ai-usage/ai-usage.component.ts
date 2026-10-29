@@ -145,6 +145,10 @@ export class AiUsageComponent {
    * that is still on — the one outcome worth a message on a page whose other states are all figures.
    */
   protected async setNoticeEnabled(enabled: boolean): Promise<void> {
+    // A second press while the first is in flight is ignored rather than disabled away, so the control the
+    // creator is standing on keeps focus.
+    if (this.savingNotice()) return;
+
     this.noticeEnabled.set(enabled);
     this.noticeProblem.set(false);
     this.savingNotice.set(true);

@@ -269,8 +269,9 @@ export class AiUsageService {
       return false;
     }
 
-    // Turning it back on should show a notice the account is already owed, so the figures are re-read rather
-    // than patched here.
+    // Turning it back on should show a notice the account is owed and has not already put away, so the
+    // figures are re-read rather than patched here. A dismissal is the server's and is not cleared by this:
+    // a creator who has read this period's notice has read it, whatever they then do with the setting.
     this.dismissedHere.set(false);
     await this.load();
 

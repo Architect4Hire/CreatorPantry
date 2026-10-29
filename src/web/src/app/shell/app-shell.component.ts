@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
@@ -221,8 +221,17 @@ export class AppShellComponent {
   /** No "Get a credit pack" on the page that link already points at: that is a loop, not an offer. */
   readonly offerPack = computed(() => `/app/${this.currentSection()}` !== PACK_PURCHASE_LINK);
 
+  /**
+   * Puts the notice away and catches the focus it takes with it.
+   *
+   * The Dismiss button is inside the thing being removed, so without this the creator's focus falls to
+   * <body> and a keyboard user restarts above the navigation. The content region is the nearest place that
+   * is still about what they were doing.
+   */
   protected dismissLowCredit(): void {
     void this.usage.dismissLowCreditNotice();
+
+    this.mainRegion()?.nativeElement.focus({ preventScroll: true });
   }
 
   constructor() {
@@ -233,6 +242,9 @@ export class AppShellComponent {
     const unregister = inject(QuickCaptureService).register((options) => this.quickCapture()?.open(options));
     inject(DestroyRef).onDestroy(unregister);
   }
+
+  /** The content region, focused when the shell removes something the creator was standing on. */
+  private readonly mainRegion = viewChild<ElementRef<HTMLElement>>('mainRegion');
 
   /** The capture dialog, while the current workspace offers one. */
   private readonly quickCapture = viewChild(QuickCaptureComponent);

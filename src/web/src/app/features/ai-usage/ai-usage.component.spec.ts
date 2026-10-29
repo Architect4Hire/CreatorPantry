@@ -546,7 +546,7 @@ describe('AiUsageComponent', () => {
     fixture.detectChanges();
 
     expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeFalse();
-    expect(host.textContent).not.toContain('We couldn’t save that');
+    expect(host.querySelector('cp-notice[role="alert"]')).toBeNull();
   });
 
   /**
@@ -566,6 +566,9 @@ describe('AiUsageComponent', () => {
     expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeTrue();
 
     const problem = host.querySelector('cp-notice[role="alert"]')!;
-    expect(problem.textContent).toContain('We couldn’t save that');
+    expect(problem.textContent).toContain('We couldn’t save your low-credit notice setting');
+
+    // In the page's one fixed place for messages, under the head, not inside the card that holds the control.
+    expect(problem.closest('cp-topic-card')).toBeNull();
   });
 });
