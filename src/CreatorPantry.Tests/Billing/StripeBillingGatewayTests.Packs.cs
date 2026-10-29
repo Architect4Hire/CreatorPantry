@@ -57,10 +57,14 @@ public sealed partial class StripeBillingGatewayTests
             read.Checkout);
     }
 
-    /// <summary>A delayed payment method still settling, or one that failed: nothing is granted on either.</summary>
+    /// <summary>
+    /// A delayed payment method still settling, or one that failed: nothing is granted on either. Nor on a session
+    /// that needed no payment (AP.7.2): no money came in, and a pack is credits paid for.
+    /// </summary>
     [Theory]
+    [InlineData("paid", true)]
     [InlineData("unpaid", false)]
-    [InlineData("no_payment_required", true)]
+    [InlineData("no_payment_required", false)]
     public async Task Whether_the_provider_has_the_money_is_read_from_the_payment_status(string status, bool paid)
     {
         var body = Fixture("checkout-session-pack")

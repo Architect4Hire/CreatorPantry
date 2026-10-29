@@ -100,7 +100,8 @@ public interface IAiQuotaAdmissionFacade
     Task StageImageUsageAsync(AiImageUsageServiceModel usage, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Whether an image generation's hold is still live, so the work it paid for may still be done (AP.2.5).
+    /// Whether an image generation's hold may still be spent, so the work it paid for may still be done (AP.2.5,
+    /// AP.7.2).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -111,11 +112,16 @@ public interface IAiQuotaAdmissionFacade
     /// the one thing PRICE-001 exists to prevent.
     /// </para>
     /// <para>
-    /// False for a hold that lapsed, was released, or was already settled. A generation with no hold at all is
-    /// not this question — the caller knows it has none and does not ask.
+    /// <see cref="AiImageHoldState.Lapsed"/> for a hold that lapsed, was released, or was already settled. A
+    /// generation with no hold at all is not this question — the caller knows it has none, and refuses it.
+    /// </para>
+    /// <para>
+    /// <strong>And whether its account may still spend at all</strong> (AP.7.2, B-61): a picture waits in the queue
+    /// after its hold is taken, and an account switched off, or a trial that ended, in that time is refused here as
+    /// a text run is refused at its claim — before anything is made, so the hold settles at nothing.
     /// </para>
     /// </remarks>
-    Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken);
+    Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gives back a hold whose generation was never queued (AP.2.5). Commits.
@@ -144,10 +150,13 @@ public interface IAiQuotaAdmissionFacade
     /// <param name="resolution">The tier it will send, or null for a model that takes none.</param>
     /// <param name="quality">The quality it will send, or null for a model that takes none.</param>
     /// <param name="variantCount">How many pictures, already checked by the caller.</param>
+    /// <param name="dailyImageCap">The plan's pictures a UTC day, exactly as admission is handed it; null for none.</param>
+    /// <param name="trialImageCap">The trial's pictures in all, exactly as admission is handed it; null for none.</param>
     /// <remarks>
-    /// Priced by the converter <see cref="AdmitImageAsync"/> uses and judged by its predicate, so a request the
-    /// quote calls affordable is one admission accepts unless the balance moves in between. A snapshot: it can be
-    /// wrong a moment later, and admission is still the decision.
+    /// Priced by the converter <see cref="AdmitImageAsync"/> uses and judged by its predicates — the trial's cap, the
+    /// day's, then the balance, in admission's order (AP.7.2) — so a request the quote calls affordable is one
+    /// admission accepts unless something moves in between. A snapshot: it can be wrong a moment later, and admission
+    /// is still the decision.
     /// </remarks>
     Task<AiImageQuoteServiceModel> QuoteImageAsync(
         string accountId,
@@ -155,7 +164,9 @@ public interface IAiQuotaAdmissionFacade
         string? resolution,
         string? quality,
         int variantCount,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
 
     /// <summary>
     /// What one picture of this model, tier and quality is charged, in credits, or null when this deployment has
@@ -278,8 +289,8 @@ internal sealed class AiQuotaAdmissionFacade(
         }
     }
 
-    public Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        business.IsImageHoldLiveAsync(reservationId, cancellationToken);
+    public Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        business.CheckImageHoldAsync(reservationId, cancellationToken);
 
     public Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
         business.ReleaseImageAsync(reservationId, cancellationToken);
@@ -290,8 +301,11 @@ internal sealed class AiQuotaAdmissionFacade(
         string? resolution,
         string? quality,
         int variantCount,
-        CancellationToken cancellationToken) =>
-        business.QuoteImageAsync(accountId, modelName, resolution, quality, variantCount, cancellationToken);
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null) =>
+        business.QuoteImageAsync(
+            accountId, modelName, resolution, quality, variantCount, cancellationToken, dailyImageCap, trialImageCap);
 
     public decimal? ImageCredits(string modelName, string? resolution, string? quality) =>
         business.ImageCredits(modelName, resolution, quality);

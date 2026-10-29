@@ -14384,6 +14384,823 @@
         ]
       }
     },
+    "/api/v1/me/billing": {
+      "get": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "The account\u0027s plan, its subscription, its pack balance, and what it may buy now.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/subscription": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Starts hosted Checkout for a first subscription (B-57).",
+        "description": "\u0060planKey\u0060 is a paid plan this catalogue offers and \u0060cycle\u0060 is \u0060Monthly\u0060 or \u0060Annual\u0060; anything else answers\n\u0060422 billing.plan.unprocessable\u0060. An account that already has a live subscription answers\n\u0060409 billing.checkout.subscribed.conflict\u0060, \u0060retry: reread\u0060 \u2014 a second Checkout would make a second subscription,\nso it changes plan instead. \u0060returnOrigin\u0060 is the page\u0027s own origin, used only when this host lists it.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Starts hosted Checkout for a first subscription (B-57).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/pack": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Starts hosted Checkout for a credit pack (B-57).",
+        "description": "An account whose free trial has ended while it is still on the trial answers\n\u0060403 billing.pack.plan_required.forbidden\u0060: no AI work is admitted then, pack credits included (B-61), so a plan\ncomes first. An unknown pack answers \u0060422 billing.pack.unprocessable\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Starts hosted Checkout for a credit pack (B-57).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/plan-change": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Changes the plan of an account already paying: up at once, anything else at period end.",
+        "description": "A plan with a higher monthly price answers with the provider\u0027s page to confirm and pay the prorated difference\n(B-56). Anything else \u2014 a lower plan, or the other cycle \u2014 is scheduled for the end of the paid period (B-54) and\nanswers \u0060scheduled: true\u0060 with no page. No live subscription answers\n\u0060409 billing.plan_change.no_subscription.conflict\u0060; the plan and cycle already in force answer\n\u0060409 billing.plan_change.unchanged.conflict\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Changes the plan of an account already paying: up at once, anything else at period end.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Withdraws a plan change scheduled for the end of the period.",
+        "description": "Nothing scheduled answers \u0060404 billing.plan_change.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Withdraws a plan change scheduled for the end of the period.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/portal": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Opens the provider\u0027s portal: payment methods, invoices, cancelling at period end.",
+        "description": "An account that has never paid answers \u0060404 billing.portal.not_found\u0060.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/{sessionId}": {
+      "get": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Whether what a Checkout bought has landed, for the page the provider sends the creator back to.",
+        "description": "\u0060kind\u0060 is \u0060Plan\u0060 or \u0060Pack\u0060, as the return URL says. \u0060Pending\u0060 until the provider\u0027s webhook has put the plan in\nforce or granted the pack \u2014 a browser arriving back is not a payment. Another account\u0027s session reads as pending.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Whether what a Checkout bought has landed, for the page the provider sends the creator back to.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BillingCheckoutKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -15579,6 +16396,123 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlanCatalogue"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plans/estimate": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "What a month of \u0060pictures\u0060 and \u0060writing\u0060 comes to, and the smallest paid plan\nthat carries it (LP.7, AP.7.2): the landing page\u0027s estimator, worked out here so the browser only formats it.",
+        "description": "Anonymous and publicly cacheable for the reason the catalogue is: the answer is a function of the published\nconfiguration and the three query values, with nothing about any caller in it. The pictures are priced at\n\u0060qualityClass\u0060 when the catalogue publishes it, else at the default class, else the cheapest; the class used\ncomes back as \u0060qualityClass\u0060. Only paid plans are weighed, and one fits when its credits cover the month and\nits daily picture cap over a 30-day month covers the pictures. A count below 0 or above 100,000 answers\n\u0060400 billing.estimate.invalid\u0060; a deployment that publishes no catalogue answers\n\u0060404 billing.estimate.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "pictures",
+            "in": "query",
+            "description": "Pictures a month.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "writing",
+            "in": "query",
+            "description": "Recipe drafts and posts a month.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "qualityClass",
+            "in": "query",
+            "description": "The picture quality to price at; omitted for the default.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -29068,6 +30002,269 @@
           }
         }
       },
+      "BillingAccount": {
+        "required": [
+          "paymentsAvailable",
+          "isTestMode",
+          "plan",
+          "subscription",
+          "packBalance",
+          "canSubscribe",
+          "canBuyPacks",
+          "upgradePlanKeys"
+        ],
+        "type": "object",
+        "properties": {
+          "paymentsAvailable": {
+            "type": "boolean"
+          },
+          "isTestMode": {
+            "type": "boolean"
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingAccountPlan"
+              }
+            ]
+          },
+          "subscription": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingAccountSubscription"
+              }
+            ]
+          },
+          "packBalance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "canSubscribe": {
+            "type": "boolean"
+          },
+          "canBuyPacks": {
+            "type": "boolean"
+          },
+          "upgradePlanKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BillingAccountPlan": {
+        "required": [
+          "key",
+          "name",
+          "credits",
+          "period",
+          "dailyImageCap",
+          "isTrial",
+          "trialEndsAt",
+          "trialEnded"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "period": {
+            "$ref": "#/components/schemas/PlanAllowancePeriod"
+          },
+          "dailyImageCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isTrial": {
+            "type": "boolean"
+          },
+          "trialEndsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "trialEnded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BillingAccountSubscription": {
+        "required": [
+          "status",
+          "planKey",
+          "cycle",
+          "currentPeriodEnd",
+          "cancelAt",
+          "nextPlanKey",
+          "nextPlanName",
+          "nextCycle",
+          "nextChangeAt"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/BillingSubscriptionStatus"
+          },
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/BillingCycle"
+          },
+          "currentPeriodEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nextPlanKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextCycle": {
+            "$ref": "#/components/schemas/BillingCycle"
+          },
+          "nextChangeAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "BillingCheckoutKind": {
+        "enum": [
+          "Unspecified",
+          "Plan",
+          "Pack"
+        ],
+        "type": "string"
+      },
+      "BillingCheckoutState": {
+        "enum": [
+          "Unspecified",
+          "Pending",
+          "Complete"
+        ],
+        "type": "string"
+      },
+      "BillingCheckoutStatus": {
+        "required": [
+          "state",
+          "planName",
+          "credits"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/BillingCheckoutState"
+          },
+          "planName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "BillingCycle": {
+        "enum": [
+          "Unspecified",
+          "Monthly",
+          "Annual"
+        ],
+        "type": "string"
+      },
+      "BillingRedirect": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "scheduled": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "BillingSubscriptionStatus": {
+        "enum": [
+          "Unspecified",
+          "Incomplete",
+          "IncompleteExpired",
+          "Trialing",
+          "Active",
+          "PastDue",
+          "Unpaid",
+          "Canceled",
+          "Paused"
+        ],
+        "type": "string"
+      },
       "BrandActiveStyleGuide": {
         "required": [
           "guideId",
@@ -31688,6 +32885,33 @@
           },
           "newPassword": {
             "type": "string"
+          }
+        }
+      },
+      "ChangePlan": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingCycle"
+              }
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -36177,6 +37401,31 @@
               "string"
             ],
             "format": "double"
+          },
+          "pictureCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "picturesLeft": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pictureCapResetsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -36187,7 +37436,9 @@
           "Exhausted",
           "Suspended",
           "Unavailable",
-          "TrialEnded"
+          "TrialEnded",
+          "DailyImageCap",
+          "TrialImageCap"
         ],
         "type": "string"
       },
@@ -39666,6 +40917,17 @@
         ],
         "type": "string"
       },
+      "OpenBillingPortal": {
+        "type": "object",
+        "properties": {
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PackageQuantityToken": {
         "required": [
           "span",
@@ -40061,6 +41323,14 @@
           }
         }
       },
+      "PlanAllowancePeriod": {
+        "enum": [
+          "Unspecified",
+          "Monthly",
+          "Once"
+        ],
+        "type": "string"
+      },
       "PlanCatalogue": {
         "required": [
           "currency",
@@ -40097,6 +41367,60 @@
             }
           },
           "defaultPictureClass": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlanEstimate": {
+        "required": [
+          "credits",
+          "qualityClass",
+          "fitsPlanKey",
+          "fitsPlanName",
+          "creditsToSpare",
+          "largestPlanName"
+        ],
+        "type": "object",
+        "properties": {
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "qualityClass": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fitsPlanKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fitsPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creditsToSpare": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "largestPlanName": {
             "type": [
               "null",
               "string"
@@ -45390,6 +46714,50 @@
           }
         }
       },
+      "StartPackCheckout": {
+        "type": "object",
+        "properties": {
+          "packKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StartPlanCheckout": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingCycle"
+              }
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "StartWorkflowRun": {
         "type": "object",
         "properties": {
@@ -49307,6 +50675,9 @@
     },
     {
       "name": "LongFormSeoPackageRequests"
+    },
+    {
+      "name": "MeBilling"
     },
     {
       "name": "Me"

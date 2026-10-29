@@ -202,7 +202,7 @@ internal sealed class AiOperationWorker(
                     AiQuotaAdmissionOutcome.Suspended => "AI access is switched off for this account.",
 
                     // Queued before day fourteen, claimed after it (AP.7.1): the trial's end applies to the work
-                    // that runs, not just the work asked for, so nothing is spent past it.
+                    // that runs, not just the work asked for. A picture is asked the same at its claim (AP.7.2).
                     AiQuotaAdmissionOutcome.TrialEnded => "This account's free trial has ended.",
                     _ => "This account's AI allowance for the current period and its pack credits don't cover this.",
                 },

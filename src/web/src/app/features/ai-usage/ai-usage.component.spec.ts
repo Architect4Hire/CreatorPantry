@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { RuntimeConfigService } from '../../core/runtime-config.service';
 import { AiUsageService } from '../../services/ai-usage.service';
@@ -71,7 +72,8 @@ describe('AiUsageComponent', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [AiUsageComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      // A router for the head's link to the billing page (AP.6.5).
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
 

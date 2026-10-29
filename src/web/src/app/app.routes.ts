@@ -170,6 +170,8 @@ export const routes: Routes = [
       // person, and the answer spans every workspace they work in. A route under ':workspaceSlug' could only
       // narrow it to one or answer about workspaces it does not name.
       { path: 'ai-usage', loadComponent: () => import('./features/ai-usage/ai-usage.component').then((m) => m.AiUsageComponent), data: { title: 'AI allowance' } },
+      // The account's billing (AP.6.5): a plan and a pack are the person's, like the allowance beside it.
+      { path: 'billing', loadComponent: () => import('./features/billing/billing.component').then((m) => m.BillingComponent), data: { title: 'Billing' } },
     ],
   },
   // Must come after every literal top-level path (sign-in, app, pricing, design-system, ...):

@@ -10,6 +10,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Managers;
@@ -20,6 +21,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Tests.AiUsage;
 
@@ -266,6 +268,44 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         Assert.DoesNotContain("remaining", error.Extensions.Keys);
     }
 
+    /// <summary>
+    /// A trial that has ended is refused at the request under its own code (AP.7.1): when it ended, and no balance or
+    /// reset — choosing a plan is the remedy — with nothing written and nothing held, pack credits or not.
+    /// </summary>
+    [Fact]
+    public async Task An_ended_trial_is_refused_under_its_own_code_and_writes_nothing()
+    {
+        var ended = await EndTrialAsync();
+        await GrantPackAsync(500m);
+
+        var error = (await RequestConceptsAsync()).Result.Error!;
+
+        Assert.Equal(AiProposalErrors.QuotaTrialEnded, error.Code);
+        Assert.Equal(ended, error.Extensions!["trialEndedAt"]);
+        Assert.DoesNotContain("resetsAt", error.Extensions.Keys);
+        Assert.DoesNotContain("remaining", error.Extensions.Keys);
+        Assert.DoesNotContain("packRemaining", error.Extensions.Keys);
+        Assert.Empty(await OperationsAsync());
+        Assert.Empty(await ReservationsAsync());
+    }
+
+    /// <summary>The several-runs gate refuses an ended trial the same way, rather than counting runs it cannot spend.</summary>
+    [Fact]
+    public async Task A_request_for_several_runs_is_refused_for_an_ended_trial()
+    {
+        var ended = await EndTrialAsync();
+
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA, MembershipInA, WorkspaceRole.Contributor, Account);
+
+        var refused = await scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>().RefuseIfRunsUnaffordableAsync(
+            AiTaskType.RecipeConcepts, 3, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken);
+
+        Assert.Equal(AiProposalErrors.QuotaTrialEnded, refused!.Code);
+        Assert.Equal(ended, refused.Extensions!["trialEndedAt"]);
+        Assert.DoesNotContain("runsCoverable", refused.Extensions.Keys);
+    }
+
     // ---- what a refusal costs --------------------------------------------------------------------------
 
     /// <summary>
@@ -478,6 +518,44 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
     /// holds rather than by writing a period's totals directly — so what these tests refuse against is a
     /// balance the production seam actually produced.
     /// </summary>
+    /// <summary>
+    /// Puts every account on a fourteen-day trial by default and makes <see cref="Account"/> twenty days old; returns
+    /// when its trial ended.
+    /// </summary>
+    private async Task<DateTimeOffset> EndTrialAsync()
+    {
+        var billing = _provider.GetRequiredService<IOptions<BillingOptions>>().Value;
+        billing.DefaultPlan = "trial";
+        billing.Plans.Add(new PlanOption
+        {
+            Key = "trial",
+            Name = "Trial",
+            Credits = 1000,
+            DailyImageCap = 5,
+            RunningImages = 1,
+            Period = PlanAllowancePeriod.Once,
+            QualityClasses = ["standard"],
+            TrialDays = 14,
+            TrialImageCap = 10,
+        });
+
+        var created = _clock.UtcNow.AddDays(-20);
+
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        db.Users.Add(new ApplicationUser
+        {
+            Id = Account,
+            UserName = Account,
+            Email = $"{Account}@example.test",
+            DisplayName = Account,
+            CreatedAt = created,
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return created.AddDays(14);
+    }
+
     private async Task SpendDownToAsync(decimal remaining)
     {
         await GiveQuotaAsync(allowance: 1000m);

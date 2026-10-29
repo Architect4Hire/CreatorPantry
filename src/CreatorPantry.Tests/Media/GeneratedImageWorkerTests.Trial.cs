@@ -156,6 +156,52 @@ public sealed partial class GeneratedImageWorkerTests
         await RequestAsync(WorkspaceA, variants: 2);
     }
 
+    /// <summary>
+    /// A picture asked for on the trial's last minute and claimed after it ended is not made (AP.7.2, B-61): its
+    /// account is asked again at the claim, as a text run's is, and the hold settles at nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_picture_asked_for_before_the_trial_ended_is_not_made_after_it()
+    {
+        OnTrial();
+        await AddAccountAsync(DefaultAccount, _clock.UtcNow.AddDays(-14).AddMinutes(1));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        _clock.Advance(TimeSpan.FromMinutes(2));
+
+        var summary = await RunAsync();
+
+        Assert.Equal(1, summary.Failed);
+        Assert.Equal(0, _generator.Calls);
+
+        var failed = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageFailureCategory.Quota, failed.FailureCategory);
+        Assert.Contains("free trial ended", failed.FailureSummary);
+
+        // And nothing new is queued now that it has ended.
+        Assert.Equal(AiQuotaErrors.TrialEnded, (await RequestRawAsync(WorkspaceA)).Error!.Code);
+    }
+
+    /// <summary>
+    /// The lifetime cap is the trial's own term, not a limit, so switching limits off does not lift it (owner,
+    /// 2026-10-29, AP.7.2). The plan's daily cap does switch off with them, as B-56 says: twelve in one day would pass
+    /// it, and what stops the eleventh is the trial's ten.
+    /// </summary>
+    [Fact]
+    public async Task With_limits_off_the_trials_picture_cap_still_applies()
+    {
+        OnTrial();
+        Billing.Plans.Single(plan => plan.Key == "trial").DailyImageCap = 1;
+        Limits.Enabled = false;
+
+        await RequestAsync(WorkspaceA, variants: 4);
+        await RequestAsync(WorkspaceB, variants: 4);
+        await RequestAsync(WorkspaceA, variants: 2);
+
+        var refused = await RequestRawAsync(WorkspaceB);
+        Assert.Equal(AiQuotaErrors.TrialImagesSpent, refused.Error!.Code);
+    }
+
     /// <summary>Fifteen days old: a day past a fourteen-day trial.</summary>
     private const int TrialDaysLong = 15;
 

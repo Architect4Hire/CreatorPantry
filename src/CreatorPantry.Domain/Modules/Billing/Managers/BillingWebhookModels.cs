@@ -113,6 +113,12 @@ public static class BillingWebhookErrors
     /// provider redelivers for days, so an event refused while a secret is being set arrives again once it is.
     /// </summary>
     public const string Unavailable = "billing.webhook.unavailable";
+
+    /// <summary>
+    /// The body is larger than the route accepts — a chunked one the action's own limit could not stop before it was
+    /// read (AP.7.2). Maps to 413 from the suffix, <c>retry: none</c>: the same event is the same size every time.
+    /// </summary>
+    public const string PayloadTooLarge = "billing.webhook.payload_too_large";
 }
 
 /// <summary>The webhook route's fixed limits (AP.6.2).</summary>

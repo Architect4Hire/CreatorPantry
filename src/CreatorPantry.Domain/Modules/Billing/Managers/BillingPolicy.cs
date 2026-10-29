@@ -35,6 +35,18 @@ public static class BillingPolicy
     public const int CreditScale = 4;
 
     /// <summary>
+    /// What a month is taken to be where the estimator compares a plan's daily picture cap with a month of pictures
+    /// (LP.7). Of a piece with the rest of an estimate; it moved here from the browser with the arithmetic (AP.7.2).
+    /// </summary>
+    public const int EstimateDaysAMonth = 30;
+
+    /// <summary>
+    /// The most of either kind of work the estimator weighs in a month. Well past the largest plan, so every honest
+    /// answer is reachable; a bound so an anonymous route cannot be asked to multiply anything at all.
+    /// </summary>
+    public const int EstimateMaxPerMonth = 100_000;
+
+    /// <summary>
     /// An external reference on a grant: a Stripe checkout session id (AP.6.3), or an operator's ticket. The width
     /// of an <c>Idempotency-Key</c>, which is the other client-supplied identifier the platform stores.
     /// </summary>

@@ -881,6 +881,10 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
             string accountId, string planKey, CancellationToken cancellationToken) =>
             inner.HasPeriodUnderPlanAsync(accountId, planKey, cancellationToken);
 
+        public Task<AccountImageCounts> CountImagesAsync(
+            string accountId, AccountImageWindows images, CancellationToken cancellationToken) =>
+            inner.CountImagesAsync(accountId, images, cancellationToken);
+
         public Task<AiQuotaWriteOutcome> ReleaseImageAsync(
             Guid reservationId,
             DateTimeOffset now,

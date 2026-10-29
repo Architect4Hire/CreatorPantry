@@ -138,6 +138,40 @@ public sealed class BillingWebhookEndpointTests
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
     }
 
+    /// <summary>
+    /// A chunked body, which says no length up front, is stopped as it is read — by the action's own limit, which the
+    /// framework enforces while reading and answers under the stable <c>request_too_large</c> code with its retry
+    /// advice (AP.7.2). The controller's own <see cref="BillingWebhookErrors.PayloadTooLarge"/> is the backstop for a
+    /// host where that limit is not enforced, and is coded the same way.
+    /// </summary>
+    [Fact]
+    public async Task A_chunked_body_over_the_limit_is_refused_under_a_stable_code()
+    {
+        await using var host = await StartAsync(withSecret: true);
+        using var client = host.Factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route)
+        {
+            Content = new StreamContent(new UnseekableStream(new byte[BillingWebhookPolicy.MaxBodyBytes + 1])),
+        };
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        request.Headers.TryAddWithoutValidation("Stripe-Signature", StripeSigning.Header("{}", DateTimeOffset.UtcNow));
+
+        var response = await client.SendAsync(request, Ct);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Contains(
+            problem.GetProperty("code").GetString(),
+            new[] { "request_too_large", BillingWebhookErrors.PayloadTooLarge });
+        Assert.Equal("none", problem.GetProperty("retry").GetString());
+    }
+
+    /// <summary>A stream with no length, so the client sends it chunked and no Content-Length reaches the action.</summary>
+    private sealed class UnseekableStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override bool CanSeek => false;
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------------
 
     private static string Body(string eventId) =>

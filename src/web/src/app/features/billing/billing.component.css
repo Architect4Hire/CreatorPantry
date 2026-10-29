@@ -1,0 +1,43 @@
+:host {
+  display: block;
+}
+
+/* One column of topic cards, the detail page's shape. minmax(0, 1fr) so a card's own measure is its ceiling, not
+   the column's floor. */
+.billing,
+.loading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--cp-space-6);
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin: 0;
+}
+
+/* The plan's name is the figure this card leads with: sans bold, as DESIGN-SYSTEM.md sets a figure to read. */
+.plan-name {
+  font-size: var(--cp-font-size-lg);
+}
+
+.failed {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-3);
+}
+
+.failed p,
+.tax {
+  margin: 0;
+}
+
+/* A place the page sends focus to: clear of the top edge when scrolled to, with the global focus ring following the
+   card's corners. */
+.place {
+  scroll-margin-top: var(--cp-space-6);
+  border-radius: var(--cp-radius-lg);
+}

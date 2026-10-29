@@ -201,6 +201,13 @@ internal interface IAiQuotaDataLayer
     Task<bool> HasPeriodUnderPlanAsync(string accountId, string planKey, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The account's pictures that still count, as admission counts them, read without a hold — for a quote
+    /// (AP.7.2). A snapshot: admission counts again under the period's row version.
+    /// </summary>
+    Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows images, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gives back a picture's hold whose operation was never queued, and what it added to the platform's day.
     /// </summary>
     /// <remarks>
@@ -407,7 +414,7 @@ internal sealed class AiQuotaDataLayer(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Order inside the transaction is the account, then the platform, then the save.</strong> The
+    /// <strong>Judged in the order the account, then the platform, then the save.</strong> The
     /// account's balance is judged in memory against a fresh read; only a request it covers reaches the
     /// platform's conditional <c>UPDATE</c>, whose row lock then holds every other picture admission until this
     /// one commits or rolls back. Rolling back after losing the period's row version takes the charge with it,
@@ -419,8 +426,9 @@ internal sealed class AiQuotaDataLayer(
     /// starts from a clean tracker and re-reads the period rather than reusing one.
     /// </para>
     /// <para>
-    /// Lock order is platform row, then period. Nothing takes them the other way round: posting and expiry
-    /// touch only the period, and the release give-back runs after its expiry has committed.
+    /// Locked in the other order — platform row, then period — because judging the account reads its period and
+    /// locks nothing; the period's row is only written, and so locked, at the save. Nothing takes them the other way
+    /// round: posting and expiry touch only the period, and the release give-back runs after its expiry has committed.
     /// </para>
     /// </remarks>
     private async Task<(AiQuotaWriteOutcome, AccountAiQuotaReservation?, AccountAiQuotaPeriod?)>
@@ -528,7 +536,7 @@ internal sealed class AiQuotaDataLayer(
     /// is counted here; one that commits after both moves the period's row version, and this attempt's save loses
     /// and judges again. Read the other way round, a commit between the reads would be missed by both.
     /// </remarks>
-    private async Task<AccountImageCounts> CountImagesAsync(
+    public async Task<AccountImageCounts> CountImagesAsync(
         string accountId, AccountImageWindows? images, CancellationToken cancellationToken) =>
         images is null
             ? AccountImageCounts.None

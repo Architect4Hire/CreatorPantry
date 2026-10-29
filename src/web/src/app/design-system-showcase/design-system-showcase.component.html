@@ -879,6 +879,17 @@
           </cp-option-card>
         </li>
       }
+      <!-- Disabled: still compared, not on offer, and says why under its button (AP.6.5). -->
+      <li>
+        <cp-option-card
+          heading="Smoked aubergine"
+          [facts]="[{ label: 'Time', value: '1 hr' }]"
+          summary="Charred whole, then dressed while warm."
+          chooseLabel="Choose this concept"
+          [disabled]="true"
+          disabledReason="Concepts can’t be chosen while this recipe is being saved."
+        />
+      </li>
     </ul>
   </section>
 

@@ -10,6 +10,13 @@ namespace CreatorPantry.Domain.Modules.Billing.Business;
 public interface IPlanCatalogueBusiness
 {
     PlanCatalogueServiceModel Published();
+
+    /// <summary>
+    /// What <paramref name="picturesAMonth"/> and <paramref name="writingAMonth"/> come to, and the smallest paid
+    /// plan that carries them; null when no catalogue is published (LP.7, AP.7.2).
+    /// </summary>
+    /// <param name="qualityClass">The picture quality to price at, in any spelling; null for the default.</param>
+    PlanEstimateServiceModel? Estimate(int picturesAMonth, int writingAMonth, string? qualityClass);
 }
 
 /// <remarks>
@@ -54,10 +61,55 @@ internal sealed class PlanCatalogueBusiness(
             published.Any(row => row.QualityClass == fallback) ? fallback : null);
     }
 
-    /// <summary>
-    /// What one picture of each offered quality costs, ascending — read from the charging table rather than
-    /// written down (AP.4.5, B-55).
-    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The page's arithmetic, done where the figures live</strong> (B-55, owner 2026-10-29). The pictures are
+    /// priced at the class's published rate — the one admission charges — and the writing at the menu's typical
+    /// rate, from the same catalogue <see cref="Published"/> answers with, so the estimate cannot disagree with the
+    /// prices beside it.
+    /// </para>
+    /// <para>
+    /// <strong>The trial is not an answer</strong>: its credits come once rather than a month, so only paid plans
+    /// are weighed, cheapest first. A plan carries the month only if its credits cover it <em>and</em> its daily
+    /// picture cap over <see cref="BillingPolicy.EstimateDaysAMonth"/> covers the pictures.
+    /// </para>
+    /// </remarks>
+    public PlanEstimateServiceModel? Estimate(int picturesAMonth, int writingAMonth, string? qualityClass)
+    {
+        var billing = options.Value;
+
+        if (!billing.PublishPlans)
+        {
+            return null;
+        }
+
+        var offered = pictures.Offered();
+        var published = PictureClasses(billing, offered);
+
+        // The class asked for while it is published, else what a picture is made at when nobody chooses, else the
+        // cheapest published — the order the page has always started from.
+        var priced = (qualityClass is null
+                ? null
+                : published.FirstOrDefault(row =>
+                    PictureQualityVocabulary.Normalise(row.QualityClass) == PictureQualityVocabulary.Normalise(qualityClass)))
+            ?? published.FirstOrDefault(row => row.QualityClass == offered.DefaultClass)
+            ?? published.FirstOrDefault();
+
+        var credits = (picturesAMonth * (priced?.PerPicture ?? 0m)) + (writingAMonth * (decimal)billing.Rates.TextDraft);
+
+        var paid = billing.Plans.Where(plan => plan.TrialDays is null).OrderBy(plan => plan.MonthlyPrice).ToList();
+        var fits = paid.FirstOrDefault(plan =>
+            plan.Credits >= credits && plan.DailyImageCap * BillingPolicy.EstimateDaysAMonth >= picturesAMonth);
+
+        return new PlanEstimateServiceModel(
+            credits,
+            priced?.QualityClass,
+            fits?.Key,
+            fits?.Name,
+            fits is null ? null : fits.Credits - credits,
+            paid.LastOrDefault()?.Name);
+    }
+
     /// <summary>
     /// What one picture of each offered quality costs, for the classes a plan on this catalogue includes
     /// (AP.4.5, B-55).

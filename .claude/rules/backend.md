@@ -44,8 +44,10 @@ on a module, with `CreatorPantryDbContext` the single documented exception.
 - Calls DataLayer only — with one exception: a Business may call another Business **in its own module** to reuse a
   rule that one owns (its transition gate, its chain), rather than copy the rule or push it into a DataLayer.
   `PublishingReconciliationBusiness` → `IPublishingRecordBusiness`, `BillingWebhookBusiness` →
-  `IAccountPlanBusiness` and `IBillingPackPurchaseBusiness`, and `BillingPackPurchaseBusiness` →
-  `IAccountCreditGrantBusiness` are the cases. Never across modules: that is facade to facade.
+  `IAccountPlanBusiness` and `IBillingPackPurchaseBusiness`, `BillingPackPurchaseBusiness` →
+  `IAccountCreditGrantBusiness`, and `BillingAccountBusiness` → `IAccountPlanBusiness` and
+  `IAccountCreditSpendBusiness` (AP.6.5: the plan in force with its trial's end, and the pack balance) are the cases.
+  Never across modules: that is facade to facade.
 - Does not know about HTTP, EF tracking, provider SDK response types, or cache transport.
 
 ### DataLayer

@@ -19,6 +19,19 @@ public enum GeneratedImageQuoteOutcome
 
     /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No figures: nothing can be spent.</summary>
     TrialEnded = 5,
+
+    /// <summary>
+    /// The request would pass the plan's pictures for the UTC day (AP.7.2). Priced as usual;
+    /// <see cref="GeneratedImageQuoteServiceModel.PicturesLeft"/> says how many the day has left, and
+    /// <see cref="GeneratedImageQuoteServiceModel.PictureCapResetsAt"/> when it turns over.
+    /// </summary>
+    DailyImageCap = 6,
+
+    /// <summary>
+    /// The request would pass the trial's pictures in all (AP.7.2). Priced as usual;
+    /// <see cref="GeneratedImageQuoteServiceModel.PicturesLeft"/> says how many the trial has left. It never turns over.
+    /// </summary>
+    TrialImageCap = 7,
 }
 
 /// <summary>
@@ -73,6 +86,15 @@ public sealed record GeneratedImageQuoteServiceModel(
     /// <see cref="RemainingAfter"/>, it says which of the two the request would spend.
     /// </summary>
     public decimal? PackRemainingAfter { get; init; }
+
+    /// <summary>The picture cap this request would pass, on <c>DailyImageCap</c> and <c>TrialImageCap</c> only.</summary>
+    public int? PictureCap { get; init; }
+
+    /// <summary>How many pictures that cap still allows, with <see cref="PictureCap"/>.</summary>
+    public int? PicturesLeft { get; init; }
+
+    /// <summary>When the day's cap turns over; null for the trial's, which never does.</summary>
+    public DateTimeOffset? PictureCapResetsAt { get; init; }
 }
 
 /// <summary>One quality class a creator may ask for, and what one picture of it costs (AP.3.1, B-55).</summary>

@@ -63,6 +63,14 @@ describe('mapAiRequestError', () => {
     expect(map(problem(403, { code: 'workspace.forbidden' })).status).toBe('forbidden');
   });
 
+  // AP.7.1: every AI request screen falls through on this status to the allowance notice, so it must arrive as
+  // its own refusal — read as `forbidden` it would tell a creator to ask an Owner.
+  it('tells an ended trial from a role refusal, which share a 403', () => {
+    expect(
+      map(problem(403, { code: 'ai.quota.trial_ended.forbidden', trialEndedAt: '2037-03-17T09:30:00+00:00' })),
+    ).toEqual({ status: 'trial_ended', trialEndedAt: '2037-03-17T09:30:00+00:00' });
+  });
+
   it('reads anything else as unavailable', () => {
     expect(map(problem(500, null)).status).toBe('unavailable');
     expect(map(new Error('offline')).status).toBe('unavailable');

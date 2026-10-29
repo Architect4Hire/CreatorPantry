@@ -107,7 +107,9 @@ let nextId = 0;
           size="sm"
           type="button"
           [attr.aria-labelledby]="buttonTextId + ' ' + headingId"
-          [attr.aria-disabled]="selected() ? 'true' : null"
+          [class.chosen-button]="selected()"
+          [attr.aria-disabled]="selected() || disabled() ? 'true' : null"
+          [attr.aria-describedby]="disabled() && disabledReason() ? reasonId : null"
           (click)="choose()"
         >
           <!-- The glyph outside the words the name is built from, so the name is only ever words. -->
@@ -116,6 +118,9 @@ let nextId = 0;
           }
           <span [id]="buttonTextId">{{ selected() ? 'Chosen' : chooseLabel() }}</span>
         </button>
+        @if (disabled() && disabledReason() && !selected()) {
+          <p class="reason" [id]="reasonId">{{ disabledReason() }}</p>
+        }
       </div>
     </article>
   </cp-card>`,
@@ -210,9 +215,15 @@ let nextId = 0;
       }
       /* The chosen button says so at full strength. cpButton fades an aria-disabled button to half, which would
          fade "Chosen" below 4.5:1 and its focus ring with it, on the one control left focusable for this. */
-      .choose button[aria-disabled='true'] {
+      .choose button.chosen-button[aria-disabled='true'] {
         opacity: 1;
         cursor: default;
+      }
+      /* A disabled option keeps cpButton's faded look — it is not on offer — and says why beneath, in words. */
+      .reason {
+        margin: var(--cp-space-2) 0 0;
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-sm);
       }
       /* :empty, not :has(> *), for what must always be seen: a caution projected as bare text has no element to
          find, and :empty still ignores the comments an @if leaves behind. The disclosure goes only when it would
@@ -240,17 +251,25 @@ export class CpOptionCardComponent {
   readonly chooseLabel = input('Choose this');
   /** Whether this is the option chosen. One at a time is the feature's to keep. */
   readonly selected = input(false);
+  /**
+   * Whether the option cannot be chosen right now — still shown and compared, never chosen. The button stays focusable
+   * and is `aria-disabled`, as a selected card's is, so a keyboard user lands on it and hears why.
+   */
+  readonly disabled = input(false);
+  /** Why it cannot be chosen, said under the button and read with it. Shown only while `disabled`. */
+  readonly disabledReason = input('');
 
-  /** The creator chose this option. Not emitted while it is already the one chosen. */
+  /** The creator chose this option. Not emitted while it is already the one chosen, or while it is disabled. */
   readonly chosen = output<void>();
 
   protected readonly headingId = `cp-option-card-${nextId++}`;
   protected readonly buttonTextId = `${this.headingId}-choose`;
   protected readonly detailTextId = `${this.headingId}-detail`;
+  protected readonly reasonId = `${this.headingId}-reason`;
   protected readonly tags = computed(() => this.facts().slice(0, CP_OPTION_CARD_TAG_LIMIT));
   protected readonly overflow = computed(() => this.facts().slice(CP_OPTION_CARD_TAG_LIMIT));
 
   protected choose(): void {
-    if (!this.selected()) this.chosen.emit();
+    if (!this.selected() && !this.disabled()) this.chosen.emit();
   }
 }

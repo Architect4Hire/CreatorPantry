@@ -47,6 +47,46 @@ describe('PlanCatalogueService', () => {
 
   afterEach(() => http.verify());
 
+  // AP.7.2: the estimator's arithmetic is the server's, so the service sends the counts and hands back the answer.
+  it('asks the server for an estimate, anonymously, and reads its answer', async () => {
+    await configure('https://gateway.example');
+    const pending = firstValueFrom(service.estimate(60, 20, 'High'));
+
+    const request = http.expectOne((req) => req.url === `${URL}/estimate`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBeFalse();
+    expect(request.request.params.get('pictures')).toBe('60');
+    expect(request.request.params.get('writing')).toBe('20');
+    expect(request.request.params.get('qualityClass')).toBe('High');
+    request.flush({
+      credits: 5450,
+      qualityClass: 'High',
+      fitsPlanKey: 'creator',
+      fitsPlanName: 'Creator',
+      creditsToSpare: 550,
+      largestPlanName: 'Studio',
+    });
+
+    expect(await pending).toEqual({
+      credits: 5450,
+      qualityClass: 'High',
+      fitsPlanName: 'Creator',
+      creditsToSpare: 550,
+      largestPlanName: 'Studio',
+    });
+  });
+
+  it('answers no estimate when the server cannot give one', async () => {
+    await configure('https://gateway.example');
+    const pending = firstValueFrom(service.estimate(10, 0, null));
+
+    const request = http.expectOne((req) => req.url === `${URL}/estimate`);
+    expect(request.request.params.has('qualityClass')).toBeFalse();
+    request.flush(null, { status: 404, statusText: 'Not Found' });
+
+    expect(await pending).toBeNull();
+  });
+
   it('reads the catalogue with a GET', async () => {
     await configure('https://gateway.example');
     const pending = firstValueFrom(service.catalogue());

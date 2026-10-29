@@ -831,7 +831,9 @@ internal sealed class StripeBillingGateway(
             Metadata(data, StripeMetadata.AccountId),
             options.Mode == BillingPaymentMode.Live,
             isPack,
-            paid is "paid" or "no_payment_required",
+            // Only money received grants credits (AP.7.2). A session needing no payment — a 100% coupon, a zero
+            // total — took none, and a pack is credits paid for (B-50), so it grants nothing.
+            paid is "paid",
             PackKeyOf(data),
             ReferenceOf(data, "payment_intent", "pi_"));
     }

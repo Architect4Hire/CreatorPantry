@@ -228,7 +228,71 @@ public sealed class TrialImageCapAdmissionTests : IDisposable
         Assert.Equal(AiQuotaAdmissionOutcome.Admitted, (await AdmitAsync(Sam, 4, operation: operation)).Outcome);
     }
 
+    // ---- the quote (AP.7.2) -------------------------------------------------------------------------
+
+    /// <summary>
+    /// The quote judges the trial's cap as admission does: eight made of ten, four is refused with how many are left,
+    /// what fits bounded by them, and nothing quoted as left "after" a request that will not go; two is affordable.
+    /// </summary>
+    [Fact]
+    public async Task The_quote_says_when_a_request_would_pass_the_trials_pictures()
+    {
+        Start();
+        await AdmitAsync(Sam, 4);
+        NextDay();
+        await AdmitAsync(Sam, 4);
+
+        var over = await QuoteAsync(Sam, 4, trial: Cap);
+
+        Assert.Equal(AiImageQuoteOutcome.TrialImageCap, over.Outcome);
+        Assert.Equal(Cap, over.PictureCap);
+        Assert.Equal(2, over.PicturesLeft);
+        Assert.Equal(2, over.AffordableVariants);
+        Assert.Null(over.PictureCapResetsAt);
+        Assert.Null(over.RemainingAfter);
+        Assert.Equal(Rate, over.PerPicture);
+
+        Assert.Equal(AiImageQuoteOutcome.Affordable, (await QuoteAsync(Sam, 2, trial: Cap)).Outcome);
+    }
+
+    /// <summary>The day's cap the same way, with when it turns over; and where both bind, the trial's is the answer.</summary>
+    [Fact]
+    public async Task The_quote_says_when_a_request_would_pass_the_days_pictures_and_names_the_trial_first()
+    {
+        Start();
+        await AdmitAsync(Sam, 4, trial: null, daily: 5);
+
+        var day = await QuoteAsync(Sam, 2, daily: 5);
+
+        Assert.Equal(AiImageQuoteOutcome.DailyImageCap, day.Outcome);
+        Assert.Equal(5, day.PictureCap);
+        Assert.Equal(1, day.PicturesLeft);
+        Assert.Equal(1, day.AffordableVariants);
+        Assert.Equal(new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.Zero), day.PictureCapResetsAt);
+
+        Assert.Equal(AiImageQuoteOutcome.TrialImageCap, (await QuoteAsync(Sam, 2, daily: 5, trial: 5)).Outcome);
+        Assert.Equal(AiImageQuoteOutcome.Affordable, (await QuoteAsync(Sam, 1, daily: 5, trial: Cap)).Outcome);
+    }
+
+    /// <summary>Asking writes nothing: no hold, and the count is unchanged.</summary>
+    [Fact]
+    public async Task A_quote_holds_nothing()
+    {
+        Start();
+        await QuoteAsync(Sam, 4, daily: 5, trial: Cap);
+
+        Assert.Equal(0, await HoldCountAsync());
+    }
+
     // ---- helpers ------------------------------------------------------------------------------------
+
+    private async Task<AiImageQuoteServiceModel> QuoteAsync(string accountId, int pictures, int? daily = null, int? trial = null)
+    {
+        await using var scope = _provider!.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>().QuoteImageAsync(
+            accountId, Model, null, null, pictures, Ct, daily, trial);
+    }
 
     private void NextDay() => _clock.Set(_clock.UtcNow.AddDays(1));
 

@@ -37,6 +37,8 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
   approved" (B-59).
 - Product-owner approval of 2026-10-29 of AP.7.1's rule, with its two recommendations: a trial is dated from the
   account's creation, and an ended trial admits no AI work, pack credits included (B-61).
+- Product-owner answers of 2026-10-29 to AP.7.2's audit: "the server should win" on the landing estimator, "clamp
+  at zero" on an overspent allowance, and approval of the fix list with its two recommendations (B-62, B-63).
 - `CLAUDE.md` and `.claude/rules/` — architectural source of truth. Nothing here redefines them; B-44 amends
   `CLAUDE.md`'s out-of-bounds list on the owner's explicit request.
 
@@ -80,6 +82,8 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-59 | A low-balance notice instead of auto top-up | PRICE-011 | Decided | Owner, 2026-10-28, answering B-58's open item. No pack is ever bought for a creator. When credits run low the account is told once a period and offered a pack, which the creator buys through Checkout. Amends PRICE-011. |
 | B-60 | The plan follows the subscription, re-read | PRICE-007, 010, B-54, B-56, B-57 | Decided | Owner, 2026-10-28, approving AP.6.2. Every event re-reads its subscription; up at once, down at the end of a paid period wherever it was made, past due holds, ended lapses to the default now. Only the provider's own scheduled rows are withdrawn. |
 | B-61 | A trial is dated from the account, and its end stops all AI work | PRICE-012, B-48, B-52, B-54 | Decided | Owner, 2026-10-29, approving AP.7.1. A trial runs `TrialDays` from the Identity account's creation. After it, while still on the trial, no AI work is admitted — text or pictures, pack credits included — until a plan is chosen. Running out of credits or pictures before then refuses that work only. |
+| B-62 | The landing estimate is the server's | PRICE-004, B-55 | Decided | Owner, 2026-10-29, answering AP.7.2. The estimator sends its counts and quality to `GET /api/v1/plans/estimate` and formats the answer: the month in credits, the plan that carries it and what it leaves. The browser does no pricing arithmetic. Supersedes LP.7's client multiplication. |
+| B-63 | An overspend lands on the allowance; every read clamps at zero | PRICE-009, USAGE-003, B-46 | Decided | Owner, 2026-10-29, answering AP.7.2. A run that costs more than its hold is charged what it cost, on the period's allowance, so the ledger stays true; what a creator, a quote or an admission reads is never below zero. No debt is carried and nothing is invoiced. |
 
 ## Decisions
 
@@ -245,6 +249,8 @@ owner can change them without a code change, and no prompt may hard-code them.
   around" stays true.
 - **A trial account may generate at most 10 pictures in all**, counted per Identity account and surviving
   workspace creation and deletion (AP.7.1). It sits beside the trial's daily cap; a request must pass both.
+- **It is the trial's term, not a limit**: it applies whatever `Limits:Enabled` says, unlike the plan's daily and
+  running picture caps (owner, 2026-10-29, AP.7.2).
 - **The cap is configuration on the trial plan** (`Billing:Plans:<trial>:TrialImageCap`), published in the
   catalogue so the landing page states the number the product enforces. It is refused at startup on a plan
   with no trial, and required on a published plan that has one.
@@ -552,7 +558,8 @@ Stripe account; the first test-mode run checks them (Open items, link.com).
   account, read through Auth's `IAccountCreationFacade` and never stored or scheduled: a plan bought before then
   replaces the trial, and an account that paid and lapsed back to a trial default has no second trial.
 - **After it, while the account is still on the trial, no AI work is admitted** — writing and pictures alike, at the
-  request and again when the Worker claims queued work, and **pack credits included**. A pack is spent under a plan's
+  request and again when the Worker claims queued work (pictures since AP.7.2, which also re-asks a suspension
+  there), and **pack credits included**. A pack is spent under a plan's
   caps and quality classes, and an ended trial is no plan to spend under. The refusal is
   `403 ai.quota.trial_ended.forbidden` with `trialEndedAt`: no balance and no reset, because choosing a plan is the
   remedy. Everything else in CreatorPantry — recipes, content, media, export — works as before.
@@ -571,6 +578,34 @@ a plan first (B-57 lets any account buy a pack); that is a change to AP.6's Chec
 trial-length CTA and FAQ 13, held back until a trial could end, are unblocked.
 **Rules:** `tenancy.md`, `ai.md` (limits are code), `backend.md` (facade to facade).
 
+### B-62 The landing estimate is the server's
+
+- **Owner, 2026-10-29, answering AP.7.2's design finding** that the estimator multiplied in the browser, which B-55
+  forbids: "the server should win".
+- **`GET /api/v1/plans/estimate?pictures=&writing=&qualityClass=`**, anonymous and publicly cacheable like the
+  catalogue, behind the same edge rate limit. Pictures at the class's published rate — the one admission charges —
+  and writing at the menu's typical rate; only paid plans weighed, one fitting when its credits cover the month and
+  its daily picture cap over a 30-day month (`BillingPolicy.EstimateDaysAMonth`) covers the pictures.
+- **The page formats the answer** — the credits, the plan's name and what it leaves — and keeps no month length, no
+  rate and no comparison of its own.
+
+**Options considered:** keeping LP.7's client multiplication over catalogue figures — rejected: two places doing the
+same arithmetic is two answers the day one changes.
+**Rules:** `frontend.md` (the browser renders the server's figures), `api-contract.md`, `gateway.md`.
+
+### B-63 An overspend lands on the allowance; every read clamps at zero
+
+- **Owner, 2026-10-29, answering AP.7.2**: "clamp at zero".
+- **A run is charged what it cost**, even past its hold (a corrective re-ask, an extra call): the overshoot posts to the
+  period's `Consumed`, so the ledger records the real cost and the stored remainder may go below zero.
+- **Nothing reads that below zero.** `AiQuotaPeriodCalculator.Remaining` clamps, so a creator, a quote, a refusal and
+  an admission all see nought; the next period opens on its own grant (B-46: prepaid only, no debt carried, nothing
+  invoiced).
+
+**Options considered:** capping the charge at the hold — rejected: the platform would absorb the difference and the
+ledger would understate cost.
+**Rules:** `ai.md` (deterministic accounting), `backend.md`.
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -585,6 +620,7 @@ trial-length CTA and FAQ 13, held back until a trial could end, are unblocked.
 | AP.5.1, AP.5.2, AP.5.3, AP.6.3 | **Rewritten** to drop pack expiry (B-50). |
 | AP.6.2 | Downgrade and cancellation at period end (B-54); upgrade timing open. |
 | AP.7.1 | Lifetime picture cap of 10, no card (B-52); the trial's date and end (B-61). Delivered 2026-10-29. |
+| AP.7.2 | Audit; the estimate moves to the server (B-62); overspend reads as zero (B-63). Delivered 2026-10-29. |
 | AP.3.1, AP.3.1A, AP.4.5, AP.6.5 | **Amended or added** 2026-10-27 so the quote, the picker, the landing page and the billing page read each class's price from the charging table (B-55). |
 | AP.4.2, DL.4, DL.5, DL.8 | **Delivered by AP.4.2** (B-56): the plan's allowance and both picture caps, through the account's picture holds rather than DL.4's day-hold table. |
 | DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |
@@ -617,7 +653,11 @@ trial-length CTA and FAQ 13, held back until a trial could end, are unblocked.
 - **Default assumed by later prompts:** none. AP.6.1 reads Stripe's current docs, presents the answer, and
   records it here as a decision before any Checkout code is written. No prompt before AP.6.1 needs it.
 
-### Prices shown with tax or before it — open, raised by AP.6.1
+### Prices shown with tax or before it — decided 2026-10-29 (AP.6.5)
+
+*Decided by the owner's approval of AP.6.5: option (a). Every price on the billing page, and the landing page when it
+is published, says "Prices before tax. Any sales tax, VAT or GST is added at checkout." Stripe's prices stay
+`tax_behavior` exclusive. The question as raised is kept below.*
 
 - **Question:** does a plan's or a pack's published price include tax, or is tax added at Checkout?
 - **Options:** (a) added at Checkout — Stripe's default (`tax_behavior` exclusive), so the landing page's $12 is

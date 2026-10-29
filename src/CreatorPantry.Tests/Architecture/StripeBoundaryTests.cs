@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using CreatorPantry.Domain.Modules.Billing.Gateways;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 
 namespace CreatorPantry.Tests.Architecture;
@@ -83,8 +84,13 @@ public sealed class StripeBoundaryTests
             .Distinct()
             .ToList();
 
+        // The gateway's own records, the Billing module's own vocabulary — a reversal's kind (AP.6.3) is the
+        // application's word for why money came back, shared with the purchase it is recorded on — and the BCL.
+        // Never the adapter's namespace, which the scan above already keeps out of everything else.
         Assert.All(gatewayTypes, type => Assert.True(
-            type.Namespace == typeof(IBillingPaymentGateway).Namespace || type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true,
+            type.Namespace == typeof(IBillingPaymentGateway).Namespace
+                || type.Namespace == typeof(BillingPackReversal).Namespace
+                || type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true,
             $"{type.FullName} is on the payment gateway's surface"));
 
         // The records it returns carry nothing of the provider's either.

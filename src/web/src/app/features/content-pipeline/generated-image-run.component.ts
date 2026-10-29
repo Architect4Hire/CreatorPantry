@@ -594,7 +594,11 @@ export class GeneratedImageRunComponent {
 
     return (
       state.status === 'ready' &&
-      (state.quote.outcome === 'Exhausted' || state.quote.outcome === 'Suspended' || state.quote.outcome === 'TrialEnded')
+      (state.quote.outcome === 'Exhausted' ||
+        state.quote.outcome === 'Suspended' ||
+        state.quote.outcome === 'TrialEnded' ||
+        state.quote.outcome === 'DailyImageCap' ||
+        state.quote.outcome === 'TrialImageCap')
     );
   });
 
@@ -662,6 +666,12 @@ export class GeneratedImageRunComponent {
 
     if (quote.outcome === 'TrialEnded') {
       return 'Your free trial has ended, so pictures can’t be made. Choose a plan to keep making them.';
+    }
+
+    // A picture cap the request would pass (AP.7.2): the server's cap and what it has left, said before the
+    // creator asks rather than after. Nothing is worked out here — `picturesLeft` is the server's count.
+    if (quote.outcome === 'TrialImageCap' || quote.outcome === 'DailyImageCap') {
+      return this.capSentence(quote);
     }
 
     if (quote.outcome !== 'Exhausted') return null;
@@ -1017,6 +1027,25 @@ export class GeneratedImageRunComponent {
    */
   private hasPacks(quote: GeneratedImageQuote): boolean {
     return quote.packRemaining !== null && quote.packRemaining !== 0;
+  }
+
+  private capSentence(quote: GeneratedImageQuote): string {
+    const left = quote.picturesLeft ?? 0;
+    const fits = left > 0 ? ` — enough for ${picturesInSentence(left)}. ${this.wording().countRemedy}` : '.';
+
+    if (quote.outcome === 'TrialImageCap') {
+      const cap = quote.pictureCap === null ? 'a set number of' : String(quote.pictureCap);
+
+      return `Your free trial includes ${cap} pictures and has ${picturesInSentence(left)} left${fits}` +
+        (left > 0 ? '' : ' Choose a plan to make more.');
+    }
+
+    const when =
+      quote.pictureCapResetsAt === null ? null : formatAllowanceReset(quote.pictureCapResetsAt, 'Etc/UTC');
+    const day = quote.pictureCap === null ? 'Your plan’s pictures for today' : `Your plan’s ${quote.pictureCap} pictures a day`;
+
+    return `${day} would be passed: ${picturesInSentence(left)} left today${fits}` +
+      (when === null ? ' More come back tomorrow (UTC).' : ` More come back on ${when} (UTC).`);
   }
 
   private untilReset(quote: GeneratedImageQuote): string {

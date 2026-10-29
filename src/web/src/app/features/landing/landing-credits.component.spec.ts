@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
-import { PlanCatalogue } from '../../models/plan-catalogue.models';
+import { GeneratedImageQualityClass } from '../../models/generated-image.models';
+import { PlanCatalogue, PlanEstimate } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { BEYOND_TOP_PLAN_CONTACT, LandingCreditsComponent, NOTHING_CHOSEN } from './landing-credits.component';
 
@@ -43,6 +44,36 @@ const published: PlanCatalogue = {
   defaultPictureClass: 'Standard' as const,
 };
 
+/**
+ * The server's estimate for this spec's catalogue (AP.7.2): the test double answers as `GET /api/v1/plans/estimate`
+ * does, so the component is shown formatting an answer it did not compute. The server's own arithmetic is
+ * `PlanEstimateEndpointTests`'.
+ */
+function serverEstimate(
+  catalogue: PlanCatalogue,
+  pictures: number,
+  writing: number,
+  quality: GeneratedImageQualityClass | null,
+): PlanEstimate {
+  const classes = catalogue.pictureClasses;
+  const priced =
+    classes.find((row) => row.qualityClass === quality) ??
+    classes.find((row) => row.qualityClass === catalogue.defaultPictureClass) ??
+    classes[0] ??
+    null;
+  const credits = pictures * (priced?.perPicture ?? 0) + writing * (catalogue.rates?.textDraft ?? 0);
+  const paid = catalogue.plans.filter((plan) => plan.trialDays === null);
+  const fits = paid.find((plan) => plan.credits >= credits && plan.dailyImageCap * 30 >= pictures) ?? null;
+
+  return {
+    credits,
+    qualityClass: priced?.qualityClass ?? null,
+    fitsPlanName: fits?.name ?? null,
+    creditsToSpare: fits === null ? null : fits.credits - credits,
+    largestPlanName: paid.at(-1)?.name ?? null,
+  };
+}
+
 describe('LandingCreditsComponent', () => {
   let fixture: ComponentFixture<LandingCreditsComponent>;
   let host: HTMLElement;
@@ -50,12 +81,24 @@ describe('LandingCreditsComponent', () => {
   async function create(catalogue: PlanCatalogue): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [LandingCreditsComponent],
-      providers: [{ provide: PlanCatalogueService, useValue: { catalogue: () => of(catalogue) } }],
+      providers: [
+        {
+          provide: PlanCatalogueService,
+          useValue: {
+            catalogue: () => of(catalogue),
+            estimate: (pictures: number, writing: number, quality: GeneratedImageQualityClass | null) =>
+              of(serverEstimate(catalogue, pictures, writing, quality)),
+          },
+        },
+      ],
     }).compileComponents();
     fixture = TestBed.createComponent(LandingCreditsComponent);
     host = fixture.nativeElement;
     fixture.detectChanges();
     await fixture.whenStable();
+    // The estimate is asked a moment after the inputs settle, as it is after a slider moves.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    fixture.detectChanges();
   }
 
   /** Moves a slider the way a creator does, and lets the figure settle wherever the count leaves it. */

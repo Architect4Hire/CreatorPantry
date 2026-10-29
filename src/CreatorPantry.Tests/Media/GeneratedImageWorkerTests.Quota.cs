@@ -195,6 +195,73 @@ public sealed partial class GeneratedImageWorkerTests
     }
 
     /// <summary>
+    /// A generation with no hold is never sent to the provider (AP.7.2, PRICE-001). A request made while the host
+    /// could not price a picture takes none; if the host can by the time it is claimed, the pictures would otherwise
+    /// be made for nothing. Simulated by clearing the hold a request took, which is what such a row looks like.
+    /// </summary>
+    [Fact]
+    public async Task A_generation_with_no_hold_is_refused_before_the_provider()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2, account: AccountA);
+
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().GeneratedImageOperations
+                .IgnoreQueryFilters()
+                .Where(operation => operation.Id == requested.Id)
+                .ExecuteUpdateAsync(set => set.SetProperty(operation => operation.AiQuotaReservationId, (Guid?)null), Ct);
+        }
+
+        Assert.Equal(1, (await RunAsync()).Failed);
+        Assert.Equal(0, _generator.Calls);
+
+        var failed = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageFailureCategory.Quota, failed.FailureCategory);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
+    /// An account switched off while its pictures wait is refused at the claim, as a text run is (AP.7.2): nothing
+    /// is made, and the hold settles at nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_generation_whose_account_was_switched_off_while_it_waited_is_not_made()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2, account: AccountA);
+
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+            db.AccountAiQuotas.Add(new AccountAiQuota
+            {
+                Id = Guid.NewGuid(),
+                AccountId = AccountA,
+                Unit = AiQuotaUnit.Credits,
+                Allowance = null,
+                PeriodLength = AiQuotaPeriodLength.Monthly,
+                PeriodAnchor = 1,
+                TimeZoneId = "Etc/UTC",
+                CarryOver = AiQuotaCarryOver.None,
+                IsSuspended = true,
+                EffectiveFrom = _clock.UtcNow,
+                LastChangedAt = _clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(1, (await RunAsync()).Failed);
+        Assert.Equal(0, _generator.Calls);
+
+        var failed = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageFailureCategory.Quota, failed.FailureCategory);
+        Assert.Contains("switched off", failed.FailureSummary);
+
+        var settled = await ReservationAsync(requested.Id);
+        Assert.NotEqual(AiQuotaReservationStatus.Held, settled.Status);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
     /// <strong>A resumed generation charges each picture once.</strong> The first pass stages two and dies
     /// holding its lease; the second regenerates only the variants with no row. Four pictures were made in
     /// total and four are charged — and the charge lands once, when the generation is finally over.

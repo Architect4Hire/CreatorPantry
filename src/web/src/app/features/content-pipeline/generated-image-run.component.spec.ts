@@ -245,6 +245,9 @@ function quote(variants: number, overrides: Partial<GeneratedImageQuote> = {}): 
     leavesNearlySpent: false,
     resetsAt: '2026-11-01T00:00:00+00:00',
     timeZoneId: 'Etc/UTC',
+    pictureCap: null,
+    picturesLeft: null,
+    pictureCapResetsAt: null,
     ...overrides,
   };
 }
@@ -965,6 +968,37 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Your free trial has ended');
       expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Choose a plan');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    // AP.7.2: the quote judges the picture caps admission does, so the run stops before asking — in the server's
+    // figures, and offering the count that would fit.
+    it('stops a request that would pass the trial’s pictures, and says how many are left', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'TrialImageCap', pictureCap: 10, picturesLeft: 2, affordableVariants: 2, remainingAfter: null }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('Your free trial includes 10 pictures and has 2 pictures left');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('stops a request that would pass the day’s pictures, and says when more come back', async () => {
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'DailyImageCap',
+          pictureCap: 5,
+          picturesLeft: 0,
+          affordableVariants: 0,
+          remainingAfter: null,
+          pictureCapResetsAt: '2026-10-28T00:00:00+00:00',
+        }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('5 pictures a day');
+      expect(refusal).toContain('0 pictures left today');
+      expect(refusal).toContain('(UTC)');
       expect(makeButton().disabled).toBeTrue();
     });
 

@@ -54,6 +54,14 @@ public sealed class BillingOptions
 
     /// <summary>What one action of each kind costs, as the public "what a credit buys" menu states it.</summary>
     public CreditRatesOption Rates { get; set; } = new();
+
+    /// <summary>
+    /// The web origins a payment provider may send a creator back to (AP.6.5): the browser names its own, and it is
+    /// used only when listed here, so a request cannot make a Checkout return anywhere else. The first is the
+    /// default. The AppHost lists the web host and, in a local run, the dev server — the origins the gateway allows.
+    /// </summary>
+    /// <remarks>Empty means this host can start no payment, and the billing routes say payments are unavailable.</remarks>
+    public IList<string> ReturnOrigins { get; set; } = [];
 }
 
 /// <summary>

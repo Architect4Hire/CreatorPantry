@@ -37,7 +37,9 @@ internal interface IAiQuotaAdmissionBusiness
         string? resolution,
         string? quality,
         int variantCount,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
 
     /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ImageCredits"/>
     decimal? ImageCredits(string modelName, string? resolution, string? quality);
@@ -53,8 +55,8 @@ internal interface IAiQuotaAdmissionBusiness
     Task<string?> StageImageSettlementAsync(
         AiImageUsageServiceModel usage, CancellationToken cancellationToken);
 
-    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.IsImageHoldLiveAsync"/>
-    Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken);
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.CheckImageHoldAsync"/>
+    Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken);
 
     /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ReleaseImageAsync"/>
     Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken);
@@ -238,7 +240,9 @@ internal sealed class AiQuotaAdmissionBusiness(
         string? resolution,
         string? quality,
         int variantCount,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(variantCount);
@@ -280,9 +284,22 @@ internal sealed class AiQuotaAdmissionBusiness(
         var packs = await PackBalanceAsync(accountId, period.Unit, cancellationToken);
         var affordable = AiQuotaSourceSplit.Covers(total, remaining, packs);
 
+        // The picture caps admission judges before the balance (AP.7.2): the trial's in all, then the day's, counted
+        // as admission counts them. How many either still allows bounds what fits, and the first that the request
+        // would pass is the answer — in admission's order, so the quote and the refusal name the same line.
+        var pictures = dailyImageCap is null && trialImageCap is null
+            ? AccountImageCounts.None
+            : await dataLayer.CountImagesAsync(
+                accountId,
+                new AccountImageWindows(LimitDay.StartOf(now), InAll: trialImageCap is not null),
+                cancellationToken);
+
+        int? trialLeft = trialImageCap is { } trialCap ? Math.Max(0, trialCap - pictures.InAll) : null;
+        int? dayLeft = dailyImageCap is { } dayCap ? Math.Max(0, dayCap - pictures.Today) : null;
+
         // Counted down with admission's own predicate and rounding rather than divided, so "enough for two"
         // is a request for two that admission would then accept.
-        var fits = variantCount;
+        var fits = Math.Min(variantCount, Math.Min(trialLeft ?? int.MaxValue, dayLeft ?? int.MaxValue));
 
         while (fits > 0
             && !AiQuotaSourceSplit.Covers(AiQuotaUnitConverter.Round(perImage.Value * fits), remaining, packs))
@@ -290,14 +307,20 @@ internal sealed class AiQuotaAdmissionBusiness(
             fits--;
         }
 
+        var capped = trialLeft < variantCount ? AiImageQuoteOutcome.TrialImageCap
+            : dayLeft < variantCount ? AiImageQuoteOutcome.DailyImageCap
+            : (AiImageQuoteOutcome?)null;
+
         // Split as admission would split it: the allowance first, then the pack balance (AP.5.2), so each source
-        // says what it would have left and neither is read as the other.
+        // says what it would have left and neither is read as the other. Nothing is left "after" a request a cap
+        // refuses, so neither figure is given for one.
+        var goes = affordable && capped is null;
         var (fromAllowance, fromGrants) = AiQuotaSourceSplit.Hold(total, remaining);
-        decimal? after = affordable ? remaining - fromAllowance : null;
-        decimal? packAfter = affordable ? packs - fromGrants : null;
+        decimal? after = goes ? remaining - fromAllowance : null;
+        decimal? packAfter = goes ? packs - fromGrants : null;
 
         return new AiImageQuoteServiceModel(
-            affordable ? AiImageQuoteOutcome.Affordable : AiImageQuoteOutcome.Exhausted,
+            capped ?? (affordable ? AiImageQuoteOutcome.Affordable : AiImageQuoteOutcome.Exhausted),
             period.Unit,
             variantCount,
             AiQuotaUnitConverter.Round(perImage.Value),
@@ -313,6 +336,19 @@ internal sealed class AiQuotaAdmissionBusiness(
         {
             PackRemaining = packs,
             PackRemainingAfter = packAfter,
+            PictureCap = capped switch
+            {
+                AiImageQuoteOutcome.TrialImageCap => trialImageCap,
+                AiImageQuoteOutcome.DailyImageCap => dailyImageCap,
+                _ => null,
+            },
+            PicturesLeft = capped switch
+            {
+                AiImageQuoteOutcome.TrialImageCap => trialLeft,
+                AiImageQuoteOutcome.DailyImageCap => dayLeft,
+                _ => null,
+            },
+            PictureCapResetsAt = capped is AiImageQuoteOutcome.DailyImageCap ? LimitDay.NextAfter(now) : null,
         };
     }
 
@@ -859,9 +895,24 @@ internal sealed class AiQuotaAdmissionBusiness(
         return accountId;
     }
 
-    public async Task<bool> IsImageHoldLiveAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
-            is { Status: AiQuotaReservationStatus.Held, ReleasedAt: null };
+    /// <remarks>
+    /// The terms are read as admission reads them, from the account the hold belongs to — never the worker's own
+    /// service identity — so the answer here is the one a request made now would get.
+    /// </remarks>
+    public async Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken)
+    {
+        if (await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
+            is not { Status: AiQuotaReservationStatus.Held, ReleasedAt: null } hold)
+        {
+            return AiImageHoldState.Lapsed;
+        }
+
+        var terms = await periods.ResolveTermsAsync(hold.AccountId, cancellationToken);
+
+        return terms.IsSuspended ? AiImageHoldState.Suspended
+            : TrialEnded(terms, clock.UtcNow) is not null ? AiImageHoldState.TrialEnded
+            : AiImageHoldState.Live;
+    }
 
     /// <remarks>
     /// Gives back what the hold added to the platform's day as well (AP.2.7): a request that was never queued

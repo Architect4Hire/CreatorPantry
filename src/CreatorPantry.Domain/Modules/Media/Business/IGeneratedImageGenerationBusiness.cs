@@ -235,13 +235,14 @@ internal sealed class GeneratedImageGenerationBusiness(
             ? Sent(SettingsFor(qualityClass), model)
             : null;
 
-        // The account's plan, for its picture caps (AP.4.2): pictures a UTC day and, on a trial, pictures in all
-        // (AP.7.1), both judged with the allowance hold, and pictures generating at once, carried on the row for the
-        // claim. Both are limits beside the
-        // workspace's flat ones and switch off with them; with no plans configured there is none, and the flat
-        // caps alone apply, as before plans existed. Billing through its facade, keyed by the account the
-        // request resolved — never a request field.
-        var plan = limits.Value.Enabled ? await plans.ResolveAsync(workspace.AccountId, cancellationToken) : null;
+        // The account's plan, for its picture caps. Pictures a UTC day (AP.4.2), judged with the allowance hold, and
+        // pictures generating at once, carried on the row for the claim, are limits beside the workspace's flat ones
+        // and switch off with them (`limited` below). A trial's pictures in all (AP.7.1, B-52) are not a limit but the
+        // trial's own term — the gate chosen instead of a card on file — so they apply whatever Limits says (owner,
+        // 2026-10-29, AP.7.2). With no plans configured there is no plan, and the flat caps alone apply, as before
+        // plans existed. Billing through its facade, keyed by the account the request resolved — never a request field.
+        var plan = await plans.ResolveAsync(workspace.AccountId, cancellationToken);
+        var limited = limits.Value.Enabled ? plan : null;
 
         var admission = sent is not null
             ? new GeneratedImageAdmissionRequest(
@@ -249,7 +250,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 sent.ModelName,
                 sent.Resolution,
                 sent.Quality,
-                plan?.DailyImageCap,
+                limited?.DailyImageCap,
                 plan?.TrialImageCap)
             : null;
 
@@ -276,8 +277,8 @@ internal sealed class GeneratedImageGenerationBusiness(
                 StatusChangedAt = now,
                 Attempts = 0,
                 AvailableAt = now,
-                RequestedByAccountId = plan is null ? null : workspace.AccountId,
-                RunningImagesCap = plan?.RunningImages,
+                RequestedByAccountId = limited is null ? null : workspace.AccountId,
+                RunningImagesCap = limited?.RunningImages,
             },
             admission,
             cancellationToken);
@@ -300,16 +301,33 @@ internal sealed class GeneratedImageGenerationBusiness(
         }
 
         // The account from the resolved context — the creator asking — never a request field (USAGE-001). Priced
-        // at what the class sends, by the same Sent the request admits with, so the quote is the hold.
+        // at what the class sends, by the same Sent the request admits with, so the quote is the hold — and judged
+        // by the same picture caps the request is handed (AP.7.2), read the same way, so a quote that says
+        // "affordable" is not a request the day's or the trial's cap then refuses.
+        var plan = await plans.ResolveAsync(workspace.AccountId, cancellationToken);
+        var limited = limits.Value.Enabled ? plan : null;
+
         var quote = await dataLayer.QuoteAsync(
-            workspace.AccountId, Sent(SettingsFor(qualityClass), model), variants, cancellationToken);
+            workspace.AccountId,
+            Sent(SettingsFor(qualityClass), model),
+            variants,
+            cancellationToken,
+            limited?.DailyImageCap,
+            plan?.TrialImageCap);
 
         return quote.Outcome switch
         {
-            AiImageQuoteOutcome.Affordable or AiImageQuoteOutcome.Exhausted => new GeneratedImageQuoteServiceModel(
-                quote.Outcome is AiImageQuoteOutcome.Affordable
-                    ? GeneratedImageQuoteOutcome.Affordable
-                    : GeneratedImageQuoteOutcome.Exhausted,
+            AiImageQuoteOutcome.Affordable
+                or AiImageQuoteOutcome.Exhausted
+                or AiImageQuoteOutcome.DailyImageCap
+                or AiImageQuoteOutcome.TrialImageCap => new GeneratedImageQuoteServiceModel(
+                quote.Outcome switch
+                {
+                    AiImageQuoteOutcome.Affordable => GeneratedImageQuoteOutcome.Affordable,
+                    AiImageQuoteOutcome.DailyImageCap => GeneratedImageQuoteOutcome.DailyImageCap,
+                    AiImageQuoteOutcome.TrialImageCap => GeneratedImageQuoteOutcome.TrialImageCap,
+                    _ => GeneratedImageQuoteOutcome.Exhausted,
+                },
                 quote.Unit.ToString(),
                 quote.Variants,
                 quote.PerPicture,
@@ -325,6 +343,9 @@ internal sealed class GeneratedImageGenerationBusiness(
             {
                 PackRemaining = quote.PackRemaining,
                 PackRemainingAfter = quote.PackRemainingAfter,
+                PictureCap = quote.PictureCap,
+                PicturesLeft = quote.PicturesLeft,
+                PictureCapResetsAt = quote.PictureCapResetsAt,
             },
 
             // No balance and no reset date, as the request's own suspension refusal carries none.
@@ -513,17 +534,25 @@ internal sealed class GeneratedImageGenerationBusiness(
                 cancellationToken);
         }
 
-        // The allowance this generation was admitted against, confirmed still live before a single picture is
+        // The allowance this generation was admitted against, confirmed still spendable before a single picture is
         // made (PRICE-001). The hold is taken at the request and never renewed, so a generation that waited
         // long enough — behind its workspace's running cap — can be claimed after the expiry sweep has already
-        // given it back. Settlement would charge nothing and the pictures would have been free.
-        if (work.ReservationId is { } hold && !await quota.IsImageHoldLiveAsync(hold, cancellationToken))
+        // given it back, and settlement would charge nothing. Its account is asked again too (AP.7.2, B-61): one
+        // switched off, or a trial that ended, while the request waited is refused as a text run is at its claim.
+        // Failing here settles the hold at nothing, because nothing was made.
+        if (work.ReservationId is { } hold
+            && await quota.CheckImageHoldAsync(hold, cancellationToken) is var state and not AiImageHoldState.Live)
         {
             return await FailAsync(
                 operationId,
                 leaseToken,
                 GeneratedImageFailureCategory.Quota,
-                "This request waited longer than the allowance held for it; ask for the pictures again.",
+                state switch
+                {
+                    AiImageHoldState.Suspended => "AI access was switched off for this account before the pictures were made.",
+                    AiImageHoldState.TrialEnded => "This account's free trial ended before the pictures were made.",
+                    _ => "This request waited longer than the allowance held for it; ask for the pictures again.",
+                },
                 cancellationToken);
         }
 
@@ -546,6 +575,20 @@ internal sealed class GeneratedImageGenerationBusiness(
                     GeneratedImageFailureCategory.ModelUnidentified,
                     "The image deployment does not report which provider and model it is.",
                     cancellationToken);
+        }
+
+        // A provider to ask and nothing held to pay for it (AP.7.2, PRICE-001): a request made while this host could
+        // not price a picture — no deployment then, or one it could not identify — takes no hold, and a host that
+        // can by the time it is claimed would otherwise make the pictures for nothing. Asked after the model, so a
+        // host with no provider still says so rather than this.
+        if (work.ReservationId is null)
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.Quota,
+                "No allowance was held for this request, so no pictures were made; ask for them again.",
+                cancellationToken);
         }
 
         // What this generation's class sends, read now (AP.3.1). A class this host no longer offers is not sent

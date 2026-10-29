@@ -1,5 +1,6 @@
 extern alias ApiService;
 
+using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Outbox;
@@ -133,7 +134,17 @@ internal sealed class SqliteApiHost : IAsyncDisposable
     {
         await using var scope = Factory.Services.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var user = new ApplicationUser { UserName = email, Email = email, DisplayName = displayName, EmailConfirmed = emailConfirmed };
+
+        // Stamped as registration stamps it, from the host's clock: an account's creation dates its trial (AP.7.1),
+        // and an unset instant would make every test account one whose trial ended in year one.
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            DisplayName = displayName,
+            EmailConfirmed = emailConfirmed,
+            CreatedAt = scope.ServiceProvider.GetRequiredService<IClock>().UtcNow,
+        };
 
         var result = await users.CreateAsync(user, password);
         Assert.True(result.Succeeded, string.Join(", ", result.Errors.Select(error => error.Code)));

@@ -176,6 +176,11 @@ public static class BillingServiceCollectionExtensions
                         && quota.Value.DefaultPeriodLength == AiQuotaPeriodLength.Monthly),
                 "Billing:Plans is set but Ai:Quota:DefaultUnit is not Credits or Ai:Quota:DefaultPeriodLength is not "
                     + "Monthly; a plan's credits are a monthly allowance in credits.")
+            .Validate(
+                // A provider page sends the creator back to one of these, so each must be an origin and nothing else:
+                // a path or a query here would be glued to every return URL (AP.6.5).
+                billing => billing.ReturnOrigins.All(BillingAccountOrigins.IsOrigin),
+                "An entry under Billing:ReturnOrigins is not an http(s) origin (scheme, host and port only).")
             .ValidateOnStart();
 
         services.AddSingleton<RemovedPlanWarnings>();
@@ -197,6 +202,17 @@ public static class BillingServiceCollectionExtensions
         // TryAdd-based, so every host and test that can resolve a plan can resolve when its trial ends — the
         // Worker included, which admits text work and hosts no Identity.
         services.AddAccountCreationFacade();
+
+        // The signed-in account's own billing (AP.6.5): what its page shows, and the Checkout, portal and plan-change
+        // commands behind its buttons. Every command is idempotent, so a host resolving the facade needs
+        // AddIdempotency; both hosts that register this module already call it.
+        services.AddScoped<IValidator<StartPlanCheckoutViewModel>, StartPlanCheckoutViewModelValidator>();
+        services.AddScoped<IValidator<StartPackCheckoutViewModel>, StartPackCheckoutViewModelValidator>();
+        services.AddScoped<IValidator<ChangePlanViewModel>, ChangePlanViewModelValidator>();
+        services.AddScoped<IValidator<OpenBillingPortalViewModel>, OpenBillingPortalViewModelValidator>();
+        services.AddScoped<IBillingAccountDataLayer, BillingAccountDataLayer>();
+        services.AddScoped<IBillingAccountBusiness, BillingAccountBusiness>();
+        services.AddScoped<IBillingAccountFacade, BillingAccountFacade>();
 
         // Credits beyond the allowance (AP.5.1). The ops grant takes an idempotency key, so a host resolving the
         // facade needs AddIdempotency too; both hosts that register this module already call it.

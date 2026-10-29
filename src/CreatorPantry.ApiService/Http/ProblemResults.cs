@@ -56,6 +56,13 @@ public static class ProblemResults
         // A grant's balance moved under a claw-back (AP.5.1): nothing was taken, and what is left is read again.
         AccountCreditGrantAdministrationErrors.Conflict,
 
+        // The billing page offered a command its account's subscription no longer fits (AP.6.5): a Checkout for an
+        // account now subscribed, a plan change for one with none, or the plan already in force. Reading the page
+        // again offers the right button.
+        BillingAccountErrors.AlreadySubscribed,
+        BillingAccountErrors.SubscriptionRequired,
+        BillingAccountErrors.Unchanged,
+
         ConcurrencyConflictCode,
         AiFeatureErrors.Conflict,
         AiUsageAdministrationErrors.QuotaConflict,

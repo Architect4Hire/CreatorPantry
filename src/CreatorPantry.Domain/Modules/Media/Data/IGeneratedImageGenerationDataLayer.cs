@@ -104,7 +104,12 @@ public interface IGeneratedImageGenerationDataLayer
     /// the AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
     /// </summary>
     Task<AiImageQuoteServiceModel> QuoteAsync(
-        string accountId, GeneratedImageSettings settings, int variants, CancellationToken cancellationToken);
+        string accountId,
+        GeneratedImageSettings settings,
+        int variants,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
 
     /// <summary>
     /// What one picture at <paramref name="settings"/> is charged, in credits — the rate admission holds — or
@@ -284,12 +289,24 @@ internal sealed class GeneratedImageGenerationDataLayer(
     public int? PromptCharacterLimit(string modelName) => provider.PromptCharacterLimit(modelName);
 
     public Task<AiImageQuoteServiceModel> QuoteAsync(
-        string accountId, GeneratedImageSettings settings, int variants, CancellationToken cancellationToken)
+        string accountId,
+        GeneratedImageSettings settings,
+        int variants,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         return quota.QuoteImageAsync(
-            accountId, settings.ModelName, settings.Resolution, settings.Quality, variants, cancellationToken);
+            accountId,
+            settings.ModelName,
+            settings.Resolution,
+            settings.Quality,
+            variants,
+            cancellationToken,
+            dailyImageCap,
+            trialImageCap);
     }
 
     public decimal? PriceInCredits(GeneratedImageSettings settings)

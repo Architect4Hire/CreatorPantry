@@ -194,6 +194,22 @@ public sealed record AiQuotaAdmissionServiceModel(
     public DateTimeOffset? TrialEndsAt { get; init; }
 }
 
+/// <summary>Whether a picture's hold may still be spent when a worker claims it (AP.2.5, AP.7.2).</summary>
+public enum AiImageHoldState
+{
+    /// <summary>Held, and its account may spend.</summary>
+    Live = 1,
+
+    /// <summary>Lapsed, released or already settled: nobody is paying for the pictures any more.</summary>
+    Lapsed = 2,
+
+    /// <summary>AI access was switched off for the account after the hold was taken.</summary>
+    Suspended = 3,
+
+    /// <summary>The account's trial ended after the hold was taken, and it is still on the trial (B-61).</summary>
+    TrialEnded = 4,
+}
+
 /// <summary>Whether an account may spend right now, without anything being held to find out.</summary>
 public enum AiQuotaStateOutcome
 {
@@ -386,6 +402,18 @@ public enum AiImageQuoteOutcome
 
     /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No figures: nothing can be spent.</summary>
     TrialEnded = 5,
+
+    /// <summary>
+    /// The request would take the account past its plan's pictures for the UTC day (AP.4.2, AP.7.2). Priced as
+    /// usual; <see cref="AiImageQuoteServiceModel.PicturesLeft"/> says how many the day still has.
+    /// </summary>
+    DailyImageCap = 6,
+
+    /// <summary>
+    /// The request would take the account past its trial's pictures in all (AP.7.1, AP.7.2). Priced as usual;
+    /// <see cref="AiImageQuoteServiceModel.PicturesLeft"/> says how many the trial still has.
+    /// </summary>
+    TrialImageCap = 7,
 }
 
 /// <summary>
@@ -433,4 +461,16 @@ public sealed record AiImageQuoteServiceModel(
     /// <see cref="RemainingAfter"/>, which is the allowance's alone, it says where the request's credits come from.
     /// </summary>
     public decimal? PackRemainingAfter { get; init; }
+
+    /// <summary>
+    /// The picture cap that binds this request, when one does: the trial's in all, or the plan's for the day (AP.7.2).
+    /// Set on <see cref="AiImageQuoteOutcome.TrialImageCap"/> and <see cref="AiImageQuoteOutcome.DailyImageCap"/>.
+    /// </summary>
+    public int? PictureCap { get; init; }
+
+    /// <summary>How many pictures that cap still allows; set with <see cref="PictureCap"/>.</summary>
+    public int? PicturesLeft { get; init; }
+
+    /// <summary>When the day's cap turns over; null for the trial's, which never does.</summary>
+    public DateTimeOffset? PictureCapResetsAt { get; init; }
 }

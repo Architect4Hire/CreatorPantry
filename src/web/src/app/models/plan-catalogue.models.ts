@@ -293,3 +293,40 @@ export function decodePictureClassRates(value: unknown): readonly PictureClassRa
 
   return rates;
 }
+
+/**
+ * What a visitor's month comes to and which plan carries it (LP.7, AP.7.2). Mirrors `PlanEstimateServiceModel`.
+ *
+ * **Worked out by the server, formatted here** (B-55, owner 2026-10-29): the estimator multiplies nothing, compares
+ * nothing with a plan and keeps no month length. It sends two counts and a quality and shows what comes back.
+ */
+export interface PlanEstimate {
+  /** The month in credits — the pictures at their quality's rate, the writing at its typical one. */
+  readonly credits: number;
+  /** The quality the pictures were priced at; null when no picture is priced. */
+  readonly qualityClass: GeneratedImageQualityClass | null;
+  /** The smallest paid plan that carries the month; null when none does. */
+  readonly fitsPlanName: string | null;
+  /** What that plan leaves over the estimate; null when no plan fits. */
+  readonly creditsToSpare: number | null;
+  /** The largest paid plan, named when the month is past it. */
+  readonly largestPlanName: string | null;
+}
+
+/** Decodes an estimate, or null when it is not one: a figure that is not a number is no estimate at all. */
+export function decodePlanEstimate(value: unknown): PlanEstimate | null {
+  if (!isRecord(value)) return null;
+
+  const credits = numberAt(value, 'credits');
+  const spare = optionalNumberAt(value, 'creditsToSpare');
+
+  if (credits === null || spare === undefined) return null;
+
+  return {
+    credits,
+    qualityClass: decodeEnum<GeneratedImageQualityClass>(GENERATED_IMAGE_QUALITY_CLASS_VALUES, value['qualityClass']),
+    fitsPlanName: stringAt(value, 'fitsPlanName'),
+    creditsToSpare: spare ?? null,
+    largestPlanName: stringAt(value, 'largestPlanName'),
+  };
+}

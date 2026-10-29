@@ -304,6 +304,10 @@ var gateway = builder.AddProject<Projects.CreatorPantry_Gateway>("gateway", laun
 
 web.WithEnvironment("Client__GatewayUrl", gateway.GetEndpoint("https"));
 
+// Where a payment provider may send a creator back to after Checkout or the portal (AP.6.5): the same origins the
+// gateway lets a browser call from, so a return URL can only ever be a page of this app.
+api.WithEnvironment("Billing__ReturnOrigins__0", web.GetEndpoint("https"));
+
 // Development only: the Angular dev server, which proxies /runtime-config.json to the web host.
 if (builder.ExecutionContext.IsRunMode)
 {
@@ -326,6 +330,7 @@ if (builder.ExecutionContext.IsRunMode)
         .WaitFor(web);
 
     gateway.WithEnvironment("Cors__AllowedOrigins__1", webDev.GetEndpoint("https"));
+    api.WithEnvironment("Billing__ReturnOrigins__1", webDev.GetEndpoint("https"));
 }
 
 builder.Build().Run();

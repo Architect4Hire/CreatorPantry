@@ -12,7 +12,7 @@ import {
   IDEMPOTENCY_KEY_REQUIRED_CODE,
   QUALITY_CLASS_FORBIDDEN_CODE,
   RequestGeneratedImagesRequest,
-  TRIAL_REFUSAL_CODES,
+  isAccountRefusalCode,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
   decodeGeneratedImageQualityClasses,
@@ -280,12 +280,13 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
     };
   }
 
-  // The trial's pictures spent, or the trial over (AP.7.1): neither is a permission the workspace could grant, and
-  // the server's sentence says what to do instead, so each is a refusal shown as written.
-  if (code === 403 && TRIAL_REFUSAL_CODES.includes(problemCodeOf(error) ?? '')) {
+  // The account's own allowance or limits (AP.7.1, AP.7.2): switched off, spent, a trial's pictures or its end, a
+  // day's cap. None is a permission the workspace could grant or a reason to slow down, and the server's sentence
+  // says what is true instead, so each is a refusal shown as written.
+  if ((code === 403 || code === 429) && isAccountRefusalCode(problemCodeOf(error))) {
     return {
       status: 'refused',
-      message: problemMessageOf(error) ?? 'Your free trial does not cover more pictures.',
+      message: problemMessageOf(error) ?? 'Your AI allowance does not cover these pictures right now.',
       fieldErrors: {},
     };
   }

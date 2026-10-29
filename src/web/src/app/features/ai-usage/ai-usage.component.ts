@@ -19,6 +19,8 @@ import {
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
 
+import { RouterLink } from '@angular/router';
+
 import { injectRouteTitle } from '../../core/route-title';
 
 import { AiTaskType } from '../../models/ai-proposal.models';
@@ -85,6 +87,7 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
   selector: 'cp-ai-usage',
   standalone: true,
   imports: [
+    RouterLink,
     CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,

@@ -140,6 +140,11 @@ Webhooks reach a local run through the gateway: `stripe listen --forward-to http
 with the `whsec_…` it prints as `stripe-webhook-secret`. The route takes no session or antiforgery token, and a host
 with no secret answers 503, which Stripe retries.
 
+The billing page (AP.6.5) needs nothing more: the AppHost gives the API `Billing:ReturnOrigins` — the web host's
+origin, and the dev server's in a local run, the same origins the gateway's CORS allows — so Checkout and the portal
+send the creator back to `/app/billing` on the page they came from. A deployment sets `Billing:ReturnOrigins` to its
+public web origin; with none, every purchase route answers "payments unavailable".
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider

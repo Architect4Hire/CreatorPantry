@@ -289,6 +289,7 @@ robert@creatorpantry.com and we'll work something out." (Contact per owner answe
 | Belong to you, shared across workspaces | **Shipped** USAGE-001, `AccountAiQuota` |
 | Picture rates | **Shipped** AP.2.4, AP.2.5, AP.3.1; published from `Ai:Quota:ImageRates` per class (AP.4.5), the table admission charges |
 | Every figure | **Catalogue** AP.4.1 plus per-action rates (LP.7) |
+| The estimate, the plan it fits and what it leaves | **Shipped** AP.7.2, `GET /api/v1/plans/estimate` (`ai-pricing.md` B-62): worked out by the server from the same catalogue; the page formats it and multiplies nothing |
 
 **Motion:** the menu board's prices tick in once; the estimator's result counts up. Instant under reduced
 motion.

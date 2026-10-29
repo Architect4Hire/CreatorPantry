@@ -275,10 +275,15 @@ export const IDEMPOTENCY_KEY_REQUIRED_CODE = 'idempotency.key_required';
 export const QUALITY_CLASS_FORBIDDEN_CODE = 'media.generation.quality_class.forbidden';
 
 /**
- * The two trial refusals a picture request can meet (AP.7.1): the trial's pictures are spent, or the trial is over.
- * Both are `403`s that a role cannot fix, so each is shown in the server's own words — never as "ask an Owner".
+ * Whether a refusal is about the asking account's allowance or limits rather than a role or the edge (AP.7.1, AP.7.2):
+ * a suspension, a spent allowance, a trial's pictures or its end (`ai.quota.*`), and the account's or workspace's
+ * own day and in-flight caps (`limits.*`). They arrive as `403`s and `429`s like a role refusal and the edge's rate
+ * limiter, which say "ask an Owner" and "slow down" — neither of which is true of these — so each is shown in the
+ * server's own words. The edge's own `rate_limited` is not one of them.
  */
-export const TRIAL_REFUSAL_CODES: readonly string[] = ['ai.quota.trial_images.forbidden', 'ai.quota.trial_ended.forbidden'];
+export function isAccountRefusalCode(code: string | null): boolean {
+  return code !== null && (code.startsWith('ai.quota.') || code.startsWith('limits.'));
+}
 
 /**
  * A whole count, which the contract types as an integer or its string form.
@@ -416,7 +421,16 @@ export function decodeGeneratedImageOperationDetail(value: unknown): GeneratedIm
 }
 
 /** Mirrors `GeneratedImageQuoteOutcome`: whether a request for pictures could go ahead right now (AP.2.6). */
-export type GeneratedImageQuoteOutcome = 'Affordable' | 'Exhausted' | 'Suspended' | 'Unavailable' | 'TrialEnded';
+export type GeneratedImageQuoteOutcome =
+  | 'Affordable'
+  | 'Exhausted'
+  | 'Suspended'
+  | 'Unavailable'
+  | 'TrialEnded'
+  /** The request would pass the plan's pictures for the day (AP.7.2). */
+  | 'DailyImageCap'
+  /** The request would pass the trial's pictures in all (AP.7.2). */
+  | 'TrialImageCap';
 
 const GENERATED_IMAGE_QUOTE_OUTCOME_VALUES: ReadonlySet<string> = new Set<GeneratedImageQuoteOutcome>([
   'Affordable',
@@ -424,6 +438,8 @@ const GENERATED_IMAGE_QUOTE_OUTCOME_VALUES: ReadonlySet<string> = new Set<Genera
   'Suspended',
   'TrialEnded',
   'Unavailable',
+  'DailyImageCap',
+  'TrialImageCap',
 ]);
 
 /**
@@ -457,6 +473,12 @@ export interface GeneratedImageQuote {
   /** When the allowance comes back. Render it in `timeZoneId`, never the browser's zone. */
   readonly resetsAt: string | null;
   readonly timeZoneId: string | null;
+  /** The picture cap this request would pass, on `DailyImageCap` and `TrialImageCap` only (AP.7.2). */
+  readonly pictureCap: number | null;
+  /** How many pictures that cap still allows, beside `pictureCap`. */
+  readonly picturesLeft: number | null;
+  /** When the day's cap turns over; null for the trial's, which never does. */
+  readonly pictureCapResetsAt: string | null;
 }
 
 function quoteFigure(value: unknown): number | null | undefined {
@@ -483,6 +505,8 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     remainingAfter: quoteFigure(value['remainingAfter']),
     packRemaining: quoteFigure(value['packRemaining']),
     packRemainingAfter: quoteFigure(value['packRemainingAfter']),
+    pictureCap: quoteFigure(value['pictureCap']),
+    picturesLeft: quoteFigure(value['picturesLeft']),
   };
 
   if (
@@ -493,6 +517,7 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     !isStringOrNull(value['unit']) ||
     !isStringOrNull(value['resetsAt']) ||
     !isStringOrNull(value['timeZoneId']) ||
+    !isStringOrNull(value['pictureCapResetsAt'] ?? null) ||
     Object.values(figures).some((figure) => figure === undefined)
   ) {
     return null;
@@ -513,6 +538,9 @@ export function decodeGeneratedImageQuote(value: unknown): GeneratedImageQuote |
     leavesNearlySpent,
     resetsAt: (value['resetsAt'] as string | null) ?? null,
     timeZoneId: (value['timeZoneId'] as string | null) ?? null,
+    pictureCap: figures.pictureCap ?? null,
+    picturesLeft: figures.picturesLeft ?? null,
+    pictureCapResetsAt: (value['pictureCapResetsAt'] as string | null | undefined) ?? null,
   };
 }
 

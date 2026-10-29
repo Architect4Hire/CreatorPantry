@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Managers.FileInspection;
+using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -56,9 +57,11 @@ public sealed class BillingWebhooksController(IBillingWebhookFacade webhookFacad
         if (!await BoundedCopy.TryCopyAsync(Request.Body, body, BillingWebhookPolicy.MaxBodyBytes, cancellationToken))
         {
             // The action's limit stops a body that says how long it is; this one stops a chunked body that did not.
-            return Problem(
-                statusCode: StatusCodes.Status413PayloadTooLarge,
-                title: "The event is larger than this route accepts.");
+            // Through ProblemFor like every other refusal, so it carries a stable code and its retry advice.
+            return this.ProblemFor(new OperationError(
+                BillingWebhookErrors.PayloadTooLarge,
+                "The event is larger than this route accepts.",
+                new Dictionary<string, string[]>()));
         }
 
         var signature = Request.Headers[SignatureHeader].ToString();

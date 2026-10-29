@@ -1,10 +1,11 @@
 import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { combineLatest, debounceTime, switchMap, tap } from 'rxjs';
 import { CpFieldComponent } from '@creator-pantry/ui';
 
 import { GeneratedImageQualityClass } from '../../models/generated-image.models';
-import { PictureClassRate, Plan } from '../../models/plan-catalogue.models';
+import { PictureClassRate } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { LandingCount } from './landing-count';
 import { pictureQualityLabel } from './picture-quality';
@@ -47,9 +48,6 @@ export const PICTURE_CLASS_LABELS: Readonly<Record<GeneratedImageQualityClass, s
 export const PICTURES_PER_MONTH = { min: 0, max: 300, step: 10, start: 60 } as const;
 export const WRITING_PER_MONTH = { min: 0, max: 200, step: 5, start: 20 } as const;
 
-/** What a month is taken to be where a daily cap has to be compared with a monthly figure. */
-export const DAYS_A_MONTH = 30;
-
 /** Who the estimate is addressed to when nothing has been asked for yet. */
 export const NOTHING_CHOSEN = 'Move a slider to see which plan fits.';
 
@@ -64,8 +62,11 @@ export const BEYOND_TOP_PLAN_CONTACT = 'robert@creatorpantry.com';
  * render at all, exactly as the pricing section above it does.
  *
  * **It is an estimate and says so.** The menu states what one action of each kind *typically* costs; what a run
- * actually costs is settled against the provider's own usage, and the allowance is enforced server-side. The
- * estimator multiplies a creator's own two numbers by those typical figures — it promises nothing.
+ * actually costs is settled against the provider's own usage, and the allowance is enforced server-side.
+ *
+ * **The server does the arithmetic** (B-55, owner 2026-10-29, AP.7.2). The estimator sends a creator's own two
+ * numbers and a quality to `GET /api/v1/plans/estimate` and formats what comes back: the month in credits, the plan
+ * that carries it and what it leaves. It multiplies nothing and compares nothing with a plan.
  *
  * **The trial is not an answer.** Its credits are a one-off rather than a monthly allowance, so the estimator
  * weighs the paid plans; "which plan fits what I make each month" is the question it is asked.
@@ -162,17 +163,41 @@ export class LandingCreditsComponent {
   });
 
   /**
-   * What those two numbers come to a month: the writing at its typical rate, and the pictures at the quality
-   * chosen. No arithmetic on a figure this page invented — both rates are the catalogue's.
+   * The server's answer for the two numbers and the quality chosen (AP.7.2): asked again a moment after a slider
+   * settles, never once a frame, and only while the section renders. Null until it answers, and when it cannot.
    */
-  protected readonly estimate = computed(() => {
-    const rates = this.rates();
-    if (rates === null) return 0;
+  protected readonly answer = toSignal(
+    combineLatest([
+      toObservable(this.renders),
+      toObservable(this.picturesAMonth),
+      toObservable(this.writingAMonth),
+      toObservable(this.chosenClass),
+    ]).pipe(
+      debounceTime(120),
+      switchMap(([renders, pictures, writing, chosen]) =>
+        renders ? this.catalogueService.estimate(pictures, writing, chosen) : [null],
+      ),
+      // The figure counts from wherever it is on screen to each new answer, starting as the answer arrives. The
+      // first is shown as it is: there is nothing on screen yet to count from.
+      tap((answer) => {
+        const to = answer?.credits;
+        if (to === undefined) return;
 
-    const perPicture = this.pricedClass()?.perPicture ?? 0;
+        if (this.settled !== null && this.settled !== to) {
+          this.count.run(new Map([['estimate', this.count.shownOr('estimate', this.settled)]]), new Map([['estimate', to]]));
+        }
 
-    return this.picturesAMonth() * perPicture + this.writingAMonth() * rates.textDraft;
-  });
+        this.settled = to;
+      }),
+    ),
+    { initialValue: null },
+  );
+
+  /** The last estimate the server gave, which the next count starts from. */
+  private settled: number | null = null;
+
+  /** What those two numbers come to a month, in credits — the server's figure, or nought until it has one. */
+  protected readonly estimate = computed(() => this.answer()?.credits ?? 0);
 
   private readonly count = new LandingCount(this.document.defaultView);
 
@@ -186,38 +211,24 @@ export class LandingCreditsComponent {
   }
 
   /**
-   * The smallest paid plan that covers the estimate, or null when nothing does.
-   *
-   * Credits are not the only thing that has to carry it: a plan also caps pictures a day, and one that allows
-   * the credits but not the pictures does not fit. A month is taken as thirty days, which is of a piece with
-   * the rest of an estimate.
-   */
-  protected readonly fits = computed<Plan | null>(() => {
-    const estimate = this.estimate();
-    const pictures = this.picturesAMonth();
-    return this.paidPlans().find((plan) => plan.credits >= estimate && plan.dailyImageCap * DAYS_A_MONTH >= pictures) ?? null;
-  });
-
-  /**
-   * What the estimate comes to, in a sentence.
+   * What the estimate comes to, in a sentence — the server's plan and the server's spare credits, worded here.
+   * Which plan fits, and why (its credits, and its daily cap over a month), is the server's to decide (AP.7.2).
    *
    * Nothing asked for is its own answer rather than "the cheapest plan fits": a visitor who has moved no slider
    * has told the page nothing, and naming a plan would be answering a question they did not ask.
    */
   protected readonly verdict = computed<string>(() => {
-    const estimate = this.estimate();
-    if (estimate === 0) return this.nothingChosen;
+    const answer = this.answer();
+    if (answer === null) return this.picturesAMonth() + this.writingAMonth() === 0 ? this.nothingChosen : 'Working it out…';
+    if (answer.credits === 0) return this.nothingChosen;
 
-    const plan = this.fits();
-    if (plan === null) {
-      const top = this.paidPlans().at(-1);
-      return `That is more than ${top?.name ?? 'the largest plan'} includes. Add a pack, or write to ${this.contact} and we’ll work something out.`;
+    if (answer.fitsPlanName === null || answer.creditsToSpare === null) {
+      return `That is more than ${answer.largestPlanName ?? 'the largest plan'} includes. Add a pack, or write to ${this.contact} and we’ll work something out.`;
     }
 
-    const headroom = plan.credits - estimate;
-    return headroom === 0
-      ? `Your estimate fits ${plan.name} exactly, with none to spare.`
-      : `Your estimate fits ${plan.name}, with about ${headroom.toLocaleString()} credits to spare.`;
+    return answer.creditsToSpare === 0
+      ? `Your estimate fits ${answer.fitsPlanName} exactly, with none to spare.`
+      : `Your estimate fits ${answer.fitsPlanName}, with about ${answer.creditsToSpare.toLocaleString()} credits to spare.`;
   });
 
   protected formatCredits(credits: number): string {
@@ -259,10 +270,8 @@ export class LandingCreditsComponent {
     this.moveTo(() => this.writingAMonth.set(valueOf(event)));
   }
 
-  /** Counts from the figure on screen to whatever the slider has just made it. */
+  /** Records what the slider or the choice has just made it; the figure counts when the server answers. */
   private moveTo(change: () => void): void {
-    const from = this.shownEstimate();
     change();
-    this.count.run(new Map([['estimate', from]]), new Map([['estimate', this.estimate()]]));
   }
 }

@@ -179,17 +179,23 @@ describe('GeneratedImageService', () => {
       });
     });
 
-    // AP.7.1: a trial's spent pictures and an ended trial are 403s nobody in the workspace can grant, so each is the
-    // server's own sentence rather than "ask an Owner or Editor".
-    for (const code of ['ai.quota.trial_images.forbidden', 'ai.quota.trial_ended.forbidden']) {
-      it(`reads ${code} as the server’s own sentence, not as a permission to be granted`, async () => {
+    // AP.7.1, AP.7.2: the account's own allowance and limits arrive as 403s and 429s, like a role refusal and the
+    // edge's rate limiter. None is "ask an Owner or Editor" or "slow down", so each is the server's own sentence.
+    for (const [code, status] of [
+      ['ai.quota.trial_images.forbidden', 403],
+      ['ai.quota.trial_ended.forbidden', 403],
+      ['ai.quota.suspended', 403],
+      ['ai.quota.exhausted', 429],
+      ['limits.budget.exhausted', 429],
+    ] as const) {
+      it(`reads ${status} ${code} as the server’s own sentence, not as a permission or a rate`, async () => {
         const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
 
         http
           .expectOne(BASE)
-          .flush(problem(code, { title: 'Your free trial includes 10 pictures.' }), { status: 403, statusText: 'Forbidden' });
+          .flush(problem(code, { title: 'The server’s own sentence.' }), { status, statusText: 'Refused' });
 
-        expect(await pending).toEqual({ status: 'refused', message: 'Your free trial includes 10 pictures.', fieldErrors: {} });
+        expect(await pending).toEqual({ status: 'refused', message: 'The server’s own sentence.', fieldErrors: {} });
       });
     }
 
