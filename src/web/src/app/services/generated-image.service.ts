@@ -12,6 +12,7 @@ import {
   IDEMPOTENCY_KEY_REQUIRED_CODE,
   QUALITY_CLASS_FORBIDDEN_CODE,
   RequestGeneratedImagesRequest,
+  TRIAL_REFUSAL_CODES,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
   decodeGeneratedImageQualityClasses,

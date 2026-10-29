@@ -19,6 +19,11 @@
 > allowance period, and a setting in the account that turns it off. Nothing is ever charged or bought for a
 > creator by it. No other clause changed.
 
+> **Revision for counsel, 2026-10-29.** The trial's limits are now built (AP.7.1, `ai-pricing.md` B-52, B-61), so
+> the bracketed question in section 8 is replaced by what the software does: the 14 days run from when the account
+> was created; after them, until a plan is chosen, no AI work is accepted — pack credits included — while
+> everything already made stays available. The picture limit is now enforced as stated. No other clause changed.
+
 **Last updated:** [DATE OF PUBLICATION]
 
 ## 1. Who we are and what these terms cover
@@ -129,8 +134,10 @@ service for nutrition evidence, and Stripe — through Link, its merchant-of-rec
   trial's credits are given once, not every month.
 - Running out of trial credits or pictures stops AI work but does not end the trial; the trial ends after its 14
   days.
-- Because we never take a card for the trial, it never turns into a paid plan by itself. [CONFIRM (AP.7.1): what
-  an account can still do once its trial has ended and no plan has been chosen.]
+- The 14 days start when you create your account *(product fact)*.
+- Because we never take a card for the trial, it never turns into a paid plan by itself. Once the trial has ended
+  and until you choose a plan, AI requests are refused, including any that pack credits would cover. Everything
+  you made stays yours and available: you can still read, edit, organize and export it *(product fact)*.
 
 **Plans**
 

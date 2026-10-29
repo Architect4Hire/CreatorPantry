@@ -39,6 +39,20 @@ describe('decodeAiQuotaRefusal', () => {
     expect(decoded).toEqual({ status: 'account_suspended', unit: 'Credits' });
   });
 
+  // AP.7.1: a 403 like a suspension, but a different remedy — choosing a plan — so a different outcome.
+  it('reads a trial that has ended as its own outcome, carrying when it ended', () => {
+    const decoded = decodeAiQuotaRefusal(
+      refusal(403, {
+        code: 'ai.quota.trial_ended.forbidden',
+        title: 'Your free trial has ended.',
+        unit: 'Credits',
+        trialEndedAt: '2037-03-17T09:30:00+00:00',
+      }),
+    );
+
+    expect(decoded).toEqual({ status: 'trial_ended', trialEndedAt: '2037-03-17T09:30:00+00:00' });
+  });
+
   /**
    * The reason this matches on the code rather than the status. A suspension shares its status with a role
    * refusal, and a spent allowance shares its status with the gateway's own rate limiter — so a decoder that

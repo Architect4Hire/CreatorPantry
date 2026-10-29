@@ -35,6 +35,8 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 - Product-owner approval of 2026-10-28 of AP.6.1's review: "Managed Payment is ok - approved"; and the answer
   to its auto top-up item the same day: "autotop off will need to use the notice and have them buy a pack --
   approved" (B-59).
+- Product-owner approval of 2026-10-29 of AP.7.1's rule, with its two recommendations: a trial is dated from the
+  account's creation, and an ended trial admits no AI work, pack credits included (B-61).
 - `CLAUDE.md` and `.claude/rules/` — architectural source of truth. Nothing here redefines them; B-44 amends
   `CLAUDE.md`'s out-of-bounds list on the owner's explicit request.
 
@@ -77,6 +79,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-58 | Tax: Stripe Managed Payments is the merchant of record | PRICE-010, PRICE-011 | Decided | Owner, 2026-10-28, answering AP.6.1. Stripe, through Link, calculates, collects and remits sales tax, VAT and GST, for 3.5% on top of card fees. AP.6.4 (auto top-up) cannot work as written under it; B-59 replaces it. |
 | B-59 | A low-balance notice instead of auto top-up | PRICE-011 | Decided | Owner, 2026-10-28, answering B-58's open item. No pack is ever bought for a creator. When credits run low the account is told once a period and offered a pack, which the creator buys through Checkout. Amends PRICE-011. |
 | B-60 | The plan follows the subscription, re-read | PRICE-007, 010, B-54, B-56, B-57 | Decided | Owner, 2026-10-28, approving AP.6.2. Every event re-reads its subscription; up at once, down at the end of a paid period wherever it was made, past due holds, ended lapses to the default now. Only the provider's own scheduled rows are withdrawn. |
+| B-61 | A trial is dated from the account, and its end stops all AI work | PRICE-012, B-48, B-52, B-54 | Decided | Owner, 2026-10-29, approving AP.7.1. A trial runs `TrialDays` from the Identity account's creation. After it, while still on the trial, no AI work is admitted — text or pictures, pack credits included — until a plan is chosen. Running out of credits or pictures before then refuses that work only. |
 
 ## Decisions
 
@@ -250,7 +253,10 @@ owner can change them without a code change, and no prompt may hard-code them.
 trial can make a single picture, and the landing page promises a trial with no card.
 **Consequences:** AP.7.1 builds the count and the refusal. Until it ships, the catalogue states a cap nothing
 enforces, so the figure is shown only where the catalogue is published — development — and AP.7.1 is a release
-gate for `Billing:PublishPlans`, as AP.2.4/2.5 already are for the picture rates (LP.7).
+gate for `Billing:PublishPlans`, as AP.2.4/2.5 already are for the picture rates (LP.7). *Delivered 2026-10-29
+(AP.7.1): the cap is counted from the account's own picture holds, which carry no workspace, inside the same hold
+as the daily cap and before it, and refused as `403 ai.quota.trial_images.forbidden`. That gate is passed; the
+others LP.6 names still stand.*
 **Rules:** `tenancy.md`, `ai.md` (limits are code).
 
 ### B-53 Pictures stay on Venice
@@ -277,7 +283,7 @@ and quota under "Credentials and external prerequisites" are no longer needed.
   refuses work, it does not end the trial.
 
 **Consequences:** AP.6.2 applies Stripe downgrades and cancellations at period end, and AP.7.1 ends a trial on
-its date.
+its date — the date B-61 fixes, computed rather than scheduled, so nothing has to run at day fourteen.
 **Rules:** `external.md`.
 
 ### B-55 A picture's price is the rate it is charged at
@@ -538,6 +544,32 @@ mode. The upgrade and schedule calls are written to Stripe's documented paramete
 Stripe account; the first test-mode run checks them (Open items, link.com).
 **Rules:** `external.md`, `gateway.md`, `backend.md`, `tenancy.md` (platform-scoped; no workspace).
 
+### B-61 A trial is dated from the account, and its end stops all AI work
+
+- **Owner, 2026-10-29, approving AP.7.1's rule** and both of its recommendations.
+- **A trial starts when the Identity account is created** and ends `TrialDays` later (B-48's 14). One date per
+  account, read through Auth's `IAccountCreationFacade` and never stored or scheduled: a plan bought before then
+  replaces the trial, and an account that paid and lapsed back to a trial default has no second trial.
+- **After it, while the account is still on the trial, no AI work is admitted** — writing and pictures alike, at the
+  request and again when the Worker claims queued work, and **pack credits included**. A pack is spent under a plan's
+  caps and quality classes, and an ended trial is no plan to spend under. The refusal is
+  `403 ai.quota.trial_ended.forbidden` with `trialEndedAt`: no balance and no reset, because choosing a plan is the
+  remedy. Everything else in CreatorPantry — recipes, content, media, export — works as before.
+- **Running out before then refuses only that work** (B-54): a trial whose pictures are spent still writes, and one
+  whose credits are spent is exhausted, not ended.
+- **An ops-set allowance is not refused for the trial's end** (USAGE-009): an administrator who gives an account a
+  number has decided what it may spend.
+- **An account Identity has no record of has no trial end.** It has no session to ask from; work it queued before is
+  bounded by the trial's once-only credits and lifetime picture cap.
+
+**Options considered:** dating the trial from its first AI use — rejected: the landing page and the Terms promise new
+accounts 14 days, and an idle sign-up would otherwise keep its trial indefinitely. Letting an ended trial spend pack
+credits at the trial's caps — rejected by the owner: it would sell credits to an account on no plan.
+**Consequences:** a pack Checkout should refuse an account whose trial has ended and which has no plan, pointing it at
+a plan first (B-57 lets any account buy a pack); that is a change to AP.6's Checkout, not yet made. The landing page's
+trial-length CTA and FAQ 13, held back until a trial could end, are unblocked.
+**Rules:** `tenancy.md`, `ai.md` (limits are code), `backend.md` (facade to facade).
+
 ## Relationship to the prompt libraries
 
 | Prompt | Effect of this record |
@@ -551,7 +583,7 @@ Stripe account; the first test-mode run checks them (Open items, link.com).
 | AP.3.4 | **Skipped** (B-53). |
 | AP.5.1, AP.5.2, AP.5.3, AP.6.3 | **Rewritten** to drop pack expiry (B-50). |
 | AP.6.2 | Downgrade and cancellation at period end (B-54); upgrade timing open. |
-| AP.7.1 | Lifetime picture cap of 10, no card (B-52). |
+| AP.7.1 | Lifetime picture cap of 10, no card (B-52); the trial's date and end (B-61). Delivered 2026-10-29. |
 | AP.3.1, AP.3.1A, AP.4.5, AP.6.5 | **Amended or added** 2026-10-27 so the quote, the picker, the landing page and the billing page read each class's price from the charging table (B-55). |
 | AP.4.2, DL.4, DL.5, DL.8 | **Delivered by AP.4.2** (B-56): the plan's allowance and both picture caps, through the account's picture holds rather than DL.4's day-hold table. |
 | DL.7, DL.10 | **Superseded in part** by B-55: picture prices come from `Ai:Quota:ImageRates`, not `Billing:Rates:ImageStandard`, and AP.4.5 puts quality classes on the page. |

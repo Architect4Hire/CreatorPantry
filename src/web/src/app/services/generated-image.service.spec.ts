@@ -179,6 +179,20 @@ describe('GeneratedImageService', () => {
       });
     });
 
+    // AP.7.1: a trial's spent pictures and an ended trial are 403s nobody in the workspace can grant, so each is the
+    // server's own sentence rather than "ask an Owner or Editor".
+    for (const code of ['ai.quota.trial_images.forbidden', 'ai.quota.trial_ended.forbidden']) {
+      it(`reads ${code} as the server’s own sentence, not as a permission to be granted`, async () => {
+        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+        http
+          .expectOne(BASE)
+          .flush(problem(code, { title: 'Your free trial includes 10 pictures.' }), { status: 403, statusText: 'Forbidden' });
+
+        expect(await pending).toEqual({ status: 'refused', message: 'Your free trial includes 10 pictures.', fieldErrors: {} });
+      });
+    }
+
     it('reads the edge’s rate limit as its own outcome, because waiting is the remedy', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
 

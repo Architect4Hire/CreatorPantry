@@ -81,7 +81,7 @@ and newsletters. AI drafts what you ask for, and nothing changes until you accep
 | Blog articles and newsletters | **Shipped** long-form, `web/models/long-form-pipeline.models.ts` (`BlogArticle`, `NewsletterIssue`) |
 | Nothing changes until you accept it | **Shipped** accept steps: `AiProposalsController` disposition, `RecipeDraftRequestsController` acceptance, `LongFormDraftsController`, `dam-assets/from-generated-image`; `.claude/rules/ai.md` |
 | "Start free" | **Shipped** today: no billing exists and no account expires |
-| "`{trial.days}`-day free trial" | **Decided** 14 days (owner answer 3); **Catalogue** field, rendered only after AP.7.1 enforces it. Until then the page says no trial length, because nothing ends one |
+| "`{trial.days}`-day free trial" | **Decided** 14 days (owner answer 3); **Catalogue** field. **Unblocked** 2026-10-29: AP.7.1 ends a trial `TrialDays` after its account was created (`ai-pricing.md` B-61). The hero still says "Start free" — switching the CTA is its own change |
 | Owner switches AI on | **Shipped** `IAiTaskGate.cs`, Workspace settings AI switches (Owner only); owner answer 2 |
 
 **Motion:** the photo collage drifts a few pixels with the pointer; the proof card settles in once. Both stop
@@ -334,7 +334,7 @@ prompt, and LP.9's rule stands: anything undecided is left out.
 | 10 | Do packs expire? | No. A pack is credits you have bought, so they keep until you spend them. | **Decided** (owner, 2026-10-24) |
 | 11 | Can I cancel any time? | **Not built** (AP.6.2, downgrade timing still open). Omitted. | — |
 | 12 | Who owns what AI makes for me? | You do, as far as the law allows. Your recipes, pictures and drafts are yours, and so is what CreatorPantry generates for you. We only use them to run the service for you. The Terms of Service say exactly how. | Draft ToS §5 (`docs/legal/terms-of-service.md`). Renders only once the reviewed Terms are published, and links to them |
-| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); renders after AP.7.1. **Decided** what a trial may generate: up to `{trial.trialImageCap}` pictures in all, no card on file (`ai-pricing.md` B-52); enforced by AP.7.1 |
+| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); unblocked by AP.7.1 (2026-10-29), not yet rendered. **Decided** what a trial may generate: up to `{trial.trialImageCap}` pictures in all, no card on file (`ai-pricing.md` B-52); **Shipped** AP.7.1, counted per account across workspaces |
 
 Seven answers render today (0–6). 7–10 and 13 render with pricing, and 12 with the published Terms. LP.9 asks
 for 8 to 10 answers; the page reaches that once pricing is on, so LP.9 picks the ten that are live.

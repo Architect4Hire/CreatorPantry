@@ -114,6 +114,21 @@ describe('AiAllowanceNoticeComponent', () => {
     expect(host.querySelector('[role="status"]')).toBeNull();
   });
 
+  // AP.7.1: neither a reset to wait for nor "get in touch" — choosing a plan is what to do next.
+  it('says a trial has ended, and that choosing a plan is the way on', async () => {
+    const host = await render(
+      { kind: 'healthy', period: figures() },
+      { status: 'trial_ended', trialEndedAt: '2037-03-17T09:30:00+00:00' },
+    );
+
+    const alert = host.querySelector('[role="alert"]')?.textContent ?? '';
+    expect(alert).toContain('Your free trial has ended');
+    expect(alert).toContain('Choose a plan');
+    expect(alert).toContain('Trial ended');
+    expect(alert).not.toContain('switched off');
+    expect(alert).not.toContain('comes back');
+  });
+
   /**
    * EASE-004: a creator reads credits and a date. The words below are the ones the plumbing uses, and none
    * of them belongs on screen.

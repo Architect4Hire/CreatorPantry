@@ -958,6 +958,16 @@ describe('GeneratedImageRunComponent', () => {
       expect(makeButton().disabled).toBeTrue();
     });
 
+    it('stops a request from an account whose free trial has ended, and says what to do', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'TrialEnded', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Your free trial has ended');
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Choose a plan');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
     it('stops nothing when the price could not be worked out — the request decides', async () => {
       await answerWith(() => null);
 

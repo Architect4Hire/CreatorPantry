@@ -585,13 +585,17 @@ export class GeneratedImageRunComponent {
   });
 
   /**
-   * Whether the server has said this request cannot be afforded right now — spent, or switched off. A quote still
-   * loading, failed or unavailable stops nothing: the server is the authority and refuses properly.
+   * Whether the server has said this request cannot be afforded right now — spent, switched off, or a trial that
+   * has ended. A quote still loading, failed or unavailable stops nothing: the server is the authority and refuses
+   * properly.
    */
   protected readonly quoteBlocks = computed(() => {
     const state = this.quoteState();
 
-    return state.status === 'ready' && (state.quote.outcome === 'Exhausted' || state.quote.outcome === 'Suspended');
+    return (
+      state.status === 'ready' &&
+      (state.quote.outcome === 'Exhausted' || state.quote.outcome === 'Suspended' || state.quote.outcome === 'TrialEnded')
+    );
   });
 
   /** Refused here rather than by the server, so the creator is told what to fix and where. */
@@ -654,6 +658,10 @@ export class GeneratedImageRunComponent {
 
     if (quote.outcome === 'Suspended') {
       return 'AI assistance is switched off for your account, so pictures can’t be made just now. Get in touch and we can look into it.';
+    }
+
+    if (quote.outcome === 'TrialEnded') {
+      return 'Your free trial has ended, so pictures can’t be made. Choose a plan to keep making them.';
     }
 
     if (quote.outcome !== 'Exhausted') return null;

@@ -38,8 +38,8 @@ public sealed class BillingOptions
     /// <remarks>
     /// <para>
     /// <b>Proposed, not decided:</b> development sets <c>trial</c>, the daily-limits document's proposal for
-    /// what a new sign-up is on. A trial as the default does not expire — nothing ends one until AP.7.1 builds
-    /// the trial's end — so an account with no row stays on the trial's terms indefinitely until then.
+    /// what a new sign-up is on. A trial ends <see cref="PlanOption.TrialDays"/> after its account was created
+    /// (AP.7.1), and an account still on it after that is admitted no AI work until it chooses a plan.
     /// </para>
     /// <para>
     /// With no plans configured, which is every deployment today, there is no default either, and an account
@@ -130,7 +130,10 @@ public sealed class PlanOption
     /// <summary>The one plan the page recommends. Exactly one plan may set it; startup refuses otherwise.</summary>
     public bool Recommended { get; set; }
 
-    /// <summary>Set only on a trial plan: how many days it lasts. Null on a paid plan.</summary>
+    /// <summary>
+    /// Set only on a trial plan: how many days it lasts, counted from the account's creation (AP.7.1). Null on a paid
+    /// plan.
+    /// </summary>
     public int? TrialDays { get; set; }
 
     /// <summary>
@@ -138,9 +141,9 @@ public sealed class PlanOption
     /// gate the owner chose instead of a card on file (<c>ai-pricing.md</c> B-52). Null on a paid plan.
     /// </summary>
     /// <remarks>
-    /// Published so the page states the figure admission will enforce, and read from here by AP.7.1 rather than
-    /// from a second copy. Until AP.7.1 ships nothing counts against it, which is one more reason
-    /// <see cref="BillingOptions.PublishPlans"/> stays off outside development.
+    /// Published so the page states the figure admission enforces, and read from here by admission (AP.7.1) — the
+    /// account's plan carries this value, never a second copy of it. Counted from the account's picture holds, across
+    /// every workspace and day.
     /// </remarks>
     public int? TrialImageCap { get; set; }
 }
