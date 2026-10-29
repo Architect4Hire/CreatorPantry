@@ -451,7 +451,8 @@ is answered by B-59.
   pack is a Checkout the creator completes (B-57), which is also the only kind of charge Managed Payments makes
   (B-58). The landing page's "no surprise bills" now holds without a setting to keep it true.
 - **Running low brings a notice.** When admission leaves an account's spendable credits — the period allowance
-  left plus every pack's balance — under a threshold, the account is told, once for that period, and offered a
+  left plus every pack's balance — **at or below** a threshold (the same inclusive boundary
+  `NearlySpentFraction` draws, and what AP.6.4 built), the account is told, once for that period, and offered a
   pack: the notice links to the billing page's pack purchase (AP.6.5). Reaching zero is unchanged: work is refused
   at admission (USAGE-006) and the exhausted state offers a pack and an upgrade.
 - **Settled by AP.6.4 (owner, 2026-10-28, "approved"), as proposed and with one answer the repository gave:**

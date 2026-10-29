@@ -165,6 +165,44 @@ public sealed class AiLowCreditNoticeConcurrencyTests : IAsyncLifetime
         Assert.NotNull(Assert.Single(await PeriodsAsync(Account)).LowCreditNoticeDismissedAt);
     }
 
+    /// <summary>
+    /// Two tabs turning the notice off at the same moment, on an account that has never chosen: the unique
+    /// index decides which insert lands, the loser re-reads and updates, and the account is left with one
+    /// answer rather than two.
+    /// </summary>
+    [Fact]
+    public async Task Concurrent_first_choices_leave_one_row()
+    {
+        await Task.WhenAll(SetEnabledAsync(false), SetEnabledAsync(false));
+
+        var row = Assert.Single(await SettingsAsync(Account));
+
+        Assert.False(row.LowCreditNoticeEnabled);
+    }
+
+    /// <summary>
+    /// The same race with the two tabs disagreeing. Last writer wins — the row carries no concurrency token
+    /// and deliberately does not need one, because a preference has no history to protect — but there is
+    /// still exactly one row, and neither caller fails.
+    /// </summary>
+    [Fact]
+    public async Task Concurrent_opposite_choices_leave_one_row_and_neither_fails()
+    {
+        await Task.WhenAll(SetEnabledAsync(false), SetEnabledAsync(true));
+
+        Assert.Single(await SettingsAsync(Account));
+    }
+
+    /// <summary>Two accounts choosing at once get a row each, and neither reads the other's.</summary>
+    [Fact]
+    public async Task Two_accounts_choosing_at_once_get_a_row_each()
+    {
+        await Task.WhenAll(SetEnabledAsync(false), SetEnabledAsync(false, OtherAccount));
+
+        Assert.False(Assert.Single(await SettingsAsync(Account)).LowCreditNoticeEnabled);
+        Assert.False(Assert.Single(await SettingsAsync(OtherAccount)).LowCreditNoticeEnabled);
+    }
+
     // ---- helpers ---------------------------------------------------------------------------------------
 
     private async Task<AiQuotaAdmissionServiceModel> AdmitAsync(string accountId)
@@ -188,6 +226,29 @@ public sealed class AiLowCreditNoticeConcurrencyTests : IAsyncLifetime
 
         await scope.ServiceProvider.GetRequiredService<IAiLowCreditNoticeFacade>()
             .DismissAsync(Account, TestContext.Current.CancellationToken);
+    }
+
+    private async Task SetEnabledAsync(bool enabled, string accountId = Account)
+    {
+        await using var scope = _provider!.CreateAsyncScope();
+
+        var result = await scope.ServiceProvider.GetRequiredService<IAiLowCreditNoticeFacade>()
+            .SetEnabledAsync(
+                accountId,
+                new LowCreditNoticeViewModel(enabled),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.Succeeded);
+    }
+
+    private async Task<List<AccountAiNoticeSetting>> SettingsAsync(string accountId)
+    {
+        await using var scope = _provider!.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .AccountAiNoticeSettings.AsNoTracking()
+            .Where(setting => setting.AccountId == accountId)
+            .ToListAsync(TestContext.Current.CancellationToken);
     }
 
     private async Task GiveQuotaAsync(string accountId = Account)
