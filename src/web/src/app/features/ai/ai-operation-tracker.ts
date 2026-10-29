@@ -136,6 +136,7 @@ export class AiOperationTracker {
         return null;
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.phaseSignal.set({ kind: 'blocked', refusal: outcome });
         return null;
       default:

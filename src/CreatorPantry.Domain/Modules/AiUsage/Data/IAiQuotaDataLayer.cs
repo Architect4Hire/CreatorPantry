@@ -52,6 +52,23 @@ internal enum AiQuotaWriteOutcome
 internal sealed record PlatformImageSpendCharge(
     DateOnly Day, long Micros, long CeilingMicros, Guid AiOperationId, Guid LeaseToken);
 
+/// <summary>Which of the account's picture counts a picture admission is judged against (AP.4.2, AP.7.1).</summary>
+/// <param name="DayStart">The start of the UTC day whose pictures count against the plan's daily cap.</param>
+/// <param name="InAll">
+/// Whether to count every picture the account has ever asked for, for a trial's lifetime cap (B-52). False on a paid
+/// plan, which has none, so a paid admission does not pay for a count nothing reads.
+/// </param>
+internal sealed record AccountImageWindows(DateTimeOffset DayStart, bool InAll);
+
+/// <summary>The account's pictures that still count, as <see cref="IAiQuotaRepository.CountImagesSinceAsync"/> counts them.</summary>
+/// <param name="Today">Since the start of the UTC day.</param>
+/// <param name="InAll">Ever, across every workspace; nought unless <see cref="AccountImageWindows.InAll"/> asked for it.</param>
+internal readonly record struct AccountImageCounts(int Today, int InAll)
+{
+    /// <summary>What a completion, which asks for no pictures, is told.</summary>
+    public static readonly AccountImageCounts None = new(0, 0);
+}
+
 /// <summary>
 /// Stages the end of a hold's draws on the account's grants: <paramref name="spentFromGrants"/> of what it took is
 /// kept and the rest goes back where it came from (AP.5.2). Business's, through Billing's facade; called by the data
@@ -144,11 +161,12 @@ internal interface IAiQuotaDataLayer
     /// not be passed. The charge and the hold then commit in one transaction or not at all (AP.2.7). Null for a
     /// completion, and for a picture on a host with no ceiling.
     /// </param>
-    /// <param name="imageDayStart">
-    /// For a picture: the start of the UTC day whose pictures <paramref name="admit"/> is told the account has
-    /// already asked for (AP.4.2). Counted after the period is read on every attempt, so an admission that
-    /// commits in between moves the period's row version and this one is judged again. Null for a completion,
-    /// which is told nought.
+    /// <param name="images">
+    /// For a picture: which of the account's pictures <paramref name="admit"/> is told it has already asked for —
+    /// the UTC day's (AP.4.2), and every one ever for a trial's lifetime cap (AP.7.1). Counted after the period is
+    /// read on every attempt, so an admission that commits in between moves the period's row version and this one
+    /// is judged again; that is what keeps two requests from both taking a trial's last picture. Null for a
+    /// completion, which is told nought.
     /// </param>
     /// <returns>
     /// The outcome, the hold when one was taken, and the period as it stands after the write — which is not
@@ -163,9 +181,9 @@ internal interface IAiQuotaDataLayer
         ReserveAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
+            Func<AccountAiQuotaPeriod, AccountImageCounts, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
             PlatformImageSpendCharge? platform,
-            DateTimeOffset? imageDayStart,
+            AccountImageWindows? images,
             CancellationToken cancellationToken);
 
     /// <summary>
@@ -330,15 +348,15 @@ internal sealed class AiQuotaDataLayer(
     public async Task<(AiQuotaWriteOutcome, AccountAiQuotaReservation?, AccountAiQuotaPeriod?)> ReserveAsync(
         string accountId,
         DateTimeOffset instant,
-        Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
+        Func<AccountAiQuotaPeriod, AccountImageCounts, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
         PlatformImageSpendCharge? platform,
-        DateTimeOffset? imageDayStart,
+        AccountImageWindows? images,
         CancellationToken cancellationToken)
     {
         if (platform is not null)
         {
             return await ReserveAgainstPlatformAsync(
-                accountId, instant, admit, platform, imageDayStart, cancellationToken);
+                accountId, instant, admit, platform, images, cancellationToken);
         }
 
         AccountAiQuotaPeriod? period = null;
@@ -353,7 +371,7 @@ internal sealed class AiQuotaDataLayer(
             }
 
             var reservation = await admit(
-                period, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken), cancellationToken);
+                period, await CountImagesAsync(accountId, images, cancellationToken), cancellationToken);
 
             if (reservation is null)
             {
@@ -409,9 +427,9 @@ internal sealed class AiQuotaDataLayer(
         ReserveAgainstPlatformAsync(
             string accountId,
             DateTimeOffset instant,
-            Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
+            Func<AccountAiQuotaPeriod, AccountImageCounts, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
             PlatformImageSpendCharge platform,
-            DateTimeOffset? imageDayStart,
+            AccountImageWindows? images,
             CancellationToken cancellationToken)
     {
         // Its own commit, before the transaction: the charge is an UPDATE, and an update of a row that does not
@@ -451,7 +469,7 @@ internal sealed class AiQuotaDataLayer(
                     }
 
                     var hold = await admit(
-                        current, await ImagesSinceAsync(accountId, imageDayStart, cancellationToken), cancellationToken);
+                        current, await CountImagesAsync(accountId, images, cancellationToken), cancellationToken);
 
                     if (hold is null)
                     {
@@ -504,17 +522,19 @@ internal sealed class AiQuotaDataLayer(
         return (AiQuotaWriteOutcome.Contended, null, last);
     }
 
-    /// <summary>The account's pictures since the start of the day, or nought for a completion.</summary>
+    /// <summary>The account's pictures today, and in all when asked for; nought for a completion.</summary>
     /// <remarks>
     /// Read after the period on every attempt, never before it. An admission that commits between the two reads
     /// is counted here; one that commits after both moves the period's row version, and this attempt's save loses
     /// and judges again. Read the other way round, a commit between the reads would be missed by both.
     /// </remarks>
-    private async Task<int> ImagesSinceAsync(
-        string accountId, DateTimeOffset? imageDayStart, CancellationToken cancellationToken) =>
-        imageDayStart is { } since
-            ? await quotas.CountImagesSinceAsync(accountId, since, cancellationToken)
-            : 0;
+    private async Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows? images, CancellationToken cancellationToken) =>
+        images is null
+            ? AccountImageCounts.None
+            : new AccountImageCounts(
+                await quotas.CountImagesSinceAsync(accountId, images.DayStart, cancellationToken),
+                images.InAll ? await quotas.CountImagesSinceAsync(accountId, null, cancellationToken) : 0);
 
     public async Task<AccountAiQuotaPeriod?> RaisePeriodAsync(
         Guid periodId, Func<AccountAiQuotaPeriod, bool> raise, CancellationToken cancellationToken)

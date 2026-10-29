@@ -185,6 +185,30 @@ internal sealed class GeneratedImageGenerationFacade(
         // daily limit is — a 429 with the cap and the reset, and no balance, which is not why.
         AiQuotaAdmissionOutcome.DailyImageCap => DailyCapRefusal(refusal),
 
+        // The trial is over (AP.7.1): no balance and no reset, because a plan is the remedy, not waiting.
+        AiQuotaAdmissionOutcome.TrialEnded => new OperationError(
+            AiQuotaErrors.TrialEnded,
+            "Your free trial has ended. Choose a plan to keep using AI assistance.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                ["unit"] = refusal.Unit.ToString(),
+                ["trialEndedAt"] = refusal.TrialEndsAt,
+            }),
+
+        // The trial's pictures are spent (AP.7.1, B-52). The trial and its writing go on; only pictures stop, for
+        // the rest of the trial, so the cap and the trial's end are the figures — never a reset that will not come.
+        AiQuotaAdmissionOutcome.TrialImageCap => new OperationError(
+            AiQuotaErrors.TrialImagesSpent,
+            $"Your free trial includes {refusal.TrialImageCap} pictures, and this would go past them. "
+                + "Choose a plan to make more pictures.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                ["trialImageCap"] = refusal.TrialImageCap,
+                ["trialEndsAt"] = refusal.TrialEndsAt,
+            }),
+
         // Exhausted, and Busy with it: a period too contended to admit against is not a statement about the
         // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
         _ => new OperationError(

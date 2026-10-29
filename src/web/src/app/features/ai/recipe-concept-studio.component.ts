@@ -658,6 +658,7 @@ export class RecipeConceptStudioComponent {
       // brief is still on screen, ready to be sent again when the allowance comes back.
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.pendingRequestKey = null;
         this.quotaRefusalSignal.set(outcome);
         void this.usage.refresh();
@@ -810,6 +811,7 @@ export class RecipeConceptStudioComponent {
       // differently.
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.draftAttempt = null;
         this.draftQuotaRefusalSignal.set(outcome);
         void this.usage.refresh();

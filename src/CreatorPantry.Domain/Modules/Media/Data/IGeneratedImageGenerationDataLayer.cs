@@ -240,8 +240,17 @@ public sealed record GeneratedImageRequestResult(
 /// <param name="DailyImageCap">
 /// The account's plan's pictures a UTC day (AP.4.2), judged inside the hold; null when no plan applies.
 /// </param>
+/// <param name="TrialImageCap">
+/// The account's trial's pictures in all (AP.7.1, B-52), judged inside the hold; null on a paid plan and when no plan
+/// applies.
+/// </param>
 public sealed record GeneratedImageAdmissionRequest(
-    string AccountId, string ModelName, string? Resolution, string? Quality, int? DailyImageCap = null);
+    string AccountId,
+    string ModelName,
+    string? Resolution,
+    string? Quality,
+    int? DailyImageCap = null,
+    int? TrialImageCap = null);
 
 /// <inheritdoc cref="IGeneratedImageGenerationDataLayer"/>
 /// <remarks>
@@ -726,7 +735,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
                     admission.Resolution,
                     admission.Quality,
                     clock.UtcNow + MediaPolicy.GenerationHoldDuration,
-                    admission.DailyImageCap),
+                    admission.DailyImageCap,
+                    admission.TrialImageCap),
                 cancellationToken);
 
             if (held.Outcome is not AiQuotaAdmissionOutcome.Admitted)

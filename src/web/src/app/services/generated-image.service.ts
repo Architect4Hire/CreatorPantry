@@ -279,6 +279,16 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
     };
   }
 
+  // The trial's pictures spent, or the trial over (AP.7.1): neither is a permission the workspace could grant, and
+  // the server's sentence says what to do instead, so each is a refusal shown as written.
+  if (code === 403 && TRIAL_REFUSAL_CODES.includes(problemCodeOf(error) ?? '')) {
+    return {
+      status: 'refused',
+      message: problemMessageOf(error) ?? 'Your free trial does not cover more pictures.',
+      fieldErrors: {},
+    };
+  }
+
   if (code === 403) return { status: 'forbidden' };
   if (code === 429) return { status: 'rate_limited' };
 

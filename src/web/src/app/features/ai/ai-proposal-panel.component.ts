@@ -1084,6 +1084,7 @@ export class AiProposalPanelComponent {
       // proposal being read, and any ticks against it, are exactly where they were.
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.pendingAskKey = null;
         this.quotaRefusalSignal.set(outcome);
         void this.usage.refresh();

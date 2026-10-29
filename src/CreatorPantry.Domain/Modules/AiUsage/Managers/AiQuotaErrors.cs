@@ -45,6 +45,26 @@ public static class AiQuotaErrors
     public const string Suspended = "ai.quota.suspended";
 
     /// <summary>
+    /// The requesting account's trial has ended and it is on no plan (AP.7.1, B-54), so no AI work is admitted —
+    /// pack credits included — until it chooses one.
+    /// </summary>
+    /// <remarks>
+    /// 403, from the <c>.forbidden</c> suffix, for the reason <see cref="Suspended"/> is: no reset and no amount of
+    /// waiting changes the answer, so it carries no balance — only when the trial ended.
+    /// </remarks>
+    public const string TrialEnded = "ai.quota.trial_ended.forbidden";
+
+    /// <summary>
+    /// The request would take the account past its trial's lifetime picture cap (AP.7.1, B-52). The trial goes on,
+    /// and so does work that is not a picture.
+    /// </summary>
+    /// <remarks>
+    /// 403 rather than the daily cap's 429: the cap is for the whole trial, so nothing resets it. Carries the cap and
+    /// when the trial ends, the account's own figures and nothing else.
+    /// </remarks>
+    public const string TrialImagesSpent = "ai.quota.trial_images.forbidden";
+
+    /// <summary>
     /// New pictures are not being admitted for anybody right now: the platform's daily image spend breaker has
     /// tripped (PRICE-005, AP.2.7).
     /// </summary>

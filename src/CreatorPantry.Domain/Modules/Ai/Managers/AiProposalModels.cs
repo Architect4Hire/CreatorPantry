@@ -262,4 +262,7 @@ public static class AiProposalErrors
     /// it would read as an invitation to try again.
     /// </remarks>
     public const string QuotaSuspended = AiQuotaErrors.Suspended;
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1); the shared code, as above.</summary>
+    public const string QuotaTrialEnded = AiQuotaErrors.TrialEnded;
 }

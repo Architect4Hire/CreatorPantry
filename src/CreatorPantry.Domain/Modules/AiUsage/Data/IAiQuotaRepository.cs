@@ -47,9 +47,10 @@ internal interface IAiQuotaRepository
 
     /// <summary>
     /// The pictures the account has asked for since <paramref name="since"/> that still count (AP.4.2): every one
-    /// on a hold still held, what was billed on a settled hold, and none on a released or expired one.
+    /// on a hold still held, what was billed on a settled hold, and none on a released or expired one. A null
+    /// <paramref name="since"/> counts every one the account has ever asked for, for a trial's lifetime cap (AP.7.1).
     /// </summary>
-    Task<int> CountImagesSinceAsync(string accountId, DateTimeOffset since, CancellationToken cancellationToken);
+    Task<int> CountImagesSinceAsync(string accountId, DateTimeOffset? since, CancellationToken cancellationToken);
 
     /// <summary>Whether any period of the account was opened under this plan.</summary>
     Task<bool> HasPeriodUnderPlanAsync(string accountId, string planKey, CancellationToken cancellationToken);
@@ -143,15 +144,16 @@ internal sealed class AiQuotaRepository(CreatorPantryDbContext context) : IAiQuo
 
     /// <remarks>
     /// Seeks <c>IX_AccountAiQuotaReservations_Account_Images</c>. Counts only — this module never learns which
-    /// workspace a picture was for, and needs no workspace filter to answer for the account across all of them.
+    /// workspace a picture was for, and needs no workspace filter to answer for the account across all of them —
+    /// which is also why a trial's lifetime count survives creating and deleting workspaces (AP.7.1).
     /// </remarks>
     public async Task<int> CountImagesSinceAsync(
-        string accountId, DateTimeOffset since, CancellationToken cancellationToken) =>
+        string accountId, DateTimeOffset? since, CancellationToken cancellationToken) =>
         await context.AccountAiQuotaReservations
             .AsNoTracking()
             .Where(reservation => reservation.AccountId == accountId
                 && reservation.ImagesRequested != null
-                && reservation.HeldAt >= since)
+                && (since == null || reservation.HeldAt >= since))
             .SumAsync(
                 reservation => reservation.Status == AiQuotaReservationStatus.Held
                     ? reservation.ImagesRequested!.Value

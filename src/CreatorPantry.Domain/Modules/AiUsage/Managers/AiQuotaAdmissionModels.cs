@@ -103,6 +103,26 @@ public enum AiQuotaAdmissionOutcome
     /// <see cref="AiQuotaAdmissionServiceModel.DailyImageCapResetsAt"/>, and no balance.
     /// </remarks>
     DailyImageCap = 8,
+
+    /// <summary>
+    /// The account is on a trial that has ended (AP.7.1, B-54). Nothing was held, and no work of any kind is admitted
+    /// — pack credits included — until the account is on a plan.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Exhausted"/>: there is no reset to wait for. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.TrialEndsAt"/> and no balance.
+    /// </remarks>
+    TrialEnded = 9,
+
+    /// <summary>
+    /// The trial's pictures are spent: the request would take the account past its plan's lifetime picture cap
+    /// (AP.7.1, B-52). Nothing was held. The trial goes on, and so does work that is not a picture.
+    /// </summary>
+    /// <remarks>
+    /// Judged before <see cref="DailyImageCap"/>, because "come back tomorrow" would be untrue. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.TrialImageCap"/> and <see cref="AiQuotaAdmissionServiceModel.TrialEndsAt"/>.
+    /// </remarks>
+    TrialImageCap = 10,
 }
 
 /// <summary>What an admission decided, in the only terms a caller needs.</summary>
@@ -163,6 +183,15 @@ public sealed record AiQuotaAdmissionServiceModel(
 
     /// <summary>When the cap's UTC day ends, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
     public DateTimeOffset? DailyImageCapResetsAt { get; init; }
+
+    /// <summary>The trial's lifetime picture cap, on <see cref="AiQuotaAdmissionOutcome.TrialImageCap"/> only.</summary>
+    public int? TrialImageCap { get; init; }
+
+    /// <summary>
+    /// When the trial ends or ended, on <see cref="AiQuotaAdmissionOutcome.TrialEnded"/> and
+    /// <see cref="AiQuotaAdmissionOutcome.TrialImageCap"/>; null when Identity has no such account.
+    /// </summary>
+    public DateTimeOffset? TrialEndsAt { get; init; }
 }
 
 /// <summary>Whether an account may spend right now, without anything being held to find out.</summary>
@@ -176,6 +205,9 @@ public enum AiQuotaStateOutcome
 
     /// <summary>AI access is switched off, whatever is left.</summary>
     Suspended = 3,
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No reset, and no balance to report.</summary>
+    TrialEnded = 4,
 }
 
 /// <summary>
@@ -222,6 +254,9 @@ public sealed record AiQuotaStateServiceModel(
     /// counted in tokens.
     /// </summary>
     public decimal PackRemaining { get; init; }
+
+    /// <summary>When the trial ended, on <see cref="AiQuotaStateOutcome.TrialEnded"/> only.</summary>
+    public DateTimeOffset? TrialEndedAt { get; init; }
 }
 
 /// <summary>What one maintenance sweep over outstanding holds did.</summary>
@@ -252,6 +287,11 @@ public sealed record AiQuotaMaintenanceSummary(int Posted, int Expired, int Fina
 /// How many pictures the account's plan allows it in a UTC day, across every workspace (AP.4.2); null when no plan
 /// applies — no plans configured, or limits switched off — and only the workspace's flat cap stands.
 /// </param>
+/// <param name="TrialImageCap">
+/// How many pictures the account's trial allows in all, across every workspace and every day (AP.7.1, B-52); null
+/// on a paid plan, and when no plan applies, as for <paramref name="DailyImageCap"/>. Read from the same
+/// <c>Billing:Plans</c> entry the catalogue publishes, never a copy of it.
+/// </param>
 /// <remarks>
 /// <para>
 /// <strong>Admitted at the request, not at the worker</strong>, which is where this differs from
@@ -273,7 +313,8 @@ public sealed record AiImageQuotaAdmissionRequestServiceModel(
     string? Resolution,
     string? Quality,
     DateTimeOffset ExpiresAt,
-    int? DailyImageCap = null);
+    int? DailyImageCap = null,
+    int? TrialImageCap = null);
 
 /// <summary>
 /// What one image generation's charges were, for the ledger and the settlement together (AP.2.5).
@@ -342,6 +383,9 @@ public enum AiImageQuoteOutcome
 
     /// <summary>This host has no rate for the picture it would make, so it cannot be priced or admitted.</summary>
     Unpriced = 4,
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No figures: nothing can be spent.</summary>
+    TrialEnded = 5,
 }
 
 /// <summary>

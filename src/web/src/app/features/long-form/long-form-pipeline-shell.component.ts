@@ -617,6 +617,7 @@ export class LongFormPipelineShellComponent {
         return;
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.pendingKey = null;
         this.refusal.set(outcome);
         return;

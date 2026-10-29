@@ -3,6 +3,7 @@ using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Auth.Facade;
 using CreatorPantry.Domain.Modules.Billing.Business;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Facade;
@@ -191,6 +192,11 @@ public static class BillingServiceCollectionExtensions
         services.AddScoped<IAccountPlanDataLayer, AccountPlanDataLayer>();
         services.AddScoped<IAccountPlanBusiness, AccountPlanBusiness>();
         services.AddScoped<IAccountPlanFacade, AccountPlanFacade>();
+
+        // A trial ends TrialDays after its account was created (AP.7.1), which only Auth knows. Registered here,
+        // TryAdd-based, so every host and test that can resolve a plan can resolve when its trial ends — the
+        // Worker included, which admits text work and hosts no Identity.
+        services.AddAccountCreationFacade();
 
         // Credits beyond the allowance (AP.5.1). The ops grant takes an idempotency key, so a host resolving the
         // facade needs AddIdempotency too; both hosts that register this module already call it.

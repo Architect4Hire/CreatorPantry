@@ -143,6 +143,11 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaAdmissionOutcome.Suspended, null, 0m, 0m, terms.Unit, null);
         }
 
+        if (TrialEnded(terms, now) is { } ended)
+        {
+            return ended;
+        }
+
         var period = await periods.OpenAsync(request.AccountId, terms, now, cancellationToken);
 
         var perAttempt = AiQuotaUnitConverter.Estimate(period.Unit, EstimateFor(request.TaskType), _options);
@@ -175,7 +180,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                     : null;
             },
             platform: null,
-            imageDayStart: null,
+            images: null,
             cancellationToken);
 
         // The period as the write left it, which after a retry is not the instance resolved above.
@@ -246,6 +251,13 @@ internal sealed class AiQuotaAdmissionBusiness(
             // No balance and no reset, for the reason PeekAsync gives: a suspension has nothing to wait for.
             return new AiImageQuoteServiceModel(
                 AiImageQuoteOutcome.Suspended, terms.Unit, variantCount, null, null, 0m, 0m, null, 0, false, null, null);
+        }
+
+        if (terms.Plan?.TrialHasEnded(now) == true)
+        {
+            // Nothing can be spent, pack credits included (AP.7.1), so no figure would mean anything.
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.TrialEnded, terms.Unit, variantCount, null, null, 0m, 0m, null, 0, false, null, null);
         }
 
         // Projected, never opened: a quote is a GET, and asking a price must not spend a row (AiUsageReadBusiness).
@@ -326,6 +338,13 @@ internal sealed class AiQuotaAdmissionBusiness(
             // for an account that cannot spend it would be an invitation to try again (USAGE-007).
             return new AiQuotaStateServiceModel(
                 AiQuotaStateOutcome.Suspended, terms.Unit, 0m, 0m, 0m, null);
+        }
+
+        if (terms.Plan is { TrialEndsAt: { } trialEndedAt } plan && plan.TrialHasEnded(now))
+        {
+            // No balance and no reset, as for a suspension: the remedy is a plan, not waiting.
+            return new AiQuotaStateServiceModel(
+                AiQuotaStateOutcome.TrialEnded, terms.Unit, 0m, 0m, 0m, null) { TrialEndedAt = trialEndedAt };
         }
 
         var period = await periods.ProjectAsync(accountId, terms, now, cancellationToken);
@@ -569,6 +588,11 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaAdmissionOutcome.Suspended, null, 0m, 0m, terms.Unit, null);
         }
 
+        if (TrialEnded(terms, now) is { } ended)
+        {
+            return ended;
+        }
+
         var period = await periods.OpenAsync(request.AccountId, terms, now, cancellationToken);
 
         // The exact price of one picture, not an estimate of it: the provider prices the model, the tier and
@@ -614,6 +638,12 @@ internal sealed class AiQuotaAdmissionBusiness(
         // the delegate runs again on every retry, so it is set afresh each time.
         var overDay = false;
 
+        // The trial's lifetime picture cap (AP.7.1, B-52), judged the same way and before the day: a trial whose
+        // pictures are spent would otherwise be told to come back tomorrow, which would not help. Counted from the
+        // account's own holds, which carry no workspace, so it is one count across every workspace the account
+        // works in and survives any of them being deleted.
+        var overTrial = false;
+
         // Committed here, not staged: the period's row version is what makes two admissions for one account
         // unable to both succeed, and a concurrency check needs its own transaction. So the hold exists before
         // the operation row does, and a caller whose operation then fails to write owes a release —
@@ -621,12 +651,13 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            async (current, imagesToday, token) =>
+            async (current, images, token) =>
             {
                 // All of this request or none of it, as the workspace's cap is: four with three left is refused.
-                overDay = request.DailyImageCap is { } cap && imagesToday + request.VariantCount > cap;
+                overTrial = request.TrialImageCap is { } trialCap && images.InAll + request.VariantCount > trialCap;
+                overDay = !overTrial && request.DailyImageCap is { } cap && images.Today + request.VariantCount > cap;
 
-                if (overDay)
+                if (overTrial || overDay)
                 {
                     return null;
                 }
@@ -661,7 +692,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                 };
             },
             platform,
-            LimitDay.StartOf(now),
+            new AccountImageWindows(LimitDay.StartOf(now), InAll: request.TrialImageCap is not null),
             cancellationToken);
 
         var settled = written ?? period;
@@ -669,6 +700,19 @@ internal sealed class AiQuotaAdmissionBusiness(
         if (outcome is AiQuotaWriteOutcome.Applied && platform is not null)
         {
             PlatformImageSpendTelemetry.RecordAdmitted(platform.Micros);
+        }
+
+        if (outcome is AiQuotaWriteOutcome.Refused && overTrial)
+        {
+            // The account's own figures only: its cap and when its trial ends. No balance, which is not why, and no
+            // reset, because there is none — the cap is for the whole trial (B-52).
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.TrialImageCap, null, 0m, 0m, settled.Unit, null)
+            {
+                Required = hold,
+                TrialImageCap = request.TrialImageCap,
+                TrialEndsAt = terms.Plan?.TrialEndsAt,
+            };
         }
 
         if (outcome is AiQuotaWriteOutcome.Refused && overDay)
@@ -1038,6 +1082,29 @@ internal sealed class AiQuotaAdmissionBusiness(
     private static decimal Remaining(AccountAiQuotaPeriod period) =>
         AiQuotaPeriodCalculator.Remaining(
             period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved);
+
+    /// <summary>
+    /// The refusal for an account whose trial has ended while it is still on the trial (AP.7.1, B-54); null when it
+    /// is not. Judged before a period is opened, so an ended trial writes nothing to be told no.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Every kind of work, pack credits included</strong> (owner, 2026-10-29): a pack is spent under a plan's
+    /// caps and classes, and an ended trial is no plan to spend under. The remedy is choosing one, so there is no
+    /// balance and no reset to report.
+    /// </para>
+    /// <para>
+    /// Read from the plan in the terms, which an ops-set allowance replaces (USAGE-009): an administrator who gives
+    /// an account a number has decided what it may spend, trial or not.
+    /// </para>
+    /// </remarks>
+    private static AiQuotaAdmissionServiceModel? TrialEnded(AiQuotaTerms terms, DateTimeOffset now) =>
+        terms.Plan is { } plan && plan.TrialHasEnded(now)
+            ? new AiQuotaAdmissionServiceModel(AiQuotaAdmissionOutcome.TrialEnded, null, 0m, 0m, terms.Unit, null)
+            {
+                TrialEndsAt = plan.TrialEndsAt,
+            }
+            : null;
 
     // The terms, the period roll and the zone fallback all moved to IAiQuotaPeriodResolver when the read seam
     // needed them too. Two copies of a roll would eventually show a creator a balance the next admission did

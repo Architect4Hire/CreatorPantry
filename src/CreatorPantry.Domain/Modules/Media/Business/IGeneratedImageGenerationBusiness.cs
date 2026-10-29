@@ -235,8 +235,9 @@ internal sealed class GeneratedImageGenerationBusiness(
             ? Sent(SettingsFor(qualityClass), model)
             : null;
 
-        // The account's plan, for its picture caps (AP.4.2): pictures a UTC day, judged with the allowance hold,
-        // and pictures generating at once, carried on the row for the claim. Both are limits beside the
+        // The account's plan, for its picture caps (AP.4.2): pictures a UTC day and, on a trial, pictures in all
+        // (AP.7.1), both judged with the allowance hold, and pictures generating at once, carried on the row for the
+        // claim. Both are limits beside the
         // workspace's flat ones and switch off with them; with no plans configured there is none, and the flat
         // caps alone apply, as before plans existed. Billing through its facade, keyed by the account the
         // request resolved — never a request field.
@@ -244,7 +245,12 @@ internal sealed class GeneratedImageGenerationBusiness(
 
         var admission = sent is not null
             ? new GeneratedImageAdmissionRequest(
-                workspace.AccountId, sent.ModelName, sent.Resolution, sent.Quality, plan?.DailyImageCap)
+                workspace.AccountId,
+                sent.ModelName,
+                sent.Resolution,
+                sent.Quality,
+                plan?.DailyImageCap,
+                plan?.TrialImageCap)
             : null;
 
         return await dataLayer.RequestAsync(
@@ -324,6 +330,11 @@ internal sealed class GeneratedImageGenerationBusiness(
             // No balance and no reset date, as the request's own suspension refusal carries none.
             AiImageQuoteOutcome.Suspended => new GeneratedImageQuoteServiceModel(
                 GeneratedImageQuoteOutcome.Suspended,
+                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null, qualityClass),
+
+            // Nothing can be spent once a trial has ended (AP.7.1), so, as for a suspension, no figure at all.
+            AiImageQuoteOutcome.TrialEnded => new GeneratedImageQuoteServiceModel(
+                GeneratedImageQuoteOutcome.TrialEnded,
                 quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null, qualityClass),
 
             // Unpriced is this host's misconfiguration, not the creator's balance; it reads as no provider.

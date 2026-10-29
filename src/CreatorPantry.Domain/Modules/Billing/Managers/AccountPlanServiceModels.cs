@@ -22,6 +22,12 @@ namespace CreatorPantry.Domain.Modules.Billing.Managers;
 /// When the next row takes over — a change already scheduled, such as a downgrade at period end (B-54) — or null
 /// when nothing is scheduled. Not stored: it is the next row's start.
 /// </param>
+/// <param name="TrialEndsAt">
+/// When the trial ends: <paramref name="TrialDays"/> after the account was created (AP.7.1, B-48, B-54). From then on
+/// no AI work is admitted while this plan is in force. Null on a paid plan, and when Identity has no such account —
+/// an erased one, which has no session to ask from; its trial's once-only credits and picture cap still bound
+/// anything it queued before.
+/// </param>
 public sealed record AccountPlanServiceModel(
     string Key,
     string Name,
@@ -35,7 +41,12 @@ public sealed record AccountPlanServiceModel(
     bool IsDefault,
     AccountPlanSource? Source,
     DateTimeOffset? EffectiveFrom,
-    DateTimeOffset? EffectiveUntil);
+    DateTimeOffset? EffectiveUntil,
+    DateTimeOffset? TrialEndsAt = null)
+{
+    /// <summary>Whether this plan is a trial that has ended by <paramref name="now"/>.</summary>
+    public bool TrialHasEnded(DateTimeOffset now) => TrialEndsAt is { } ends && now >= ends;
+}
 
 /// <summary>What a plan change did (AP.4.1). Internal to Billing until AP.4.4 exposes it.</summary>
 internal enum AccountPlanChangeOutcome

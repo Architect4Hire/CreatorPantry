@@ -112,6 +112,8 @@ internal sealed class AiRequestQuotaGate(
                 // read as an invitation to try again (USAGE-007).
                 new Dictionary<string, object?> { ["unit"] = state.Unit.ToString() }),
 
+            AiQuotaStateOutcome.TrialEnded => TrialEnded(state),
+
             AiQuotaStateOutcome.Exhausted => new OperationError(
                 AiProposalErrors.QuotaExhausted,
                 "Your AI allowance for this period and your pack credits don't cover this. Your allowance comes back when the period resets.",
@@ -172,6 +174,11 @@ internal sealed class AiRequestQuotaGate(
                 "AI assistance is switched off for your account.",
                 new Dictionary<string, string[]>(),
                 new Dictionary<string, object?> { ["unit"] = state.Unit.ToString() });
+        }
+
+        if (state.Outcome is AiQuotaStateOutcome.TrialEnded)
+        {
+            return TrialEnded(state);
         }
 
         // A task that costs nothing, or an account nothing is metered for, can run as often as it likes.
@@ -244,4 +251,18 @@ internal sealed class AiRequestQuotaGate(
 
         return null;
     }
+
+    /// <summary>
+    /// The refusal for an account whose trial has ended while it is still on the trial (AP.7.1): no balance and no
+    /// reset, as for a suspension, because choosing a plan is the remedy and waiting is not.
+    /// </summary>
+    private static OperationError TrialEnded(AiQuotaStateServiceModel state) => new(
+        AiProposalErrors.QuotaTrialEnded,
+        "Your free trial has ended. Choose a plan to keep using AI assistance.",
+        new Dictionary<string, string[]>(),
+        new Dictionary<string, object?>
+        {
+            ["unit"] = state.Unit.ToString(),
+            ["trialEndedAt"] = state.TrialEndedAt,
+        });
 }

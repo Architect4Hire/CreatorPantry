@@ -16,6 +16,9 @@ public enum GeneratedImageQuoteOutcome
 
     /// <summary>This host has no image provider, or cannot price the picture it would make. No figures.</summary>
     Unavailable = 4,
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No figures: nothing can be spent.</summary>
+    TrialEnded = 5,
 }
 
 /// <summary>

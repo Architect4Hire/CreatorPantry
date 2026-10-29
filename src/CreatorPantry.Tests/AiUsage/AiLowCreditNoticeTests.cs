@@ -691,11 +691,11 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
             ReserveAsync(
                 string accountId,
                 DateTimeOffset instant,
-                Func<AccountAiQuotaPeriod, int, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
+                Func<AccountAiQuotaPeriod, AccountImageCounts, CancellationToken, Task<AccountAiQuotaReservation?>> admit,
                 PlatformImageSpendCharge? platform,
-                DateTimeOffset? imageDayStart,
+                AccountImageWindows? images,
                 CancellationToken cancellationToken) =>
-            inner.ReserveAsync(accountId, instant, admit, platform, imageDayStart, cancellationToken);
+            inner.ReserveAsync(accountId, instant, admit, platform, images, cancellationToken);
 
         public Task<AccountAiQuotaPeriod?> RaisePeriodAsync(
             Guid periodId, Func<AccountAiQuotaPeriod, bool> raise, CancellationToken cancellationToken) =>

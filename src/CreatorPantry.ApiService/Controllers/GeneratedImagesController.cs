@@ -123,6 +123,12 @@ public sealed class GeneratedImagesController(
     /// refused with, because it is the same allowance. Nothing is queued either way. A replayed key is never
     /// refused: its answer is the operation it already bought, and the hold that bought it.
     ///
+    /// **A trial is gated twice** (AP.7.1). Its pictures are capped in all, across every workspace and day: a
+    /// request that would pass the trial plan's `trialImageCap` answers `403 ai.quota.trial_images.forbidden` with
+    /// `trialImageCap` and `trialEndsAt`, and writing goes on. Once the trial's days are over and no plan has been
+    /// chosen, every request answers `403 ai.quota.trial_ended.forbidden` with `trialEndedAt`, pack credits or not.
+    /// Neither carries a balance or a reset, and nothing is queued.
+    ///
     /// A host with no credit rate for the picture it would make answers `503 media.generation.unavailable`
     /// and carries no figures: that is this deployment's misconfiguration, not the caller's balance.
     ///

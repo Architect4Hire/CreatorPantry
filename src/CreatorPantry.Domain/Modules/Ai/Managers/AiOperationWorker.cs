@@ -184,7 +184,9 @@ internal sealed class AiOperationWorker(
             return ClaimOutcome.Skipped;
         }
 
-        if (admission.Outcome is AiQuotaAdmissionOutcome.Exhausted or AiQuotaAdmissionOutcome.Suspended)
+        if (admission.Outcome is AiQuotaAdmissionOutcome.Exhausted
+            or AiQuotaAdmissionOutcome.Suspended
+            or AiQuotaAdmissionOutcome.TrialEnded)
         {
             // Terminal, not requeued. A requeue would burn the attempt bound and then report LeaseAbandoned,
             // which names the wrong reason -- and would re-ask a question whose answer does not change until
@@ -195,9 +197,15 @@ internal sealed class AiOperationWorker(
                 admission.Outcome is AiQuotaAdmissionOutcome.Suspended
                     ? AiFailureCategory.AccountSuspended
                     : AiFailureCategory.Quota,
-                admission.Outcome is AiQuotaAdmissionOutcome.Suspended
-                    ? "AI access is switched off for this account."
-                    : "This account's AI allowance for the current period and its pack credits don't cover this.",
+                admission.Outcome switch
+                {
+                    AiQuotaAdmissionOutcome.Suspended => "AI access is switched off for this account.",
+
+                    // Queued before day fourteen, claimed after it (AP.7.1): the trial's end applies to the work
+                    // that runs, not just the work asked for, so nothing is spent past it.
+                    AiQuotaAdmissionOutcome.TrialEnded => "This account's free trial has ended.",
+                    _ => "This account's AI allowance for the current period and its pack credits don't cover this.",
+                },
                 [],
                 null,
                 cancellationToken);

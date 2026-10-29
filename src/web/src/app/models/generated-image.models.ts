@@ -275,6 +275,12 @@ export const IDEMPOTENCY_KEY_REQUIRED_CODE = 'idempotency.key_required';
 export const QUALITY_CLASS_FORBIDDEN_CODE = 'media.generation.quality_class.forbidden';
 
 /**
+ * The two trial refusals a picture request can meet (AP.7.1): the trial's pictures are spent, or the trial is over.
+ * Both are `403`s that a role cannot fix, so each is shown in the server's own words — never as "ask an Owner".
+ */
+export const TRIAL_REFUSAL_CODES: readonly string[] = ['ai.quota.trial_images.forbidden', 'ai.quota.trial_ended.forbidden'];
+
+/**
  * A whole count, which the contract types as an integer or its string form.
  *
  * Both are published — the snapshot types every int32 as `["integer","string"]` with a numeric pattern — so a
@@ -410,12 +416,13 @@ export function decodeGeneratedImageOperationDetail(value: unknown): GeneratedIm
 }
 
 /** Mirrors `GeneratedImageQuoteOutcome`: whether a request for pictures could go ahead right now (AP.2.6). */
-export type GeneratedImageQuoteOutcome = 'Affordable' | 'Exhausted' | 'Suspended' | 'Unavailable';
+export type GeneratedImageQuoteOutcome = 'Affordable' | 'Exhausted' | 'Suspended' | 'Unavailable' | 'TrialEnded';
 
 const GENERATED_IMAGE_QUOTE_OUTCOME_VALUES: ReadonlySet<string> = new Set<GeneratedImageQuoteOutcome>([
   'Affordable',
   'Exhausted',
   'Suspended',
+  'TrialEnded',
   'Unavailable',
 ]);
 

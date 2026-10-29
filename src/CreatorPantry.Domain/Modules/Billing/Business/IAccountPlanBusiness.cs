@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Auth.Facade;
 using CreatorPantry.Domain.Modules.Billing.Data;
 using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Managers;
@@ -146,6 +147,7 @@ internal sealed class AccountPlanBusiness(
     IOptions<BillingOptions> options,
     IClock clock,
     RemovedPlanWarnings warnings,
+    IAccountCreationFacade accounts,
     ILogger<AccountPlanBusiness> logger) : IAccountPlanBusiness
 {
     public async Task<AccountPlanServiceModel?> ResolveAsync(
@@ -183,6 +185,15 @@ internal sealed class AccountPlanBusiness(
         // Startup guarantees DefaultPlan names a plan whenever there are plans, so this cannot miss.
         var resolved = plan ?? Find(billing, billing.DefaultPlan!)!;
 
+        // A trial runs from the account's creation, not from the row that put it on the trial (AP.7.1): one date per
+        // account, so an account that paid and lapsed back to a trial default has no second trial. Computed, never
+        // stored or scheduled — nothing has to run at day fourteen, and a plan bought before then simply replaces
+        // the trial. Read only for a trial, so a paid plan costs no extra round trip.
+        var trialEndsAt = resolved.TrialDays is { } days
+            && await accounts.FindCreatedAtAsync(accountId, cancellationToken) is { } created
+                ? created.AddDays(days)
+                : (DateTimeOffset?)null;
+
         return new AccountPlanServiceModel(
             resolved.Key,
             resolved.Name,
@@ -199,7 +210,8 @@ internal sealed class AccountPlanBusiness(
             IsDefault: plan is null,
             row?.Source,
             row?.EffectiveFrom,
-            span.NextStartsAt);
+            span.NextStartsAt,
+            trialEndsAt);
     }
 
     /// <remarks>
