@@ -77,8 +77,8 @@ const NAV_GROUPS: readonly ShellNavGroup[] = [
       { path: 'recipes', label: 'Recipes', icon: 'recipes' },
       { path: 'brand', label: 'Brand', icon: 'brand' },
       { path: 'ai-recipe-studio', label: 'AI Recipe Studio', icon: 'ai' },
-      { path: 'image-studio', label: 'Image Studio', icon: 'image' },
-      { path: 'social-studio', label: 'Social Studio', icon: 'social' },
+      { path: 'image-studio', label: 'AI Image Studio', icon: 'image' },
+      { path: 'social-studio', label: 'AI Social Studio', icon: 'social' },
     ],
   },
   {
