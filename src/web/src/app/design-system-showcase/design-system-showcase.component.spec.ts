@@ -228,6 +228,14 @@ describe('DesignSystemShowcaseComponent', () => {
     const section = fixture.nativeElement.querySelector('section[aria-labelledby="option-card-heading"]') as HTMLElement;
     const cards = () => [...section.querySelectorAll('cp-option-card')] as HTMLElement[];
     expect(cards().length).toBe(3);
+
+    // The salad is not on offer: its button says why, and choosing it does nothing (AP.6.5).
+    const disabled = cards()[1].querySelector('button') as HTMLButtonElement;
+    expect(disabled.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(disabled.getAttribute('aria-describedby')!)?.textContent).toContain('not approved yet');
+    disabled.click();
+    fixture.detectChanges();
+    expect(cards()[1].querySelector('.chosen')).toBeNull();
     expect(cards().map((card) => card.querySelector('.chosen') !== null)).toEqual([true, false, false]);
     // The fourth fact on the second card is in its disclosure, not dropped.
     expect(cards()[1].querySelectorAll('dl.tags > .tag').length).toBe(3);

@@ -868,6 +868,8 @@
             [summary]="concept.summary"
             chooseLabel="Choose this concept"
             [selected]="chosenConcept() === concept.id"
+            [disabled]="concept.id === 'salad'"
+            [disabledReason]="concept.id === 'salad' ? 'Needs a dressing the brand guide has not approved yet.' : ''"
             (chosen)="chosenConcept.set(concept.id)"
           >
             @if (concept.id === 'miso') {
@@ -879,18 +881,11 @@
           </cp-option-card>
         </li>
       }
-      <!-- Disabled: still compared, not on offer, and says why under its button (AP.6.5). -->
-      <li>
-        <cp-option-card
-          heading="Smoked aubergine"
-          [facts]="[{ label: 'Time', value: '1 hr' }]"
-          summary="Charred whole, then dressed while warm."
-          chooseLabel="Choose this concept"
-          [disabled]="true"
-          disabledReason="Concepts can’t be chosen while this recipe is being saved."
-        />
-      </li>
     </ul>
+    <p>
+      The salad is <code>disabled</code>: still compared, not on offer. Its button stays focusable, is faded and
+      <code>aria-disabled</code>, emits nothing, and says why underneath with <code>disabledReason</code> (AP.6.5).
+    </p>
   </section>
 
   <section aria-labelledby="stat-tile-heading">
