@@ -7,7 +7,10 @@
         @if (offerPack()) {
           <a cpButton variant="secondary" size="sm" [routerLink]="packLink">Get a credit pack</a>
         }
-        <button cpButton variant="text" size="sm" type="button" (click)="dismissed.emit()">Dismiss</button>
+        <!-- The visible word first, then what it dismisses, so the name reads as it is spoken. -->
+        <button cpButton variant="text" size="sm" type="button" (click)="dismissed.emit()">
+          Dismiss<span class="cp-sr-only"> the low-credit notice</span>
+        </button>
       </span>
     </span>
   }

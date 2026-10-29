@@ -56,4 +56,33 @@ public sealed class PlatformImageSpendStartupTests
 
         Assert.Contains(Setting, error.ToString(), StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The low-credit notice's line is a share, so a host that sets it outside the open unit interval is
+    /// refused at startup rather than at the first admission that would have tripped it (B-59).
+    /// </summary>
+    /// <remarks>
+    /// Nought would tell nobody anything and one would tell everybody on their first request; a negative
+    /// figure or one above one is a typo. All four start cleanly without this check and then behave oddly
+    /// for the rest of the deployment, which is the failure mode worth paying a startup check for.
+    /// </remarks>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1")]
+    [InlineData("-0.1")]
+    [InlineData("1.5")]
+    public void Api_refuses_to_start_with_an_unusable_low_credit_line(string fraction)
+    {
+        const string LowCredit = "Ai:Quota:LowCreditNoticeFraction";
+
+        using var factory = new WebApplicationFactory<ApiService::Program>().WithWebHostBuilder(web =>
+        {
+            TestDatabase.ConfigureWithoutHealthCheck(web);
+            web.UseSetting(LowCredit, fraction);
+        });
+
+        var error = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains(LowCredit, error.ToString(), StringComparison.Ordinal);
+    }
 }

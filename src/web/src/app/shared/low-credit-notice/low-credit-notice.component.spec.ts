@@ -59,8 +59,9 @@ describe('LowCreditNoticeComponent', () => {
     expect(link.textContent?.trim()).toBe('Get a credit pack');
     expect(link.getAttribute('href')).toBe(PACK_PURCHASE_LINK);
 
-    const buttons = Array.from(host.querySelectorAll('button')).map((button) => button.textContent?.trim());
-    expect(buttons).toEqual(['Dismiss']);
+    const buttons = Array.from(host.querySelectorAll('button'));
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent?.trim()).toBe('Dismiss the low-credit notice');
   });
 
   /** Sending somebody to the page they are reading is a loop, not an offer. */

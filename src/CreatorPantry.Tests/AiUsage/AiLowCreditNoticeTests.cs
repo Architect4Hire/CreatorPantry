@@ -50,6 +50,8 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
     /// <summary>Ten credits a call, two calls a run.</summary>
     private const decimal Hold = 20m;
 
+    private const string ImageModel = "test-image-model";
+
     private static readonly DateTimeOffset PeriodStart = new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset PeriodEnd = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -89,7 +91,7 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
     /// fail, and adding one so a test could reach it would be a worse answer than wrapping the interface the
     /// test already has access to.
     /// </remarks>
-    private ServiceProvider BuildProvider(bool markThrows)
+    private ServiceProvider BuildProvider(bool markThrows, bool throwOnce = false)
     {
         var services = new ServiceCollection()
             .AddTenancy()
@@ -103,6 +105,10 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
                 options.DefaultAllowance = Allowance;
                 options.DefaultTaskEstimate = 10m;
                 options.EstimatedCallsPerRun = 2;
+
+                // A picture costs 25 credits, so two of them cross the line from the same seeded period a
+                // written run does: pictures spend the same allowance and bring the same notice.
+                options.ImageRates[ImageModel] = 25m;
             })
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -111,8 +117,10 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
         if (markThrows)
         {
             services.AddScoped<AiQuotaDataLayer>();
+            var failures = new MarkFailures { Remaining = throwOnce ? 1 : int.MaxValue };
+
             services.AddScoped<IAiQuotaDataLayer>(provider =>
-                new MarkThrowsDataLayer(provider.GetRequiredService<AiQuotaDataLayer>()));
+                new MarkThrowsDataLayer(provider.GetRequiredService<AiQuotaDataLayer>(), failures));
         }
 
         return services.BuildServiceProvider(validateScopes: true);
@@ -230,6 +238,58 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
     }
 
     /// <summary>
+    /// Pictures spend the same credits writing does, so they bring the same notice (B-59). The same seeded
+    /// period, crossed by a picture instead of a completion.
+    /// </summary>
+    [Fact]
+    public async Task A_picture_that_crosses_the_line_raises_the_notice()
+    {
+        await SeedPeriodAsync(consumed: 950m);
+
+        var admission = await AdmitImageAsync(pictures: 1);
+
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, admission.Outcome);
+        Assert.NotNull((await PeriodAsync()).LowCreditNoticedAt);
+    }
+
+    [Fact]
+    public async Task A_picture_that_leaves_the_account_above_the_line_raises_nothing()
+    {
+        await SeedPeriodAsync(consumed: 500m);
+
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, (await AdmitImageAsync(pictures: 1)).Outcome);
+        Assert.Null((await PeriodAsync()).LowCreditNoticedAt);
+    }
+
+    /// <summary>Pictures and writing share the period's one column, so together they still tell once.</summary>
+    [Fact]
+    public async Task A_picture_and_a_written_run_crossing_the_line_tell_once()
+    {
+        await SeedPeriodAsync(consumed: 900m);
+
+        await AdmitImageAsync(pictures: 1);
+        var first = (await PeriodAsync()).LowCreditNoticedAt;
+
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        await AdmitAsync();
+
+        Assert.NotNull(first);
+        Assert.Equal(first, (await PeriodAsync()).LowCreditNoticedAt);
+    }
+
+    /// <summary>A picture the daily cap refuses spends nothing, so it tells nobody anything.</summary>
+    [Fact]
+    public async Task A_picture_refused_by_the_daily_cap_raises_nothing()
+    {
+        await SeedPeriodAsync(consumed: 950m);
+
+        var admission = await AdmitImageAsync(pictures: 1, dailyImageCap: 0);
+
+        Assert.Equal(AiQuotaAdmissionOutcome.DailyImageCap, admission.Outcome);
+        Assert.Null((await PeriodAsync()).LowCreditNoticedAt);
+    }
+
+    /// <summary>
     /// An unmeterable run cannot spend anything, so it opens no period and can leave nobody low.
     /// </summary>
     [Fact]
@@ -242,8 +302,8 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
     }
 
     /// <summary>
-    /// "None for an account with no allowance period": a period opened with nothing to spend has no fraction
-    /// to fall under, and every admission against it is refused anyway.
+    /// "None for an account with no allowance period" (B-59): a period opened with nothing to spend has no
+    /// fraction to fall under, so there is no line to cross.
     /// </summary>
     [Fact]
     public async Task A_period_with_no_allowance_raises_nothing()
@@ -253,6 +313,25 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
 
         await AdmitAsync();
 
+        Assert.Null((await PeriodAsync()).LowCreditNoticedAt);
+    }
+
+    /// <summary>
+    /// <strong>And nor does one whose packs are the only thing it can spend</strong>, which is the same rule
+    /// and is worth stating rather than discovering: a tenth of nought is nought, so an account spending a
+    /// pack against a zero allowance is never told it is running low. It is still refused at zero and still
+    /// told why (USAGE-006). Recorded here as the behaviour B-59's rule produces, not as a happy one.
+    /// </summary>
+    [Fact]
+    public async Task A_period_with_no_allowance_but_packs_to_spend_still_raises_nothing()
+    {
+        await SeedQuotaAsync(allowance: 0m);
+        await SeedPeriodAsync(consumed: 0m, allowance: 0m);
+        await SeedPackAsync(30m);
+
+        var admission = await AdmitAsync();
+
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, admission.Outcome);
         Assert.Null((await PeriodAsync()).LowCreditNoticedAt);
     }
 
@@ -298,6 +377,40 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
                 .Reserved);
     }
 
+    /// <summary>
+    /// What "the creator is told at the next admission instead" actually means: a mark that failed once is
+    /// not a notice lost, because the column is still null and the next admission finds the account low.
+    /// </summary>
+    [Fact]
+    public async Task A_notice_that_failed_once_is_raised_by_the_next_admission()
+    {
+        await using var provider = BuildProvider(markThrows: true, throwOnce: true);
+
+        await SeedPeriodAsync(consumed: 900m, provider: provider);
+
+        await AdmitAsync(provider: provider);
+
+        using (var scope = provider.CreateScope())
+        {
+            Assert.Null(
+                await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+                    .AccountAiQuotaPeriods.AsNoTracking()
+                    .Where(period => period.AccountId == Account)
+                    .Select(period => period.LowCreditNoticedAt)
+                    .SingleAsync(TestContext.Current.CancellationToken));
+        }
+
+        await AdmitAsync(provider: provider);
+
+        using var after = provider.CreateScope();
+        Assert.NotNull(
+            await after.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+                .AccountAiQuotaPeriods.AsNoTracking()
+                .Where(period => period.AccountId == Account)
+                .Select(period => period.LowCreditNoticedAt)
+                .SingleAsync(TestContext.Current.CancellationToken));
+    }
+
     // ---- what the account reads ------------------------------------------------------------------------
 
     [Fact]
@@ -326,7 +439,11 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
         var usage = await CurrentAsync();
 
         Assert.True(usage.LowCredit.IsNoticed);
-        Assert.Equal(usage.Period.Remaining + usage.PackRemaining, usage.LowCredit.Spendable);
+
+        // Literals, not the same sum computed twice: 1000 less 950 spent and 20 held, plus a 30-credit pack.
+        Assert.Equal(30m, usage.Period.Remaining);
+        Assert.Equal(30m, usage.PackRemaining);
+        Assert.Equal(60m, usage.LowCredit.Spendable);
     }
 
     [Fact]
@@ -456,6 +573,27 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
         Assert.Empty(await SettingsAsync());
     }
 
+    /// <summary>
+    /// The server keeps a dismissal through a change of setting: a creator who has read this period's notice
+    /// has read it, and switching the notice off and on again is not a request to be told twice.
+    /// </summary>
+    [Fact]
+    public async Task Turning_the_notice_off_and_on_again_does_not_undismiss_it()
+    {
+        await SeedPeriodAsync(consumed: 950m);
+        await AdmitAsync();
+        await DismissAsync();
+
+        await SetEnabledAsync(false);
+        await SetEnabledAsync(true);
+
+        var low = (await CurrentAsync()).LowCredit;
+
+        Assert.True(low.IsNoticed);
+        Assert.True(low.IsDismissed);
+        Assert.True(low.NoticeEnabled);
+    }
+
     // ---- between accounts ------------------------------------------------------------------------------
 
     /// <summary>
@@ -493,6 +631,9 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
 
         await DismissAsync();
 
+        // The positive control: without it a DismissAsync that did nothing at all would pass this test.
+        Assert.NotNull(await PeriodAsync() is { } mine ? mine.LowCreditNoticeDismissedAt : null);
+
         Assert.Null((await AllPeriodsAsync())
             .Single(period => period.AccountId == OtherAccount).LowCreditNoticeDismissedAt);
     }
@@ -518,6 +659,26 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
                 AiTaskType.RecipeConcepts,
                 meterable,
                 _clock.UtcNow + AiPolicy.LeaseDuration),
+            TestContext.Current.CancellationToken);
+    }
+
+    private async Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(int pictures, int? dailyImageCap = null)
+    {
+        using var scope = _provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>()
+            .Resolve(WorkspaceA, "a", MembershipInA, WorkspaceRole.Owner, Account);
+
+        return await scope.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>().AdmitImageAsync(
+            new AiImageQuotaAdmissionRequestServiceModel(
+                Account,
+                Guid.NewGuid(),
+                pictures,
+                ImageModel,
+                null,
+                null,
+                _clock.UtcNow + AiPolicy.LeaseDuration,
+                dailyImageCap),
             TestContext.Current.CancellationToken);
     }
 
@@ -654,12 +815,27 @@ public sealed class AiLowCreditNoticeTests : IAsyncDisposable
     private static ApplicationUser User(string id) =>
         new() { Id = id, UserName = $"{id}@example.test", Email = $"{id}@example.test", DisplayName = id };
 
+    /// <summary>How many more marks are to throw. Shared across the scopes one provider hands out.</summary>
+    private sealed class MarkFailures
+    {
+        public int Remaining { get; set; }
+    }
+
     /// <summary>Everything the real data layer does, except that recording a notice throws.</summary>
-    private sealed class MarkThrowsDataLayer(AiQuotaDataLayer inner) : IAiQuotaDataLayer
+    private sealed class MarkThrowsDataLayer(AiQuotaDataLayer inner, MarkFailures failures) : IAiQuotaDataLayer
     {
         public Task<AiQuotaWriteOutcome> MarkLowCreditNoticedAsync(
-            Guid periodId, DateTimeOffset now, CancellationToken cancellationToken) =>
+            Guid periodId, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            if (failures.Remaining <= 0)
+            {
+                return inner.MarkLowCreditNoticedAsync(periodId, now, cancellationToken);
+            }
+
+            failures.Remaining--;
+
             throw new InvalidOperationException("the notice could not be written");
+        }
 
         public Task<AccountAiQuota?> FindCurrentQuotaAsync(
             string accountId, CancellationToken cancellationToken) =>

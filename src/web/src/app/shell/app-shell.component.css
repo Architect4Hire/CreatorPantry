@@ -188,6 +188,14 @@ main {
   padding-top: var(--cp-topbar-height);
   min-height: 100vh;
 }
+/* The content region takes focus only from script, when the shell removes something the creator was standing
+   on (dismissing the low-credit notice takes its own button with it). It is a destination, not a control and
+   not a tab stop, so it draws no ring: a 2px outline around the whole page would be the loudest thing on
+   screen and would stay until the next click. What the creator standing here needs is their place back, and
+   the next Tab moves to the first control on the page. */
+main:focus {
+  outline: none;
+}
 /* Left-aligned, not centred: a page keeps its edge against the sidebar at every window width. The widths
    include the gutter, so the box is the token and the content is the token less two gutters. */
 .page-frame {
