@@ -1,4 +1,5 @@
 using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing.Facade;
@@ -128,8 +129,7 @@ public sealed class PictureClassRateTests
     [Fact]
     public async Task Each_plans_example_fits_its_credits_at_the_published_rates()
     {
-        await using var host = await SqliteApiHost.StartAsync(configureServices: services =>
-            services.PostConfigure<BillingOptions>(billing => billing.PublishPlans = true));
+        await using var host = await SqliteApiHost.StartAsync(configureServices: Published());
 
         var catalogue = CatalogueOf(host);
         var perPicture = catalogue.PictureClasses
@@ -173,5 +173,7 @@ public sealed class PictureClassRateTests
             {
                 adjust?.Invoke(plan);
             }
-        });
+        })
+        // A published plan's daily cap is enforced only with limits on (DL.6), and the test host leaves them off.
+        .PostConfigure<LimitsOptions>(limits => limits.Enabled = true);
 }

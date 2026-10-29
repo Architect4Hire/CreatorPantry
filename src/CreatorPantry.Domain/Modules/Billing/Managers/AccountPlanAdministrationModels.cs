@@ -49,8 +49,36 @@ public sealed class SetAccountPlanViewModelValidator : AbstractValidator<SetAcco
 /// already on that plan from that instant.
 /// </param>
 /// <param name="Plan">The plan in force now, read after the write: the new one, or the old one on a schedule.</param>
+/// <param name="CapsFrom">
+/// When the new plan's daily and running picture caps and its quality classes apply: now for a change in force, the
+/// start for a scheduled one, null when nothing changed (DL.3). They are read at each request, so nothing waits.
+/// </param>
+/// <param name="Allowance">When the new plan's allowance applies (B-56, DL.3).</param>
 public sealed record AccountPlanChangeServiceModel(
-    string AccountId, AccountPlanChangeReport Outcome, AccountPlanServiceModel Plan);
+    string AccountId,
+    AccountPlanChangeReport Outcome,
+    AccountPlanServiceModel Plan,
+    DateTimeOffset? CapsFrom,
+    AccountPlanAllowanceTiming Allowance);
+
+/// <summary>When a plan change's allowance applies, by B-56's rule (DL.3).</summary>
+public enum AccountPlanAllowanceTiming
+{
+    /// <summary>Nothing changed.</summary>
+    None = 0,
+
+    /// <summary>
+    /// The new plan grants more credits: the difference is added from the change's start, at the account's next AI
+    /// request, on top of what the running period already granted.
+    /// </summary>
+    DifferenceNow = 1,
+
+    /// <summary>
+    /// The new plan grants the same or fewer credits, or is granted once (the trial): the running period keeps what it
+    /// opened with, and the new allowance arrives at the first period that opens after the change starts (B-54).
+    /// </summary>
+    NextPeriod = 2,
+}
 
 /// <summary>What the ops route reports a plan change as (AP.4.4).</summary>
 public enum AccountPlanChangeReport

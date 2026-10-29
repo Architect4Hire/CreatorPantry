@@ -130,7 +130,16 @@ public sealed record AccountPlanChangeAudit(PlatformActor Actor, string Reason);
 /// here, where the instant the row was written with is known — a caller comparing keys afterwards cannot tell a
 /// scheduled change from one that landed, and a change to the plan the account was already on from neither.
 /// </param>
-internal sealed record AccountPlanChangeResult(AccountPlanChangeOutcome Outcome, bool Scheduled = false)
+/// <param name="CapsFrom">
+/// When the new plan's picture caps and quality classes apply — the instant the row starts, now or scheduled (DL.3);
+/// null when nothing changed.
+/// </param>
+/// <param name="Allowance">When the new plan's allowance applies (B-56); <c>None</c> when nothing changed.</param>
+internal sealed record AccountPlanChangeResult(
+    AccountPlanChangeOutcome Outcome,
+    bool Scheduled = false,
+    DateTimeOffset? CapsFrom = null,
+    AccountPlanAllowanceTiming Allowance = AccountPlanAllowanceTiming.None)
 {
     public static readonly AccountPlanChangeResult Changed = new(AccountPlanChangeOutcome.Changed);
 
@@ -563,8 +572,34 @@ internal sealed class AccountPlanBusiness(
         var scheduled = at > now;
         var outcome = await data.AppendAsync(accountId, latest, storedKey, source, at, entry, cancellationToken);
 
-        return new AccountPlanChangeResult(outcome, scheduled && outcome is AccountPlanChangeOutcome.Changed);
+        if (outcome is not AccountPlanChangeOutcome.Changed)
+        {
+            return AccountPlanChangeResult.Refused(outcome);
+        }
+
+        // When each part of the change applies, said by the rule that applies it (B-56, DL.3): caps and quality
+        // classes are read at the request, so they follow the row from its start; a plan granting more credits adds
+        // the difference from then, and one granting the same or fewer waits for the next period roll. Measured
+        // against the plan the account would otherwise be on at that instant — the end of the chain, or the default.
+        var billing = options.Value;
+        var before = Find(billing, latest?.PlanKey ?? billing.DefaultPlan!) ?? Find(billing, billing.DefaultPlan!);
+        var after = Find(billing, storedKey ?? billing.DefaultPlan!);
+
+        return new AccountPlanChangeResult(
+            outcome,
+            scheduled,
+            at,
+            AllowanceTimingOf(before, after));
     }
+
+    /// <summary>
+    /// Whether moving from <paramref name="before"/> to <paramref name="after"/> adds an allowance at once (B-56). A plan
+    /// granted once — the trial — never tops a period up, so moving to it waits for the roll like any other.
+    /// </summary>
+    private static AccountPlanAllowanceTiming AllowanceTimingOf(PlanOption? before, PlanOption? after) =>
+        after is { Period: PlanAllowancePeriod.Monthly } && before is not null && after.Credits > before.Credits
+            ? AccountPlanAllowanceTiming.DifferenceNow
+            : AccountPlanAllowanceTiming.NextPeriod;
 
     /// <summary>
     /// The request's trace, so an audit row can be tied to the request that wrote it; a new id when there is no

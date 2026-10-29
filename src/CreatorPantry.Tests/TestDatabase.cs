@@ -33,6 +33,11 @@ internal static class TestDatabase
         // switch them back on with the numbers they need (LimitsTestConfiguration).
         web.UseSetting("Limits:Enabled", "false");
 
+        // And so plans are not published (DL.6): a published plan's daily cap is enforced only with limits on, and
+        // a host that would print a cap nothing enforces does not start. The Development catalogue stays in place
+        // for what an account resolves to; the tests about the published page publish it and switch limits on.
+        web.UseSetting("Billing:PublishPlans", "false");
+
         // A credit rate for the fake image model (AP.2.5). A picture with no rate is refused at admission and
         // never generated, so without this every generation test would be answered "this host cannot price
         // that" — which is the right answer to a real misconfiguration and the wrong one here. The figure is

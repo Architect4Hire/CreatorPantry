@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -39,7 +40,9 @@ public sealed class PlansEndpointTests
             ];
             billing.Packs = [new CreditPackOption { Key = "small", Credits = 2500, Price = 10 }];
             billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10 };
-        });
+        })
+        // A published plan's daily cap is enforced only with limits on (DL.6), and the test host leaves them off.
+        .PostConfigure<LimitsOptions>(limits => limits.Enabled |= published);
 
     /// <summary>
     /// Anonymous on purpose, and the only product route that is: the catalogue is what a deployment chose to

@@ -3,7 +3,8 @@
 *Status: Accepted — 2026-10-26, except B-51, which is **proposed, not decided**. Recorded by AI-pricing prompt
 AP.1.1. B-55 added 2026-10-27 at the owner's request; B-56 added 2026-10-27 by AP.4.2 with the owner's answers;
 B-57 and B-58 added 2026-10-28 by AP.6.1 with the owner's approval; B-59 added 2026-10-28 with the owner's answer;
-B-60 added 2026-10-28 by AP.6.2 with the owner's approval.*
+B-60 added 2026-10-28 by AP.6.2 with the owner's approval; B-61 added 2026-10-29 by AP.7.1, B-62 and B-63 by AP.7.2,
+and B-64 by the daily-limits document's DL.1, each with the owner's answers.*
 
 This record fixes the product decisions behind CreatorPantry's AI pricing — closing the image cost leak, then
 plans, prepaid credit packs and Stripe billing on top of the allowance Phase 9A built — so the AP prompts build
@@ -39,6 +40,9 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
   account's creation, and an ended trial admits no AI work, pack credits included (B-61).
 - Product-owner answers of 2026-10-29 to AP.7.2's audit: "the server should win" on the landing estimator, "clamp
   at zero" on an overspent allowance, and approval of the fix list with its two recommendations (B-62, B-63).
+- Product-owner answers of 2026-10-29 to the daily-limits document's DL.1
+  (`docs/prompts/2.creatorpantry-daily-limits-scrub-prompts.md`): `trial` as a deployment's default plan, and its
+  other three open questions recorded as B-56 and B-45 answered them, in the order as built (B-64).
 - `CLAUDE.md` and `.claude/rules/` — architectural source of truth. Nothing here redefines them; B-44 amends
   `CLAUDE.md`'s out-of-bounds list on the owner's explicit request.
 
@@ -84,6 +88,7 @@ Cite a decision in this record as `ai-pricing.md` B-nn. Do not renumber; later d
 | B-61 | A trial is dated from the account, and its end stops all AI work | PRICE-012, B-48, B-52, B-54 | Decided | Owner, 2026-10-29, approving AP.7.1. A trial runs `TrialDays` from the Identity account's creation. After it, while still on the trial, no AI work is admitted — text or pictures, pack credits included — until a plan is chosen. Running out of credits or pictures before then refuses that work only. |
 | B-62 | The landing estimate is the server's | PRICE-004, B-55 | Decided | Owner, 2026-10-29, answering AP.7.2. The estimator sends its counts and quality to `GET /api/v1/plans/estimate` and formats the answer: the month in credits, the plan that carries it and what it leaves. The browser does no pricing arithmetic. Supersedes LP.7's client multiplication. |
 | B-63 | An overspend lands on the allowance; every read clamps at zero | PRICE-009, USAGE-003, B-46 | Decided | Owner, 2026-10-29, answering AP.7.2. A run that costs more than its hold is charged what it cost, on the period's allowance, so the ledger stays true; what a creator, a quote or an admission reads is never below zero. No debt is carried and nothing is invoiced. |
+| B-64 | Plan daily limits | DLIM-001–009, B-47, B-56 | Decided | Owner, 2026-10-29, answering DL.1. A deployment that configures plans defaults to `trial`; development keeps Studio. What counts against the day, charging before Stripe and the order of the gates are B-56's and B-45's as built. |
 
 ## Decisions
 
@@ -353,8 +358,7 @@ classes on the page. Until AP.3.1, the one class the deployment sends is standar
   `ImageRunningPerWorkspace` rose from 2 to 3 so Studio's 3 can be reached. Both kinds switch off with
   `Limits:Enabled`.
 - **Development defaults to Studio** (owner, 2026-10-27), so local work is not held to the trial's figures
-  before AP.4.4 can move an account. Which plan a deployment defaults to is still the daily-limits document's
-  open item.
+  before AP.4.4 can move an account. Which plan a deployment defaults to is B-64's: `trial`.
 
 **Options considered:** pro-rating an upgrade by days left — rejected by the owner; the whole new allowance on
 top — rejected ("the difference not the total"); a separate per-account day-hold table (DL.4) — not needed, since
@@ -605,6 +609,45 @@ same arithmetic is two answers the day one changes.
 **Options considered:** capping the charge at the hold — rejected: the platform would absorb the difference and the
 ledger would understate cost.
 **Rules:** `ai.md` (deterministic accounting), `backend.md`.
+
+### B-64 Plan daily limits
+
+- **Owner, 2026-10-29, answering the daily-limits document's DL.1** (`docs/prompts/2.creatorpantry-daily-limits-scrub-prompts.md`),
+  which records its decisions here rather than in a record of its own.
+- **Its standing decisions, as they now stand:**
+  - one plan per Identity account, across every workspace it works in (B-47), so the daily picture cap is the
+    account's;
+  - the workspace's flat `ImageVariantsPerWorkspacePerDay` stays beside the plan's cap, and a request passes both;
+  - the day is UTC (`LimitDay`), and a refusal says when it resets;
+  - prices are proposals until the owner settles them (B-51);
+  - no model sees a balance, a cap or a plan (`ai.md`).
+- **Two of its standing decisions are superseded:** "nothing here takes money" by B-57 (Stripe Checkout and the portal,
+  AP.6), and "one kind of picture" by B-55 (quality classes, AP.3.1).
+- **The default plan is `trial`** for a deployment that configures plans. A new account gets its 14 days from creation
+  (B-61); an account whose subscription lapses falls to the default (B-60) — that ended trial — and is asked to choose a
+  plan. Development keeps Studio (B-56).
+- **What counts against the account's day** is B-56's, as AP.4.2 built it: a hold counts every picture asked for while
+  held, what was billed once settled, and nothing once released or expired — so a picture never sent can be asked for
+  again the same day. **The workspace's day is not that count**: it sums every picture requested in the workspace that
+  UTC day, whatever became of it (`CountForLimitsAsync`), so a released picture still uses the workspace's day. The
+  document's "released and can be requested again the same day" holds for the account only.
+- **Pictures cost credits before Stripe** — B-45, built in AP.2.5.
+- **The order at the request**, as built (B-56, extended by AP.7.1 and AP.7.2):
+  1. the workspace's pictures in flight, then its day (`RefuseIfOverLimitsAsync`; both switch off with `Limits:Enabled`);
+  2. at admission, a suspension, then a trial that has ended (B-61), then a picture with no rate or the platform's
+     daily ceiling (AP.2.7);
+  3. inside the hold, the trial's lifetime picture cap (B-52), which applies whatever `Limits:Enabled` says, then the
+     account's day, which switches off with it;
+  4. then credits.
+
+  The document proposed the account's day first; the order as built is the one recorded.
+
+**Options considered:** a paid plan as the default — rejected: every new account would hold paid credits for nothing.
+No default — not possible: startup requires `Billing:DefaultPlan` whenever plans are configured.
+**Consequences:** a deployment that configures `Billing:Plans` sets `Billing:DefaultPlan` to `trial`. Until one does,
+plans are configured in development only — the API's and the Worker's `appsettings.Development.json`, defaulting to
+Studio — and every deployed account keeps the flat limits.
+**Rules:** `tenancy.md`, `ai.md` (limits are code), `backend.md` (Limits).
 
 ## Relationship to the prompt libraries
 

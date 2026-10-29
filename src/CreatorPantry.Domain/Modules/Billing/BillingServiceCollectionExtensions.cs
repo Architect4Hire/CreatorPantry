@@ -155,14 +155,6 @@ public static class BillingServiceCollectionExtensions
                 "A plan under Billing:Plans lists a quality class that is not one of them; the classes are "
                     + $"{string.Join(", ", PictureQualityVocabulary.Names)}, spelled with or without hyphens.")
             .Validate<IOptions<LimitsOptions>>(
-                // Both caps apply to a request (AP.4.2): the plan's to the account, the workspace's to everyone in
-                // the workspace. A plan above the workspace's could never be reached by a creator who works in one
-                // workspace, so its card would promise a number the product cannot give.
-                (billing, limits) => !limits.Value.Enabled || billing.Plans.All(plan =>
-                    plan.DailyImageCap <= limits.Value.ImageVariantsPerWorkspacePerDay),
-                "A plan under Billing:Plans has a DailyImageCap above Limits:ImageVariantsPerWorkspacePerDay; "
-                    + "a creator in one workspace could never reach it.")
-            .Validate<IOptions<LimitsOptions>>(
                 (billing, limits) => !limits.Value.Enabled || billing.Plans.All(plan =>
                     plan.RunningImages <= limits.Value.ImageRunningPerWorkspace
                     && plan.RunningImages <= limits.Value.ImageInFlightPerWorkspace),
@@ -182,6 +174,12 @@ public static class BillingServiceCollectionExtensions
                 billing => billing.ReturnOrigins.All(BillingAccountOrigins.IsOrigin),
                 "An entry under Billing:ReturnOrigins is not an http(s) origin (scheme, host and port only).")
             .ValidateOnStart();
+
+        // The published daily picture cap is the enforced one (DL.6): limits on whenever plans are published, every
+        // published cap at least one, and none above the workspace's day (AP.4.2) — both caps apply to a request, so
+        // a plan above the workspace's would promise a number a creator in one workspace could never reach. A class
+        // of its own so each failure names the plan and both figures; ValidateOnStart above runs it too.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BillingOptions>, PublishedPlanCapsValidation>());
 
         services.AddSingleton<RemovedPlanWarnings>();
 

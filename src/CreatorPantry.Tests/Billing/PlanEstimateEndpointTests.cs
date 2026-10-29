@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -36,7 +37,9 @@ public sealed class PlanEstimateEndpointTests
             ];
             billing.Packs = [new CreditPackOption { Key = "small", Credits = 2500, Price = 10 }];
             billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10 };
-        });
+        })
+        // A published plan's daily cap is enforced only with limits on (DL.6), and the test host leaves them off.
+        .PostConfigure<LimitsOptions>(limits => limits.Enabled |= published);
 
     private static PlanOption Plan(
         string key, string name, decimal monthly, decimal annual, int credits, int dailyCap, bool trial = false) => new()

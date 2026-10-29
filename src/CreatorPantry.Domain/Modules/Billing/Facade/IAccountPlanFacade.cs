@@ -167,7 +167,7 @@ internal sealed class AccountPlanFacade(
             : result.Scheduled ? AccountPlanChangeReport.Scheduled : AccountPlanChangeReport.Changed;
 
         return OperationResult<AccountPlanChangeServiceModel>.Success(
-            new AccountPlanChangeServiceModel(accountId, report, plan!));
+            new AccountPlanChangeServiceModel(accountId, report, plan!, result.CapsFrom, result.Allowance));
     }
 
     /// <summary>

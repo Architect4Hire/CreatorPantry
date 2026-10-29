@@ -37,9 +37,10 @@ public sealed class BillingOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Proposed, not decided:</b> development sets <c>trial</c>, the daily-limits document's proposal for
-    /// what a new sign-up is on. A trial ends <see cref="PlanOption.TrialDays"/> after its account was created
-    /// (AP.7.1), and an account still on it after that is admitted no AI work until it chooses a plan.
+    /// <b>Decided (B-64):</b> a deployment that configures plans sets <c>trial</c>, so a new sign-up starts its
+    /// trial; development sets <c>studio</c> (B-56). A trial ends <see cref="PlanOption.TrialDays"/> after its account
+    /// was created (AP.7.1, B-61), and an account still on it after that is admitted no AI work until it chooses a
+    /// plan — which is also where a lapsed subscription lands (B-60).
     /// </para>
     /// <para>
     /// With no plans configured, which is every deployment today, there is no default either, and an account

@@ -120,6 +120,11 @@ public sealed class OpsAccountPlanTests
         Assert.False(body.GetProperty("plan").GetProperty("isDefault").GetBoolean());
         Assert.Equal("Ops", body.GetProperty("plan").GetProperty("source").GetString());
 
+        // When each part applies (DL.3, B-56): the caps from now, and — Studio granting more than the trial — the
+        // difference in credits at once.
+        Assert.Equal(body.GetProperty("plan").GetProperty("effectiveFrom").GetDateTimeOffset(), body.GetProperty("capsFrom").GetDateTimeOffset());
+        Assert.Equal("DifferenceNow", body.GetProperty("allowance").GetString());
+
         var audit = Assert.Single(await AuditAsync(host, accountId));
         Assert.Equal(AccountPlanAuditActions.Set, audit.Action);
         Assert.Equal(AccountPlanAuditActions.SubjectType, audit.SubjectType);
@@ -149,6 +154,10 @@ public sealed class OpsAccountPlanTests
 
         Assert.Equal("Scheduled", body.GetProperty("outcome").GetString());
 
+        // The caps follow the row from its start; the larger allowance's difference does too.
+        Assert.Equal(at.ToUniversalTime(), body.GetProperty("capsFrom").GetDateTimeOffset(), TimeSpan.FromMilliseconds(1));
+        Assert.Equal("DifferenceNow", body.GetProperty("allowance").GetString());
+
         // Still the default, with the scheduled change showing as when it takes over.
         var plan = body.GetProperty("plan");
         Assert.Equal("trial", plan.GetProperty("key").GetString());
@@ -157,6 +166,41 @@ public sealed class OpsAccountPlanTests
         var audit = Assert.Single(await AuditAsync(host, accountId));
         Assert.Equal(AccountPlanAuditActions.Scheduled, audit.Action);
         Assert.StartsWith("planKey=studio;effectiveFrom=", audit.AfterReference, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A move to a plan granting fewer credits changes the caps at once and the allowance at the next period roll —
+    /// the running period keeps what it opened with (B-56, DL.3).
+    /// </summary>
+    [Fact]
+    public async Task A_move_to_fewer_credits_says_the_allowance_waits_for_the_next_period()
+    {
+        await using var host = await SqliteApiHost.StartAsync(configureServices: Catalogue());
+        var accountId = await host.CreateUserAsync("sam@example.com", Password);
+        var ops = host.CreateOpsClient(await host.CreateOpsClientAsync());
+
+        await Put(ops, accountId, new { planKey = "studio", reason = "Paid invoice 41" });
+        var body = await BodyOf(await Put(ops, accountId, new { planKey = "creator", reason = "Moved down on request" }));
+
+        Assert.Equal("Changed", body.GetProperty("outcome").GetString());
+        Assert.NotEqual(JsonValueKind.Null, body.GetProperty("capsFrom").ValueKind);
+        Assert.Equal("NextPeriod", body.GetProperty("allowance").GetString());
+    }
+
+    /// <summary>A change that changes nothing says nothing applies.</summary>
+    [Fact]
+    public async Task A_change_that_changes_nothing_says_no_part_of_it_applies()
+    {
+        await using var host = await SqliteApiHost.StartAsync(configureServices: Catalogue());
+        var accountId = await host.CreateUserAsync("sam@example.com", Password);
+        var ops = host.CreateOpsClient(await host.CreateOpsClientAsync());
+
+        await Put(ops, accountId, new { planKey = "studio", reason = "Paid invoice 41" });
+        var again = await BodyOf(await Put(ops, accountId, new { planKey = "studio", reason = "Paid invoice 41" }));
+
+        Assert.Equal("Unchanged", again.GetProperty("outcome").GetString());
+        Assert.Equal(JsonValueKind.Null, again.GetProperty("capsFrom").ValueKind);
+        Assert.Equal("None", again.GetProperty("allowance").GetString());
     }
 
     /// <summary>
