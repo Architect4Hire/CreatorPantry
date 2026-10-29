@@ -79,6 +79,23 @@ export interface AccountAiUsagePlan {
   readonly allowanceRenews: boolean;
 }
 
+/**
+ * Where the account stands with the low-credit notice. Mirrors `AccountAiLowCreditServiceModel` (B-59).
+ *
+ * Facts, not a decision about what to draw: whether the notice is shown is the app's call, and
+ * `AiUsageService.lowCredit` is the one place that makes it.
+ */
+export interface AccountAiLowCredit {
+  /** Whether an admission this period left the account at or below the server's low-credit line. */
+  readonly isNoticed: boolean;
+  /** Whether the creator has put this period's notice away. False again when the period rolls. */
+  readonly isDismissed: boolean;
+  /** Whether the account wants the notice at all. True until it says otherwise. */
+  readonly noticeEnabled: boolean;
+  /** What the account can actually spend: `period.remaining` plus `packRemaining`, summed by the server. */
+  readonly spendable: number;
+}
+
 /** The signed-in account's allowance right now, and what it has gone on. Mirrors `AccountAiUsageServiceModel`. */
 export interface AccountAiUsage {
   readonly period: AccountAiUsagePeriod;
@@ -104,6 +121,8 @@ export interface AccountAiUsage {
   readonly packRemaining: number;
   /** The plan the account is on; null on a host with no plan catalogue. */
   readonly plan: AccountAiUsagePlan | null;
+  /** Where the account stands with the low-credit notice (B-59). */
+  readonly lowCredit: AccountAiLowCredit;
 }
 
 /**
@@ -125,6 +144,7 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
   const writing = amountOf(value['writing']);
   const packRemaining = amountOf(value['packRemaining']);
   const plan = decodePlan(value['plan']);
+  const lowCredit = decodeLowCredit(value['lowCredit']);
 
   if (
     period === null ||
@@ -137,12 +157,50 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
     // Required, though the schema marks it optional: the server always sends it, and a missing balance read as
     // none would lock a creator out of credits they hold.
     packRemaining === null ||
-    plan === undefined
+    plan === undefined ||
+    lowCredit === null
   ) {
     return null;
   }
 
-  return { period, isSuspended, byTask, byWorkspace, isNearlySpent, pictures, writing, packRemaining, plan };
+  return {
+    period,
+    isSuspended,
+    byTask,
+    byWorkspace,
+    isNearlySpent,
+    pictures,
+    writing,
+    packRemaining,
+    plan,
+    lowCredit,
+  };
+}
+
+/**
+ * The notice block, or null when what arrived is not one.
+ *
+ * Required rather than tolerated as absent: a missing block read as "no notice" would quietly stop telling a
+ * creator their credits are running low, which is the one thing this feature exists to do.
+ */
+function decodeLowCredit(value: unknown): AccountAiLowCredit | null {
+  if (!isRecord(value)) return null;
+
+  const isNoticed = value['isNoticed'];
+  const isDismissed = value['isDismissed'];
+  const noticeEnabled = value['noticeEnabled'];
+  const spendable = amountOf(value['spendable']);
+
+  if (
+    typeof isNoticed !== 'boolean' ||
+    typeof isDismissed !== 'boolean' ||
+    typeof noticeEnabled !== 'boolean' ||
+    spendable === null
+  ) {
+    return null;
+  }
+
+  return { isNoticed, isDismissed, noticeEnabled, spendable };
 }
 
 /**

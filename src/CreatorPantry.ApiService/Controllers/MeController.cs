@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
@@ -19,7 +20,9 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/me")]
 public sealed class MeController(
-    IWorkspaceFacade workspaceFacade, IAiUsageReadFacade aiUsageFacade) : ControllerBase
+    IWorkspaceFacade workspaceFacade,
+    IAiUsageReadFacade aiUsageFacade,
+    IAiLowCreditNoticeFacade lowCreditNoticeFacade) : ControllerBase
 {
     /// <summary>Every workspace membership the signed-in user holds, active or not.</summary>
     [HttpGet]
@@ -73,6 +76,53 @@ public sealed class MeController(
         [FromQuery] int limit = AiUsagePolicy.HistoryDefaultPeriods,
         CancellationToken cancellationToken = default) =>
         Ok(await aiUsageFacade.GetHistoryAsync(AccountId, limit, cancellationToken));
+
+    /// <summary>
+    /// Puts away this period's low-credit notice (PRICE-011 as amended, B-59).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// <para>
+    /// Idempotent, and answers `204` whether or not there was anything to dismiss. A notice the creator has
+    /// already put away, a period that rolled while they were reading it, and an account that has never been
+    /// low are all the state the caller asked for, and none of them is worth a refusal they cannot act on.
+    /// </para>
+    /// <para>
+    /// A dismissal lasts the period. The next period is a new row, and an account that runs low again is told
+    /// again — to stop being told at all, see the setting below.
+    /// </para>
+    /// </remarks>
+    [HttpPost("ai-usage/low-credit-notice/dismissal")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DismissLowCreditNotice(CancellationToken cancellationToken)
+    {
+        await lowCreditNoticeFacade.DismissAsync(AccountId, cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Says whether this account wants to be told when its credits run low (PRICE-011 as amended, B-59).
+    /// </summary>
+    /// <param name="model">`{ "enabled": true | false }`. A body that names neither is refused.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// On until the account says otherwise: a notice is not a charge, so it needs no opt-in. Switching it off
+    /// stops the notice being shown; nothing else about the allowance changes, and an account at zero is still
+    /// refused at admission and still told so.
+    ///
+    /// Idempotent — setting it to what it already is answers `204` and writes nothing.
+    /// </remarks>
+    [HttpPut("ai-usage/low-credit-notice")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IActionResult> SetLowCreditNotice(
+        LowCreditNoticeViewModel model, CancellationToken cancellationToken)
+    {
+        var result = await lowCreditNoticeFacade.SetEnabledAsync(AccountId, model, cancellationToken);
+
+        return result.Succeeded ? NoContent() : this.ProblemFor(result.Error!);
+    }
 
     /// <summary>
     /// The signed-in account, from the validated token.

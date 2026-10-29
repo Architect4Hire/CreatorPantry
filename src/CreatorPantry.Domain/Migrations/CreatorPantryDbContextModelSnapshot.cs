@@ -905,6 +905,32 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiNoticeSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("LastChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("LowCreditNoticeEnabled")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiNoticeSettings_Account");
+
+                    b.ToTable("AccountAiNoticeSettings", (string)null);
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuota", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1020,6 +1046,12 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateOnly>("LocalStartDate")
                         .HasColumnType("date");
 
+                    b.Property<DateTimeOffset?>("LowCreditNoticeDismissedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LowCreditNoticedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("PlanKey")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
@@ -1067,6 +1099,8 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Ends_After_Starts", "EndsAt > StartsAt");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_GrantReserved_NotNegative", "CAST(GrantReserved AS FLOAT) >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_LowCreditNotice_Dismissed_After_Raised", "LowCreditNoticeDismissedAt IS NULL OR (LowCreditNoticedAt IS NOT NULL AND LowCreditNoticeDismissedAt >= LowCreditNoticedAt)");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Settled_After_End", "SettledAt IS NULL OR SettledAt >= EndsAt");
 

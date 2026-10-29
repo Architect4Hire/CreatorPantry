@@ -14,6 +14,11 @@
 > wording in section 8 is the part most in need of review: under Stripe Managed Payments, purchases are sold
 > through Link, not by us.
 
+> **Revision for counsel, 2026-10-28 (second).** The low-balance notice of B-59 is now built (AP.6.4), so the
+> bracketed proposal in section 7 is replaced by what the software does: on by default, at most one notice per
+> allowance period, and a setting in the account that turns it off. Nothing is ever charged or bought for a
+> creator by it. No other clause changed.
+
 **Last updated:** [DATE OF PUBLICATION]
 
 ## 1. Who we are and what these terms cover
@@ -147,7 +152,9 @@ service for nutrition evidence, and Stripe — through Link, its merchant-of-rec
 - Credits have no cash value, cannot be transferred, and are not refundable except as this section or the law
   provides.
 - **Running low.** We never buy credits for you. When your credits run low, we tell you and offer a pack, and you
-  decide whether to buy one. [PROPOSED: the notice is on by default and you can turn it off.]
+  decide whether to buy one. The notice is on by default, you are told at most once in each allowance period, and
+  you can turn it off in your account at any time *(product fact)*. Turning it off changes nothing else: when your
+  credits run out, new AI requests are still refused and you are still told why.
 
 **Who you pay, and tax**
 

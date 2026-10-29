@@ -49,6 +49,13 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
             table.HasCheckConstraint(
                 "CK_AccountAiQuotaPeriods_Settled_After_End",
                 "SettledAt IS NULL OR SettledAt >= EndsAt");
+
+            // A dismissal is a dismissal *of* something: there is nothing to dismiss before the notice was
+            // raised, and a dismissal recorded before it would be two facts disagreeing (B-59).
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_LowCreditNotice_Dismissed_After_Raised",
+                "LowCreditNoticeDismissedAt IS NULL OR (LowCreditNoticedAt IS NOT NULL "
+                    + "AND LowCreditNoticeDismissedAt >= LowCreditNoticedAt)");
         });
 
         builder.HasKey(period => period.Id);
@@ -92,6 +99,11 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
         builder.Property(period => period.GrantReserved)
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        // Both nullable, and null is the meaning rather than missing data: not told yet, and not dismissed
+        // yet. Neither is indexed — every read of them already has the period row in hand.
+        builder.Property(period => period.LowCreditNoticedAt);
+        builder.Property(period => period.LowCreditNoticeDismissedAt);
 
         // Contended counters, not collaborative editing: two workers reserving for the same account must not
         // both read the same remaining balance and both be admitted (USAGE-004). The loser gets a conflict to

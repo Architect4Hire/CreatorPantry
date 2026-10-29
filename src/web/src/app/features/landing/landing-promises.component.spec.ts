@@ -97,11 +97,11 @@ describe('LandingPromisesComponent', () => {
     const cards = Array.from(host.querySelectorAll('cp-card'));
     const labelled = cards.map((card) => card.querySelector('cp-badge')?.textContent?.trim() ?? null);
 
-    expect(labelled).toEqual([COMING_WITH_BILLING, null, COMING_WITH_BILLING]);
-    expect(BILLING_PROMISES.filter((promise) => promise.comingLabel).length).toBe(2);
+    expect(labelled).toEqual([COMING_WITH_BILLING, null, null]);
+    expect(BILLING_PROMISES.filter((promise) => promise.comingLabel).length).toBe(1);
   });
 
-  /** The one promise with no label is the one the product already keeps: an allowance at nought refuses work. */
+  /** The promises with no label are the ones the product already keeps. */
   it('leaves the shipped promise unlabelled', async () => {
     await create(published);
     const atZero = Array.from(host.querySelectorAll('cp-card')).find((card) => card.textContent?.includes('At zero'))!;
@@ -109,6 +109,20 @@ describe('LandingPromisesComponent', () => {
     expect(atZero.querySelector('cp-badge')).toBeNull();
     // "download" rather than "export": every picture has a download, and no picture export route exists.
     expect(atZero.textContent).toContain('stay yours to read, edit and download');
+  });
+
+  /**
+   * The low-credit notice shipped with AP.6.4 (B-59), so the tile that promises it no longer says it is
+   * coming — and it still promises nothing automatic, which is the part B-59 is about.
+   */
+  it('leaves the low-credit promise unlabelled and promises no purchase', async () => {
+    await create(published);
+    const running = Array.from(host.querySelectorAll('cp-card')).find((card) =>
+      card.textContent?.includes('Running low'),
+    )!;
+
+    expect(running.querySelector('cp-badge')).toBeNull();
+    expect(running.textContent).toContain('Nothing is ever bought for you');
   });
 
   /** A pack cannot be bought yet either, so it carries the same words the two tiles do. */

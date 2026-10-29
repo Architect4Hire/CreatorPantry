@@ -448,21 +448,27 @@ is answered by B-59.
   left plus every pack's balance — under a threshold, the account is told, once for that period, and offered a
   pack: the notice links to the billing page's pack purchase (AP.6.5). Reaching zero is unchanged: work is refused
   at admission (USAGE-006) and the exhausted state offers a pack and an upgrade.
-- **Proposed, not decided:** the threshold is 10% of the period allowance (the figure AP.6.4 first gave the
-  top-up), in configuration; the notice is in-app through the notification module, with email only if that
-  module already delivers it; it is on by default and the creator may turn it off. A notice is not a charge, so it
-  needs no opt-in. AP.6.4 presents these before building.
+- **Settled by AP.6.4 (owner, 2026-10-28, "approved"), as proposed and with one answer the repository gave:**
+  the threshold is 10% of the period's spendable allowance, in `Ai:Quota:LowCreditNoticeFraction`; the notice is
+  **in-app only**, because there is no notification module in the repository and no email sender of any kind, so
+  "email if that module already delivers it" resolves to no email; it is on by default and the creator may turn
+  it off. A notice is not a charge, so it needs no opt-in. The threshold is deliberately a second line below
+  `Ai:Quota:NearlySpentFraction` (0.2) rather than the same one: nearly-spent counts the period's allowance alone
+  and repeats, this counts the allowance **and** the packs and is said once, so an account holding packs is not
+  running low at nought allowance.
 - **This amends PRICE-011**, which said "auto top-up is opt-in, buys the smallest pack, and is capped per month by
   the creator".
 
 **Options considered:** dropping auto top-up with nothing in its place — rejected: a creator who runs out mid-task
 learns it only from a refusal. Charging off-session outside Managed Payments — rejected: CreatorPantry would be
 merchant of record and owe the tax on those charges, and it needs consent Managed Payments' checkout does not give.
-**Consequences:** AP.6.4 is rewritten to build the notice. AP.6.5's billing page drops the auto top-up setting
-and shows the notice's on/off instead. The landing tile that promised auto top-up was replaced the same day, on the
-owner's approval — now "Running low? You hear first", still labelled "Coming with billing" until AP.6.4 builds the
-notice, with a spec that no promise names an automatic purchase (`landing-promises.component.ts`,
-`docs/landing-page-copy.md`). The Terms of Service and Privacy Policy drafts were updated the same day for B-48–B-59
+**Consequences:** AP.6.4 is rewritten to build the notice, and **built it on 2026-10-28** — the mark on
+`AccountAiQuotaPeriod`, the account's setting, the two `/api/v1/me/ai-usage/low-credit-notice` routes and the
+shell's notice. AP.6.5's billing page drops the auto top-up setting and shows the notice's on/off instead, and
+repoints `PACK_PURCHASE_LINK` (which AP.6.4 left aimed at the allowance page) at its pack purchase. The landing
+tile that promised auto top-up was replaced the same day, on the owner's approval — now "Running low? You hear
+first", **and its "Coming with billing" label came off when AP.6.4 shipped** — with a spec that no promise names
+an automatic purchase (`landing-promises.component.ts`, `docs/landing-page-copy.md`). The Terms of Service and Privacy Policy drafts were updated the same day for B-48–B-59
 — the trial, packs that do not expire, plan-change timing, Link as merchant of record and the low-balance notice —
 each with a revision note for counsel, whose review LP.6 still requires before either is published.
 **Rules:** `ai.md` (quota enforcement is deterministic), `frontend.md`.
@@ -553,7 +559,7 @@ Stripe account; the first test-mode run checks them (Open items, link.com).
 | AP.6.2 | **Extended** by B-57: the upgrade deep link and the period-end schedule, and the event table above. |
 | AP.6.2 | **Delivered** with B-60: the webhook route, `BillingProviderEvent` and `BillingSubscription`, the transitions, and B-57's plan-change operations on the gateway. |
 | AP.6.2a | **Added** by B-60: the allowance period follows a Stripe-billed account's subscription period. A gate before live mode. |
-| AP.6.4 | **Rewritten** by B-59: a low-balance notice offering a pack, in place of auto top-up (blocked by B-58). |
+| AP.6.4 | **Rewritten** by B-59 and then **delivered**: the low-credit notice, its threshold, its setting and its two routes. |
 | AP.6.5 | **Narrowed** by B-57: Checkout for a first subscription; a running one changes plan through AP.6.2's operations. |
 
 ## Open items

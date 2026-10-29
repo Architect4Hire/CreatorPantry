@@ -14544,6 +14544,104 @@
         ]
       }
     },
+    "/api/v1/me/ai-usage/low-credit-notice/dismissal": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Puts away this period\u0027s low-credit notice (PRICE-011 as amended, B-59).",
+        "description": "Idempotent, and answers \u0060204\u0060 whether or not there was anything to dismiss. A notice the creator has\nalready put away, a period that rolled while they were reading it, and an account that has never been\nlow are all the state the caller asked for, and none of them is worth a refusal they cannot act on.\n\nA dismissal lasts the period. The next period is a new row, and an account that runs low again is told\nagain \u2014 to stop being told at all, see the setting below.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ai-usage/low-credit-notice": {
+      "put": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Says whether this account wants to be told when its credits run low (PRICE-011 as amended, B-59).",
+        "description": "On until the account says otherwise: a notice is not a charge, so it needs no opt-in. Switching it off\nstops the notice being shown; nothing else about the allowance changes, and an account at zero is still\nrefused at admission and still told so.\n\nIdempotent \u2014 setting it to what it already is answers \u0060204\u0060 and writes nothing.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/recipes/{recipeId}/versions/{versionNumber}/analysis/nutrition": {
       "post": {
         "tags": [
@@ -27297,6 +27395,34 @@
           }
         }
       },
+      "AccountAiLowCredit": {
+        "required": [
+          "isNoticed",
+          "isDismissed",
+          "noticeEnabled",
+          "spendable"
+        ],
+        "type": "object",
+        "properties": {
+          "isNoticed": {
+            "type": "boolean"
+          },
+          "isDismissed": {
+            "type": "boolean"
+          },
+          "noticeEnabled": {
+            "type": "boolean"
+          },
+          "spendable": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "AccountAiUsage": {
         "required": [
           "period",
@@ -27307,7 +27433,8 @@
           "pictures",
           "writing",
           "packRemaining",
-          "plan"
+          "plan",
+          "lowCredit"
         ],
         "type": "object",
         "properties": {
@@ -27365,6 +27492,9 @@
                 "$ref": "#/components/schemas/AccountAiUsagePlan"
               }
             ]
+          },
+          "lowCredit": {
+            "$ref": "#/components/schemas/AccountAiLowCredit"
           }
         }
       },
@@ -37546,6 +37676,20 @@
           "Over"
         ],
         "type": "string"
+      },
+      "LowCreditNotice": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
       },
       "MeasurementDimension": {
         "enum": [

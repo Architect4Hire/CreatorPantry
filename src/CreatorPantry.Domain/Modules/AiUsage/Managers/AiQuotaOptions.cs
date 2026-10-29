@@ -164,6 +164,25 @@ public sealed class AiQuotaOptions
     public decimal NearlySpentFraction { get; set; } = 0.2m;
 
     /// <summary>
+    /// The share of a period's spendable allowance at or below which an account's spendable credits bring the
+    /// low-credit notice (PRICE-011 as amended, B-59).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A different line from <see cref="NearlySpentFraction"/>, measuring a different thing.</strong>
+    /// Nearly-spent counts the period's allowance alone and says so for as long as it is true; this counts what
+    /// the account can actually spend — the allowance left <em>plus</em> every pack's balance — and is said once
+    /// a period. An account holding packs is not running low at nought allowance, which is the whole reason the
+    /// two figures cannot be one.
+    /// </para>
+    /// <para>
+    /// A tenth, below the fifth the nearly-spent warning draws, so a creator gets the quiet warning first and
+    /// the offer of a pack after it rather than the same sentence twice. Above nought and below one.
+    /// </para>
+    /// </remarks>
+    public decimal LowCreditNoticeFraction { get; set; } = 0.1m;
+
+    /// <summary>
     /// The most the whole platform may admit in pictures on one UTC day, in US dollars of provider list price
     /// (PRICE-005, AP.2.7). Null switches the breaker off.
     /// </summary>

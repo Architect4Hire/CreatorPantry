@@ -21,6 +21,7 @@ const PAYLOAD = {
   writing: '360.5',
   packRemaining: '400',
   plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
+  lowCredit: { isNoticed: true, isDismissed: false, noticeEnabled: true, spendable: '1040' },
   byTask: [
     { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
     { taskType: 'RecipeRevision', amount: 120, requests: 4 },

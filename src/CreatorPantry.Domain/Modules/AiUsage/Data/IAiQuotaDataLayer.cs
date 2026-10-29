@@ -222,6 +222,17 @@ internal interface IAiQuotaDataLayer
     Task<AiQuotaWriteOutcome> FinalizePeriodAsync(
         Guid periodId, DateTimeOffset now, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records that this period's admissions have left the account low on spendable credits, once (B-59).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="AiQuotaWriteOutcome.AlreadyDone"/> for a period already marked, which is the ordinary answer
+    /// once a creator has been told and keeps working. Not a hold and not part of one: the caller runs this
+    /// after its own write has committed, and treats every outcome, including a throw, as "not this time".
+    /// </remarks>
+    Task<AiQuotaWriteOutcome> MarkLowCreditNoticedAsync(
+        Guid periodId, DateTimeOffset now, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Guid>> FindLapsedReservationIdsAsync(
         DateTimeOffset now, CancellationToken cancellationToken);
 
@@ -728,6 +739,42 @@ internal sealed class AiQuotaDataLayer(
             }
 
             period.SettledAt = now;
+
+            try
+            {
+                await quotas.SaveAsync(cancellationToken);
+
+                return AiQuotaWriteOutcome.Applied;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                quotas.Forget();
+            }
+        }
+
+        return AiQuotaWriteOutcome.Contended;
+    }
+
+    public async Task<AiQuotaWriteOutcome> MarkLowCreditNoticedAsync(
+        Guid periodId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < AiQuotaPolicy.ContendedWriteAttempts; attempt++)
+        {
+            var period = await quotas.GetPeriodAsync(periodId, cancellationToken);
+
+            if (period is null)
+            {
+                return AiQuotaWriteOutcome.NotFound;
+            }
+
+            if (period.LowCreditNoticedAt is not null)
+            {
+                // Two admissions crossing the line together: the loser of the row version re-reads, finds the
+                // column set, and declines. One notice, which is what B-59 asks for.
+                return AiQuotaWriteOutcome.AlreadyDone;
+            }
+
+            period.LowCreditNoticedAt = now;
 
             try
             {

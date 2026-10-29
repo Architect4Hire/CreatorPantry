@@ -85,6 +85,9 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// <summary>The alerting event for a tripped breaker: one a day, raised by the refusal that tripped it.</summary>
     private static readonly EventId BreakerTripped = new(9701, "PlatformImageSpendCeilingTripped");
 
+    /// <summary>A notice that could not be written down. Not an error: the next admission tries again.</summary>
+    private static readonly EventId NoticeNotRecorded = new(9702, "AiLowCreditNoticeNotRecorded");
+
     private readonly AiQuotaOptions _options = options.Value;
 
     private readonly AiImageListPriceOptions _listPrices = listPrices.Value;
@@ -178,16 +181,23 @@ internal sealed class AiQuotaAdmissionBusiness(
         // The period as the write left it, which after a retry is not the instance resolved above.
         var settled = written ?? period;
 
-        return outcome switch
+        if (outcome is AiQuotaWriteOutcome.Applied)
         {
-            AiQuotaWriteOutcome.Applied => new AiQuotaAdmissionServiceModel(
+            var admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+
+            await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+
+            return new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Admitted,
                 reservation!.Id,
                 hold,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt) { PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken) },
+                settled.EndsAt) { PackRemaining = admittedPacks };
+        }
 
+        return outcome switch
+        {
             AiQuotaWriteOutcome.Refused => new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Exhausted,
                 null,
@@ -685,9 +695,14 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaAdmissionOutcome.PlatformCeiling, null, 0m, 0m, settled.Unit, null) { Required = hold };
         }
 
-        return outcome switch
+        if (outcome is AiQuotaWriteOutcome.Applied)
         {
-            AiQuotaWriteOutcome.Applied => new AiQuotaAdmissionServiceModel(
+            var admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+
+            // Pictures spend the same credits as writing does, so they bring the same notice (B-59).
+            await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+
+            return new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Admitted,
                 reservation!.Id,
                 hold,
@@ -696,9 +711,12 @@ internal sealed class AiQuotaAdmissionBusiness(
                 settled.EndsAt)
             {
                 Required = hold,
-                PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken),
-            },
+                PackRemaining = admittedPacks,
+            };
+        }
 
+        return outcome switch
+        {
             // Carrying what it would have taken, which is what the refusal has to be able to tell a creator
             // (USAGE-007): "your allowance is spent" alone does not say whether they are one picture over or
             // twenty. Nothing was held, so Reserved stays nought.
@@ -937,6 +955,60 @@ internal sealed class AiQuotaAdmissionBusiness(
         return await credits.StageDrawAsync(accountId, holdId, fromGrants, now, cancellationToken)
             ? fromAllowance
             : null;
+    }
+
+    /// <summary>
+    /// Records that this admission left the account low on spendable credits, once a period (B-59).
+    /// </summary>
+    /// <param name="period">The period as the admission's own write left it.</param>
+    /// <param name="spendable">
+    /// What the account can still spend: the period's remaining allowance plus every pack's balance. The two
+    /// together, because an account holding packs is not running low at nought allowance.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the mark. Never cancels the admission, which has committed.</param>
+    /// <remarks>
+    /// <para>
+    /// <strong>After the hold has committed, and it can never take the hold back.</strong> PRICE-011 as amended
+    /// requires that a notice failing neither refuses nor delays work, so this runs outside the reservation's
+    /// write and swallows everything it can go wrong with: a contended period, a vanished one, a database that
+    /// blinked. The creator is then told at the next admission instead, which is a notice a few seconds late
+    /// rather than a refused request.
+    /// </para>
+    /// <para>
+    /// <strong>It marks, and does not send.</strong> Nothing is delivered from here — the account's own usage
+    /// read reports the mark and the surfaces draw it — so there is no provider to wait on and no channel to
+    /// fail. Whether the creator wants the notice at all is read where it is drawn rather than here: a
+    /// preference read on every admission would cost every account a round trip for a column almost none of
+    /// them has set, and a mark is a fact about the balance either way.
+    /// </para>
+    /// <para>
+    /// An account with nothing to take a fraction of — a period opened with no allowance at all, or one
+    /// counted in tokens, which never spends packs — is never low and is never marked.
+    /// </para>
+    /// </remarks>
+    private async Task NoticeLowCreditAsync(
+        AccountAiQuotaPeriod period, decimal spendable, CancellationToken cancellationToken)
+    {
+        if (period.LowCreditNoticedAt is not null
+            || period.Unit is not AiQuotaUnit.Credits
+            || Spendable(period) <= 0m
+            || spendable > Spendable(period) * _options.LowCreditNoticeFraction)
+        {
+            return;
+        }
+
+        try
+        {
+            await dataLayer.MarkLowCreditNoticedAsync(period.Id, clock.UtcNow, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // Deliberately every exception, cancellation included: the work this notice is about has already
+            // been admitted and committed, and nothing here may unpick that. Logged without the account, which
+            // is not this log line's business.
+            logger.LogWarning(
+                NoticeNotRecorded, exception, "A low-credit notice could not be recorded for a period.");
+        }
     }
 
     /// <summary>The account's pack balance, or nought for a period counted in tokens, which never spends it.</summary>

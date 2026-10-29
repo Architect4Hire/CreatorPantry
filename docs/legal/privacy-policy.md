@@ -14,6 +14,10 @@
 > section 6 (Stripe and Link), section 7 (billing records) and section 8 (payment records). Whether Link acts as an
 > independent controller of what it collects is for counsel to confirm.
 
+> **Revision for counsel, 2026-10-28 (second).** The low-balance notice of B-59 is now built (AP.6.4), so the
+> bracketed proposal in section 4 is replaced by what the software does: the notice is shown in the application,
+> is sent to no one else, and can be turned off in the account. No other clause changed.
+
 **Last updated:** [DATE OF PUBLICATION]
 
 ## 1. Who we are
@@ -95,7 +99,7 @@ disclose it, or self-host the fonts so no request goes to Google.]
   about the Service or these policies, and replies when you contact us. [OWNER DECISION: any product or
   marketing email, which would need opt-in or opt-out as the law requires.]
 - **Billing** [WHEN BILLING SHIPS]: to match a purchase to your account, apply your plan and add the credits you
-  bought, and to tell you when your credits run low [PROPOSED: you can turn that notice off]. Link sends your
+  bought, and to tell you when your credits run low, which you can turn off in your account. Link sends your
   receipts and some subscription emails itself.
 - **Legal reasons:** to meet legal obligations and to protect our rights and our users.
 

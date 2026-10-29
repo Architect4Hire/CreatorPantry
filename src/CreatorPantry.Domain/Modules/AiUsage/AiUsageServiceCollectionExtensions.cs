@@ -67,10 +67,21 @@ public static class AiUsageServiceCollectionExtensions
         services.AddScoped<IAiUsageReadDataLayer, AiUsageReadDataLayer>();
         services.AddScoped<IAiUsageReadRepository, AiUsageReadRepository>();
 
+        // The low-credit notice the creator acts on: dismissing this period's, and turning the notice off for
+        // the account (PRICE-011 as amended, B-59). Raising it is admission's, and is not a seam of its own.
+        services.AddScoped<IValidator<LowCreditNoticeViewModel>, LowCreditNoticeViewModelValidator>();
+        services.AddScoped<IAiLowCreditNoticeFacade, AiLowCreditNoticeFacade>();
+        services.AddScoped<IAiLowCreditNoticeBusiness, AiLowCreditNoticeBusiness>();
+        services.AddScoped<IAiLowCreditNoticeDataLayer, AiLowCreditNoticeDataLayer>();
+        services.AddScoped<IAiNoticeSettingRepository, AiNoticeSettingRepository>();
+
         var quota = services.AddOptions<AiQuotaOptions>()
             .Validate(
                 options => options.NearlySpentFraction is > 0m and < 1m,
                 "Ai:Quota:NearlySpentFraction must be above nought and below one.")
+            .Validate(
+                options => options.LowCreditNoticeFraction is > 0m and < 1m,
+                "Ai:Quota:LowCreditNoticeFraction must be above nought and below one.")
             .Validate(
                 options => options.PlatformImageSpendPerDay is null
                     or (> 0m and <= AiQuotaOptions.PlatformImageSpendPerDayMax),

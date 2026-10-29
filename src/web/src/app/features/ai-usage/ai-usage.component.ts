@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpCheckboxComponent,
   CpCardGridComponent,
   CpFactComponent,
   CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
+  CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
@@ -87,9 +89,11 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
     CpButtonComponent,
     CpCardComponent,
     CpCardGridComponent,
+    CpCheckboxComponent,
     CpFactComponent,
     CpFactsComponent,
     CpListShellComponent,
+    CpNoticeComponent,
     CpProgressComponent,
     CpSkeletonComponent,
     CpStatTileComponent,
@@ -117,6 +121,42 @@ export class AiUsageComponent {
     // this page is the authoritative view of the figure. Arriving here should not show a balance from the
     // start of the session.
     void this.usage.refresh();
+  }
+
+  /**
+   * Whether the creator wants to be told when their credits run low (B-59).
+   *
+   * A linked signal rather than a plain read of the service: the control moves the moment it is clicked, and
+   * re-follows the server whenever the allowance is read again — including after a save, which is what puts
+   * the control back if the save did not take.
+   */
+  protected readonly noticeEnabled = linkedSignal(() => this.usage.lowCreditNoticeEnabled());
+
+  /** True while the choice is on its way, so a double click cannot send two. */
+  protected readonly savingNotice = signal(false);
+
+  /** Set when the choice could not be recorded. Cleared by the next attempt. */
+  protected readonly noticeProblem = signal(false);
+
+  /**
+   * Records the choice, having already shown it.
+   *
+   * A failure puts the control back rather than leaving a creator believing they have switched something off
+   * that is still on — the one outcome worth a message on a page whose other states are all figures.
+   */
+  protected async setNoticeEnabled(enabled: boolean): Promise<void> {
+    this.noticeEnabled.set(enabled);
+    this.noticeProblem.set(false);
+    this.savingNotice.set(true);
+
+    try {
+      if (!(await this.usage.setLowCreditNoticeEnabled(enabled))) {
+        this.noticeEnabled.set(!enabled);
+        this.noticeProblem.set(true);
+      }
+    } finally {
+      this.savingNotice.set(false);
+    }
   }
 
   /** The figures on screen, or null while there are none. */

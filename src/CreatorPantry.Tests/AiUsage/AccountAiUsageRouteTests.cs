@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 
 namespace CreatorPantry.Tests.AiUsage;
 
@@ -10,6 +11,8 @@ public sealed class AccountAiUsageRouteTests
 {
     private const string Current = "/api/v1/me/ai-usage";
     private const string History = "/api/v1/me/ai-usage/history";
+    private const string Notice = "/api/v1/me/ai-usage/low-credit-notice";
+    private const string Dismissal = Notice + "/dismissal";
 
     /// <summary>
     /// Every action on this controller requires a session by default — <c>MapAuthenticatedControllers</c>, not
@@ -80,6 +83,65 @@ public sealed class AccountAiUsageRouteTests
         var client = host.Factory.CreateClient();
 
         var response = await client.GetAsync(route, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The notice's own two routes are the controller's as well, so they need a session for the same reason
+    /// and from the same place (B-59).
+    /// </summary>
+    [Fact]
+    public async Task Dismissing_a_notice_without_a_session_is_refused()
+    {
+        await using var host = await SqliteApiHost.StartAsync();
+        var client = host.Factory.CreateClient();
+
+        var response = await client.PostAsync(Dismissal, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Setting_the_notice_without_a_session_is_refused()
+    {
+        await using var host = await SqliteApiHost.StartAsync();
+        var client = host.Factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync(
+            Notice, new { enabled = false }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Naming an account in the body of the setting changes nothing either: nothing binds one, and the account
+    /// still comes from the validated session (USAGE-008).
+    /// </summary>
+    [Fact]
+    public async Task Naming_another_account_in_the_setting_body_changes_nothing()
+    {
+        await using var host = await SqliteApiHost.StartAsync();
+        var client = host.Factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync(
+            Notice,
+            new { enabled = false, accountId = "user-alex" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>The notice is the account's, so it has no address under a workspace.</summary>
+    [Theory]
+    [InlineData("/api/v1/workspaces/cozy-fall/ai-usage/low-credit-notice")]
+    [InlineData("/api/v1/workspaces/cozy-fall/me/ai-usage/low-credit-notice/dismissal")]
+    public async Task The_notice_routes_do_not_exist_under_a_workspace(string route)
+    {
+        await using var host = await SqliteApiHost.StartAsync();
+        var client = host.Factory.CreateClient();
+
+        var response = await client.PostAsync(route, null, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }

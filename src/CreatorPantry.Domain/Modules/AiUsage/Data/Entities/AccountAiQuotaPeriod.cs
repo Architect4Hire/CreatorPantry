@@ -165,6 +165,35 @@ public class AccountAiQuotaPeriod
     public DateTimeOffset? SettledAt { get; set; }
 
     /// <summary>
+    /// When an admission in this period left the account's spendable credits at or below
+    /// <c>Ai:Quota:LowCreditNoticeFraction</c> of the allowance, and null until one does (PRICE-011 as amended,
+    /// B-59).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>On the period, which is what makes "once per period" structural.</strong> There is one row per
+    /// account per period and this column is set once on it, so however many admissions cross the line, and
+    /// however many of them run at the same moment, the creator is told once. A separate notice table would
+    /// have needed a unique index to say the same thing and a read on every admission to avoid the race.
+    /// </para>
+    /// <para>
+    /// <strong>Written after the hold commits, never with it.</strong> The notice must not be able to refuse or
+    /// delay work (B-59), so admission takes its hold first and marks this afterwards, shielded: a mark that
+    /// fails is a log line and the creator is told at the next admission instead.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? LowCreditNoticedAt { get; set; }
+
+    /// <summary>
+    /// When the creator dismissed this period's low-credit notice, and null while it still stands.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than on the account, so a dismissal cannot outlive the period it was about: the next period
+    /// is a new row with both columns null, and an account that is low again is told again.
+    /// </remarks>
+    public DateTimeOffset? LowCreditNoticeDismissedAt { get; set; }
+
+    /// <summary>
     /// Optimistic concurrency token. Not for editing — for competing reservations: two workers reserving for
     /// the same account must not both read the same remaining balance and both be admitted, and the loser
     /// needs a conflict to retry from rather than a silent overwrite.

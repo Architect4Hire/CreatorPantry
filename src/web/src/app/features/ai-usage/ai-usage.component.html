@@ -119,6 +119,28 @@
           }
       </cp-topic-card>
 
+      <!-- The one thing on this page the creator can change (B-59). A topic card of its own rather than a
+           control inside "Your allowance": that card reports figures, and this decides something. -->
+      <cp-topic-card heading="Running low">
+        <p>
+          When your credits are running low we tell you once, and offer a credit pack. Nothing is ever bought
+          for you — a pack is always a purchase you make yourself.
+        </p>
+
+        <cp-checkbox
+          label="Tell me when my credits are running low"
+          [checked]="noticeEnabled()"
+          [disabled]="savingNotice()"
+          (checkedChange)="setNoticeEnabled($event)"
+        />
+
+        @if (noticeProblem()) {
+          <cp-notice tone="error" role="alert">
+            We couldn’t save that just now. Check your connection and try again.
+          </cp-notice>
+        }
+      </cp-topic-card>
+
       <div class="breakdowns">
         <cp-list-shell
           heading="What you’ve used it on"

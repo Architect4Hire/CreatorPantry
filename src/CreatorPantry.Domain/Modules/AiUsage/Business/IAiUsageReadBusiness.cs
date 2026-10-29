@@ -50,6 +50,10 @@ internal sealed class AiUsageReadBusiness(
 
         var described = Describe(period, terms.PeriodLength);
 
+        var packRemaining = period.Unit is AiQuotaUnit.Credits
+            ? await credits.BalanceAsync(accountId, cancellationToken)
+            : 0m;
+
         // Pictures against everything else, from the same rows the per-task list shows, so the two figures
         // and the list can never disagree about what a picture cost (AP.2.6).
         var pictures = byTask.Where(row => row.TaskType is AiTaskType.ImageGeneration).Sum(row => row.Amount);
@@ -73,10 +77,16 @@ internal sealed class AiUsageReadBusiness(
 
             // The balance admission spends after the allowance, read where admission reads it, so the page and the
             // next refusal cannot disagree. A period in tokens never spends packs, so it reports none (AP.5.2).
-            PackRemaining: period.Unit is AiQuotaUnit.Credits
-                ? await credits.BalanceAsync(accountId, cancellationToken)
-                : 0m,
-            Plan: await PlanAsync(accountId, terms, cancellationToken));
+            PackRemaining: packRemaining,
+            Plan: await PlanAsync(accountId, terms, cancellationToken),
+            LowCredit: new AccountAiLowCreditServiceModel(
+                IsNoticed: period.LowCreditNoticedAt is not null,
+                IsDismissed: period.LowCreditNoticeDismissedAt is not null,
+                NoticeEnabled: await usage.IsLowCreditNoticeEnabledAsync(accountId, cancellationToken),
+
+                // Summed here and nowhere else, so the notice's figure is the one admission judged it by: the
+                // allowance left plus every pack's balance (B-59).
+                Spendable: described.Remaining + packRemaining));
     }
 
     /// <summary>The plan the account is on, and whether the allowance it is spending comes back at the reset.</summary>

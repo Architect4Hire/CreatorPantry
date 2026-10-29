@@ -80,6 +80,29 @@ public sealed record AccountAiUsageWorkspaceTotalServiceModel(
     Guid? WorkspaceId, string? WorkspaceName, decimal Amount, int Requests);
 
 /// <summary>
+/// Where the account stands with the low-credit notice (PRICE-011 as amended, B-59).
+/// </summary>
+/// <param name="IsNoticed">
+/// Whether an admission in this period has left the account at or below
+/// <c>Ai:Quota:LowCreditNoticeFraction</c> of its allowance. Recorded on the period, so it is said once
+/// however many admissions cross the line, and it is false again when the period rolls.
+/// </param>
+/// <param name="IsDismissed">Whether the creator has put this period's notice away.</param>
+/// <param name="NoticeEnabled">Whether the account wants the notice at all. True until it says otherwise.</param>
+/// <param name="Spendable">
+/// What the account can actually spend right now: <see cref="AccountAiUsagePeriodServiceModel.Remaining"/>
+/// plus <see cref="AccountAiUsageServiceModel.PackRemaining"/>. The figure the notice quotes, summed here so
+/// that the notice and the thing that raised it cannot disagree about it. Nought for a period counted in
+/// tokens, which never spends packs.
+/// </param>
+/// <remarks>
+/// Facts, not a decision about what to draw. Whether a surface shows the notice is the surface's call — an
+/// exhausted account, for one, is told something stronger — and the three flags are what it needs to make it.
+/// </remarks>
+public sealed record AccountAiLowCreditServiceModel(
+    bool IsNoticed, bool IsDismissed, bool NoticeEnabled, decimal Spendable);
+
+/// <summary>
 /// The signed-in account's AI allowance right now, and what it has gone on (USAGE-008).
 /// </summary>
 /// <param name="Period">The running period's totals.</param>
@@ -101,6 +124,7 @@ public sealed record AccountAiUsageWorkspaceTotalServiceModel(
 /// and a refusal open at the same moment agree. Nought for a period counted in tokens, which never spends packs.
 /// </param>
 /// <param name="Plan">The plan the account is on (PRICE-007); null when this host configures no plan catalogue.</param>
+/// <param name="LowCredit">Where the account stands with the low-credit notice (B-59).</param>
 /// <remarks>
 /// <para>
 /// <strong>Both breakdowns are in the period's unit and both sum to <c>Consumed</c>.</strong> They are built
@@ -128,7 +152,8 @@ public sealed record AccountAiUsageServiceModel(
     decimal Pictures,
     decimal Writing,
     decimal PackRemaining,
-    AccountAiUsagePlanServiceModel? Plan);
+    AccountAiUsagePlanServiceModel? Plan,
+    AccountAiLowCreditServiceModel LowCredit);
 
 /// <summary>The plan an account is on, as its own usage page names it (PRICE-007, AP.5.3).</summary>
 /// <param name="Key">The catalogue key of the plan in force.</param>

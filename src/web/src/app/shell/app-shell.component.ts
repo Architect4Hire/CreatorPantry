@@ -4,6 +4,9 @@ import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, Ro
 import { filter, map, startWith } from 'rxjs';
 import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
 
+import { LowCreditNoticeComponent } from '../shared/low-credit-notice/low-credit-notice.component';
+import { PACK_PURCHASE_LINK } from '../shared/pack-purchase-link';
+
 import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
 import { ContentPipelineDraftService } from '../services/content-pipeline-draft.service';
@@ -109,6 +112,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
     CpLogoComponent,
     QuickCaptureComponent,
     ShellNavIconComponent,
+    LowCreditNoticeComponent,
   ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.css',
@@ -205,6 +209,21 @@ export class AppShellComponent {
   readonly allowanceTone = computed<CpStatusPillTone>(() =>
     this.allowance().kind === 'nearly-spent' ? 'warning' : 'error',
   );
+
+  /**
+   * The low-credit notice, shown above whichever page the creator is on (B-59).
+   *
+   * In the shell because it is about the account rather than the page: it can be raised by work started
+   * anywhere, and a creator who moves on before reading it should still see it.
+   */
+  readonly lowCredit = this.usage.lowCredit;
+
+  /** No "Get a credit pack" on the page that link already points at: that is a loop, not an offer. */
+  readonly offerPack = computed(() => `/app/${this.currentSection()}` !== PACK_PURCHASE_LINK);
+
+  protected dismissLowCredit(): void {
+    void this.usage.dismissLowCreditNotice();
+  }
 
   constructor() {
     void this.membershipService.ensureLoaded();

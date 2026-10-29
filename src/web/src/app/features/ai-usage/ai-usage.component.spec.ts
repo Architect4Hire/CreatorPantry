@@ -19,6 +19,7 @@ function payload(
     byTask?: unknown[];
     byWorkspace?: unknown[];
     packRemaining?: number;
+    lowCredit?: { isNoticed?: boolean; isDismissed?: boolean; noticeEnabled?: boolean; spendable?: number };
     plan?: { key: string; name: string; allowanceRenews: boolean } | null;
   } = {},
 ) {
@@ -45,6 +46,12 @@ function payload(
     writing: overrides.writing ?? 360,
     // No packs and no plan unless a case says so: what every production host sends today.
     packRemaining: overrides.packRemaining ?? 0,
+    lowCredit: {
+      isNoticed: overrides.lowCredit?.isNoticed ?? false,
+      isDismissed: overrides.lowCredit?.isDismissed ?? false,
+      noticeEnabled: overrides.lowCredit?.noticeEnabled ?? true,
+      spendable: overrides.lowCredit?.spendable ?? 0,
+    },
     plan: overrides.plan ?? null,
     byTask: overrides.byTask ?? [
       { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
@@ -496,5 +503,69 @@ describe('AiUsageComponent', () => {
     expect(facts[0]).toContain('Trial');
     expect(facts[1]).toContain('Trial credits');
     expect(facts[1]).toContain('Not renewed');
+  });
+
+  // ---- the low-credit setting (B-59) -------------------------------------------------------------------
+
+  const NOTICE = `${URL}/low-credit-notice`;
+
+  /** The one thing on this page the creator can change, and what it promises while they read it. */
+  it('offers the low-credit setting, on by default, and promises no purchase', async () => {
+    const host = await render();
+    const card = Array.from(host.querySelectorAll('cp-topic-card')).find((topic) =>
+      topic.textContent?.includes('Running low'),
+    )!;
+
+    expect(card).toBeTruthy();
+    expect(card.textContent).toContain('Nothing is ever bought for you');
+
+    const checkbox = card.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBeTrue();
+  });
+
+  it('reads the setting the server reports', async () => {
+    const host = await render(payload({ lowCredit: { noticeEnabled: false } }));
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeFalse();
+  });
+
+  it('records the choice and re-reads', async () => {
+    const host = await render();
+
+    host.querySelector<HTMLInputElement>('cp-checkbox input')!.click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(NOTICE);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ enabled: false });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    http.expectOne(URL).flush(payload({ lowCredit: { noticeEnabled: false } }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeFalse();
+    expect(host.textContent).not.toContain('We couldn’t save that');
+  });
+
+  /**
+   * A failure puts the control back rather than leaving a creator believing they have switched something off
+   * that is still on.
+   */
+  it('puts the control back and says so when the choice could not be saved', async () => {
+    const host = await render();
+
+    host.querySelector<HTMLInputElement>('cp-checkbox input')!.click();
+    fixture.detectChanges();
+
+    http.expectOne(NOTICE).error(new ProgressEvent('network'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeTrue();
+
+    const problem = host.querySelector('cp-notice[role="alert"]')!;
+    expect(problem.textContent).toContain('We couldn’t save that');
   });
 });

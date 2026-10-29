@@ -14,8 +14,10 @@ function payload(
     allowance?: number;
     consumed?: number;
     isSuspended?: boolean;
+    startsAt?: string;
     isNearlySpent?: boolean;
     packRemaining?: number;
+    lowCredit?: { isNoticed?: boolean; isDismissed?: boolean; noticeEnabled?: boolean; spendable?: number };
   } = {},
 ) {
   const allowance = overrides.allowance ?? 1000;
@@ -31,7 +33,7 @@ function payload(
       remaining,
       periodLength: 'Monthly',
       timeZoneId: 'Europe/London',
-      startsAt: '2026-03-01T00:00:00+00:00',
+      startsAt: overrides.startsAt ?? '2026-03-01T00:00:00+00:00',
       resetsAt: '2026-04-01T00:00:00+01:00',
     },
     isSuspended: overrides.isSuspended ?? false,
@@ -41,6 +43,12 @@ function payload(
     writing: 240,
     packRemaining: overrides.packRemaining ?? 0,
     plan: null,
+    lowCredit: {
+      isNoticed: overrides.lowCredit?.isNoticed ?? false,
+      isDismissed: overrides.lowCredit?.isDismissed ?? false,
+      noticeEnabled: overrides.lowCredit?.noticeEnabled ?? true,
+      spendable: overrides.lowCredit?.spendable ?? remaining + (overrides.packRemaining ?? 0),
+    },
     byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }],
     byWorkspace: [{ workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 }],
   };
@@ -206,5 +214,166 @@ describe('AiUsageService', () => {
     http.expectNone(URL);
 
     expect(service.state().status).toBe('ready');
+  });
+
+  // ---- the low-credit notice (B-59) --------------------------------------------------------------------
+
+  const NOTICE = `${URL}/low-credit-notice`;
+
+  /** Lets the awaited save resolve before the re-read it starts is expected. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  async function readWith(overrides: Parameters<typeof payload>[0]): Promise<void> {
+    const loading = service.ensureLoaded();
+    http.expectOne(URL).flush(payload(overrides));
+    await loading;
+  }
+
+  it('says nothing about running low until the server has raised a notice', async () => {
+    await readWith({ remaining: 90 });
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  it('carries the figures the notice quotes, summed by the server', async () => {
+    await readWith({ remaining: 60, packRemaining: 30, lowCredit: { isNoticed: true } });
+
+    const notice = service.lowCredit();
+
+    expect(notice?.spendable).toBe(90);
+    expect(notice?.unit).toBe('Credits');
+    expect(notice?.resetsAt).toBe('2026-04-01T00:00:00+01:00');
+    expect(notice?.timeZoneId).toBe('Europe/London');
+  });
+
+  it('says nothing once the creator has put it away', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true, isDismissed: true } });
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  it('says nothing when the account has turned the notice off', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true, noticeEnabled: false } });
+
+    expect(service.lowCredit()).toBeNull();
+    expect(service.lowCreditNoticeEnabled()).toBeFalse();
+  });
+
+  /** Spent and switched off each say something stronger, and each say it for themselves. */
+  it('says nothing to an account that is already spent or suspended', async () => {
+    await readWith({ remaining: 0, packRemaining: 0, lowCredit: { isNoticed: true } });
+    expect(service.lowCredit()).toBeNull();
+
+    const reread = service.refresh();
+    http.expectOne(URL).flush(payload({ remaining: 90, isSuspended: true, lowCredit: { isNoticed: true } }));
+    await reread;
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  /** A notice offered on figures nobody is sure of would train a creator to ignore it. */
+  it('says nothing while the figures are degraded', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+    expect(service.lowCredit()).not.toBeNull();
+
+    const refresh = service.refresh();
+    http.expectOne(URL).error(new ProgressEvent('network'));
+    await refresh;
+
+    expect(service.state().status).toBe('degraded');
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  it('hides the notice at once when it is dismissed, and records it', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const dismissing = service.dismissLowCreditNotice();
+
+    // Hidden before the request has even been answered: the creator asked for it to go.
+    expect(service.lowCredit()).toBeNull();
+
+    const request = http.expectOne(`${NOTICE}/dismissal`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.withCredentials).toBeTrue();
+
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await dismissing;
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  /** Nothing the creator typed depends on it landing, so a failure leaves it hidden rather than shouting. */
+  it('leaves a failed dismissal hidden for the session', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const dismissing = service.dismissLowCreditNotice();
+    http.expectOne(`${NOTICE}/dismissal`).error(new ProgressEvent('network'));
+    await dismissing;
+
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  /** A dismissal belongs to the period it was about: the next period is told again. */
+  it('shows the next period’s notice after a roll, despite this session’s dismissal', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const dismissing = service.dismissLowCreditNotice();
+    http.expectOne(`${NOTICE}/dismissal`).flush(null, { status: 204, statusText: 'No Content' });
+    await dismissing;
+
+    const rolled = service.refresh();
+    http.expectOne(URL).flush(
+      payload({ remaining: 90, startsAt: '2026-04-01T00:00:00+01:00', lowCredit: { isNoticed: true } }),
+    );
+    await rolled;
+
+    expect(service.lowCredit()).not.toBeNull();
+  });
+
+  it('records the setting and re-reads, so every surface agrees', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const saving = service.setLowCreditNoticeEnabled(false);
+
+    const request = http.expectOne(NOTICE);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ enabled: false });
+    expect(request.request.withCredentials).toBeTrue();
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+
+    http.expectOne(URL).flush(payload({ remaining: 90, lowCredit: { isNoticed: true, noticeEnabled: false } }));
+
+    expect(await saving).toBeTrue();
+    expect(service.lowCreditNoticeEnabled()).toBeFalse();
+    expect(service.lowCredit()).toBeNull();
+  });
+
+  it('reports a setting that could not be recorded, and re-reads nothing', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const saving = service.setLowCreditNoticeEnabled(false);
+    http.expectOne(NOTICE).error(new ProgressEvent('network'));
+
+    expect(await saving).toBeFalse();
+    expect(service.lowCreditNoticeEnabled()).toBeTrue();
+  });
+
+  /** Turning it back on shows a notice the account is already owed, rather than waiting for the next spend. */
+  it('brings back a dismissed notice when the setting is turned on again', async () => {
+    await readWith({ remaining: 90, lowCredit: { isNoticed: true } });
+
+    const dismissing = service.dismissLowCreditNotice();
+    http.expectOne(`${NOTICE}/dismissal`).flush(null, { status: 204, statusText: 'No Content' });
+    await dismissing;
+
+    const saving = service.setLowCreditNoticeEnabled(true);
+    http.expectOne(NOTICE).flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+
+    http.expectOne(URL).flush(payload({ remaining: 90, lowCredit: { isNoticed: true } }));
+    await saving;
+
+    expect(service.lowCredit()).not.toBeNull();
   });
 });

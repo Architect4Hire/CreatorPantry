@@ -346,6 +346,13 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     public DbSet<AccountAiQuotaReservation> AccountAiQuotaReservations => Set<AccountAiQuotaReservation>();
 
     /// <remarks>
+    /// One account's choices about the notices the usage module raises — today, whether it is told when its
+    /// spendable credits run low (PRICE-011 as amended, B-59). The creator's row rather than an
+    /// administrator's, which is why it is not a column on the effective-dated quota; no row means on.
+    /// </remarks>
+    public DbSet<AccountAiNoticeSetting> AccountAiNoticeSettings => Set<AccountAiNoticeSetting>();
+
+    /// <remarks>
     /// Which plan one account is on, from when (PRICE-007, AP.4.1): an append-only chain per account whose
     /// constraints make two plans at once unstorable. Platform-scoped like the quota tables, because a plan is the
     /// account's and never a workspace's (B-47). Holds a plan key, not the plan's figures.
