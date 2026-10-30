@@ -174,7 +174,7 @@
           prompt and posts stay exactly as they are.
         </p>
         <div cpTopicCardActions class="cp-actions">
-          <button cpButton type="button" variant="danger" [disabled]="deleting()" (click)="remove()">
+          <button cpButton [busy]="deleting()" type="button" variant="danger" [disabled]="deleting()" (click)="remove()">
             {{ deleting() ? 'Deleting…' : 'Delete card' }}
           </button>
         </div>

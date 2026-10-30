@@ -55,8 +55,10 @@
   --cp-duration-enter: 200ms;
   --cp-enter-distance: .375rem;
   --cp-enter-stagger: 40ms;
-  /* One sweep of a skeleton's shine. Slow, because it says "still coming", not "hurry". */
-  --cp-duration-skeleton: 1.4s;
+  /* One sweep of the loading bar. Slow, because it says "still coming", not "hurry". */
+  --cp-duration-sweep: 1.4s;
+  /* One turn of a busy button's spinner. Brisker than a skeleton: the creator has just pressed it and is watching. */
+  --cp-duration-spinner: .8s;
   /* The ring a focused field or control draws inside its own border, on top of the global outline. */
   --cp-ring-width: 4px;
   --cp-z-topbar: 15;

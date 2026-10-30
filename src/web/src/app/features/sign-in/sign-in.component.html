@@ -40,7 +40,7 @@
       />
     </cp-field>
 
-    <button cpButton type="submit" [fullWidth]="true" [disabled]="submitting()" [attr.aria-busy]="submitting()">
+    <button cpButton type="submit" [fullWidth]="true" [disabled]="submitting()" [busy]="submitting()">
       {{ submitting() ? 'Signing in…' : 'Sign in' }}
     </button>
 

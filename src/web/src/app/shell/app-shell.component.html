@@ -73,6 +73,9 @@
         <button cpButton variant="ghost" size="sm" (click)="signOut()">Sign out</button>
       }
     }
+    <!-- Along the bar's bottom edge, over its rule: the one place on every signed-in page that is there before the
+         next page is. Only a navigation lights it; a page's own reads draw their skeletons. -->
+    <cp-loading-bar class="nav-progress" [active]="navigating()" label="Opening the page" />
   </header>
 
   <!--

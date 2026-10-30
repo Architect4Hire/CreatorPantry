@@ -1,15 +1,22 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
+import { CpSpinnerComponent } from './spinner.component';
+
 export type CpButtonVariant = 'primary' | 'secondary' | 'ghost' | 'text' | 'danger';
 export type CpButtonSize = 'sm' | 'md' | 'lg';
 
 @Component({
   selector: 'button[cpButton], a[cpButton]',
   standalone: true,
-  template: '<ng-content />',
+  imports: [CpSpinnerComponent],
+  template: `@if (busy()) {
+      <cp-spinner />
+    }
+    <ng-content />`,
   host: {
     '[class]': "'cp-button cp-button--' + variant() + ' cp-button--' + size()",
-    '[class.cp-button--full]': 'fullWidth()'
+    '[class.cp-button--full]': 'fullWidth()',
+    '[attr.aria-busy]': "busy() ? 'true' : null"
   },
   styles: [`
     :host { border: 1px solid transparent; border-radius: var(--cp-radius-md); display:inline-flex; align-items:center; justify-content:center; gap:var(--cp-space-2); cursor:pointer; font-weight:600; line-height:1.2; letter-spacing:.005em; text-decoration:none; transition:transform var(--cp-duration-fast) var(--cp-ease), background var(--cp-duration-fast), border-color var(--cp-duration-fast), box-shadow var(--cp-duration-fast), color var(--cp-duration-fast); }
@@ -28,6 +35,9 @@ export type CpButtonSize = 'sm' | 'md' | 'lg';
     :host(.cp-button--danger) { background:var(--cp-danger); color:var(--cp-ink-on-accent); }
     :host(.cp-button--danger:hover) { color:var(--cp-ink-on-accent); filter:brightness(.92); transform:translateY(-1px); }
     :host(.cp-button--full) { width:100%; }
+    /* Busy is working, not refusing: full strength, as a chosen option card's button is, whatever the consumer set
+       to stop a second press. Its cp-spinner is the label's size and colour, so it suits every variant and theme. */
+    :host([aria-busy='true']) { opacity:1; }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -35,4 +45,12 @@ export class CpButtonComponent {
   readonly variant = input<CpButtonVariant>('primary');
   readonly size = input<CpButtonSize>('md');
   readonly fullWidth = input(false);
+
+  /**
+   * The creator's own action is in flight — a save, a submit, a request. Sets `aria-busy` and draws a small spinner
+   * before the label, hidden from a screen reader, which already hears `aria-busy` and the label's own words. The
+   * words ("Saving…") are the consumer's, and so is whether the button is `disabled` or `aria-disabled` while it
+   * waits, because that choice decides whether focus survives the press and each consumer has made it already.
+   */
+  readonly busy = input(false);
 }

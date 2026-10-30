@@ -6,9 +6,9 @@ CreatorPantry is a focused production workspace for food bloggers and content cr
 
 ## Layers
 
-1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, and a skeleton's sweep, `--cp-duration-skeleton`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
-2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a control's edge and a field's fill; the edge — of a field, a select, a checkbox's box, a radio's mark, a secondary button — holds 3:1 against the fill and every surface, WCAG 1.4.11, and specs check it as a token and as each control paints it), `--cp-card-edge` (the edge of a sheet — card, dialog, lightbox — a hairline in light and a stronger line in dark, where the sheet's fill barely stands off the page), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"), and a skeleton's two colours (`--cp-skeleton-base`, `--cp-skeleton-shine`).
-3. Angular primitives implement interaction and accessibility.
+1. Primitive tokens define scale: spacing, type, radii, motion (including the entrance, `--cp-duration-enter`, `--cp-enter-distance`, `--cp-enter-stagger`, the loading bar's sweep, `--cp-duration-sweep`, and a busy button's spinner, `--cp-duration-spinner`), z-index (`--cp-z-topbar` < `--cp-z-sidebar` < `--cp-z-overlay` < `--cp-z-modal`), and the page frame (`--cp-page-gutter`; `--cp-page-width-reading`, `-standard`, `-wide`) — see "Composing a page" — and the drawer's two widths (`--cp-drawer-width`, `--cp-drawer-width-wide`).
+2. Semantic theme tokens define intent: background, surface, text, border, primary, status, `--cp-ink-on-accent` (readable text/icon color for any solid accent background), `--cp-scrim` (modal backdrop), `--cp-ink-on-scrim` (text set over a photograph under the scrim), `--cp-border-control` and `--cp-field-bg` (a control's edge and a field's fill; the edge — of a field, a select, a checkbox's box, a radio's mark, a secondary button — holds 3:1 against the fill and every surface, WCAG 1.4.11, and specs check it as a token and as each control paints it), `--cp-card-edge` (the edge of a sheet — card, dialog, lightbox — a hairline in light and a stronger line in dark, where the sheet's fill barely stands off the page), `--cp-focus` (the focus ring — opaque, and held at 3:1 against every surface it is drawn over by the same rule and its own specs; see "The focus ring"), three shadows (`-sm` resting, `-md` lifted on hover, `-lg` floating), each accent as text (`--cp-pink-text`, `--cp-orange-text`, `--cp-purple-text`, `--cp-blue-text`, beside `--cp-primary-text`), and a tool's tone (`--cp-tone`, `--cp-tone-soft`, `--cp-tone-text`, `--cp-tone-on`, selected by `data-cp-tone`; see "Warmth inside the app"); there are no loading colours, because loading is a `cp-spinner` in `--cp-text-muted`.
+3. Angular primitives implement interaction and accessibility. A new one — and a new feature component — keeps its template and styles in their own files beside its class (`name.component.html` and `name.component.css`, through `templateUrl` and `styleUrl`), as `cp-field`, `cp-spinner` and `cp-loading-bar` do. A spec's test host may stay inline, and the older parts whose templates are inline are not moved for this alone.
 4. Feature compositions combine primitives for recipe editing, AI writing, image production, planning, and analytics.
 
 ## Theme contract
@@ -504,12 +504,15 @@ because the Done or Waiting card follows it. The card keeps its heading id, so f
 to land, and it is not featured: nothing to do next is not what matters most. Without one it keeps the older glyph in a disc, so a page
 changes only when its own prompt draws it. The page contract fails a feature stylesheet that draws its own.
 
-**Loading looks like what is coming** (AU.2.3, AU.7). `cp-skeleton` draws the shape about to arrive — `line`
-(a block of them varies in width and ends short, so it reads as text, not a table), `block`, `circle`, or
-`card`, a `cp-media-card` silhouette that lays a `count` of itself out as a card grid, its picture 4:3 unless
-`pictureAspect` names the shape of the pictures coming (a run of generated ones, AU.5.2) — on `--cp-skeleton-base`,
-with `--cp-skeleton-shine` sweeping across it by `background-position` over `--cp-duration-skeleton`. Under
-reduced motion it is the plain base colour and does not move. Its host is `aria-hidden`; the region that is
+**Loading holds the space of what is coming** (AU.2.3, AU.7). `cp-skeleton` lays out the shape about to arrive —
+`line` (a block of them varies in width and ends short, as text does), `block`, `circle`, or `card`, a
+`cp-media-card` silhouette that lays a `count` of itself out as a card grid, its picture 4:3 unless `pictureAspect`
+names the shape of the pictures coming (a run of generated ones, AU.5.2) — and draws none of it: the shapes are
+there only for their size, so what replaces them lands where they were and nothing around it jumps. In the middle
+of that space — or 5rem from its top when the space is tall, so a grid of cards stacked on a phone does not hide it below the fold — it turns one `cp-spinner`, the arc a busy button draws, in `--cp-text-muted` (3:1 on the page and the
+sheet): text-sized, at the start of the line where the words will begin, where it stands in for one line — a title, a figure — and larger everywhere else. A region built
+of several skeletons, such as the dashboard's placeholder cards, shows one spinner in each. Under reduced motion
+the spinner stands still. Its host is `aria-hidden`; the region that is
 loading carries `aria-busy` and one visually hidden status sentence, so a screen reader hears that it is
 loading exactly once. `cp-list-shell` does all of this itself: while loading it draws `loadingLayout` (`rows`, the
 default, or `cards` — which a library of media cards passes, or its skeleton will not match the grid that replaces
@@ -518,11 +521,34 @@ in place of its skeleton, hidden from a screen reader, under the same status and
 region that is inserted with its text, or held inside a busy subtree, may not be read. While the list is empty
 its pagination footer is offscreen, so a result summary there is still announced but no longer repeats the empty
 state above it; it is not hidden while loading, so a pager fetching the next page keeps the creator's focus.
-`cp-toolbar`'s `loading` marks the toolbar busy and says nothing, because the list under it is what announces. A skeleton sits on the page or a sheet (`--cp-bg`,
-`--cp-surface`), where it reads; on the subtle and raised surfaces it all but vanishes. The target is that no
+`cp-toolbar`'s `loading` marks the toolbar busy and says nothing, because the list under it is what announces. The target is that no
 page shows a visible "Loading…" sentence, except a pager button saying "Loading more…" while it fetches; about
 thirty feature sentences and two "Loading…" button labels still do, and AU.7 removes them. The page head's
 title is never a loading sentence: it is the route's title, or a skeleton line where the record's title will be.
+
+**A button that is waiting** is not loading: nothing is on its way to a region, the creator pressed something and
+is waiting for it. `cpButton`'s `busy` says so — it sets `aria-busy` while true and nothing while false, and draws
+`cp-spinner` before the label: one arc of a ring, `1em`, in the label's own colour, turning once every
+`--cp-duration-spinner` and still under reduced motion. It is `aria-hidden`, since `aria-busy` and the words already
+say it, and the button stays at full strength while busy rather than fading like one that will not act. The
+button's words say what it is doing ("Saving…", "Asking…"), which are the feature's. Whether it is `disabled` or
+stays focusable with `aria-disabled` while it waits is the feature's too, and `busy` touches neither: a button that
+was focused when it was pressed stays `aria-disabled` so focus is not dropped. A feature draws no spinner of its
+own. What says the button is busy is
+the feature's own state — a `signal(false)` set around the request, or a status in its state union — bound to both
+`[busy]` and the words, so a button whose label changes to "Saving…" always draws the spinner too. Clear that flag
+as soon as the request answers, before any early return for an answer that is no longer wanted, so a button is
+never left busy over nothing. There is no minimum: on a real network the spinner shows for as long as the request
+takes. A generation that outlives its request is not this: it is `AiOperationTracker`'s.
+
+**A wait with no shape yet** is the one place for a bar. Between a click on a link and the page that answers it,
+there is no region to hold a skeleton in — every route loads its code lazily, and on a real network the first visit
+to one takes a moment. `cp-loading-bar` runs along the shell's top bar's bottom edge for that: a short
+`--cp-primary` segment sweeping at `--cp-duration-sweep`'s "still coming" pace, untoned because the top bar is chrome. It
+shows only once a navigation has lasted 200ms, fades as soon as it ends, and says "Opening the page" once through
+an always-present hidden status. The shell drives it from the router's `currentNavigation`, never from HTTP: a
+page's own reads draw their skeletons, and polling or a background refresh never lights it. A page does not use
+it; under reduced motion it is a still bar.
 
 ### What the build checks
 
@@ -546,8 +572,10 @@ Before anything else about a new page, say which of the three shapes it is — a
 | `drawer` | a feature stylesheet sets `position: fixed` or slides with `translateX` | `cp-drawer`, `cp-dialog`, or `cp-lightbox` for a picture |
 | `illustration` | a stylesheet styles `.illustration`, `.illustrations`, `.empty-art`, `.empty-illustration`, `.spot-art`, `.no-picture`, `.picture-panel` or `.picture-placeholder`, or reads `--cp-tone-panel`; a template under `features/` draws an inline `<svg>` | `cp-illustration`, `cp-empty-state`'s `illustration`, or `cp-media-card`'s panel |
 | `generated` | a template has an element whose whole text, in any case, is a label for generated output — "Drafted by AI", "Made by AI", "Read by AI", "Written by AI", "Written for you", "AI generated", "AI suggested", "AI draft", "Generated" or "Generated draft". A label held in TypeScript (a status or source vocabulary) is not seen | `cp-generated-label`, or `cp-generated` around the output | `cp-generated-label`, or `cp-generated` around the output |
-| `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the library's sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
+| `skeleton` | a stylesheet styles a class beginning `skeleton` or `shimmer`, draws with a `--cp-skeleton-*` token or the old sweep, or a keyframe animates `background-position` | `cp-skeleton`, or `cp-list-shell`'s `loadingLayout` |
+| `spinner` | a stylesheet styles a class containing `spinner`, beginning `loader`, or named `.spin`, or a keyframe turns something (`rotate`) | `cp-spinner`; a busy `cpButton` and `cp-skeleton` already draw it |
 | `loading` | a template shows, outside a `.cp-sr-only` element, text or a string beginning "Loading", "Reading", "Checking", "Finding", "Looking", "Counting", "Opening", "Fetching", "Comparing", "Picking up" or "Taking you" and ending "…"; a button's own label may say anything but a bare "Loading…", and "Loading more…" belongs on the pager button. Text bound from code is not seen, and a sentence about the creator's own action ("Saving…", "Asking…") is not one | the shape that is coming in `cp-skeleton` inside `aria-busy`, and one always-present `p.cp-sr-only[role=status]` whose words are there only while it loads (AU.7) |
+| `button-busy` | a template writes `aria-busy`, bound or static, on a `cpButton`, or a `cpButton`'s words turn to "…" while it waits (`{{ saving() ? 'Saving…' : 'Save' }}`) with no `[busy]` | `[busy]` on the button; its words and its `disabled` or `aria-disabled` stay the feature's |
 | `tone` | a template sets `data-cp-tone`, or a stylesheet selects on `[data-cp-tone]` or declares a `--cp-tone*` (the shell's frame is the one exemption) | `data: { tone }` on the route; read `--cp-tone`, `-soft`, `-text`, `-on` |
 | `utilities` | a stylesheet styles `.cp-muted`, `.cp-actions` or `.cp-disclosure`, or keeps a private `.muted` or `.actions` | the class from `global.css`, with a second class of the feature's own for anything more it needs — a measure, a larger size |
 | `public-h1` | a public page's headline template (the landing hero, the legal page) renders other than one `<h1>`, or any other public template renders one | the hero's `h1`, or the legal document's title; sections start at `h2` |

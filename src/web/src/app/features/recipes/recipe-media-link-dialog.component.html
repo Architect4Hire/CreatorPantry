@@ -130,7 +130,7 @@
       <button cpButton type="button" variant="ghost" (click)="cancel()">Cancel</button>
     } @else {
       <button cpButton type="button" variant="ghost" [disabled]="saving()" (click)="back()">Back</button>
-      <button cpButton type="button" variant="primary" [disabled]="saving()" (click)="submit()">
+      <button cpButton [busy]="saving()" type="button" variant="primary" [disabled]="saving()" (click)="submit()">
         {{ saving() ? 'Linking…' : 'Link picture' }}
       </button>
     }

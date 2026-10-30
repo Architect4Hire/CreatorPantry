@@ -110,7 +110,7 @@
         <p class="conversion-problem" role="alert">{{ problem }}</p>
       }
 
-      <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+      <button type="submit" cpButton [busy]="isWorking()" variant="primary" [disabled]="!canSubmit()">
         {{ isWorking() ? 'Working…' : 'Convert' }}
       </button>
     </form>

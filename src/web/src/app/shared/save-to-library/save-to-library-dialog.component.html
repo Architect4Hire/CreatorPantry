@@ -230,7 +230,7 @@
       <button cpButton type="button" (click)="cancel()">Close</button>
     } @else {
       <button cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">Cancel</button>
-      <button cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
+      <button cpButton [busy]="saving()" type="button" [disabled]="saving() || gone()" (click)="save()">
         {{ saving() ? 'Saving…' : 'Save to library' }}
       </button>
     }

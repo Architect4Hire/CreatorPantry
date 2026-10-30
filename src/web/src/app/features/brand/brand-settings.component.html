@@ -341,7 +341,7 @@
 
               <div class="cp-actions">
                 <!-- Held back while the form's own rules fail: the field and the list below say why. -->
-                <button cpButton type="submit" variant="primary" [disabled]="saveState().status === 'saving' || !validator.canSubmit()">
+                <button cpButton [busy]="saveState().status === 'saving'" type="submit" variant="primary" [disabled]="saveState().status === 'saving' || !validator.canSubmit()">
                   {{ saveState().status === 'saving' ? 'Saving…' : isFirstUse() ? 'Create brand settings' : 'Save changes' }}
                 </button>
                 @if (isDirty()) {

@@ -96,7 +96,7 @@
 
     <!-- Disabled, never removed: taking away the button a creator has just pressed drops their focus to the
          top of the document at the moment the refusal is announced. -->
-    <button cpButton type="button" [disabled]="!canSubmit()" [attr.aria-busy]="submitting()" (click)="submit()">
+    <button cpButton type="button" [disabled]="!canSubmit()" [busy]="submitting()" (click)="submit()">
       {{ submitting() ? 'Duplicating…' : 'Duplicate' }}
     </button>
   </div>

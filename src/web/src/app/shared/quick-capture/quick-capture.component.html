@@ -158,7 +158,7 @@
       type="button"
       variant="primary"
       [attr.aria-disabled]="!canSave()"
-      [attr.aria-busy]="saving()"
+      [busy]="saving()"
       [attr.aria-describedby]="online() ? null : 'cp-quick-capture-offline'"
       (click)="save()"
     >

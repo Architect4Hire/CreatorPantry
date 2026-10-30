@@ -128,7 +128,7 @@ const CANCEL_PROBLEMS = {
                   @if (view.cancellable) {
                     <p class="plain">
                       <button
-                        cpButton
+                        cpButton [busy]="cancelling() === view.record.id"
                         type="button"
                         variant="secondary"
                         size="sm"

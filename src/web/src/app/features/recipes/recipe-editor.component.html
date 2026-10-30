@@ -144,7 +144,7 @@
             variant="secondary"
             type="button"
             [disabled]="lifecycleWorking()"
-            [attr.aria-busy]="lifecycleWorking()"
+            [busy]="lifecycleWorking()"
             (click)="setArchived(true)"
           >
             {{ lifecycleWorking() ? 'Archiving…' : 'Archive…' }}
@@ -156,7 +156,7 @@
           size="lg"
           type="button"
           [disabled]="!canSave()"
-          [attr.aria-busy]="saveState().status === 'saving'"
+          [busy]="saveState().status === 'saving'"
           [attr.title]="isArchived() ? 'Archived recipes cannot be saved. Bring this one back first.' : null"
           [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
           (click)="save()"
@@ -213,7 +213,7 @@
             variant="secondary"
             type="button"
             [disabled]="lifecycleWorking()"
-            [attr.aria-busy]="lifecycleWorking()"
+            [busy]="lifecycleWorking()"
             (click)="setArchived(false)"
           >
             {{ lifecycleWorking() ? 'Bringing it back…' : 'Bring it back' }}

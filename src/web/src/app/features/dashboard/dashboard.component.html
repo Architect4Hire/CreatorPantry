@@ -2,7 +2,7 @@
   @if (dashboard()) {
     <!-- Never disabled: a focused control that disables itself drops focus to the page. A second press while a
          refresh is running is simply ignored, and the button says it is running. -->
-    <button cpPageHeadActions cpButton type="button" variant="secondary" [attr.aria-disabled]="refreshing() ? 'true' : null" (click)="refresh()">
+    <button cpPageHeadActions cpButton [busy]="refreshing()" type="button" variant="secondary" [attr.aria-disabled]="refreshing() ? 'true' : null" (click)="refresh()">
       {{ refreshing() ? 'Refreshing…' : 'Refresh' }}
     </button>
   }

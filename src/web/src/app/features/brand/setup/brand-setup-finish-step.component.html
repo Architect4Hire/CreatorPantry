@@ -76,12 +76,12 @@
     @if (outcome() === 'undecided') {
       <div class="cp-actions">
         @if (isOwner()) {
-          <button cpButton type="button" variant="primary" [disabled]="busy() !== '' || parts().length === 0" (click)="activate()">
+          <button cpButton [busy]="busy() === 'activate'" type="button" variant="primary" [disabled]="busy() !== '' || parts().length === 0" (click)="activate()">
             {{ busy() === 'activate' ? 'Switching it on…' : 'Switch my voice on' }}
           </button>
         }
         <button
-          cpButton
+          cpButton [busy]="busy() === 'keep'"
           type="button"
           [variant]="isOwner() ? 'secondary' : 'primary'"
           [disabled]="busy() !== '' || parts().length === 0"

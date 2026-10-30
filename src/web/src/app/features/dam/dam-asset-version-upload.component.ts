@@ -94,7 +94,7 @@ const FAILURE_MESSAGE: Readonly<Record<DamVersionUploadFailure, string>> = {
       <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="close()">
         Close
       </button>
-      <button cpDrawerActions cpButton type="button" [disabled]="isUploading() || file() === null" (click)="upload()">
+      <button cpDrawerActions cpButton [busy]="isUploading()" type="button" [disabled]="isUploading() || file() === null" (click)="upload()">
         {{ isUploading() ? 'Adding…' : 'Add as version ' + nextVersionNumber() }}
       </button>
     </cp-drawer>

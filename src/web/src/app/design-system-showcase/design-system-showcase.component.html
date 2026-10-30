@@ -6,7 +6,7 @@
 
   <section aria-labelledby="buttons-heading">
     <h2 id="buttons-heading">Button</h2>
-    <p class="section-note">5 variants × 3 sizes, plus disabled, full-width, and anchor-rendered forms.</p>
+    <p class="section-note">5 variants × 3 sizes, plus disabled, busy, full-width, and anchor-rendered forms.</p>
     <div class="button-grid">
       @for (variant of buttonVariants; track variant) {
         <div class="button-grid-row">
@@ -20,6 +20,15 @@
     <div class="button-extras">
       <button cpButton disabled>Disabled (native)</button>
       <a cpButton variant="secondary" aria-disabled="true" tabindex="-1">Disabled anchor (aria-disabled, since anchors have no native disabled state)</a>
+      <!-- Busy: the press was heard and the work is in flight. It stays focusable, and its words say what it is doing. -->
+      <button
+        cpButton
+        type="button"
+        class="busy-demo"
+        [busy]="busyDemo()"
+        [attr.aria-disabled]="busyDemo() ? 'true' : null"
+        (click)="pretendToSave()"
+      >{{ busyDemo() ? 'Saving…' : 'Save (busy for two seconds)' }}</button>
       <button cpButton [fullWidth]="true">Full width</button>
       <a cpButton href="#buttons-heading">Anchor rendered as button</a>
     </div>
@@ -149,11 +158,6 @@
         </li>
       }
     </ul>
-    <p class="section-note">A skeleton's resting block and its shine, shown still.</p>
-    <div class="tone-skeleton" aria-hidden="true">
-      <span></span>
-      <span></span>
-    </div>
   </section>
 
   <section aria-labelledby="dialog-heading">
@@ -229,6 +233,18 @@
         </div>
       }
     </div>
+
+    <p class="section-note">
+      <code>cp-loading-bar</code> is for a wait with no shape to draw — the shell runs one along the top bar's edge
+      while the next page's code arrives. It shows only once the wait has lasted 200ms, and a screen reader hears its
+      <code>label</code> once.
+    </p>
+    <div class="loading-bar-demo">
+      <button cpButton type="button" variant="secondary" size="sm" (click)="loadingBarActive.set(!loadingBarActive())">
+        {{ loadingBarActive() ? 'End the wait' : 'Start a wait' }}
+      </button>
+      <cp-loading-bar class="loading-bar-edge" [active]="loadingBarActive()" label="Opening the page" />
+    </div>
   </section>
 
   <section aria-labelledby="quick-action-heading">
@@ -280,7 +296,7 @@
     <h2 id="list-shell-heading">List shell</h2>
     <p class="section-note">
       Loading, error, empty, and ready states — the rows are consumer-projected content, not owned by the shell.
-      Loading draws skeletons in the shape that is coming, as rows or as a library of cards, and says
+      Loading holds the space of what is coming, as rows or as a library of cards, with one spinner in it, and says
       "Loading…" to a screen reader only. Until the list is ready its footer is said, not shown.
     </p>
     <div class="button-extras">
@@ -310,18 +326,41 @@
   </section>
 
   <section aria-labelledby="skeleton-heading">
-    <h2 id="skeleton-heading">Skeleton</h2>
+    <h2 id="skeleton-heading">Skeleton and spinner</h2>
     <p class="section-note">
-      The shape of what is loading: <code>line</code>, <code>block</code>, <code>circle</code> and
-      <code>card</code>. Hidden from assistive technology — the region that is loading says so once. Still under
-      reduced motion.
+      A skeleton holds the space of what is loading — <code>line</code>, <code>block</code>, <code>circle</code> or
+      <code>card</code> — draws none of it, and turns one <code>cp-spinner</code> in it: centred in a panel, held near
+      the top of a tall space, and text-sized at the start of a single line, where the words will begin. It is never
+      used bare, so each example below is a real part part-way through loading; the list shell above shows
+      <code>rows</code> and <code>cards</code>. Hidden from assistive technology — the region that is loading says so
+      once. Still under reduced motion.
     </p>
-    <div class="skeleton-demo">
-      <cp-skeleton shape="circle" [count]="3" />
-      <cp-skeleton shape="line" [count]="4" />
-      <cp-skeleton shape="block" />
-      <cp-skeleton shape="card" [count]="3" />
-    </div>
+    <ul cpCardGrid minColumn="18rem" class="skeleton-examples" aria-label="Parts part-way through loading">
+      <li>
+        <cp-topic-card heading="Method" [headingLevel]="3">
+          <div aria-busy="true"><cp-skeleton shape="line" [count]="4" /></div>
+        </cp-topic-card>
+      </li>
+      <li>
+        <cp-topic-card heading="Yield and timing" [headingLevel]="3">
+          <dl cpFacts aria-busy="true">
+            <div cpFact label="Serves"><cp-skeleton shape="line" /></div>
+            <div cpFact label="Prep"><cp-skeleton shape="line" /></div>
+            <div cpFact label="Cook"><cp-skeleton shape="line" /></div>
+          </dl>
+        </cp-topic-card>
+      </li>
+      <li>
+        <cp-topic-card heading="Hero picture" [headingLevel]="3">
+          <div aria-busy="true"><cp-skeleton shape="block" pictureAspect="4 / 3" /></div>
+        </cp-topic-card>
+      </li>
+    </ul>
+    <p class="section-note spinner-demo">
+      <code>cp-spinner</code> on its own takes the size and colour of the text around it <cp-spinner />, and a busy
+      button draws the same one before its words:
+      <button cpButton type="button" size="sm" variant="secondary" aria-disabled="true" [busy]="true">Saving…</button>
+    </p>
   </section>
 
   <section aria-labelledby="enter-heading">

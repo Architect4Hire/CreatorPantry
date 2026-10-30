@@ -130,6 +130,12 @@ nav a.active::before {
   border-bottom: 1px solid var(--cp-border);
   backdrop-filter: saturate(1.4) blur(16px);
 }
+/* Over the bar's bottom rule, the width of the bar: out of the row's flow, so nothing in it moves when it shows. */
+.nav-progress {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+}
 
 .spacer {
   flex: 1;

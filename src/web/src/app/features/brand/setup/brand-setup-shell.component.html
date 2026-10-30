@@ -244,11 +244,11 @@
                 @if (isLast()) {
                   <!-- Gated on the step's report exactly as Continue is: the last step has a decision of its own
                        to settle, and finishing before it was made would leave the creator's guide nowhere. -->
-                  <button cpButton type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="finish()">
+                  <button cpButton [busy]="busy() === 'complete'" type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="finish()">
                     {{ busy() === 'complete' ? 'Finishing…' : 'Finish setup' }}
                   </button>
                 } @else {
-                  <button cpButton type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="continueToNext()">
+                  <button cpButton [busy]="busy() === 'continue'" type="button" variant="primary" [disabled]="!report().canContinue || busy() !== ''" (click)="continueToNext()">
                     {{ busy() === 'continue' ? 'Saving…' : 'Continue' }}
                   </button>
                 }

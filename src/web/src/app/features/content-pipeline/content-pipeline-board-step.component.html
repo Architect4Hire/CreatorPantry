@@ -38,7 +38,7 @@
       }
 
       <div class="cp-actions">
-        <button cpButton type="button" variant="primary" [disabled]="!canCommit()" (click)="commit()">
+        <button cpButton [busy]="committing()" type="button" variant="primary" [disabled]="!canCommit()" (click)="commit()">
           {{ committing() ? 'Adding to your board…' : problem() ? 'Try again' : 'Add to your board' }}
         </button>
       </div>

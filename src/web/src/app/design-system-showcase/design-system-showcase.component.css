@@ -124,6 +124,17 @@ code {
   gap: var(--cp-space-2);
 }
 
+/* An edge like the top bar's, for the bar to run along. */
+.loading-bar-demo {
+  display: grid;
+  justify-items: start;
+  gap: var(--cp-space-3);
+}
+.loading-bar-edge {
+  justify-self: stretch;
+  border-top: 1px solid var(--cp-border);
+}
+
 .quick-action-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
@@ -254,23 +265,6 @@ code {
   font-weight: 600;
 }
 
-.tone-skeleton {
-  display: grid;
-  gap: var(--cp-space-2);
-  max-width: 24rem;
-}
-
-.tone-skeleton span {
-  height: 0.875rem;
-  border-radius: var(--cp-radius-sm);
-  background: var(--cp-skeleton-base);
-}
-
-.tone-skeleton span:last-child {
-  width: 60%;
-  background: var(--cp-skeleton-shine);
-}
-
 .focus-tint {
   display: inline-flex;
   padding: var(--cp-space-4);
@@ -278,10 +272,12 @@ code {
   background: var(--cp-pink-soft);
 }
 
-.skeleton-demo {
-  display: grid;
-  gap: var(--cp-space-5);
-  max-width: 48rem;
+.skeleton-examples {
+  margin-block: var(--cp-space-4);
+}
+.spinner-demo button {
+  margin-inline-start: var(--cp-space-2);
+  vertical-align: middle;
 }
 
 .illustration-row {

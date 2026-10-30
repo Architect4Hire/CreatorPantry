@@ -76,12 +76,60 @@ describe('CpSkeletonComponent', () => {
     expect(card.querySelectorAll('.bone.line.title').length).toBe(1);
   });
 
-  it('sweeps by background-position, never by moving the element', () => {
-    const bone = mount('block').querySelector<HTMLElement>('.bone')!;
+  it('holds the space of what is coming and draws none of it', () => {
+    const host = mount('card', 2);
     document.body.appendChild(fixture.nativeElement);
-    const style = getComputedStyle(bone);
-    expect(style.animationName).toContain('cp-skeleton-sweep');
-    expect(style.transform).toBe('none');
+    expect(host.getBoundingClientRect().height).toBeGreaterThan(100);
+    for (const shape of host.querySelectorAll<HTMLElement>('.card, .bone')) {
+      expect(getComputedStyle(shape).visibility).toBe('hidden');
+    }
+    fixture.nativeElement.remove();
+  });
+
+  it('turns one spinner in the middle of that space, however many shapes it holds', () => {
+    const host = mount('line', 4);
+    document.body.appendChild(fixture.nativeElement);
+    const spinners = host.querySelectorAll<HTMLElement>('cp-spinner');
+    expect(spinners.length).toBe(1);
+
+    const outer = host.getBoundingClientRect();
+    const inner = spinners[0].getBoundingClientRect();
+    expect(inner.left + inner.width / 2).toBeCloseTo(outer.left + outer.width / 2, 0);
+    expect(inner.top + inner.height / 2).toBeCloseTo(outer.top + outer.height / 2, 0);
+    expect(getComputedStyle(spinners[0]).visibility).toBe('visible');
+    fixture.nativeElement.remove();
+  });
+
+  it('keeps the spinner near the top of a tall space, where it is seen rather than below the fold', () => {
+    const host = mount('block', 6);
+    document.body.appendChild(fixture.nativeElement);
+    const outer = host.getBoundingClientRect();
+    const inner = host.querySelector<HTMLElement>('cp-spinner')!.getBoundingClientRect();
+    expect(outer.height).toBeGreaterThan(600);
+    expect(inner.top - outer.top).toBeCloseTo(80, 0);
+    fixture.nativeElement.remove();
+  });
+
+  it('draws a text-sized spinner for one line, and a larger one for anything more', () => {
+    const size = (shape: CpSkeletonShape, count: number): number => {
+      const spinner = mount(shape, count).querySelector<HTMLElement>('cp-spinner')!;
+      document.body.appendChild(fixture.nativeElement);
+      const height = spinner.getBoundingClientRect().height;
+      fixture.nativeElement.remove();
+      return height;
+    };
+
+    expect(size('line', 1)).toBeCloseTo(16, 0);
+    expect(size('line', 4)).toBeCloseTo(28, 0);
+    expect(size('block', 1)).toBeCloseTo(28, 0);
+  });
+
+  it('puts a one-line spinner where the words will begin, not in the middle of the line', () => {
+    const host = mount('line', 1);
+    document.body.appendChild(fixture.nativeElement);
+    const outer = host.getBoundingClientRect();
+    const inner = host.querySelector<HTMLElement>('cp-spinner')!.getBoundingClientRect();
+    expect(inner.left).toBeCloseTo(outer.left, 0);
     fixture.nativeElement.remove();
   });
 });

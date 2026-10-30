@@ -42,7 +42,7 @@
             variant="secondary"
             type="button"
             [attr.aria-disabled]="retrying() ? 'true' : null"
-            [attr.aria-busy]="retrying() ? 'true' : null"
+            [busy]="retrying()"
             (click)="retry()"
           >
             {{ retrying() ? 'Trying…' : 'Try again' }}
@@ -95,7 +95,7 @@
                 size="sm"
                 type="button"
                 [attr.aria-disabled]="retrying() ? 'true' : null"
-                [attr.aria-busy]="retrying() ? 'true' : null"
+                [busy]="retrying()"
                 (click)="retry()"
               >
                 {{ retrying() ? 'Checking…' : 'Check again' }}

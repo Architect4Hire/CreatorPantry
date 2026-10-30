@@ -123,7 +123,7 @@
                     </button>
                     @if (canDelete() && storedTheme(day); as stored) {
                       <button
-                        cpButton
+                        cpButton [busy]="deleting() === stored.key"
                         type="button"
                         variant="danger"
                         size="sm"
@@ -173,7 +173,7 @@
                         </button>
                         @if (canDelete()) {
                           <button
-                            cpButton
+                            cpButton [busy]="deleting() === row.theme.key"
                             type="button"
                             variant="danger"
                             size="sm"
@@ -199,7 +199,7 @@
             }
 
             <div class="cp-actions">
-              <button cpButton type="submit" [disabled]="!dirty() || saving()">
+              <button cpButton [busy]="saving()" type="submit" [disabled]="!dirty() || saving()">
                 {{ saving() ? 'Saving…' : 'Save' }}
               </button>
               @if (dirty() && !saving()) {
@@ -343,7 +343,7 @@
 
         @if (state.nextCursor !== null) {
           <button
-            cpButton
+            cpButton [busy]="state.more === 'loading'"
             type="button"
             variant="secondary"
             size="sm"

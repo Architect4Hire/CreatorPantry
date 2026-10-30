@@ -15,7 +15,7 @@
         cpButton
         type="button"
         [disabled]="!canCompare() || comparing()"
-        [attr.aria-busy]="comparing()"
+        [busy]="comparing()"
         (click)="compare()"
       >
         {{ comparing() ? 'Comparing…' : 'Compare' }}
@@ -172,7 +172,7 @@
         variant="secondary"
         type="button"
         [disabled]="loadingOlder()"
-        [attr.aria-busy]="loadingOlder() ? 'true' : null"
+        [busy]="loadingOlder()"
         (click)="loadOlder()"
       >
         Load older versions

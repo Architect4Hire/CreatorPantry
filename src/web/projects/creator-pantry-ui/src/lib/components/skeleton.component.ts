@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+import { CpSpinnerComponent } from './spinner.component';
+
 export type CpSkeletonShape = 'line' | 'block' | 'circle' | 'card';
 
 /** The widths a block of lines cycles through, so it reads as a paragraph arriving rather than a table. */
@@ -16,30 +18,36 @@ const CARD_LINES = [
 const MOST = 24;
 
 /**
- * The shape of what is about to arrive, drawn while it loads (AU.2.3, APP-003): a line of text, a panel, a disc,
- * or a `cp-media-card`'s silhouette. A page shows the layout coming rather than a sentence saying it is coming.
+ * What is about to arrive, while it loads: the space it will take, kept clear, with one `cp-spinner` turning in it
+ * — centred, or held near the top of a tall space so it is not below the fold. A page shows that something is
+ * coming, where it will be, rather than a sentence saying so.
+ *
+ * **It holds the space, so nothing moves.** It still lays out the shape of what is coming — a line of text, a
+ * panel, a disc, or a `cp-media-card`'s silhouette — but draws none of it: the shapes are there only for their size,
+ * so the content that replaces them lands where the spinner was and the page around it does not jump.
+ *
+ * **One spinner, in muted ink.** Text-sized where it stands in for one line — a title, a figure — and larger
+ * everywhere else. It is `cp-spinner`, the one a busy button draws, so a wait looks the same wherever it is met, and
+ * it stands still under reduced motion.
  *
  * **It says nothing.** The host is `aria-hidden` and takes no focus. Telling a screen reader that something is
  * loading is the job of the region that is loading — `aria-busy` on it and one polite status sentence, which is
  * what `cp-list-shell` does — so a skeleton never adds a second announcement.
  *
- * **It moves by `background-position`.** A band of `--cp-skeleton-shine` sweeps across `--cp-skeleton-base` over
- * `--cp-duration-skeleton`; nothing slides with `translateX`, which the page contract keeps for the drawer. Under
- * `prefers-reduced-motion` it does not move at all and is the plain base colour. That is said here rather than left
- * to global.css, whose clamp only shortens the sweep to one instant pass: still a sweep, just one nobody sees.
- *
- * `card` with a `count` lays its cards out as `ul[cpCardGrid]` does — as many columns as fit — so a library's
- * skeleton is the grid that will replace it. Its picture is 4:3, a media card's, unless `pictureAspect` says the
- * pictures coming are another shape — a run of generated pictures, drawn at the shape of the ones already made. A
- * `block` given a `pictureAspect` is a picture of that shape too, rather than a panel 8rem tall, for a consumer whose
- * own tile frames the picture.
+ * `card` with a `count` lays its space out as `ul[cpCardGrid]` does — as many columns as fit — so the grid that
+ * replaces it takes the same room. Its picture is 4:3, a media card's, unless `pictureAspect` says the pictures
+ * coming are another shape — a run of generated pictures, held at the shape of the ones already made. A `block`
+ * given a `pictureAspect` is a picture of that shape too, rather than a panel 8rem tall, for a consumer whose own
+ * tile frames the picture.
  */
 @Component({
   selector: 'cp-skeleton',
   standalone: true,
+  imports: [CpSpinnerComponent],
   host: {
     'aria-hidden': 'true',
     '[attr.data-shape]': 'shape()',
+    '[attr.data-compact]': 'compact() ? "" : null',
     '[style.--cp-skeleton-picture-aspect]': 'pictureAspect()',
     '[attr.data-aspect]': 'pictureAspect() ? "" : null',
   },
@@ -62,10 +70,12 @@ const MOST = 24;
         }
       }
     }
+    <cp-spinner class="spinner" />
   `,
   styles: [
     `
       :host {
+        position: relative;
         display: grid;
         gap: var(--cp-space-3);
       }
@@ -78,19 +88,28 @@ const MOST = 24;
         justify-content: start;
       }
 
+      /* The shapes hold the space and draw nothing. */
+      .bone,
+      .card {
+        visibility: hidden;
+      }
       .bone {
         display: block;
-        border-radius: var(--cp-radius-sm);
-        background: linear-gradient(
-          90deg,
-          var(--cp-skeleton-base) 0%,
-          var(--cp-skeleton-base) 35%,
-          var(--cp-skeleton-shine) 50%,
-          var(--cp-skeleton-base) 65%,
-          var(--cp-skeleton-base) 100%
-        );
-        background-size: 300% 100%;
-        animation: cp-skeleton-sweep var(--cp-duration-skeleton) linear infinite;
+      }
+      /* Centred in a short space; in a tall one — a grid of cards stacked on a phone — held near the top, where it
+         is seen, rather than in a middle below the fold. */
+      .spinner {
+        position: absolute;
+        inset-inline: 0;
+        top: min(calc(50% - 0.5em), 5rem);
+        margin-inline: auto;
+        font-size: 1.75rem;
+        color: var(--cp-text-muted);
+      }
+      /* One line is a value about to be written — a title, a figure — so the spinner sits where its words begin. */
+      :host([data-compact]) .spinner {
+        font-size: 1rem;
+        margin-inline: 0;
       }
       .line {
         height: 0.875rem;
@@ -103,7 +122,6 @@ const MOST = 24;
       }
       .block {
         height: 8rem;
-        border-radius: var(--cp-radius-md);
       }
       :host([data-aspect]) .block {
         height: auto;
@@ -112,45 +130,17 @@ const MOST = 24;
       .circle {
         width: 2.5rem;
         height: 2.5rem;
-        border-radius: var(--cp-radius-full);
       }
-      /* cp-card's padding, edge and radius, so the silhouette is the card that replaces it. */
+      /* cp-card's padding and edge, so the space is the card that replaces it. */
       .card {
         display: grid;
         gap: var(--cp-space-2);
         padding: var(--cp-space-6);
-        border: 1px solid var(--cp-card-edge);
-        border-radius: var(--cp-radius-lg);
-        background: var(--cp-surface);
+        border: 1px solid transparent;
       }
       .picture {
         aspect-ratio: var(--cp-skeleton-picture-aspect, 4 / 3);
         margin-bottom: var(--cp-space-2);
-        border-radius: var(--cp-radius-md);
-      }
-
-      @keyframes cp-skeleton-sweep {
-        from {
-          background-position: 100% 0;
-        }
-        to {
-          background-position: 0% 0;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .bone {
-          animation: none;
-          background: var(--cp-skeleton-base);
-        }
-      }
-
-      /* Forced colours drop backgrounds, which would leave nothing of a skeleton but the card's border. */
-      @media (forced-colors: active) {
-        .bone {
-          animation: none;
-          border: 1px solid GrayText;
-        }
       }
     `,
   ],
@@ -165,6 +155,9 @@ export class CpSkeletonComponent {
   readonly pictureAspect = input<string | null>(null);
 
   protected readonly cardLines = CARD_LINES;
+
+  /** One line standing in for a title or a figure: the spinner is text-sized there, not a panel's. */
+  protected readonly compact = computed(() => this.shape() === 'line' && this.items().length === 1);
 
   /** One entry per item; for lines, each one's width. */
   protected readonly items = computed(() => {

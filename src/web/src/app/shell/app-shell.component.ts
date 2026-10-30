@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, isDev
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
+import { CpButtonComponent, CpLoadingBarComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
 
 import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
@@ -104,6 +104,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
     RouterLink,
     RouterLinkActive,
     CpButtonComponent,
+    CpLoadingBarComponent,
     CpStatusPillComponent,
     WorkspaceSwitcherComponent,
     CpLogoComponent,
@@ -156,6 +157,13 @@ export class AppShellComponent {
   readonly currentPageTitle = () => this.routeState().title;
   readonly currentPageWidth = () => this.routeState().pageWidth;
   readonly currentPageTone = () => this.routeState().tone;
+
+  /**
+   * A navigation is under way — most often a page's code still arriving, since every route loads lazily. The
+   * router's, not HTTP's: a page's own reads draw their skeletons, and polling or a background refresh must never
+   * light the bar up.
+   */
+  readonly navigating = computed(() => this.router.currentNavigation() !== null);
 
   /** The record on the page behind, when quick capture may offer to link a task to it (13A.31). */
   readonly quickCaptureLink = () => this.routeState().link;

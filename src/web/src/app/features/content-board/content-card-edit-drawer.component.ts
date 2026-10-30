@@ -66,7 +66,7 @@ const REBASED =
 
     <span cpDrawerActions class="cp-muted state" role="status">{{ stateText() }}</span>
     <button cpDrawerActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">Cancel</button>
-    <button cpDrawerActions cpButton type="submit" form="content-card-edit-form" variant="primary" [disabled]="saving() || !dirty()">
+    <button cpDrawerActions cpButton [busy]="saving()" type="submit" form="content-card-edit-form" variant="primary" [disabled]="saving() || !dirty()">
       {{ saving() ? 'Saving…' : 'Save changes' }}
     </button>
   </cp-drawer>`,

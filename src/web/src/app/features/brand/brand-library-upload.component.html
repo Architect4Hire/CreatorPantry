@@ -84,7 +84,7 @@
     <!-- "Close", not "Cancel": the uploader's own per-item control is already labelled Cancel, and two
          buttons with the same accessible name doing different things is ambiguous for everyone. -->
     <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">Close</button>
-    <button cpButton type="button" [disabled]="isUploading()" (click)="add()">
+    <button cpButton [busy]="isUploading()" type="button" [disabled]="isUploading()" (click)="add()">
       {{ isUploading() ? 'Adding…' : 'Add example' }}
     </button>
   </div>

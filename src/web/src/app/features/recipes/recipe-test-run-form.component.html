@@ -486,7 +486,7 @@
           <button cpButton variant="secondary" type="button" (click)="reload()">Reload this test</button>
         }
         <button cpButton variant="ghost" type="button" [disabled]="submitting()" (click)="cancel()">Cancel</button>
-        <button cpButton variant="primary" type="submit" [disabled]="!canSave()" [attr.aria-busy]="submitting()">
+        <button cpButton variant="primary" type="submit" [disabled]="!canSave()" [busy]="submitting()">
           @if (submitting()) {
             Saving…
           } @else {

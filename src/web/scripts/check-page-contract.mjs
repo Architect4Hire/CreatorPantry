@@ -51,8 +51,10 @@ export const RULES = {
   drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
   illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
   generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
-  skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
-  loading: "Something on its way is drawn as the shape that is coming (`cp-skeleton`, or `cp-list-shell`'s `loadingLayout`) and said once, in a visually hidden status that is always present (`.cp-sr-only`, role=\"status\"). No visible \"Loading…\", \"Reading your…\" or \"Checking…\" sentence stands in for it. A pager button may say \"Loading more…\"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).",
+  skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), which holds the space of what is coming with one spinner in it, or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder or shimmer of its own.",
+  spinner: "Something on its way spins with `cp-spinner` — the one a busy `cpButton` draws, and the one in the middle of a `cp-skeleton`; a feature draws no spinner, loader or rotating keyframe of its own (DESIGN-SYSTEM.md, \"Loading holds the space of what is coming\").",
+  loading: "Something on its way holds the space it will take, with its spinner (`cp-skeleton`, or `cp-list-shell`'s `loadingLayout`), and is said once, in a visually hidden status that is always present (`.cp-sr-only`, role=\"status\"). No visible \"Loading…\", \"Reading your…\" or \"Checking…\" sentence stands in for it. A pager button may say \"Loading more…\"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).",
+  'button-busy': "A button whose action is in flight takes `cp-button`'s `busy`, which sets `aria-busy` and draws the spinner; its words (\"Saving…\") and whether it is `disabled` or `aria-disabled` while it waits stay the feature's. A template binds no `aria-busy` on a `cpButton` of its own, and a `cpButton` whose words turn to \"…\" while it waits binds `[busy]` to the same condition (DESIGN-SYSTEM.md, \"A button that is waiting\").",
   enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
   tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
   utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.css. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
@@ -206,6 +208,12 @@ export function stylesheetViolations(css) {
     if (/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) && /background-position\s*:/.test(rule.body)) {
       found.push({ rule: 'skeleton', line: rule.line, what: 'animates a background-position shimmer' });
     }
+    // `spinner`: one of a feature's own, by its name (`.spinner`, `.loading-spinner`, `.loader`, `.spin`) or by a keyframe that turns
+    // something — a spinner whatever it is called.
+    for (const m of rule.selector.matchAll(/\.([\w-]*spinner[\w-]*|loader[\w-]*|spin)(?![\w-])/g)) found.push({ rule: 'spinner', line: rule.line, what: `styles .${m[1]}` });
+    if (/^(from|to|[\d.]+%)(\s*,\s*(from|to|[\d.]+%))*$/.test(rule.selector) && /(?:^|[;{\s])rotate\s*:|rotate\(/.test(rule.body)) {
+      found.push({ rule: 'spinner', line: rule.line, what: 'animates a rotation' });
+    }
     // `tone`: the route owns a tool's tone (AU.2.1). A part reads --cp-tone*; a feature never sets it.
     if (/\[data-cp-tone/.test(rule.selector)) found.push({ rule: 'tone', line: rule.line, what: 'selects on [data-cp-tone]' });
     for (const m of rule.body.matchAll(/(--cp-tone[\w-]*)\s*:/g)) found.push({ rule: 'tone', line: at(m.index), what: `declares ${m[1]}` });
@@ -250,6 +258,21 @@ export function templateViolations(html) {
   // A sentence that mentions one is prose, and a record's kind bound from code ({{ kindLabel() }}) is not text here.
   for (const m of markup.matchAll(GENERATED_LABEL)) {
     found.push({ rule: 'generated', line: lineAt(markup, m.index), what: `writes its own "${m[1]}" label` });
+  }
+  // `button-busy`: a cpButton says its action is in flight through `busy`, so `aria-busy` written on one —
+  // bound or static — is the hand-rolled copy it replaced. Quoted values are skipped whole, because a binding
+  // such as `count() > 0` holds the `>` that would otherwise end the tag.
+  for (const m of markup.matchAll(/<(?:button|a)\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)) {
+    if (/\scpButton(?=[\s>=/])/.test(m[0]) && /(?:\[attr\.|\s)aria-busy(?=[\s=\]>])/.test(m[0])) {
+      found.push({ rule: 'button-busy', line: lineAt(markup, m.index), what: 'sets aria-busy on a cpButton itself' });
+    }
+  }
+  // …and a cpButton that says it is busy in words — `{{ saving() ? 'Saving…' : 'Save' }}` — draws the spinner too.
+  for (const m of markup.matchAll(/<(button|a)\b((?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/\1>/g)) {
+    if (!/\scpButton(?=[\s>=/])/.test(` ${m[2]}`) || /\[busy\]/.test(m[2])) continue;
+    if (/\{\{\s*[^{}?]+?\s*\?\s*'[^']*…'\s*:/.test(m[3])) {
+      found.push({ rule: 'button-busy', line: lineAt(markup, m.index), what: 'says it is busy in words but draws no spinner' });
+    }
   }
   found.push(...loadingViolations(markup));
   return found;

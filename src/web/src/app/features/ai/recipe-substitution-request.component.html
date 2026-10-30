@@ -86,7 +86,7 @@
         type="button"
         variant="primary"
         [attr.aria-disabled]="!canSubmit() ? 'true' : null"
-        [attr.aria-busy]="state() === 'submitting' ? 'true' : null"
+        [busy]="state() === 'submitting'"
         (click)="submit()"
       >
         {{ state() === 'submitting' ? 'Asking…' : 'Find alternatives' }}

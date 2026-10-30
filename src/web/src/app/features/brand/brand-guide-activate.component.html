@@ -131,7 +131,7 @@
       cpButton
       type="button"
       [disabled]="submitting() || !canRetry()"
-      [attr.aria-busy]="submitting()"
+      [busy]="submitting()"
       (click)="submit()"
     >
       {{ submitting() ? 'Setting…' : 'Write with this version' }}

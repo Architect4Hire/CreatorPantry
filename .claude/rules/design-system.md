@@ -19,7 +19,7 @@ CreatorPantry should feel like a food blog with a working tool underneath: edito
 
 Theme is applied with `data-cp-theme="light|dark"` on `<html>`. `CpThemeService` manages system preference and persistence. Never create separate light/dark component markup.
 
-A tool's tone is applied with `data-cp-tone="purple|pink|blue|orange"`, set by the route's `data: { tone }` on the page frame and never by a feature (the page contract's `tone` rule): AI Recipe Studio purple, Image Studio pink, Social Studio blue, Long-form and the Content Pipeline orange, every other page none. Parts draw with `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`, which are the primary's when no tone is set. A tone marks the tool, never the primary action or a status. An accent as text is `--cp-<accent>-text`, never the raw accent (light orange is darker as text). Loading draws `--cp-skeleton-base`/`--cp-skeleton-shine`; entrance motion is `cpEnter`'s, from `--cp-duration-enter`, `--cp-enter-distance` and `--cp-enter-stagger`. `src/web/DESIGN-SYSTEM.md`, "Warmth inside the app", has the rules.
+A tool's tone is applied with `data-cp-tone="purple|pink|blue|orange"`, set by the route's `data: { tone }` on the page frame and never by a feature (the page contract's `tone` rule): AI Recipe Studio purple, Image Studio pink, Social Studio blue, Long-form and the Content Pipeline orange, every other page none. Parts draw with `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`, which are the primary's when no tone is set. A tone marks the tool, never the primary action or a status. An accent as text is `--cp-<accent>-text`, never the raw accent (light orange is darker as text). Loading holds the space of what is coming with one `cp-spinner` in `--cp-text-muted` (`cp-skeleton`), and a busy button draws the same spinner; entrance motion is `cpEnter`'s, from `--cp-duration-enter`, `--cp-enter-distance` and `--cp-enter-stagger`. `src/web/DESIGN-SYSTEM.md`, "Warmth inside the app", has the rules.
 
 Consumers import the CSS foundation exactly once, in this order:
 
@@ -32,7 +32,7 @@ Consumers import the CSS foundation exactly once, in this order:
 ## Implemented public API
 
 - `CpThemeService`
-- `CpButtonComponent`: `primary | secondary | ghost | text | danger`; `sm | md | lg`; optional full width
+- `CpButtonComponent`: `primary | secondary | ghost | text | danger`; `sm | md | lg`; optional full width; `busy` sets `aria-busy` while its action is in flight and draws `cp-spinner` before the label at full strength, still under reduced motion (the label and `disabled`/`aria-disabled` stay the consumer's; a feature draws no spinner of its own). The page contract's `button-busy` rule fails a template that writes `aria-busy` on a `cpButton` itself
 - `CpCardComponent`: standard, interactive, flush and `featured` surfaces. `featured` (also on `cp-topic-card`) is the one topic on a page that matters most — the tool's tint mixed with the sheet, edged in the tool's colour — and a page has at most one
 - `CpBadgeComponent`: `neutral | success | pink | orange | purple | blue`
 - `CpFieldComponent`: label, hint, required, error, warning, projected native control; wires `aria-describedby` (hint, error, warning), `aria-invalid` while an error shows and `aria-required` onto that control so the hint and the `*` are not visual only. A warning is advice and never marks the control invalid
@@ -44,7 +44,9 @@ Consumers import the CSS foundation exactly once, in this order:
 - `CpStatusPillComponent`: `neutral | progress | success | warning | error | stale`, distinct glyph per tone plus required text
 - `CpListShellComponent`: domain-neutral list/table frame — heading, actions/pagination slots, loading/error/empty/ready states; no columns or data. Loading draws `cp-skeleton` in `loadingLayout` `rows` (default) or `cards`, or a projected `[cpListShellLoading]` (a board's columns), with one visually hidden status sentence; the ready content scrolls in a positioned region, so a `.cp-sr-only` table header cannot widen the page; while not ready the pagination footer is offscreen (said, not shown)
 - `CpEnterDirective` (`[cpEnter]`): what has just arrived, fading in and rising `--cp-enter-distance` over `--cp-duration-enter`, once. It marks the element `data-cp-enter` and `global.css` holds the `cp-enter` keyframes; everything created in one change-detection pass is one arrival, landing in creation order `--cp-enter-stagger` apart, capped at five steps. Nothing moves or waits under reduced motion, nothing is hidden without the sheet or on paper, focus arriving ends it early (`:focus-within` synchronously, then the directive), and nothing re-animates — a cancelled animation clears the mark too. The library applies it — a `cp-list-shell`'s ready content, a `cp-generated` result, a group of `cp-option-card`s; no page does today, and the page contract's `enter` rule guards the entrance tokens, the `cp-enter` keyframes and `data-cp-enter`, not the directive itself
-- `CpSkeletonComponent`: what is loading, drawn as `line`, `block`, `circle` or `card` (a media-card silhouette, as a card grid), `count` of them. `aria-hidden` — the loading region owns `aria-busy` and its one status sentence; shimmers by `background-position`, still under reduced motion. Use it rather than a "Loading…" sentence or a `.skeleton` in a feature stylesheet
+- `CpLoadingBarComponent` (`cp-loading-bar`): a wait with no shape yet — the shell's top-bar edge while a navigation lasts past `delay` (200ms). `active`, `label` said once through a hidden status, `--cp-primary`, still under reduced motion. Driven by the router's `currentNavigation`, never HTTP; a page does not use it — a page's reads draw `cp-skeleton`
+- `CpSpinnerComponent` (`cp-spinner`): something on its way — one arc of a thin ring, `1em` in `currentColor`, `aria-hidden`, still under reduced motion, paced by `--cp-duration-spinner`. The one spinner: a busy `cpButton` draws it before its label and `cp-skeleton` in the middle of its space. The page contract's `spinner` rule fails a feature that draws its own
+- `CpSkeletonComponent`: what is loading, held as the space of a `line`, `block`, `circle` or `card` (a media-card silhouette, as a card grid), `count` of them, with none of it drawn and one `cp-spinner` in `--cp-text-muted`, centred, or held near the top of a tall space so it is not below the fold — text-sized for a single line, larger otherwise — so nothing jumps when the content lands. `aria-hidden` — the loading region owns `aria-busy` and its one status sentence. Use it rather than a "Loading…" sentence, a spinner or a `.skeleton` in a feature stylesheet
 - `CpTabsComponent` / `CpTabPanelComponent`: ARIA tabs pattern, roving tabindex, disabled tabs, lazy-mounted panels
 - `CpToolbarComponent`: search/filters/actions/overflow slots, loading/disabled states, roving-tabindex keyboard nav
 - `CpEmptyStateComponent`: title/description, `illustration` (one of the drawn set; wins over the older `icon` glyph), projected actions slot, `first-use | no-results` variants. Drawn, a first use is the roomy layout in `--cp-tone-text`; no-results stays compact and uses `search`
@@ -82,11 +84,12 @@ Use these exports from `@creator-pantry/ui`; deep imports from `src/lib` are def
 2. Search the public API and existing source before adding anything.
 3. Prefer composition over variant growth.
 4. Define selector, typed signal inputs/outputs, content projection, ARIA, states, and responsive behavior first.
-5. Reusable, domain-neutral UI belongs in `projects/creator-pantry-ui`; recipe/content workflows remain in feature folders.
-6. Use semantic `--cp-*` tokens. If a semantic intent is missing, add it to both themes.
-7. Update the showcase, documentation, and `public-api.ts` for public changes.
-8. Run `npm test` from `src/web/`: `scripts/check-page-contract.mjs` runs first and fails on a page that redraws a part listed above. A new part that features were drawing privately gets a rule there in the same change.
-9. Verify WCAG 2.2 AA, keyboard operation, visible focus, screen-reader naming, 200% zoom, narrow layout, long content, both themes, and reduced motion.
+5. A new component keeps its template and styles in their own files beside its class — `name.component.html` and `name.component.css`, referenced through `templateUrl` and `styleUrl` — in the library and in a feature alike, as `cp-field`, `cp-spinner` and `cp-loading-bar` do. A spec's test host may stay inline, and the existing components whose templates are inline are not moved for this alone.
+6. Reusable, domain-neutral UI belongs in `projects/creator-pantry-ui`; recipe/content workflows remain in feature folders.
+7. Use semantic `--cp-*` tokens. If a semantic intent is missing, add it to both themes.
+8. Update the showcase, documentation, and `public-api.ts` for public changes.
+9. Run `npm test` from `src/web/`: `scripts/check-page-contract.mjs` runs first and fails on a page that redraws a part listed above. A new part that features were drawing privately gets a rule there in the same change.
+10. Verify WCAG 2.2 AA, keyboard operation, visible focus, screen-reader naming, 200% zoom, narrow layout, long content, both themes, and reduced motion.
 
 Generated `dist/` output and `node_modules/` are never committed.
 

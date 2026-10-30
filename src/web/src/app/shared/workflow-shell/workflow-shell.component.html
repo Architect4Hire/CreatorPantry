@@ -87,7 +87,7 @@
                     } @else if (suggestion.kind === 'Workflow') {
                       @if (!readOnly() && suggestion.youCanDoIt) {
                         <button
-                          cpButton
+                          cpButton [busy]="busy() === 'start-next'"
                           type="button"
                           [variant]="first ? 'primary' : 'secondary'"
                           [attr.aria-disabled]="busy() !== null || null"
@@ -155,7 +155,7 @@
             @if (stopped.replacedByRunId) {
               <a cpButton variant="primary" [routerLink]="['/', workspaceSlug(), 'workflows', 'runs', stopped.replacedByRunId]">Go to the new run</a>
             } @else if (!readOnly()) {
-              <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="startAgain()">
+              <button cpButton [busy]="busy() === 'start-again'" type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="startAgain()">
                 {{ busy() === 'start-again' ? 'Starting…' : 'Start this again' }}
               </button>
             }
@@ -270,28 +270,28 @@
 
             <div class="cp-actions primary-row">
               @if (!isFirst()) {
-                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="back()">
+                <button cpButton [busy]="busy() === 'back'" type="button" variant="secondary" [attr.aria-disabled]="busy() !== null || null" (click)="back()">
                   {{ busy() === 'back' ? 'Going back…' : 'Back' }}
                 </button>
               }
               @if (step()?.requirement === 'Optional') {
-                <button cpButton type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="skip()">
+                <button cpButton [busy]="busy() === 'skip'" type="button" variant="text" [attr.aria-disabled]="busy() !== null || null" (click)="skip()">
                   {{ busy() === 'skip' ? 'Skipping…' : 'Skip for now' }}
                 </button>
               }
               @if (step()) {
-                <button cpButton type="button" [variant]="stepReady() ? 'primary' : 'secondary'" [attr.aria-disabled]="busy() !== null || null" (click)="continue()">
+                <button cpButton [busy]="busy() === 'continue'" type="button" [variant]="stepReady() ? 'primary' : 'secondary'" [attr.aria-disabled]="busy() !== null || null" (click)="continue()">
                   {{ busy() === 'continue' ? 'Checking…' : 'Continue' }}
                 </button>
               } @else {
-                <button cpButton type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="finish()">
+                <button cpButton [busy]="busy() === 'finish'" type="button" variant="primary" [attr.aria-disabled]="busy() !== null || null" (click)="finish()">
                   {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
                 </button>
               }
             </div>
 
             <div class="cp-actions secondary-row">
-              <button cpButton type="button" variant="ghost" [attr.aria-disabled]="busy() !== null || null" (click)="saveAndExit()">
+              <button cpButton [busy]="busy() === 'save-exit'" type="button" variant="ghost" [attr.aria-disabled]="busy() !== null || null" (click)="saveAndExit()">
                 {{ busy() === 'save-exit' ? 'Saving…' : 'Save and exit' }}
               </button>
             </div>

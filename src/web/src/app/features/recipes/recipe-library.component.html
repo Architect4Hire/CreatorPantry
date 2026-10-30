@@ -121,7 +121,7 @@
     }
 
     @if (hasMore()) {
-      <button cpButton variant="secondary" type="button" [disabled]="loadingMore()" (click)="loadMore()">
+      <button cpButton [busy]="loadingMore()" variant="secondary" type="button" [disabled]="loadingMore()" (click)="loadMore()">
         {{ loadingMore() ? 'Loading more…' : moreFailed() ? 'Try loading more again' : 'Load more' }}
       </button>
     }
