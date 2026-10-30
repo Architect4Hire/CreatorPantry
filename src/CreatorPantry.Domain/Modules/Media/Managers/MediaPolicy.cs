@@ -158,6 +158,12 @@ public static class MediaPolicy
     /// </remarks>
     public const int GenerationMaxAttempts = 3;
 
+    /// <summary>
+    /// What a generation whose last lease lapsed says about itself, whether or not its allowance could be settled.
+    /// </summary>
+    public static readonly string LeaseAbandonedSummary =
+        $"Claimed {GenerationMaxAttempts} times and never completed; no attempts remain.";
+
     /// <summary>How many due operations one claim pass inspects before giving up on winning a race.</summary>
     public const int GenerationClaimBatchSize = 10;
 

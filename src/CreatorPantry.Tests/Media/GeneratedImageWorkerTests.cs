@@ -30,6 +30,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -97,6 +98,13 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         services.AddSingleton<IPrivateObjectStore>(_store);
         services.RemoveAll<IMalwareScanGateway>();
         services.AddSingleton<IMalwareScanGateway>(_scanner);
+
+        // The real quota facade, behind one that can make a settlement fail on a passing error (DL.7). Off unless
+        // a test sets _settlementFailures.
+        services.RemoveAll<IAiQuotaAdmissionFacade>();
+        services.AddScoped<AiQuotaAdmissionFacade>();
+        services.AddScoped(provider => FailingSettlement.Wrap(
+            provider.GetRequiredService<AiQuotaAdmissionFacade>(), this));
 
         // The request path asks the Ai module whether a named prompt proposal belongs to this workspace
         // (12.10l). Nothing here names one: these tests are about the worker, and a stub keeps the whole Ai

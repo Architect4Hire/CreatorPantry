@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Tests.Brand;
 using CreatorPantry.Tests.Tenancy;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,6 +67,143 @@ public sealed partial class CreativePipelineEndToEndTests
         var settled = Assert.Single(await ReservationsAsync(workspace.OwnerEmail));
         Assert.Equal(AiQuotaReservationStatus.Settled, settled.Status);
         Assert.Equal(TestDatabase.FakeImageRate, settled.SettledAmount);
+    }
+
+    /// <summary>
+    /// <strong>A pipeline run that could use only some of its pictures is charged for each one made (DL.7).</strong>
+    /// Two arrive whole and two unreadable: the provider made four, so four are charged, once each, and the ledger
+    /// says which two were useless.
+    /// </summary>
+    [Fact]
+    public async Task A_pipeline_run_that_could_use_only_some_of_its_pictures_is_charged_for_each_one_made()
+    {
+        var workspace = _fixture.WorkspaceA;
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+        _generator.ReturnsAt(2, BrandSourceSampleFiles.Png()[..12]);
+        _generator.ReturnsAt(3, BrandSourceSampleFiles.Png()[..12]);
+
+        using var client = await _fixture.SignInAsync(workspace.OwnerEmail, cancellationToken: Ct);
+
+        var asked = await client.PostAsJsonAsync(
+            In(workspace, "generated-images"),
+            new { promptText = "Four plates of soda bread.", variantCount = 4 },
+            "pipeline-partial",
+            Ct);
+        Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+        await RunWorkerAsync();
+
+        var operationId = (await BodyOf(asked)).GetProperty("id").GetGuid();
+        var made = await BodyOf(await client.GetAsync(In(workspace, $"generated-images/operations/{operationId}"), Ct));
+        Assert.Equal("PartiallySucceeded", made.GetProperty("status").GetString());
+        Assert.Equal(2, made.GetProperty("images").GetArrayLength());
+
+        var settled = Assert.Single(await ReservationsAsync(workspace.OwnerEmail));
+        Assert.Equal(AiQuotaReservationStatus.Settled, settled.Status);
+        Assert.Equal(4 * TestDatabase.FakeImageRate, settled.SettledAmount);
+
+        var charges = await ChargesAsync(operationId);
+        Assert.Equal([1, 2, 3, 4], charges.Select(charge => charge.AttemptNumber));
+        Assert.Equal(2, charges.Count(charge => charge.Outcome is AiUsageOutcome.Succeeded));
+        Assert.Equal(2, charges.Count(charge => charge.Outcome is AiUsageOutcome.Failed));
+    }
+
+    /// <summary>
+    /// <strong>An allowance is the person's (DL.7).</strong> The owner of workspace A runs out; a colleague in the
+    /// same workspace and the owner of workspace B both still make pictures, and each is charged for their own and
+    /// nobody else's.
+    /// </summary>
+    [Fact]
+    public async Task One_accounts_spent_allowance_stops_no_other_account_in_either_workspace()
+    {
+        var a = _fixture.WorkspaceA;
+        var b = _fixture.WorkspaceB;
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+
+        await AllowanceAsync(a.OwnerEmail, TestDatabase.FakeImageRate);
+        await AllowanceAsync(a.MemberEmail, 2 * TestDatabase.FakeImageRate);
+        await AllowanceAsync(b.OwnerEmail, 2 * TestDatabase.FakeImageRate);
+
+        using var owner = await _fixture.SignInAsync(a.OwnerEmail, cancellationToken: Ct);
+
+        Assert.Equal(HttpStatusCode.Accepted, (await owner.PostAsJsonAsync(
+            In(a, "generated-images"),
+            new { promptText = "One plate of soda bread.", variantCount = 1 },
+            "pipeline-owner-spends",
+            Ct)).StatusCode);
+        await RunWorkerAsync();
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await owner.PostAsJsonAsync(
+            In(a, "generated-images"),
+            new { promptText = "Another plate of soda bread.", variantCount = 1 },
+            "pipeline-owner-out",
+            Ct)).StatusCode);
+
+        using var colleague = await _fixture.SignInAsync(a.MemberEmail, cancellationToken: Ct);
+        using var neighbour = await _fixture.SignInAsync(b.OwnerEmail, cancellationToken: Ct);
+
+        var theirs = await colleague.PostAsJsonAsync(
+            In(a, "generated-images"),
+            new { promptText = "Two plates of soda bread.", variantCount = 2 },
+            "pipeline-colleague",
+            Ct);
+        var neighbours = await neighbour.PostAsJsonAsync(
+            In(b, "generated-images"),
+            new { promptText = "Two loaves on a rack.", variantCount = 2 },
+            "pipeline-neighbour",
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Accepted, theirs.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, neighbours.StatusCode);
+        await RunWorkerAsync();
+
+        Assert.Equal(TestDatabase.FakeImageRate, await SettledAsync(a.OwnerEmail));
+        Assert.Equal(2 * TestDatabase.FakeImageRate, await SettledAsync(a.MemberEmail));
+        Assert.Equal(2 * TestDatabase.FakeImageRate, await SettledAsync(b.OwnerEmail));
+
+        var colleagueAccount = await AccountAsync(a.MemberEmail);
+        var neighbourAccount = await AccountAsync(b.OwnerEmail);
+
+        // Counted first, so an empty ledger cannot pass the per-charge checks below.
+        var colleagueCharges = await ChargesAsync((await BodyOf(theirs)).GetProperty("id").GetGuid());
+        var neighbourCharges = await ChargesAsync((await BodyOf(neighbours)).GetProperty("id").GetGuid());
+        Assert.Equal(2, colleagueCharges.Count);
+        Assert.Equal(2, neighbourCharges.Count);
+
+        Assert.All(colleagueCharges, charge =>
+        {
+            Assert.Equal(colleagueAccount, charge.AccountId);
+            Assert.Equal(a.Id, charge.WorkspaceId);
+        });
+        Assert.All(
+            neighbourCharges,
+            charge =>
+            {
+                Assert.Equal(neighbourAccount, charge.AccountId);
+                Assert.Equal(b.Id, charge.WorkspaceId);
+            });
+    }
+
+    private async Task<decimal> SettledAsync(string email) =>
+        (await ReservationsAsync(email)).Sum(reservation => reservation.SettledAmount ?? 0m);
+
+    private async Task<IReadOnlyList<AccountAiUsageEntry>> ChargesAsync(Guid operationId)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>()
+            .AccountAiUsageEntries
+            .AsNoTracking()
+            .Where(entry => entry.GeneratedImageOperationId == operationId)
+            .OrderBy(entry => entry.AttemptNumber)
+            .ToListAsync(Ct);
+    }
+
+    private async Task<string> AccountAsync(string email)
+    {
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+
+        return (await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>()
+            .FindByEmailAsync(email))!.Id;
     }
 
     private async Task AllowanceAsync(string email, decimal allowance)

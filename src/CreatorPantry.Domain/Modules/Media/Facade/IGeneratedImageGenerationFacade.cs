@@ -55,6 +55,14 @@ public interface IGeneratedImageGenerationFacade
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Ends a generation whose last lease lapsed, under the lease the maintenance sweep took for it: the
+    /// pictures its passes made are charged and the rest of its hold is released (DL.7). The Worker only,
+    /// checked as <see cref="ExecuteAsync"/> is.
+    /// </summary>
+    Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
+
+    /// <summary>
     /// One operation of the resolved workspace, with the images it has produced so far.
     /// </summary>
     /// <remarks>
@@ -602,5 +610,11 @@ internal sealed class GeneratedImageGenerationFacade(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken) =>
         workspace.MembershipId == WorkspaceServiceIdentity.MembershipId
             ? business.ExecuteAsync(operationId, leaseToken, cancellationToken)
+            : Task.FromResult(GeneratedImageRunOutcome.Skipped);
+
+    public Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken) =>
+        workspace.MembershipId == WorkspaceServiceIdentity.MembershipId
+            ? business.SettleAbandonedAsync(operationId, leaseToken, cancellationToken)
             : Task.FromResult(GeneratedImageRunOutcome.Skipped);
 }

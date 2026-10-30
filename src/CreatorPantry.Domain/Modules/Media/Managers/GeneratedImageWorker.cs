@@ -26,7 +26,10 @@ public interface IGeneratedImageWorker
     /// <summary>Claims and runs every generation due right now, until the queue is empty.</summary>
     Task<GeneratedImagePassSummary> RunPendingAsync(CancellationToken cancellationToken);
 
-    /// <summary>Recovers lapsed leases: requeued with a backoff, or settled once attempts run out.</summary>
+    /// <summary>
+    /// Recovers lapsed leases: requeued with a backoff, or — once attempts run out — settled, charging the
+    /// pictures already made (DL.7).
+    /// </summary>
     Task<GeneratedImageMaintenanceSummary> RunMaintenanceAsync(CancellationToken cancellationToken);
 }
 
@@ -140,9 +143,90 @@ internal sealed class GeneratedImageWorker(
 
     private async Task<GeneratedImageMaintenanceSummary> RecoverAsync(CancellationToken cancellationToken)
     {
-        var (requeued, abandoned) = await claims.RecoverAbandonedLeasesAsync(clock.UtcNow, cancellationToken);
+        var recovery = await claims.RecoverAbandonedLeasesAsync(clock.UtcNow, cancellationToken);
+        var abandoned = 0;
 
-        return new GeneratedImageMaintenanceSummary(requeued, abandoned);
+        foreach (var claim in recovery.Exhausted)
+        {
+            if (await SettleAbandonedAsync(claim, cancellationToken))
+            {
+                abandoned++;
+            }
+        }
+
+        return new GeneratedImageMaintenanceSummary(recovery.Requeued, abandoned);
+    }
+
+    /// <summary>
+    /// Ends one generation that ran out of attempts, charging what it made (DL.7) — or, once its hold has lapsed
+    /// and it still cannot be settled, ending it uncharged so no sweep leases it forever.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Resolved like a run, in a scope of its own: the charge is AiUsage's, reached through Media's facade under
+    /// the operation's own workspace, and the account it lands on is read from the hold rather than from this
+    /// service identity.
+    /// </para>
+    /// <para>
+    /// <strong>A settlement that fails is tried again rather than given up.</strong> Ending the operation
+    /// uncharged on a passing database error would forgo pictures the provider billed for. So while the hold can
+    /// still be charged, the settlement lease is left to lapse and the next sweep hands the operation out again;
+    /// once the hold has lapsed, settling would charge nothing, and ending it uncharged costs nothing. That is
+    /// also the bound: a hold lasts <see cref="MediaPolicy.GenerationHoldDuration"/>.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether the operation was ended by this sweep.</returns>
+    private async Task<bool> SettleAbandonedAsync(
+        GeneratedImageSettlementClaim claim, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+
+            if (await ResolveAsync(scope.ServiceProvider, claim.WorkspaceId, cancellationToken))
+            {
+                var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+                    .SettleAbandonedAsync(claim.OperationId, claim.LeaseToken, cancellationToken);
+
+                if (outcome is GeneratedImageRunOutcome.PartiallyGenerated or GeneratedImageRunOutcome.Failed)
+                {
+                    return true;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                "Abandoned generation {OperationId} could not be settled ({ExceptionType}).",
+                claim.OperationId,
+                exception.GetType().Name);
+        }
+
+        if (clock.UtcNow < claim.HoldLapsesAt)
+        {
+            logger.LogWarning(
+                "Abandoned generation {OperationId} is left for the next sweep to settle while its hold stands.",
+                claim.OperationId);
+
+            return false;
+        }
+
+        // Guarded by the settlement lease, so an operation a failed-looking settle did in fact end is left alone.
+        var ended = await claims.AbandonUnsettledAsync(
+            claim.OperationId, claim.LeaseToken, clock.UtcNow, cancellationToken);
+
+        if (ended)
+        {
+            logger.LogWarning(
+                "Abandoned generation {OperationId} was ended without settling; its hold had already lapsed.",
+                claim.OperationId);
+        }
+
+        return ended;
     }
 
     /// <summary>

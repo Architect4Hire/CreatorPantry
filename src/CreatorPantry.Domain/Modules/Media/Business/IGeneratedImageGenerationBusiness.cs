@@ -44,6 +44,13 @@ public interface IGeneratedImageGenerationBusiness
     Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Ends a generation whose last lease lapsed, charging what its passes made and releasing the rest (DL.7).
+    /// Calls no provider.
+    /// </summary>
+    Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
+
     /// <summary>Records a request for this workspace, or returns the one its idempotency key already bought.</summary>
     Task<GeneratedImageRequestResult> RequestAsync(
         string promptText,
@@ -495,6 +502,42 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             return GeneratedImageRunOutcome.Cancelled;
         }
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The settlement every other ending gets, under the lease the sweep took for it: the counts each pass wrote
+    /// as its variants' fates were known are already on the row, so the charge is for exactly what was made and
+    /// billed, and whatever was held for the rest goes back. Staged images decide partial success from failure,
+    /// as they do when a requeue runs out.
+    /// </para>
+    /// <para>
+    /// A hold that expired before this ran settles nothing — AiUsage's own rule — so a generation abandoned
+    /// past <see cref="MediaPolicy.GenerationHoldDuration"/> is still ended, uncharged.
+    /// </para>
+    /// </remarks>
+    public async Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken)
+    {
+        var work = await dataLayer.OpenAsync(operationId, leaseToken, cancellationToken);
+
+        if (work.Outcome is not GeneratedImageWriteOutcome.Applied)
+        {
+            return GeneratedImageRunOutcome.Skipped;
+        }
+
+        // Not FailAsync even with nothing staged: a pass can have been billed for pictures nothing could be
+        // staged from, and those are charged here like any others.
+        var staged = work.StagedVariants is { Count: > 0 };
+
+        return await SettleAsync(
+            operationId,
+            leaseToken,
+            staged ? GeneratedImageOperationStatus.PartiallySucceeded : GeneratedImageOperationStatus.Failed,
+            GeneratedImageFailureCategory.LeaseAbandoned,
+            MediaPolicy.LeaseAbandonedSummary,
+            staged ? GeneratedImageRunOutcome.PartiallyGenerated : GeneratedImageRunOutcome.Failed,
+            cancellationToken);
     }
 
     private async Task<GeneratedImageRunOutcome> RunAsync(

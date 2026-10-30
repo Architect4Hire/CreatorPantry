@@ -11,6 +11,24 @@ namespace CreatorPantry.Domain.Modules.Media.Data;
 public sealed record GeneratedImageClaim(Guid OperationId, Guid WorkspaceId, Guid LeaseToken, int Attempts);
 
 /// <summary>
+/// An operation with no attempts left, leased again so the worker can settle it under its workspace (DL.7).
+/// Identifiers and a time, like a claim; nothing about the request.
+/// </summary>
+/// <param name="HoldLapsesAt">
+/// When the allowance hold its request took runs out. Until then a settlement that failed is worth trying again,
+/// because the pictures can still be charged; after it, settling charges nothing, so ending it uncharged loses
+/// nothing either.
+/// </param>
+public sealed record GeneratedImageSettlementClaim(
+    Guid OperationId, Guid WorkspaceId, Guid LeaseToken, DateTimeOffset HoldLapsesAt);
+
+/// <summary>What one sweep of lapsed leases found.</summary>
+/// <param name="Requeued">Operations handed back for another attempt.</param>
+/// <param name="Exhausted">Operations with no attempts left, each under a settlement lease.</param>
+public sealed record GeneratedImageLeaseRecovery(
+    int Requeued, IReadOnlyList<GeneratedImageSettlementClaim> Exhausted);
+
+/// <summary>
 /// The cross-workspace reads the Media module's background work needs: claiming the next due generation,
 /// recovering lapsed leases, and finding the workspaces with retention work.
 /// </summary>
@@ -152,7 +170,8 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
     }
 
     /// <summary>
-    /// Hands back operations whose lease lapsed: requeued with a backoff, or settled once attempts run out.
+    /// Hands back operations whose lease lapsed: requeued with a backoff, or — once attempts run out — leased
+    /// again for settlement.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -162,18 +181,19 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
     /// for once per unfinished variant, not once per request.
     /// </para>
     /// <para>
-    /// <strong>An abandoned operation is not failed outright if it staged anything.</strong> A worker that
-    /// died after two of four variants left a creator two real images, and recording that as
-    /// <c>Failed</c> would tell them their work was lost while it sat in storage. The count decides, which
-    /// is the one read here that looks past the queue columns — still no creator content, only how many
-    /// rows exist, and keyed on an operation id, so no neighbour's images are counted into it.
+    /// <strong>An exhausted operation is not ended here (DL.7).</strong> The pictures its passes made were
+    /// billed by the provider, and the charge for them is AiUsage's to post, through a facade, under the
+    /// workspace the operation belongs to — none of which this class may reach. So the lapsed lease is swapped
+    /// for a fresh one and returned, and the worker settles the operation under it: the terminal status and
+    /// the charge then commit together, as on every other way a generation ends. A worker that dies before
+    /// settling leaves that lease to lapse in turn, and the next sweep hands the operation out again.
     /// </para>
     /// <para>
     /// Each write carries the same guard the scan used, so a sweep racing a worker's own settle — or
     /// another sweep — changes nothing that has already moved on.
     /// </para>
     /// </remarks>
-    public async Task<(int Requeued, int Abandoned)> RecoverAbandonedLeasesAsync(
+    public async Task<GeneratedImageLeaseRecovery> RecoverAbandonedLeasesAsync(
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         var lapsed = await context.GeneratedImageOperations
@@ -183,11 +203,11 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
                 && operation.LeaseExpiresAt < now)
             .OrderBy(operation => operation.LeaseExpiresAt)
             .Take(MediaPolicy.GenerationMaintenanceBatchSize)
-            .Select(operation => new { operation.Id, operation.Attempts })
+            .Select(operation => new { operation.Id, operation.WorkspaceId, operation.Attempts, operation.RequestedAt })
             .ToListAsync(cancellationToken);
 
         var requeued = 0;
-        var abandoned = 0;
+        var exhausted = new List<GeneratedImageSettlementClaim>();
 
         foreach (var candidate in lapsed)
         {
@@ -210,32 +230,82 @@ internal sealed class GeneratedImageClaimRepository(CreatorPantryDbContext conte
             }
 
             // The bound: without it a request that kills its worker every time cycles forever, and every
-            // cycle is a paid provider call.
-            var staged = await context.GeneratedImages
-                .IgnoreQueryFilters()
-                .CountAsync(image => image.GeneratedImageOperationId == candidate.Id, cancellationToken);
+            // cycle is a paid provider call. Still Running and still out of attempts, so no claim can take it
+            // and no provider is called again — the lease is for settling, nothing else.
+            var settlementLease = Guid.NewGuid();
 
-            var status = staged > 0
-                ? GeneratedImageOperationStatus.PartiallySucceeded
-                : GeneratedImageOperationStatus.Failed;
-            var summary = $"Claimed {candidate.Attempts} times and never completed; no attempts remain.";
-
-            abandoned += await Lapsed(candidate.Id, now)
+            var leased = await Lapsed(candidate.Id, now)
                 .ExecuteUpdateAsync(
                     set => set
-                        .SetProperty(operation => operation.Status, status)
-                        .SetProperty(operation => operation.StatusChangedAt, now)
-                        .SetProperty(operation => operation.CompletedAt, (DateTimeOffset?)now)
+                        .SetProperty(operation => operation.LeasedBy, (Guid?)settlementLease)
                         .SetProperty(
-                            operation => operation.FailureCategory,
-                            GeneratedImageFailureCategory.LeaseAbandoned)
-                        .SetProperty(operation => operation.FailureSummary, summary)
-                        .SetProperty(operation => operation.LeasedBy, (Guid?)null)
-                        .SetProperty(operation => operation.LeaseExpiresAt, (DateTimeOffset?)null),
+                            operation => operation.LeaseExpiresAt,
+                            (DateTimeOffset?)(now + MediaPolicy.GenerationLeaseDuration)),
                     cancellationToken);
+
+            if (leased > 0)
+            {
+                // The hold was taken at the request, for GenerationHoldDuration, and is never renewed.
+                exhausted.Add(new GeneratedImageSettlementClaim(
+                    candidate.Id,
+                    candidate.WorkspaceId,
+                    settlementLease,
+                    candidate.RequestedAt + MediaPolicy.GenerationHoldDuration));
+            }
         }
 
-        return (requeued, abandoned);
+        return new GeneratedImageLeaseRecovery(requeued, exhausted);
+    }
+
+    /// <summary>
+    /// Ends an exhausted operation without settling its allowance, for one the worker could not settle under
+    /// its workspace (DL.7).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fallback, not the path, and only once the operation's hold has lapsed — before that the worker leaves
+    /// the settlement lease to lapse and the next sweep tries the settlement again. Without it an operation
+    /// whose workspace will not resolve would be leased again by every sweep forever. Ending it then forgoes no
+    /// charge: a lapsed hold settles nothing.
+    /// </para>
+    /// <para>
+    /// <strong>Not failed outright if it staged anything.</strong> A worker that died after two of four
+    /// variants left a creator two real images, and recording that as <c>Failed</c> would tell them their work
+    /// was lost while it sat in storage. The count decides — still no creator content, only how many rows
+    /// exist, keyed on an operation id, so no neighbour's images are counted into it.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether the operation was ended: false when its settlement lease has already moved on.</returns>
+    public async Task<bool> AbandonUnsettledAsync(
+        Guid operationId, Guid leaseToken, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var staged = await context.GeneratedImages
+            .IgnoreQueryFilters()
+            .CountAsync(image => image.GeneratedImageOperationId == operationId, cancellationToken);
+
+        var status = staged > 0
+            ? GeneratedImageOperationStatus.PartiallySucceeded
+            : GeneratedImageOperationStatus.Failed;
+
+        var ended = await context.GeneratedImageOperations
+            .IgnoreQueryFilters()
+            .Where(operation => operation.Id == operationId
+                && operation.Status == GeneratedImageOperationStatus.Running
+                && operation.LeasedBy == leaseToken)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(operation => operation.Status, status)
+                    .SetProperty(operation => operation.StatusChangedAt, now)
+                    .SetProperty(operation => operation.CompletedAt, (DateTimeOffset?)now)
+                    .SetProperty(
+                        operation => operation.FailureCategory,
+                        GeneratedImageFailureCategory.LeaseAbandoned)
+                    .SetProperty(operation => operation.FailureSummary, MediaPolicy.LeaseAbandonedSummary)
+                    .SetProperty(operation => operation.LeasedBy, (Guid?)null)
+                    .SetProperty(operation => operation.LeaseExpiresAt, (DateTimeOffset?)null),
+                cancellationToken);
+
+        return ended > 0;
     }
 
     /// <summary>

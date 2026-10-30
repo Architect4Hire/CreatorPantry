@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Facade;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -538,6 +539,344 @@ public sealed partial class GeneratedImageWorkerTests
         Assert.Equal(0, _generator.Calls);
         Assert.Equal(0, operation.BilledVariantCount);
         Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
+    /// <strong>A generation whose last attempt died holding its lease still pays for what it made (DL.7).</strong>
+    /// The first pass made two of four and was handed back; the last one died without settling. The sweep ends it
+    /// as every other ending is reckoned: the two pictures charged once each, the rest of the hold released, and
+    /// no provider called again.
+    /// </summary>
+    [Fact]
+    public async Task A_generation_abandoned_on_its_last_attempt_is_charged_for_the_pictures_it_made()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+        _generator.ThrowsAfter(2, () => new HttpRequestException(
+            "unreachable", inner: null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 4, account: AccountA);
+
+        Assert.Equal(1, (await RunAsync()).Requeued);
+        Assert.Equal(AiQuotaReservationStatus.Held, (await ReservationAsync(requested.Id)).Status);
+
+        // What the last attempt leaves when its worker dies: still Running, out of attempts, lease lapsed.
+        await ForceRunningAsync(requested.Id, MediaPolicy.GenerationMaxAttempts);
+        var calls = _generator.Calls;
+
+        var maintenance = await MaintainAsync();
+
+        Assert.Equal(1, maintenance.Abandoned);
+        Assert.Equal(0, maintenance.Requeued);
+        Assert.Equal(calls, _generator.Calls);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.PartiallySucceeded, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.LeaseAbandoned, operation.FailureCategory);
+        Assert.Null(operation.LeasedBy);
+
+        var settled = await ReservationAsync(requested.Id);
+        Assert.Equal(AiQuotaReservationStatus.Settled, settled.Status);
+        Assert.Equal(Credits(4), settled.ReservedAmount);
+        Assert.Equal(Credits(2), settled.SettledAmount);
+
+        var charges = await ChargesAsync(requested.Id);
+        Assert.Equal([1, 2], charges.Select(charge => charge.AttemptNumber));
+        Assert.All(charges, charge => Assert.Equal(AccountA, charge.AccountId));
+
+        // Ended for good: the next sweep finds nothing, and charges nothing twice.
+        Assert.Equal(0, (await MaintainAsync()).Abandoned);
+        Assert.Equal(2, (await ChargesAsync(requested.Id)).Count);
+    }
+
+    /// <summary>
+    /// An abandoned generation whose hold had already lapsed is still ended — uncharged, because a hold the
+    /// allowance gave back settles nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_generation_abandoned_after_its_hold_lapsed_is_ended_uncharged()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+        _generator.ThrowsAfter(2, () => new HttpRequestException(
+            "unreachable", inner: null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 4, account: AccountA);
+        await RunAsync();
+
+        _clock.Advance(MediaPolicy.GenerationHoldDuration + TimeSpan.FromMinutes(1));
+        await SweepHoldsAsync();
+        await ForceRunningAsync(requested.Id, MediaPolicy.GenerationMaxAttempts);
+
+        Assert.Equal(1, (await MaintainAsync()).Abandoned);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.PartiallySucceeded, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.LeaseAbandoned, operation.FailureCategory);
+
+        Assert.Equal(AiQuotaReservationStatus.Expired, (await ReservationAsync(requested.Id)).Status);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
+    /// <strong>Two workspaces, two accounts, one sweep.</strong> Each abandoned generation is charged to the account
+    /// that asked for it, in the workspace it was made in, for its own pictures only.
+    /// </summary>
+    [Fact]
+    public async Task One_sweep_charges_each_abandoned_generation_to_its_own_account_and_workspace()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+        _generator.ThrowsAfter(1, () => new HttpRequestException(
+            "unreachable", inner: null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        var a = await RequestAsync(WorkspaceA, variants: 2, account: AccountA, key: "a-key");
+        Assert.Equal(1, (await RunAsync()).Requeued);
+
+        // A is waiting out its backoff, so this pass takes only B.
+        _generator.ThrowsAfter(2, () => new HttpRequestException(
+            "unreachable", inner: null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        var b = await RequestAsync(WorkspaceB, variants: 4, account: AccountB, key: "b-key");
+        Assert.Equal(1, (await RunAsync()).Requeued);
+
+        await ForceRunningAsync(a.Id, MediaPolicy.GenerationMaxAttempts);
+        await ForceRunningAsync(b.Id, MediaPolicy.GenerationMaxAttempts);
+
+        Assert.Equal(2, (await MaintainAsync()).Abandoned);
+
+        var chargedA = await ChargesAsync(a.Id);
+        Assert.Single(chargedA);
+        Assert.All(chargedA, charge =>
+        {
+            Assert.Equal(AccountA, charge.AccountId);
+            Assert.Equal(WorkspaceA, charge.WorkspaceId);
+        });
+
+        var chargedB = await ChargesAsync(b.Id);
+        Assert.Equal(2, chargedB.Count);
+        Assert.All(chargedB, charge =>
+        {
+            Assert.Equal(AccountB, charge.AccountId);
+            Assert.Equal(WorkspaceB, charge.WorkspaceId);
+        });
+
+        Assert.Equal(Credits(1), await SettledAsync(AccountA));
+        Assert.Equal(Credits(2), await SettledAsync(AccountB));
+    }
+
+    /// <summary>
+    /// A settlement resolved into the wrong workspace reads nothing and charges nothing, even with the right
+    /// operation and its live lease — what a tampered or stale claim would look like.
+    /// </summary>
+    [Fact]
+    public async Task An_abandoned_generation_cannot_be_settled_from_another_workspace()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1, account: AccountA);
+        var lease = Guid.NewGuid();
+        await ClaimAsync(requested.Id, lease);
+
+        await using var scope = ServiceScopeFor(WorkspaceB);
+
+        var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .SettleAbandonedAsync(requested.Id, lease, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        Assert.Equal(GeneratedImageOperationStatus.Running, (await OperationAsync(WorkspaceA, requested.Id)).Status);
+        Assert.Equal(AiQuotaReservationStatus.Held, (await ReservationAsync(requested.Id)).Status);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>"The Worker only" for settling an abandoned generation, as for running one.</summary>
+    [Fact]
+    public async Task A_person_cannot_settle_an_abandoned_generation_even_holding_its_lease()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1, account: AccountA);
+        var lease = Guid.NewGuid();
+        await ClaimAsync(requested.Id, lease);
+
+        await using var scope = ScopeFor(WorkspaceA, account: AccountA);
+
+        var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+            .SettleAbandonedAsync(requested.Id, lease, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        Assert.Equal(GeneratedImageOperationStatus.Running, (await OperationAsync(WorkspaceA, requested.Id)).Status);
+        Assert.Equal(AiQuotaReservationStatus.Held, (await ReservationAsync(requested.Id)).Status);
+    }
+
+    /// <summary>
+    /// The fallback for one that cannot be settled under its workspace: the sweep's settlement lease ends it
+    /// uncharged, and only that lease does — so no sweep leases it forever, and no stale token ends it.
+    /// </summary>
+    [Fact]
+    public async Task An_abandoned_generation_that_cannot_be_settled_is_ended_under_its_settlement_lease_only()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 2, account: AccountA);
+        await AbandonAsync(requested.Id, attempts: MediaPolicy.GenerationMaxAttempts);
+
+        await using var scope = _provider.CreateAsyncScope();
+        var claims = scope.ServiceProvider.GetRequiredService<GeneratedImageClaimRepository>();
+
+        var recovery = await claims.RecoverAbandonedLeasesAsync(_clock.UtcNow, Ct);
+        var claim = Assert.Single(recovery.Exhausted);
+        Assert.Equal(WorkspaceA, claim.WorkspaceId);
+        Assert.Equal(requested.RequestedAt + MediaPolicy.GenerationHoldDuration, claim.HoldLapsesAt);
+
+        // Leased for settlement, not requeued: no claim pass can take it, so no provider is called for it.
+        Assert.Null(await claims.ClaimNextAsync(Guid.NewGuid(), _clock.UtcNow, Ct));
+        Assert.Empty((await claims.RecoverAbandonedLeasesAsync(_clock.UtcNow, Ct)).Exhausted);
+
+        Assert.False(await claims.AbandonUnsettledAsync(requested.Id, Guid.NewGuid(), _clock.UtcNow, Ct));
+        Assert.True(await claims.AbandonUnsettledAsync(requested.Id, claim.LeaseToken, _clock.UtcNow, Ct));
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.LeaseAbandoned, operation.FailureCategory);
+        Assert.Null(operation.LeasedBy);
+    }
+
+    /// <summary>
+    /// <strong>A settlement that fails on a passing error is tried again, not given up.</strong> Ending the
+    /// generation uncharged there would forgo two pictures the provider billed for. The settlement lease is left
+    /// to lapse, and the next sweep settles it — once.
+    /// </summary>
+    [Fact]
+    public async Task An_abandoned_generation_whose_settlement_fails_is_settled_by_a_later_sweep()
+    {
+        var requested = await AbandonAfterTwoPicturesAsync();
+
+        _settlementFailures = 1;
+
+        Assert.Equal(0, (await MaintainAsync()).Abandoned);
+
+        var waiting = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Running, waiting.Status);
+        Assert.NotNull(waiting.LeasedBy);
+        Assert.Equal(AiQuotaReservationStatus.Held, (await ReservationAsync(requested.Id)).Status);
+        Assert.Empty(await ChargesAsync(requested.Id));
+
+        _clock.Advance(MediaPolicy.GenerationLeaseDuration + TimeSpan.FromMinutes(1));
+
+        Assert.Equal(1, (await MaintainAsync()).Abandoned);
+        Assert.Equal([1, 2], (await ChargesAsync(requested.Id)).Select(charge => charge.AttemptNumber));
+        Assert.Equal(Credits(2), (await ReservationAsync(requested.Id)).SettledAmount);
+    }
+
+    /// <summary>
+    /// The bound on trying again: once the hold has lapsed, settling would charge nothing, so a generation that
+    /// still cannot be settled is ended — through the worker's own fallback — rather than leased forever.
+    /// </summary>
+    [Fact]
+    public async Task An_abandoned_generation_that_still_cannot_be_settled_once_its_hold_lapsed_is_ended()
+    {
+        var requested = await AbandonAfterTwoPicturesAsync();
+
+        _settlementFailures = int.MaxValue;
+        _clock.Advance(MediaPolicy.GenerationHoldDuration + TimeSpan.FromMinutes(1));
+        await ForceRunningAsync(requested.Id, MediaPolicy.GenerationMaxAttempts);
+
+        Assert.Equal(1, (await MaintainAsync()).Abandoned);
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.PartiallySucceeded, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.LeaseAbandoned, operation.FailureCategory);
+        Assert.Null(operation.LeasedBy);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
+    /// A worker that died holding the settlement lease leaves it to lapse like any other: the next sweep hands
+    /// the generation out again and it is settled once, and the dead worker's token can no longer settle it.
+    /// </summary>
+    [Fact]
+    public async Task A_settlement_lease_that_lapses_is_handed_out_again_and_settled_once()
+    {
+        var requested = await AbandonAfterTwoPicturesAsync();
+
+        GeneratedImageSettlementClaim dead;
+        await using (var scope = _provider.CreateAsyncScope())
+        {
+            dead = Assert.Single((await scope.ServiceProvider.GetRequiredService<GeneratedImageClaimRepository>()
+                .RecoverAbandonedLeasesAsync(_clock.UtcNow, Ct)).Exhausted);
+        }
+
+        _clock.Advance(MediaPolicy.GenerationLeaseDuration + TimeSpan.FromMinutes(1));
+
+        Assert.Equal(1, (await MaintainAsync()).Abandoned);
+        Assert.Equal([1, 2], (await ChargesAsync(requested.Id)).Select(charge => charge.AttemptNumber));
+
+        await using (var late = ServiceScopeFor(WorkspaceA))
+        {
+            var outcome = await late.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
+                .SettleAbandonedAsync(dead.OperationId, dead.LeaseToken, Ct);
+
+            Assert.Equal(GeneratedImageRunOutcome.Skipped, outcome);
+        }
+
+        Assert.Equal(2, (await ChargesAsync(requested.Id)).Count);
+    }
+
+    /// <summary>
+    /// A generation that made two of four pictures, was handed back, and whose last attempt then died holding its
+    /// lease: Running, out of attempts, lease lapsed, two pictures billed and held for.
+    /// </summary>
+    private async Task<GeneratedImageOperationServiceModel> AbandonAfterTwoPicturesAsync()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+        _generator.ThrowsAfter(2, () => new HttpRequestException(
+            "unreachable", inner: null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 4, account: AccountA);
+        Assert.Equal(1, (await RunAsync()).Requeued);
+
+        await ForceRunningAsync(requested.Id, MediaPolicy.GenerationMaxAttempts);
+
+        return requested;
+    }
+
+    /// <summary>How many settlements the quota facade fails before it lets one through.</summary>
+    private int _settlementFailures;
+
+    /// <summary>
+    /// The real quota facade, except that a settlement throws a passing error while
+    /// <see cref="_settlementFailures"/> is above nought — what a timeout or deadlock looks like to the worker.
+    /// </summary>
+    public class FailingSettlement : System.Reflection.DispatchProxy
+    {
+        private IAiQuotaAdmissionFacade _inner = null!;
+        private GeneratedImageWorkerTests _owner = null!;
+
+        internal static IAiQuotaAdmissionFacade Wrap(IAiQuotaAdmissionFacade inner, GeneratedImageWorkerTests owner)
+        {
+            var proxy = Create<IAiQuotaAdmissionFacade, FailingSettlement>();
+            var failing = (FailingSettlement)(object)proxy;
+            failing._inner = inner;
+            failing._owner = owner;
+
+            return proxy;
+        }
+
+        protected override object? Invoke(System.Reflection.MethodInfo? targetMethod, object?[]? args)
+        {
+            ArgumentNullException.ThrowIfNull(targetMethod);
+
+            if (targetMethod.Name == nameof(IAiQuotaAdmissionFacade.StageImageUsageAsync)
+                && _owner._settlementFailures > 0)
+            {
+                _owner._settlementFailures--;
+
+                return Task.FromException(new TimeoutException("A passing error."));
+            }
+
+            try
+            {
+                return targetMethod.Invoke(_inner, args);
+            }
+            catch (System.Reflection.TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+
+                throw;
+            }
+        }
     }
 
     /// <summary>Runs the allowance maintenance sweep, which releases holds whose time is up.</summary>

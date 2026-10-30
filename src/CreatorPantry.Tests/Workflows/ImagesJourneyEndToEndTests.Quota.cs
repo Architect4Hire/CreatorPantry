@@ -69,6 +69,49 @@ public sealed partial class ImagesJourneyEndToEndTests
     }
 
     /// <summary>
+    /// <strong>At zero, a picture waits (DL.7).</strong> A creator who has spent the last of their allowance on
+    /// pictures asks for one more: refused before anything is queued, with nothing left said as nothing, and no
+    /// provider called. A picture is never free because the balance happened to be empty.
+    /// </summary>
+    [Fact]
+    public async Task A_picture_asked_for_at_an_allowance_of_nothing_is_refused_before_it_is_queued()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+
+        await AllowanceAsync(A.OwnerEmail, Credits(1));
+
+        using var owner = await _fixture.SignInAsync(A.OwnerEmail, cancellationToken: Ct);
+
+        var last = await owner.PostAsJsonAsync(
+            In(A, "generated-images"),
+            new { promptText = Prompt, variantCount = 1 },
+            Guid.NewGuid().ToString("N"),
+            Ct);
+        Assert.Equal(HttpStatusCode.Accepted, last.StatusCode);
+        await RunWorkerAsync();
+
+        // Spent to the credit: what is left is nothing, not a remainder.
+        Assert.Equal(Credits(1), await SpentAsync(A.OwnerEmail));
+        var calls = _generator.Calls;
+
+        var refused = await owner.PostAsJsonAsync(
+            In(A, "generated-images"),
+            new { promptText = Prompt, variantCount = 1 },
+            Guid.NewGuid().ToString("N"),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
+
+        var problem = await BodyOf(refused);
+        Assert.Equal(AiQuotaErrors.Exhausted, problem.GetProperty("code").GetString());
+        Assert.Equal(0m, problem.GetProperty("remaining").GetDecimal());
+        Assert.Equal(Credits(1), problem.GetProperty("required").GetDecimal());
+
+        Assert.Equal(0, (await RunWorkerAsync()).Claimed);
+        Assert.Equal(calls, _generator.Calls);
+    }
+
+    /// <summary>
     /// <strong>A pass that could only use some of what it generated still pays for all of it.</strong> Two
     /// pictures arrive whole and two arrive unreadable; the provider made four and charges for four, and the
     /// creator gets the two that are real.
