@@ -1,0 +1,50 @@
+:host {
+  position: relative;
+  display: block;
+  height: 0.1875rem;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cp-duration-normal) var(--cp-ease);
+}
+:host([data-shown]) {
+  opacity: 1;
+}
+.bar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 30%;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-primary);
+}
+/* Only while shown: a hidden bar has nothing to sweep for. */
+:host([data-shown]) .bar {
+  animation: cp-loading-bar-sweep var(--cp-duration-sweep) ease-in-out infinite;
+}
+@keyframes cp-loading-bar-sweep {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 340% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :host([data-shown]) .bar {
+    animation: none;
+    width: 100%;
+  }
+}
+/* Forced colours drop backgrounds, which would leave nothing of the bar at all. */
+@media (forced-colors: active) {
+  .bar {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+}
+@media print {
+  :host {
+    display: none;
+  }
+}

@@ -6,7 +6,7 @@
       @for (destination of destinations(); track destination.key) {
         <li class="destination">
           <button
-            cpButton
+            cpButton [busy]="opening() === destination"
             type="button"
             [variant]="destination.primary ? 'primary' : 'secondary'"
             [attr.data-destination]="destination.key"

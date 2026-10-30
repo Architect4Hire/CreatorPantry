@@ -264,7 +264,7 @@
             happens.
           </p>
           <div cpTopicCardActions class="cp-actions">
-            <button cpButton type="button" variant="danger" [disabled]="removing()" (click)="remove()">
+            <button cpButton [busy]="removing()" type="button" variant="danger" [disabled]="removing()" (click)="remove()">
               {{ removing() ? 'Removing…' : 'Remove from library' }}
             </button>
           </div>

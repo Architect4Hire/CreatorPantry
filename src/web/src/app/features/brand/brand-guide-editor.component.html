@@ -455,7 +455,7 @@
               cpButton
               type="button"
               [disabled]="isArchived() || saveState().status === 'saving' || !dirty()"
-              [attr.aria-busy]="saveState().status === 'saving'"
+              [busy]="saveState().status === 'saving'"
               (click)="save()"
             >
               {{ saveState().status === 'saving' ? 'Saving…' : 'Save new version' }}

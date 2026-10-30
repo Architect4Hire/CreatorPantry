@@ -16,7 +16,7 @@
         <cp-notice tone="warning" role="status">
           We couldn't show {{ unreachableCount() === 1 ? 'one of your examples' : 'some of your examples' }} just now.
           They're still saved, and they'll still be used.
-          <button cpButton type="button" variant="secondary" size="sm" [disabled]="retrying()" (click)="retry()">
+          <button cpButton [busy]="retrying()" type="button" variant="secondary" size="sm" [disabled]="retrying()" (click)="retry()">
             {{ retrying() ? 'Trying…' : 'Try again' }}
           </button>
         </cp-notice>

@@ -246,7 +246,7 @@
           </p>
         }
         <div cpTopicCardActions class="cp-actions">
-          <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
+          <button cpButton [busy]="busy() === 'archive'" variant="secondary" type="button" [disabled]="busy() !== null" (click)="toggleArchive()">
             {{ busy() === 'archive' ? 'Working…' : isArchived() ? 'Bring it back' : 'Put on the shelf' }}
           </button>
         </div>

@@ -308,9 +308,10 @@ export class ContentCardDetailComponent {
     const outcome = await firstValueFrom(
       this.board.remove(slug, id, detail.card.concurrencyToken, this.deleteKey.next()),
     );
-    if (this.workspaceSlug() !== slug || this.cardId() !== id) return;
-
+    // Cleared before the check below: an answer for a workspace or card no longer on screen must not leave
+    // this busy for good.
     this.deleting.set(false);
+    if (this.workspaceSlug() !== slug || this.cardId() !== id) return;
 
     switch (outcome.status) {
       case 'deleted':

@@ -148,7 +148,7 @@
           @if (open() && showsWriting()) {
             <div class="cp-actions">
               <button
-                cpButton
+                cpButton [busy]="framingBusy()"
                 type="button"
                 [attr.aria-disabled]="!framingDirty() || framingBusy() ? 'true' : null"
                 (click)="saveFraming()"
@@ -304,7 +304,7 @@
             <div class="cp-actions">
               @if (card.draft !== null) {
                 <button
-                  cpButton
+                  cpButton [busy]="card.busy === 'saving'"
                   type="button"
                   [attr.aria-disabled]="card.busy !== null ? 'true' : null"
                   (click)="save(card)"
@@ -316,7 +316,7 @@
                 </button>
               } @else if (card.asking) {
                 <button
-                  cpButton
+                  cpButton [busy]="card.busy === 'asking'"
                   type="button"
                   [attr.aria-disabled]="card.busy !== null || blocked() ? 'true' : null"
                   (click)="write(card)"
@@ -351,7 +351,7 @@
                     </button>
                   } @else {
                     <button
-                      cpButton
+                      cpButton [busy]="card.busy === 'asking'"
                       type="button"
                       variant="secondary"
                       [id]="fieldId(card, 'again')"
@@ -434,7 +434,7 @@
 
           <div class="cp-actions" data-testid="accept-actions">
             <button
-              cpButton
+              cpButton [busy]="accepting()"
               type="button"
               [attr.aria-disabled]="!canAccept() ? 'true' : null"
               [attr.aria-describedby]="acceptHint() ? idPrefix() + '-accept-hint' : null"

@@ -14,7 +14,7 @@
     }
 
     <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="busy()" (click)="cancel()">Cancel</button>
-    <button cpDrawerActions cpButton type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+    <button cpDrawerActions cpButton [busy]="saveState() === 'saving'" type="button" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
       {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
     </button>
   </cp-drawer>
@@ -32,7 +32,7 @@
         <cp-notice tone="error" role="alert">
           {{ problem() }}
           @if (conflicted()) {
-            <button cpButton type="button" variant="secondary" size="sm" [disabled]="busy()" (click)="loadLatest()">
+            <button cpButton [busy]="saveState() === 'reloading'" type="button" variant="secondary" size="sm" [disabled]="busy()" (click)="loadLatest()">
               {{ saveState() === 'reloading' ? 'Loading the latest…' : 'Load the latest and keep my changes' }}
             </button>
           }
@@ -230,7 +230,7 @@
 
       @if (inline()) {
         <div class="cp-actions">
-          <button cpButton type="button" variant="secondary" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
+          <button cpButton [busy]="saveState() === 'saving'" type="button" variant="secondary" [disabled]="busy() || conflicted() || !dirty()" (click)="save()">
             {{ saveState() === 'saving' ? 'Saving…' : 'Save changes' }}
           </button>
         </div>

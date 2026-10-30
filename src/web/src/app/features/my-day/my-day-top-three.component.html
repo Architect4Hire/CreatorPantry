@@ -53,7 +53,7 @@
       type="button"
       variant="primary"
       [attr.aria-disabled]="saving() || candidates().length === 0 ? 'true' : null"
-      [attr.aria-busy]="saving()"
+      [busy]="saving()"
       (click)="submit()"
     >
       {{ saving() ? 'Saving…' : 'Save' }}

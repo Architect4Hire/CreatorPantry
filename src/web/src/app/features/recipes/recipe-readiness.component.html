@@ -219,7 +219,7 @@
               [variant]="move.to === 'Archived' ? 'secondary' : 'primary'"
               type="button"
               [disabled]="!canAttempt(move) || (!canRetryTransition() && submittingMove() === null)"
-              [attr.aria-busy]="submittingMove() === move"
+              [busy]="submittingMove() === move"
               [attr.aria-describedby]="blockedReason(move) ? idPrefix + '-why-' + move.to : null"
               (click)="attempt(move)"
             >

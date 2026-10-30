@@ -82,7 +82,7 @@ const PROBLEMS = {
     </form>
 
     <button cpDialogActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">Cancel</button>
-    <button cpDialogActions cpButton type="submit" form="content-card-create-form" variant="primary" [disabled]="saving()">
+    <button cpDialogActions cpButton [busy]="saving()" type="submit" form="content-card-create-form" variant="primary" [disabled]="saving()">
       {{ saving() ? 'Adding…' : 'Add card' }}
     </button>
   </cp-dialog>`,
@@ -161,9 +161,10 @@ export class ContentCardCreateDialogComponent {
 
     const slug = this.workspaceSlug();
     const outcome = await firstValueFrom(this.board.create(slug, fields, this.column(), this.key.next()));
-    if (this.workspaceSlug() !== slug) return;
-
+    // Cleared before the check below: an answer for a workspace or card no longer on screen must not leave
+    // this busy for good.
     this.saving.set(false);
+    if (this.workspaceSlug() !== slug) return;
 
     switch (outcome.status) {
       case 'saved':

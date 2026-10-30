@@ -94,7 +94,7 @@
                 <button cpButton type="button" variant="primary" size="sm" (click)="keepMine(card)">Keep mine</button>
                 <button cpButton type="button" variant="secondary" size="sm" (click)="startFromNewest(card)">Start from the newest</button>
               } @else {
-                <button cpButton type="button" variant="primary" size="sm" [disabled]="editor.saving" (click)="saveEdit(card)">
+                <button cpButton [busy]="editor.saving" type="button" variant="primary" size="sm" [disabled]="editor.saving" (click)="saveEdit(card)">
                   {{ editor.saving ? 'Saving…' : 'Save text' }}
                 </button>
               }
@@ -108,13 +108,13 @@
                   <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="checkAgain(card)">Check again</button>
                 }
                 @case ('stopped') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  <button cpButton [busy]="isBusy(card.documentId, 'retry')" type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
                     {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
                   </button>
                   <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
                 }
                 @case ('failed') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
+                  <button cpButton [busy]="isBusy(card.documentId, 'retry')" type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="retryRead(card)">
                     {{ isBusy(card.documentId, 'retry') ? 'Asking…' : 'Try reading again' }}
                   </button>
                   <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Type or paste the text</button>
@@ -134,14 +134,14 @@
                   <button cpButton type="button" variant="secondary" size="sm" (click)="startEdit(card)">Edit the text</button>
                 }
                 @case ('left-out') {
-                  <button cpButton type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="bringBack(card)">
+                  <button cpButton [busy]="isBusy(card.documentId, 'unarchive')" type="button" variant="secondary" size="sm" [disabled]="isBusy(card.documentId)" (click)="bringBack(card)">
                     {{ isBusy(card.documentId, 'unarchive') ? 'Bringing it back…' : 'Bring it back' }}
                   </button>
                 }
               }
               @if (canLeaveOut(entry.kind)) {
                 <button
-                  cpButton
+                  cpButton [busy]="isBusy(card.documentId, 'archive')"
                   type="button"
                   variant="ghost"
                   size="sm"

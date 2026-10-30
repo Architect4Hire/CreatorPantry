@@ -1,5 +1,5 @@
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { CpBadgeComponent } from './components/badge.component';
@@ -143,6 +143,16 @@ class SoftFillInCardHostComponent {}
 })
 class FeaturedCardHostComponent {}
 
+/** A busy button whose consumer keeps it focusable with a static `aria-disabled`, which `busy` must not strip. */
+@Component({
+  standalone: true,
+  imports: [CpButtonComponent],
+  template: `<button cpButton type="button" aria-disabled="true" [busy]="busy()">Save</button>`,
+})
+class BusyButtonHostComponent {
+  readonly busy = signal(false);
+}
+
 describe('CreatorPantry UI library', () => {
   it('applies the configured button variant and size', async () => {
     await TestBed.configureTestingModule({ imports: [CpButtonComponent] }).compileComponents();
@@ -155,6 +165,50 @@ describe('CreatorPantry UI library', () => {
     const button = fixture.nativeElement as HTMLButtonElement;
     expect(button.classList).toContain('cp-button--secondary');
     expect(button.classList).toContain('cp-button--lg');
+  });
+
+  it('says a button is busy while its action is in flight, and leaves its disabled state to the consumer', () => {
+    const fixture = TestBed.createComponent(BusyButtonHostComponent);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.hasAttribute('aria-busy')).toBeFalse();
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+
+    fixture.componentInstance.busy.set(true);
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.disabled).toBeFalse();
+
+    fixture.componentInstance.busy.set(false);
+    fixture.detectChanges();
+    expect(button.hasAttribute('aria-busy')).toBeFalse();
+  });
+
+  it('draws the spinner before the label while busy, at the label size and at full strength', () => {
+    const fixture = TestBed.createComponent(BusyButtonHostComponent);
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.querySelector('cp-spinner')).toBeNull();
+
+    fixture.componentInstance.busy.set(true);
+    fixture.detectChanges();
+    const spinner = button.querySelector('cp-spinner') as HTMLElement;
+    expect(spinner).not.toBeNull();
+    expect(button.firstElementChild).toBe(spinner);
+    expect(spinner.getBoundingClientRect().height).toBeCloseTo(parseFloat(getComputedStyle(button).fontSize), 0);
+    expect(button.textContent?.trim()).toBe('Save');
+    // `aria-disabled` fades a button that will not act; a busy one is acting, so it keeps its strength.
+    expect(getComputedStyle(button).opacity).toBe('1');
+
+    fixture.componentInstance.busy.set(false);
+    fixture.detectChanges();
+    expect(button.querySelector('cp-spinner')).toBeNull();
+    expect(getComputedStyle(button).opacity).toBe('0.52');
+    fixture.nativeElement.remove();
   });
 
   it('clamps progress values to the accessible zero-to-one-hundred range', async () => {
@@ -446,11 +500,12 @@ describe('CreatorPantry design tokens', () => {
         });
       }
 
-      // Decorative, so not held to a text ratio, but a skeleton nobody can see is a blank page with extra steps.
-      it(`draws a skeleton that stands off the page and the sheet in the ${theme} theme`, () => {
-        const tokens = readTokens(theme, ['--cp-skeleton-base', '--cp-bg', '--cp-surface']);
-        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(1.15);
-        expect(contrastRatio(tokens['--cp-skeleton-base'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(1.15);
+      // A loading region's only mark is cp-skeleton's spinner, in muted ink: a graphic, so held to 3:1 (WCAG 1.4.11)
+      // on the page and the sheet it is drawn on — one nobody can see is a blank page with extra steps.
+      it(`draws a loading spinner that stands off the page and the sheet in the ${theme} theme`, () => {
+        const tokens = readTokens(theme, ['--cp-text-muted', '--cp-bg', '--cp-surface']);
+        expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-bg'])).toBeGreaterThanOrEqual(3);
+        expect(contrastRatio(tokens['--cp-text-muted'], tokens['--cp-surface'])).toBeGreaterThanOrEqual(3);
       });
     }
   });

@@ -148,9 +148,10 @@ export class ContentPipelineBoardStepComponent {
     this.problem.set('');
 
     const outcome = await firstValueFrom(this.board.commitPipeline(slug, contextId));
-    if (this.gone || this.workspaceSlug() !== slug || this.contextId() !== contextId) return;
-
+    // Cleared before the check below: an answer for a workspace or card no longer on screen must not leave
+    // this busy for good.
     this.committing.set(false);
+    if (this.gone || this.workspaceSlug() !== slug || this.contextId() !== contextId) return;
 
     if (outcome.status === 'on_board') {
       this.card.set(outcome.card);

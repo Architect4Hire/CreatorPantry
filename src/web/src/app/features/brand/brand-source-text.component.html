@@ -56,7 +56,7 @@
       @if (canRetry() || canCorrect()) {
         <div class="cp-actions">
           @if (canRetry()) {
-            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="retry()">
+            <button cpButton [busy]="busy() === 'retry'" variant="secondary" type="button" [disabled]="busy() !== null" (click)="retry()">
               {{ busy() === 'retry' ? 'Asking…' : 'Try reading again' }}
             </button>
           }
@@ -127,7 +127,7 @@
   >
     Close
   </button>
-  <button cpDrawerActions cpButton type="button" [disabled]="busy() === 'correct'" (click)="save()">
+  <button cpDrawerActions cpButton [busy]="busy() === 'correct'" type="button" [disabled]="busy() === 'correct'" (click)="save()">
     {{ busy() === 'correct' ? 'Saving…' : 'Save the text' }}
   </button>
 </cp-drawer>

@@ -87,7 +87,7 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
         <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="saving()" (click)="cancel()">
           Cancel
         </button>
-        <button cpDrawerActions cpButton type="button" [disabled]="saving() || gone()" (click)="save()">
+        <button cpDrawerActions cpButton [busy]="saving()" type="button" [disabled]="saving() || gone()" (click)="save()">
           {{ saving() ? 'Logging…' : 'Log this use' }}
         </button>
       </cp-drawer>
@@ -164,7 +164,7 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
 
           @if (inline()) {
             <div class="cp-actions">
-              <button cpButton type="button" variant="secondary" [disabled]="saving() || gone() || !dirty()" (click)="save()">
+              <button cpButton [busy]="saving()" type="button" variant="secondary" [disabled]="saving() || gone() || !dirty()" (click)="save()">
                 {{ saving() ? 'Logging…' : 'Log this use' }}
               </button>
             </div>

@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 
 import { ConfirmService } from '../core/confirm.service';
 import { DesignSystemShowcaseComponent } from './design-system-showcase.component';
@@ -27,6 +27,46 @@ describe('DesignSystemShowcaseComponent', () => {
     expect(nativeDisabled.disabled).toBeTrue();
     expect(ariaDisabledAnchor.tabIndex).toBe(-1);
   });
+
+  it('shows a busy button saying what it is doing, then letting go', fakeAsync(() => {
+    TestBed.configureTestingModule({ imports: [DesignSystemShowcaseComponent] });
+    const fixture = TestBed.createComponent(DesignSystemShowcaseComponent);
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('.button-extras .busy-demo') as HTMLButtonElement;
+    expect(button.hasAttribute('aria-busy')).toBeFalse();
+
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.textContent?.trim()).toBe('Saving…');
+
+    tick(2000);
+    fixture.detectChanges();
+    expect(button.hasAttribute('aria-busy')).toBeFalse();
+    expect(button.textContent?.trim()).toBe('Save (busy for two seconds)');
+  }));
+
+  it('runs the loading bar for a wait the reader starts, once it has lasted long enough to see', fakeAsync(() => {
+    TestBed.configureTestingModule({ imports: [DesignSystemShowcaseComponent] });
+    const fixture = TestBed.createComponent(DesignSystemShowcaseComponent);
+    fixture.detectChanges();
+    const toggle = fixture.nativeElement.querySelector('.loading-bar-demo button') as HTMLButtonElement;
+    const bar = fixture.nativeElement.querySelector('.loading-bar-demo cp-loading-bar') as HTMLElement;
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(bar.hasAttribute('data-shown')).toBeFalse();
+
+    tick(200);
+    fixture.detectChanges();
+    expect(bar.hasAttribute('data-shown')).toBeTrue();
+    expect(toggle.textContent?.trim()).toBe('End the wait');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(bar.hasAttribute('data-shown')).toBeFalse();
+  }));
 
   it('renders all 6 badge tones', async () => {
     const fixture = await createFixture();

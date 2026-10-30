@@ -39,12 +39,14 @@ import {
   CpListShellState,
   CpMediaCardComponent,
   CpSkeletonComponent,
+  CpSpinnerComponent,
   CpStatTileComponent,
   CpNoticeComponent,
   CpOptionCardComponent,
   CpOptionFact,
   CpPageHeadComponent,
   CpProgressComponent,
+  CpLoadingBarComponent,
   CpProgressTone,
   CpQuickActionComponent,
   CpSearchFieldComponent,
@@ -104,10 +106,12 @@ type QuickActionTone = Exclude<CpTone, 'neutral'>;
     CpGeneratedComponent,
     CpGeneratedLabelComponent,
     CpProgressComponent,
+    CpLoadingBarComponent,
     CpQuickActionComponent,
     CpStatusPillComponent,
     CpListShellComponent,
     CpSkeletonComponent,
+    CpSpinnerComponent,
     CpStatTileComponent,
     CpIllustrationComponent,
     ShellNavIconComponent,
@@ -238,6 +242,19 @@ export class DesignSystemShowcaseComponent {
   readonly topicCardNotes = 'Shot at noon, by the window.\nNo flash.';
   readonly buttonVariants: CpButtonVariant[] = ['primary', 'secondary', 'ghost', 'text', 'danger'];
   readonly buttonSizes: CpButtonSize[] = ['sm', 'md', 'lg'];
+
+  /** The busy button's pretend save: long enough to see the spinner and the label change, and hear `aria-busy`. */
+  readonly busyDemo = signal(false);
+
+  pretendToSave(): void {
+    if (this.busyDemo()) return;
+    this.busyDemo.set(true);
+    setTimeout(() => this.busyDemo.set(false), 2000);
+  }
+
+  /** The loading bar's example: a wait the reader starts and ends, so the 200ms before it shows can be felt. */
+  readonly loadingBarActive = signal(false);
+
   readonly badgeTones: CpTone[] = ['neutral', 'success', 'pink', 'orange', 'purple', 'blue'];
   readonly quickActionTones: QuickActionTone[] = ['success', 'pink', 'orange', 'purple', 'blue'];
   readonly statusPillTones: CpStatusPillTone[] = ['neutral', 'progress', 'success', 'warning', 'error', 'stale'];

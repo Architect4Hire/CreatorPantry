@@ -152,7 +152,7 @@ const SEARCH_ID = 'cp-dam-picker-search';
 
           @if (nextCursor() !== null) {
             <div class="more">
-              <button cpButton type="button" variant="secondary" [disabled]="loadingMore()" (click)="loadMore()">
+              <button cpButton [busy]="loadingMore()" type="button" variant="secondary" [disabled]="loadingMore()" (click)="loadMore()">
                 {{ loadingMore() ? 'Loading more…' : 'Load more' }}
               </button>
             </div>

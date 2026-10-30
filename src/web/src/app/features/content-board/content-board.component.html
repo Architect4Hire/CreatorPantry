@@ -159,7 +159,7 @@
         @if (column.nextCursor !== null) {
           <button
             cpBoardColumnFooter
-            cpButton
+            cpButton [busy]="column.loadingMore"
             variant="secondary"
             size="sm"
             type="button"

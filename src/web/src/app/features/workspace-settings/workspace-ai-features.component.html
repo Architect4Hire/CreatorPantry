@@ -51,7 +51,7 @@
 
         @if (canEdit()) {
           <div class="cp-actions">
-            <button cpButton type="submit" [disabled]="!dirty() || saving()">
+            <button cpButton [busy]="saving()" type="submit" [disabled]="!dirty() || saving()">
               {{ saving() ? 'Saving…' : 'Save AI features' }}
             </button>
             @if (dirty() && !saving()) {

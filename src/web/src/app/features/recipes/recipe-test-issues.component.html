@@ -187,7 +187,7 @@
                 Cancel
               </button>
               <button cpButton variant="primary" size="sm" type="submit" [disabled]="!canSubmit()"
-                [attr.aria-busy]="submitting()">
+                [busy]="submitting()">
                 @if (submitting()) {
                   Recording…
                 } @else {

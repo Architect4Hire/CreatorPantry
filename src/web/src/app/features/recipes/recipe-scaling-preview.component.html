@@ -121,7 +121,7 @@
       </div>
     }
 
-    <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+    <button type="submit" cpButton [busy]="isWorking()" variant="primary" [disabled]="!canSubmit()">
       {{ isWorking() ? 'Working…' : 'Show scaled amounts' }}
     </button>
   </form>

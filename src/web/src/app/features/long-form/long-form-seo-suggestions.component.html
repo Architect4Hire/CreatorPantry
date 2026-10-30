@@ -94,7 +94,7 @@
 
   <div class="cp-actions">
     <button
-      cpButton
+      cpButton [busy]="busy()"
       type="button"
       variant="secondary"
       [attr.aria-disabled]="busy() ? 'true' : null"
