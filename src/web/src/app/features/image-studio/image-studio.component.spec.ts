@@ -18,7 +18,7 @@ import {
 } from '../../models/generated-image.models';
 import { ImageStudioDraft, ImageStudioKeptWork, emptyImageStudioDraft } from '../../models/image-studio.models';
 import { RequestPhotographyConceptsRequest } from '../../models/photography-concept.models';
-import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
+import { AiAllowanceState, AiUsageService, AiUsageState } from '../../services/ai-usage.service';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
 import { ContentSeed, ContentSeedQuery } from '../../models/content-seed.models';
 import { ContentSeedService } from '../../services/content-seed.service';
@@ -242,6 +242,8 @@ let requestOutcome: GeneratedImageRequestOutcome;
 let watchedSlugs: string[];
 let conceptAsks: RequestPhotographyConceptsRequest[];
 let watches: Subject<GeneratedImageWatchOutcome>[];
+/** What the account's usage read last said (DL.9): nothing, until a case gives it today's pictures. */
+const studioUsage = signal<AiUsageState>({ status: 'loading' });
 
 const draftStore = {
   read: (owner: ImageStudioDraftOwner): ImageStudioReadResult => {
@@ -496,7 +498,13 @@ async function create(
       { provide: ReferenceImageService, useValue: ai },
       {
         provide: AiUsageService,
-        useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }), ensureLoaded: () => Promise.resolve() },
+        useValue: {
+          allowance: signal<AiAllowanceState>({ kind: 'unknown' }),
+          // The picture run reads today's pictures from here (DL.9); none stated, as on a host with no plans.
+          state: studioUsage,
+          ensureLoaded: () => Promise.resolve(),
+          refresh: () => Promise.resolve(),
+        },
       },
       {
         provide: BrandSourceDocumentService,
@@ -1052,6 +1060,47 @@ describe('ImageStudioComponent', () => {
   });
 
   describe('making the pictures', () => {
+    it("says how many of the plan's pictures are left today beside the price (DL.9)", async () => {
+      studioUsage.set({
+        status: 'ready',
+        usage: {
+          period: {
+            unit: 'Credits',
+            allowance: 1000,
+            carriedOver: 0,
+            consumed: 0,
+            reserved: 0,
+            remaining: 1000,
+            periodLength: 'Monthly',
+            timeZoneId: 'Etc/UTC',
+            startsAt: '2026-10-01T00:00:00+00:00',
+            resetsAt: '2026-11-01T00:00:00+00:00',
+          },
+          isSuspended: false,
+          byTask: [],
+          byWorkspace: [],
+          isNearlySpent: false,
+          pictures: 0,
+          writing: 0,
+          packRemaining: 0,
+          plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
+          lowCredit: { isNoticed: false, isDismissed: false, noticeEnabled: true, spendable: 1000 },
+          picturesToday: { cap: 25, used: 4, left: 21, resetsAt: '2026-10-31T00:00:00+00:00' },
+          trialPictures: null,
+        },
+      });
+
+      try {
+        await create();
+        showStep('make');
+        await settle();
+
+        expect(text()).toContain('21 of your Creator plan’s 25 pictures left today.');
+      } finally {
+        studioUsage.set({ status: 'loading' });
+      }
+    });
+
     it('will not ask without a prompt, and says where to write one', async () => {
       await create();
       showStep('make');

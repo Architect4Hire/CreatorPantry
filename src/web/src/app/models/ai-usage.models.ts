@@ -80,6 +80,27 @@ export interface AccountAiUsagePlan {
 }
 
 /**
+ * The plan's pictures for the UTC day. Mirrors `AccountAiUsagePicturesTodayServiceModel` (DL.9).
+ *
+ * <strong>Every figure is the server's</strong>: `left` is sent rather than worked out from `cap` and `used`, so a
+ * page that shows it never subtracts. A snapshot — admission counts again and decides.
+ */
+export interface AccountAiUsagePicturesToday {
+  readonly cap: number;
+  readonly used: number;
+  readonly left: number;
+  /** The next UTC midnight. Shown in UTC: the day is UTC's, whatever the creator's own zone. */
+  readonly resetsAt: string;
+}
+
+/** A trial's pictures in all, which never turn over. Mirrors `AccountAiUsageTrialPicturesServiceModel` (DL.9). */
+export interface AccountAiUsageTrialPictures {
+  readonly cap: number;
+  readonly used: number;
+  readonly left: number;
+}
+
+/**
  * Where the account stands with the low-credit notice. Mirrors `AccountAiLowCreditServiceModel` (B-59).
  *
  * Facts, not a decision about what to draw: whether the notice is shown is the app's call, and
@@ -123,6 +144,13 @@ export interface AccountAiUsage {
   readonly plan: AccountAiUsagePlan | null;
   /** Where the account stands with the low-credit notice (B-59). */
   readonly lowCredit: AccountAiLowCredit;
+  /**
+   * The plan's pictures today. Null when no daily cap is enforced, and when the account can make nothing at all —
+   * suspended, or a trial that has ended — so there is nothing to count down.
+   */
+  readonly picturesToday: AccountAiUsagePicturesToday | null;
+  /** A trial's pictures in all; null on a paid plan, and when `picturesToday` is null for the same reason. */
+  readonly trialPictures: AccountAiUsageTrialPictures | null;
 }
 
 /**
@@ -145,6 +173,8 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
   const packRemaining = amountOf(value['packRemaining']);
   const plan = decodePlan(value['plan']);
   const lowCredit = decodeLowCredit(value['lowCredit']);
+  const picturesToday = decodePictureCount(value['picturesToday'], true);
+  const trialPictures = decodePictureCount(value['trialPictures'], false);
 
   if (
     period === null ||
@@ -174,7 +204,43 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
     packRemaining,
     plan,
     lowCredit,
+    // A count that cannot be read is said as none rather than failing the read: the allowance, the plan and the
+    // breakdowns beside it are still true, and the server still decides at the request (DESIGN-SYSTEM.md, "Meters
+    // and figures"). Nothing is blocked by a missing count.
+    picturesToday: picturesToday ?? null,
+    trialPictures: trialPictures ?? null,
   };
+}
+
+/**
+ * A picture count — today's when `withReset`, a trial's otherwise — null when the server sends none, or undefined
+ * when what arrived is not one. Absent reads as null: a server from before DL.9 sends neither.
+ */
+function decodePictureCount(
+  value: unknown,
+  withReset: true,
+): AccountAiUsagePicturesToday | null | undefined;
+function decodePictureCount(
+  value: unknown,
+  withReset: false,
+): AccountAiUsageTrialPictures | null | undefined;
+function decodePictureCount(
+  value: unknown,
+  withReset: boolean,
+): AccountAiUsagePicturesToday | AccountAiUsageTrialPictures | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return undefined;
+
+  const cap = countOf(value['cap']);
+  const used = countOf(value['used']);
+  const left = countOf(value['left']);
+
+  if (cap === null || used === null || left === null) return undefined;
+  if (!withReset) return { cap, used, left };
+
+  const resetsAt = value['resetsAt'];
+
+  return typeof resetsAt === 'string' && resetsAt !== '' ? { cap, used, left, resetsAt } : undefined;
 }
 
 /**

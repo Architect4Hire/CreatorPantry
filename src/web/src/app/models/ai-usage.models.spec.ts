@@ -45,6 +45,41 @@ describe('decodeAccountAiUsage', () => {
     expect(usage?.byWorkspace.length).toBe(2);
   });
 
+  // DL.9: today's pictures and a trial's, each the server's figures.
+  it('decodes today’s pictures and a trial’s, with the figures as the server sends them', () => {
+    const usage = decodeAccountAiUsage({
+      ...PAYLOAD,
+      picturesToday: { cap: 5, used: '3', left: 2, resetsAt: '2026-10-31T00:00:00+00:00' },
+      trialPictures: { cap: 10, used: 7, left: '3' },
+    });
+
+    expect(usage?.picturesToday).toEqual({ cap: 5, used: 3, left: 2, resetsAt: '2026-10-31T00:00:00+00:00' });
+    expect(usage?.trialPictures).toEqual({ cap: 10, used: 7, left: 3 });
+  });
+
+  it('reads absent picture figures as none, as a server from before DL.9 sends them', () => {
+    const usage = decodeAccountAiUsage(PAYLOAD);
+
+    expect(usage).not.toBeNull();
+    expect(usage?.picturesToday).toBeNull();
+    expect(usage?.trialPictures).toBeNull();
+  });
+
+  it('reads a picture count it cannot read as none, and keeps the allowance beside it', () => {
+    for (const bad of [
+      { picturesToday: { cap: 5, used: 3, left: 2.5, resetsAt: 'x' } },
+      { picturesToday: { cap: 5, used: 3, left: 2 } },
+      { trialPictures: 'ten' },
+    ]) {
+      const usage = decodeAccountAiUsage({ ...PAYLOAD, ...bad });
+
+      expect(usage).withContext(JSON.stringify(bad)).not.toBeNull();
+      expect(usage?.period.remaining).toBe(640);
+      expect(usage?.picturesToday).toBeNull();
+      expect(usage?.trialPictures).toBeNull();
+    }
+  });
+
   /**
    * USAGE-008's rule, mirrored: the spend happened and it is the creator's own history, so the row stays and
    * only the name goes. Dropping it would under-report what they used and stop the parts summing to the whole.

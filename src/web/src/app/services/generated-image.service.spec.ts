@@ -195,9 +195,55 @@ describe('GeneratedImageService', () => {
           .expectOne(BASE)
           .flush(problem(code, { title: 'The server’s own sentence.' }), { status, statusText: 'Refused' });
 
-        expect(await pending).toEqual({ status: 'refused', message: 'The server’s own sentence.', fieldErrors: {} });
+        // Credits are one of DL.9's three limits and say so; a day's cap with no scope is none of them.
+        expect(await pending).toEqual({
+          status: 'refused',
+          message: 'The server’s own sentence.',
+          fieldErrors: {},
+          ...(code === 'ai.quota.exhausted' ? { limit: { kind: 'credits' as const } } : {}),
+        });
       });
     }
+
+    // DL.9: a day's cap says whose day it was — the plan's across every workspace, or this workspace's — with the
+    // server's cap and reset, so the run can say which and when.
+    for (const [scope, kind] of [
+      ['User', 'plan-day'],
+      ['Workspace', 'workspace-day'],
+    ] as const) {
+      it(`reads a ${scope}-scoped day cap as the ${kind} limit, with its cap and reset`, async () => {
+        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+        http.expectOne(BASE).flush(
+          problem('limits.budget.exhausted', {
+            title: 'The server’s own sentence.',
+            operation: 'ImageGeneration',
+            scope,
+            limit: 25,
+            resetsAt: '2026-10-31T00:00:00+00:00',
+          }),
+          { status: 429, statusText: 'Too Many Requests' },
+        );
+
+        const outcome = await pending;
+        expect(outcome.status === 'refused' && outcome.limit).toEqual({
+          kind,
+          cap: 25,
+          resetsAt: '2026-10-31T00:00:00+00:00',
+        });
+      });
+    }
+
+    it('reads a day cap whose figures it cannot read without them, never with a guess', async () => {
+      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+      http
+        .expectOne(BASE)
+        .flush(problem('limits.budget.exhausted', { scope: 'User', limit: 'many' }), { status: 429, statusText: 'Refused' });
+
+      const outcome = await pending;
+      expect(outcome.status === 'refused' && outcome.limit).toEqual({ kind: 'plan-day', cap: null, resetsAt: null });
+    });
 
     it('reads the edge’s rate limit as its own outcome, because waiting is the remedy', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');

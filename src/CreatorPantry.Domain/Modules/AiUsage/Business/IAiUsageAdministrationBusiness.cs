@@ -185,7 +185,7 @@ internal sealed class AiUsageAdministrationBusiness(
         return OperationResult<AccountAiUsageAdminServiceModel>.Success(new AccountAiUsageAdminServiceModel(
             accountId,
             Describe(period, terms.PeriodLength),
-            Terms(hasQuota, terms),
+            Terms(hasQuota, terms, await periods.GrantedAllowanceAsync(accountId, terms, cancellationToken)),
             [.. byTask
                 .Select(row => new AccountAiUsageTaskTotalServiceModel(row.TaskType, row.Amount, row.Requests))
                 .OrderByDescending(row => row.Amount)
@@ -336,7 +336,9 @@ internal sealed class AiUsageAdministrationBusiness(
         }
 
         var current = await dataLayer.FindCurrentQuotaAsync(accountId, cancellationToken);
-        var before = Terms(current is not null, await periods.ResolveTermsAsync(accountId, cancellationToken));
+        var resolved = await periods.ResolveTermsAsync(accountId, cancellationToken);
+        var before = Terms(
+            current is not null, resolved, await periods.GrantedAllowanceAsync(accountId, resolved, cancellationToken));
         var target = replacement(current);
 
         if (NoChange(current, target))
@@ -475,10 +477,11 @@ internal sealed class AiUsageAdministrationBusiness(
     /// <summary>
     /// The terms in force, described. <paramref name="hasQuota"/> false means the platform default.
     /// </summary>
-    private static AccountAiQuotaTermsServiceModel Terms(bool hasQuota, AiQuotaTerms resolved) =>
+    /// <param name="allowance">What a new period opens with under them (<c>GrantedAllowanceAsync</c>).</param>
+    private static AccountAiQuotaTermsServiceModel Terms(bool hasQuota, AiQuotaTerms resolved, decimal allowance) =>
         new(hasQuota ? AccountAiQuotaSource.Account : AccountAiQuotaSource.PlatformDefault,
             resolved.Unit,
-            resolved.Allowance,
+            allowance,
             resolved.PeriodLength,
             resolved.PeriodAnchor,
             resolved.TimeZoneId,
@@ -492,8 +495,8 @@ internal sealed class AiUsageAdministrationBusiness(
     /// <remarks>
     /// A null <paramref name="write"/> is a clear, which leaves the account on the configured default; a write
     /// with no allowance leaves the number to the same place. Either way the allowance reported is
-    /// <paramref name="fallback"/> — the account's plan's credits, or the option value with no plan — exactly as
-    /// <c>AiQuotaPeriodResolver.ResolveTermsAsync</c> would resolve it a moment later (AP.4.2).
+    /// <paramref name="fallback"/> — what the account's plan grants a new period, or the option value with no plan
+    /// — exactly as <c>GrantedAllowanceAsync</c> describes the terms a moment later (AP.4.2, DL.8).
     /// </remarks>
     private AccountAiQuotaTermsServiceModel Terms(AccountAiQuotaWrite? write, decimal fallback) =>
         write is null

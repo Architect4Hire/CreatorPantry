@@ -94,7 +94,10 @@
       </cp-notice>
     }
     @case ('refused') {
-      <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
+      <!-- Each of the three limits says which it is (DL.9). The request above is left exactly as it was. -->
+      <!-- Focusable, and focused after a limit refusal: the price is asked again, and when it blocks the button the
+           creator just pressed is disabled under them, which would leave focus nowhere (DESIGN-SYSTEM.md). -->
+      <cp-notice tone="error" role="alert" tabindex="-1" [id]="sectionIdPrefix() + '-refusal'">{{ refusalMessage() }}</cp-notice>
     }
     @case ('rate_limited') {
       <cp-notice tone="warning" role="status">
@@ -137,6 +140,24 @@
        the page before it has anything to say, so it is announced when it does, and sits outside the prompt's branch
        so the description the Make button points at always exists. "Working out…" is shown and not announced:
        stepping through counts is then said once a step, when the price is known. -->
+  <!-- Today's pictures on the plan (DL.9), each figure the server's. Not a live region: it changes with every count
+       the server reads, and is said once when a run settles (`announced`) and with the Make button it describes. -->
+  @switch (dayLine()) {
+    @case ('loading') {
+      <!-- The line as it will arrive, and not said: the price's own status below is the run's one loading sentence. -->
+      <div class="today-pending"><cp-skeleton shape="line" /></div>
+    }
+    @case ('error') {
+      <p class="cp-muted" [id]="sectionIdPrefix() + '-today'">
+        We couldn’t check today’s pictures just now.
+        <button cpButton type="button" variant="text" size="sm" (click)="checkPicturesAgain()">Check again</button>
+      </p>
+    }
+    @case ('ready') {
+      <p class="cp-muted" [id]="sectionIdPrefix() + '-today'">{{ dayText() }}</p>
+    }
+  }
+
   <p class="cp-muted" [id]="sectionIdPrefix() + '-quote'">
     <span role="status">{{ quoteLine() }}</span>
     @if (quoteState().status === 'loading') {
@@ -157,7 +178,7 @@
         type="button"
         variant="secondary"
         [disabled]="!canGenerate()"
-        [attr.aria-describedby]="quoteBlocks() ? sectionIdPrefix() + '-quote-refusal' : null"
+        [attr.aria-describedby]="makeDescribedBy()"
         (click)="generateFresh()"
       >
         Make new pictures
@@ -168,7 +189,7 @@
         type="button"
         variant="primary"
         [disabled]="!canGenerate()"
-        [attr.aria-describedby]="quoteBlocks() ? sectionIdPrefix() + '-quote-refusal' : null"
+        [attr.aria-describedby]="makeDescribedBy()"
         (click)="generate()"
       >
         {{ tracker.phase().kind === 'idle' ? 'Make the pictures' : 'Try again' }}

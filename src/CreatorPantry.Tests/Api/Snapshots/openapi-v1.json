@@ -28429,6 +28429,26 @@
           },
           "lowCredit": {
             "$ref": "#/components/schemas/AccountAiLowCredit"
+          },
+          "picturesToday": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsagePicturesToday"
+              }
+            ]
+          },
+          "trialPictures": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsageTrialPictures"
+              }
+            ]
           }
         }
       },
@@ -28506,6 +28526,45 @@
           }
         }
       },
+      "AccountAiUsagePicturesToday": {
+        "required": [
+          "cap",
+          "used",
+          "left",
+          "resetsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "left": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AccountAiUsagePlan": {
         "required": [
           "key",
@@ -28545,6 +28604,40 @@
             "format": "double"
           },
           "requests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AccountAiUsageTrialPictures": {
+        "required": [
+          "cap",
+          "used",
+          "left"
+        ],
+        "type": "object",
+        "properties": {
+          "cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "left": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

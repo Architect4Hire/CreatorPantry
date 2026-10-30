@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
@@ -28,7 +29,8 @@ internal sealed class AiUsageReadBusiness(
     IAccountPlanFacade plans,
     IAccountCreditSpendFacade credits,
     IClock clock,
-    IOptions<AiQuotaOptions> options) : IAiUsageReadBusiness
+    IOptions<AiQuotaOptions> options,
+    IOptions<LimitsOptions> limits) : IAiUsageReadBusiness
 {
     public async Task<AccountAiUsageServiceModel> GetCurrentAsync(
         string accountId, CancellationToken cancellationToken)
@@ -59,6 +61,11 @@ internal sealed class AiUsageReadBusiness(
         var pictures = byTask.Where(row => row.TaskType is AiTaskType.ImageGeneration).Sum(row => row.Amount);
         var writing = byTask.Where(row => row.TaskType is not AiTaskType.ImageGeneration).Sum(row => row.Amount);
 
+        // The plan in force now, which is the one admission judges a picture by — not the period's, which is the
+        // plan at its own start (DL.8) and decides the allowance only.
+        var plan = await plans.ResolveAsync(accountId, cancellationToken);
+        var (today, trial) = await PictureCapsAsync(accountId, terms.IsSuspended, plan, now, cancellationToken);
+
         return new AccountAiUsageServiceModel(
             described,
             terms.IsSuspended,
@@ -78,7 +85,7 @@ internal sealed class AiUsageReadBusiness(
             // The balance admission spends after the allowance, read where admission reads it, so the page and the
             // next refusal cannot disagree. A period in tokens never spends packs, so it reports none (AP.5.2).
             PackRemaining: packRemaining,
-            Plan: await PlanAsync(accountId, terms, cancellationToken),
+            Plan: DescribePlan(terms.Plan ?? plan, terms),
             LowCredit: new AccountAiLowCreditServiceModel(
                 IsNoticed: period.LowCreditNoticedAt is not null,
                 IsDismissed: period.LowCreditNoticeDismissedAt is not null,
@@ -86,7 +93,64 @@ internal sealed class AiUsageReadBusiness(
 
                 // Summed here and nowhere else, so the notice's figure is the one admission judged it by: the
                 // allowance left plus every pack's balance (B-59).
-                Spendable: described.Remaining + packRemaining));
+                Spendable: described.Remaining + packRemaining))
+        {
+            PicturesToday = today,
+            TrialPictures = trial,
+        };
+    }
+
+    /// <summary>
+    /// The account's picture caps and what is left of each (DLIM-008, DL.9), read as
+    /// <c>GeneratedImageGenerationBusiness</c> hands them to admission and counted by admission's own query.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The plan's day only while limits are on, because it is a limit and switches off with them (B-56); a trial's
+    /// pictures in all whatever limits say, because they are the trial's own term (AP.7.2). Both are counted by the
+    /// repository composition admission and the quote count with; the day's cap, count and reset are held to the
+    /// quote's through the gateway by
+    /// <c>ImagesJourneyEndToEndTests.Todays_pictures_are_the_accounts_across_its_workspaces_and_agree_with_the_quote</c>.
+    /// </para>
+    /// <para>
+    /// Neither for an account that can make nothing — suspended, or a trial that has ended. Admission refuses those
+    /// before it counts, and "5 left today" beside a refusal would promise pictures that will not come.
+    /// </para>
+    /// </remarks>
+    private async Task<(AccountAiUsagePicturesTodayServiceModel?, AccountAiUsageTrialPicturesServiceModel?)>
+        PictureCapsAsync(
+            string accountId,
+            bool isSuspended,
+            AccountPlanServiceModel? plan,
+            DateTimeOffset now,
+            CancellationToken cancellationToken)
+    {
+        if (plan is null || isSuspended || plan.TrialHasEnded(now))
+        {
+            return (null, null);
+        }
+
+        int? dayCap = limits.Value.Enabled ? plan.DailyImageCap : null;
+        var trialCap = plan.TrialImageCap;
+
+        if (dayCap is null && trialCap is null)
+        {
+            return (null, null);
+        }
+
+        var counts = await usage.CountImagesAsync(
+            accountId,
+            new AccountImageWindows(LimitDay.StartOf(now), InAll: trialCap is not null),
+            cancellationToken);
+
+        return (
+            dayCap is { } day
+                ? new AccountAiUsagePicturesTodayServiceModel(
+                    day, counts.Today, Math.Max(0, day - counts.Today), LimitDay.NextAfter(now))
+                : null,
+            trialCap is { } all
+                ? new AccountAiUsageTrialPicturesServiceModel(all, counts.InAll, Math.Max(0, all - counts.InAll))
+                : null);
     }
 
     /// <summary>The plan the account is on, and whether the allowance it is spending comes back at the reset.</summary>
@@ -95,11 +159,8 @@ internal sealed class AiUsageReadBusiness(
     /// the account is still on exactly one plan (PRICE-007) and is told its name — but that allowance renews as
     /// those terms say, so only a plan that grants once and is deciding makes it not come back.
     /// </remarks>
-    private async Task<AccountAiUsagePlanServiceModel?> PlanAsync(
-        string accountId, AiQuotaTerms terms, CancellationToken cancellationToken)
+    private static AccountAiUsagePlanServiceModel? DescribePlan(AccountPlanServiceModel? plan, AiQuotaTerms terms)
     {
-        var plan = terms.Plan ?? await plans.ResolveAsync(accountId, cancellationToken);
-
         return plan is null
             ? null
             : new AccountAiUsagePlanServiceModel(

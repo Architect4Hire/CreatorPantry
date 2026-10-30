@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { EMPTY, Observable, Subject, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { AccountAiUsage } from '../../models/ai-usage.models';
 import { ContentPipelineImagesState } from '../../models/content-pipeline.models';
 import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
@@ -17,6 +18,7 @@ import {
   RequestGeneratedImagesRequest,
   StagedImage,
 } from '../../models/generated-image.models';
+import { AiUsageService, AiUsageState } from '../../services/ai-usage.service';
 import { DamAssetDetailOutcome, DamAssetService } from '../../services/dam-asset.service';
 import {
   GeneratedImageRequestOutcome,
@@ -199,6 +201,52 @@ let quoteClasses: (GeneratedImageQualityClass | null)[];
 let quoteAnswer: (variants: number, qualityClass: GeneratedImageQualityClass | null) => GeneratedImageQuote | null;
 let classesAnswer: () => Promise<GeneratedImageQualityClasses | null>;
 let classesReads: number;
+let usageState: ReturnType<typeof signal<AiUsageState>>;
+let usageRefreshes: number;
+/** What the usage read says after its next refresh, or null to leave it as it is. */
+let usageAfterRefresh: AiUsageState | null;
+
+/**
+ * The account's usage read as the server sends it (DL.9): no picture figures unless a case gives some, which is
+ * every host with no plan catalogue — so every case before DL.9 renders exactly as it did.
+ */
+function usage(overrides: Partial<AccountAiUsage> = {}): AccountAiUsage {
+  return {
+    period: {
+      unit: 'Credits',
+      allowance: 1000,
+      carriedOver: 0,
+      consumed: 0,
+      reserved: 0,
+      remaining: 1000,
+      periodLength: 'Monthly',
+      timeZoneId: 'Etc/UTC',
+      startsAt: '2026-10-01T00:00:00+00:00',
+      resetsAt: '2026-11-01T00:00:00+00:00',
+    },
+    isSuspended: false,
+    byTask: [],
+    byWorkspace: [],
+    isNearlySpent: false,
+    pictures: 0,
+    writing: 0,
+    packRemaining: 0,
+    plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
+    lowCredit: { isNoticed: false, isDismissed: false, noticeEnabled: true, spendable: 1000 },
+    picturesToday: null,
+    trialPictures: null,
+    ...overrides,
+  };
+}
+
+/** Today's pictures on a Creator plan: 25 a day, `used` of them gone, the server's `left` beside them. */
+function today(used: number, left = 25 - used): NonNullable<AccountAiUsage['picturesToday']> {
+  return { cap: 25, used, left, resetsAt: '2026-10-31T00:00:00+00:00' };
+}
+
+function dayLine(): HTMLElement | null {
+  return el.querySelector('#cp-studio-images-today');
+}
 
 /**
  * The price list a host with three classes would send: Standard the default, cheapest first (AP.3.1).
@@ -335,6 +383,9 @@ describe('GeneratedImageRunComponent', () => {
     classesAnswer = () => Promise.resolve(classes());
     classesReads = 0;
     requestOutcome = { status: 'unavailable' };
+    usageState = signal<AiUsageState>({ status: 'ready', usage: usage() });
+    usageRefreshes = 0;
+    usageAfterRefresh = null;
 
     await TestBed.configureTestingModule({
       providers: [
@@ -382,6 +433,18 @@ describe('GeneratedImageRunComponent', () => {
         { provide: RecipeService, useValue: { searchRecipes: () => EMPTY } },
         { provide: WorkspaceTagService, useValue: { list: () => Promise.resolve({ status: 'unavailable' as const }) } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        {
+          provide: AiUsageService,
+          useValue: {
+            state: () => usageState(),
+            ensureLoaded: () => Promise.resolve(),
+            refresh: () => {
+              usageRefreshes += 1;
+              if (usageAfterRefresh !== null) usageState.set(usageAfterRefresh);
+              return Promise.resolve();
+            },
+          },
+        },
       ],
     }).compileComponents();
 
@@ -1445,6 +1508,262 @@ describe('GeneratedImageRunComponent', () => {
       expect(qualityRadio('High').checked).toBeTrue();
       expect(el.textContent).toContain('At High quality');
       expect(el.textContent).not.toContain('lower quality');
+    });
+  });
+
+  describe("today's pictures (DL.9)", () => {
+    /** Refuses the next request as one of the three limits, in the server's words. */
+    function refuseWith(limit: NonNullable<Extract<GeneratedImageRequestOutcome, { status: 'refused' }>['limit']>): void {
+      requestOutcome = {
+        status: 'refused',
+        message: 'Your AI allowance for this period and your pack credits don’t cover this.',
+        fieldErrors: {},
+        limit,
+      };
+    }
+
+    /** The same button after a refusal, which now offers to ask again. */
+    function tryAgain(): HTMLButtonElement {
+      return Array.from(el.querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === 'Try again',
+      ) as HTMLButtonElement;
+    }
+
+    function refusal(): string {
+      return (el.querySelector('#cp-studio-images-refusal')?.textContent ?? '').trim();
+    }
+
+    it("says how many of the plan's pictures are left today and when more come, in the server's figures", async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(3, 22) }) });
+      await priced();
+
+      const line = dayLine()!;
+      expect(line.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+      expect(line.textContent).toContain('More come back on');
+      expect(line.textContent).toContain('(UTC)');
+      // Described, not announced: it changes with every read, and a live region would say each one.
+      expect(line.getAttribute('role')).toBeNull();
+      expect(line.closest('[aria-live],[role="status"],[role="alert"]')).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBe('cp-studio-images-today');
+    });
+
+    it("says nought as none, and the server's left rather than one worked out from the cap", async () => {
+      // A left that is not cap less used: only the server knows what admission will count.
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: { ...today(25), left: 0 } }) });
+      await priced();
+      expect(dayLine()!.textContent).toContain('None of your Creator plan’s 25 pictures left today.');
+
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: { ...today(3), left: 7 } }) });
+      await settle();
+      expect(dayLine()!.textContent).toContain('7 of your Creator plan’s 25 pictures left today.');
+    });
+
+    it("says a trial's pictures in all beside its day, rather than choosing one of them", async () => {
+      usageState.set({
+        status: 'ready',
+        usage: usage({
+          plan: { key: 'trial', name: 'Trial', allowanceRenews: false },
+          picturesToday: { cap: 5, used: 0, left: 5, resetsAt: '2026-10-31T00:00:00+00:00' },
+          trialPictures: { cap: 10, used: 8, left: 2 },
+        }),
+      });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('5 of your Trial plan’s 5 pictures left today.');
+      expect(dayLine()!.textContent).toContain('2 of your trial’s 10 pictures left in all.');
+    });
+
+    it('says nothing about pictures where the server states no cap', async () => {
+      await priced();
+
+      expect(dayLine()).toBeNull();
+      expect(el.textContent).not.toContain('left today');
+      expect(el.querySelector('.today-pending')).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('draws the line as it will arrive while the read is out, without announcing it or describing the button by it', async () => {
+      usageState.set({ status: 'loading' });
+      await priced();
+
+      expect(el.querySelector('.today-pending cp-skeleton')).not.toBeNull();
+      expect(dayLine()).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says the figures are the last it had when a refresh failed', async () => {
+      usageState.set({ status: 'degraded', usage: usage({ picturesToday: today(3) }) });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+      expect(dayLine()!.textContent).toContain('These are the last figures we had.');
+    });
+
+    it('says it could not check, and stops nothing, when the read failed', async () => {
+      usageState.set({ status: 'error' });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('We couldn’t check today’s pictures just now.');
+      expect(makeButton().disabled).toBeFalse();
+
+      // Not a dead end: the line offers to ask again, and a good answer replaces it.
+      usageAfterRefresh = { status: 'ready', usage: usage({ picturesToday: today(3) }) };
+      Array.from(dayLine()!.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Check again')!.click();
+      await settle();
+
+      expect(usageRefreshes).toBe(1);
+      expect(dayLine()!.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+    });
+
+    it('leaves the count to the quote while the quote refuses on the day, so it is said once', async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(24) }) });
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'DailyImageCap',
+          pictureCap: 25,
+          picturesLeft: 1,
+          pictureCapResetsAt: '2026-10-31T00:00:00+00:00',
+        }),
+      );
+
+      expect(dayLine()).toBeNull();
+      expect(el.textContent).toContain('one picture left today');
+    });
+
+    it('reads the count again once a request is accepted, and says it once when the pictures are ready', async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(3) }) });
+      requestOutcome = { status: 'accepted', operation: { id: 'op-1', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      await priced();
+
+      makeButton().click();
+      await settle();
+      expect(usageRefreshes).toBe(1);
+
+      usageAfterRefresh = { status: 'ready', usage: usage({ picturesToday: today(5) }) };
+      watches[watches.length - 1].next({ status: 'found', operation: operation([picture(0), picture(1)]) });
+      await settle();
+
+      expect(usageRefreshes).toBe(2);
+      expect(host.announcements.filter((said) => said.includes('left today'))).toEqual([
+        '2 pictures ready to choose from. 20 left today.',
+      ]);
+
+      // Not again on the next reading of the same finished run.
+      watches[watches.length - 1].next({ status: 'found', operation: operation([picture(0), picture(1)]) });
+      await settle();
+      expect(host.announcements.filter((said) => said.includes('left today')).length).toBe(1);
+    });
+
+    describe('the three refusals, each said as itself', () => {
+      it("says the plan's day is used across every workspace, and when it comes back", async () => {
+        usageState.set({ status: 'ready', usage: usage({ picturesToday: today(25, 0) }) });
+        refuseWith({ kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+        const asked = quoteAsks.length;
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('Your plan’s pictures for today are used up.');
+        expect(refusal()).toContain('Your Creator plan makes 25 a day, across all your workspaces.');
+        expect(refusal()).toContain('(UTC)');
+        expect(refusal()).toContain('Your request is still here');
+        expect(refusal()).not.toContain('workspace has made');
+        // The figures are read again, so the line and the quote agree with what was just said.
+        expect(usageRefreshes).toBe(1);
+        expect(quoteAsks.length).toBeGreaterThan(asked);
+      });
+
+      it('moves focus to the refusal, and says it once, when the price then blocks the button', async () => {
+        refuseWith({ kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+        quoteAnswer = (variants) =>
+          quote(variants, {
+            outcome: 'DailyImageCap',
+            pictureCap: 25,
+            picturesLeft: 0,
+            pictureCapResetsAt: '2026-10-31T00:00:00+00:00',
+          });
+
+        makeButton().focus();
+        makeButton().click();
+        await priced();
+
+        // The button is disabled under the creator, so focus goes to what explains it rather than to nothing.
+        expect(tryAgain().disabled).toBeTrue();
+        expect(document.activeElement?.id).toBe('cp-studio-images-refusal');
+        // One alert: the price's own cap sentence stays quiet while the refusal says it.
+        expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+        expect(tryAgain().getAttribute('aria-describedby')).toBe('cp-studio-images-refusal');
+      });
+
+      it("says the workspace's day is not the plan's, and keeps the button for the server to decide", async () => {
+        refuseWith({ kind: 'workspace-day', cap: 200, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('This workspace has made its 200 pictures for today.');
+        expect(refusal()).toContain('That’s a limit on the workspace, not on your plan');
+        expect(refusal()).not.toContain('Your plan’s pictures');
+        expect(tryAgain().disabled).toBeFalse();
+      });
+
+      it('says credits are what ran out, not a day', async () => {
+        refuseWith({ kind: 'credits' });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('Not enough credits for these pictures.');
+        expect(refusal()).toContain('Your AI allowance for this period and your pack credits don’t cover this.');
+        expect(refusal()).not.toContain('today');
+      });
+
+      it('says a day refusal with no figures without inventing them', async () => {
+        refuseWith({ kind: 'plan-day', cap: null, resetsAt: null });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('They count across all your workspaces.');
+        expect(refusal()).toContain('More come back at midnight UTC.');
+      });
+
+      for (const limit of [
+        { kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' },
+        { kind: 'workspace-day', cap: 200, resetsAt: '2026-10-31T00:00:00+00:00' },
+        { kind: 'credits' },
+      ] as const) {
+        it(`keeps the filled-in request after a ${limit.kind} refusal, and sends it unchanged from the keyboard`, async () => {
+          host.promptText.set('A low, warm crop.');
+          host.variantCount.set(3);
+          refuseWith(limit);
+          await priced();
+
+          makeButton().click();
+          await priced();
+
+          expect(el.textContent).toContain('A low, warm crop.');
+          expect(el.textContent).toContain('Asking for 3 pictures.');
+
+          // The refusal is an alert, said once, beside a button that is still reachable for a creator who waits.
+          expect(el.querySelector('#cp-studio-images-refusal')?.getAttribute('role')).toBe('alert');
+          const button = tryAgain();
+          button.focus();
+          expect(document.activeElement).toBe(button);
+
+          button.click();
+          await settle();
+          expect(requests.length).toBe(2);
+          expect(requests[1]).toEqual(requests[0]);
+          expect(keys[1]).toBe(keys[0]);
+        });
+      }
     });
   });
 });

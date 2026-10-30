@@ -110,6 +110,10 @@
               @if (resetFact(); as reset) {
                 <div cpFact [label]="reset.label">{{ reset.value }}</div>
               }
+              <!-- Pictures are counted, not charged here: the day's and a trial's, as admission counts them (DL.9). -->
+              @for (fact of pictureFacts(); track fact.label) {
+                <div cpFact [label]="fact.label">{{ fact.value }}</div>
+              }
             </dl>
           }
 

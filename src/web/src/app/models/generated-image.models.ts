@@ -8,6 +8,8 @@
 //
 // Every bound mirrors a server constant by name, so a control cannot accept something the route would refuse.
 
+import { problemBodyOf } from '../core/forms/problem-details';
+import { QUOTA_EXHAUSTED_CODE } from './ai-quota.models';
 import { decodeEnum, isRecord, isStringOrNull } from './recipe.models';
 import { decodeRenditionSize } from './picture-rendition.models';
 
@@ -283,6 +285,46 @@ export const QUALITY_CLASS_FORBIDDEN_CODE = 'media.generation.quality_class.forb
  */
 export function isAccountRefusalCode(code: string | null): boolean {
   return code !== null && (code.startsWith('ai.quota.') || code.startsWith('limits.'));
+}
+
+/** `LimitErrorCodes.BudgetExhausted`, mirrored: a day's cap, the plan's or the workspace's, told apart by `scope`. */
+export const LIMITS_BUDGET_EXHAUSTED_CODE = 'limits.budget.exhausted';
+
+/**
+ * Which of the three limits refused a request for pictures (DL.9), so each is said as itself: the plan's day is
+ * the person's across every workspace, the workspace's day is nobody's plan, and credits are neither a day.
+ *
+ * `cap` and `resetsAt` are the server's `limit` and `resetsAt` extensions — null when unreadable, so a sentence can
+ * still be said without them rather than with a guess.
+ */
+export type GeneratedImageLimitRefusal =
+  | { readonly kind: 'plan-day'; readonly cap: number | null; readonly resetsAt: string | null }
+  | { readonly kind: 'workspace-day'; readonly cap: number | null; readonly resetsAt: string | null }
+  | { readonly kind: 'credits' };
+
+/**
+ * The limit a refusal names, or null when it is none of the three — a suspension, a trial's end or its pictures, an
+ * in-flight cap — which keep the server's own sentence. Matched on `code`, then `scope`, never on the status.
+ */
+export function decodeGeneratedImageLimitRefusal(error: unknown): GeneratedImageLimitRefusal | null {
+  const body = problemBodyOf(error);
+  if (body === null) return null;
+
+  const code = body['code'];
+  if (code === QUOTA_EXHAUSTED_CODE) return { kind: 'credits' };
+  if (code !== LIMITS_BUDGET_EXHAUSTED_CODE) return null;
+
+  const limit = countOf(body['limit']);
+  const resetsAt = typeof body['resetsAt'] === 'string' ? body['resetsAt'] : null;
+
+  switch (body['scope']) {
+    case 'User':
+      return { kind: 'plan-day', cap: limit, resetsAt };
+    case 'Workspace':
+      return { kind: 'workspace-day', cap: limit, resetsAt };
+    default:
+      return null;
+  }
 }
 
 /**

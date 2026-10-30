@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Business;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -202,6 +203,37 @@ public sealed class OpsQuotaAdministrationTests
 
         // Clearing lands back on the platform default.
         Assert.Equal(AccountAiQuotaAuditReference.PlatformDefault, rows[3].AfterReference);
+    }
+
+    /// <summary>
+    /// <strong>A spent trial is described as what its next period opens with: nothing</strong> (B-56, DL.8). The
+    /// read, the write's response and both sides of every audit row apply the same rule, so suspending and
+    /// restoring the account — which leave its allowance alone — never appear to move it.
+    /// </summary>
+    [Fact]
+    public async Task A_spent_trial_is_described_and_audited_with_the_allowance_it_will_open_with()
+    {
+        await using var host = await SqliteApiHost.StartAsync();
+        var accountId = await host.CreateUserAsync("sam@example.com", Password);
+        var ops = host.CreateOpsClient(await host.CreateOpsClientAsync());
+        await PutOnSpentTrialAsync(host, accountId);
+
+        Assert.Equal(0m, (await ReadAsync(ops, accountId)).GetProperty("terms").GetProperty("allowance").GetDecimal());
+
+        var suspended = await CommandAsync(ops, accountId, "ai-access/suspend", "Suspected abuse, ticket OPS-14.");
+        Assert.Equal(0m, (await JsonAsync(suspended)).GetProperty("terms").GetProperty("allowance").GetDecimal());
+        await CommandAsync(ops, accountId, "ai-access/restore", "Cleared by review, ticket OPS-14.");
+
+        await using var scope = host.Factory.Services.CreateAsyncScope();
+        var rows = await scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().PlatformAuditLogs
+            .Where(log => log.SubjectType == AiUsageAuditActions.SubjectType)
+            .OrderBy(log => log.OccurredAt)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, rows.Count);
+        Assert.StartsWith("allowance=0;", rows[0].AfterReference);
+        Assert.StartsWith("allowance=0;", rows[1].BeforeReference);
+        Assert.StartsWith("allowance=0;", rows[1].AfterReference);
     }
 
     /// <summary>A reason is required; a blank one is refused before anything is written.</summary>
@@ -610,6 +642,43 @@ public sealed class OpsQuotaAdministrationTests
 
         // The rows still abut exactly, so no reader can land between them and find no terms at all.
         Assert.Equal(rows[0].EffectiveTo, rows[1].EffectiveFrom);
+    }
+
+    /// <summary>
+    /// Puts the account on the host's trial, a plan granted once, with a period already opened under it — the
+    /// trial it has had.
+    /// </summary>
+    private static async Task PutOnSpentTrialAsync(SqliteApiHost host, string accountId)
+    {
+        var billing = host.Factory.Services.GetRequiredService<IOptions<BillingOptions>>().Value;
+        Assert.Contains(billing.Plans, plan => plan.Key == "trial" && plan.Period is PlanAllowancePeriod.Once);
+
+        await using var scope = host.Factory.Services.CreateAsyncScope();
+
+        var changed = await scope.ServiceProvider.GetRequiredService<IAccountPlanBusiness>().ChangeAsync(
+            accountId, "trial", AccountPlanSource.Ops, null, audit: null, TestContext.Current.CancellationToken);
+        Assert.Equal(AccountPlanChangeOutcome.Changed, changed.Outcome);
+
+        var context = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        var start = DateTimeOffset.UtcNow.AddDays(-60);
+
+        context.AccountAiQuotaPeriods.Add(new AccountAiQuotaPeriod
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            StartsAt = start,
+            EndsAt = start.AddDays(30),
+            TimeZoneId = "Etc/UTC",
+            LocalStartDate = DateOnly.FromDateTime(start.UtcDateTime),
+            Unit = AiQuotaUnit.Credits,
+            Allowance = 1000m,
+            PlanKey = "trial",
+            CarriedOver = 0m,
+            Consumed = 1000m,
+            Reserved = 0m,
+        });
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>Asks the admission seam what it would say, without spending anything to find out.</summary>

@@ -44,11 +44,14 @@ import {
 import { DamAssetService } from '../../services/dam-asset.service';
 import { matchSavedPictures } from '../../services/dam-saved-pictures';
 import { GeneratedImageService, StagedImageRejectOutcome } from '../../services/generated-image.service';
+import { AccountAiUsage } from '../../models/ai-usage.models';
 import {
+  GeneratedImageLimitRefusal,
   GeneratedImageQualityClass,
   GeneratedImageQualityClasses,
   GeneratedImageQuote,
 } from '../../models/generated-image.models';
+import { AiUsageService } from '../../services/ai-usage.service';
 import { allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
 import {
   SaveToLibraryDialogComponent,
@@ -103,6 +106,38 @@ export const QUOTE_SETTLE_MS = 250;
 /** A count of pictures inside a sentence; {@link pictureCount} starts one. */
 function picturesInSentence(count: number): string {
   return count === 1 ? 'one picture' : `${count} pictures`;
+}
+
+/**
+ * Today's pictures and a trial's, in the server's figures (DL.9), or null when it states neither. Both are said when
+ * both apply rather than one chosen by comparing them: which of the two binds is admission's to judge, not this one's.
+ */
+function picturesLeftSentence(usage: AccountAiUsage): string | null {
+  const today = usage.picturesToday;
+  const trial = usage.trialPictures;
+  const parts: string[] = [];
+
+  if (today !== null) {
+    const plan = usage.plan === null ? 'your plan’s' : `your ${usage.plan.name} plan’s`;
+    parts.push(`${leftWord(today.left)} of ${plan} ${today.cap} pictures left today. ${moreComeBack(today.resetsAt)}`);
+  }
+
+  if (trial !== null) {
+    parts.push(`${leftWord(trial.left)} of your trial’s ${trial.cap} pictures left in all.`);
+  }
+
+  return parts.length === 0 ? null : parts.join(' ');
+}
+
+function leftWord(count: number): string {
+  return count === 0 ? 'None' : String(count);
+}
+
+/** When a day's pictures come back. The day is UTC's (LimitDay), so it is said in UTC whatever the creator's zone. */
+function moreComeBack(resetsAt: string | null): string {
+  const when = resetsAt === null ? null : formatAllowanceReset(resetsAt, 'Etc/UTC');
+
+  return when === null ? 'More come back at midnight UTC.' : `More come back on ${when} (UTC).`;
 }
 
 /**
@@ -229,6 +264,7 @@ export class GeneratedImageRunComponent {
   private readonly service = inject(GeneratedImageService);
   private readonly assets = inject(DamAssetService);
   private readonly confirm = inject(ConfirmService);
+  private readonly usage = inject(AiUsageService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -370,6 +406,10 @@ export class GeneratedImageRunComponent {
       if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
     });
 
+    // Today's pictures (DL.9) come from the account's usage read, which other surfaces share: read once if nobody
+    // has, and again whenever this run changes the count.
+    void this.usage.ensureLoaded();
+
     // A fresh price whenever what it prices changes: the count, the quality, or the workspace it would be made
     // in. Asked wherever pictures can be made, the guided step included — leaving the maker's name off the
     // provenance line hides what made a picture, never what one costs.
@@ -434,9 +474,12 @@ export class GeneratedImageRunComponent {
       this.announcedPhase = phase.kind;
 
       if (phase.kind === 'ready') {
-        this.announced.emit(`${pictureCount(phase.operation.images.length)} ready to choose from.`);
+        const sentence = `${pictureCount(phase.operation.images.length)} ready to choose from.`;
+        untracked(() => void this.announceReady(sentence));
       } else if (phase.kind === 'failed') {
         this.announced.emit('Your pictures could not be made. The reason is on the step.');
+        // Pictures never made give their place in the day back (DL.5), so the count is read again — and not said.
+        untracked(() => void this.usage.refresh());
       }
     });
   }
@@ -658,6 +701,10 @@ export class GeneratedImageRunComponent {
     const state = this.quoteState();
     if (state.status !== 'ready') return null;
 
+    // The request was just refused for the same reason the price now gives: said once, by the refusal (DL.9). Two
+    // alerts with near-identical sentences would be read out one after the other.
+    if (this.refusedFor(state.quote)) return null;
+
     const quote = state.quote;
 
     if (quote.outcome === 'Suspended') {
@@ -711,6 +758,54 @@ export class GeneratedImageRunComponent {
     const lower = pickable[0] === asked || pickable.length < 2 ? '' : ' You can also choose a lower quality.';
 
     return `At ${QUALITY_CLASS_WORDING[asked].label} quality, ${picturesInSentence(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits}${lower} ${reset}`;
+  });
+
+  /**
+   * Where today's pictures stand (DL.9). `none` when the server states no cap — no plan catalogue, limits off, an
+   * account that can make nothing — and while the quote's cap refusal already says how many are left and when.
+   * Nothing here blocks: the quote and the server decide.
+   */
+  protected readonly dayLine = computed<'loading' | 'none' | 'error' | 'ready'>(() => {
+    const state = this.usage.state();
+
+    if (state.status === 'loading') return 'loading';
+    if (state.status === 'error') return 'error';
+    if (this.capRefused()) return 'none';
+
+    return picturesLeftSentence(state.usage) === null ? 'none' : 'ready';
+  });
+
+  protected readonly dayText = computed(() => {
+    const state = this.usage.state();
+    if (state.status !== 'ready' && state.status !== 'degraded') return '';
+
+    const sentence = picturesLeftSentence(state.usage) ?? '';
+
+    return state.status === 'degraded' ? `${sentence} These are the last figures we had.` : sentence;
+  });
+
+  /** The quote refuses on a picture cap, and says the count itself. */
+  private readonly capRefused = computed(() => {
+    const state = this.quoteState();
+
+    return (
+      state.status === 'ready' &&
+      (state.quote.outcome === 'DailyImageCap' || state.quote.outcome === 'TrialImageCap')
+    );
+  });
+
+  /** What the Make button is described by: today's pictures when they are said, and the quote's refusal when it blocks. */
+  protected readonly makeDescribedBy = computed(() => {
+    const prefix = this.sectionIdPrefix();
+    const day = this.dayLine();
+    const refusal = this.tracker.phase().kind === 'refused';
+    const ids = [
+      ...(day === 'ready' || day === 'error' ? [`${prefix}-today`] : []),
+      ...(refusal ? [`${prefix}-refusal`] : []),
+      ...(this.quoteBlocks() && this.quoteRefusal() !== null ? [`${prefix}-quote-refusal`] : []),
+    ];
+
+    return ids.length === 0 ? null : ids.join(' ');
   });
 
   protected readonly detail = this.tracker.detail;
@@ -892,6 +987,7 @@ export class GeneratedImageRunComponent {
   protected readonly refusalMessage = computed(() => {
     const phase = this.tracker.phase();
     if (phase.kind !== 'refused') return '';
+    if (phase.limit !== undefined) return this.limitSentence(phase.limit, phase.message);
 
     const fields = Object.values(phase.fieldErrors).flat();
 
@@ -1048,6 +1144,69 @@ export class GeneratedImageRunComponent {
       (when === null ? ' More come back tomorrow (UTC).' : ` More come back on ${when} (UTC).`);
   }
 
+  /**
+   * One of the three limits, said as itself (DL.9): the plan's day is the person's across every workspace, the
+   * workspace's day is nobody's plan, and credits are not a day at all. Each ends by saying the request is kept,
+   * because it is: a refusal leaves the prompt, the count and the quality exactly as they were.
+   */
+  private limitSentence(limit: GeneratedImageLimitRefusal, serverSentence: string): string {
+    switch (limit.kind) {
+      case 'plan-day': {
+        const usage = this.usage.state();
+        const name = usage.status === 'ready' || usage.status === 'degraded' ? (usage.usage.plan?.name ?? null) : null;
+        const plan = name === null ? 'Your plan' : `Your ${name} plan`;
+        const makes =
+          limit.cap === null
+            ? 'They count across all your workspaces.'
+            : `${plan} makes ${limit.cap} a day, across all your workspaces.`;
+
+        return `Your plan’s pictures for today are used up. ${makes} ${moreComeBack(limit.resetsAt)} Your request is still here, ready to ask for again then.`;
+      }
+
+      case 'workspace-day': {
+        const made =
+          limit.cap === null
+            ? 'This workspace has made all its pictures for today.'
+            : `This workspace has made its ${limit.cap} pictures for today.`;
+
+        return `${made} That’s a limit on the workspace, not on your plan, so this didn’t use any of your own pictures. ${moreComeBack(limit.resetsAt)} Your request is still here.`;
+      }
+
+      case 'credits':
+        return `Not enough credits for these pictures. ${serverSentence} Your request is still here.`;
+    }
+  }
+
+  /** Whether the refusal on screen is the limit this quote refuses on, so only one of them says it. */
+  private refusedFor(quote: GeneratedImageQuote): boolean {
+    const phase = this.tracker.phase();
+    if (phase.kind !== 'refused' || phase.limit === undefined) return false;
+
+    return (
+      (phase.limit.kind === 'plan-day' && quote.outcome === 'DailyImageCap') ||
+      (phase.limit.kind === 'credits' && quote.outcome === 'Exhausted')
+    );
+  }
+
+  /** Ask for today's pictures again, from the line that said they could not be checked. */
+  protected checkPicturesAgain(): void {
+    void this.usage.refresh();
+  }
+
+  /**
+   * Says that a run's pictures are ready — with how many today now leaves, once the usage read has caught up with
+   * the run (DL.9). One sentence, said once per run, so the count is announced when it moved and not on every read.
+   */
+  private async announceReady(sentence: string): Promise<void> {
+    await this.usage.refresh();
+    if (this.gone) return;
+
+    const state = this.usage.state();
+    const today = state.status === 'ready' ? state.usage.picturesToday : null;
+
+    this.announced.emit(today === null ? sentence : `${sentence} ${leftWord(today.left)} left today.`);
+  }
+
   private untilReset(quote: GeneratedImageQuote): string {
     const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
 
@@ -1093,7 +1252,22 @@ export class GeneratedImageRunComponent {
       ),
     );
 
-    if (operationId === null) return;
+    if (operationId === null) {
+      // A limit has moved under the creator since the last price: read the figures again, so the line, the quote and
+      // the button agree with the refusal they have just been shown. The request itself is left as it is.
+      const phase = this.tracker.phase();
+      if (phase.kind === 'refused' && phase.limit !== undefined) {
+        void this.usage.refresh();
+        this.requote(this.workspaceSlug(), this.count(), this.requestClass());
+
+        afterNextRender(
+          () => this.host.nativeElement.querySelector<HTMLElement>(`#${this.sectionIdPrefix()}-refusal`)?.focus(),
+          { injector: this.injector },
+        );
+      }
+
+      return;
+    }
 
     this.idempotency.clear();
     this.keyedRequest = null;
@@ -1103,8 +1277,10 @@ export class GeneratedImageRunComponent {
     this.emitImages({ operationId });
     this.announced.emit(`Making ${this.count() === 1 ? 'one picture' : this.count() + ' pictures'}.`);
 
-    // What is left has moved by exactly this request's hold, so the next price is read again rather than kept.
+    // What is left has moved by exactly this request's hold, so the next price is read again rather than kept —
+    // and today's pictures with it, which count a held request in full.
     this.requote(this.workspaceSlug(), this.count(), this.requestClass());
+    void this.usage.refresh();
   }
 
   /**

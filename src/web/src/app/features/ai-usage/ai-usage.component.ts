@@ -277,6 +277,32 @@ export class AiUsageComponent {
   });
 
   /**
+   * The plan's pictures as facts beside it (DL.9): today's used of the cap, what is left and when more come, and a
+   * trial's in all. Every figure the server's — `left` is sent, never worked out here — and none when it sends none.
+   */
+  protected readonly pictureFacts = computed(() => {
+    const usage = this.currentUsage();
+    if (usage === null) return [];
+
+    const facts: { readonly label: string; readonly value: string }[] = [];
+    const today = usage.picturesToday;
+    const trial = usage.trialPictures;
+
+    if (today !== null) {
+      const when = formatAllowanceReset(today.resetsAt, 'Etc/UTC');
+      // The run's phrase, so the page and the picture step say when in the same words (DL.9).
+      const more = when === null ? 'more come back at midnight UTC' : `more come back on ${when} (UTC)`;
+      facts.push({ label: 'Pictures today', value: `${today.used} of ${today.cap} used · ${today.left} left · ${more}` });
+    }
+
+    if (trial !== null) {
+      facts.push({ label: 'Trial pictures', value: `${trial.used} of ${trial.cap} used · ${trial.left} left` });
+    }
+
+    return facts;
+  });
+
+  /**
    * What "left" needs said beside it, in words: that these are the last figures we had, when they could not be
    * checked, and what requests still running are holding back, when the server says any are.
    */

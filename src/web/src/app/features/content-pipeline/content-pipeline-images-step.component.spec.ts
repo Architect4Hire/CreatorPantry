@@ -15,6 +15,7 @@ import {
   RequestGeneratedImagesRequest,
   StagedImage,
 } from '../../models/generated-image.models';
+import { AiUsageService, AiUsageState } from '../../services/ai-usage.service';
 import { CreativeContextSession } from '../../services/creative-context-session';
 import { FakeCreativeContextService } from '../../services/creative-context.fake';
 import { CreativeContextService } from '../../services/creative-context.service';
@@ -126,6 +127,8 @@ let rejected: string[];
 let rejectOutcomes: Record<string, StagedImageRejectOutcome>;
 let confirmAnswer: boolean;
 let confirmCalls: { readonly title: string }[];
+/** What the account's usage read last said: nothing, until a case gives it today's pictures (DL.9). */
+const usageState = signal<AiUsageState>({ status: 'loading' });
 
 async function settle(): Promise<void> {
   fixture.detectChanges();
@@ -175,6 +178,15 @@ async function mount(draft: ContentPipelineDraft = draftWith(), keepers: readonl
     providers: [
       { provide: GeneratedImageService, useValue: service },
       { provide: CreativeContextService, useValue: server },
+      {
+        // The run reads today's pictures from here (DL.9); `usageState` is what the server last said.
+        provide: AiUsageService,
+        useValue: {
+          state: () => usageState(),
+          ensureLoaded: () => Promise.resolve(),
+          refresh: () => Promise.resolve(),
+        },
+      },
       {
         provide: ConfirmService,
         useValue: {
@@ -272,9 +284,44 @@ describe('ContentPipelineImagesStepComponent', () => {
     confirmAnswer = true;
     confirmCalls = [];
     requestOutcome = { status: 'unavailable' };
+    usageState.set({ status: 'loading' });
   });
 
   describe('before anything has been asked for', () => {
+    it("says how many of the plan's pictures are left today on the picture step (DL.9)", async () => {
+      usageState.set({
+        status: 'ready',
+        usage: {
+          period: {
+            unit: 'Credits',
+            allowance: 1000,
+            carriedOver: 0,
+            consumed: 0,
+            reserved: 0,
+            remaining: 1000,
+            periodLength: 'Monthly',
+            timeZoneId: 'Etc/UTC',
+            startsAt: '2026-10-01T00:00:00+00:00',
+            resetsAt: '2026-11-01T00:00:00+00:00',
+          },
+          isSuspended: false,
+          byTask: [],
+          byWorkspace: [],
+          isNearlySpent: false,
+          pictures: 0,
+          writing: 0,
+          packRemaining: 0,
+          plan: { key: 'pro', name: 'Pro', allowanceRenews: true },
+          lowCredit: { isNoticed: false, isDismissed: false, noticeEnabled: true, spendable: 1000 },
+          picturesToday: { cap: 75, used: 10, left: 65, resetsAt: '2026-10-31T00:00:00+00:00' },
+          trialPictures: null,
+        },
+      });
+      await mount();
+
+      expect(text()).toContain('65 of your Pro plan’s 75 pictures left today.');
+    });
+
     it('shows the prompt that will be sent, and what it will avoid, before anything is pressed', async () => {
       await mount();
 

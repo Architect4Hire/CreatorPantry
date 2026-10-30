@@ -34,7 +34,7 @@ export type AiQuotaRefusal =
   | { readonly status: 'trial_ended'; readonly trialEndedAt: string | null };
 
 /** `AiProposalErrors.QuotaExhausted`, mirrored. Renaming it server-side is a breaking API change. */
-const QUOTA_EXHAUSTED_CODE = 'ai.quota.exhausted';
+export const QUOTA_EXHAUSTED_CODE = 'ai.quota.exhausted';
 
 /** `AiProposalErrors.QuotaSuspended`, mirrored. */
 const QUOTA_SUSPENDED_CODE = 'ai.quota.suspended';

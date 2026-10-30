@@ -507,6 +507,60 @@ describe('AiUsageComponent', () => {
     expect(facts[1]).toContain('Not renewed');
   });
 
+  // ---- today's pictures (DL.9) -------------------------------------------------------------------------
+
+  const TODAY = { cap: 25, used: 3, left: 22, resetsAt: '2026-10-31T00:00:00+00:00' };
+
+  it("shows today's pictures used of the plan's cap, what is left and when more come, beside the plan", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: TODAY });
+
+    const pictures = factTexts(host).find((fact) => fact.startsWith('Pictures today'));
+    expect(pictures).toContain('3 of 25 used');
+    expect(pictures).toContain('22 left');
+    expect(pictures).toContain('more come back on');
+    expect(pictures).toContain('(UTC)');
+    // The credits stay where they were: used of the allowance, in their own tiles and meter.
+    expect(tileTexts(host)[1]).toContain('360 AI credits used this month');
+    expect(tileTexts(host)[2]).toContain('1,000 AI credits in your allowance');
+  });
+
+  it("states the server's left, never one worked out from the cap", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: { ...TODAY, used: 26, left: 0 } });
+
+    expect(factTexts(host).find((fact) => fact.startsWith('Pictures today'))).toContain('26 of 25 used · 0 left');
+  });
+
+  it("shows a trial's pictures in all beside its day", async () => {
+    const host = await render({
+      ...payload({ plan: TRIAL }),
+      picturesToday: { ...TODAY, cap: 5, used: 1, left: 4 },
+      trialPictures: { cap: 10, used: 7, left: 3 },
+    });
+
+    const facts = factTexts(host);
+    expect(facts.find((fact) => fact.startsWith('Pictures today'))).toContain('1 of 5 used · 4 left');
+    expect(facts.find((fact) => fact.startsWith('Trial pictures'))).toContain('7 of 10 used · 3 left');
+  });
+
+  it('shows no picture facts when the server states no cap', async () => {
+    const host = await render(payload({ plan: CREATOR }));
+
+    expect(factTexts(host).some((fact) => fact.startsWith('Pictures today'))).toBeFalse();
+    expect(factTexts(host).some((fact) => fact.startsWith('Trial pictures'))).toBeFalse();
+  });
+
+  it("keeps today's pictures when a check fails, beside the allowance's last figures", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: TODAY });
+
+    void TestBed.inject(AiUsageService).refresh();
+    http.expectOne(URL).error(new ProgressEvent('network'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(factTexts(host).find((fact) => fact.startsWith('Pictures today'))).toContain('3 of 25 used');
+    expect(tileTexts(host)[0]).toContain('The last figures we had.');
+  });
+
   // ---- the low-credit setting (B-59) -------------------------------------------------------------------
 
   const NOTICE = `${URL}/low-credit-notice`;

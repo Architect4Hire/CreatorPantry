@@ -52,6 +52,14 @@ internal interface IAiQuotaRepository
     /// </summary>
     Task<int> CountImagesSinceAsync(string accountId, DateTimeOffset? since, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The account's pictures today, and in all when <paramref name="images"/> asks for it, by
+    /// <see cref="CountImagesSinceAsync"/>. The one composition admission, the quote and the usage read (DL.9) all
+    /// count with, so the three cannot drift apart.
+    /// </summary>
+    Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows images, CancellationToken cancellationToken);
+
     /// <summary>Whether any period of the account was opened under this plan.</summary>
     Task<bool> HasPeriodUnderPlanAsync(string accountId, string planKey, CancellationToken cancellationToken);
 
@@ -147,6 +155,12 @@ internal sealed class AiQuotaRepository(CreatorPantryDbContext context) : IAiQuo
     /// workspace a picture was for, and needs no workspace filter to answer for the account across all of them —
     /// which is also why a trial's lifetime count survives creating and deleting workspaces (AP.7.1).
     /// </remarks>
+    public async Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows images, CancellationToken cancellationToken) =>
+        new(
+            await CountImagesSinceAsync(accountId, images.DayStart, cancellationToken),
+            images.InAll ? await CountImagesSinceAsync(accountId, null, cancellationToken) : 0);
+
     public async Task<int> CountImagesSinceAsync(
         string accountId, DateTimeOffset? since, CancellationToken cancellationToken) =>
         await context.AccountAiQuotaReservations

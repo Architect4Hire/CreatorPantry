@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Billing.Business;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -136,6 +137,40 @@ public sealed class PlanAllowanceTests : IDisposable
     public async Task With_no_plans_configured_the_platform_default_stands()
     {
         Start(plans: false);
+
+        await AdmitAsync(Sam);
+
+        var period = await PeriodAsync(Sam);
+        Assert.Equal(PlatformDefault, period.Allowance);
+        Assert.Null(period.PlanKey);
+    }
+
+    /// <summary>
+    /// The platform default is for an account with no plan at all, not for one whose plan left the catalogue: that
+    /// account reads as the default plan (DL.2), and opens with the default plan's credits (DL.8). The default here
+    /// is Creator, not the catalogue's first plan, so reading the first plan would not pass for reading the default.
+    /// </summary>
+    [Fact]
+    public async Task A_plan_taken_out_of_the_catalogue_opens_with_the_default_plans_credits()
+    {
+        Start(defaultPlan: "creator");
+        await PutOnRetiredPlanAsync(Sam, "legacy");
+        _clock.Set(MarchStart.AddDays(2));
+
+        await AdmitAsync(Sam);
+
+        var period = await PeriodAsync(Sam);
+        Assert.Equal(6000m, period.Allowance);
+        Assert.Equal("creator", period.PlanKey);
+    }
+
+    /// <summary>A plan's credits are credits; a quota row metered in tokens keeps the platform default.</summary>
+    [Fact]
+    public async Task A_quota_row_in_tokens_with_no_allowance_keeps_the_platform_default()
+    {
+        Start();
+        await PutOnAsync(Sam, "pro");
+        await GiveQuotaAsync(Sam, allowance: null, unit: AiQuotaUnit.Tokens);
 
         await AdmitAsync(Sam);
 
@@ -322,6 +357,32 @@ public sealed class PlanAllowanceTests : IDisposable
         Assert.Equal(6000m, period.UpgradeGranted);
     }
 
+    /// <summary>
+    /// Once in an account's life, not once in a run of trial periods: back on the trial after a paid month, the
+    /// trial it had before the paid month still counts.
+    /// </summary>
+    [Fact]
+    public async Task A_trial_returned_to_after_a_paid_period_grants_nothing_again()
+    {
+        Start();
+        _clock.Set(MarchStart.AddDays(2));
+        await AdmitAsync(Sam);
+
+        _clock.Set(MarchStart.AddDays(20));
+        await PutOnAsync(Sam, "creator");
+        _clock.Set(AprilStart.AddDays(2));
+        await AdmitAsync(Sam);
+        Assert.Equal("creator", (await PeriodAsync(Sam)).PlanKey);
+
+        await PutOnAsync(Sam, null);
+        _clock.Set(AprilStart.AddMonths(1).AddDays(2));
+        await AdmitAsync(Sam);
+
+        var may = await PeriodAsync(Sam);
+        Assert.Equal(0m, may.Allowance);
+        Assert.Equal("trial", may.PlanKey);
+    }
+
     /// <summary>One account's trial is not another's: the record of a grant is per account.</summary>
     [Fact]
     public async Task One_accounts_spent_trial_does_not_spend_anothers()
@@ -380,13 +441,13 @@ public sealed class PlanAllowanceTests : IDisposable
 
     // ---- helpers ------------------------------------------------------------------------------------
 
-    private void Start(bool plans = true)
+    private void Start(bool plans = true, string defaultPlan = "trial")
     {
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         if (plans)
         {
-            values["Billing:DefaultPlan"] = "trial";
+            values["Billing:DefaultPlan"] = defaultPlan;
             Plan(values, 0, "trial", "Trial", 1000, "Once", trialDays: 14);
             Plan(values, 1, "creator", "Creator", 6000, "Monthly");
             Plan(values, 2, "pro", "Pro", 18000, "Monthly");
@@ -429,7 +490,7 @@ public sealed class PlanAllowanceTests : IDisposable
     }
 
     /// <remarks>Through Business: the change is not on the facade until AP.4.4 gives it an audit.</remarks>
-    private async Task PutOnAsync(string accountId, string planKey, DateTimeOffset? effectiveFrom = null)
+    private async Task PutOnAsync(string accountId, string? planKey, DateTimeOffset? effectiveFrom = null)
     {
         using var scope = _provider!.CreateScope();
 
@@ -439,8 +500,29 @@ public sealed class PlanAllowanceTests : IDisposable
         Assert.Equal(AccountPlanChangeOutcome.Changed, outcome.Outcome);
     }
 
+    /// <remarks>Written directly: Business refuses a key the catalogue does not have, which is what a retired one is.</remarks>
+    private async Task PutOnRetiredPlanAsync(string accountId, string planKey)
+    {
+        using var scope = _provider!.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.AccountPlans.Add(new AccountPlan
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            PlanKey = planKey,
+            Source = AccountPlanSource.Ops,
+            EffectiveFrom = _clock.UtcNow.AddDays(-30),
+        });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
     private async Task GiveQuotaAsync(
-        string accountId, decimal? allowance, AiQuotaPeriodLength length = AiQuotaPeriodLength.Monthly)
+        string accountId,
+        decimal? allowance,
+        AiQuotaPeriodLength length = AiQuotaPeriodLength.Monthly,
+        AiQuotaUnit unit = AiQuotaUnit.Credits)
     {
         using var scope = _provider!.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
@@ -449,7 +531,7 @@ public sealed class PlanAllowanceTests : IDisposable
         {
             Id = Guid.NewGuid(),
             AccountId = accountId,
-            Unit = AiQuotaUnit.Credits,
+            Unit = unit,
             Allowance = allowance,
             PeriodLength = length,
             PeriodAnchor = 1,

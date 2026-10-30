@@ -540,9 +540,7 @@ internal sealed class AiQuotaDataLayer(
         string accountId, AccountImageWindows? images, CancellationToken cancellationToken) =>
         images is null
             ? AccountImageCounts.None
-            : new AccountImageCounts(
-                await quotas.CountImagesSinceAsync(accountId, images.DayStart, cancellationToken),
-                images.InAll ? await quotas.CountImagesSinceAsync(accountId, null, cancellationToken) : 0);
+            : await quotas.CountImagesAsync(accountId, images, cancellationToken);
 
     public async Task<AccountAiQuotaPeriod?> RaisePeriodAsync(
         Guid periodId, Func<AccountAiQuotaPeriod, bool> raise, CancellationToken cancellationToken)

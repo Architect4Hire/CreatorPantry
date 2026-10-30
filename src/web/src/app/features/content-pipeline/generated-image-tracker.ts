@@ -4,6 +4,7 @@ import { Observable, Subscription } from 'rxjs';
 import { AiStatusConnection } from '../ai/ai-operation-status.component';
 import { pollOperation } from '../ai/ai-poll';
 import {
+  GeneratedImageLimitRefusal,
   GeneratedImageOperationDetail,
   isGeneratedImageOperationFailed,
   isGeneratedImageOperationFinished,
@@ -32,6 +33,8 @@ export type GeneratedImageRunPhase =
       readonly kind: 'refused';
       readonly message: string;
       readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
+      /** Which of the three limits it was, when it was one (DL.9). */
+      readonly limit?: GeneratedImageLimitRefusal;
     }
   /** Asked for too fast. Waiting is the remedy, and it is the creator's. */
   | { readonly kind: 'rate_limited' }
@@ -129,7 +132,12 @@ export class GeneratedImageTracker {
         return operationId;
       }
       case 'refused':
-        this.phaseSignal.set({ kind: 'refused', message: outcome.message, fieldErrors: outcome.fieldErrors });
+        this.phaseSignal.set({
+          kind: 'refused',
+          message: outcome.message,
+          fieldErrors: outcome.fieldErrors,
+          ...(outcome.limit === undefined ? {} : { limit: outcome.limit }),
+        });
         return null;
       case 'key_required':
         // A client defect rather than anything a creator did, so it reads as an outage: there is nothing for

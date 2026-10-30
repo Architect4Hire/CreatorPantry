@@ -65,14 +65,29 @@ internal interface IAiQuotaPeriodResolver
 
     /// <summary>
     /// What the account is granted a period when no ops-set allowance says otherwise, under terms in
-    /// <paramref name="unit"/> and <paramref name="length"/>: its plan's credits, or the platform default.
+    /// <paramref name="unit"/> and <paramref name="length"/>: what its plan grants a new period, or the platform
+    /// default.
     /// </summary>
     /// <remarks>
     /// For describing terms an ops write is about to put in force, so the audit row records the allowance the
-    /// account will actually have rather than the platform default it would have had before plans.
+    /// account will actually have rather than the platform default it would have had before plans — and rather
+    /// than a plan's full credits when it is a plan granted once that the account has already had (B-56).
     /// </remarks>
     Task<decimal> FallbackAllowanceAsync(
         string accountId, AiQuotaUnit unit, AiQuotaPeriodLength length, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The allowance a new period would open with under <paramref name="terms"/> and the plan in force now: the
+    /// ops-set or platform figure, the plan's credits, or nothing for a plan granted once that this account has
+    /// already had a period under.
+    /// </summary>
+    /// <remarks>
+    /// For describing terms to an administrator. <see cref="AiQuotaTerms.Allowance"/> is the figure before any
+    /// plan rule, which is what a period is built from but not what it opens with, so an ops read, and the
+    /// before and after of an ops write, describe this instead — the same rule on both sides of an audit row,
+    /// so a write that leaves the allowance alone never appears to move it.
+    /// </remarks>
+    Task<decimal> GrantedAllowanceAsync(string accountId, AiQuotaTerms terms, CancellationToken cancellationToken);
 
     /// <summary>
     /// The period covering <paramref name="now"/>, opened and persisted if it did not exist, and topped up if the
@@ -143,7 +158,13 @@ internal sealed class AiQuotaPeriodResolver(
 
     public async Task<decimal> FallbackAllowanceAsync(
         string accountId, AiQuotaUnit unit, AiQuotaPeriodLength length, CancellationToken cancellationToken) =>
-        (await PlanAsync(accountId, unit, length, cancellationToken))?.Credits ?? _options.DefaultAllowance;
+        await PlanAsync(accountId, unit, length, cancellationToken) is { } plan
+            ? await GrantAsync(accountId, plan, cancellationToken)
+            : _options.DefaultAllowance;
+
+    public async Task<decimal> GrantedAllowanceAsync(
+        string accountId, AiQuotaTerms terms, CancellationToken cancellationToken) =>
+        terms.Plan is null ? terms.Allowance : await GrantAsync(accountId, terms.Plan, cancellationToken);
 
     /// <summary>
     /// The account's plan, when it is what decides an allowance under these terms; null otherwise.

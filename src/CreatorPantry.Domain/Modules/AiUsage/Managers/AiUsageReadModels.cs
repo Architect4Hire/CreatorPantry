@@ -153,7 +153,21 @@ public sealed record AccountAiUsageServiceModel(
     decimal Writing,
     decimal PackRemaining,
     AccountAiUsagePlanServiceModel? Plan,
-    AccountAiLowCreditServiceModel LowCredit);
+    AccountAiLowCreditServiceModel LowCredit)
+{
+    /// <summary>
+    /// The plan's pictures for the UTC day and what is left of them (DLIM-008, DL.9). Null when no daily cap is
+    /// enforced — no plan catalogue, or limits switched off — and when nothing can be made at all: a suspension, or
+    /// a trial that has ended.
+    /// </summary>
+    public AccountAiUsagePicturesTodayServiceModel? PicturesToday { get; init; }
+
+    /// <summary>
+    /// A trial's pictures in all and what is left of them (B-52, DL.9). Null on a paid plan, which has no such cap,
+    /// and under the same conditions as <see cref="PicturesToday"/> otherwise.
+    /// </summary>
+    public AccountAiUsageTrialPicturesServiceModel? TrialPictures { get; init; }
+}
 
 /// <summary>The plan an account is on, as its own usage page names it (PRICE-007, AP.5.3).</summary>
 /// <param name="Key">The catalogue key of the plan in force.</param>
@@ -167,3 +181,23 @@ public sealed record AccountAiUsageServiceModel(
 /// can disagree with what the account actually has; the period's figures are the only allowance numbers here.
 /// </remarks>
 public sealed record AccountAiUsagePlanServiceModel(string Key, string Name, bool AllowanceRenews);
+
+/// <summary>The plan's pictures for the UTC day, counted as admission counts them (DLIM-008, DL.9).</summary>
+/// <param name="Cap">The plan's pictures a UTC day — the figure admission is handed, and the plan card's.</param>
+/// <param name="Used">
+/// Pictures that count against today, across every workspace: requests still held count every picture asked for,
+/// settled ones what was charged, released ones nothing.
+/// </param>
+/// <param name="Left">How many more today allows. Never below nought, even when a downgrade put the day over.</param>
+/// <param name="ResetsAt">The next UTC midnight, when <paramref name="Used"/> starts again from nought.</param>
+/// <remarks>
+/// <strong>Every figure is the server's</strong>, so a page that shows "22 left" never subtracts. It is a snapshot:
+/// admission counts again, under the period's row version, and decides.
+/// </remarks>
+public sealed record AccountAiUsagePicturesTodayServiceModel(int Cap, int Used, int Left, DateTimeOffset ResetsAt);
+
+/// <summary>A trial's pictures in all, counted as admission counts them (B-52, DL.9).</summary>
+/// <param name="Cap">The pictures the whole trial includes.</param>
+/// <param name="Used">Pictures that count against it, ever, across every workspace.</param>
+/// <param name="Left">How many more the trial allows. Never below nought. It never turns over, so there is no reset.</param>
+public sealed record AccountAiUsageTrialPicturesServiceModel(int Cap, int Used, int Left);

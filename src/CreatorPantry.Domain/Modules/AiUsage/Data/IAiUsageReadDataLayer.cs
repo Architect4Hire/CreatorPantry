@@ -25,12 +25,24 @@ internal interface IAiUsageReadDataLayer
 
     /// <summary>Whether the account is told when its credits run low (B-59). True when it has never chosen.</summary>
     Task<bool> IsLowCreditNoticeEnabledAsync(string accountId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The account's pictures that still count, by the query admission counts them with (DL.9). A snapshot read
+    /// without a hold, as a quote reads it.
+    /// </summary>
+    Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows images, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiUsageReadDataLayer"/>
 internal sealed class AiUsageReadDataLayer(
-    IAiUsageReadRepository usage, IAiNoticeSettingRepository settings) : IAiUsageReadDataLayer
+    IAiUsageReadRepository usage, IAiNoticeSettingRepository settings, IAiQuotaRepository quotas)
+    : IAiUsageReadDataLayer
 {
+    public Task<AccountImageCounts> CountImagesAsync(
+        string accountId, AccountImageWindows images, CancellationToken cancellationToken) =>
+        quotas.CountImagesAsync(accountId, images, cancellationToken);
+
     public Task<IReadOnlyList<AccountAiQuotaPeriod>> FindClosedPeriodsAsync(
         string accountId, DateTimeOffset now, int take, CancellationToken cancellationToken) =>
         usage.FindClosedPeriodsAsync(accountId, now, take, cancellationToken);

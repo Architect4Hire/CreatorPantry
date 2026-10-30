@@ -4,6 +4,7 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
 import {
+  GeneratedImageLimitRefusal,
   GeneratedImageOperation,
   GeneratedImageOperationDetail,
   GeneratedImageQualityClass,
@@ -13,6 +14,7 @@ import {
   QUALITY_CLASS_FORBIDDEN_CODE,
   RequestGeneratedImagesRequest,
   isAccountRefusalCode,
+  decodeGeneratedImageLimitRefusal,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
   decodeGeneratedImageQualityClasses,
@@ -31,6 +33,8 @@ export type GeneratedImageRequestOutcome =
       readonly status: 'refused';
       readonly message: string;
       readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
+      /** Which of the three limits refused it, when it was one (DL.9). Absent for every other refusal. */
+      readonly limit?: GeneratedImageLimitRefusal;
     }
   /** The `Idempotency-Key` header was missing. A client defect, and its own case so it reads as one. */
   | { readonly status: 'key_required' }
@@ -284,10 +288,13 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
   // day's cap. None is a permission the workspace could grant or a reason to slow down, and the server's sentence
   // says what is true instead, so each is a refusal shown as written.
   if ((code === 403 || code === 429) && isAccountRefusalCode(problemCodeOf(error))) {
+    const limit = decodeGeneratedImageLimitRefusal(error);
+
     return {
       status: 'refused',
       message: problemMessageOf(error) ?? 'Your AI allowance does not cover these pictures right now.',
       fieldErrors: {},
+      ...(limit === null ? {} : { limit }),
     };
   }
 
