@@ -179,11 +179,15 @@ internal sealed class GeneratedImageWorker(
     private async Task<bool> SettleAbandonedAsync(
         GeneratedImageSettlementClaim claim, CancellationToken cancellationToken)
     {
+        var resolved = false;
+
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
 
-            if (await ResolveAsync(scope.ServiceProvider, claim.WorkspaceId, cancellationToken))
+            resolved = await ResolveAsync(scope.ServiceProvider, claim.WorkspaceId, cancellationToken);
+
+            if (resolved)
             {
                 var outcome = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
                     .SettleAbandonedAsync(claim.OperationId, claim.LeaseToken, cancellationToken);
@@ -204,6 +208,20 @@ internal sealed class GeneratedImageWorker(
                 "Abandoned generation {OperationId} could not be settled ({ExceptionType}).",
                 claim.OperationId,
                 exception.GetType().Name);
+        }
+
+        // Nothing is written against a workspace this worker could not resolve. Finding the row is not
+        // authorization (tenancy.md's queue-claim carve-out), and the claim gave this sweep identifiers
+        // only — so a workspace that will not resolve is left alone and said out loud, rather than ended
+        // by a write that skipped the check every other path makes.
+        if (!resolved)
+        {
+            logger.LogWarning(
+                "Abandoned generation {OperationId} was left alone: its workspace {WorkspaceId} could not be resolved.",
+                claim.OperationId,
+                claim.WorkspaceId);
+
+            return false;
         }
 
         if (clock.UtcNow < claim.HoldLapsesAt)

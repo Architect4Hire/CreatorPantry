@@ -31,9 +31,13 @@ Paths are abbreviated: `web/` is `src/web/src/app/`, `dom/` is `src/CreatorPantr
    exactly one workspace and is off by default (`.claude/rules/aspire.md`, `web/services/publishing.service.ts`).
    A new sign-up cannot schedule a post, so publishing carries the badge **Coming to every account**
    (answer 1).
-3. **Images are not charged against credits yet.** Today credits cover text AI only; images are capped at 200
-   a workspace a day and cost no credits (`dom/Managers/Limits/LimitsOptions.cs`; master library 12.10l
-   "Not done"). Every pricing promise about images waits for AP.2.5.
+3. **Pictures are charged against credits, and refused at zero.** A picture costs its quality class's
+   `Ai:Quota:ImageRates` row — the table admission holds and settles against (AP.2.4, AP.2.5, AP.4.5) — and a
+   request the allowance cannot cover is refused before it is queued (DL.7). How many an account may ask for in
+   a UTC day is its plan's `DailyImageCap`, counted across every workspace it works in (DL.4–DL.6); the flat
+   `Limits:ImageVariantsPerWorkspacePerDay` (200) stays beside it as a per-workspace runaway bound
+   (`dom/Managers/Limits/LimitsOptions.cs`), and a request passes both. A host that would publish a cap it could
+   not keep does not start (`PublishedPlanCapsValidation`, DL.6).
 
 Two lines on today's page overclaim and are not carried forward: "Save **named** versions" (versions are
 numbered, with an optional reason: `dom/Modules/Recipes/Data/Entities/RecipeVersion.cs`) and "equipment stay
@@ -251,6 +255,7 @@ fact; the full list stays on the card, where it is read rather than compared (AP
 | Claim | Source |
 | --- | --- |
 | Every plan includes the whole workspace | **Not built** — AP.4 only proposes credit, cap and quality differences. Holds only if AP.1.1 decides no feature gating |
+| Up to `{plan.dailyImageCap}` pictures a day | **Shipped** DL.4–DL.6; the plan's cap, held across every workspace the account works in (`AiQuotaAdmissionOutcome.DailyImageCap`, refused as `limits.budget.exhausted` at User scope). Published and enforced from the one field: `ImagesJourneyEndToEndTests.PublishedCaps`, `DailyImageCapAdmissionTests`, `DailyImageCapConcurrencyTests`, `PlanLimitsStartupTests` |
 | Every figure | **Catalogue** AP.4.1; the proposed values in AP "Proposed, awaiting the owner" are never typed here |
 | Recommended badge | Landing decision 2 |
 | Plan per account, across workspaces | **Decided** AP decision 4 |
@@ -287,7 +292,7 @@ robert@creatorpantry.com and we'll work something out." (Contact per owner answe
 | --- | --- |
 | Credits measure AI work the same whichever model | **Shipped** `AiQuotaUnit.Credits`, `dom/Modules/AiUsage/Managers/AiQuotaOptions.cs` |
 | Belong to you, shared across workspaces | **Shipped** USAGE-001, `AccountAiQuota` |
-| Picture rates | **Shipped** AP.2.4, AP.2.5, AP.3.1; published from `Ai:Quota:ImageRates` per class (AP.4.5), the table admission charges |
+| Picture rates | **Shipped** AP.2.4, AP.2.5, AP.3.1; published from `Ai:Quota:ImageRates` per class (AP.4.5), the table admission charges. `ImageRateTableTests` holds a row to every class a host offers; `PictureClassRateTests` holds the published price and the charged one equal; `landing-picture-figures.spec.ts` holds the page to the published rate |
 | Every figure | **Catalogue** AP.4.1 plus per-action rates (LP.7) |
 | The estimate, the plan it fits and what it leaves | **Shipped** AP.7.2, `GET /api/v1/plans/estimate` (`ai-pricing.md` B-62): worked out by the server from the same catalogue; the page formats it and multiplies nothing |
 
@@ -303,7 +308,7 @@ motion.
 | Tile | Copy | Source | Renders after |
 | --- | --- | --- | --- |
 | Prepaid | You pay for credits before you use them. Nothing is billed afterwards. | **Decided** AP decision 3; PRICE-009 | AP.1.1 and AP.6 |
-| At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual."). **Not built** for pictures (AP.2.5) | AP.2.5 |
+| At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual.") and for pictures (DL.7; `AdmitImageAsync` refuses before anything is queued — `ImagesJourneyEndToEndTests.Quota.A_picture_asked_for_at_an_allowance_of_nothing_is_refused_before_it_is_queued`, `CreativePipelineEndToEndTests.Quota`) | — |
 | Running low? You hear first | When your credits run low, we tell you and offer a pack. Nothing is ever bought for you. | **Shipped** AP.6.4 (B-59, owner 2026-10-28: no auto top-up). The notice is raised at admission, once a period, and links to the pack purchase; an account setting turns it off. The tile's "Coming with billing" label was removed with it | — |
 
 **Packs:** `{pack.credits}` credits for `{pack.price}`, used after your plan's credits. **Catalogue** AP.5.
@@ -330,7 +335,7 @@ prompt, and LP.9's rule stands: anything undecided is left out.
 | 5 | Are AI pictures filtered? | Yes. Safe mode is always on, and a picture the provider flags is never shown to you. | **Shipped** `VeniceImageGenerator.cs` (`safe_mode: true`), `VeniceImageGeneratorTests` |
 | 6 | Can CreatorPantry tell me a dish is allergen-free or safe? | No, and it won't pretend to. Dietary and allergen notes describe what your recipe says; they're never a guarantee. Always check every label. | **Shipped** `DietaryAllergenAnalyzer.CrossContactDisclaimer`; B-36; `check-safety-copy.mjs` wording limits |
 | 7 | What is a credit? | Section 8's body. | **Shipped** + **Catalogue** |
-| 8 | What happens when I run out? | Tile 2 of section 9. | **Shipped** for text; pictures after AP.2.5 |
+| 8 | What happens when I run out? | Tile 2 of section 9. | **Shipped** for text and for pictures (DL.7) |
 | 9 | Do unused credits roll over? | Plan credits don't carry over; each month starts fresh. | **Shipped** `DefaultCarryOver = None`; restate from AP.1.1 |
 | 10 | Do packs expire? | No. A pack is credits you have bought, so they keep until you spend them. | **Decided** (owner, 2026-10-24) |
 | 11 | Can I cancel any time? | **Not built** (AP.6.2, downgrade timing still open). Omitted. | — |

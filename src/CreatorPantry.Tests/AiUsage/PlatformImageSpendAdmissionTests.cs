@@ -368,6 +368,61 @@ public sealed class PlatformImageSpendAdmissionTests : IDisposable
         Assert.Equal(2 * PictureMicros, (await DayAsync(Noon))!.AdmittedMicros);
     }
 
+    /// <summary>
+    /// <strong>The sweep gives the charge back too, not only a release by hand (DL.11).</strong> The sweep is
+    /// what ends most abandoned holds, and it expires rather than releases them — so while only the by-hand
+    /// release gave back, every lapsed hold kept its list price on the day's total for the rest of that UTC
+    /// day. The breaker then trips for <em>every</em> account on pictures nobody can still make, because a
+    /// lapsed hold can no longer reach a provider.
+    /// </summary>
+    [Fact]
+    public async Task A_hold_the_sweep_expires_gives_its_charge_back_once()
+    {
+        Start(ceiling: 1m);
+
+        var kept = await AdmitAsync(pictures: 1, expiresIn: TimeSpan.FromDays(30));
+        var lapsing = await AdmitAsync(pictures: 2);
+
+        Assert.Equal(3 * PictureMicros, (await DayAsync(Noon))!.AdmittedMicros);
+
+        // Past the hold's own expiry, which is what the sweep looks for.
+        _clock.Advance(TimeSpan.FromDays(3));
+
+        var swept = await SweepAsync();
+
+        Assert.Equal(1, swept.Expired);
+        Assert.Equal(AiQuotaReservationStatus.Expired, (await ReservationAsync(lapsing.ReservationId!.Value)).Status);
+
+        // Only the lapsed one's charge comes back, and it comes back to the day it was counted on.
+        Assert.Equal(PictureMicros, (await DayAsync(Noon))!.AdmittedMicros);
+
+        // Once: a second sweep finds nothing to expire, and a release afterwards is a no-op.
+        Assert.Equal(0, (await SweepAsync()).Expired);
+        await ReleaseAsync(lapsing.ReservationId!.Value);
+
+        Assert.Equal(PictureMicros, (await DayAsync(Noon))!.AdmittedMicros);
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, kept.Outcome);
+    }
+
+    /// <summary>The room a lapsed hold gives back is room another account can then use.</summary>
+    [Fact]
+    public async Task The_room_a_lapsed_hold_gives_back_is_admitted_to_another_account()
+    {
+        Start(ceiling: 0.14m);
+
+        var lapsing = await AdmitAsync(pictures: 2);
+
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, lapsing.Outcome);
+
+        // At the ceiling, so the next account is refused while the hold stands.
+        Assert.Equal(AiQuotaAdmissionOutcome.PlatformCeiling, (await AdmitAsync(pictures: 1, account: "user-ida")).Outcome);
+
+        _clock.Advance(TimeSpan.FromDays(3));
+        await SweepAsync();
+
+        Assert.Equal(AiQuotaAdmissionOutcome.Admitted, (await AdmitAsync(pictures: 1, account: "user-ida")).Outcome);
+    }
+
     // ---- helpers ---------------------------------------------------------------------------------------
 
     private void Start(
@@ -413,13 +468,20 @@ public sealed class PlatformImageSpendAdmissionTests : IDisposable
         scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>().Database.EnsureCreated();
     }
 
-    private async Task<AiQuotaAdmissionServiceModel> AdmitAsync(int pictures)
+    private async Task<AiQuotaAdmissionServiceModel> AdmitAsync(
+        int pictures, string account = "user-sam", TimeSpan? expiresIn = null)
     {
         await using var scope = _provider!.CreateAsyncScope();
 
         return await scope.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>().AdmitImageAsync(
             new AiImageQuotaAdmissionRequestServiceModel(
-                "user-sam", Guid.NewGuid(), pictures, Model, null, null, _clock.UtcNow + TimeSpan.FromDays(2)),
+                account,
+                Guid.NewGuid(),
+                pictures,
+                Model,
+                null,
+                null,
+                _clock.UtcNow + (expiresIn ?? TimeSpan.FromDays(2))),
             Ct);
     }
 
@@ -429,6 +491,13 @@ public sealed class PlatformImageSpendAdmissionTests : IDisposable
 
         await scope.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>()
             .ReleaseImageAsync(reservationId, Ct);
+    }
+
+    private async Task<AiQuotaMaintenanceSummary> SweepAsync()
+    {
+        await using var scope = _provider!.CreateAsyncScope();
+
+        return await scope.ServiceProvider.GetRequiredService<IAiQuotaMaintenanceFacade>().SweepAsync(Ct);
     }
 
     /// <summary>

@@ -592,8 +592,13 @@ internal sealed class GeneratedImageGenerationBusiness(
                 GeneratedImageFailureCategory.Quota,
                 state switch
                 {
-                    AiImageHoldState.Suspended => "AI access was switched off for this account before the pictures were made.",
-                    AiImageHoldState.TrialEnded => "This account's free trial ended before the pictures were made.",
+                    // One sentence for both, and it names no account state. This summary is stored on the
+                    // operation, and a workspace's operations are readable by every member of it down to
+                    // Viewer — so "this account's trial ended" would tell a creator's colleagues when their
+                    // trial ran out or that their access was switched off. The creator who asked learns
+                    // which it was from their own usage and billing pages, where it is theirs to read.
+                    AiImageHoldState.Suspended or AiImageHoldState.TrialEnded =>
+                        "AI work was not available when these pictures were to be made.",
                     _ => "This request waited longer than the allowance held for it; ask for the pictures again.",
                 },
                 cancellationToken);
@@ -732,7 +737,13 @@ internal sealed class GeneratedImageGenerationBusiness(
                 // Generated and withheld, which the provider bills for either way (AP.2.5) — so it is counted
                 // before the pass stops. Terminal rather than retryable: the same prompt gets the same answer,
                 // and asking again would buy another charge for it.
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Flagged, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Flagged, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.ProviderFlagged,
                     "The image provider made this picture and would not hand it over.");
                 return false;
@@ -755,20 +766,38 @@ internal sealed class GeneratedImageGenerationBusiness(
         {
             case GeneratedImageInspectionOutcome.Empty:
             case GeneratedImageInspectionOutcome.Unsupported:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.UnsupportedMediaType,
                     "The image provider returned something that is not a supported image format.");
                 return true;
 
             case GeneratedImageInspectionOutcome.Corrupt:
             case GeneratedImageInspectionOutcome.TrailingData:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
 
             case GeneratedImageInspectionOutcome.TooLarge:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned an image with more pixels than this workspace will stage.");
                 return true;
@@ -778,7 +807,13 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             default:
                 // An outcome added to the inspector and not named here is a refusal, never a staged image.
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
@@ -799,7 +834,13 @@ internal sealed class GeneratedImageGenerationBusiness(
         switch (stage)
         {
             case GeneratedImageStageOutcome.Staged:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Staged, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Staged, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Staged();
                 return true;
 
@@ -808,18 +849,36 @@ internal sealed class GeneratedImageGenerationBusiness(
                 // ones in storage; these are discarded, which is the cost of losing that race. Still billed:
                 // this pass asked the provider for a picture and the provider made one, so two passes racing
                 // one variant cost two pictures however many of them end up in storage.
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Staged();
                 return true;
 
             case GeneratedImageStageOutcome.Rejected:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.MalwareDetected,
                     "The scanner refused the bytes the image provider returned.");
                 return true;
 
             case GeneratedImageStageOutcome.TooLarge:
-                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned more bytes than this workspace will stage.");
                 return true;

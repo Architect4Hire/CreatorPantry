@@ -3,7 +3,11 @@ namespace CreatorPantry.Domain.Modules.Billing.Managers;
 /// <summary>
 /// The plan catalogue, in configuration so the owner can change a price without a code change (AP.4.1). The
 /// landing page publishes it (LP.6), and <c>IAccountPlanFacade</c> reads it to say what terms the plan an account
-/// is on carries. Nothing yet admits or refuses work by those terms; AP.4.2 does.
+/// is on carries. Work is admitted and refused by those terms: a picture is held to
+/// <see cref="PlanOption.DailyImageCap"/> and an allowance period opens at <see cref="PlanOption.Credits"/>, both
+/// through <c>IAiQuotaAdmissionFacade</c> (AP.4.2, DL.4–DL.8). What a card states about a cap is therefore what
+/// the product keeps, and <see cref="PublishedPlanCapsValidation"/> stops a host starting that would publish one
+/// it could not (DL.6).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -82,6 +86,13 @@ public sealed class BillingOptions
 /// Text stays, because it genuinely is typical: a run settles at the tokens the model reported, against
 /// <c>AiQuotaOptions</c>'s per-call estimate, so the page says "about" for it and nothing else.
 /// </para>
+/// <para>
+/// <strong>What reads these two.</strong> The published menu (<c>CreditRatesServiceModel</c>) and the server's own
+/// estimate for it (<c>GET /api/v1/plans/estimate</c>, AP.7.2), which prices a month of writing at
+/// <see cref="TextDraft"/> so the browser divides nothing. Neither charges anything by them — that is
+/// <c>Ai:Quota:*</c>'s per-call estimate, settled against the model's reported tokens — which is why these are the
+/// only two figures on the page labelled "about".
+/// </para>
 /// </remarks>
 public sealed class CreditRatesOption
 {
@@ -108,6 +119,11 @@ public sealed class PlanOption
     public decimal AnnualMonthlyPrice { get; set; }
 
     /// <summary>AI credits the plan includes each <see cref="Period"/>: the plan's allowance.</summary>
+    /// <remarks>
+    /// Read when an allowance period opens (<c>IAiQuotaPeriodResolver</c>, DL.8): the account's spendable total is
+    /// this figure rather than <c>Ai:Quota:DefaultAllowance</c>. An ops-set <c>AccountAiQuota.Allowance</c> still
+    /// wins, and an account on no plan keeps the default.
+    /// </remarks>
     public int Credits { get; set; }
 
     /// <summary>How often <see cref="Credits"/> are granted. Monthly, or once for a trial.</summary>
@@ -124,13 +140,28 @@ public sealed class PlanOption
     /// </remarks>
     public PlanExampleOption? ExampleCounts { get; set; }
 
-    /// <summary>Pictures that may be generated in a UTC day.</summary>
+    /// <summary>Pictures the account may ask for in a UTC day, across every workspace it works in.</summary>
+    /// <remarks>
+    /// Published on the plan's card and enforced from this one field (DLIM-004): <c>IAccountPlanFacade.ResolveAsync</c>
+    /// carries it to <c>IGeneratedImageGenerationBusiness</c>, which hands it to admission, where a request past it
+    /// is refused as <c>AiQuotaAdmissionOutcome.DailyImageCap</c> — <c>limits.budget.exhausted</c> at
+    /// <c>LimitScope.User</c> — before anything is held, and the worker checks again before spending. The same
+    /// figure is the day's cap a creator is shown (<c>AiUsageReadBusiness.PictureCapsAsync</c>, DL.9). The
+    /// workspace's own <c>Limits:ImageVariantsPerWorkspacePerDay</c> stays beside it as a runaway bound, and a
+    /// request passes both. <c>ImagesJourneyEndToEndTests.PublishedCaps</c> holds the published figure and the
+    /// enforced one equal, per development plan, through the gateway.
+    /// </remarks>
     public int DailyImageCap { get; set; }
 
     /// <summary>
-    /// Pictures the account may have generating at once. Not published: the landing page makes no claim about it,
-    /// and until AP.4.2 nothing enforces it in place of the flat per-workspace limit.
+    /// Pictures the account may have generating at once. Not published: the landing page makes no claim about it.
     /// </summary>
+    /// <remarks>
+    /// Enforced from the queue rather than at admission (AP.4.2): the plan's figure is recorded on each
+    /// <c>GeneratedImageOperation</c> as <c>RunningImagesCap</c> when it is queued, and
+    /// <c>GeneratedImageClaimRepository</c> leaves a generation unclaimed while that many of the account's are
+    /// already running. The flat <c>Limits:ImageRunningPerWorkspace</c> stays beside it.
+    /// </remarks>
     public int RunningImages { get; set; }
 
     /// <summary>The picture quality classes the plan may ask for, in increasing order.</summary>

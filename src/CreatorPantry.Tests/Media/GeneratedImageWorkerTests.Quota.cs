@@ -255,7 +255,12 @@ public sealed partial class GeneratedImageWorkerTests
 
         var failed = await OperationAsync(WorkspaceA, requested.Id);
         Assert.Equal(GeneratedImageFailureCategory.Quota, failed.FailureCategory);
-        Assert.Contains("switched off", failed.FailureSummary);
+        // Said without naming the account's state (DL.11): this summary sits on the operation, and every
+        // member of the workspace down to Viewer may read it, so it must not tell a creator's colleagues that
+        // their access was switched off.
+        Assert.Equal("AI work was not available when these pictures were to be made.", failed.FailureSummary);
+        Assert.DoesNotContain("switched off", failed.FailureSummary);
+        Assert.DoesNotContain("account", failed.FailureSummary, StringComparison.OrdinalIgnoreCase);
 
         var settled = await ReservationAsync(requested.Id);
         Assert.NotEqual(AiQuotaReservationStatus.Held, settled.Status);
@@ -539,6 +544,54 @@ public sealed partial class GeneratedImageWorkerTests
         Assert.Equal(0, _generator.Calls);
         Assert.Equal(0, operation.BilledVariantCount);
         Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>
+    /// <strong>Past its expiry is lapsed, whether or not the sweep has been (DL.11).</strong> The sweep runs on
+    /// an interval, so there is always a window where a hold is past <c>ExpiresAt</c> and still reads
+    /// <c>Held</c>. The claim check used to read only the status, so a generation claimed in that window was
+    /// judged live, bought its pictures, and then settled against a hold the next sweep expired — pictures
+    /// made, nobody charged, and the day's count given back under them.
+    /// </summary>
+    [Fact]
+    public async Task A_generation_claimed_past_its_expiry_makes_nothing_even_before_the_sweep_runs()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2, account: AccountA);
+
+        // Past the hold's own expiry, and deliberately without sweeping: this is the window.
+        _clock.Advance(MediaPolicy.GenerationHoldDuration + TimeSpan.FromMinutes(1));
+
+        // Still Held, which is exactly why the status alone was not enough to judge it by.
+        Assert.Equal(AiQuotaReservationStatus.Held, (await ReservationAsync(requested.Id)).Status);
+
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Failed, operation.Status);
+        Assert.Equal(GeneratedImageFailureCategory.Quota, operation.FailureCategory);
+
+        Assert.Equal(0, _generator.Calls);
+        Assert.Equal(0, operation.BilledVariantCount);
+        Assert.Empty(await ChargesAsync(requested.Id));
+    }
+
+    /// <summary>One tick before its expiry the same hold is live, so the boundary is the clock and not the sweep.</summary>
+    [Fact]
+    public async Task A_generation_claimed_one_tick_before_its_expiry_is_made()
+    {
+        _generator.Returns(BrandSourceSampleFiles.Png(width: 8, height: 6));
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2, account: AccountA);
+
+        _clock.Advance(MediaPolicy.GenerationHoldDuration - TimeSpan.FromTicks(1));
+
+        await RunAsync();
+
+        var operation = await OperationAsync(WorkspaceA, requested.Id);
+        Assert.Equal(GeneratedImageOperationStatus.Succeeded, operation.Status);
+        Assert.Equal(2, _generator.Calls);
     }
 
     /// <summary>

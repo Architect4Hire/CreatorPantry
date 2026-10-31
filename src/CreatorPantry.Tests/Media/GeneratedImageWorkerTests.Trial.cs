@@ -176,7 +176,10 @@ public sealed partial class GeneratedImageWorkerTests
 
         var failed = await OperationAsync(WorkspaceA, requested.Id);
         Assert.Equal(GeneratedImageFailureCategory.Quota, failed.FailureCategory);
-        Assert.Contains("free trial ended", failed.FailureSummary);
+        // The same workspace-neutral sentence as a switched-off account gets (DL.11): a colleague reading
+        // this operation learns that the pictures were not made, never whose trial ran out or when.
+        Assert.Equal("AI work was not available when these pictures were to be made.", failed.FailureSummary);
+        Assert.DoesNotContain("trial", failed.FailureSummary, StringComparison.OrdinalIgnoreCase);
 
         // And nothing new is queued now that it has ended.
         Assert.Equal(AiQuotaErrors.TrialEnded, (await RequestRawAsync(WorkspaceA)).Error!.Code);

@@ -777,10 +777,29 @@ internal sealed class AiQuotaAdmissionBusiness(
 
         if (outcome is AiQuotaWriteOutcome.Applied)
         {
-            var admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+            // Both of these run after the hold has committed, and neither may fail the admission. The caller
+            // learns the reservation id from this return and nothing else can release the hold, so throwing
+            // here would strand it — holding the account's day and its credits for a picture nobody asked
+            // for any more, until the sweep reached it. A balance this request could not read and a notice it
+            // could not write are both worth less than that.
+            var admittedPacks = 0m;
 
-            // Pictures spend the same credits as writing does, so they bring the same notice (B-59).
-            await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+            try
+            {
+                admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+
+                // Pictures spend the same credits as writing does, so they bring the same notice (B-59).
+                await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+            }
+            // Cancellation included, deliberately: a caller that gave up still has to be told its
+            // reservation id, because that is what its own failure path releases the hold with.
+            catch (Exception exception)
+            {
+                logger.LogWarning(
+                    NoticeNotRecorded,
+                    "An admitted picture hold could not read its pack balance or write its low-credit notice ({ExceptionType}).",
+                    exception.GetType().Name);
+            }
 
             return new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Admitted,
@@ -856,9 +875,18 @@ internal sealed class AiQuotaAdmissionBusiness(
                 // never sent — but never more than was asked for. A crashed pass can have a variant billed twice,
                 // and that second charge is the platform's fault, not a picture the creator chose to spend their
                 // day on. Left null on a hold taken before pictures were counted.
-                if (reservation.ImagesRequested is { } requested)
+                // Capped once, and the same figure pays for both (owner, 2026-10-30). A crashed pass can
+                // have a variant billed twice — one billed but never staged is generated again on resume —
+                // and the creator is charged for what they asked for, never for the platform's second go at
+                // it. The day's count was already capped here; the charge below was not, so a resumed pass
+                // could spend past its own hold, which DL.5 forbids.
+                var billed = reservation.ImagesRequested is { } requested
+                    ? Math.Min(usage.BilledVariants, requested)
+                    : usage.BilledVariants;
+
+                if (reservation.ImagesRequested is not null)
                 {
-                    reservation.ImagesBilled = Math.Min(usage.BilledVariants, requested);
+                    reservation.ImagesBilled = billed;
                 }
 
                 if (usage.BilledVariants == 0)
@@ -878,7 +906,7 @@ internal sealed class AiQuotaAdmissionBusiness(
                 // is asked at settlement.
                 reservation.UsageReported = true;
                 reservation.SettledAmount = AiQuotaUnitConverter.Round(
-                    reservation.PerAttemptEstimate * usage.BilledVariants);
+                    reservation.PerAttemptEstimate * billed);
                 reservation.SettledAt = now;
 
                 return true;
@@ -901,8 +929,13 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// </remarks>
     public async Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken)
     {
+        // Its own expiry, not just its status: the sweep runs on an interval, so a hold can be past
+        // ExpiresAt and still read Held for up to one sweep. Judging it Live then would send pictures to the
+        // provider against an allowance that is about to be given back, and settlement would charge nothing
+        // for them. The clock decides, so the answer does not depend on how recently the sweep ran.
         if (await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
-            is not { Status: AiQuotaReservationStatus.Held, ReleasedAt: null } hold)
+            is not { Status: AiQuotaReservationStatus.Held, ReleasedAt: null } hold
+            || hold.ExpiresAt <= clock.UtcNow)
         {
             return AiImageHoldState.Lapsed;
         }

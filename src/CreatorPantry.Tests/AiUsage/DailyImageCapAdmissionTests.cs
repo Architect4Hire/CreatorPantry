@@ -179,18 +179,30 @@ public sealed class DailyImageCapAdmissionTests : IDisposable
     }
 
     /// <summary>
-    /// A variant a crashed pass had billed twice is charged twice, but it is one picture the creator asked for:
-    /// the day counts what was asked, never more.
+    /// A variant a crashed pass had billed twice is one picture the creator asked for, so the day counts it
+    /// once <em>and</em> the charge stops at the hold (owner, 2026-10-30, DL.11).
     /// </summary>
+    /// <remarks>
+    /// Three billed against a request for two: a variant billed but never staged is generated again on resume,
+    /// and the second go is the platform's, not a picture the creator chose to spend on. The day's count was
+    /// capped here from the start; the charge was not, so a resumed pass could spend past its own hold — which
+    /// is what DL.5 forbids.
+    /// </remarks>
     [Fact]
-    public async Task A_variant_billed_twice_counts_once_against_the_day()
+    public async Task A_variant_billed_twice_counts_once_against_the_day_and_is_charged_once()
     {
         Start();
 
         var twice = await AdmitAsync(Sam, 2);
         await SettleAsync(twice.ReservationId!.Value, staged: 2, unusable: 1);
 
-        Assert.Equal(2, (await HoldsAsync()).Single(hold => hold.Id == twice.ReservationId).ImagesBilled);
+        var settled = (await HoldsAsync()).Single(hold => hold.Id == twice.ReservationId);
+
+        Assert.Equal(2, settled.ImagesBilled);
+
+        // Two pictures at the per-picture rate, never the three the provider was paid for.
+        Assert.Equal(2 * Rate, settled.SettledAmount);
+
         Assert.Equal(AiQuotaAdmissionOutcome.Admitted, (await AdmitAsync(Sam, 3)).Outcome);
     }
 

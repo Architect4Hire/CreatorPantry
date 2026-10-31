@@ -580,22 +580,9 @@ internal sealed class AiQuotaDataLayer(
         string accountId, string planKey, CancellationToken cancellationToken) =>
         quotas.HasPeriodUnderPlanAsync(accountId, planKey, cancellationToken);
 
-    public async Task<AiQuotaWriteOutcome> ReleaseImageAsync(
-        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken)
-    {
-        var outcome = await ExpireAsync(reservationId, now, resolveGrants, cancellationToken);
-
-        if (outcome is AiQuotaWriteOutcome.Applied
-            && await quotas.GetReservationWithPeriodAsync(reservationId, cancellationToken)
-                is { PlatformImageSpendMicros: { } micros } released)
-        {
-            // To the day it was counted on, not today's: a request that failed across midnight added to
-            // yesterday's total, and taking it from today's would let today pass its ceiling by that much.
-            await spend.ReturnAsync(PlatformImageSpendPolicy.DayOf(released.HeldAt), micros, cancellationToken);
-        }
-
-        return outcome;
-    }
+    public Task<AiQuotaWriteOutcome> ReleaseImageAsync(
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken) =>
+        ExpireAsync(reservationId, now, resolveGrants, cancellationToken);
 
     /// <remarks>
     /// The one write here that does not own a transaction. It stages and the caller's save commits — see the
@@ -661,7 +648,29 @@ internal sealed class AiQuotaDataLayer(
             return moved;
         }, cancellationToken);
 
-    public Task<AiQuotaWriteOutcome> ExpireAsync(
+    public async Task<AiQuotaWriteOutcome> ExpireAsync(
+        Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken)
+    {
+        var outcome = await ExpireHoldAsync(reservationId, now, resolveGrants, cancellationToken);
+
+        // The platform's day gets its micros back here rather than only where Media releases a hold by hand,
+        // because the sweep is what ends most of them and it expires rather than releases. A hold that has
+        // lapsed can no longer reach the provider, so leaving its list price on the day's total would trip the
+        // breaker for every account on pictures nobody can still make — the same reasoning the by-hand
+        // release was written for. Once, because expiry declines a row it has already moved.
+        if (outcome is AiQuotaWriteOutcome.Applied
+            && await quotas.GetReservationWithPeriodAsync(reservationId, cancellationToken)
+                is { PlatformImageSpendMicros: { } micros } released)
+        {
+            // To the day it was counted on, not today's: a request that failed across midnight added to
+            // yesterday's total, and taking it from today's would let today pass its ceiling by that much.
+            await spend.ReturnAsync(PlatformImageSpendPolicy.DayOf(released.HeldAt), micros, cancellationToken);
+        }
+
+        return outcome;
+    }
+
+    private Task<AiQuotaWriteOutcome> ExpireHoldAsync(
         Guid reservationId, DateTimeOffset now, ResolveGrants resolveGrants, CancellationToken cancellationToken) =>
         AgainstPeriodAsync(reservationId, async (reservation, period, token) =>
         {
