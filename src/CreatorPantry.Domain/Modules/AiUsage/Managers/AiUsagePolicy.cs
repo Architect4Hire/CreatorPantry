@@ -37,6 +37,12 @@ public static class AiUsagePolicy
     public const int TimeZoneIdMaxLength = 100;
 
     /// <summary>
+    /// A plan key as <c>AccountAiQuotaPeriod.PlanKey</c> stores it. The width of Billing's own plan key, restated
+    /// for the reason <see cref="AccountIdMaxLength"/> is.
+    /// </summary>
+    public const int PlanKeyMaxLength = 64;
+
+    /// <summary>
     /// Precision for an allowance and for a period's running totals.
     /// </summary>
     /// <remarks>

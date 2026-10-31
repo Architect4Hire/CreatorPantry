@@ -11,6 +11,12 @@ namespace CreatorPantry.Domain.Modules.Ai.Managers;
 public static class AiOutputReason
 {
     public const string EmptyPayload = "ai.output.empty_payload";
+
+    /// <summary>
+    /// The provider stopped the answer at the output ceiling (AP.2.2). Whatever came back is incomplete, so it
+    /// is a schema failure and gets the one correction — never parsed as though it were the whole answer.
+    /// </summary>
+    public const string Truncated = "ai.output.truncated";
     public const string PayloadTooLarge = "ai.output.payload_too_large";
     public const string MalformedJson = "ai.output.malformed_json";
     public const string SchemaVersionMissing = "ai.output.schema_version_missing";
@@ -395,6 +401,16 @@ public static class AiOutputReason
     /// </remarks>
     public const string ImagePromptRenderDirectiveNotPermitted =
         "ai.output.image_prompt_render_directive_not_permitted";
+
+    /// <summary>
+    /// A shortened prompt's list of what it left out is too long, or one of its phrases is blank or too long
+    /// (AP.3.2).
+    /// </summary>
+    /// <remarks>
+    /// The list is how a creator learns what a shorter prompt no longer asks for, so one that cannot be shown
+    /// whole is refused rather than trimmed: a list cut to fit would be the silent loss it exists to prevent.
+    /// </remarks>
+    public const string ImagePromptLeftOutInvalid = "ai.output.image_prompt_left_out_invalid";
 
     /// <summary>
     /// The reference-image observations are missing, too few, too many, duplicated by aspect, undeclared, or

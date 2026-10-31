@@ -1,0 +1,17 @@
+<cp-notice tone="warning" [quiet]="notice() === null" role="status">
+  @if (notice(); as low) {
+    <span class="low-credit">
+      <strong>Your AI credits are running low</strong>
+      <span>{{ detail() }}</span>
+      <span class="cp-actions">
+        @if (offerPack()) {
+          <a cpButton variant="secondary" size="sm" [routerLink]="packLink">Get a credit pack</a>
+        }
+        <!-- The visible word first, then what it dismisses, so the name reads as it is spoken. -->
+        <button cpButton variant="text" size="sm" type="button" (click)="dismissed.emit()">
+          Dismiss<span class="cp-sr-only"> the low-credit notice</span>
+        </button>
+      </span>
+    </span>
+  }
+</cp-notice>

@@ -71,6 +71,28 @@ const shown = (node: Element | null): boolean => node !== null && getComputedSty
 const nameOf = (node: Element): string =>
   node.getAttribute('aria-labelledby')!.split(' ').map((id) => document.getElementById(id)!.textContent!.trim()).join(' ');
 
+describe('CpOptionCardComponent, disabled', () => {
+  it('keeps the button focusable and aria-disabled, says why, and emits nothing', async () => {
+    TestBed.configureTestingModule({ imports: [CpOptionCardComponent] });
+    const fixture = TestBed.createComponent(CpOptionCardComponent);
+    fixture.componentRef.setInput('heading', 'Creator');
+    fixture.componentRef.setInput('chooseLabel', 'Choose Creator');
+    fixture.componentRef.setInput('disabled', true);
+    fixture.componentRef.setInput('disabledReason', 'Payments aren’t available right now.');
+    let chosen = 0;
+    fixture.componentInstance.chosen.subscribe(() => chosen++);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    expect(button.disabled).toBeFalse();
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toContain('Payments aren’t available');
+
+    button.click();
+    expect(chosen).toBe(0);
+  });
+});
+
 describe('CpOptionCardComponent', () => {
   afterEach(() => el?.remove());
 

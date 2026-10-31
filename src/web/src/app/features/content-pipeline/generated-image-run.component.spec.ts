@@ -5,15 +5,20 @@ import { provideRouter } from '@angular/router';
 import { EMPTY, Observable, Subject, of } from 'rxjs';
 
 import { ConfirmService } from '../../core/confirm.service';
+import { AccountAiUsage } from '../../models/ai-usage.models';
 import { ContentPipelineImagesState } from '../../models/content-pipeline.models';
 import { CreativeContextReference } from '../../models/creative-context.models';
 import { DamAssetDetail, DamCreatedAsset } from '../../models/dam-asset.models';
 import {
   GeneratedImageOperationDetail,
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
+  GeneratedImageQuote,
   GeneratedImageSubject,
   RequestGeneratedImagesRequest,
   StagedImage,
 } from '../../models/generated-image.models';
+import { AiUsageService, AiUsageState } from '../../services/ai-usage.service';
 import { DamAssetDetailOutcome, DamAssetService } from '../../services/dam-asset.service';
 import {
   GeneratedImageRequestOutcome,
@@ -28,6 +33,7 @@ import {
   GeneratedImageRunLibrary,
   GeneratedImageRunWording,
   PIPELINE_IMAGE_RUN_WORDING,
+  QUOTE_SETTLE_MS,
 } from './generated-image-run.component';
 
 // What a run does — asking, watching, choosing, declining, tidying up, and staying inside one workspace — is
@@ -145,7 +151,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
 @Component({
   imports: [GeneratedImageRunComponent],
   template: `<cp-generated-image-run
-    workspaceSlug="cozy-fall"
+    [workspaceSlug]="slug()"
     [promptText]="promptText()"
     [avoidText]="avoidText()"
     [variantCount]="variantCount()"
@@ -155,6 +161,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
     [sectionIdPrefix]="prefix()"
     [library]="library()"
     [keepers]="keepers()"
+    [showMaker]="showMaker()"
     (changed)="changes.push($event); state.set($event)"
     (keepToggled)="keeps.push($event)"
     (announced)="announcements.push($event)"
@@ -162,6 +169,7 @@ function damReference(id: string, mediaAssetId: string, sortOrder: number): Crea
   />`,
 })
 class HostComponent {
+  readonly slug = signal('cozy-fall');
   readonly promptText = signal('A tight crop.');
   readonly avoidText = signal<string | null>(null);
   readonly variantCount = signal(2);
@@ -171,6 +179,7 @@ class HostComponent {
   readonly prefix = signal('cp-studio-images');
   readonly library = signal<GeneratedImageRunLibrary | null>(null);
   readonly keepers = signal<readonly string[]>([]);
+  readonly showMaker = signal(true);
 
   readonly keeps: { readonly id: string; readonly keep: boolean }[] = [];
   readonly changes: ContentPipelineImagesState[] = [];
@@ -187,11 +196,147 @@ let requestOutcome: GeneratedImageRequestOutcome;
 let watches: Subject<GeneratedImageWatchOutcome>[];
 let details: Record<string, DamAssetDetailOutcome>;
 let detailReads: string[];
+let quoteAsks: number[];
+let quoteClasses: (GeneratedImageQualityClass | null)[];
+let quoteAnswer: (variants: number, qualityClass: GeneratedImageQualityClass | null) => GeneratedImageQuote | null;
+let classesAnswer: () => Promise<GeneratedImageQualityClasses | null>;
+let classesReads: number;
+let usageState: ReturnType<typeof signal<AiUsageState>>;
+let usageRefreshes: number;
+/** What the usage read says after its next refresh, or null to leave it as it is. */
+let usageAfterRefresh: AiUsageState | null;
+
+/**
+ * The account's usage read as the server sends it (DL.9): no picture figures unless a case gives some, which is
+ * every host with no plan catalogue — so every case before DL.9 renders exactly as it did.
+ */
+function usage(overrides: Partial<AccountAiUsage> = {}): AccountAiUsage {
+  return {
+    period: {
+      unit: 'Credits',
+      allowance: 1000,
+      carriedOver: 0,
+      consumed: 0,
+      reserved: 0,
+      remaining: 1000,
+      periodLength: 'Monthly',
+      timeZoneId: 'Etc/UTC',
+      startsAt: '2026-10-01T00:00:00+00:00',
+      resetsAt: '2026-11-01T00:00:00+00:00',
+    },
+    isSuspended: false,
+    byTask: [],
+    byWorkspace: [],
+    isNearlySpent: false,
+    pictures: 0,
+    writing: 0,
+    packRemaining: 0,
+    plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
+    lowCredit: { isNoticed: false, isDismissed: false, noticeEnabled: true, spendable: 1000 },
+    picturesToday: null,
+    trialPictures: null,
+    ...overrides,
+  };
+}
+
+/** Today's pictures on a Creator plan: 25 a day, `used` of them gone, the server's `left` beside them. */
+function today(used: number, left = 25 - used): NonNullable<AccountAiUsage['picturesToday']> {
+  return { cap: 25, used, left, resetsAt: '2026-10-31T00:00:00+00:00' };
+}
+
+function dayLine(): HTMLElement | null {
+  return el.querySelector('#cp-studio-images-today');
+}
+
+/**
+ * The price list a host with three classes would send: Standard the default, cheapest first (AP.3.1).
+ *
+ * A third element in a row locks that class, as a plan that does not allow it does (AP.4.3): the plan's name, or
+ * `null` for a class no plan allows. A row of two is allowed.
+ */
+function classes(
+  rows: readonly (readonly [GeneratedImageQualityClass, number, (string | null)?])[] = [
+    ['Draft', 25],
+    ['Standard', 50],
+    ['High', 87.5],
+  ],
+  defaultClass: GeneratedImageQualityClass | null = 'Standard',
+): GeneratedImageQualityClasses {
+  return {
+    defaultClass,
+    unit: 'Credits',
+    classes: rows.map((row) => ({
+      qualityClass: row[0],
+      perPicture: row[1],
+      isDefault: row[0] === defaultClass,
+      allowed: row.length < 3,
+      requiresPlan: row.length < 3 || row[2] == null ? null : row[2]!.toLowerCase(),
+      requiresPlanName: row.length < 3 ? null : (row[2] ?? null),
+    })),
+  };
+}
+
+/** A price the server might give: affordable by default, 50 credits a picture, from an allowance of 1,000. */
+function quote(variants: number, overrides: Partial<GeneratedImageQuote> = {}): GeneratedImageQuote {
+  return {
+    outcome: 'Affordable',
+    unit: 'Credits',
+    variants,
+    perPicture: 50,
+    total: variants * 50,
+    allowance: 1000,
+    remaining: 1000,
+    remainingAfter: 1000 - variants * 50,
+    packRemaining: 0,
+    packRemainingAfter: 0,
+    affordableVariants: variants,
+    leavesNearlySpent: false,
+    resetsAt: '2026-11-01T00:00:00+00:00',
+    timeZoneId: 'Etc/UTC',
+    pictureCap: null,
+    picturesLeft: null,
+    pictureCapResetsAt: null,
+    ...overrides,
+  };
+}
+
+/** Waits out the quote's settle time, then lets the answer render. */
+async function priced(): Promise<void> {
+  await settle();
+  await new Promise((resolve) => setTimeout(resolve, QUOTE_SETTLE_MS + 20));
+  await settle();
+}
+
+/**
+ * Answers the next quote with `next`. The run asked for its first price while the suite was being set up, so this
+ * nudges the count away and straight back inside one settle window — one ask, for the same count — and waits.
+ */
+async function answerWith(next: (variants: number) => GeneratedImageQuote | null): Promise<void> {
+  quoteAnswer = next;
+  const count = host.variantCount();
+  host.variantCount.set(count + 1);
+  fixture.detectChanges();
+  host.variantCount.set(count);
+  await priced();
+}
+
+function quoteLine(): string {
+  return (el.querySelector('[id$="-quote"]')?.textContent ?? '').trim();
+}
 
 async function settle(): Promise<void> {
   fixture.detectChanges();
   await fixture.whenStable();
   fixture.detectChanges();
+}
+
+/** One quality's radio, by the class it stands for. */
+function qualityRadio(qualityClass: GeneratedImageQualityClass): HTMLInputElement {
+  return el.querySelector(`#cp-studio-images-quality-${qualityClass}`) as HTMLInputElement;
+}
+
+function qualityGroup(): HTMLElement | null {
+  return el.querySelector('[role="radiogroup"][aria-label="Picture quality"]');
 }
 
 function makeButton(): HTMLButtonElement {
@@ -232,7 +377,15 @@ describe('GeneratedImageRunComponent', () => {
     watches = [];
     details = {};
     detailReads = [];
+    quoteAsks = [];
+    quoteClasses = [];
+    quoteAnswer = (variants) => quote(variants);
+    classesAnswer = () => Promise.resolve(classes());
+    classesReads = 0;
     requestOutcome = { status: 'unavailable' };
+    usageState = signal<AiUsageState>({ status: 'ready', usage: usage() });
+    usageRefreshes = 0;
+    usageAfterRefresh = null;
 
     await TestBed.configureTestingModule({
       providers: [
@@ -255,6 +408,15 @@ describe('GeneratedImageRunComponent', () => {
             preview: () => EMPTY,
             reject: () => Promise.resolve({ status: 'declined' as const }),
             downloadUrl: () => null,
+            quote: (_slug: string, variants: number, qualityClass: GeneratedImageQualityClass | null = null) => {
+              quoteAsks.push(variants);
+              quoteClasses.push(qualityClass);
+              return Promise.resolve(quoteAnswer(variants, qualityClass));
+            },
+            qualityClasses: () => {
+              classesReads += 1;
+              return classesAnswer();
+            },
           },
         },
         {
@@ -271,6 +433,18 @@ describe('GeneratedImageRunComponent', () => {
         { provide: RecipeService, useValue: { searchRecipes: () => EMPTY } },
         { provide: WorkspaceTagService, useValue: { list: () => Promise.resolve({ status: 'unavailable' as const }) } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        {
+          provide: AiUsageService,
+          useValue: {
+            state: () => usageState(),
+            ensureLoaded: () => Promise.resolve(),
+            refresh: () => {
+              usageRefreshes += 1;
+              if (usageAfterRefresh !== null) usageState.set(usageAfterRefresh);
+              return Promise.resolve();
+            },
+          },
+        },
       ],
     }).compileComponents();
 
@@ -343,7 +517,13 @@ describe('GeneratedImageRunComponent', () => {
     await settle();
 
     expect(requests).toEqual([
-      { promptText: 'A tight crop.', avoidText: 'clutter, harsh light', variantCount: 4, subject: null },
+      {
+        promptText: 'A tight crop.',
+        avoidText: 'clutter, harsh light',
+        variantCount: 4,
+        subject: null,
+        qualityClass: 'Standard',
+      },
     ]);
   });
 
@@ -400,6 +580,17 @@ describe('GeneratedImageRunComponent', () => {
       await settle();
       await ask();
 
+      expect(keys[1]).not.toBe(keys[0]);
+    });
+
+    it('takes a new key when only the quality changed, since the key names the class too (AP.3.1)', async () => {
+      await ask();
+
+      qualityRadio('High').click();
+      await settle();
+      await ask();
+
+      expect(requests.map((request) => request.qualityClass)).toEqual(['Standard', 'High']);
       expect(keys[1]).not.toBe(keys[0]);
     });
   });
@@ -735,4 +926,858 @@ describe('GeneratedImageRunComponent', () => {
       expect(labelled('button', 'Save to library: picture 1 of 1')).not.toBeNull();
     });
   });
+
+  // ---- the price, before the pictures are asked for (AP.2.6) ---------------------------------------------
+
+  describe('the quote', () => {
+    it('says what the pictures will cost and what that leaves, in the server’s figures', async () => {
+      await priced();
+
+      expect(quoteAsks).toEqual([2]);
+      expect(quoteLine()).toBe('2 pictures · 100 AI credits. 900 AI credits left after this.');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says the allowance and the pack balance apart when the creator has credit packs (AP.5.2)', async () => {
+      // 30 left in the allowance and 400 in packs: the request takes the 30 first, then 70 from packs. The figures
+      // are the server's; the sentence names each source and does no arithmetic.
+      await answerWith((variants) =>
+        quote(variants, { remaining: 30, remainingAfter: 0, packRemaining: 400, packRemainingAfter: 330 }),
+      );
+
+      expect(quoteLine()).toBe(
+        '2 pictures · 100 AI credits. 0 AI credits of your allowance and 330 AI credits in credit packs left after this.',
+      );
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('names the pack balance in a refusal, beside the allowance that resets (AP.5.2)', async () => {
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'Exhausted',
+          remaining: 20,
+          remainingAfter: null,
+          packRemaining: 40,
+          packRemainingAfter: null,
+          affordableVariants: 1,
+        }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain(
+        '2 pictures need 100 AI credits, and you have 20 AI credits of your allowance and 40 AI credits in credit packs left — enough for one picture.',
+      );
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('warns when going ahead leaves the allowance nearly spent, and still lets it go ahead', async () => {
+      await answerWith((variants) => quote(variants, { remaining: 250, remainingAfter: 150, leavesNearlySpent: true }));
+
+      const warning = el.querySelector('#cp-studio-images-quote-warning');
+      expect(warning?.getAttribute('role')).toBe('status');
+      expect(warning?.textContent).toContain('That leaves your AI allowance nearly spent until it comes back on');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('stops a request the allowance cannot cover, says how many would fit, and keeps what was filled in', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Exhausted', remaining: 60, remainingAfter: null, affordableVariants: 1 }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal');
+      expect(refusal?.getAttribute('role')).toBe('alert');
+      expect(refusal?.textContent).toContain(
+        '2 pictures need 100 AI credits, and you have 60 AI credits left — enough for one picture. Change that in the brief.',
+      );
+      expect(refusal?.textContent).toContain('Your allowance comes back on');
+
+      // Refused here, with its reason attached to the button, and the creator's prompt still on screen.
+      expect(makeButton().disabled).toBeTrue();
+      expect(makeButton().getAttribute('aria-describedby')).toBe('cp-studio-images-quote-refusal');
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+
+      makeButton().click();
+      await settle();
+      expect(requests.length).toBe(0);
+
+      // Asking for fewer asks the price again, and the button comes back as soon as the request fits.
+      quoteAnswer = (variants) => quote(variants, { remaining: 60, remainingAfter: 10 });
+      host.variantCount.set(1);
+      await priced();
+
+      expect(quoteAsks.at(-1)).toBe(1);
+      expect(makeButton().disabled).toBeFalse();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+      // The region stays, quiet and empty, so a later refusal is still announced.
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+
+      // Operable from the keyboard once it is back: a native button that takes focus.
+      makeButton().focus();
+      expect(document.activeElement).toBe(makeButton());
+    });
+
+    it('stops a request from an account whose AI help is switched off, and says so', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Suspended', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('AI assistance is switched off');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('stops a request from an account whose free trial has ended, and says what to do', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'TrialEnded', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Your free trial has ended');
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Choose a plan');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    // AP.7.2: the quote judges the picture caps admission does, so the run stops before asking — in the server's
+    // figures, and offering the count that would fit.
+    it('stops a request that would pass the trial’s pictures, and says how many are left', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'TrialImageCap', pictureCap: 10, picturesLeft: 2, affordableVariants: 2, remainingAfter: null }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('Your free trial includes 10 pictures and has 2 pictures left');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('stops a request that would pass the day’s pictures, and says when more come back', async () => {
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'DailyImageCap',
+          pictureCap: 5,
+          picturesLeft: 0,
+          affordableVariants: 0,
+          remainingAfter: null,
+          pictureCapResetsAt: '2026-10-28T00:00:00+00:00',
+        }),
+      );
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('5 pictures a day');
+      expect(refusal).toContain('0 pictures left today');
+      expect(refusal).toContain('(UTC)');
+      expect(makeButton().disabled).toBeTrue();
+    });
+
+    it('stops nothing when the price could not be worked out — the request decides', async () => {
+      await answerWith(() => null);
+
+      expect(quoteLine()).toBe('We couldn’t work out what this costs just now.');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says nothing about a price on a host with no image provider, and stops nothing', async () => {
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Unavailable', unit: null, perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+      );
+
+      expect(quoteLine()).toBe('');
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says nothing while asking, so a change of count is announced once, with its price', async () => {
+      host.variantCount.set(3);
+      fixture.detectChanges();
+
+      expect(el.querySelector('[id$="-quote"] [role="status"]')?.textContent?.trim()).toBe('');
+      expect(quoteLine()).toContain('Working out what this costs…');
+
+      await priced();
+      expect(el.querySelector('[id$="-quote"] [role="status"]')?.textContent?.trim()).toBe(
+        '3 pictures · 150 AI credits. 850 AI credits left after this.',
+      );
+    });
+
+    it('keeps its refusal region in the page with no prompt, so the button never points at nothing', async () => {
+      host.promptText.set('');
+      await answerWith((variants) =>
+        quote(variants, { outcome: 'Exhausted', remaining: 0, remainingAfter: null, affordableVariants: 0 }),
+      );
+
+      const described = makeButton().getAttribute('aria-describedby');
+      expect(described).toBe('cp-studio-images-quote-refusal');
+      expect(el.querySelector(`#${described}`)).not.toBeNull();
+    });
+
+    it('asks once for a run of quick changes to the count, and shows only the last answer', async () => {
+      await priced();
+
+      host.variantCount.set(3);
+      fixture.detectChanges();
+      host.variantCount.set(4);
+      await priced();
+
+      expect(quoteAsks).toEqual([2, 4]);
+      expect(quoteLine()).toContain('4 pictures · 200 AI credits.');
+    });
+
+    it('asks the price again once a request is accepted, because what is left has moved', async () => {
+      requestOutcome = { status: 'accepted', operation: { id: 'op-9', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      await priced();
+
+      makeButton().click();
+      await priced();
+
+      expect(requests.length).toBe(1);
+      expect(quoteAsks).toEqual([2, 2]);
+    });
+
+    it('is asked where the maker is left off the provenance line, because that hides a name and not a price', async () => {
+      await rebuild((next) => next.showMaker.set(false));
+      await priced();
+
+      expect(quoteAsks.length).toBeGreaterThan(0);
+      expect(quoteLine()).toBe('2 pictures · 100 AI credits. 900 AI credits left after this.');
+      expect(qualityGroup()).not.toBeNull();
+    });
+  });
+
+  // ---- how good each picture is (AP.3.1A) ---------------------------------------------------------------
+
+  describe('the quality', () => {
+    function countLine(): HTMLElement | undefined {
+      return Array.from(el.querySelectorAll<HTMLElement>('p')).find((p) => (p.textContent ?? '').includes('Asking for'));
+    }
+
+    it('offers each class with its own price, the default picked, before the count', async () => {
+      await priced();
+
+      const group = qualityGroup();
+      expect(group).not.toBeNull();
+
+      const tiles = Array.from(group!.querySelectorAll('.tile')).map((tile) => [
+        tile.querySelector('.label')?.textContent?.trim(),
+        tile.querySelector('.hint')?.textContent?.trim(),
+      ]);
+      expect(tiles).toEqual([
+        ['Draft', '25 AI credits a picture. Quick, for trying an idea.'],
+        ['Standard', '50 AI credits a picture. Good for most posts.'],
+        ['High', '87.5 AI credits a picture. Finer detail.'],
+      ]);
+      expect(qualityRadio('Standard').checked).toBeTrue();
+
+      // Before the count it prices, so "2 pictures · 100 AI credits" reads as following the choice.
+      expect(group!.compareDocumentPosition(countLine()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+      // The default is what the first price was asked for.
+      expect(quoteClasses).toEqual(['Standard']);
+    });
+
+    it('asks the price again for the class chosen, and leaves the prompt and the count as they were', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { perPicture: 87.5, total: variants * 87.5, remainingAfter: 1000 - variants * 87.5 })
+          : quote(variants);
+      await priced();
+
+      qualityRadio('High').click();
+      await priced();
+
+      expect(quoteClasses.at(-1)).toBe('High');
+      expect(quoteLine()).toBe('2 pictures · 175 AI credits. 825 AI credits left after this.');
+
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+      expect(countLine()?.textContent).toContain('Asking for 2 pictures.');
+      expect(host.changes).toEqual([]);
+    });
+
+    it('asks once for a run of quick changes of class, for the last one', async () => {
+      await priced();
+      const before = quoteAsks.length;
+
+      qualityRadio('High').click();
+      fixture.detectChanges();
+      qualityRadio('Draft').click();
+      await priced();
+
+      expect(quoteAsks.length).toBe(before + 1);
+      expect(quoteClasses.at(-1)).toBe('Draft');
+    });
+
+    it('sends the chosen class on the request', async () => {
+      await priced();
+
+      qualityRadio('Draft').click();
+      await settle();
+      makeButton().click();
+      await settle();
+
+      expect(requests.length).toBe(1);
+      expect(requests[0].qualityClass).toBe('Draft');
+      expect(requests[0].promptText).toBe('A tight crop.');
+      expect(requests[0].variantCount).toBe(2);
+    });
+
+    it('is operated by the keyboard as one radio group: real radios, one name, focus kept on the one picked', async () => {
+      await priced();
+
+      const radios = Array.from(qualityGroup()!.querySelectorAll<HTMLInputElement>('input'));
+      expect(radios.every((radio) => radio.type === 'radio')).toBeTrue();
+      expect(new Set(radios.map((radio) => radio.name)).size).toBe(1);
+      expect(radios.filter((radio) => radio.checked).map((radio) => radio.value)).toEqual(['Standard']);
+      expect(radios.some((radio) => radio.disabled)).toBeFalse();
+
+      // An arrow key moves focus and checks the next radio, which the browser does and a test cannot press; what
+      // the page owes is that a check from there is taken, and that the group is not redrawn under the focus.
+      const high = qualityRadio('High');
+      high.focus();
+      high.click();
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeTrue();
+      expect(document.activeElement).toBe(qualityRadio('High'));
+      expect(quoteClasses.at(-1)).toBe('High');
+    });
+
+    it('names what fits at an unaffordable class and leaves the choice open', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: 175, remaining: 100, remainingAfter: null, affordableVariants: 1 })
+          : quote(variants, { remaining: 100, remainingAfter: 0 });
+      await priced();
+
+      qualityRadio('High').click();
+      await priced();
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain(
+        'At High quality, 2 pictures need 175 AI credits, and you have 100 AI credits left — enough for one picture.',
+      );
+      expect(refusal).toContain('You can also choose a lower quality.');
+      expect(makeButton().disabled).toBeTrue();
+
+      // Every class can still be chosen, and the prompt is still there.
+      expect(Array.from(qualityGroup()!.querySelectorAll('input')).some((radio) => radio.disabled)).toBeFalse();
+      expect(el.querySelector('blockquote')?.textContent).toContain('A tight crop.');
+
+      qualityRadio('Standard').click();
+      await priced();
+
+      expect(makeButton().disabled).toBeFalse();
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+    });
+
+    it('suggests no lower quality when the lowest is the one that does not fit', async () => {
+      quoteAnswer = (variants) =>
+        quote(variants, { outcome: 'Exhausted', perPicture: 25, total: 50, remaining: 10, remainingAfter: null, affordableVariants: 0 });
+      await priced();
+
+      qualityRadio('Draft').click();
+      await priced();
+
+      const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
+      expect(refusal).toContain('At Draft quality, 2 pictures need 50 AI credits, and you have 10 AI credits left.');
+      expect(refusal).not.toContain('lower quality');
+    });
+
+    it('starts another workspace from its own default, not from the pick made in the last one', async () => {
+      await priced();
+      qualityRadio('High').click();
+      await priced();
+
+      host.slug.set('other-kitchen');
+      await priced();
+
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses.at(-1)).toBe('Standard');
+    });
+
+    it('treats a price list it cannot word as one it could not read, rather than showing classes with no price', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve({ ...classes(), unit: 'Tokens' })));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.querySelector('#cp-studio-images-quality-problem')?.textContent).toContain(
+        'couldn’t load the picture qualities',
+      );
+      expect(quoteClasses.at(-1)).toBeNull();
+    });
+
+    it('holds the place while the list is loading, blocks nothing, and holds the price until it knows the class', async () => {
+      await rebuild(() => (classesAnswer = () => new Promise(() => undefined)));
+      await priced();
+
+      const loading = el.querySelector('.quality[aria-busy="true"]');
+      expect(loading).not.toBeNull();
+      expect(loading?.querySelector('cp-skeleton')).not.toBeNull();
+
+      // Said once from a region that was in the page before it had words, outside the busy body.
+      const said = Array.from(el.querySelectorAll('.cp-sr-only[role="status"]')).map((node) => node.textContent?.trim());
+      expect(said).toContain('Finding the picture qualities…');
+      expect(qualityGroup()).toBeNull();
+
+      // No price asked yet, so none that changes a moment later; "Working out…" says so, and stops nothing.
+      expect(quoteClasses).toEqual([]);
+      expect(quoteLine()).toContain('Working out what this costs…');
+      expect(makeButton().disabled).toBeFalse();
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
+
+    it('says the list could not be read, makes pictures at the usual quality, and loads it again on request', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(null)));
+      await priced();
+
+      // The region is the one that was there, quiet, before anything failed — so the failure is announced.
+      const notice = el.querySelector('#cp-studio-images-quality-problem');
+      expect(notice?.getAttribute('role')).toBe('status');
+      expect(notice?.textContent).toContain('couldn’t load the picture qualities');
+      expect(notice?.textContent).toContain('so pictures are made at the usual quality');
+      expect(qualityGroup()).toBeNull();
+      expect(makeButton().disabled).toBeFalse();
+      expect(quoteClasses.at(-1)).toBeNull();
+
+      classesAnswer = () => Promise.resolve(classes());
+      const again = Array.from(notice!.querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === 'Load the qualities again',
+      )!;
+      again.click();
+      await priced();
+
+      expect(classesReads).toBe(2);
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses.at(-1)).toBe('Standard');
+
+      // The button went with the notice; focus is on the quality picked rather than lost to the page, and the
+      // region stays, quiet, for a later failure.
+      expect(document.activeElement).toBe(qualityRadio('Standard'));
+      expect(el.querySelector('#cp-studio-images-quality-problem')?.textContent?.trim()).toBe('');
+    });
+
+    it('puts focus back on the button when loading again fails again', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(null)));
+      await priced();
+
+      const button = () => el.querySelector<HTMLButtonElement>('#cp-studio-images-quality-problem button')!;
+      button().click();
+      await priced();
+
+      expect(classesReads).toBe(2);
+      expect(document.activeElement).toBe(button());
+    });
+
+    it('says the one class a host offers rather than offering a choice of one, and sends it', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([['High', 87.5]], 'High'))));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.textContent).toContain('Pictures are made at High quality — 87.5 AI credits a picture.');
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBe('High');
+    });
+
+    it('offers nothing on a host with no classes, and names none on the request', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([], null))));
+      await priced();
+
+      expect(qualityGroup()).toBeNull();
+      expect(el.textContent).not.toContain('Picture quality');
+      expect(el.textContent).not.toContain('Pictures are made at');
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
+
+    // ---- what the plan allows (AP.4.3) -----------------------------------------------------------------
+
+    it('shows a class the plan does not allow as locked, with its price and the plan that would', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+      );
+      await priced();
+
+      const tiles = Array.from(qualityGroup()!.querySelectorAll('.tile')).map((tile) => [
+        tile.querySelector('.label')?.textContent?.trim(),
+        tile.querySelector('.hint')?.textContent?.trim(),
+        (tile.querySelector('input') as HTMLInputElement).disabled,
+      ]);
+
+      expect(tiles).toEqual([
+        ['Draft', '25 AI credits a picture. Quick, for trying an idea.', false],
+        ['Standard', '50 AI credits a picture. Good for most posts.', false],
+        // Still priced, so the plan can be weighed against the figure, and "Locked" is a word as well as a
+        // greyed tile.
+        ['High', '87.5 AI credits a picture. Locked — the Creator plan includes it.', true],
+      ]);
+
+      // The pick is the default, and the price asked for is the default's: a locked class is never quoted.
+      expect(qualityRadio('Standard').checked).toBeTrue();
+      expect(quoteClasses).toEqual(['Standard']);
+    });
+
+    it('says a class no plan allows is not on one yet, rather than leaving "Locked" as a dead end', async () => {
+      await rebuild(
+        () => (classesAnswer = () => Promise.resolve(classes([['Standard', 50], ['High', 87.5, null]]))),
+      );
+      await priced();
+
+      const locked = qualityGroup()!.querySelectorAll('.tile')[1];
+      expect(locked.querySelector('.hint')?.textContent?.trim()).toBe(
+        '87.5 AI credits a picture. Locked — not on any plan yet.',
+      );
+    });
+
+    /**
+     * The reason has to be reachable, not only inside the tile: a disabled radio is out of the tab order and out
+     * of the group's arrow-key movement, so a creator moving by keyboard never lands on it. DESIGN-SYSTEM.md's
+     * locked-control rule wants the explaining line, and the group points at it.
+     */
+    it('says what the plan locks in reading order, and describes the group by it', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(
+              classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator'], ['High2K', 187.5, null]]),
+            )),
+      );
+      await priced();
+
+      const said = el.querySelector('#cp-studio-images-quality-locked');
+      expect(said?.textContent?.trim()).toBe(
+        'Not on your plan: High comes with the Creator plan; High, 2K is not on any plan yet.',
+      );
+
+      // Said when the group is entered, so it is not visual only.
+      expect(qualityGroup()?.getAttribute('aria-describedby')).toBe('cp-studio-images-quality-locked');
+    });
+
+    it('says nothing about plans, and describes the group by nothing, when every class is on the plan', async () => {
+      await priced();
+
+      expect(el.querySelector('#cp-studio-images-quality-locked')).toBeNull();
+      expect(qualityGroup()?.getAttribute('aria-describedby')).toBeNull();
+      expect(el.textContent).not.toContain('Not on your plan');
+    });
+
+    it('cannot be sent a locked class: the tile is not an answer the keyboard or the pointer can give', async () => {
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+      );
+      await priced();
+
+      // A disabled radio is out of the group's arrow-key movement as well as out of the tab order, so the
+      // keyboard cannot reach it either; clicking it reports nothing.
+      qualityRadio('High').click();
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeFalse();
+      expect(qualityRadio('Standard').checked).toBeTrue();
+
+      makeButton().click();
+      await settle();
+      expect(requests.at(-1)!.qualityClass).toBe('Standard');
+      expect(quoteClasses).not.toContain('High');
+    });
+
+    it('picks nothing when the one class offered is locked, so the request names none', async () => {
+      await rebuild(() => (classesAnswer = () => Promise.resolve(classes([['High', 87.5, 'Studio']], null))));
+      await priced();
+
+      makeButton().click();
+      await settle();
+      expect(requests[0].qualityClass).toBeNull();
+    });
+
+    it('offers no lower quality in a refusal when every lower one is locked', async () => {
+      quoteAnswer = (variants, qualityClass) =>
+        qualityClass === 'High'
+          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: variants * 87.5, remaining: 10, affordableVariants: 0 })
+          : quote(variants);
+      await rebuild(
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(classes([['Draft', 25, 'Creator'], ['High', 87.5]], 'High'))),
+      );
+      await priced();
+
+      expect(qualityRadio('High').checked).toBeTrue();
+      expect(el.textContent).toContain('At High quality');
+      expect(el.textContent).not.toContain('lower quality');
+    });
+  });
+
+  describe("today's pictures (DL.9)", () => {
+    /** Refuses the next request as one of the three limits, in the server's words. */
+    function refuseWith(limit: NonNullable<Extract<GeneratedImageRequestOutcome, { status: 'refused' }>['limit']>): void {
+      requestOutcome = {
+        status: 'refused',
+        message: 'Your AI allowance for this period and your pack credits don’t cover this.',
+        fieldErrors: {},
+        limit,
+      };
+    }
+
+    /** The same button after a refusal, which now offers to ask again. */
+    function tryAgain(): HTMLButtonElement {
+      return Array.from(el.querySelectorAll('button')).find(
+        (button) => (button.textContent ?? '').trim() === 'Try again',
+      ) as HTMLButtonElement;
+    }
+
+    function refusal(): string {
+      return (el.querySelector('#cp-studio-images-refusal')?.textContent ?? '').trim();
+    }
+
+    it("says how many of the plan's pictures are left today and when more come, in the server's figures", async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(3, 22) }) });
+      await priced();
+
+      const line = dayLine()!;
+      expect(line.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+      expect(line.textContent).toContain('More come back on');
+      expect(line.textContent).toContain('(UTC)');
+      // Described, not announced: it changes with every read, and a live region would say each one.
+      expect(line.getAttribute('role')).toBeNull();
+      expect(line.closest('[aria-live],[role="status"],[role="alert"]')).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBe('cp-studio-images-today');
+    });
+
+    it("says nought as none, and the server's left rather than one worked out from the cap", async () => {
+      // A left that is not cap less used: only the server knows what admission will count.
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: { ...today(25), left: 0 } }) });
+      await priced();
+      expect(dayLine()!.textContent).toContain('None of your Creator plan’s 25 pictures left today.');
+
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: { ...today(3), left: 7 } }) });
+      await settle();
+      expect(dayLine()!.textContent).toContain('7 of your Creator plan’s 25 pictures left today.');
+    });
+
+    it("says a trial's pictures in all beside its day, rather than choosing one of them", async () => {
+      usageState.set({
+        status: 'ready',
+        usage: usage({
+          plan: { key: 'trial', name: 'Trial', allowanceRenews: false },
+          picturesToday: { cap: 5, used: 0, left: 5, resetsAt: '2026-10-31T00:00:00+00:00' },
+          trialPictures: { cap: 10, used: 8, left: 2 },
+        }),
+      });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('5 of your Trial plan’s 5 pictures left today.');
+      expect(dayLine()!.textContent).toContain('2 of your trial’s 10 pictures left in all.');
+    });
+
+    it('says nothing about pictures where the server states no cap', async () => {
+      await priced();
+
+      expect(dayLine()).toBeNull();
+      expect(el.textContent).not.toContain('left today');
+      expect(el.querySelector('.today-pending')).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+    });
+
+    it('draws the line as it will arrive while the read is out, without announcing it or describing the button by it', async () => {
+      usageState.set({ status: 'loading' });
+      await priced();
+
+      expect(el.querySelector('.today-pending cp-skeleton')).not.toBeNull();
+      expect(dayLine()).toBeNull();
+      expect(makeButton().getAttribute('aria-describedby')).toBeNull();
+      expect(makeButton().disabled).toBeFalse();
+    });
+
+    it('says the figures are the last it had when a refresh failed', async () => {
+      usageState.set({ status: 'degraded', usage: usage({ picturesToday: today(3) }) });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+      expect(dayLine()!.textContent).toContain('These are the last figures we had.');
+    });
+
+    it('says it could not check, and stops nothing, when the read failed', async () => {
+      usageState.set({ status: 'error' });
+      await priced();
+
+      expect(dayLine()!.textContent).toContain('We couldn’t check today’s pictures just now.');
+      expect(makeButton().disabled).toBeFalse();
+
+      // Not a dead end: the line offers to ask again, and a good answer replaces it.
+      usageAfterRefresh = { status: 'ready', usage: usage({ picturesToday: today(3) }) };
+      Array.from(dayLine()!.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Check again')!.click();
+      await settle();
+
+      expect(usageRefreshes).toBe(1);
+      expect(dayLine()!.textContent).toContain('22 of your Creator plan’s 25 pictures left today.');
+    });
+
+    it('leaves the count to the quote while the quote refuses on the day, so it is said once', async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(24) }) });
+      await answerWith((variants) =>
+        quote(variants, {
+          outcome: 'DailyImageCap',
+          pictureCap: 25,
+          picturesLeft: 1,
+          pictureCapResetsAt: '2026-10-31T00:00:00+00:00',
+        }),
+      );
+
+      expect(dayLine()).toBeNull();
+      expect(el.textContent).toContain('one picture left today');
+    });
+
+    it('reads the count again once a request is accepted, and says it once when the pictures are ready', async () => {
+      usageState.set({ status: 'ready', usage: usage({ picturesToday: today(3) }) });
+      requestOutcome = { status: 'accepted', operation: { id: 'op-1', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      await priced();
+
+      makeButton().click();
+      await settle();
+      expect(usageRefreshes).toBe(1);
+
+      usageAfterRefresh = { status: 'ready', usage: usage({ picturesToday: today(5) }) };
+      watches[watches.length - 1].next({ status: 'found', operation: operation([picture(0), picture(1)]) });
+      await settle();
+
+      expect(usageRefreshes).toBe(2);
+      expect(host.announcements.filter((said) => said.includes('left today'))).toEqual([
+        '2 pictures ready to choose from. 20 left today.',
+      ]);
+
+      // Not again on the next reading of the same finished run.
+      watches[watches.length - 1].next({ status: 'found', operation: operation([picture(0), picture(1)]) });
+      await settle();
+      expect(host.announcements.filter((said) => said.includes('left today')).length).toBe(1);
+    });
+
+    describe('the three refusals, each said as itself', () => {
+      it("says the plan's day is used across every workspace, and when it comes back", async () => {
+        usageState.set({ status: 'ready', usage: usage({ picturesToday: today(25, 0) }) });
+        refuseWith({ kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+        const asked = quoteAsks.length;
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('Your plan’s pictures for today are used up.');
+        expect(refusal()).toContain('Your Creator plan makes 25 a day, across all your workspaces.');
+        expect(refusal()).toContain('(UTC)');
+        expect(refusal()).toContain('Your request is still here');
+        expect(refusal()).not.toContain('workspace has made');
+        // The figures are read again, so the line and the quote agree with what was just said.
+        expect(usageRefreshes).toBe(1);
+        expect(quoteAsks.length).toBeGreaterThan(asked);
+      });
+
+      it('moves focus to the refusal, and says it once, when the price then blocks the button', async () => {
+        refuseWith({ kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+        quoteAnswer = (variants) =>
+          quote(variants, {
+            outcome: 'DailyImageCap',
+            pictureCap: 25,
+            picturesLeft: 0,
+            pictureCapResetsAt: '2026-10-31T00:00:00+00:00',
+          });
+
+        makeButton().focus();
+        makeButton().click();
+        await priced();
+
+        // The button is disabled under the creator, so focus goes to what explains it rather than to nothing.
+        expect(tryAgain().disabled).toBeTrue();
+        expect(document.activeElement?.id).toBe('cp-studio-images-refusal');
+        // One alert: the price's own cap sentence stays quiet while the refusal says it.
+        expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent?.trim()).toBe('');
+        expect(tryAgain().getAttribute('aria-describedby')).toBe('cp-studio-images-refusal');
+      });
+
+      it("says the workspace's day is not the plan's, and keeps the button for the server to decide", async () => {
+        refuseWith({ kind: 'workspace-day', cap: 200, resetsAt: '2026-10-31T00:00:00+00:00' });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('This workspace has made its 200 pictures for today.');
+        expect(refusal()).toContain('That’s a limit on the workspace, not on your plan');
+        expect(refusal()).not.toContain('Your plan’s pictures');
+        expect(tryAgain().disabled).toBeFalse();
+      });
+
+      it('says credits are what ran out, not a day', async () => {
+        refuseWith({ kind: 'credits' });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('Not enough credits for these pictures.');
+        expect(refusal()).toContain('Your AI allowance for this period and your pack credits don’t cover this.');
+        expect(refusal()).not.toContain('today');
+      });
+
+      it('says a day refusal with no figures without inventing them', async () => {
+        refuseWith({ kind: 'plan-day', cap: null, resetsAt: null });
+        await priced();
+
+        makeButton().click();
+        await priced();
+
+        expect(refusal()).toContain('They count across all your workspaces.');
+        expect(refusal()).toContain('More come back at midnight UTC.');
+      });
+
+      for (const limit of [
+        { kind: 'plan-day', cap: 25, resetsAt: '2026-10-31T00:00:00+00:00' },
+        { kind: 'workspace-day', cap: 200, resetsAt: '2026-10-31T00:00:00+00:00' },
+        { kind: 'credits' },
+      ] as const) {
+        it(`keeps the filled-in request after a ${limit.kind} refusal, and sends it unchanged from the keyboard`, async () => {
+          host.promptText.set('A low, warm crop.');
+          host.variantCount.set(3);
+          refuseWith(limit);
+          await priced();
+
+          makeButton().click();
+          await priced();
+
+          expect(el.textContent).toContain('A low, warm crop.');
+          expect(el.textContent).toContain('Asking for 3 pictures.');
+
+          // The refusal is an alert, said once, beside a button that is still reachable for a creator who waits.
+          expect(el.querySelector('#cp-studio-images-refusal')?.getAttribute('role')).toBe('alert');
+          const button = tryAgain();
+          button.focus();
+          expect(document.activeElement).toBe(button);
+
+          button.click();
+          await settle();
+          expect(requests.length).toBe(2);
+          expect(requests[1]).toEqual(requests[0]);
+          expect(keys[1]).toBe(keys[0]);
+        });
+      }
+    });
+  });
 });
+
+/** A fresh run, set up by `configure` before it first renders — for what it reads as it arrives. */
+async function rebuild(configure: (next: HostComponent) => void): Promise<void> {
+  fixture.destroy();
+  quoteAsks = [];
+  quoteClasses = [];
+  classesReads = 0;
+
+  fixture = TestBed.createComponent(HostComponent);
+  host = fixture.componentInstance;
+  el = fixture.nativeElement;
+  configure(host);
+  await settle();
+}

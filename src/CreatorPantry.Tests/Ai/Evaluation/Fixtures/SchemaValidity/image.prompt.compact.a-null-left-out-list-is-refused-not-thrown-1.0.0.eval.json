@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.a-null-left-out-list-is-refused-not-thrown",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "An explicit null for the left-out list is a classified, correctable rejection rather than a NullReferenceException, as it is for IMG-002's avoid list.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a plum galette on pale linen, soft window light from the left, icing sugar on the crust, warm and unhurried. Framed to a 4:5 crop.\",\"leftOut\":null}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 200
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.shape_invalid",
+    "category": "OutputSchemaInvalid"
+  }
+}

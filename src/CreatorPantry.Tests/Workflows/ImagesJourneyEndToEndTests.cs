@@ -34,7 +34,7 @@ namespace CreatorPantry.Tests.Workflows;
 /// malware scanner. The worker is run by hand, once — the API host has no queue driver, by design.
 /// </para>
 /// </remarks>
-public sealed class ImagesJourneyEndToEndTests : IAsyncLifetime
+public sealed partial class ImagesJourneyEndToEndTests : IAsyncLifetime
 {
     private const string Prompt = "Overhead shot of a plum galette on a linen cloth, soft window light.";
 

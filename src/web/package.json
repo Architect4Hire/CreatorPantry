@@ -11,6 +11,7 @@
     "check:safety-copy": "node --test scripts/check-safety-copy.test.mjs && node scripts/check-safety-copy.mjs",
     "capture:tour": "node scripts/capture-tour.mjs",
     "capture:app": "node scripts/capture-app.mjs",
+    "e2e:billing": "node e2e/billing-journey.mjs",
     "make:og-card": "node scripts/make-og-card.mjs",
     "make:food-images": "node scripts/make-food-images.mjs"
   },

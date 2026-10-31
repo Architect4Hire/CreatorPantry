@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.an-avoid-heading-in-the-prompt-is-refused",
+  "version": "1.0.0",
+  "category": "SchemaValidity",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "The creator's avoid list is appended under its own heading when the picture is asked for, and the model is never shown it. A shorter prompt that writes an avoid list of its own into the prose would send the image model two lists, one the creator never wrote — refused, not stripped.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a plum galette on pale linen, soft window light from the left, warm and unhurried.\\n\\nAvoid the following: harsh flash\",\"leftOut\":[],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 300
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_avoid_invalid",
+    "category": "DomainInvalid"
+  }
+}

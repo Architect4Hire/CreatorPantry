@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Managers.FileInspection;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -38,24 +39,33 @@ namespace CreatorPantry.AiProvider;
 /// creator a smear as the thing they asked for, so it is reported the way a refusal is.
 /// </para>
 /// <para>
-/// <strong>No size is sent.</strong> Venice's models disagree about how one is expressed — pixels for some,
-/// an aspect ratio or a resolution tier for others, and each rejects the other's fields — and nothing above
-/// this asks for one yet. Each model's own default applies.
+/// <strong>Size and quality are always stated, in the model's own dialect</strong> (AP.2.3). Venice's models
+/// disagree about how a size is expressed — a resolution tier and aspect ratio for some, an aspect ratio alone
+/// for others, pixels for the rest — and each rejects the others' fields with a 400. Leaving them out left the
+/// model's default in force, and <c>gpt-image-2-5-flare</c>'s default quality is its dearest. So every model
+/// this sends to has a <see cref="VeniceModelProfile"/>; a model without one, a value its profile does not
+/// offer, or a prompt past its limit is refused here, before anything is paid for — never guessed, never cut.
+/// What was sent is stamped on the returned image (<see cref="ImageGenerationSettings"/>) for provenance.
+/// Field names and limits are Venice's, read 2026-10-26: the request reference at
+/// <c>https://docs.venice.ai/api-reference/endpoint/image/generate</c> (<c>additionalProperties: false</c>) and
+/// each model's <c>model_spec.constraints</c> in <c>GET https://api.venice.ai/api/v1/models?type=image</c>.
+/// </para>
+/// <para>
+/// <strong>The model a request may name is not yet recorded per picture.</strong> Provenance takes its model from
+/// <see cref="ImageGeneratorMetadata"/>, which names the configured model; nothing sets
+/// <see cref="ImageGenerationOptions.ModelId"/> today, so the two agree. Quality classes (AP.3.1) will, and must
+/// record the model actually sent when they do.
 /// </para>
 /// </remarks>
 public sealed class VeniceImageGenerator(
     HttpClient http,
     string model,
+    IReadOnlyDictionary<string, VeniceModelProfile> profiles,
     ILogger<VeniceImageGenerator> logger) : IImageGenerator
 {
     /// <summary>The name provenance records as the provider of every image this generates.</summary>
     public const string ProviderName = "venice";
 
-    /// <summary>
-    /// The status a flagged picture is reported under. Venice answered 200, so there is no status of its own
-    /// to carry; this one is in the range the gateway reads as "it decided, and would decide the same again".
-    /// </summary>
-    public const HttpStatusCode FlaggedStatus = HttpStatusCode.UnprocessableEntity;
 
     private const string GeneratePath = "image/generate";
     private const string ImageMediaType = "image/png";
@@ -71,10 +81,48 @@ public sealed class VeniceImageGenerator(
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Prompt);
 
         var clock = Stopwatch.StartNew();
+        var modelId = options?.ModelId ?? model;
+
+        if (!profiles.TryGetValue(modelId, out var profile))
+        {
+            logger.LogWarning("Venice image model {Model} has no sizing profile; nothing was sent.", modelId);
+
+            throw Refused($"The image model '{modelId}' has no sizing profile under {VeniceModelProfile.SectionName}.");
+        }
+
+        // Counted here because a model's own limit is lower than the schema's for several of them, and an
+        // over-long prompt is refused by Venice only after the request has been made. Never truncated: a cut
+        // prompt is a different picture from the one the creator asked for.
+        if (request.Prompt.Length > profile.PromptCharacterLimit)
+        {
+            logger.LogWarning(
+                "A prompt of {Length} characters is over {Model}'s limit of {Limit}; nothing was sent.",
+                request.Prompt.Length,
+                modelId,
+                profile.PromptCharacterLimit);
+
+            throw Refused($"The prompt is longer than the {profile.PromptCharacterLimit:N0} characters '{modelId}' accepts.");
+        }
+
+        var sizing = profile.Settle(options);
+
+        if (sizing.Refusal is { } refusal)
+        {
+            logger.LogWarning("Venice image request for {Model} refused before sending: {Reason}.", modelId, refusal);
+
+            throw Refused($"The image request could not be sent: {refusal}.");
+        }
 
         using var message = new HttpRequestMessage(HttpMethod.Post, GeneratePath)
         {
-            Content = JsonContent.Create(new GenerateRequest(options?.ModelId ?? model, request.Prompt)),
+            Content = JsonContent.Create(new GenerateRequest(modelId, request.Prompt)
+            {
+                Quality = sizing.Quality,
+                Resolution = sizing.Resolution,
+                AspectRatio = sizing.AspectRatio,
+                Width = sizing.Width,
+                Height = sizing.Height,
+            }),
         };
 
         // Headers first, so the body is read under this class's own bound rather than buffered whole by the
@@ -97,8 +145,7 @@ public sealed class VeniceImageGenerator(
             logger.LogWarning(
                 "Venice flagged an image after {ElapsedMs} ms; it was not staged.", clock.ElapsedMilliseconds);
 
-            throw new HttpRequestException(
-                "Venice flagged the image it generated.", inner: null, FlaggedStatus);
+            throw new ImageWithheldException("Venice flagged the image it generated.");
         }
 
         var bytes = await ReadImageAsync(response, cancellationToken);
@@ -109,16 +156,70 @@ public sealed class VeniceImageGenerator(
         // what it is, where an exception from here would be retried as an outage and paid for again.
         return bytes is null
             ? new ImageGenerationResponse()
-            : new ImageGenerationResponse([new DataContent(bytes, ImageMediaType)]);
+            : new ImageGenerationResponse([Stamped(new DataContent(bytes, ImageMediaType), sizing)]);
     }
+
+    /// <summary>What was asked of the provider, on the picture it answered with.</summary>
+    private static DataContent Stamped(DataContent image, VeniceSizingChoice sizing)
+    {
+        image.AdditionalProperties = new AdditionalPropertiesDictionary();
+
+        if (sizing.Quality is { } quality)
+        {
+            image.AdditionalProperties[ImageGenerationSettings.QualitySent] = quality;
+        }
+
+        if (sizing.Size is { } size)
+        {
+            image.AdditionalProperties[ImageGenerationSettings.SizeSent] = size;
+        }
+
+        return image;
+    }
+
+    /// <summary>
+    /// A request refused before it was sent, in the shape the Media gateway already reads as refused and
+    /// terminal: the same request would be refused again, and nothing was spent on it.
+    /// </summary>
+    private static HttpRequestException Refused(string reason) =>
+        new(reason, inner: null, HttpStatusCode.BadRequest);
 
     public object? GetService(Type serviceType, object? serviceKey = null)
     {
         ArgumentNullException.ThrowIfNull(serviceType);
 
+        // How many prompt characters a model takes (AP.3.2): the one service asked for by key, the key being the
+        // model id a quality class sends to — or no key for the configured model. The profile's own number, so
+        // a prompt measured as fitting is never one the length check above refuses.
+        if (serviceType == typeof(ImagePromptLimit))
+        {
+            var modelId = serviceKey switch
+            {
+                null => model,
+                string named => named,
+                _ => null,
+            };
+
+            return modelId is not null && profiles.TryGetValue(modelId, out var limited)
+                ? new ImagePromptLimit(limited.PromptCharacterLimit)
+                : null;
+        }
+
         if (serviceKey is not null)
         {
             return null;
+        }
+
+        // The tier and quality this deployment sends when a request names neither, so the allowance for a
+        // picture can be held at what the picture will actually cost (AP.2.5). Settled from the configured
+        // model's own profile rather than restated, so it cannot disagree with what is sent.
+        if (serviceType == typeof(ImageGenerationDefaults))
+        {
+            var settled = profiles.TryGetValue(model, out var profile) ? profile.Settle(options: null) : null;
+
+            return settled is null || settled.Refusal is not null
+                ? null
+                : new ImageGenerationDefaults(settled.Resolution, settled.Quality);
         }
 
         return serviceType == typeof(ImageGeneratorMetadata) ? metadata
@@ -188,12 +289,33 @@ public sealed class VeniceImageGenerator(
     /// <summary>
     /// The request body. PNG because that is what staging has been checking since the first provider; no
     /// watermark because the picture is the creator's; safe mode stated rather than left to Venice's default,
-    /// since the handling of a flagged picture above depends on it.
+    /// since the handling of a flagged picture above depends on it. The size and quality fields are left out
+    /// when null, because a model rejects the ones it does not take even when they are empty.
     /// </summary>
     private sealed record GenerateRequest(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("prompt")] string Prompt)
     {
+        [JsonPropertyName("quality")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Quality { get; init; }
+
+        [JsonPropertyName("resolution")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Resolution { get; init; }
+
+        [JsonPropertyName("aspect_ratio")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AspectRatio { get; init; }
+
+        [JsonPropertyName("width")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? Width { get; init; }
+
+        [JsonPropertyName("height")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? Height { get; init; }
+
         [JsonPropertyName("format")]
         public string Format => "png";
 

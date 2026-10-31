@@ -1,3 +1,5 @@
+using CreatorPantry.Domain.Modules.Ai.Managers;
+
 namespace CreatorPantry.Domain.Modules.Ai.Gateways;
 
 /// <summary>What the gateway needs that is deployment configuration rather than per-request.</summary>
@@ -39,4 +41,36 @@ public sealed class AiGatewayOptions
     /// deployment.
     /// </remarks>
     public int MaxSchemaCorrections { get; set; } = 1;
+
+    /// <summary>
+    /// The most output tokens one call may produce, for a task with no entry in
+    /// <see cref="MaxOutputTokensByTask"/> (AP.2.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It bounds what one call can spend on output: startup refuses a task whose per-call estimate is below this
+    /// ceiling's worst-case credits at the chat model's output rate. It is an output bound only — input is not
+    /// covered, and a correction re-sends the prompt — so the estimate is a sized hold, not a guarantee of the
+    /// charge. On a reasoning model the ceiling covers the model's hidden reasoning as well as its answer.
+    /// </para>
+    /// <para>
+    /// Deployment configuration, never a request field: nothing a creator sends can raise it. An answer the
+    /// provider cuts off here is <see cref="AiOutputReason.Truncated"/>, not a success.
+    /// </para>
+    /// </remarks>
+    public int MaxOutputTokens { get; set; } = 4_000;
+
+    /// <summary>
+    /// A task's own ceiling where the default does not fit it. Long-form writes the most per call, so it starts
+    /// with room for a whole section and the reasoning behind it.
+    /// </summary>
+    public Dictionary<AiTaskType, int> MaxOutputTokensByTask { get; } = new()
+    {
+        [AiTaskType.LongFormOutline] = 8_000,
+        [AiTaskType.LongFormSection] = 8_000,
+    };
+
+    /// <summary>The ceiling a call for <paramref name="task"/> is sent with.</summary>
+    public int MaxOutputTokensFor(AiTaskType task) =>
+        MaxOutputTokensByTask.TryGetValue(task, out var ceiling) ? ceiling : MaxOutputTokens;
 }

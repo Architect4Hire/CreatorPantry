@@ -46,6 +46,14 @@ internal sealed class AccountAiUsageEntryConfiguration : IEntityTypeConfiguratio
             table.HasCheckConstraint(
                 "CK_AccountAiUsageEntries_Cost_NotNegative",
                 "EstimatedCost IS NULL OR EstimatedCost >= 0");
+
+            // One kind of work per row (AP.2.5). Both set would let one charge be counted under two
+            // operations; neither set would leave a charge that cannot be deduplicated, which is the one
+            // thing the unique indexes below exist to prevent.
+            table.HasCheckConstraint(
+                "CK_AccountAiUsageEntries_Names_One_Operation",
+                "(AiOperationId IS NOT NULL AND GeneratedImageOperationId IS NULL) "
+                    + "OR (AiOperationId IS NULL AND GeneratedImageOperationId IS NOT NULL)");
         });
 
         builder.HasKey(entry => entry.Id);
@@ -55,7 +63,6 @@ internal sealed class AccountAiUsageEntryConfiguration : IEntityTypeConfiguratio
             .HasMaxLength(AiUsagePolicy.AccountIdMaxLength);
 
         builder.Property(entry => entry.OccurredAt).IsRequired();
-        builder.Property(entry => entry.AiOperationId).IsRequired();
         builder.Property(entry => entry.AttemptNumber).IsRequired();
         builder.Property(entry => entry.TaskType).IsRequired();
         builder.Property(entry => entry.WorkspaceId).IsRequired();
@@ -85,9 +92,19 @@ internal sealed class AccountAiUsageEntryConfiguration : IEntityTypeConfiguratio
         // One attempt, at most one entry — what makes a duplicate delivery post once. Deliberately does not
         // lead with WorkspaceId: operation ids are globally unique, and making the dedup lookup need a
         // workspace would reintroduce the scoping this table exists to escape.
+        //
+        // Filtered, since AP.2.5 made the column nullable: without the filter SQL Server would treat the
+        // image rows' null operation id as one value and let only one of them exist per attempt number.
         builder.HasIndex(entry => new { entry.AiOperationId, entry.AttemptNumber })
             .IsUnique()
+            .HasFilter("AiOperationId IS NOT NULL")
             .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt");
+
+        // The same guarantee for a picture's charges, on its own operation id.
+        builder.HasIndex(entry => new { entry.GeneratedImageOperationId, entry.AttemptNumber })
+            .IsUnique()
+            .HasFilter("GeneratedImageOperationId IS NOT NULL")
+            .HasDatabaseName("UX_AccountAiUsageEntries_ImageOperation_Attempt");
 
         // The account/period seek: what this account has spent in the current period, and the order its
         // history pages in. Leads with the account because that is the only thing the read seam authorizes by.

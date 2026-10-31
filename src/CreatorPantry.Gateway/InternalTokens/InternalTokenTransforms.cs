@@ -23,19 +23,29 @@ public static class InternalTokenServiceCollectionExtensions
     /// Adds the gateway's credential to every proxied request. Runs after the configured transforms, which
     /// strip client-supplied <c>Authorization</c>: only a gateway-minted token can reach the API.
     /// </summary>
+    /// <remarks>
+    /// Never on the payment provider's webhook route (AP.6.2): it takes no browser session, so a delivery that
+    /// arrived with a creator's cookie — a browser pointed at the route — must not reach the API as that creator.
+    /// </remarks>
     public static IReverseProxyBuilder AddInternalTokenTransform(this IReverseProxyBuilder builder) =>
-        builder.AddTransforms(context => context.AddRequestTransform(transform =>
+        builder.AddTransforms(context =>
         {
-            transform.ProxyRequest.Headers.Authorization = null;
+            var webhook = string.Equals(
+                context.Route.RouteId, CreatorPantry.Gateway.Sessions.EdgeSecurity.StripeWebhookRoute, StringComparison.Ordinal);
 
-            if (SessionPrincipalFrom(transform.HttpContext.User) is { } principal)
+            context.AddRequestTransform(transform =>
             {
-                var token = transform.HttpContext.RequestServices.GetRequiredService<IInternalTokenIssuer>().Issue(principal);
-                transform.ProxyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
+                transform.ProxyRequest.Headers.Authorization = null;
 
-            return ValueTask.CompletedTask;
-        }));
+                if (!webhook && SessionPrincipalFrom(transform.HttpContext.User) is { } principal)
+                {
+                    var token = transform.HttpContext.RequestServices.GetRequiredService<IInternalTokenIssuer>().Issue(principal);
+                    transform.ProxyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+
+                return ValueTask.CompletedTask;
+            });
+        });
 
     /// <summary>The session principal for an authenticated gateway user; null for anonymous requests.</summary>
     internal static SessionPrincipal? SessionPrincipalFrom(ClaimsPrincipal user)

@@ -112,19 +112,23 @@ internal sealed class AiRequestQuotaGate(
                 // read as an invitation to try again (USAGE-007).
                 new Dictionary<string, object?> { ["unit"] = state.Unit.ToString() }),
 
+            AiQuotaStateOutcome.TrialEnded => TrialEnded(state),
+
             AiQuotaStateOutcome.Exhausted => new OperationError(
                 AiProposalErrors.QuotaExhausted,
-                "Your AI allowance for this period is spent. It comes back when the period resets.",
+                "Your AI allowance for this period and your pack credits don't cover this. Your allowance comes back when the period resets.",
                 new Dictionary<string, string[]>(),
 
                 // What is exhausted, what remains, what this would have taken, and when it resets — the four
-                // things USAGE-007 requires a refused caller to be told. Every one of them is this account's
-                // own figure, and none of them names a workspace.
+                // things USAGE-007 requires a refused caller to be told — with the allowance and the pack balance
+                // as separate figures, since only one of them resets (AP.5.2). Every one of them is this
+                // account's own figure, and none of them names a workspace.
                 new Dictionary<string, object?>
                 {
                     ["unit"] = state.Unit.ToString(),
                     ["allowance"] = state.Allowance,
                     ["remaining"] = state.Remaining,
+                    ["packRemaining"] = state.PackRemaining,
                     ["required"] = state.Required,
 
                     // Read back as Retry-After by the HTTP layer, which is why it stays a DateTimeOffset here
@@ -172,28 +176,36 @@ internal sealed class AiRequestQuotaGate(
                 new Dictionary<string, object?> { ["unit"] = state.Unit.ToString() });
         }
 
+        if (state.Outcome is AiQuotaStateOutcome.TrialEnded)
+        {
+            return TrialEnded(state);
+        }
+
         // A task that costs nothing, or an account nothing is metered for, can run as often as it likes.
         if (state.Required <= 0 && state.Outcome is not AiQuotaStateOutcome.Exhausted)
         {
             return null;
         }
 
-        // Whole runs only, and never fewer than none: what is left of the period, in units of one run.
+        // Whole runs only, and never fewer than none: what is left of the period and then of the pack balance, in
+        // units of one run. Each run's hold spends the allowance first and grants after (AP.5.2), so together they
+        // cover as many whole runs as their sum does.
         var coverable = state.Outcome is AiQuotaStateOutcome.Exhausted || state.Required <= 0
             ? 0
-            : (int)Math.Min(runs, Math.Max(0, Math.Floor(state.Remaining / state.Required)));
+            : (int)Math.Min(runs, Math.Max(0, Math.Floor((state.Remaining + state.PackRemaining) / state.Required)));
 
         return coverable >= runs
             ? null
             : new OperationError(
                 AiProposalErrors.QuotaExhausted,
-                "Your AI allowance for this period does not cover all of this. Nothing was started.",
+                "Your AI allowance for this period and your pack credits don't cover all of this. Nothing was started.",
                 new Dictionary<string, string[]>(),
                 new Dictionary<string, object?>
                 {
                     ["unit"] = state.Unit.ToString(),
                     ["allowance"] = state.Allowance,
                     ["remaining"] = state.Remaining,
+                    ["packRemaining"] = state.PackRemaining,
                     ["required"] = state.Required * runs,
                     ["resetsAt"] = state.ResetsAt,
                     [requestedExtension] = runs,
@@ -239,4 +251,18 @@ internal sealed class AiRequestQuotaGate(
 
         return null;
     }
+
+    /// <summary>
+    /// The refusal for an account whose trial has ended while it is still on the trial (AP.7.1): no balance and no
+    /// reset, as for a suspension, because choosing a plan is the remedy and waiting is not.
+    /// </summary>
+    private static OperationError TrialEnded(AiQuotaStateServiceModel state) => new(
+        AiProposalErrors.QuotaTrialEnded,
+        "Your free trial has ended. Choose a plan to keep using AI assistance.",
+        new Dictionary<string, string[]>(),
+        new Dictionary<string, object?>
+        {
+            ["unit"] = state.Unit.ToString(),
+            ["trialEndedAt"] = state.TrialEndedAt,
+        });
 }

@@ -6,6 +6,8 @@ using CreatorPantry.Domain.Modules.Media.Gateways;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Data;
 
@@ -23,13 +25,48 @@ public enum GeneratedImageWriteOutcome
 
 /// <summary>What the worker needs to run one claimed operation, and nothing more.</summary>
 /// <param name="StagedVariants">The variants already staged. A replay skips every one of them.</param>
+/// <param name="ReservationId">
+/// The hold the request took against its account's allowance (AP.2.5). Null only for a generation queued
+/// before allowance was held for pictures at all, which settles nothing and charges nothing.
+/// </param>
+/// <param name="BilledVariants">
+/// How many variants earlier passes were already billed for, so this pass's charges continue the count rather
+/// than restarting it.
+/// </param>
+/// <param name="UnusableVariants">How many of those nothing could be staged from.</param>
+/// <param name="FlaggedVariants">How many of those the provider withheld on safety grounds.</param>
 public sealed record GeneratedImageWork(
     GeneratedImageWriteOutcome Outcome,
     string PromptText = "",
     string? AvoidText = null,
     int VariantCount = 0,
     int Attempts = 0,
-    IReadOnlySet<int>? StagedVariants = null);
+    IReadOnlySet<int>? StagedVariants = null,
+    Guid? ReservationId = null,
+    int BilledVariants = 0,
+    int UnusableVariants = 0,
+    int FlaggedVariants = 0,
+    GeneratedImageQualityClass? QualityClass = null);
+
+/// <summary>What the provider billed this host for on one variant (AP.2.5).</summary>
+/// <remarks>
+/// Only reached for a variant the provider actually generated. A call that failed before generation — unreachable,
+/// throttled, or refused outright — is not billed and never counted, and its share of the hold is released.
+/// </remarks>
+public enum GeneratedImageBilling
+{
+    /// <summary>Bytes arrived and this workspace staged them.</summary>
+    Staged = 1,
+
+    /// <summary>
+    /// Bytes arrived and nothing could be staged from them: not an image, not whole, or too large.
+    /// </summary>
+    /// <remarks>Charged all the same. The provider made the picture, and the inspection that refused it is ours.</remarks>
+    Unusable = 2,
+
+    /// <summary>The provider made the picture and withheld it on its own safety grounds.</summary>
+    Flagged = 3,
+}
 
 /// <summary>How staging one variant's bytes ended.</summary>
 public enum GeneratedImageStageOutcome
@@ -59,8 +96,30 @@ public interface IGeneratedImageGenerationDataLayer
     /// <inheritdoc cref="IGeneratedImageProviderGateway.Describe"/>
     GeneratedImageModel DescribeModel();
 
+    /// <inheritdoc cref="IGeneratedImageProviderGateway.PromptCharacterLimit"/>
+    int? PromptCharacterLimit(string modelName);
+
+    /// <summary>
+    /// What <paramref name="variants"/> pictures at <paramref name="settings"/> would cost the account, asked of
+    /// the AiUsage module, which prices them as its admission would (AP.2.6). Writes nothing.
+    /// </summary>
+    Task<AiImageQuoteServiceModel> QuoteAsync(
+        string accountId,
+        GeneratedImageSettings settings,
+        int variants,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
+
+    /// <summary>
+    /// What one picture at <paramref name="settings"/> is charged, in credits — the rate admission holds — or
+    /// null when this host has none for it (AP.3.1, B-55). Reads configuration only.
+    /// </summary>
+    decimal? PriceInCredits(GeneratedImageSettings settings);
+
     /// <inheritdoc cref="IGeneratedImageProviderGateway.GenerateAsync"/>
-    Task<GeneratedImageResult> GenerateAsync(string prompt, string? avoid, CancellationToken cancellationToken);
+    Task<GeneratedImageResult> GenerateAsync(
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken);
 
     /// <summary>Reads what a claimed operation asks for, if this worker still holds its lease.</summary>
     Task<GeneratedImageWork> OpenAsync(Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
@@ -83,6 +142,12 @@ public interface IGeneratedImageGenerationDataLayer
         Guid operationId, Guid leaseToken, GeneratedImageModel model, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Counts one variant the provider generated and bills for (AP.2.5), under the lease.
+    /// </summary>
+    Task<GeneratedImageWriteOutcome> RecordBilledVariantAsync(
+        Guid operationId, Guid leaseToken, GeneratedImageBilling billing, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Scans one variant's bytes, writes the object, and commits the row that owns it — compensating the
     /// object if the row cannot be written.
     /// </summary>
@@ -94,9 +159,17 @@ public interface IGeneratedImageGenerationDataLayer
         string mediaType,
         int width,
         int height,
+        string? qualitySent,
+        string? sizeSent,
         CancellationToken cancellationToken);
 
     /// <summary>Settles the operation as succeeded, partially succeeded, or failed.</summary>
+    /// <remarks>
+    /// <strong>Also reckons the generation's allowance (AP.2.5)</strong>, because this is the one place a
+    /// generation ends: its ledger entries and the settlement of its hold are staged onto the same unit of
+    /// work as the terminal status, so the two commit together. A requeue does not come through here, which
+    /// is what keeps the hold standing for the pass that follows.
+    /// </remarks>
     Task<GeneratedImageWriteOutcome> SettleAsync(
         Guid operationId,
         Guid leaseToken,
@@ -124,8 +197,14 @@ public interface IGeneratedImageGenerationDataLayer
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
 
     /// <summary>Records a new request, or returns the one this idempotency key already bought.</summary>
+    /// <param name="admission">
+    /// Whose allowance to hold the pictures against, and what they will cost (AP.2.5). Null only where no
+    /// image provider is configured at all, in which case nothing can be generated and nothing is held.
+    /// </param>
     Task<GeneratedImageRequestResult> RequestAsync(
-        GeneratedImageOperation operation, CancellationToken cancellationToken);
+        GeneratedImageOperation operation,
+        GeneratedImageAdmissionRequest? admission,
+        CancellationToken cancellationToken);
 
     /// <summary>Whether this idempotency key has already bought an operation in this workspace.</summary>
     Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken);
@@ -141,7 +220,42 @@ public interface IGeneratedImageGenerationDataLayer
 public sealed record GeneratedImageRequeueResult(GeneratedImageWriteOutcome Outcome, bool Abandoned);
 
 /// <param name="Replayed">True when the key had already bought this operation and nothing new was written.</param>
-public sealed record GeneratedImageRequestResult(GeneratedImageOperation Operation, bool Replayed);
+/// <param name="Operation">The operation, or null when the account's allowance would not cover it.</param>
+/// <param name="Replayed">Whether this key had already bought the operation returned.</param>
+/// <param name="Refusal">
+/// Why no operation was created, when the account could not pay for it (AP.2.5). Null whenever
+/// <paramref name="Operation"/> is not.
+/// </param>
+public sealed record GeneratedImageRequestResult(
+    GeneratedImageOperation? Operation,
+    bool Replayed,
+    AiQuotaAdmissionServiceModel? Refusal = null);
+
+/// <summary>
+/// Whose allowance a generation is held against, and what its pictures will cost (AP.2.5).
+/// </summary>
+/// <param name="AccountId">
+/// From <c>IWorkspaceContext.AccountId</c> in the request scope — never a request field, an unsigned header, or
+/// anything a model supplied (USAGE-001). The one place it is knowable: the worker that runs the generation
+/// resolves a service identity instead, so that a picture finishes after its creator has left the workspace.
+/// </param>
+/// <param name="ModelName">The image model the deployment will ask.</param>
+/// <param name="Resolution">The tier it will send, or null when the model takes none.</param>
+/// <param name="Quality">The quality it will send, or null when the model offers none.</param>
+/// <param name="DailyImageCap">
+/// The account's plan's pictures a UTC day (AP.4.2), judged inside the hold; null when no plan applies.
+/// </param>
+/// <param name="TrialImageCap">
+/// The account's trial's pictures in all (AP.7.1, B-52), judged inside the hold; null on a paid plan and when no plan
+/// applies.
+/// </param>
+public sealed record GeneratedImageAdmissionRequest(
+    string AccountId,
+    string ModelName,
+    string? Resolution,
+    string? Quality,
+    int? DailyImageCap = null,
+    int? TrialImageCap = null);
 
 /// <inheritdoc cref="IGeneratedImageGenerationDataLayer"/>
 /// <remarks>
@@ -166,18 +280,49 @@ internal sealed class GeneratedImageGenerationDataLayer(
     IGeneratedImageObjectGateway objects,
     IMalwareScanGateway scanner,
     IOutboxWriter outbox,
+    IAiQuotaAdmissionFacade quota,
     IClock clock,
     ILogger<GeneratedImageGenerationDataLayer> logger) : IGeneratedImageGenerationDataLayer
 {
     public GeneratedImageModel DescribeModel() => provider.Describe();
+
+    public int? PromptCharacterLimit(string modelName) => provider.PromptCharacterLimit(modelName);
+
+    public Task<AiImageQuoteServiceModel> QuoteAsync(
+        string accountId,
+        GeneratedImageSettings settings,
+        int variants,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return quota.QuoteImageAsync(
+            accountId,
+            settings.ModelName,
+            settings.Resolution,
+            settings.Quality,
+            variants,
+            cancellationToken,
+            dailyImageCap,
+            trialImageCap);
+    }
+
+    public decimal? PriceInCredits(GeneratedImageSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return quota.ImageCredits(settings.ModelName, settings.Resolution, settings.Quality);
+    }
 
     public Task<GeneratedImageOperationDetailServiceModel?> FindDetailAsync(
         Guid operationId, CancellationToken cancellationToken) =>
         details.FindAsync(operationId, cancellationToken);
 
     public Task<GeneratedImageResult> GenerateAsync(
-        string prompt, string? avoid, CancellationToken cancellationToken) =>
-        provider.GenerateAsync(prompt, avoid, cancellationToken);
+        string prompt, string? avoid, GeneratedImageSettings? settings, CancellationToken cancellationToken) =>
+        provider.GenerateAsync(prompt, avoid, settings, cancellationToken);
 
     public async Task<GeneratedImageWork> OpenAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken)
@@ -202,7 +347,58 @@ internal sealed class GeneratedImageGenerationDataLayer(
             operation.AvoidText,
             operation.VariantCount,
             operation.Attempts,
-            staged.ToHashSet());
+            staged.ToHashSet(),
+            operation.AiQuotaReservationId,
+            operation.BilledVariantCount,
+            operation.UnusableVariantCount,
+            operation.FlaggedVariantCount,
+            operation.QualityClass);
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Its own write, committed before the next provider call.</strong> A variant the provider
+    /// generated is a variant the provider bills for, whether or not anything could be staged from it, so the
+    /// count has to survive a crash between two variants — otherwise a resumed pass would re-run the whole
+    /// request and the account would be charged for the first pass's pictures a second time while this count
+    /// said it owed nothing.
+    /// </para>
+    /// <para>
+    /// A staged variant's row and this count are separate writes, so a crash between them can leave a staged
+    /// picture uncounted. That is the safe direction: the account is undercharged by one picture rather than
+    /// charged for one it cannot see.
+    /// </para>
+    /// </remarks>
+    public async Task<GeneratedImageWriteOutcome> RecordBilledVariantAsync(
+        Guid operationId, Guid leaseToken, GeneratedImageBilling billing, CancellationToken cancellationToken)
+    {
+        var operation = await operations.FindAsync(operationId, cancellationToken);
+
+        if (operation is null)
+        {
+            return GeneratedImageWriteOutcome.Missing;
+        }
+
+        if (!HoldsLease(operation, leaseToken))
+        {
+            return GeneratedImageWriteOutcome.LeaseLost;
+        }
+
+        operation.BilledVariantCount++;
+
+        if (billing is not GeneratedImageBilling.Staged)
+        {
+            operation.UnusableVariantCount++;
+        }
+
+        if (billing is GeneratedImageBilling.Flagged)
+        {
+            operation.FlaggedVariantCount++;
+        }
+
+        await operations.SaveChangesAsync(cancellationToken);
+
+        return GeneratedImageWriteOutcome.Applied;
     }
 
     public async Task<GeneratedImageWriteOutcome> RecordProviderAsync(
@@ -239,6 +435,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
         string mediaType,
         int width,
         int height,
+        string? qualitySent,
+        string? sizeSent,
         CancellationToken cancellationToken)
     {
         var operation = await operations.FindAsync(operationId, cancellationToken);
@@ -288,6 +486,8 @@ internal sealed class GeneratedImageGenerationDataLayer(
             ProviderName = operation.ProviderName ?? string.Empty,
             ModelName = operation.ModelName ?? string.Empty,
             ModelDeployment = operation.ModelDeployment,
+            GenerationQuality = qualitySent,
+            GenerationSize = sizeSent,
             RetentionExpiresAt = now + MediaPolicy.StagedImageTimeToLive,
             CreatedAt = now,
             StatusChangedAt = now,
@@ -349,6 +549,16 @@ internal sealed class GeneratedImageGenerationDataLayer(
         }
     }
 
+    /// <summary>
+    /// What a charge-less settlement records as its provider, where nothing was ever reached.
+    /// </summary>
+    /// <remarks>
+    /// The ledger requires a provider name on every row and such a settlement writes no rows at all — it
+    /// releases the hold and stops — so this is never stored. It exists because the column is non-nullable and
+    /// an empty string would fail its own constraint if the counts ever disagreed with the stamp.
+    /// </remarks>
+    private const string UnreachedProvider = "unreached";
+
     public async Task<GeneratedImageWriteOutcome> SettleAsync(
         Guid operationId,
         Guid leaseToken,
@@ -378,6 +588,31 @@ internal sealed class GeneratedImageGenerationDataLayer(
         operation.CompletedAt = now;
         operation.LeasedBy = null;
         operation.LeaseExpiresAt = null;
+
+        // The generation is over, so this is where its allowance is reckoned (AP.2.5): the account's ledger
+        // entries and the settlement of its hold, staged onto this same unit of work so the terminal status
+        // and the charge for reaching it commit together. A requeue does not come through here, which is what
+        // keeps the hold standing for the pass that follows.
+        // The provider is read off the row rather than passed in: RecordProviderAsync stamped it before the
+        // first variant ran, so it is there for every path that can have billed anything — including the
+        // requeue that runs out of attempts, which has no model of its own to hand over. Nothing stamped
+        // means no provider was ever reached, so there is nothing to charge and the hold is released whole.
+        if (operation.AiQuotaReservationId is { } reservation)
+        {
+            await quota.StageImageUsageAsync(
+                new AiImageUsageServiceModel(
+                    reservation,
+                    operation.WorkspaceId,
+                    operation.Id,
+                    operation.BilledVariantCount - operation.UnusableVariantCount,
+                    operation.UnusableVariantCount,
+                    operation.FlaggedVariantCount,
+                    now,
+                    operation.ProviderName ?? UnreachedProvider,
+                    operation.ModelName ?? UnreachedProvider,
+                    operation.ModelDeployment),
+                cancellationToken);
+        }
 
         await operations.SaveChangesAsync(cancellationToken);
 
@@ -485,17 +720,48 @@ internal sealed class GeneratedImageGenerationDataLayer(
         operations.VariantsRequestedThroughAsync(operationId, cancellationToken);
 
     public async Task<GeneratedImageRequestResult> RequestAsync(
-        GeneratedImageOperation operation, CancellationToken cancellationToken)
+        GeneratedImageOperation operation,
+        GeneratedImageAdmissionRequest? admission,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
         // Read first, because the common replay is a creator's second click rather than a race, and a read
-        // that finds the first operation costs nothing and buys nothing.
+        // that finds the first operation costs nothing and buys nothing. A replay is never admitted again:
+        // its answer is the operation it already bought, and the hold that bought it.
         var existing = await operations.FindByIdempotencyKeyAsync(operation.IdempotencyKey, cancellationToken);
 
         if (existing is not null)
         {
             return new GeneratedImageRequestResult(existing, true);
+        }
+
+        // The allowance, before the row that would spend it (PRICE-001). The hold commits on its own — the
+        // period's row version needs its own transaction — so from here until the operation is saved there is
+        // a hold with no operation, and every path out of that window releases it. Admission is also the
+        // first write of this request on purpose: a contended retry inside it clears the change tracker, so
+        // anything staged before it would be silently dropped.
+        if (admission is not null)
+        {
+            var held = await quota.AdmitImageAsync(
+                new AiImageQuotaAdmissionRequestServiceModel(
+                    admission.AccountId,
+                    operation.Id,
+                    operation.VariantCount,
+                    admission.ModelName,
+                    admission.Resolution,
+                    admission.Quality,
+                    clock.UtcNow + MediaPolicy.GenerationHoldDuration,
+                    admission.DailyImageCap,
+                    admission.TrialImageCap),
+                cancellationToken);
+
+            if (held.Outcome is not AiQuotaAdmissionOutcome.Admitted)
+            {
+                return new GeneratedImageRequestResult(null, false, held);
+            }
+
+            operation.AiQuotaReservationId = held.ReservationId;
         }
 
         operations.Add(operation);
@@ -512,12 +778,66 @@ internal sealed class GeneratedImageGenerationDataLayer(
             // index is what actually enforces this, and losing to it means the other request's operation is
             // the answer — which is the whole point of the key. A second generation is the most expensive
             // mistake this product can make, so the index rather than the read is the authority.
+            //
+            // The loser's hold goes back now. It bought nothing — the winner's operation has its own hold —
+            // and leaving it would show this account as having spent allowance on a generation that does not
+            // exist, for as long as MediaPolicy.GenerationHoldDuration.
+            await ReleaseHoldAsync(operation, CancellationToken.None);
+
             var winner = await operations.FindByIdempotencyKeyAsync(operation.IdempotencyKey, cancellationToken);
 
             return winner is null
                 ? throw new InvalidOperationException(
                     "The generation request was refused by the database but no operation holds its idempotency key.")
                 : new GeneratedImageRequestResult(winner, true);
+        }
+        catch
+        {
+            // Anything else between the hold and the row: the request is failing, so nothing will ever spend
+            // this hold. Released on the way out rather than left for the sweep.
+            await ReleaseHoldAsync(operation, CancellationToken.None);
+
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gives back the hold of an operation that was never queued, if it took one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not cancellable, and swallowing its own failures: it runs while a request is already failing, and a
+    /// release that threw would replace the real reason with its own. The expiry sweep makes the same write,
+    /// so the cost of losing this is the delay rather than a wrong balance.
+    /// </para>
+    /// <para>
+    /// Logged without the prompt, the key or the account — the prompt is private creator content (ai.md), and
+    /// this module never learns an account id at all.
+    /// </para>
+    /// </remarks>
+    private async Task ReleaseHoldAsync(GeneratedImageOperation operation, CancellationToken cancellationToken)
+    {
+        if (operation.AiQuotaReservationId is not { } reservation)
+        {
+            return;
+        }
+
+        // The insert that just failed is still pending on this context, and releasing the hold is a save. Left
+        // attached, that save re-sends the doomed insert, fails on the same constraint, and the hold it was
+        // meant to give back stays held for hours. The staging path detaches for the same reason.
+        operations.Forget(operation);
+
+        try
+        {
+            await quota.ReleaseImageAsync(reservation, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                "Generation {OperationId} was not queued and its allowance hold was not released "
+                    + "({ExceptionType}); the maintenance sweep will release it.",
+                operation.Id,
+                exception.GetType().Name);
         }
     }
 

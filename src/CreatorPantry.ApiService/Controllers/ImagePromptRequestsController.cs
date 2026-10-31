@@ -17,7 +17,9 @@ namespace CreatorPantry.ApiService.Controllers;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/workspaces/{workspaceSlug}/image-prompt-requests")]
-public sealed class ImagePromptRequestsController(IAiImagePromptRequestFacade requests) : ControllerBase
+public sealed class ImagePromptRequestsController(
+    IAiImagePromptRequestFacade requests,
+    IAiImagePromptCompactionRequestFacade compactions) : ControllerBase
 {
     /// <summary>Composes one image prompt for one shot of a concept.</summary>
     /// <param name="workspaceSlug">
@@ -77,6 +79,57 @@ public sealed class ImagePromptRequestsController(IAiImagePromptRequestFacade re
         CancellationToken cancellationToken)
     {
         var outcome = await requests.RequestAsync(model, idempotencyKey, cancellationToken);
+
+        return this.IdempotentResult(outcome, accepted => Accepted(
+            $"/api/v1/workspaces/{workspaceSlug}/image-prompt-requests/{accepted.AiProposalRequestId}",
+            accepted));
+    }
+
+    /// <summary>Asks for a shorter version of a prompt, to fit a picture quality whose model takes fewer characters.</summary>
+    /// <param name="workspaceSlug">Bound only so the route is well formed, as on the request above.</param>
+    /// <param name="model">
+    /// The prompt and avoid list a picture request was refused for, and the quality class it asked for. It
+    /// carries no length: the server measures the prompt against that class's model itself.
+    /// </param>
+    /// <param name="idempotencyKey">Required, for the reason composing a prompt requires one.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Contributor or above. `202`, and the `Location` header points at the same status resource a composed
+    /// prompt is read from: a shorter prompt is an image-prompt request, and its proposal has the same shape — the
+    /// prompt, and the avoid list.
+    ///
+    /// **Measured the way a picture request is.** The prompt and avoid list are measured against the model the
+    /// class sends to, exactly as `POST .../generated-images` measures them. One that already fits is refused
+    /// `422 ai.imagePromptCompaction.prompt.unprocessable`, and one whose avoid list alone leaves no room is refused
+    /// `422 ai.imagePromptCompaction.avoid.unprocessable`; both carry `characterLimit`, `characterCount` and
+    /// `promptBudget`. A class this host does not offer is `422 media.generation.quality_class.unprocessable`, the
+    /// picture request's own refusal. A deployment that cannot say its limit answers
+    /// `503 ai.imagePromptCompaction.unavailable`.
+    ///
+    /// **The avoid list is kept word for word and never shown to the model.** The proposal carries it as written,
+    /// beside a prompt shortened to fit what is left. A prompt the model cannot fit to that is refused, never cut,
+    /// and the operation fails.
+    ///
+    /// **Never silent.** Every proposal says it was shortened by AI and that the creator's own prompt is
+    /// unchanged, and lists what the model says it left out. Nothing is sent for pictures until the creator does
+    /// so, with the shortened text and this proposal's id.
+    /// </remarks>
+    [OperationLimit(LimitedOperation.AiRequest)]
+    [HttpPost("compactions")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<AiProposalStatusServiceModel>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public async Task<IActionResult> Compact(
+        string workspaceSlug,
+        RequestImagePromptCompactionViewModel model,
+        [FromHeader(Name = IdempotencyPolicy.KeyHeader)] string? idempotencyKey,
+        CancellationToken cancellationToken)
+    {
+        var outcome = await compactions.RequestAsync(model, idempotencyKey, cancellationToken);
 
         return this.IdempotentResult(outcome, accepted => Accepted(
             $"/api/v1/workspaces/{workspaceSlug}/image-prompt-requests/{accepted.AiProposalRequestId}",

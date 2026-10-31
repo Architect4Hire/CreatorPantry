@@ -1,4 +1,5 @@
 using FluentValidation;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 
 namespace CreatorPantry.Domain.Modules.Ai.Managers;
 
@@ -249,7 +250,7 @@ public static class AiProposalErrors
     /// this one says the month is spent.
     /// </para>
     /// </remarks>
-    public const string QuotaExhausted = "ai.quota.exhausted";
+    public const string QuotaExhausted = AiQuotaErrors.Exhausted;
 
     /// <summary>
     /// AI access is switched off for the requesting account, whatever allowance remains.
@@ -260,5 +261,8 @@ public static class AiProposalErrors
     /// answer. It carries no balance for the same reason: a remaining figure for an account that cannot spend
     /// it would read as an invitation to try again.
     /// </remarks>
-    public const string QuotaSuspended = "ai.quota.suspended";
+    public const string QuotaSuspended = AiQuotaErrors.Suspended;
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1); the shared code, as above.</summary>
+    public const string QuotaTrialEnded = AiQuotaErrors.TrialEnded;
 }

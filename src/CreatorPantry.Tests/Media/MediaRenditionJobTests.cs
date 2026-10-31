@@ -5,6 +5,7 @@ using CreatorPantry.Domain.Managers.Outbox;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Storage;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Business;
@@ -23,6 +24,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -68,6 +70,9 @@ public sealed class MediaRenditionJobTests : IDisposable
                     ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
                 })
                 .Build())
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddGeneratedImageWorker()
             .AddDbContext<CreatorPantryDbContext>(options => options

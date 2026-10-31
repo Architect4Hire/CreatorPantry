@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Modules.Content.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Publishing.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
 using CreatorPantry.Domain.Modules.Ingredients.Data.Entities;
 using CreatorPantry.Domain.Modules.Recipes.Data.Entities;
 using CreatorPantry.Domain.Modules.Vocabulary.Data.Entities;
@@ -344,6 +345,65 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
     /// </remarks>
     public DbSet<AccountAiQuotaReservation> AccountAiQuotaReservations => Set<AccountAiQuotaReservation>();
 
+    /// <remarks>
+    /// One account's choices about the notices the usage module raises — today, whether it is told when its
+    /// spendable credits run low (PRICE-011 as amended, B-59). The creator's row rather than an
+    /// administrator's, which is why it is not a column on the effective-dated quota; no row means on.
+    /// </remarks>
+    public DbSet<AccountAiNoticeSetting> AccountAiNoticeSettings => Set<AccountAiNoticeSetting>();
+
+    /// <remarks>
+    /// Which plan one account is on, from when (PRICE-007, AP.4.1): an append-only chain per account whose
+    /// constraints make two plans at once unstorable. Platform-scoped like the quota tables, because a plan is the
+    /// account's and never a workspace's (B-47). Holds a plan key, not the plan's figures.
+    /// </remarks>
+    public DbSet<AccountPlan> AccountPlans => Set<AccountPlan>();
+
+    /// <remarks>
+    /// Credits granted to one account beyond its period allowance — a pack bought, an operator's grant, a promotion
+    /// (PRICE-008, AP.5.1) — and what is left of each. Platform-scoped like the plan, and kept until spent (B-50):
+    /// no expiry, and never deleted (<see cref="RetainedRecordInterceptor"/>); a claw-back is recorded on the row.
+    /// </remarks>
+    public DbSet<AccountCreditGrant> AccountCreditGrants => Set<AccountCreditGrant>();
+
+    /// <remarks>
+    /// What one AI hold took from one grant and what became of it (AP.5.2), so a hold that settles low, is released
+    /// or lapses returns credits to the grant they came from. Platform-scoped, counts only, never deleted.
+    /// </remarks>
+    public DbSet<AccountCreditGrantDraw> AccountCreditGrantDraws => Set<AccountCreditGrantDraw>();
+
+    /// <remarks>
+    /// Which payment-provider customer one account is, per provider mode (PRICE-010, AP.6.1): the integration record
+    /// that holds a Stripe customer id, so no plan, grant or ServiceModel ever does. Platform-scoped like the plan,
+    /// and write-once.
+    /// </remarks>
+    public DbSet<BillingCustomer> BillingCustomers => Set<BillingCustomer>();
+
+    /// <remarks>
+    /// Every event the payment provider delivered, verified and stored before anything acted on it (AP.6.2). The
+    /// unique event id is the replay guard; no payload is kept. Platform-scoped.
+    /// </remarks>
+    public DbSet<BillingProviderEvent> BillingProviderEvents => Set<BillingProviderEvent>();
+
+    /// <remarks>
+    /// Each credit pack a creator paid for and what became of that payment (PRICE-008, B-50, AP.6.3): the integration
+    /// record that ties a checkout session and its payment to the grant they made, so a refund or a dispute can find
+    /// the credits it has to take back. Platform-scoped, never deleted.
+    /// </remarks>
+    public DbSet<BillingPackPurchase> BillingPackPurchases => Set<BillingPackPurchase>();
+
+    /// <remarks>
+    /// Each provider subscription and the account it bills, as last read from the provider (AP.6.2): the integration
+    /// record that holds the subscription, item and schedule ids, so the plan chain holds none. Platform-scoped.
+    /// </remarks>
+    public DbSet<BillingSubscription> BillingSubscriptions => Set<BillingSubscription>();
+
+    /// <remarks>
+    /// The whole platform's estimated picture spend for one UTC day and the breaker that stops it passing its
+    /// ceiling (PRICE-005). One row a day, one number about everybody, read only by the ops routes.
+    /// </remarks>
+    public DbSet<PlatformImageSpendDay> PlatformImageSpendDays => Set<PlatformImageSpendDay>();
+
     Guid? IWorkspaceIdSource.CurrentWorkspaceIdOrNull => workspaceContext is { IsResolved: true } context ? context.WorkspaceId : null;
 
     /// <remarks>
@@ -359,7 +419,8 @@ public class CreatorPantryDbContext(DbContextOptions<CreatorPantryDbContext> opt
         optionsBuilder.AddInterceptors(
             new WorkspaceOwnershipInterceptor(),
             new AuditLogImmutabilityInterceptor(),
-            new ImmutableRecordInterceptor());
+            new ImmutableRecordInterceptor(),
+            new RetainedRecordInterceptor());
     }
 
     /// <remarks>

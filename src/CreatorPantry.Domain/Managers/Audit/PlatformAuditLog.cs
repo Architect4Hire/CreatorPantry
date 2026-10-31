@@ -12,6 +12,12 @@ public enum PlatformAuditActorType
 
     /// <summary>A signed-in platform administrator.</summary>
     User = 2,
+
+    /// <summary>
+    /// The platform itself, acting on a rule an operator configured — the image spend breaker tripping
+    /// (AP.2.7). Nobody pressed anything, and the row says so rather than borrowing an ops client's name.
+    /// </summary>
+    System = 3,
 }
 
 /// <summary>

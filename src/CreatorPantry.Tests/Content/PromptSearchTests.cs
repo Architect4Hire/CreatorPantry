@@ -8,6 +8,7 @@ using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Content.Business;
 using CreatorPantry.Domain.Modules.Content.Facade;
@@ -25,6 +26,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Content;
 
@@ -63,6 +66,9 @@ public sealed class PromptSearchTests : IAsyncDisposable
             .AddIngredientModule()
             .AddRecipesModule()
             .AddContentModule()
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()
             .AddDistributedMemoryCache()

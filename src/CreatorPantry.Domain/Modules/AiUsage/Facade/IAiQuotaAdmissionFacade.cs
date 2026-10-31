@@ -45,6 +45,142 @@ public interface IAiQuotaAdmissionFacade
         AiQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Decides whether an account may be queued a picture, holding the exact price of the whole request
+    /// against its period when it may (AP.2.5). One concurrency-safe transaction. Stages; does not save.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Called at the request, where <see cref="AdmitAsync"/> is called at the worker</strong>, and the
+    /// difference is not a preference. The image worker resolves its workspace as a service identity so that a
+    /// picture a creator paid for still finishes after they have left the workspace — which means the worker's
+    /// ambient account is not the creator's and must never be charged. The request scope is the only place the
+    /// account is known, so the hold is taken there and settled later against its id alone.
+    /// </para>
+    /// <para>
+    /// <strong>It commits its own hold, and the caller owes a release if its operation then fails to
+    /// write.</strong> It cannot do otherwise: the period's row version is what stops two admissions for one
+    /// account both succeeding, and a concurrency check needs a transaction of its own. So the hold exists
+    /// before the operation row does, and the two cannot be made atomic — what makes them consistent is
+    /// <see cref="ReleaseImageAsync"/> on the failure path, with the expiry sweep behind it, which is the same
+    /// compensating-write shape the Media module already uses for an object it stored and then could not
+    /// name. A hold nobody releases strands that allowance until it lapses.
+    /// </para>
+    /// <para>
+    /// <strong>Admitted means the caller owes a settlement</strong> — one, however many passes the generation
+    /// takes. Replay-safe by the generation: a second admission for the same operation finds the hold it
+    /// already took.
+    /// </para>
+    /// </remarks>
+    Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records what one image generation was billed for: its ledger entries and the settlement of its hold,
+    /// together, on the caller's unit of work (AP.2.5). Stages; does not save.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One call rather than two, because the account is only knowable here.</strong> The ledger needs
+    /// the account that paid and the Media module never learns one; this reads it from the reservation, so an
+    /// entry and the hold it settles cannot disagree about who paid. It is also the same reason the AI module
+    /// stages its three writes through one helper: with them apart, a settled generation that posts no usage
+    /// is one forgotten line away, in the failure path nobody demonstrates.
+    /// </para>
+    /// <para>
+    /// <strong>Call it once, when the generation is finished for good.</strong> A requeued pass has not
+    /// finished: its hold stands, renewed with the lease, and the counts it contributed stay on the operation
+    /// until a terminal pass settles them all at once. That is what makes a resumed generation charge each
+    /// variant once.
+    /// </para>
+    /// <para>
+    /// Idempotent in both halves: a hold that is no longer held settles nothing, and a charge already in the
+    /// ledger is skipped rather than posted again.
+    /// </para>
+    /// </remarks>
+    Task StageImageUsageAsync(AiImageUsageServiceModel usage, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether an image generation's hold may still be spent, so the work it paid for may still be done (AP.2.5,
+    /// AP.7.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Asked before any picture is made, because a lapsed hold means nobody is paying.</strong> The
+    /// hold is taken when the request is made and is not renewed, so a generation that waited a long time in
+    /// the queue — behind its workspace's running cap, say — can be claimed after the expiry sweep has already
+    /// given its allowance back. Settlement would then charge nothing, and the pictures would have been free:
+    /// the one thing PRICE-001 exists to prevent.
+    /// </para>
+    /// <para>
+    /// <see cref="AiImageHoldState.Lapsed"/> for a hold that lapsed, was released, or was already settled. A
+    /// generation with no hold at all is not this question — the caller knows it has none, and refuses it.
+    /// </para>
+    /// <para>
+    /// <strong>And whether its account may still spend at all</strong> (AP.7.2, B-61): a picture waits in the queue
+    /// after its hold is taken, and an account switched off, or a trial that ended, in that time is refused here as
+    /// a text run is refused at its claim — before anything is made, so the hold settles at nothing.
+    /// </para>
+    /// </remarks>
+    Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gives back a hold whose generation was never queued (AP.2.5). Commits.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The compensation for <see cref="AdmitImageAsync"/>'s hold existing before the operation row. Two
+    /// requests sent with one idempotency key is the ordinary way to get here — a creator's double click, one
+    /// of which loses the unique index — and the loser's hold would otherwise show the account as having spent
+    /// allowance on a generation that does not exist, until it lapsed.
+    /// </para>
+    /// <para>
+    /// Idempotent, and safe to lose: it is the same write the expiry sweep makes, so the worst case of a
+    /// release that never ran is the delay this exists to avoid rather than a wrong balance. A hold with
+    /// anything settled against it is left alone.
+    /// </para>
+    /// </remarks>
+    Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What an image request would cost the account and what it would leave, without holding or writing
+    /// anything (AP.2.6).
+    /// </summary>
+    /// <param name="accountId">From <c>IWorkspaceContext.AccountId</c>, never a request field (USAGE-001).</param>
+    /// <param name="modelName">The model the deployment will send to, from the Media gateway's description.</param>
+    /// <param name="resolution">The tier it will send, or null for a model that takes none.</param>
+    /// <param name="quality">The quality it will send, or null for a model that takes none.</param>
+    /// <param name="variantCount">How many pictures, already checked by the caller.</param>
+    /// <param name="dailyImageCap">The plan's pictures a UTC day, exactly as admission is handed it; null for none.</param>
+    /// <param name="trialImageCap">The trial's pictures in all, exactly as admission is handed it; null for none.</param>
+    /// <remarks>
+    /// Priced by the converter <see cref="AdmitImageAsync"/> uses and judged by its predicates — the trial's cap, the
+    /// day's, then the balance, in admission's order (AP.7.2) — so a request the quote calls affordable is one
+    /// admission accepts unless something moves in between. A snapshot: it can be wrong a moment later, and admission
+    /// is still the decision.
+    /// </remarks>
+    Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
+
+    /// <summary>
+    /// What one picture of this model, tier and quality is charged, in credits, or null when this deployment has
+    /// no rate for it (AP.3.1, B-55). Reads configuration only; no account, no period.
+    /// </summary>
+    /// <remarks>
+    /// The price list a quality-class picker and the landing page publish, read through the same converter
+    /// admission holds with, so the figure shown for a class is the figure charged for it — never a second copy.
+    /// In credits whatever an account's own period is counted in, because a price list is the same for
+    /// everybody; a particular account's figures are <see cref="QuoteImageAsync"/>'s.
+    /// </remarks>
+    decimal? ImageCredits(string modelName, string? resolution, string? quality);
+
+    /// <summary>
     /// Whether an account could run this task right now, and what it has left — without holding anything.
     /// </summary>
     /// <param name="accountId">
@@ -119,7 +255,8 @@ public interface IAiQuotaAdmissionFacade
 }
 
 /// <inheritdoc cref="IAiQuotaAdmissionFacade"/>
-internal sealed class AiQuotaAdmissionFacade(IAiQuotaAdmissionBusiness business) : IAiQuotaAdmissionFacade
+internal sealed class AiQuotaAdmissionFacade(
+    IAiQuotaAdmissionBusiness business, IAiUsageRecordingBusiness recording) : IAiQuotaAdmissionFacade
 {
     public Task<AiQuotaAdmissionServiceModel> AdmitAsync(
         AiQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
@@ -128,6 +265,50 @@ internal sealed class AiQuotaAdmissionFacade(IAiQuotaAdmissionBusiness business)
 
         return business.AdmitAsync(request, cancellationToken);
     }
+
+    public Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return business.AdmitImageAsync(request, cancellationToken);
+    }
+
+    /// <remarks>
+    /// The settlement first, because it is what yields the account the ledger entries are attributed to, and a
+    /// hold that was already settled yields none — in which case its charges are already posted too. Both
+    /// stage on the caller's unit of work, so they commit together or neither does.
+    /// </remarks>
+    public async Task StageImageUsageAsync(AiImageUsageServiceModel usage, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        if (await business.StageImageSettlementAsync(usage, cancellationToken) is { } accountId)
+        {
+            await recording.StageImageChargesAsync(accountId, usage, cancellationToken);
+        }
+    }
+
+    public Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        business.CheckImageHoldAsync(reservationId, cancellationToken);
+
+    public Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        business.ReleaseImageAsync(reservationId, cancellationToken);
+
+    public Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null) =>
+        business.QuoteImageAsync(
+            accountId, modelName, resolution, quality, variantCount, cancellationToken, dailyImageCap, trialImageCap);
+
+    public decimal? ImageCredits(string modelName, string? resolution, string? quality) =>
+        business.ImageCredits(modelName, resolution, quality);
 
     public Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken) =>

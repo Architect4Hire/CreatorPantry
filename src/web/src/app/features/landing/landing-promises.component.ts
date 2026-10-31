@@ -24,8 +24,9 @@ export interface BillingPromise {
 /**
  * The three promises about what a creator will and will not be charged (LP.2 section 9, LND-004).
  *
- * Two of them describe billing that is not built, and say so on their own face rather than in a footnote. The
- * middle one is how the product behaves today: an allowance at nought refuses the work before it starts.
+ * Only the first describes billing that is not built, and it says so on its own face rather than in a
+ * footnote. The other two are how the product behaves today: an allowance at nought refuses the work before
+ * it starts, and an account running low is told once and offered a pack (AP.6.4).
  */
 export const BILLING_PROMISES: readonly BillingPromise[] = [
   {
@@ -38,9 +39,11 @@ export const BILLING_PROMISES: readonly BillingPromise[] = [
     body: 'When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to read, edit and download.',
   },
   {
-    heading: 'Top-up is yours to switch on',
-    body: 'Automatic top-up is off unless you turn it on, and you set the most it may spend in a month.',
-    comingLabel: COMING_WITH_BILLING,
+    // B-59: there is no automatic top-up. Running low brings a notice offering a pack, which the creator buys.
+    // Unlabelled since AP.6.4 built the notice: the product does this now, and the pack the notice offers is a
+    // Checkout the creator completes.
+    heading: 'Running low? You hear first',
+    body: 'When your credits run low, we tell you and offer a pack. Nothing is ever bought for you.',
   },
 ];
 

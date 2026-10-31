@@ -26,7 +26,20 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
                 "CK_AccountAiQuotaPeriods_Totals_NotNegative",
                 "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
 
-            // Deliberately NOT constrained: Consumed + Reserved <= Allowance + CarriedOver. A provider can use
+            // A top-up is only ever an upgrade of a plan's grant (AP.4.2), so a period with one names the plan it
+            // opened under; a period an ops quota or the platform default decided is never topped up. Cast for
+            // the comparison with nought because SQLite stores a decimal as text, where '0.0' = 0 is false.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_UpgradeGranted_FromPlan",
+                "UpgradeGranted >= 0 AND (PlanKey IS NOT NULL OR CAST(UpgradeGranted AS REAL) <= 0)");
+
+            // What this period's open holds took from grants (AP.5.2): never below nought, since a hold gives back
+            // exactly what it added. Cast, for the SQLite reason above.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_GrantReserved_NotNegative",
+                "CAST(GrantReserved AS FLOAT) >= 0");
+
+            // Deliberately NOT constrained: Consumed + Reserved <= Allowance + UpgradeGranted + CarriedOver. A provider can use
             // more than the reservation estimated, and refusing to record that overshoot would be far worse
             // than storing it — an unrecordable settlement is a lost attempt. Handling the overshoot is the
             // settlement seam's job (9A.5), not the database's.
@@ -36,6 +49,13 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
             table.HasCheckConstraint(
                 "CK_AccountAiQuotaPeriods_Settled_After_End",
                 "SettledAt IS NULL OR SettledAt >= EndsAt");
+
+            // A dismissal is a dismissal *of* something: there is nothing to dismiss before the notice was
+            // raised, and a dismissal recorded before it would be two facts disagreeing (B-59).
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaPeriods_LowCreditNotice_Dismissed_After_Raised",
+                "LowCreditNoticeDismissedAt IS NULL OR (LowCreditNoticedAt IS NOT NULL "
+                    + "AND LowCreditNoticeDismissedAt >= LowCreditNoticedAt)");
         });
 
         builder.HasKey(period => period.Id);
@@ -61,6 +81,13 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
+        builder.Property(period => period.PlanKey)
+            .HasMaxLength(AiUsagePolicy.PlanKeyMaxLength);
+
+        builder.Property(period => period.UpgradeGranted)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
         builder.Property(period => period.Consumed)
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
@@ -68,6 +95,15 @@ internal sealed class AccountAiQuotaPeriodConfiguration : IEntityTypeConfigurati
         builder.Property(period => period.Reserved)
             .IsRequired()
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(period => period.GrantReserved)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        // Both nullable, and null is the meaning rather than missing data: not told yet, and not dismissed
+        // yet. Neither is indexed — every read of them already has the period row in hand.
+        builder.Property(period => period.LowCreditNoticedAt);
+        builder.Property(period => period.LowCreditNoticeDismissedAt);
 
         // Contended counters, not collaborative editing: two workers reserving for the same account must not
         // both read the same remaining balance and both be admitted (USAGE-004). The loser gets a conflict to

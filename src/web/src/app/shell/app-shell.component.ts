@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import { CpButtonComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
+
+import { LowCreditNoticeComponent } from '../shared/low-credit-notice/low-credit-notice.component';
+import { PACK_PURCHASE_LINK } from '../shared/pack-purchase-link';
 
 import { AiUsageService } from '../services/ai-usage.service';
 import { AuthService } from '../services/auth.service';
@@ -74,8 +77,8 @@ const NAV_GROUPS: readonly ShellNavGroup[] = [
       { path: 'recipes', label: 'Recipes', icon: 'recipes' },
       { path: 'brand', label: 'Brand', icon: 'brand' },
       { path: 'ai-recipe-studio', label: 'AI Recipe Studio', icon: 'ai' },
-      { path: 'image-studio', label: 'Image Studio', icon: 'image' },
-      { path: 'social-studio', label: 'Social Studio', icon: 'social' },
+      { path: 'image-studio', label: 'AI Image Studio', icon: 'image' },
+      { path: 'social-studio', label: 'AI Social Studio', icon: 'social' },
     ],
   },
   {
@@ -109,6 +112,7 @@ const NAV_ITEMS: readonly ShellNavItem[] = NAV_GROUPS.flatMap((group) => group.i
     CpLogoComponent,
     QuickCaptureComponent,
     ShellNavIconComponent,
+    LowCreditNoticeComponent,
   ],
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.scss',
@@ -206,6 +210,30 @@ export class AppShellComponent {
     this.allowance().kind === 'nearly-spent' ? 'warning' : 'error',
   );
 
+  /**
+   * The low-credit notice, shown above whichever page the creator is on (B-59).
+   *
+   * In the shell because it is about the account rather than the page: it can be raised by work started
+   * anywhere, and a creator who moves on before reading it should still see it.
+   */
+  readonly lowCredit = this.usage.lowCredit;
+
+  /** No "Get a credit pack" on the page that link already points at: that is a loop, not an offer. */
+  readonly offerPack = computed(() => `/app/${this.currentSection()}` !== PACK_PURCHASE_LINK);
+
+  /**
+   * Puts the notice away and catches the focus it takes with it.
+   *
+   * The Dismiss button is inside the thing being removed, so without this the creator's focus falls to
+   * <body> and a keyboard user restarts above the navigation. The content region is the nearest place that
+   * is still about what they were doing.
+   */
+  protected dismissLowCredit(): void {
+    void this.usage.dismissLowCreditNotice();
+
+    this.mainRegion()?.nativeElement.focus({ preventScroll: true });
+  }
+
   constructor() {
     void this.membershipService.ensureLoaded();
     void this.usage.ensureLoaded();
@@ -214,6 +242,9 @@ export class AppShellComponent {
     const unregister = inject(QuickCaptureService).register((options) => this.quickCapture()?.open(options));
     inject(DestroyRef).onDestroy(unregister);
   }
+
+  /** The content region, focused when the shell removes something the creator was standing on. */
+  private readonly mainRegion = viewChild<ElementRef<HTMLElement>>('mainRegion');
 
   /** The capture dialog, while the current workspace offers one. */
   private readonly quickCapture = viewChild(QuickCaptureComponent);

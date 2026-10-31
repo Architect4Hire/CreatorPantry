@@ -1,10 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import {
   CpButtonComponent,
   CpCardComponent,
+  CpCheckboxComponent,
   CpCardGridComponent,
+  CpFactComponent,
+  CpFactsComponent,
   CpListShellComponent,
   CpListShellState,
+  CpNoticeComponent,
   CpPageHeadComponent,
   CpProgressComponent,
   CpProgressTone,
@@ -14,6 +18,8 @@ import {
   CpStatusPillTone,
   CpTopicCardComponent,
 } from '@creator-pantry/ui';
+
+import { RouterLink } from '@angular/router';
 
 import { injectRouteTitle } from '../../core/route-title';
 
@@ -49,10 +55,19 @@ const TASK_LABELS: Record<AiTaskType, string> = {
   ChannelPosts: 'Channel posts',
   LongFormOutline: 'Article and newsletter plans',
   LongFormSection: 'Article and newsletter sections',
+  ImageGeneration: 'Pictures',
 };
 
 /** A workspace the account has left keeps its spend and loses its name (USAGE-008). */
 const WITHHELD_WORKSPACE = 'A workspace you’ve left';
+
+/** What a pack tile says beside its figure: when packs are spent, and that they keep (PRICE-008, B-50). */
+const PACK_CONTEXT = 'Used after your allowance. They don’t expire.';
+
+/** Sentences joined with one space, leaving out any that are empty, so nothing trails or doubles a space. */
+function sentences(...parts: readonly string[]): string {
+  return parts.filter((part) => part.length > 0).join(' ');
+}
 
 const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check your connection and try again.';
 
@@ -72,11 +87,16 @@ const COULD_NOT_LOAD = 'We couldn’t load your AI allowance just now. Check you
   selector: 'cp-ai-usage',
   standalone: true,
   imports: [
+    RouterLink,
     CpPageHeadComponent,
     CpButtonComponent,
     CpCardComponent,
     CpCardGridComponent,
+    CpCheckboxComponent,
+    CpFactComponent,
+    CpFactsComponent,
     CpListShellComponent,
+    CpNoticeComponent,
     CpProgressComponent,
     CpSkeletonComponent,
     CpStatTileComponent,
@@ -104,6 +124,46 @@ export class AiUsageComponent {
     // this page is the authoritative view of the figure. Arriving here should not show a balance from the
     // start of the session.
     void this.usage.refresh();
+  }
+
+  /**
+   * Whether the creator wants to be told when their credits run low (B-59).
+   *
+   * A linked signal rather than a plain read of the service: the control moves the moment it is clicked, and
+   * re-follows the server whenever the allowance is read again — including after a save, which is what puts
+   * the control back if the save did not take.
+   */
+  protected readonly noticeEnabled = linkedSignal(() => this.usage.lowCreditNoticeEnabled());
+
+  /** True while the choice is on its way, so a double click cannot send two. */
+  protected readonly savingNotice = signal(false);
+
+  /** Set when the choice could not be recorded. Cleared by the next attempt. */
+  protected readonly noticeProblem = signal(false);
+
+  /**
+   * Records the choice, having already shown it.
+   *
+   * A failure puts the control back rather than leaving a creator believing they have switched something off
+   * that is still on — the one outcome worth a message on a page whose other states are all figures.
+   */
+  protected async setNoticeEnabled(enabled: boolean): Promise<void> {
+    // A second press while the first is in flight is ignored rather than disabled away, so the control the
+    // creator is standing on keeps focus.
+    if (this.savingNotice()) return;
+
+    this.noticeEnabled.set(enabled);
+    this.noticeProblem.set(false);
+    this.savingNotice.set(true);
+
+    try {
+      if (!(await this.usage.setLowCreditNoticeEnabled(enabled))) {
+        this.noticeEnabled.set(!enabled);
+        this.noticeProblem.set(true);
+      }
+    } finally {
+      this.savingNotice.set(false);
+    }
   }
 
   /** The figures on screen, or null while there are none. */
@@ -171,11 +231,75 @@ export class AiUsageComponent {
     const whole = allowanceFigure(figures.allowance, figures.unit);
     if (left === null || used === null || whole === null) return null;
 
-    return [
+    const tiles = [
       { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
-      { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: '' },
+      { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: this.usedContext() },
       { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
     ];
+
+    // The packs as a figure of their own, beside the allowance and never added to it (AP.5.3). None until there
+    // are some: packs cannot be bought yet, and "0 in credit packs" would read as something missing.
+    const packs = figures.packRemaining > 0 ? allowanceFigure(figures.packRemaining, figures.unit) : null;
+    if (packs !== null) {
+      tiles.push({ id: 'packs', value: packs.value, label: `${packs.noun} in credit packs`, context: PACK_CONTEXT });
+    }
+
+    return tiles;
+  });
+
+  /**
+   * The allowance is used up and the packs are what AI help is coming from now (AP.5.2). Not `exhausted` — the
+   * service keeps that for when both are gone — so this is the one healthy state the page has to name itself.
+   */
+  protected readonly onPacks = computed(() => {
+    const allowance = this.allowance();
+    return allowance.kind === 'healthy' && allowance.period.remaining <= 0 && allowance.period.packRemaining > 0;
+  });
+
+  /** The plan, when this host names one. */
+  protected readonly plan = computed(() => this.currentUsage()?.plan ?? null);
+
+  /**
+   * Whether the allowance comes back at the reset — the server's answer, false for a trial's credits (B-48). With
+   * no plan named, it renews as allowances always have.
+   */
+  private readonly renews = computed(() => this.plan()?.allowanceRenews ?? true);
+
+  /** The reset as a fact beside the plan: the date, or that a trial's credits do not come back. */
+  protected readonly resetFact = computed(() => {
+    const figures = this.figures();
+    if (figures === null) return null;
+
+    if (!this.renews()) return { label: 'Trial credits', value: 'Not renewed' };
+
+    const when = formatAllowanceReset(figures.resetsAt, figures.timeZoneId);
+    return when === null ? null : { label: 'Allowance comes back', value: when };
+  });
+
+  /**
+   * The plan's pictures as facts beside it (DL.9): today's used of the cap, what is left and when more come, and a
+   * trial's in all. Every figure the server's — `left` is sent, never worked out here — and none when it sends none.
+   */
+  protected readonly pictureFacts = computed(() => {
+    const usage = this.currentUsage();
+    if (usage === null) return [];
+
+    const facts: { readonly label: string; readonly value: string }[] = [];
+    const today = usage.picturesToday;
+    const trial = usage.trialPictures;
+
+    if (today !== null) {
+      const when = formatAllowanceReset(today.resetsAt, 'Etc/UTC');
+      // The run's phrase, so the page and the picture step say when in the same words (DL.9).
+      const more = when === null ? 'more come back at midnight UTC' : `more come back on ${when} (UTC)`;
+      facts.push({ label: 'Pictures today', value: `${today.used} of ${today.cap} used · ${today.left} left · ${more}` });
+    }
+
+    if (trial !== null) {
+      facts.push({ label: 'Trial pictures', value: `${trial.used} of ${trial.cap} used · ${trial.left} left` });
+    }
+
+    return facts;
   });
 
   /**
@@ -194,12 +318,30 @@ export class AiUsageComponent {
     return parts.join(' ');
   });
 
+  /**
+   * What the used credits went on — pictures, and everything else — each the server's own total (AP.2.6). Nothing
+   * said before anything has been spent.
+   */
+  private readonly usedContext = computed(() => {
+    const usage = this.currentUsage();
+    const figures = this.figures();
+    if (usage === null || figures === null || (usage.pictures === 0 && usage.writing === 0)) return '';
+
+    const pictures = formatAllowanceAmount(usage.pictures, figures.unit);
+    const writing = formatAllowanceAmount(usage.writing, figures.unit);
+
+    return pictures === null || writing === null ? '' : `${pictures} on pictures and ${writing} on writing.`;
+  });
+
   /** Skeleton places for the figures while they load. */
   protected readonly tilePlaces = [0, 1, 2] as const;
 
   protected readonly resetLine = computed(() => {
     const figures = this.figures();
     if (figures === null) return '';
+
+    // A trial's credits are granted once: promising them back on a date would be a promise the server will not keep.
+    if (!this.renews()) return 'Trial credits are granted once, so they don’t come back.';
 
     const when = formatAllowanceReset(figures.resetsAt, figures.timeZoneId);
 
@@ -219,6 +361,10 @@ export class AiUsageComponent {
   });
 
   protected readonly meterTone = computed<CpProgressTone>(() => {
+    // Nothing is wrong: the packs are doing what they were bought for. The untoned fill, so the meter does not
+    // warn about a state the pill and the words call ordinary.
+    if (this.onPacks()) return 'default';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'warning';
@@ -232,6 +378,8 @@ export class AiUsageComponent {
 
   /** The state in words and a glyph. The meter's colour repeats this; it never carries it alone. */
   protected readonly statusLabel = computed(() => {
+    if (this.onPacks()) return 'Using credit packs';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'Nearly spent';
@@ -247,6 +395,8 @@ export class AiUsageComponent {
   });
 
   protected readonly statusTone = computed<CpStatusPillTone>(() => {
+    if (this.onPacks()) return 'progress';
+
     switch (this.allowance().kind) {
       case 'nearly-spent':
         return 'warning';
@@ -265,19 +415,33 @@ export class AiUsageComponent {
    * allowance comes back on its own and a suspension does not.
    */
   protected readonly explanation = computed(() => {
+    // Said once in the card: when the facts beside the plan carry the reset, the sentence leaves it to them.
+    const reset = this.resetInFacts() ? '' : this.resetLine();
+
+    if (this.onPacks()) {
+      return sentences(`Your allowance is used up ${this.periodWord()}, so AI help now comes from ${this.packsPhrase()}.`, reset);
+    }
+
     switch (this.allowance().kind) {
       case 'suspended':
         return 'AI assistance is switched off for your account. Get in touch and we can look into it. Everything else in CreatorPantry works as usual.';
       case 'exhausted':
-        return `You can keep writing and editing recipes as usual. ${this.resetLine()}`;
+        return sentences('You can keep writing and editing recipes as usual.', reset);
       case 'nearly-spent':
-        return `You can still ask for AI help, but not much more ${this.periodWord()}. ${this.resetLine()}`;
+        // The server's line is about the allowance alone, as a picture quote's is (AP.2.6); the packs are why
+        // "not much more" would be untrue, so they are said rather than folded into the warning.
+        return this.figures()!.packRemaining > 0
+          ? sentences(`Your allowance is nearly spent ${this.periodWord()}. After that, AI help comes from ${this.packsPhrase()}.`, reset)
+          : sentences(`You can still ask for AI help, but not much more ${this.periodWord()}.`, reset);
       case 'degraded':
         return 'We couldn’t check just now, so these are the last figures we had.';
       default:
-        return this.resetLine();
+        return reset;
     }
   });
+
+  /** Whether the plan's facts say when the allowance comes back, so the explanation need not say it again. */
+  private readonly resetInFacts = computed(() => this.plan() !== null && this.resetFact() !== null);
 
   protected readonly byTask = computed(() => {
     const usage = this.currentUsage();
@@ -333,8 +497,13 @@ export class AiUsageComponent {
       case 'error':
         return this.attempts() === 0 ? COULD_NOT_LOAD : `Still couldn’t load your AI allowance. ${COULD_NOT_LOAD}`;
 
+      // The reset is the facts' alone on screen when a plan is named, and still part of the one sentence heard.
       default:
-        return `${this.statusLabel()}. ${this.headline()}. ${this.explanation()}`;
+        return sentences(
+          `${this.statusLabel()}. ${this.headline()}.`,
+          this.explanation(),
+          this.resetInFacts() ? this.resetLine() : '',
+        );
     }
   });
 
@@ -350,6 +519,14 @@ export class AiUsageComponent {
       this.retrying.set(false);
       this.attempts.update((count) => count + 1);
     }
+  }
+
+  /** "your credit packs, which hold 400 AI credits" — without the count for a unit this page does not quote. */
+  private packsPhrase(): string {
+    const figures = this.figures();
+    const held = figures === null ? null : formatAllowanceAmount(figures.packRemaining, figures.unit);
+
+    return held === null ? 'your credit packs' : `your credit packs, which hold ${held}`;
   }
 
   /** A breakdown row's amount, in the period's own unit. Shortened: the header already says what these are. */

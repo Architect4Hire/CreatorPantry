@@ -206,7 +206,10 @@ internal sealed partial class LongFormSectionAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiLongFormSectionOutputValidator.AsDelegate),
+                AiLongFormSectionOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.LongFormSection,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

@@ -7,7 +7,7 @@ import { HttpErrorResponse } from '@angular/common/http';
  * shape the server validates — `errors`, the field messages keyed by camelCase request path. This is the one
  * reader of that body; a service that decodes it by hand is a second copy to keep in step.
  */
-function bodyOf(error: unknown): Record<string, unknown> | null {
+export function problemBodyOf(error: unknown): Record<string, unknown> | null {
   if (!(error instanceof HttpErrorResponse)) return null;
 
   const body: unknown = error.error;
@@ -22,21 +22,21 @@ export function statusCodeOf(error: unknown): number | null {
 
 /** The stable `code` extension on a ProblemDetails body — see `ProblemResults.StatusFor` server-side. */
 export function problemCodeOf(error: unknown): string | null {
-  const code = bodyOf(error)?.['code'];
+  const code = problemBodyOf(error)?.['code'];
 
   return typeof code === 'string' ? code : null;
 }
 
 /** `ProblemDetails.title`, which carries the server's own sentence about a refusal. */
 export function problemMessageOf(error: unknown): string | null {
-  const title = bodyOf(error)?.['title'];
+  const title = problemBodyOf(error)?.['title'];
 
   return typeof title === 'string' && title.trim() !== '' ? title : null;
 }
 
 /** `ValidationProblemDetails.errors`, keyed by camelCase request field name. Anything malformed is dropped. */
 export function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
-  const errors = bodyOf(error)?.['errors'];
+  const errors = problemBodyOf(error)?.['errors'];
   if (typeof errors !== 'object' || errors === null) return {};
 
   const result: Record<string, readonly string[]> = {};

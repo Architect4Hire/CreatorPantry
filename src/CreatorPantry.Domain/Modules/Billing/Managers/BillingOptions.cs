@@ -1,10 +1,13 @@
 namespace CreatorPantry.Domain.Modules.Billing.Managers;
 
 /// <summary>
-/// The published plan catalogue, in configuration so the owner can change a price without a code change
-/// (AP.4.1). This is the catalogue half of that prompt and nothing more: there is no <c>AccountPlan</c> table
-/// yet, so nothing here is attached to an account, and no code reads these figures to admit or refuse work.
-/// The landing page is the only consumer (LP.6).
+/// The plan catalogue, in configuration so the owner can change a price without a code change (AP.4.1). The
+/// landing page publishes it (LP.6), and <c>IAccountPlanFacade</c> reads it to say what terms the plan an account
+/// is on carries. Work is admitted and refused by those terms: a picture is held to
+/// <see cref="PlanOption.DailyImageCap"/> and an allowance period opens at <see cref="PlanOption.Credits"/>, both
+/// through <c>IAiQuotaAdmissionFacade</c> (AP.4.2, DL.4–DL.8). What a card states about a cap is therefore what
+/// the product keeps, and <see cref="PublishedPlanCapsValidation"/> stops a host starting that would publish one
+/// it could not (DL.6).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,23 +34,65 @@ public sealed class BillingOptions
     /// <summary>ISO 4217 code every price here is in. One currency: there is no localisation of money yet.</summary>
     public string Currency { get; set; } = "USD";
 
+    /// <summary>
+    /// The key of the plan an account is on when no <c>AccountPlan</c> row says otherwise — no row at all, a row
+    /// that says "the default", or a row naming a plan the catalogue no longer has. Required, and must name a
+    /// plan, whenever <see cref="Plans"/> has any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Decided (B-64):</b> a deployment that configures plans sets <c>trial</c>, so a new sign-up starts its
+    /// trial; development sets <c>studio</c> (B-56). A trial ends <see cref="PlanOption.TrialDays"/> after its account
+    /// was created (AP.7.1, B-61), and an account still on it after that is admitted no AI work until it chooses a
+    /// plan — which is also where a lapsed subscription lands (B-60).
+    /// </para>
+    /// <para>
+    /// With no plans configured, which is every deployment today, there is no default either, and an account
+    /// resolves to no plan at all: whatever reads plans keeps the flat limits it had before them.
+    /// </para>
+    /// </remarks>
+    public string? DefaultPlan { get; set; }
+
     public IList<PlanOption> Plans { get; set; } = [];
 
     public IList<CreditPackOption> Packs { get; set; } = [];
 
     /// <summary>What one action of each kind costs, as the public "what a credit buys" menu states it.</summary>
     public CreditRatesOption Rates { get; set; } = new();
+
+    /// <summary>
+    /// The web origins a payment provider may send a creator back to (AP.6.5): the browser names its own, and it is
+    /// used only when listed here, so a request cannot make a Checkout return anywhere else. The first is the
+    /// default. The AppHost lists the web host and, in a local run, the dev server — the origins the gateway allows.
+    /// </summary>
+    /// <remarks>Empty means this host can start no payment, and the billing routes say payments are unavailable.</remarks>
+    public IList<string> ReturnOrigins { get; set; } = [];
 }
 
 /// <summary>
-/// The typical credit cost of one action of each kind (LP.7). Published so a visitor can see what a credit
-/// buys and estimate which plan fits what they make.
+/// The typical credit cost of one written action of each kind (LP.7). Published so a visitor can see what a
+/// credit buys and estimate which plan fits what they make.
 /// </summary>
 /// <remarks>
-/// These are the figures the page states, not the ones admission charges. Text settles against
-/// <c>AiQuotaOptions.DefaultTaskEstimate</c> today, and pictures are not charged against an allowance at all
-/// until AP.2.4 and AP.2.5 ship — which is why the whole catalogue stays unpublished outside development.
-/// Publishing a rate the product does not charge would be a claim the product cannot keep.
+/// <para>
+/// <strong>Text only, since AP.4.5.</strong> There used to be three picture figures here as well, typed by
+/// hand. A picture's price is not typical and never was guesswork: it is the <c>Ai:Quota:ImageRates</c> row for
+/// what the chosen quality class sends, which is what admission holds against — so publishing a second copy
+/// invited the page and the charge to disagree. The page now reads those rates themselves
+/// (<c>PictureClassRateServiceModel</c>), and the one source rule in AP.4.5's RESTRICTION is what removed
+/// these.
+/// </para>
+/// <para>
+/// Text stays, because it genuinely is typical: a run settles at the tokens the model reported, against
+/// <c>AiQuotaOptions</c>'s per-call estimate, so the page says "about" for it and nothing else.
+/// </para>
+/// <para>
+/// <strong>What reads these two.</strong> The published menu (<c>CreditRatesServiceModel</c>) and the server's own
+/// estimate for it (<c>GET /api/v1/plans/estimate</c>, AP.7.2), which prices a month of writing at
+/// <see cref="TextDraft"/> so the browser divides nothing. Neither charges anything by them — that is
+/// <c>Ai:Quota:*</c>'s per-call estimate, settled against the model's reported tokens — which is why these are the
+/// only two figures on the page labelled "about".
+/// </para>
 /// </remarks>
 public sealed class CreditRatesOption
 {
@@ -55,14 +100,8 @@ public sealed class CreditRatesOption
 
     public int LongFormSection { get; set; }
 
-    public int ImageDraft { get; set; }
-
-    public int ImageStandard { get; set; }
-
-    public int ImageHigh { get; set; }
-
     /// <summary>Every rate, for the validation that none of them is nought in a published catalogue.</summary>
-    public IEnumerable<int> All() => [TextDraft, LongFormSection, ImageDraft, ImageStandard, ImageHigh];
+    public IEnumerable<int> All() => [TextDraft, LongFormSection];
 }
 
 /// <summary>One plan as the catalogue publishes it.</summary>
@@ -79,17 +118,51 @@ public sealed class PlanOption
     /// <summary>What a month works out at when a year is paid up front. Zero for a free trial.</summary>
     public decimal AnnualMonthlyPrice { get; set; }
 
-    /// <summary>AI credits the plan includes each period.</summary>
+    /// <summary>AI credits the plan includes each <see cref="Period"/>: the plan's allowance.</summary>
+    /// <remarks>
+    /// Read when an allowance period opens (<c>IAiQuotaPeriodResolver</c>, DL.8): the account's spendable total is
+    /// this figure rather than <c>Ai:Quota:DefaultAllowance</c>. An ops-set <c>AccountAiQuota.Allowance</c> still
+    /// wins, and an account on no plan keeps the default.
+    /// </remarks>
     public int Credits { get; set; }
 
-    /// <summary>
-    /// What those credits buy, in the creator's terms — "about 20 recipe drafts, 40 social posts and 60
-    /// pictures". Prose, because it is an illustration rather than an entitlement.
-    /// </summary>
-    public string ExampleMix { get; set; } = string.Empty;
+    /// <summary>How often <see cref="Credits"/> are granted. Monthly, or once for a trial.</summary>
+    public PlanAllowancePeriod Period { get; set; }
 
-    /// <summary>Pictures that may be generated in a UTC day.</summary>
+    /// <summary>
+    /// What those credits make in one period, in the creator's terms: recipes drafted, social posts and
+    /// pictures, all in the same month. An illustration rather than an entitlement — the credits are what is
+    /// granted — but one that has to fit them, so it is counts rather than prose.
+    /// </summary>
+    /// <remarks>
+    /// Counts, so the landing page can lead each card with the recipes and the pictures as figures, and so a
+    /// test can price the mix at the published rates (<c>PictureClassRateTests</c>) instead of parsing a sentence.
+    /// </remarks>
+    public PlanExampleOption? ExampleCounts { get; set; }
+
+    /// <summary>Pictures the account may ask for in a UTC day, across every workspace it works in.</summary>
+    /// <remarks>
+    /// Published on the plan's card and enforced from this one field (DLIM-004): <c>IAccountPlanFacade.ResolveAsync</c>
+    /// carries it to <c>IGeneratedImageGenerationBusiness</c>, which hands it to admission, where a request past it
+    /// is refused as <c>AiQuotaAdmissionOutcome.DailyImageCap</c> — <c>limits.budget.exhausted</c> at
+    /// <c>LimitScope.User</c> — before anything is held, and the worker checks again before spending. The same
+    /// figure is the day's cap a creator is shown (<c>AiUsageReadBusiness.PictureCapsAsync</c>, DL.9). The
+    /// workspace's own <c>Limits:ImageVariantsPerWorkspacePerDay</c> stays beside it as a runaway bound, and a
+    /// request passes both. <c>ImagesJourneyEndToEndTests.PublishedCaps</c> holds the published figure and the
+    /// enforced one equal, per development plan, through the gateway.
+    /// </remarks>
     public int DailyImageCap { get; set; }
+
+    /// <summary>
+    /// Pictures the account may have generating at once. Not published: the landing page makes no claim about it.
+    /// </summary>
+    /// <remarks>
+    /// Enforced from the queue rather than at admission (AP.4.2): the plan's figure is recorded on each
+    /// <c>GeneratedImageOperation</c> as <c>RunningImagesCap</c> when it is queued, and
+    /// <c>GeneratedImageClaimRepository</c> leaves a generation unclaimed while that many of the account's are
+    /// already running. The flat <c>Limits:ImageRunningPerWorkspace</c> stays beside it.
+    /// </remarks>
+    public int RunningImages { get; set; }
 
     /// <summary>The picture quality classes the plan may ask for, in increasing order.</summary>
     public IList<string> QualityClasses { get; set; } = [];
@@ -97,8 +170,41 @@ public sealed class PlanOption
     /// <summary>The one plan the page recommends. Exactly one plan may set it; startup refuses otherwise.</summary>
     public bool Recommended { get; set; }
 
-    /// <summary>Set only on a trial plan: how many days it lasts. Null on a paid plan.</summary>
+    /// <summary>
+    /// Set only on a trial plan: how many days it lasts, counted from the account's creation (AP.7.1). Null on a paid
+    /// plan.
+    /// </summary>
     public int? TrialDays { get; set; }
+
+    /// <summary>
+    /// Set only on a trial plan: how many pictures the whole trial may generate, beside its daily cap. The trial
+    /// gate the owner chose instead of a card on file (<c>ai-pricing.md</c> B-52). Null on a paid plan.
+    /// </summary>
+    /// <remarks>
+    /// Published so the page states the figure admission enforces, and read from here by admission (AP.7.1) — the
+    /// account's plan carries this value, never a second copy of it. Counted from the account's picture holds, across
+    /// every workspace and day.
+    /// </remarks>
+    public int? TrialImageCap { get; set; }
+}
+
+/// <summary>
+/// One month a plan's credits pay for, all of it at once: the sales pitch on its card (owner, 2026-10-28).
+/// </summary>
+/// <remarks>
+/// <strong>"And", never "or".</strong> Every count here is made in the same period, so the mix is priced as a
+/// sum — writing at <c>Billing:Rates:TextDraft</c>, pictures at the default quality's rate — and that sum must
+/// not exceed the plan's credits. A ceiling for each on its own ("900 drafts or 90 pictures") would read as
+/// "and" on a card and promise twice what the plan holds.
+/// </remarks>
+public sealed class PlanExampleOption
+{
+    public int RecipeDrafts { get; set; }
+
+    public int SocialPosts { get; set; }
+
+    /// <summary>Pictures at the default quality — what a creator gets without choosing one.</summary>
+    public int Pictures { get; set; }
 }
 
 /// <summary>

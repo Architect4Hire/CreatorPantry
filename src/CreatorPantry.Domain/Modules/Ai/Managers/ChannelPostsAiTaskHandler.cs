@@ -120,7 +120,10 @@ internal sealed class ChannelPostsAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiChannelPostsOutputValidator.For(channelKeys)),
+                AiChannelPostsOutputValidator.For(channelKeys))
+            {
+                Task = AiTaskType.ChannelPosts,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

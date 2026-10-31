@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,7 @@ public sealed class PlansEndpointTests
         {
             billing.PublishPlans = published;
             billing.Currency = "USD";
+            billing.DefaultPlan = "creator";
             billing.Plans =
             [
                 new PlanOption
@@ -28,15 +30,19 @@ public sealed class PlansEndpointTests
                     MonthlyPrice = 19,
                     AnnualMonthlyPrice = 15,
                     Credits = 6000,
-                    ExampleMix = "50 recipe drafts, 100 social posts and 80 pictures",
+                    ExampleCounts = new PlanExampleOption { RecipeDrafts = 50, SocialPosts = 100, Pictures = 80 },
                     DailyImageCap = 25,
+                    Period = PlanAllowancePeriod.Monthly,
+                    RunningImages = 1,
                     QualityClasses = ["draft", "standard", "high"],
                     Recommended = true,
                 },
             ];
             billing.Packs = [new CreditPackOption { Key = "small", Credits = 2500, Price = 10 }];
-            billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10, ImageDraft = 25, ImageStandard = 50, ImageHigh = 90 };
-        });
+            billing.Rates = new CreditRatesOption { TextDraft = 10, LongFormSection = 10 };
+        })
+        // A published plan's daily cap is enforced only with limits on (DL.6), and the test host leaves them off.
+        .PostConfigure<LimitsOptions>(limits => limits.Enabled |= published);
 
     /// <summary>
     /// Anonymous on purpose, and the only product route that is: the catalogue is what a deployment chose to
@@ -58,7 +64,72 @@ public sealed class PlansEndpointTests
         Assert.Equal(48m, plan.AnnualSaving);
         Assert.True(plan.Recommended);
         Assert.Single(catalogue.Packs);
-        Assert.Equal(50, catalogue.Rates.ImageStandard);
+        Assert.Equal(10, catalogue.Rates.TextDraft);
+
+        // The qualities the plan includes, published in the enum's spelling rather than the catalogue's
+        // (AP.4.5), so one vocabulary reaches the page.
+        Assert.Equal(["Draft", "Standard", "High"], plan.QualityClasses);
+
+        // And what one picture of each costs, from this host's own charging table. The figures are the
+        // deployment's, so they are compared with the table rather than written down here.
+        Assert.Equal(["Draft", "Standard", "High"], catalogue.PictureClasses.Select(row => row.QualityClass));
+        Assert.All(catalogue.PictureClasses, row => Assert.True(row.PerPicture > 0m));
+    }
+
+    /// <summary>
+    /// The trial's lifetime picture cap travels on the trial alone (B-52), under the name the landing page
+    /// decodes, and a paid plan says null rather than leaving the field out.
+    /// </summary>
+    [Fact]
+    public async Task A_trial_states_its_picture_cap_and_a_paid_plan_states_none()
+    {
+        await using var host = await SqliteApiHost.StartAsync(configureServices: services =>
+        {
+            Catalogue(published: true)(services);
+            services.PostConfigure<BillingOptions>(billing => billing.Plans.Add(new PlanOption
+            {
+                Key = "trial",
+                Name = "Trial",
+                Credits = 1000,
+                ExampleCounts = new PlanExampleOption { RecipeDrafts = 20, SocialPosts = 20, Pictures = 10 },
+                DailyImageCap = 5,
+                Period = PlanAllowancePeriod.Once,
+                RunningImages = 1,
+                // Including the host's default class, which every plan must allow (AP.4.3): a plan that does not
+                // would refuse every picture asked for without choosing a quality, and startup refuses it.
+                QualityClasses = ["draft", "standard"],
+                TrialDays = 14,
+                TrialImageCap = 10,
+            }));
+        });
+        var client = host.Factory.CreateClient();
+
+        var body = await client.GetStringAsync(Route, TestContext.Current.CancellationToken);
+        using var document = System.Text.Json.JsonDocument.Parse(body);
+        var plans = document.RootElement.GetProperty("plans").EnumerateArray().ToDictionary(
+            plan => plan.GetProperty("key").GetString()!);
+
+        Assert.Equal(10, plans["trial"].GetProperty("trialImageCap").GetInt32());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, plans["creator"].GetProperty("trialImageCap").ValueKind);
+    }
+
+    /// <summary>
+    /// What a plan's credits make in a month travels as counts, under the names the landing page decodes, so
+    /// the card can lead with the recipes and the pictures as figures (owner, 2026-10-28).
+    /// </summary>
+    [Fact]
+    public async Task A_plan_states_its_example_as_counts_on_the_wire()
+    {
+        await using var host = await SqliteApiHost.StartAsync(configureServices: Catalogue(published: true));
+        var client = host.Factory.CreateClient();
+
+        var body = await client.GetStringAsync(Route, TestContext.Current.CancellationToken);
+        using var document = System.Text.Json.JsonDocument.Parse(body);
+        var example = document.RootElement.GetProperty("plans")[0].GetProperty("exampleCounts");
+
+        Assert.Equal(50, example.GetProperty("recipeDrafts").GetInt32());
+        Assert.Equal(100, example.GetProperty("socialPosts").GetInt32());
+        Assert.Equal(80, example.GetProperty("pictures").GetInt32());
     }
 
     /// <summary>The same answer for every caller is what lets a shared cache hold it.</summary>

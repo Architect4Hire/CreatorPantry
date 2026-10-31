@@ -61,7 +61,7 @@ public sealed class GeneratedImagesController(
     /// the retry arrives.
     ///
     /// **A key names one request.** The same key sent again with a different prompt, avoid list, variant
-    /// count, proposal, recipe or piece of work — or by a different member — answers
+    /// count, quality class, proposal, recipe or piece of work — or by a different member — answers
     /// `422 idempotency.key_reused` and queues nothing, rather than returning the first request's operation
     /// for something else that was asked.
     ///
@@ -81,6 +81,57 @@ public sealed class GeneratedImagesController(
     /// four variants answers `400 media.generation.invalid_request`; a Viewer answers
     /// `403 media.generation.forbidden`.
     ///
+    /// **A request names how good a picture, never which model** (AP.3.1). `qualityClass` is one of `Draft`,
+    /// `Standard`, `High`, `High2K` or `High4K`, and is optional: a request that names none is made at the
+    /// host's default class, which `GET .../generated-images/quality-classes` names. A class this host does not
+    /// offer answers `422 media.generation.quality_class.unprocessable` naming `qualityClass`. The class is part
+    /// of what a key names: the same key naming a different class answers `422 idempotency.key_reused`. A retry
+    /// that names none is the request it retries, at whatever class that was made — so a lost answer still finds
+    /// its operation if the default has changed — and a replayed key is answered even if its class has since
+    /// been taken off this host.
+    ///
+    /// **A plan says which qualities an account may ask for** (PRICE-007, AP.4.3). A class this host offers but
+    /// the account's plan does not allow answers `403 media.generation.quality_class.forbidden`, naming
+    /// `qualityClass` and carrying `requiresPlan` and `requiresPlanName` — the cheapest plan that would allow it,
+    /// or null when no plan does. `retry` is `none`: the same request cannot succeed until the plan changes.
+    /// Nothing is held or queued. A request that names no class is never refused this way, because every plan
+    /// allows the host's default class: `AddBillingModule`'s startup validation refuses a catalogue where one does
+    /// not, which is what makes the class-less path safe rather than merely untested. A replayed key is never
+    /// refused, so a downgrade does not strand pictures already paid for, and the worker does not check again.
+    ///
+    /// Asked before the allowance and the suspension, deliberately: it is the cheapest refusal and the most
+    /// specific, and it writes nothing. A suspended account naming a locked class is told about the class.
+    ///
+    /// **This narrows what the route accepts, on purpose** (PRICE-007). Before plans, every class this host
+    /// offered could be asked for by any member; now an account's plan decides. No API version was added: the gate
+    /// ships with the picker that respects it, and no deployment configures plans yet, so no shipped client is
+    /// refused anything it was previously granted.
+    ///
+    /// **The prompt has to fit the class's model, and is never cut to fit** (AP.3.2). What is sent is the prompt,
+    /// then the avoid list under a heading of its own, and each class's model takes so many characters of it. A
+    /// request over that answers `422 media.generation.prompt.unprocessable` naming `promptText` when a shorter
+    /// prompt would fit — `POST .../image-prompt-requests/compactions` asks for one — or
+    /// `422 media.generation.avoid.unprocessable` naming `avoidText` when the avoid list alone leaves too little
+    /// room. Both carry `characterLimit`, `characterCount` and `promptBudget`, the most the prompt may be with
+    /// the avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.
+    ///
+    /// **Pictures are charged to the requesting account's AI allowance** (AP.2.5), and the whole request is
+    /// held against it before anything is queued: `variantCount` × the configured rate for the model, tier
+    /// and quality the request's class sends. An account whose period will not cover all of it answers
+    /// `429 ai.quota.exhausted` with `unit`, `remaining`, `required` and `resetsAt` plus a `Retry-After`, and
+    /// one whose AI access is switched off answers `403 ai.quota.suspended` — the same codes a text request is
+    /// refused with, because it is the same allowance. Nothing is queued either way. A replayed key is never
+    /// refused: its answer is the operation it already bought, and the hold that bought it.
+    ///
+    /// **A trial is gated twice** (AP.7.1). Its pictures are capped in all, across every workspace and day: a
+    /// request that would pass the trial plan's `trialImageCap` answers `403 ai.quota.trial_images.forbidden` with
+    /// `trialImageCap` and `trialEndsAt`, and writing goes on. Once the trial's days are over and no plan has been
+    /// chosen, every request answers `403 ai.quota.trial_ended.forbidden` with `trialEndedAt`, pack credits or not.
+    /// Neither carries a balance or a reset, and nothing is queued.
+    ///
+    /// A host with no credit rate for the picture it would make answers `503 media.generation.unavailable`
+    /// and carries no figures: that is this deployment's misconfiguration, not the caller's balance.
+    ///
     /// The action is named `RequestImages` rather than `Request`, which other controllers use and get
     /// away with: this one reads `ControllerBase.Request` for the conditional download below, and an
     /// action of that name hides it.
@@ -92,6 +143,11 @@ public sealed class GeneratedImagesController(
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+
+    // This host unable to price the picture it would make (AP.2.5) — a misconfiguration rather than anything
+    // about the caller. The allowance refusals need no attribute: 403 is declared above, and 429 is described
+    // by [OperationLimit]'s own transformer, which an attribute here would overwrite with "Too Many Requests".
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
     public async Task<IActionResult> RequestImages(
         string workspaceSlug,
         [FromBody] RequestGeneratedImagesViewModel model,
@@ -118,12 +174,95 @@ public sealed class GeneratedImagesController(
                 model.AiProposalId,
                 model.VariantCount ?? 0,
                 idempotencyKey,
-                new GeneratedImageSubject(model.RecipeId, model.RecipeVersionId, model.CreativeContextId)),
+                new GeneratedImageSubject(model.RecipeId, model.RecipeVersionId, model.CreativeContextId),
+                model.QualityClass),
             cancellationToken);
 
         return result.Succeeded
             ? Accepted(result.Value)
             : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>
+    /// What asking for this many pictures would cost the caller, and what it would leave them (PRICE-004).
+    /// </summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="model">The pictures to price: how many, and optionally at which quality class.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by
+    /// the same code that admits the request, for the model, tier and quality the asked-about `qualityClass`
+    /// sends — the host's default when none is named — and the class priced comes back as `qualityClass`. A
+    /// snapshot: the request is still the decision, and can be refused if the balance moved in between.
+    ///
+    /// Refused as the request it prices would be: `400 media.generation.invalid_request` for a count outside one
+    /// to four, `422 media.generation.quality_class.unprocessable` for a class this host does not offer,
+    /// `403 media.generation.quality_class.forbidden` for one the account's plan does not allow (AP.4.3), and
+    /// `403 media.generation.forbidden` for a member below Contributor.
+    ///
+    /// **A host that cannot price the picture answers `200` with `outcome: Unavailable`, not `503`.** The request
+    /// answers `503 media.generation.unavailable` because it cannot do what was asked; a quote can — it says there
+    /// is no price to show — and a page asking on every change of count would otherwise log an error per step for
+    /// one misconfiguration.
+    /// </remarks>
+    [HttpGet("quote")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<GeneratedImageQuoteServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status422UnprocessableEntity, "application/problem+json")]
+    public async Task<IActionResult> Quote(
+        string workspaceSlug,
+        [FromQuery] GeneratedImageQuoteViewModel model,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var result = await generation.QuoteAsync(model.Variants, model.QualityClass, cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
+    }
+
+    /// <summary>
+    /// The picture qualities a creator may ask for here, each with what one picture of it costs (PRICE-006, PRICE-013).
+    /// </summary>
+    /// <param name="workspaceSlug">
+    /// Bound only so the route is well formed. The workspace is resolved server-side from this segment and
+    /// the caller's membership before the action runs, and nothing here reads it (tenancy.md).
+    /// </param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <remarks>
+    /// Read-only: a price list, not the caller's balance — what a particular request would cost and leave is the
+    /// quote's. Contributor, like the quote and the request it is for.
+    ///
+    /// `classes` is in ascending order, `Draft` to `High4K`, and holds only the classes this host offers. Each
+    /// `perPicture` is in `unit` (credits) and is the rate the request is charged at for what that class sends
+    /// — read from the same table admission holds from, so it is exact, not typical (B-55). It names no model:
+    /// a request names a class. `defaultClass` is what a request that names none is made at. A host that offers
+    /// no classes answers an empty list and a null `defaultClass`; every picture there is the deployment's own
+    /// default.
+    ///
+    /// **The prices are the same for every member; which classes are allowed is not** (PRICE-007, AP.4.3). Each
+    /// class carries `allowed` — whether the asking account's plan allows a picture of it — and, when it does
+    /// not, `requiresPlan` and `requiresPlanName`: the cheapest plan that would, or null when no plan does. A
+    /// locked class stays in the list with its price, so a picker can show it and say what unlocks it; asking
+    /// for one answers `403 media.generation.quality_class.forbidden`, and hiding it in the browser is
+    /// presentation only. A plan belongs to the account rather than the workspace (B-47), so two members of one
+    /// workspace can read different flags from this list and nothing may cache it by workspace alone. On a host
+    /// with no plans configured every class is `allowed` with no plan named.
+    /// </remarks>
+    [HttpGet("quality-classes")]
+    [Authorize(Policy = AuthorizationPolicies.WorkspaceContributor)]
+    [ProducesResponseType<GeneratedImageQualityClassesServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+    public async Task<IActionResult> QualityClasses(string workspaceSlug, CancellationToken cancellationToken)
+    {
+        var result = await generation.ListQualityClassesAsync(cancellationToken);
+
+        return result.Succeeded ? Ok(result.Value) : this.ProblemFor(result.Error!);
     }
 
     /// <summary>Reads one image request and the images it has produced so far.</summary>
@@ -371,6 +510,22 @@ public sealed class GeneratedImagesController(
     }
 }
 
+/// <summary>The question a quote answers: how many pictures (AP.2.6).</summary>
+/// <remarks>
+/// Nullable for the same reason the request's own count is: a missing one is this feature's validation error,
+/// which can say which field was wrong, rather than the model binder's.
+/// </remarks>
+public sealed record GeneratedImageQuoteViewModel
+{
+    /// <summary>How many pictures to price, as a request would ask for them.</summary>
+    [FromQuery(Name = "variants")]
+    public int? Variants { get; init; }
+
+    /// <summary>The picture quality to price (AP.3.1). Omitted means the host's default class.</summary>
+    [FromQuery(Name = "qualityClass")]
+    public GeneratedImageQualityClass? QualityClass { get; init; }
+}
+
 /// <summary>The body of an image-generation request (IMG-003).</summary>
 /// <remarks>
 /// <para>
@@ -407,4 +562,9 @@ public sealed record RequestGeneratedImagesViewModel
 
     /// <summary>The piece of work these pictures are for, when they are for one. Recorded on the run.</summary>
     public Guid? CreativeContextId { get; init; }
+
+    /// <summary>
+    /// How good a picture to make (AP.3.1). Omitted means the host's default class. A class, never a model.
+    /// </summary>
+    public GeneratedImageQualityClass? QualityClass { get; init; }
 }

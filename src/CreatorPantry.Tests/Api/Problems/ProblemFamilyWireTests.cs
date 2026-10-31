@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Facade;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Publishing.Managers;
@@ -180,6 +181,24 @@ public sealed class ProblemFamilyWireTests : IAsyncLifetime
     [InlineData(MediaErrorCodes.AssetVersionTaken, HttpStatusCode.Conflict, ProblemRetry.Same)]
     [InlineData(RecipeErrorCodes.RecipeArchivedConflict, HttpStatusCode.Conflict, ProblemRetry.None)]
     [InlineData(AiProposalErrors.QuotaSuspended, HttpStatusCode.Forbidden, ProblemRetry.None)]
+
+    // An entitlement refusal, which is the same family as a suspension: 403, and `none`, because the same
+    // request cannot succeed until the account's plan changes (AP.4.3).
+    [InlineData(MediaErrorCodes.GenerationQualityClassForbidden, HttpStatusCode.Forbidden, ProblemRetry.None)]
+
+    // The ops plan routes (AP.4.4). A contended chain is the one of the four worth retrying, and only after
+    // reading it again, which is what `reread` says; the other three cannot be helped by sending them again.
+    [InlineData(AccountPlanAdministrationErrors.Unprocessable, HttpStatusCode.UnprocessableEntity, ProblemRetry.None)]
+    [InlineData(AccountPlanAdministrationErrors.Conflict, HttpStatusCode.Conflict, ProblemRetry.Reread)]
+    [InlineData(AccountPlanAdministrationErrors.ChangeScheduled, HttpStatusCode.Conflict, ProblemRetry.None)]
+    [InlineData(AccountPlanAdministrationErrors.NoCatalogue, HttpStatusCode.NotFound, ProblemRetry.None)]
+
+    // The ops credit grant routes (AP.5.1). A claw-back that met a moved balance is worth sending again after a
+    // read; a reference that has already granted is not, because a reference grants once.
+    [InlineData(AccountCreditGrantAdministrationErrors.Conflict, HttpStatusCode.Conflict, ProblemRetry.Reread)]
+    [InlineData(AccountCreditGrantAdministrationErrors.ReferenceUsed, HttpStatusCode.Conflict, ProblemRetry.None)]
+    [InlineData(AccountCreditGrantAdministrationErrors.NotFound, HttpStatusCode.NotFound, ProblemRetry.None)]
+    [InlineData(AccountCreditGrantAdministrationErrors.Unprocessable, HttpStatusCode.UnprocessableEntity, ProblemRetry.None)]
     [InlineData("probe.record.gone", HttpStatusCode.Gone, ProblemRetry.None)]
     [InlineData(BrandErrorCodes.SourceFileTooLarge, HttpStatusCode.RequestEntityTooLarge, ProblemRetry.None)]
     [InlineData(IdempotencyPolicy.KeyReusedCode, HttpStatusCode.UnprocessableEntity, ProblemRetry.None)]

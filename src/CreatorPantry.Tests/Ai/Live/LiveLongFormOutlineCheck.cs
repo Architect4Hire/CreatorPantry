@@ -271,6 +271,7 @@ public sealed class LiveLongFormOutlineCheck
         {
             var response = await base.GetResponseAsync(messages, options, cancellationToken);
             Answers.Add(response.Text);
+            LiveUsage.Record("LiveLongFormOutlineCheck", options, response);
 
             return response;
         }

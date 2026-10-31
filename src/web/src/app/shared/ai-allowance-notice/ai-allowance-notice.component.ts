@@ -6,7 +6,7 @@ import { AiAllowanceState } from '../../services/ai-usage.service';
 import { formatAllowanceAmount, formatAllowanceReset } from '../allowance-text';
 
 /** What the notice is saying, or nothing at all. */
-type NoticeKind = 'nearly-spent' | 'exhausted' | 'suspended';
+type NoticeKind = 'nearly-spent' | 'exhausted' | 'suspended' | 'trial-ended';
 
 interface Notice {
   readonly kind: NoticeKind;
@@ -55,6 +55,7 @@ export class AiAllowanceNoticeComponent {
 
     if (refusal !== null) {
       if (refusal.status === 'account_suspended') return { ...SUSPENDED, refused: true };
+      if (refusal.status === 'trial_ended') return { ...TRIAL_ENDED, refused: true };
 
       const needed = formatAllowanceAmount(refusal.required, refusal.unit);
       const left = formatAllowanceAmount(refusal.remaining, refusal.unit);
@@ -121,6 +122,8 @@ export class AiAllowanceNoticeComponent {
         return 'Nearly spent';
       case 'suspended':
         return 'Switched off';
+      case 'trial-ended':
+        return 'Trial ended';
       default:
         return 'Spent';
     }
@@ -134,6 +137,16 @@ export class AiAllowanceNoticeComponent {
  * "it'll be available again later" for both would leave a suspended creator waiting for something that is
  * never going to happen — the distinction `AiOperationStatusComponent` already draws.
  */
+/**
+ * A trial that has ended says what to do next: nothing comes back on its own, and nothing is wrong with the
+ * account, so neither exhaustion's reset nor a suspension's "get in touch" fits (AP.7.1).
+ */
+const TRIAL_ENDED = {
+  kind: 'trial-ended',
+  heading: 'Your free trial has ended',
+  detail: 'Choose a plan to keep using AI assistance. Everything you made is still here, and the rest of CreatorPantry works as usual.',
+} as const satisfies Omit<Notice, 'refused'>;
+
 const SUSPENDED = {
   kind: 'suspended',
   heading: 'AI assistance is switched off for your account',

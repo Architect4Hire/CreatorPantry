@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy.Facade;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.Ai.Facade;
@@ -50,6 +51,7 @@ public sealed class AiFirstDraftRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

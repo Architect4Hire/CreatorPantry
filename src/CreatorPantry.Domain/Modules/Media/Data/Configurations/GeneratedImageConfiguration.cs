@@ -42,6 +42,12 @@ internal sealed class GeneratedImageConfiguration : IEntityTypeConfiguration<Gen
         builder.Property(image => image.ModelDeployment)
             .HasMaxLength(MediaPolicy.ProviderIdentifierMaxLength);
 
+        builder.Property(image => image.GenerationQuality)
+            .HasMaxLength(MediaPolicy.GenerationQualityMaxLength);
+
+        builder.Property(image => image.GenerationSize)
+            .HasMaxLength(MediaPolicy.GenerationSizeMaxLength);
+
         builder.HasOne<Workspace>()
             .WithMany()
             .HasForeignKey(image => image.WorkspaceId)

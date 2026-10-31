@@ -26,6 +26,22 @@
   font-size: var(--cp-font-size-xs);
 }
 
+/* The picker and its loading skeleton take the same place in the section, so what lands lands where the creator
+   was already looking — the tiles are taller than the skeleton, and the content below moves down once. */
+.quality {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+/* A field label's own size and weight (DESIGN-SYSTEM.md, "The shape of a form"): cp-choice-group names itself to a
+   screen reader and draws no visible label, so the line a sighted creator reads is drawn here. */
+.quality-label {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+}
+
 .run {
   display: flex;
   flex-wrap: wrap;

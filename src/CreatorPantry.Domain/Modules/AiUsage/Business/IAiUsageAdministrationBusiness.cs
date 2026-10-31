@@ -29,11 +29,18 @@ internal interface IAiUsageAdministrationBusiness
     Task<OperationResult<AccountAiQuotaChangeServiceModel>> SetSuspensionAsync(
         string accountId, bool suspended, string reason, PlatformActor actor,
         CancellationToken cancellationToken);
+
+    Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken);
+
+    Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        string reason, PlatformActor actor, CancellationToken cancellationToken);
 }
 
 /// <inheritdoc cref="IAiUsageAdministrationBusiness"/>
 internal sealed class AiUsageAdministrationBusiness(
     IAiUsageAdministrationDataLayer dataLayer,
+    IPlatformImageSpendDataLayer imageSpend,
     IAiQuotaPeriodResolver periods,
     IPlatformAccountFacade accounts,
     ITimeZoneConverter zones,
@@ -41,6 +48,113 @@ internal sealed class AiUsageAdministrationBusiness(
     IClock clock) : IAiUsageAdministrationBusiness
 {
     private readonly AiQuotaOptions _options = options.Value;
+
+    public async Task<OperationResult<PlatformImageSpendDayServiceModel>> GetPlatformImageSpendAsync(
+        DateOnly? day, CancellationToken cancellationToken)
+    {
+        var asked = day ?? PlatformImageSpendPolicy.DayOf(clock.UtcNow);
+
+        return OperationResult<PlatformImageSpendDayServiceModel>.Success(
+            DescribeImageSpend(asked, await imageSpend.FindDayAsync(asked, cancellationToken)));
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Today only, in UTC,</strong> and until that day ends: tomorrow's row starts armed. Admissions
+    /// after a lift are still counted, so the read keeps saying what the day cost.
+    /// </para>
+    /// <para>
+    /// <strong>A lift that changes nothing writes nothing</strong>, including no audit row — the rule
+    /// <see cref="ChangeAsync"/> follows for quota commands, and for the same reason: a retried lift is then
+    /// safe without an idempotency key. The guarded write is the authority on that, not the read before it, so
+    /// two operators lifting at once produce one audit row between them.
+    /// </para>
+    /// <para>
+    /// Lifting before anything has tripped is allowed on purpose: an operator who knows a launch is coming can
+    /// lift the day ahead of the first refusal rather than after it.
+    /// </para>
+    /// </remarks>
+    public async Task<OperationResult<PlatformImageSpendLiftServiceModel>> LiftPlatformImageSpendAsync(
+        string reason, PlatformActor actor, CancellationToken cancellationToken)
+    {
+        if (_options.PlatformImageSpendPerDay is null)
+        {
+            return OperationResult<PlatformImageSpendLiftServiceModel>.Failure(new OperationError(
+                AiUsageAdministrationErrors.ImageSpendCeilingOff,
+                "No image spend ceiling is configured on this host, so there is no breaker to lift.",
+                new Dictionary<string, string[]>()));
+        }
+
+        var now = clock.UtcNow;
+        var today = PlatformImageSpendPolicy.DayOf(now);
+        var before = DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken));
+
+        if (before.State is not PlatformImageSpendState.Lifted)
+        {
+            var after = before with
+            {
+                State = PlatformImageSpendState.Lifted, LiftedAt = now, LiftedBy = actor.Name,
+            };
+
+            var lifted = await imageSpend.LiftAsync(
+                today,
+                now,
+                actor.Name,
+                new PlatformAuditEntry(
+                    actor.Type,
+                    actor.Id,
+                    actor.Name,
+                    PlatformImageSpendAuditActions.Lifted,
+                    PlatformImageSpendAuditActions.SubjectType,
+                    today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                    CorrelationId(),
+                    reason,
+                    PlatformImageSpendPolicy.AuditReference(before),
+                    PlatformImageSpendPolicy.AuditReference(after)),
+                cancellationToken);
+
+            if (lifted)
+            {
+                return OperationResult<PlatformImageSpendLiftServiceModel>.Success(new PlatformImageSpendLiftServiceModel(
+                    PlatformImageSpendLiftOutcome.Lifted,
+                    DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken))));
+            }
+        }
+
+        return OperationResult<PlatformImageSpendLiftServiceModel>.Success(new PlatformImageSpendLiftServiceModel(
+            PlatformImageSpendLiftOutcome.Unchanged,
+            DescribeImageSpend(today, await imageSpend.FindDayAsync(today, cancellationToken))));
+    }
+
+    /// <summary>
+    /// A day's row described against the ceiling configured now. A day with no row admitted nothing.
+    /// </summary>
+    /// <remarks>
+    /// The ceiling is read live rather than stored on the row: it is the line the next admission will be held
+    /// to, which is the one an operator needs to see. Remaining never goes below nought — a lifted day can pass
+    /// the ceiling, and "minus four dollars left" says nothing "none left" does not.
+    /// </remarks>
+    private PlatformImageSpendDayServiceModel DescribeImageSpend(DateOnly day, PlatformImageSpendDay? row)
+    {
+        var ceiling = _options.PlatformImageSpendPerDay;
+        var admitted = PlatformImageSpendPolicy.ToDollars(row?.AdmittedMicros ?? 0);
+
+        var state = ceiling is null ? PlatformImageSpendState.Off
+            : row?.LiftedAt is not null ? PlatformImageSpendState.Lifted
+            : row?.TrippedAt is not null ? PlatformImageSpendState.Tripped
+            : PlatformImageSpendState.Armed;
+
+        return new PlatformImageSpendDayServiceModel(
+            day,
+            PlatformImageSpendPolicy.Currency,
+            ceiling,
+            admitted,
+            ceiling is { } line ? Math.Max(0m, line - admitted) : null,
+            state,
+            row?.TrippedAt,
+            row?.LiftedAt,
+            row?.LiftedBy);
+    }
 
     public async Task<OperationResult<AccountAiUsageAdminServiceModel>> GetAccountAsync(
         string accountId, CancellationToken cancellationToken)
@@ -71,7 +185,7 @@ internal sealed class AiUsageAdministrationBusiness(
         return OperationResult<AccountAiUsageAdminServiceModel>.Success(new AccountAiUsageAdminServiceModel(
             accountId,
             Describe(period, terms.PeriodLength),
-            Terms(hasQuota, terms),
+            Terms(hasQuota, terms, await periods.GrantedAllowanceAsync(accountId, terms, cancellationToken)),
             [.. byTask
                 .Select(row => new AccountAiUsageTaskTotalServiceModel(row.TaskType, row.Amount, row.Requests))
                 .OrderByDescending(row => row.Amount)
@@ -222,7 +336,9 @@ internal sealed class AiUsageAdministrationBusiness(
         }
 
         var current = await dataLayer.FindCurrentQuotaAsync(accountId, cancellationToken);
-        var before = Terms(current is not null, await periods.ResolveTermsAsync(accountId, cancellationToken));
+        var resolved = await periods.ResolveTermsAsync(accountId, cancellationToken);
+        var before = Terms(
+            current is not null, resolved, await periods.GrantedAllowanceAsync(accountId, resolved, cancellationToken));
         var target = replacement(current);
 
         if (NoChange(current, target))
@@ -231,7 +347,13 @@ internal sealed class AiUsageAdministrationBusiness(
                 new AccountAiQuotaChangeServiceModel(accountId, AccountAiQuotaChangeOutcome.Unchanged, before));
         }
 
-        var after = Terms(target);
+        var after = Terms(
+            target,
+            await periods.FallbackAllowanceAsync(
+                accountId,
+                target?.Unit ?? _options.DefaultUnit,
+                target?.PeriodLength ?? _options.DefaultPeriodLength,
+                cancellationToken));
 
         var outcome = await dataLayer.ReplaceQuotaAsync(
             accountId,
@@ -355,10 +477,11 @@ internal sealed class AiUsageAdministrationBusiness(
     /// <summary>
     /// The terms in force, described. <paramref name="hasQuota"/> false means the platform default.
     /// </summary>
-    private static AccountAiQuotaTermsServiceModel Terms(bool hasQuota, AiQuotaTerms resolved) =>
+    /// <param name="allowance">What a new period opens with under them (<c>GrantedAllowanceAsync</c>).</param>
+    private static AccountAiQuotaTermsServiceModel Terms(bool hasQuota, AiQuotaTerms resolved, decimal allowance) =>
         new(hasQuota ? AccountAiQuotaSource.Account : AccountAiQuotaSource.PlatformDefault,
             resolved.Unit,
-            resolved.Allowance,
+            allowance,
             resolved.PeriodLength,
             resolved.PeriodAnchor,
             resolved.TimeZoneId,
@@ -370,16 +493,17 @@ internal sealed class AiUsageAdministrationBusiness(
     /// The terms a pending write will put in force, described without re-reading the database.
     /// </summary>
     /// <remarks>
-    /// A null <paramref name="write"/> is a clear, which leaves the account on the configured default — so the
-    /// allowance reported is the option value, exactly as <c>AiQuotaPeriodResolver.ResolveTermsAsync</c> would
-    /// resolve it a moment later.
+    /// A null <paramref name="write"/> is a clear, which leaves the account on the configured default; a write
+    /// with no allowance leaves the number to the same place. Either way the allowance reported is
+    /// <paramref name="fallback"/> — what the account's plan grants a new period, or the option value with no plan
+    /// — exactly as <c>GrantedAllowanceAsync</c> describes the terms a moment later (AP.4.2, DL.8).
     /// </remarks>
-    private AccountAiQuotaTermsServiceModel Terms(AccountAiQuotaWrite? write) =>
+    private AccountAiQuotaTermsServiceModel Terms(AccountAiQuotaWrite? write, decimal fallback) =>
         write is null
             ? new AccountAiQuotaTermsServiceModel(
                 AccountAiQuotaSource.PlatformDefault,
                 _options.DefaultUnit,
-                _options.DefaultAllowance,
+                fallback,
                 _options.DefaultPeriodLength,
                 _options.DefaultPeriodAnchor,
                 _options.DefaultTimeZoneId,
@@ -389,7 +513,7 @@ internal sealed class AiUsageAdministrationBusiness(
             : new AccountAiQuotaTermsServiceModel(
                 AccountAiQuotaSource.Account,
                 write.Unit,
-                write.Allowance ?? _options.DefaultAllowance,
+                write.Allowance ?? fallback,
                 write.PeriodLength,
                 write.PeriodAnchor,
                 write.TimeZoneId,
@@ -400,12 +524,12 @@ internal sealed class AiUsageAdministrationBusiness(
     private static AccountAiUsagePeriodServiceModel Describe(
         AccountAiQuotaPeriod period, AiQuotaPeriodLength length) =>
         new(period.Unit,
-            period.Allowance + period.CarriedOver,
+            period.Allowance + period.UpgradeGranted + period.CarriedOver,
             period.CarriedOver,
             period.Consumed,
             period.Reserved,
             AiQuotaPeriodCalculator.Remaining(
-                period.Allowance, period.CarriedOver, period.Consumed, period.Reserved),
+                period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved),
             length,
             period.TimeZoneId,
             period.StartsAt,

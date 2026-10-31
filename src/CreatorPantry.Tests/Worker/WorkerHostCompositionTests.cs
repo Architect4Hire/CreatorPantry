@@ -111,6 +111,27 @@ public class WorkerHostCompositionTests
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPrivateObjectStore>());
     }
 
+    /// <summary>
+    /// AP.6.2: the Worker acts on stored webhook events, so it reads subscriptions from Stripe — handed a connection
+    /// string, its gateway is Stripe's — but it takes no deliveries, so it builds no verifier even from a string that
+    /// carries the signing secret. And the sweep that queues stranded events again is hosted.
+    /// </summary>
+    [Fact]
+    public void The_payment_provider_is_read_here_and_nothing_is_verified()
+    {
+        using var provider = BuildProvider(configuration => configuration["ConnectionStrings:billing-stripe"] =
+            "Endpoint=https://api.stripe.example;Key=rk_test_worker_composition_1;WebhookSecret=whsec_worker_composition_1");
+        using var scope = provider.CreateScope();
+
+        Assert.Equal(
+            CreatorPantry.Domain.Modules.Billing.Gateways.BillingPaymentMode.Test,
+            scope.ServiceProvider.GetRequiredService<CreatorPantry.Domain.Modules.Billing.Gateways.IBillingPaymentGateway>().Mode);
+        Assert.IsType<CreatorPantry.Domain.Modules.Billing.Gateways.UnconfiguredBillingWebhookVerifier>(
+            scope.ServiceProvider.GetRequiredService<CreatorPantry.Domain.Modules.Billing.Gateways.IBillingWebhookVerifier>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<CreatorPantry.Domain.Modules.Billing.Facade.IBillingWebhookFacade>());
+        Assert.Single(provider.GetServices<IHostedService>().OfType<BillingProviderEventRedriveHostedService>());
+    }
+
     [Fact]
     public void The_cache_falls_back_to_an_in_process_store_without_redis()
     {

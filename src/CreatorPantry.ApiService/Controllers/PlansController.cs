@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using CreatorPantry.ApiService.Http;
 using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Billing.Managers;
 using Microsoft.AspNetCore.Authorization;
@@ -46,5 +47,41 @@ public sealed class PlansController(IPlanCatalogueFacade planCatalogueFacade) : 
         Response.Headers.CacheControl = $"public, max-age={CacheSeconds}";
 
         return Ok(catalogue);
+    }
+
+    /// <summary>
+    /// What a month of <paramref name="pictures"/> and <paramref name="writing"/> comes to, and the smallest paid plan
+    /// that carries it (LP.7, AP.7.2): the landing page's estimator, worked out here so the browser only formats it.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous and publicly cacheable for the reason the catalogue is: the answer is a function of the published
+    /// configuration and the three query values, with nothing about any caller in it. The pictures are priced at
+    /// `qualityClass` when the catalogue publishes it, else at the default class, else the cheapest; the class used
+    /// comes back as `qualityClass`. Only paid plans are weighed, and one fits when its credits cover the month and
+    /// its daily picture cap over a 30-day month covers the pictures. A count below 0 or above 100,000 answers
+    /// `400 billing.estimate.invalid`; a deployment that publishes no catalogue answers
+    /// `404 billing.estimate.not_found`.
+    /// </remarks>
+    /// <param name="pictures">Pictures a month.</param>
+    /// <param name="writing">Recipe drafts and posts a month.</param>
+    /// <param name="qualityClass">The picture quality to price at; omitted for the default.</param>
+    [HttpGet("estimate")]
+    [AllowAnonymous]
+    [ProducesResponseType<PlanEstimateServiceModel>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public IActionResult Estimate(
+        [FromQuery] int pictures, [FromQuery] int writing, [FromQuery] string? qualityClass = null)
+    {
+        var result = planCatalogueFacade.Estimate(pictures, writing, qualityClass);
+
+        if (!result.Succeeded)
+        {
+            return this.ProblemFor(result.Error!);
+        }
+
+        Response.Headers.CacheControl = $"public, max-age={CacheSeconds}";
+
+        return Ok(result.Value);
     }
 }

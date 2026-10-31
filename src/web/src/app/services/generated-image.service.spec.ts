@@ -149,6 +149,102 @@ describe('GeneratedImageService', () => {
       expect((await pending).status).toBe('forbidden');
     });
 
+    it('reads a plan’s quality refusal as the server’s own sentence, not as a permission to be granted', async () => {
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1, qualityClass: 'High2K' },
+        'key-1',
+      );
+
+      http.expectOne(BASE).flush(
+        {
+          ...problem('media.generation.quality_class.forbidden', {
+            title: 'That picture quality is not on your plan. The Pro plan includes it.',
+            qualityClass: 'High2K',
+            requiresPlan: 'pro',
+            requiresPlanName: 'Pro',
+          }),
+          errors: { qualityClass: ['That picture quality is not on your plan.'] },
+        },
+        { status: 403, statusText: 'Forbidden' },
+      );
+
+      const outcome = await pending;
+
+      // Not `forbidden`, which the run reads as "ask an Owner or Editor" — nobody in the workspace can grant it.
+      expect(outcome).toEqual({
+        status: 'refused',
+        message: 'That picture quality is not on your plan. The Pro plan includes it.',
+        fieldErrors: { qualityClass: ['That picture quality is not on your plan.'] },
+      });
+    });
+
+    // AP.7.1, AP.7.2: the account's own allowance and limits arrive as 403s and 429s, like a role refusal and the
+    // edge's rate limiter. None is "ask an Owner or Editor" or "slow down", so each is the server's own sentence.
+    for (const [code, status] of [
+      ['ai.quota.trial_images.forbidden', 403],
+      ['ai.quota.trial_ended.forbidden', 403],
+      ['ai.quota.suspended', 403],
+      ['ai.quota.exhausted', 429],
+      ['limits.budget.exhausted', 429],
+    ] as const) {
+      it(`reads ${status} ${code} as the server’s own sentence, not as a permission or a rate`, async () => {
+        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+        http
+          .expectOne(BASE)
+          .flush(problem(code, { title: 'The server’s own sentence.' }), { status, statusText: 'Refused' });
+
+        // Credits are one of DL.9's three limits and say so; a day's cap with no scope is none of them.
+        expect(await pending).toEqual({
+          status: 'refused',
+          message: 'The server’s own sentence.',
+          fieldErrors: {},
+          ...(code === 'ai.quota.exhausted' ? { limit: { kind: 'credits' as const } } : {}),
+        });
+      });
+    }
+
+    // DL.9: a day's cap says whose day it was — the plan's across every workspace, or this workspace's — with the
+    // server's cap and reset, so the run can say which and when.
+    for (const [scope, kind] of [
+      ['User', 'plan-day'],
+      ['Workspace', 'workspace-day'],
+    ] as const) {
+      it(`reads a ${scope}-scoped day cap as the ${kind} limit, with its cap and reset`, async () => {
+        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+        http.expectOne(BASE).flush(
+          problem('limits.budget.exhausted', {
+            title: 'The server’s own sentence.',
+            operation: 'ImageGeneration',
+            scope,
+            limit: 25,
+            resetsAt: '2026-10-31T00:00:00+00:00',
+          }),
+          { status: 429, statusText: 'Too Many Requests' },
+        );
+
+        const outcome = await pending;
+        expect(outcome.status === 'refused' && outcome.limit).toEqual({
+          kind,
+          cap: 25,
+          resetsAt: '2026-10-31T00:00:00+00:00',
+        });
+      });
+    }
+
+    it('reads a day cap whose figures it cannot read without them, never with a guess', async () => {
+      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+
+      http
+        .expectOne(BASE)
+        .flush(problem('limits.budget.exhausted', { scope: 'User', limit: 'many' }), { status: 429, statusText: 'Refused' });
+
+      const outcome = await pending;
+      expect(outcome.status === 'refused' && outcome.limit).toEqual({ kind: 'plan-day', cap: null, resetsAt: null });
+    });
+
     it('reads the edge’s rate limit as its own outcome, because waiting is the remedy', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
 

@@ -67,14 +67,44 @@ public class AccountAiUsageEntry : IImmutableRecord
     /// </summary>
     public DateTimeOffset OccurredAt { get; set; }
 
-    /// <summary>The operation this attempt belonged to. An id, not a foreign key — see the type's remarks.</summary>
-    public Guid AiOperationId { get; set; }
+    /// <summary>
+    /// The completion operation this attempt belonged to. An id, not a foreign key — see the type's remarks.
+    /// </summary>
+    /// <remarks>
+    /// Null exactly when <see cref="GeneratedImageOperationId"/> is set (AP.2.5). A row names one kind of work
+    /// or the other and the check constraint refuses both and neither: a row that named no operation could not
+    /// be deduplicated, and one that named two could be counted twice.
+    /// </remarks>
+    public Guid? AiOperationId { get; set; }
+
+    /// <summary>
+    /// The image generation this charge belonged to, for a picture rather than a completion (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A second nullable id rather than one column with a discriminator beside it, because the existing column
+    /// is shipped: renaming it would rewrite every row of a table that is <see cref="IImmutableRecord"/>, to
+    /// say something the pair of ids already says.
+    /// </para>
+    /// <para>
+    /// An id, not a foreign key, on exactly the same grounds as the rest of this type: a deleted workspace
+    /// takes its generations with it and must not take an account's spending history too.
+    /// </para>
+    /// </remarks>
+    public Guid? GeneratedImageOperationId { get; set; }
 
     /// <summary>
     /// Sequential from 1 within one operation, matching the attempt numbering
-    /// <c>AiExecutionMetadata</c> uses. Paired with <see cref="AiOperationId"/> it is what makes one attempt
-    /// post at most one entry, so a duplicate delivery posts once.
+    /// <c>AiExecutionMetadata</c> uses. Paired with whichever operation id is set, it is what makes one
+    /// attempt post at most one entry, so a duplicate delivery posts once.
     /// </summary>
+    /// <remarks>
+    /// <strong>For a picture this is a charge ordinal, not a variant index</strong> — the <em>n</em>th variant
+    /// this operation was billed for, across every pass it took. A variant the provider generated but whose
+    /// bytes could not be staged is billed, and a later pass re-runs that variant and is billed again, so the
+    /// same index can be charged twice. Keyed by index those two charges would collide on the unique
+    /// index below and the second would be lost — which is to say the account would not be charged for it.
+    /// </remarks>
     public int AttemptNumber { get; set; }
 
     /// <summary>Which capability the work was, so a creator's consumption can be broken down by task.</summary>

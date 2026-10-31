@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.Data.Sqlite;
@@ -66,6 +67,7 @@ public sealed class AccountAiQuotaAdmissionTests : IDisposable
             .AddTenancy()
             .AddAudit()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddSingleton<IClock>(_clock)
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
@@ -347,6 +349,40 @@ public sealed class AccountAiQuotaAdmissionTests : IDisposable
         var reservation = await ReservationAsync(admission.ReservationId.Value);
         Assert.False(reservation.UsageReported);
         Assert.Equal(PerCall, reservation.SettledAmount);
+    }
+
+    /// <summary>
+    /// A provider reports the dated snapshot or the catalogue version a deployment runs, not the name its rate
+    /// is configured under (AP.2.1). That is a measured call at the model's rate, not an unknown one.
+    /// </summary>
+    [Theory]
+    [InlineData(Model + "-2024-07-18")]
+    [InlineData(Model + ":5")]
+    public async Task A_decorated_model_id_settles_at_its_models_rate(string reported)
+    {
+        var admission = await AdmitAsync();
+
+        await SettleAsync(admission.ReservationId!.Value, Attempt(inputTokens: 7, modelName: reported));
+
+        var reservation = await ReservationAsync(admission.ReservationId.Value);
+        Assert.True(reservation.UsageReported);
+        Assert.Equal(7m, reservation.SettledAmount);
+    }
+
+    /// <summary>One attempt on a rated model and one on an unrated one: the measured charge plus the estimate.</summary>
+    [Fact]
+    public async Task A_run_with_one_rated_and_one_unrated_model_charges_the_rate_and_the_estimate()
+    {
+        var admission = await AdmitAsync();
+
+        await SettleAsync(
+            admission.ReservationId!.Value,
+            Attempt(inputTokens: 7, modelName: Model + "-2024-07-18"),
+            Attempt(inputTokens: 900, modelName: "a-model-nobody-priced"));
+
+        var reservation = await ReservationAsync(admission.ReservationId.Value);
+        Assert.Equal(7m + PerCall, reservation.SettledAmount);
+        Assert.False(reservation.UsageReported);
     }
 
     [Fact]

@@ -25,7 +25,14 @@ internal static class AiTaskInputsIdentity
     {
         if (inputsJson is not null && task is AiTaskType.RecipeFirstDraft)
         {
-            return WithoutWorkspaceFacts(inputsJson);
+            return Without(inputsJson, AiFirstDraftInputs.WorkspaceFacts);
+        }
+
+        // A shorter prompt stores the limit and budget it was measured against (AP.3.2). They describe the
+        // deployment, not the question: a retry made after the limit was reconfigured is the request it retries.
+        if (inputsJson is not null && task is AiTaskType.ImagePrompt)
+        {
+            return Without(inputsJson, ImagePromptCompactionInputs.DeploymentFacts);
         }
 
         if (inputsJson is null || task is not (AiTaskType.EditorialPackage or AiTaskType.SeoPackage))
@@ -57,11 +64,12 @@ internal static class AiTaskInputsIdentity
     }
 
     /// <summary>
-    /// A first draft's inputs minus the workspace's measurement system: the same reasoning as the packages'
-    /// brand facts. An Owner changing the setting between a request and its retry has not asked a different
-    /// question, and the retry should return the draft the first request bought.
+    /// Stored inputs minus the facts that describe the workspace or the deployment rather than the request — a
+    /// first draft's measurement system, a shorter prompt's limit — for the same reasoning as the packages' brand
+    /// facts. An Owner changing the setting between a request and its retry has not asked a different question,
+    /// and the retry should return what the first request bought.
     /// </summary>
-    private static string WithoutWorkspaceFacts(string inputsJson)
+    private static string Without(string inputsJson, IReadOnlyList<string> facts)
     {
         try
         {
@@ -72,7 +80,7 @@ internal static class AiTaskInputsIdentity
                 return inputsJson;
             }
 
-            foreach (var key in AiFirstDraftInputs.WorkspaceFacts)
+            foreach (var key in facts)
             {
                 inputs.Remove(key);
             }

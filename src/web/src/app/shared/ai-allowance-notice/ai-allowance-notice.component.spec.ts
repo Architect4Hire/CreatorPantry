@@ -15,6 +15,7 @@ function figures(overrides: Partial<AllowanceFigures> = {}): AllowanceFigures {
     resetsAt: '2026-04-01T00:00:00+01:00',
     timeZoneId: 'Europe/London',
     usedPercent: 88,
+    packRemaining: 0,
     ...overrides,
   };
 }
@@ -111,6 +112,21 @@ describe('AiAllowanceNoticeComponent', () => {
 
     expect(host.querySelector('[role="alert"]')?.textContent).toContain('switched off');
     expect(host.querySelector('[role="status"]')).toBeNull();
+  });
+
+  // AP.7.1: neither a reset to wait for nor "get in touch" — choosing a plan is what to do next.
+  it('says a trial has ended, and that choosing a plan is the way on', async () => {
+    const host = await render(
+      { kind: 'healthy', period: figures() },
+      { status: 'trial_ended', trialEndedAt: '2037-03-17T09:30:00+00:00' },
+    );
+
+    const alert = host.querySelector('[role="alert"]')?.textContent ?? '';
+    expect(alert).toContain('Your free trial has ended');
+    expect(alert).toContain('Choose a plan');
+    expect(alert).toContain('Trial ended');
+    expect(alert).not.toContain('switched off');
+    expect(alert).not.toContain('comes back');
   });
 
   /**

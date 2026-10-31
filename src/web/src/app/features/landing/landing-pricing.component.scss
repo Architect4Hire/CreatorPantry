@@ -138,6 +138,52 @@ h3 {
   margin: var(--cp-space-1) 0 0;
 }
 
+/*
+ * The pitch: what a plan makes in a month, as a few short rows under the price, set off from it and from the
+ * list below by hairlines rather than boxed. The counts share one column — each row a subgrid of the list — so
+ * 60, 70 and 120 line up on their right edge and the words beside them start together, at any card width.
+ */
+.pitch {
+  margin-top: var(--cp-space-4);
+  padding: var(--cp-space-4) 0;
+  border-block: 1px solid var(--cp-border);
+}
+
+.pitch-lead {
+  margin: 0 0 var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-font-size-lg);
+}
+
+.pitch-rows {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--cp-space-1) var(--cp-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pitch-rows li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-lg);
+  line-height: var(--cp-leading-tight);
+}
+
+/* Set like the price above it, a size down: the display face, ink, figures that line up. */
+.count {
+  color: var(--cp-text);
+  font-family: var(--cp-font-display);
+  font-size: var(--cp-font-size-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
 .includes {
   margin: var(--cp-space-4) 0 var(--cp-space-6);
   padding-left: var(--cp-space-5);

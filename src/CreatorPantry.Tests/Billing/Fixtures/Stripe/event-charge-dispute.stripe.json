@@ -1,0 +1,22 @@
+{
+  "id": "evt_1NG8Du2eZvKYlo2CChargeDis",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 2104761605,
+  "data": {
+    "object": {
+      "id": "du_1MtJUT2eZvKYlo2CNaw2HvEv",
+      "object": "dispute",
+      "amount": 1000,
+      "charge": "ch_3MmlLrLkdIwHu7ix0snN0B15",
+      "livemode": false,
+      "payment_intent": "pi_3MtwBwLkdIwHu7ix28a3tqPa",
+      "reason": "fraudulent",
+      "status": "warning_needs_response"
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "charge.dispute.created"
+}

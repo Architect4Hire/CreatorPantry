@@ -105,6 +105,46 @@ dotnet user-secrets set "Parameters:usda-fdc-api-key" "<value>" --project src/Cr
 A machine that supplies `ConnectionStrings:evidence-usda-fdc` — `Endpoint=https://api.nal.usda.gov/fdc/v1;Key=<key>`
 — is not prompted.
 
+The eighth and ninth are Stripe's, for plans and packs (AP.6.1, `ai-pricing.md` B-57): `stripe-secret-key` and
+`stripe-webhook-secret`, **off by default** — `Stripe:Billing` is `false` in the AppHost's `appsettings.json` —
+because a Stripe key is one person's Stripe account. **Test mode only:** use a test key (a restricted `rk_test_`
+key is best); the API refuses to start on a live one unless `Billing:Stripe:AllowLiveMode` is set on it, which is
+the owner's call. The API alone takes them, as the connection string `billing-stripe`. That account's price ids —
+one per paid plan and cycle, one per pack — go in the same user secrets, are forwarded to the API, and are checked
+against the catalogue at startup; they are not secrets, but they are never committed:
+
+```
+dotnet user-secrets set "Stripe:Billing" "true" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:stripe-secret-key" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Parameters:stripe-webhook-secret" "<value>" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Stripe:Prices:Plans:creator:Monthly" "price_…" --project src/CreatorPantry.AppHost
+dotnet user-secrets set "Stripe:Prices:Packs:small" "price_…" --project src/CreatorPantry.AppHost
+```
+
+A machine that supplies `ConnectionStrings:billing-stripe` —
+`Endpoint=https://api.stripe.com;Key=<key>;WebhookSecret=<secret>` — is not prompted. With none, payment reads
+"not configured".
+
+The Worker takes the key too (AP.6.2): it reads a subscription again before acting on a webhook event. The AppHost
+gives it `billing-stripe` **without** the signing secret, and the same price ids; only the API verifies deliveries. A
+machine that supplies the whole string gives the Worker that same string, secret included, and the Worker still builds
+no verifier from it (`AddStripeBilling(…, verifyWebhooks: false)`).
+An upgrade opens under a second portal configuration — plan switching on, proration invoiced at once — whose id goes
+beside the price ids (not a secret, never committed):
+
+```
+dotnet user-secrets set "Stripe:UpgradePortalConfiguration" "bpc_…" --project src/CreatorPantry.AppHost
+```
+
+Webhooks reach a local run through the gateway: `stripe listen --forward-to https://localhost:<gateway port>/api/v1/webhooks/stripe`,
+with the `whsec_…` it prints as `stripe-webhook-secret`. The route takes no session or antiforgery token, and a host
+with no secret answers 503, which Stripe retries.
+
+The billing page (AP.6.5) needs nothing more: the AppHost gives the API `Billing:ReturnOrigins` — the web host's
+origin, and the dev server's in a local run, the same origins the gateway's CORS allows — so Checkout and the portal
+send the creator back to `/app/billing` on the page they came from. A deployment sets `Billing:ReturnOrigins` to its
+public web origin; with none, every purchase route answers "payments unavailable".
+
 The model and endpoint are configuration, not prompts: `Venice:ImageModel` and `Venice:Endpoint` in the
 AppHost's `appsettings.json`. A machine that supplies the whole thing as `ConnectionStrings:images` —
 `Endpoint=https://api.venice.ai/api/v1;Key=<key>;Model=<model id>` — is not prompted. A missing image provider

@@ -81,7 +81,10 @@ internal sealed class RecipeFirstDraftAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiRecipeDraftOutputValidator.AsDelegate),
+                AiRecipeDraftOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.RecipeFirstDraft,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

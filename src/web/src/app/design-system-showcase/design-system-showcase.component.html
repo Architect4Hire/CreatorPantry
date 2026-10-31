@@ -868,6 +868,8 @@
             [summary]="concept.summary"
             chooseLabel="Choose this concept"
             [selected]="chosenConcept() === concept.id"
+            [disabled]="concept.id === 'salad'"
+            [disabledReason]="concept.id === 'salad' ? 'Needs a dressing the brand guide has not approved yet.' : ''"
             (chosen)="chosenConcept.set(concept.id)"
           >
             @if (concept.id === 'miso') {
@@ -880,6 +882,10 @@
         </li>
       }
     </ul>
+    <p>
+      The salad is <code>disabled</code>: still compared, not on offer. Its button stays focusable, is faded and
+      <code>aria-disabled</code>, emits nothing, and says why underneath with <code>disabledReason</code> (AP.6.5).
+    </p>
   </section>
 
   <section aria-labelledby="stat-tile-heading">

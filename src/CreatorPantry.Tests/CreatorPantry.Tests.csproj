@@ -96,6 +96,15 @@
     <EmbeddedResource Include="**\*.fdc.json" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
   </ItemGroup>
 
+  <!--
+    Stripe API objects (AP.6.1), embedded so the payment gateway is tested against Stripe's own published shapes.
+    Transcribed from Stripe's API reference rather than recorded: see Billing/Fixtures/Stripe/README.md.
+  -->
+  <ItemGroup>
+    <None Remove="**\*.stripe.json" />
+    <EmbeddedResource Include="**\*.stripe.json" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CreatorPantry.AiProvider\CreatorPantry.AiProvider.csproj" />
     <ProjectReference Include="..\CreatorPantry.Domain\CreatorPantry.Domain.csproj" />

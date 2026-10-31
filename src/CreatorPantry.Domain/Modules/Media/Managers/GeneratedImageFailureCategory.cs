@@ -74,6 +74,34 @@ public static class GeneratedImageFailureCategory
     /// </remarks>
     public const string InvalidResponse = "invalid-response";
 
+    /// <summary>
+    /// The provider made the picture and then withheld it on its own safety grounds (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The narrower category <see cref="ProviderRefused"/>'s remarks said would arrive once something could
+    /// see the difference. Something can: the picture was generated, so the provider answers it apart from a
+    /// request it would not run at all, and this host is billed for it either way.
+    /// </para>
+    /// <para>
+    /// It is worth its own name to the creator as well as to the ledger — a prompt that produced a picture the
+    /// provider would not hand over is a prompt to rewrite, which is exactly the advice
+    /// <see cref="ProviderRefused"/> cannot safely give.
+    /// </para>
+    /// </remarks>
+    public const string ProviderFlagged = "provider-flagged";
+
+    /// <summary>
+    /// The allowance held for this generation lapsed before a worker reached it (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// Said rather than generated: the hold is taken when the request is made and is not renewed, so a
+    /// request that waited long enough can be claimed after its allowance has been given back. Making the
+    /// pictures anyway would be making them for nothing (PRICE-001), and a creator is better told to ask
+    /// again — which takes a fresh hold — than charged nothing and left wondering.
+    /// </remarks>
+    public const string Quota = "quota";
+
     /// <summary>The returned bytes are not a supported image format, whatever the provider labelled them.</summary>
     public const string UnsupportedMediaType = "unsupported-media-type";
 
@@ -112,6 +140,8 @@ public static class GeneratedImageFailureCategory
         RateLimited,
         ProviderRefused,
         InvalidResponse,
+        ProviderFlagged,
+        Quota,
         UnsupportedMediaType,
         CorruptImage,
         ImageTooLarge,

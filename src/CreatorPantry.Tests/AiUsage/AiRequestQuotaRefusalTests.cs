@@ -10,6 +10,10 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing;
+using CreatorPantry.Domain.Modules.Billing.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -17,6 +21,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Tests.AiUsage;
 
@@ -69,6 +74,7 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
             .AddTenancy()
             .AddAudit()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
 
             // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece
@@ -165,6 +171,86 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         Assert.DoesNotContain("workspace", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ---- the pack balance (AP.5.2) ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Five left in the allowance and fifteen in a pack cover a request of twenty: the gate judges both sources,
+    /// in the order admission spends them, and lets it through.
+    /// </summary>
+    [Fact]
+    public async Task A_request_the_allowance_cannot_cover_goes_ahead_when_packs_cover_the_rest()
+    {
+        await SpendDownToAsync(5m);
+        await GrantPackAsync(15m);
+
+        Assert.True((await RequestConceptsAsync()).Result.Succeeded);
+    }
+
+    /// <summary>
+    /// When the two together fall short, the refusal names each apart (USAGE-007): the allowance, which resets, and
+    /// the pack balance, which does not.
+    /// </summary>
+    [Fact]
+    public async Task A_refusal_reports_the_pack_balance_apart_from_the_allowance()
+    {
+        await SpendDownToAsync(5m);
+        await GrantPackAsync(10m);
+
+        var error = (await RequestConceptsAsync()).Result.Error!;
+
+        Assert.Equal(AiProposalErrors.QuotaExhausted, error.Code);
+        Assert.Equal(5m, error.Extensions!["remaining"]);
+        Assert.Equal(10m, error.Extensions["packRemaining"]);
+        Assert.Equal(Required, error.Extensions["required"]);
+        Assert.Contains("pack credits", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A request for several runs counts whole runs across both sources: fifteen and thirty cover two runs of
+    /// twenty, not three — and two is what sequential admissions would then admit.
+    /// </summary>
+    [Fact]
+    public async Task A_request_for_several_runs_counts_the_runs_both_sources_cover()
+    {
+        await SpendDownToAsync(15m);
+        await GrantPackAsync(30m);
+
+        using (var scope = _provider.CreateScope())
+        {
+            Resolve(scope, WorkspaceA, MembershipInA, WorkspaceRole.Contributor, Account);
+            var gate = scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>();
+
+            var refused = await gate.RefuseIfRunsUnaffordableAsync(
+                AiTaskType.RecipeConcepts, 3, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken);
+
+            Assert.Equal(AiProposalErrors.QuotaExhausted, refused!.Code);
+            Assert.Equal(2, refused.Extensions!["runsCoverable"]);
+            Assert.Equal(3, refused.Extensions["runsRequested"]);
+            Assert.Equal(Required * 3, refused.Extensions["required"]);
+            Assert.Equal(30m, refused.Extensions["packRemaining"]);
+
+            Assert.Null(await gate.RefuseIfRunsUnaffordableAsync(
+                AiTaskType.RecipeConcepts, 2, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken));
+        }
+
+        using var admit = _provider.CreateScope();
+        var quota = admit.ServiceProvider.GetRequiredService<IAiQuotaAdmissionFacade>();
+        var outcomes = new List<AiQuotaAdmissionOutcome>();
+
+        for (var run = 0; run < 3; run++)
+        {
+            outcomes.Add((await quota.AdmitAsync(
+                new AiQuotaAdmissionRequestServiceModel(
+                    Account, Guid.NewGuid(), Guid.NewGuid(), AiTaskType.RecipeConcepts, true,
+                    _clock.UtcNow + TimeSpan.FromMinutes(10)),
+                TestContext.Current.CancellationToken)).Outcome);
+        }
+
+        Assert.Equal(
+            [AiQuotaAdmissionOutcome.Admitted, AiQuotaAdmissionOutcome.Admitted, AiQuotaAdmissionOutcome.Exhausted],
+            outcomes);
+    }
+
     /// <summary>
     /// A suspension is a different answer under a different code, and carries no balance and no reset — there
     /// is nothing to wait for, and a remaining figure would read as an invitation to try again.
@@ -180,6 +266,44 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         Assert.Equal(nameof(AiQuotaUnit.Credits), error.Extensions!["unit"]);
         Assert.DoesNotContain("resetsAt", error.Extensions.Keys);
         Assert.DoesNotContain("remaining", error.Extensions.Keys);
+    }
+
+    /// <summary>
+    /// A trial that has ended is refused at the request under its own code (AP.7.1): when it ended, and no balance or
+    /// reset — choosing a plan is the remedy — with nothing written and nothing held, pack credits or not.
+    /// </summary>
+    [Fact]
+    public async Task An_ended_trial_is_refused_under_its_own_code_and_writes_nothing()
+    {
+        var ended = await EndTrialAsync();
+        await GrantPackAsync(500m);
+
+        var error = (await RequestConceptsAsync()).Result.Error!;
+
+        Assert.Equal(AiProposalErrors.QuotaTrialEnded, error.Code);
+        Assert.Equal(ended, error.Extensions!["trialEndedAt"]);
+        Assert.DoesNotContain("resetsAt", error.Extensions.Keys);
+        Assert.DoesNotContain("remaining", error.Extensions.Keys);
+        Assert.DoesNotContain("packRemaining", error.Extensions.Keys);
+        Assert.Empty(await OperationsAsync());
+        Assert.Empty(await ReservationsAsync());
+    }
+
+    /// <summary>The several-runs gate refuses an ended trial the same way, rather than counting runs it cannot spend.</summary>
+    [Fact]
+    public async Task A_request_for_several_runs_is_refused_for_an_ended_trial()
+    {
+        var ended = await EndTrialAsync();
+
+        using var scope = _provider.CreateScope();
+        Resolve(scope, WorkspaceA, MembershipInA, WorkspaceRole.Contributor, Account);
+
+        var refused = await scope.ServiceProvider.GetRequiredService<IAiRequestQuotaGate>().RefuseIfRunsUnaffordableAsync(
+            AiTaskType.RecipeConcepts, 3, "runsRequested", "runsCoverable", TestContext.Current.CancellationToken);
+
+        Assert.Equal(AiProposalErrors.QuotaTrialEnded, refused!.Code);
+        Assert.Equal(ended, refused.Extensions!["trialEndedAt"]);
+        Assert.DoesNotContain("runsCoverable", refused.Extensions.Keys);
     }
 
     // ---- what a refusal costs --------------------------------------------------------------------------
@@ -368,7 +492,12 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
         //
         // Seventeen since LF.2.2's outline request, which starts a long-form draft: the first of the dozen
         // generations an article takes, and the one that decides how many follow.
-        Assert.Equal(18, seams.Count);
+        //
+        // Nineteen since AP.3.2's prompt compaction, which shortens a prompt for a short-limit model. It was
+        // gated when it shipped and this count was not raised with it, so the number — not the gate — is what
+        // had been failing since. The assertion below is the invariant; this one is the ledger of how many
+        // seams there are to check.
+        Assert.Equal(19, seams.Count);
 
         var missing = seams
             .Where(type => !type.GetConstructors().Single().GetParameters()
@@ -389,6 +518,44 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
     /// holds rather than by writing a period's totals directly — so what these tests refuse against is a
     /// balance the production seam actually produced.
     /// </summary>
+    /// <summary>
+    /// Puts every account on a fourteen-day trial by default and makes <see cref="Account"/> twenty days old; returns
+    /// when its trial ended.
+    /// </summary>
+    private async Task<DateTimeOffset> EndTrialAsync()
+    {
+        var billing = _provider.GetRequiredService<IOptions<BillingOptions>>().Value;
+        billing.DefaultPlan = "trial";
+        billing.Plans.Add(new PlanOption
+        {
+            Key = "trial",
+            Name = "Trial",
+            Credits = 1000,
+            DailyImageCap = 5,
+            RunningImages = 1,
+            Period = PlanAllowancePeriod.Once,
+            QualityClasses = ["standard"],
+            TrialDays = 14,
+            TrialImageCap = 10,
+        });
+
+        var created = _clock.UtcNow.AddDays(-20);
+
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+        db.Users.Add(new ApplicationUser
+        {
+            Id = Account,
+            UserName = Account,
+            Email = $"{Account}@example.test",
+            DisplayName = Account,
+            CreatedAt = created,
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return created.AddDays(14);
+    }
+
     private async Task SpendDownToAsync(decimal remaining)
     {
         await GiveQuotaAsync(allowance: 1000m);
@@ -445,6 +612,25 @@ public sealed class AiRequestQuotaRefusalTests : IAsyncDisposable
             row => row.AccountId == Account, TestContext.Current.CancellationToken);
 
         period.Consumed += amount;
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>A pack of credits for the account, granted before the period began.</summary>
+    private async Task GrantPackAsync(decimal credits)
+    {
+        using var scope = _provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.AccountCreditGrants.Add(new AccountCreditGrant
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Account,
+            Source = CreditGrantSource.Ops,
+            CreditsGranted = credits,
+            CreditsRemaining = credits,
+            GrantedAt = _clock.UtcNow.AddDays(-3),
+        });
 
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Facade;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Ingredients;
 using CreatorPantry.Domain.Modules.Measurement;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -22,6 +23,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using CreatorPantry.Tests.Reference;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -118,6 +120,9 @@ public sealed class SqlServerMediaFixture : IAsyncLifetime
 
             // The whole module, so the repository under test is resolved the way the API resolves it rather
             // than constructed by hand. Nothing else in it is ever asked for, so nothing else is built.
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
 
             // Media's business layer resolves lineage through the Content and Recipes facades (12.9c), and those

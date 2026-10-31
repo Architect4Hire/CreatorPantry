@@ -23,7 +23,14 @@ public sealed record AiCompletionRequest<TDocument>(
     string PromptTemplateVersion,
     Guid CorrelationId,
     AiOutputValidatorDelegate<TDocument> Validate)
-    where TDocument : class;
+    where TDocument : class
+{
+    /// <summary>
+    /// The task this call serves, which decides its output ceiling (<see cref="AiGatewayOptions.MaxOutputTokensFor"/>).
+    /// Required so no handler can send a call without one.
+    /// </summary>
+    public required AiTaskType Task { get; init; }
+}
 
 /// <summary>
 /// What one provider attempt cost and how it ended. Shaped to <c>AiExecutionMetadata</c>, which is where the

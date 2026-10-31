@@ -18,7 +18,7 @@ changes.
 | **Not built** | Needs a named prompt first. | No |
 
 Paths are abbreviated: `web/` is `src/web/src/app/`, `dom/` is `src/CreatorPantry.Domain/`, `AP` is
-`docs/prompts/creatorpantry-ai-pricing-scrub-prompts.md`.
+`docs/prompts/1.creatorpantry-ai-pricing-scrub-prompts.md`.
 
 ## Three things the copy has to respect
 
@@ -31,9 +31,13 @@ Paths are abbreviated: `web/` is `src/web/src/app/`, `dom/` is `src/CreatorPantr
    exactly one workspace and is off by default (`.claude/rules/aspire.md`, `web/services/publishing.service.ts`).
    A new sign-up cannot schedule a post, so publishing carries the badge **Coming to every account**
    (answer 1).
-3. **Images are not charged against credits yet.** Today credits cover text AI only; images are capped at 200
-   a workspace a day and cost no credits (`dom/Managers/Limits/LimitsOptions.cs`; master library 12.10l
-   "Not done"). Every pricing promise about images waits for AP.2.5.
+3. **Pictures are charged against credits, and refused at zero.** A picture costs its quality class's
+   `Ai:Quota:ImageRates` row — the table admission holds and settles against (AP.2.4, AP.2.5, AP.4.5) — and a
+   request the allowance cannot cover is refused before it is queued (DL.7). How many an account may ask for in
+   a UTC day is its plan's `DailyImageCap`, counted across every workspace it works in (DL.4–DL.6); the flat
+   `Limits:ImageVariantsPerWorkspacePerDay` (200) stays beside it as a per-workspace runaway bound
+   (`dom/Managers/Limits/LimitsOptions.cs`), and a request passes both. A host that would publish a cap it could
+   not keep does not start (`PublishedPlanCapsValidation`, DL.6).
 
 Two lines on today's page overclaim and are not carried forward: "Save **named** versions" (versions are
 numbered, with an optional reason: `dom/Modules/Recipes/Data/Entities/RecipeVersion.cs`) and "equipment stay
@@ -81,7 +85,7 @@ and newsletters. AI drafts what you ask for, and nothing changes until you accep
 | Blog articles and newsletters | **Shipped** long-form, `web/models/long-form-pipeline.models.ts` (`BlogArticle`, `NewsletterIssue`) |
 | Nothing changes until you accept it | **Shipped** accept steps: `AiProposalsController` disposition, `RecipeDraftRequestsController` acceptance, `LongFormDraftsController`, `dam-assets/from-generated-image`; `.claude/rules/ai.md` |
 | "Start free" | **Shipped** today: no billing exists and no account expires |
-| "`{trial.days}`-day free trial" | **Decided** 14 days (owner answer 3); **Catalogue** field, rendered only after AP.7.1 enforces it. Until then the page says no trial length, because nothing ends one |
+| "`{trial.days}`-day free trial" | **Decided** 14 days (owner answer 3); **Catalogue** field. **Unblocked** 2026-10-29: AP.7.1 ends a trial `TrialDays` after its account was created (`ai-pricing.md` B-61). The hero still says "Start free" — switching the CTA is its own change |
 | Owner switches AI on | **Shipped** `IAiTaskGate.cs`, Workspace settings AI switches (Owner only); owner answer 2 |
 
 **Motion:** the photo collage drifts a few pixels with the pointer; the proof card settles in once. Both stop
@@ -195,16 +199,28 @@ show at once.
 
 ---
 
-## 6. Draft vs final images — **Removed**
+## 6. Picture quality — **Catalogue** (restored 2026-10-27, AP.4.5)
 
-Taken off the page (2026-10-25). The product makes one kind of picture: `VeniceImageGenerator` sends the one
-configured model and no size, quality or resolution, so each model's own default applies. Draft, standard,
-high, 2K and 4K are an AP.3.1 roadmap item that has not been built, and the page had begun to describe them
-as a choice a creator could make — on the plan cards, in the comparison table and in the credit menu.
+Taken off the page on 2026-10-25 because the product made one kind of picture, and back now that it does not.
+AP.3.1 shipped the five quality classes and a creator chooses one in Image Studio and the pipeline; AP.4.3
+made a plan decide which of them an account may ask for. Both are facts a visitor needs before paying, so the
+page states them.
 
-No page copy names a picture quality until AP.3.1 ships and a creator can choose one in the image studio.
-The catalogue's `qualityClasses`, `rates.imageDraft` and `rates.imageHigh` are still in the API contract and
-the development configuration, but the page reads none of them.
+**Where it appears:** one credit-menu line per class at its exact price (section 9), the qualities each plan
+includes on its card and the best it reaches in the comparison table (section 7), and the estimator's quality
+choice (section 9).
+
+**The one rate source.** A picture's price is the `Ai:Quota:ImageRates` row for exactly what its class sends,
+which is what admission holds and settles against. `GET /api/v1/plans` reads those rows (`pictureClasses`) —
+there is no figure for a picture anywhere in `Billing:Rates`, in TypeScript, or in this document. A class no
+plan includes is not published, so the page never advertises a quality nothing on sale reaches.
+
+| Claim | Source |
+| --- | --- |
+| A creator chooses a picture's quality | **Shipped** AP.3.1, AP.3.1A; `GeneratedImageQualityClass`, `cp-generated-image-run` |
+| A plan decides which qualities | **Shipped** AP.4.3; `media.generation.quality_class.forbidden`, `PlanQualityClassNames` |
+| The price shown is the price charged | **Shipped** AP.4.5; `PlanCatalogueBusiness.PictureClasses` prices through `AiImageQuotaConverter`, the calculator admission charges with — not the admission facade, whose graph needs a database this anonymous route must not touch. `PictureClassRateTests` holds the two equal |
+| How many pictures a plan buys | **Shipped** AP.4.5; `PlanServiceModel.PicturesAtDefaultQuality`, derived server-side because the browser may not divide credits by a rate. Bounded by a trial's lifetime cap (B-52), not by the daily cap |
 
 ---
 
@@ -215,15 +231,31 @@ the development configuration, but the page reads none of them.
 **Body:** Every plan includes the whole workspace. What changes is how much AI work a month includes.
 
 **Per plan card:** `{plan.name}` · `{plan.monthlyPrice}` a month, or `{plan.annualMonthlyPrice}` billed
-yearly (`{plan.annualSaving}` saved) · `{plan.credits}` AI credits a month · "about `{plan.exampleMix}`" ·
-up to `{plan.dailyImageCap}` pictures a day · **Start with `{plan.name}`** → `/sign-up?plan={plan.key}`.
-No picture quality, on a card or in the comparison table (section 6).
+yearly (`{plan.annualSaving}` saved) · **the pitch** · `{plan.credits}` AI credits a month (on the trial, "for
+the trial": its credits come once, B-48) · "Or up to
+`{plan.picturesAtDefaultQuality}` standard pictures a month, if pictures are all you make" (left off when it is
+no more than the pitch's pictures) · up to `{plan.dailyImageCap}` pictures a day (on the trial,
+"`{plan.trialImageCap}` in all" too) · "Picture quality: `{plan.qualityClasses}`" · **Start with `{plan.name}`** →
+`/sign-up?plan={plan.key}`.
+
+**The pitch** (owner, 2026-10-28): "Every month, all together" (on the trial, "In the trial, all together"),
+then up to three rows between hairlines, each a count in the display face and its words beside it —
+**`{plan.exampleCounts.recipeDrafts}`** recipes drafted · **`{plan.exampleCounts.pictures}`** standard pictures ·
+**`{plan.exampleCounts.socialPosts}`** social posts (left off at nought). Rows, not tiles: two boxes side by side
+broke their words mid-letter in a four-column grid. The counts are made *together*, never "or": each plan's
+`Billing:Plans:ExampleCounts` is the owner's, and `PictureClassRateTests` fails when one, priced at the
+published rates, costs more than the plan's credits. A catalogue with no counts keeps the older line, "about `{plan.exampleMix}`". The comparison table carries the same pitch short, as
+**Recipes and pictures a month** ("60 recipes, 70 pictures").
+
+The comparison table has a **Best picture quality** row — the highest class the plan includes, the comparable
+fact; the full list stays on the card, where it is read rather than compared (AP.4.5, section 6).
 
 "Recommended for most food bloggers" appears on the plan the catalogue flags (`{plan.recommended}`).
 
 | Claim | Source |
 | --- | --- |
 | Every plan includes the whole workspace | **Not built** — AP.4 only proposes credit, cap and quality differences. Holds only if AP.1.1 decides no feature gating |
+| Up to `{plan.dailyImageCap}` pictures a day | **Shipped** DL.4–DL.6; the plan's cap, held across every workspace the account works in (`AiQuotaAdmissionOutcome.DailyImageCap`, refused as `limits.budget.exhausted` at User scope). Published and enforced from the one field: `ImagesJourneyEndToEndTests.PublishedCaps`, `DailyImageCapAdmissionTests`, `DailyImageCapConcurrencyTests`, `PlanLimitsStartupTests` |
 | Every figure | **Catalogue** AP.4.1; the proposed values in AP "Proposed, awaiting the owner" are never typed here |
 | Recommended badge | Landing decision 2 |
 | Plan per account, across workspaces | **Decided** AP decision 4 |
@@ -241,19 +273,28 @@ motion.
 whichever model does the job. Your credits belong to you, not to a workspace, and they're shared across every
 workspace you work in.
 
-**Menu board:** a text draft `{rates.textDraft}` · a long-form section `{rates.longFormSection}` · a picture
-`{rates.imageStandard}`. One picture line, because there is one kind of picture (section 6).
+**Menu board:** a recipe draft or post "about `{rates.textDraft}`" · a long-form section "about
+`{rates.longFormSection}`" · then **one line per picture quality** the catalogue publishes — "A draft picture",
+"A standard picture", "A high-quality picture", "A high-quality picture at 2K", "…at 4K" — each at
+`{pictureClasses[].perPicture}` and none of them saying "about" (AP.4.5, section 6). Writing says "about"
+because it settles at the tokens the model reported (AP.2.1); a picture is charged its quality's rate exactly,
+so the note under the menu says which is which. Owner, 2026-10-26: a recipe draft is about 5 credits, a
+long-form section stays 10.
 
-**Estimator:** "Pictures a month" and "AI writing a month" sliders. "Your **estimate** fits `{plan.name}`, with
-about `{headroom}` credits to spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack,
-or write to robert@creatorpantry.com and we'll work something out." (Contact per owner answer 6.)
+**Estimator:** "Pictures a month" and "AI writing a month" sliders, plus a **Picture quality** choice that
+prices the pictures — one count and a quality rather than a slider per class, because a creator estimating a
+month pictures the work they make and how good it has to be, not a mix. Shown only where the catalogue
+publishes more than one quality. "Your **estimate** fits `{plan.name}`, with about `{headroom}` credits to
+spare." Beyond the top plan: "More than `{topPlan.name}` includes. Add a pack, or write to
+robert@creatorpantry.com and we'll work something out." (Contact per owner answer 6.)
 
 | Claim | Source |
 | --- | --- |
 | Credits measure AI work the same whichever model | **Shipped** `AiQuotaUnit.Credits`, `dom/Modules/AiUsage/Managers/AiQuotaOptions.cs` |
 | Belong to you, shared across workspaces | **Shipped** USAGE-001, `AccountAiQuota` |
-| Picture rates | **Not built** AP.2.4 (images cost no credits today) |
+| Picture rates | **Shipped** AP.2.4, AP.2.5, AP.3.1; published from `Ai:Quota:ImageRates` per class (AP.4.5), the table admission charges. `ImageRateTableTests` holds a row to every class a host offers; `PictureClassRateTests` holds the published price and the charged one equal; `landing-picture-figures.spec.ts` holds the page to the published rate |
 | Every figure | **Catalogue** AP.4.1 plus per-action rates (LP.7) |
+| The estimate, the plan it fits and what it leaves | **Shipped** AP.7.2, `GET /api/v1/plans/estimate` (`ai-pricing.md` B-62): worked out by the server from the same catalogue; the page formats it and multiplies nothing |
 
 **Motion:** the menu board's prices tick in once; the estimator's result counts up. Instant under reduced
 motion.
@@ -267,8 +308,8 @@ motion.
 | Tile | Copy | Source | Renders after |
 | --- | --- | --- | --- |
 | Prepaid | You pay for credits before you use them. Nothing is billed afterwards. | **Decided** AP decision 3; PRICE-009 | AP.1.1 and AP.6 |
-| At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual."). **Not built** for pictures (AP.2.5) | AP.2.5 |
-| Top-up is yours to switch on | Automatic top-up is off unless you turn it on, and you set its monthly limit. | **Not built** AP.6.4 | AP.6.4 |
+| At zero, AI waits | When your credits run out, AI requests stop before they start. Your recipes, pictures and drafts stay yours to edit. | **Shipped** for text (USAGE-006, `IAiRequestQuotaGate`; usage page: "You can keep writing and editing recipes as usual.") and for pictures (DL.7; `AdmitImageAsync` refuses before anything is queued — `ImagesJourneyEndToEndTests.Quota.A_picture_asked_for_at_an_allowance_of_nothing_is_refused_before_it_is_queued`, `CreativePipelineEndToEndTests.Quota`) | — |
+| Running low? You hear first | When your credits run low, we tell you and offer a pack. Nothing is ever bought for you. | **Shipped** AP.6.4 (B-59, owner 2026-10-28: no auto top-up). The notice is raised at admission, once a period, and links to the pack purchase; an account setting turns it off. The tile's "Coming with billing" label was removed with it | — |
 
 **Packs:** `{pack.credits}` credits for `{pack.price}`, used after your plan's credits. **Catalogue** AP.5.
 Under the list, once: "A pack is credits you have bought, so they keep until you spend them. They never
@@ -294,12 +335,12 @@ prompt, and LP.9's rule stands: anything undecided is left out.
 | 5 | Are AI pictures filtered? | Yes. Safe mode is always on, and a picture the provider flags is never shown to you. | **Shipped** `VeniceImageGenerator.cs` (`safe_mode: true`), `VeniceImageGeneratorTests` |
 | 6 | Can CreatorPantry tell me a dish is allergen-free or safe? | No, and it won't pretend to. Dietary and allergen notes describe what your recipe says; they're never a guarantee. Always check every label. | **Shipped** `DietaryAllergenAnalyzer.CrossContactDisclaimer`; B-36; `check-safety-copy.mjs` wording limits |
 | 7 | What is a credit? | Section 8's body. | **Shipped** + **Catalogue** |
-| 8 | What happens when I run out? | Tile 2 of section 9. | **Shipped** for text; pictures after AP.2.5 |
+| 8 | What happens when I run out? | Tile 2 of section 9. | **Shipped** for text and for pictures (DL.7) |
 | 9 | Do unused credits roll over? | Plan credits don't carry over; each month starts fresh. | **Shipped** `DefaultCarryOver = None`; restate from AP.1.1 |
 | 10 | Do packs expire? | No. A pack is credits you have bought, so they keep until you spend them. | **Decided** (owner, 2026-10-24) |
 | 11 | Can I cancel any time? | **Not built** (AP.6.2, downgrade timing still open). Omitted. | — |
 | 12 | Who owns what AI makes for me? | You do, as far as the law allows. Your recipes, pictures and drafts are yours, and so is what CreatorPantry generates for you. We only use them to run the service for you. The Terms of Service say exactly how. | Draft ToS §5 (`docs/legal/terms-of-service.md`). Renders only once the reviewed Terms are published, and links to them |
-| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); renders after AP.7.1. What a trial may generate is still open (AP.7.1: card on file, or a 10-picture cap) |
+| 13 | What does the trial include? | The whole workspace for `{trial.days}` days. | **Decided** 14 days (owner answer 3); unblocked by AP.7.1 (2026-10-29), not yet rendered. **Decided** what a trial may generate: up to `{trial.trialImageCap}` pictures in all, no card on file (`ai-pricing.md` B-52); **Shipped** AP.7.1, counted per account across workspaces |
 
 Seven answers render today (0–6). 7–10 and 13 render with pricing, and 12 with the published Terms. LP.9 asks
 for 8 to 10 answers; the page reaches that once pricing is on, so LP.9 picks the ten that are live.
@@ -371,7 +412,8 @@ does not go live without all three (LP.6).
   they exist as pages.
 - **Google Fonts.** The Privacy Policy has to disclose that visitors' IP addresses go to Google for fonts,
   unless the fonts are self-hosted (LP.11 can do that as part of the performance pass).
-- **Cancellation and refunds.** Downgrade timing (AP.6.2) and a refund policy are undecided, so FAQ 11 and the
-  matching ToS clauses stay bracketed. Pack expiry is no longer among the open questions: packs do not expire
+- **Cancellation and refunds.** Downgrades and cancellations take effect at period end (`ai-pricing.md` B-54),
+  but a refund policy is undecided, so FAQ 11 and the matching ToS clauses stay bracketed. Pack expiry is no longer among the open questions: packs do not expire
   (owner, 2026-10-24).
-- **What a trial may generate.** Card on file, or a cap of 10 trial pictures (AP.7.1).
+- ~~**What a trial may generate.**~~ Decided 2026-10-26: a lifetime cap of 10 trial pictures, no card on file
+  (`ai-pricing.md` B-52). The pricing card and comparison table state it from the catalogue; AP.7.1 enforces it.

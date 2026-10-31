@@ -41,8 +41,20 @@ public static class MediaPolicy
     /// <summary>The longest a stored content checksum may be, including its algorithm prefix.</summary>
     public const int ChecksumMaxLength = 80;
 
+    /// <summary>
+    /// An Identity account id, as <c>GeneratedImageOperation.RequestedByAccountId</c> stores it. The width of
+    /// Identity's own key, restated here because another module's policy does not cross a boundary.
+    /// </summary>
+    public const int AccountIdMaxLength = 450;
+
     /// <summary>The longest a stored provider or model identifier may be.</summary>
     public const int ProviderIdentifierMaxLength = 200;
+
+    /// <summary>The quality a picture was asked for at the provider, as the model names it (AP.2.3).</summary>
+    public const int GenerationQualityMaxLength = CreatorPantry.Domain.Managers.Ai.ImageGenerationSettings.QualitySentMaxLength;
+
+    /// <summary>The size a picture was asked for at the provider, in the model's terms (<c>1K 1:1</c>, <c>1024x1024</c>).</summary>
+    public const int GenerationSizeMaxLength = CreatorPantry.Domain.Managers.Ai.ImageGenerationSettings.SizeSentMaxLength;
 
     /// <summary>
     /// The longest a sanitized provider failure summary may be.
@@ -146,6 +158,12 @@ public static class MediaPolicy
     /// </remarks>
     public const int GenerationMaxAttempts = 3;
 
+    /// <summary>
+    /// What a generation whose last lease lapsed says about itself, whether or not its allowance could be settled.
+    /// </summary>
+    public static readonly string LeaseAbandonedSummary =
+        $"Claimed {GenerationMaxAttempts} times and never completed; no attempts remain.";
+
     /// <summary>How many due operations one claim pass inspects before giving up on winning a race.</summary>
     public const int GenerationClaimBatchSize = 10;
 
@@ -161,6 +179,43 @@ public static class MediaPolicy
     /// way two workers can both generate for one operation, which is the expensive mistake.
     /// </remarks>
     public static readonly TimeSpan GenerationLeaseDuration = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// How long a generation's hold on its account's allowance lasts (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Sized for every pass the operation may take, not for one.</strong> The hold is taken when the
+    /// request is made and settled once, when the generation is finished for good — which can be up to
+    /// <see cref="GenerationMaxAttempts"/> claims, each up to a <see cref="GenerationLeaseDuration"/> long,
+    /// with a <see cref="GenerationBackoffFor"/> wait between them and a maintenance sweep before each
+    /// requeue is even noticed. A hold that lapsed inside that window would be released by the expiry sweep
+    /// and the next pass would generate pictures against an allowance nobody had checked.
+    /// </para>
+    /// <para>
+    /// <strong>It is the whole budget, not a floor, because nothing renews it.</strong> Unlike an AI
+    /// operation — whose worker extends its hold alongside its lease — a generation's pass has to finish
+    /// inside one <see cref="GenerationLeaseDuration"/>, so there is no renewal point to hang an extension on.
+    /// Two hours against a worst case of three 15-minute leases plus their backoffs and the sweep that notices
+    /// them: generous on purpose, since being short means a picture generated against an allowance nobody
+    /// checked, and being long means allowance held a little past when it strictly had to be.
+    /// </para>
+    /// <para>
+    /// The expiry sweep is still the backstop. A hold whose generation died without settling is released when
+    /// this lapses, which is also why it is not simply enormous.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan GenerationHoldDuration = TimeSpan.FromHours(2);
+
+    /// <summary>
+    /// The least room a shorter prompt may be given once the avoid list is set aside (AP.3.2).
+    /// </summary>
+    /// <remarks>
+    /// The same forty characters the image-prompt task holds its own prompts to: a budget below it would ask
+    /// for a compact variant no answer could pass, so a request in that position is refused for its avoid list
+    /// instead. <c>GeneratedImagePromptFitTests</c> holds the two numbers together.
+    /// </remarks>
+    public const int ShortestPromptBudget = 40;
 
     /// <summary>How long one provider call may take before it is treated as unavailable.</summary>
     public static readonly TimeSpan GenerationProviderTimeout = TimeSpan.FromMinutes(3);

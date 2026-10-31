@@ -114,7 +114,10 @@ internal sealed class IngredientSubstitutionAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiSubstitutionOutputValidator.AsDelegate),
+                AiSubstitutionOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.IngredientSubstitution,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

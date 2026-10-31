@@ -5514,7 +5514,7 @@ evaluation fixtures for workspace isolation on `content.editorial-package`, `con
 `recipe.*` capabilities; `inputs: []` on eleven prompt manifests; and kept AI images having no alt text until a
 creator writes one.*
 
-*Pick up here: run `creatorpantry-long-form-scrub-prompts.md` (LF.1.1 onward) before Phase 13.*
+*Image allowance charge: delivered by AP.2.4–AP.2.6 in `1.creatorpantry-ai-pricing-scrub-prompts.md` (DL.7 narrows it to one kind of picture).*
 
 ## Phase 13 — Social packages, content board, and publishing
 
@@ -6423,6 +6423,10 @@ workers honor the same approved operation budget.
 BEHAVIOR: Present limit table and storage strategy, wait for approval, implement with burst, reset,
 concurrency, worker, and isolation tests.
 ```
+
+*Pick up here: run `2.creatorpantry-daily-limits-scrub-prompts.md` (DL.1 onward), then the rest of
+`1.creatorpantry-ai-pricing-scrub-prompts.md` from AP.2.1, skipping what DL delivered, before 15.4. Still open
+from the previous marker: LF.8.1–LF.8.7 in `creatorpantry-long-form-scrub-prompts.md`.*
 
 ### 15.4 Distributed telemetry and business metrics
 

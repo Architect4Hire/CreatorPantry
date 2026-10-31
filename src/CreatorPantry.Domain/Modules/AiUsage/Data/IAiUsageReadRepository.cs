@@ -113,9 +113,18 @@ internal sealed class AiUsageReadRepository(CreatorPantryDbContext context) : IA
     }
 
     /// <remarks>
+    /// <para>
     /// A reservation carries no workspace — an allowance belongs to an account, and the quota tables have no
     /// workspace dimension at all. The ledger does, so a run's workspace is read from the entries its operation
     /// posted; one run is one operation is one workspace, so the mapping is unambiguous.
+    /// </para>
+    /// <para>
+    /// <strong>Either operation column, because a reservation has one and the ledger has two.</strong> An image
+    /// hold stores its generation's id in <c>AiOperationId</c>, but its charges name it in
+    /// <c>GeneratedImageOperationId</c> and leave <c>AiOperationId</c> null (AP.2.5). Matching the one column
+    /// left every picture's spend with no workspace. The two id spaces are both fresh Guids, so a match on either
+    /// is still exactly one operation.
+    /// </para>
     /// </remarks>
     public async Task<IReadOnlyList<AiUsageWorkspaceTotal>> SumByWorkspaceAsync(
         string accountId,
@@ -134,14 +143,17 @@ internal sealed class AiUsageReadRepository(CreatorPantryDbContext context) : IA
                 Amount = reservation.SettledAmount ?? 0m,
 
                 // Null when the run posted no ledger entry, which a settled charge always does. Carried rather
-                // than dropped so the breakdown still sums to the period's Consumed even if it ever happens.
+                // than dropped so the breakdown still sums to what the period's runs cost even if it ever happens —
+                // its Consumed, plus whatever pack credits paid for (AP.5.2), since a run's cost is what it cost
+                // whichever source paid.
                 //
                 // The account predicate is repeated here rather than inferred from the outer reservation: it
                 // is what scopes every other query in this file, and the one place it was left implicit would
                 // be the one place a reader has to reconstruct the argument. It costs nothing and it means no
                 // row in this subquery can belong to another account.
                 WorkspaceId = context.AccountAiUsageEntries
-                    .Where(entry => entry.AiOperationId == reservation.AiOperationId
+                    .Where(entry => (entry.AiOperationId == reservation.AiOperationId
+                            || entry.GeneratedImageOperationId == reservation.AiOperationId)
                         && entry.AccountId == accountId)
                     .Select(entry => (Guid?)entry.WorkspaceId)
                     .FirstOrDefault(),
@@ -168,24 +180,30 @@ internal sealed class AiUsageReadRepository(CreatorPantryDbContext context) : IA
     /// Full-outer-joins the amounts and the counts, so a key present in only one still appears.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Both halves are genuinely reachable and both matter. A capability with a charge and no attempts cannot
     /// happen; a capability with attempts and no charge is every run made before allowances existed, and
     /// dropping those would silently under-report a creator's own history.
+    /// </para>
+    /// <para>
+    /// <strong>Lookups, not a dictionary, because a key may be null.</strong> The workspace breakdown carries a
+    /// charge whose workspace could not be read as a null key on purpose, and a dictionary throws on one — which
+    /// turned a missing label into a failed page.
+    /// </para>
     /// </remarks>
     private static IReadOnlyList<TResult> Merge<TKey, TResult>(
         IEnumerable<(TKey Key, decimal Amount)> amounts,
         IEnumerable<(TKey Key, int Requests)> requests,
         Func<TKey, decimal, int, TResult> build)
     {
-        var byKey = amounts.ToDictionary(row => row.Key!, row => (Amount: row.Amount, Requests: 0));
+        var amountsByKey = amounts.ToLookup(row => row.Key, row => row.Amount);
+        var requestsByKey = requests.ToLookup(row => row.Key, row => row.Requests);
 
-        foreach (var (key, count) in requests)
-        {
-            byKey[key!] = byKey.TryGetValue(key!, out var existing)
-                ? (existing.Amount, count)
-                : (0m, count);
-        }
-
-        return [.. byKey.Select(pair => build((TKey)pair.Key, pair.Value.Amount, pair.Value.Requests))];
+        return
+        [
+            .. amountsByKey.Select(group => group.Key)
+                .Union(requestsByKey.Select(group => group.Key))
+                .Select(key => build(key, amountsByKey[key].Sum(), requestsByKey[key].Sum())),
+        ];
     }
 }

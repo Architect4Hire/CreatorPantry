@@ -89,7 +89,10 @@ internal sealed class EditorialPackageAiTaskHandler(
                 context.CorrelationId,
                 AiEditorialPackageOutputValidator.AsDelegateFor(new AiEditorialRequestContext(
                     requested,
-                    source.IngredientGroups.SelectMany(group => group.Ingredients).Select(line => line.Id).ToHashSet()))),
+                    source.IngredientGroups.SelectMany(group => group.Ingredients).Select(line => line.Id).ToHashSet())))
+            {
+                Task = AiTaskType.EditorialPackage,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

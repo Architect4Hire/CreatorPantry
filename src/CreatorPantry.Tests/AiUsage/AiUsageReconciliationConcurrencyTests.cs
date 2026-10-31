@@ -6,6 +6,7 @@ using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Auth.Data.Entities;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -153,6 +154,7 @@ public sealed class AiUsageReconciliationConcurrencyTests : IAsyncLifetime
         new ServiceCollection()
             .AddTenancy()
             .AddApplicationTime()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddAiUsageReconciliation()
             .AddSingleton<IClock>(_clock)

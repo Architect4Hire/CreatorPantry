@@ -23,6 +23,7 @@ using CreatorPantry.Domain.Modules.Nutrition;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Content;
 using CreatorPantry.Domain.Modules.Billing;
+using CreatorPantry.Domain.Modules.Billing.Integration.Stripe;
 using CreatorPantry.Domain.Modules.Dashboard;
 using CreatorPantry.Domain.Modules.Workflows;
 using CreatorPantry.Domain.Modules.Media;
@@ -34,6 +35,7 @@ using CreatorPantry.Domain.Managers.Paging;
 using CreatorPantry.Domain.Managers.Prompts;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -95,6 +97,18 @@ builder.Services.AddAiModule(builder.Configuration, AiResilience.PipelineKey);
 // (USAGE-001, USAGE-004).
 builder.Services.AddAiUsageModule(builder.Configuration);
 
+// The platform's daily image spend ceiling (PRICE-005, AP.2.7). Pictures are admitted here and nowhere else, so
+// this is the host that must have one: outside Development a missing ceiling is the leak the breaker closes, and
+// it is found at startup rather than on the provider's invoice. Development may run without one.
+if (!builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<decimal?>(
+        $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.PlatformImageSpendPerDay)}") is null)
+{
+    throw new InvalidOperationException(
+        $"{AiQuotaOptions.SectionName}:{nameof(AiQuotaOptions.PlatformImageSpendPerDay)} is not set. Outside "
+            + "Development the API needs a daily image spend ceiling in US dollars before it will admit pictures.");
+}
+
 // The ops-only administration seam (USAGE-009). Registered here and not in the worker, which has no ops route.
 builder.Services.AddAiUsageAdministration();
 
@@ -116,7 +130,7 @@ builder.Services.AddRecipeExportSeam();
 // The generated-image workspace (12.6). Registered beside the content module rather than on its own
 // account: the prompt library resolves a saved prompt's generated-image pin through this module's lookup
 // facade before writing a row that can never be corrected, so a host serving prompt routes needs both.
-builder.Services.AddMediaModule();
+builder.Services.AddMediaModule(builder.Configuration);
 
 // Publishing (PUB-001/002/003). The module answers "not configured" on its own; AddBufferPublishing replaces
 // that with Buffer only when this host has been handed a key and the workspace it belongs to.
@@ -140,6 +154,10 @@ builder.Services.AddDashboardModule();
 // The published plan catalogue (LP.6): configuration the public landing page reads before anyone signs in. No
 // table, no account, nothing to authorize — so the API registers it and the Worker, which prices nothing, does not.
 builder.Services.AddBillingModule(builder.Configuration);
+
+// Payment (AP.6.1). The module answers "not configured" on its own; AddStripeBilling replaces that with Stripe only
+// when this host has been handed a key — and refuses to start on a live one unless Billing:Stripe:AllowLiveMode says so.
+builder.Services.AddStripeBilling(builder.Configuration);
 
 // AIREC-001's own request seam. No recipe-module prerequisite -- a concept request names no recipe.
 builder.Services.AddAiConceptRequestSeam();

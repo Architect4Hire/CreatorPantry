@@ -1,6 +1,6 @@
-import { decodeCreditRates, decodePlan, decodePlanCatalogue } from './plan-catalogue.models';
+import { decodeCreditRates, decodePlan, decodePlanCatalogue, decodePlanExampleCounts } from './plan-catalogue.models';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
 
 describe('plan catalogue models', () => {
   const plan = {
@@ -16,10 +16,35 @@ describe('plan catalogue models', () => {
     qualityClasses: ['draft', 'standard'],
     recommended: true,
     trialDays: null,
+    trialImageCap: null,
+    picturesAtDefaultQuality: 120,
+    exampleCounts: { recipeDrafts: 50, socialPosts: 100, pictures: 80 },
   };
 
   it('decodes a plan as the server sends it', () => {
     expect(decodePlan(plan)).toEqual(plan);
+  });
+
+  /**
+   * The counts are the card's headline, not a figure the plan is unusable without: a server older than them, or
+   * counts that do not read, leave the plan on the page with the mix said as its sentence instead.
+   */
+  it('reads a plan’s example counts, and keeps the plan when they are missing or unreadable', () => {
+    expect(decodePlan(plan)?.exampleCounts).toEqual({ recipeDrafts: 50, socialPosts: 100, pictures: 80 });
+
+    const { exampleCounts, ...olderServer } = plan;
+    expect(exampleCounts).not.toBeNull();
+    expect(decodePlan(olderServer)?.exampleCounts).toBeNull();
+    expect(decodePlan({ ...plan, exampleCounts: null })?.exampleCounts).toBeNull();
+    expect(decodePlan({ ...plan, exampleCounts: { recipeDrafts: '50', socialPosts: 100, pictures: 80 } })?.key).toBe('creator');
+  });
+
+  it('refuses example counts that are not three whole, non-negative numbers', () => {
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 0, pictures: 80 })).toEqual({ recipeDrafts: 50, socialPosts: 0, pictures: 80 });
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, pictures: 80 })).toBeNull();
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 100, pictures: -1 })).toBeNull();
+    expect(decodePlanExampleCounts({ recipeDrafts: 50.5, socialPosts: 100, pictures: 80 })).toBeNull();
+    expect(decodePlanExampleCounts('50 recipe drafts')).toBeNull();
   });
 
   it('refuses a plan missing a figure the page shows', () => {
@@ -43,12 +68,27 @@ describe('plan catalogue models', () => {
     expect(decodePlan({ ...plan, trialDays: '14' })).toBeNull();
   });
 
+  it('reads a trial’s picture cap, and a paid plan or an older server as having none', () => {
+    expect(decodePlan({ ...plan, trialDays: 14, trialImageCap: 10 })?.trialImageCap).toBe(10);
+    expect(decodePlan(plan)?.trialImageCap).toBeNull();
+    const { trialImageCap, ...olderServer } = plan;
+    expect(trialImageCap).toBeNull();
+    expect(decodePlan(olderServer)?.trialImageCap).toBeNull();
+  });
+
+  /** "10" becoming "no cap" would have the trial card promise unbounded pictures. Refuse it instead. */
+  it('refuses a trial picture cap that is there but is not a number', () => {
+    expect(decodePlan({ ...plan, trialDays: 14, trialImageCap: '10' })).toBeNull();
+  });
+
   it('decodes the catalogue, keeping the server’s order', () => {
     const catalogue = decodePlanCatalogue({
       currency: 'USD',
       plans: [plan, { ...plan, key: 'pro', recommended: false }],
       packs: [{ key: 'small', credits: 2500, price: 10 }],
       rates,
+      pictureClasses: [],
+  defaultPictureClass: null,
     });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator', 'pro']);
@@ -58,13 +98,13 @@ describe('plan catalogue models', () => {
 
   /** One plan the browser cannot read is not a reason to show a visitor no pricing at all. */
   it('drops a plan it cannot read and keeps the rest', () => {
-    const catalogue = decodePlanCatalogue({ currency: 'USD', plans: [plan, { key: 'broken' }], packs: [], rates });
+    const catalogue = decodePlanCatalogue({ currency: 'USD', plans: [plan, { key: 'broken' }], packs: [], rates, pictureClasses: [], defaultPictureClass: null });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator']);
   });
 
   it('reads an unpublished catalogue as one with nothing in it', () => {
-    const empty = { currency: 'USD', plans: [], packs: [], rates: { ...rates, textDraft: 0 } };
+    const empty = { currency: 'USD', plans: [], packs: [], rates: { ...rates, textDraft: 0 }, pictureClasses: [], defaultPictureClass: null };
 
     expect(decodePlanCatalogue(empty)).toEqual(empty);
   });
@@ -79,12 +119,12 @@ describe('plan catalogue models', () => {
     expect(decodeCreditRates(rates)).toEqual(rates);
   });
 
-  /** The menu names all five; one missing would have a line price its action at nothing. */
+  /** The menu names both; one missing would have a line price its action at nothing. */
   it('refuses rates with one missing, rather than pricing that action at nothing', () => {
-    const { imageHigh, ...withoutHigh } = rates;
+    const { longFormSection, ...withoutSection } = rates;
 
-    expect(imageHigh).toBe(90);
-    expect(decodeCreditRates(withoutHigh)).toBeNull();
+    expect(longFormSection).toBe(10);
+    expect(decodeCreditRates(withoutSection)).toBeNull();
   });
 
   /**

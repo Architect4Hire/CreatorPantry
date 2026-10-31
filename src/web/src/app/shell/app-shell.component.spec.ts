@@ -290,7 +290,7 @@ describe('AppShellComponent', () => {
     const authenticated: SessionState = { status: 'authenticated', displayName: 'Robert' };
     const studio = (tone?: string) =>
       // The tone sits on the section's parent route and the page below it names none, as in app.routes.ts.
-      buildRouteChain([{ slug: 'cozy-fall' }, { section: 'image-studio', tone }, { title: 'Image Studio' }]);
+      buildRouteChain([{ slug: 'cozy-fall' }, { section: 'image-studio', tone }, { title: 'AI Image Studio' }]);
     const frameOf = (fixture: ComponentFixture<AppShellComponent>) =>
       fixture.nativeElement.querySelector('main > .page-frame') as HTMLElement;
 

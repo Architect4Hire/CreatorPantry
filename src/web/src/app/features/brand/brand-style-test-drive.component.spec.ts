@@ -141,6 +141,7 @@ function figures(remaining: number): AllowanceFigures {
     resetsAt: '2026-11-01T00:00:00+00:00',
     timeZoneId: 'Europe/London',
     usedPercent: Math.round(((1000 - remaining) / 1000) * 100),
+    packRemaining: 0,
   };
 }
 

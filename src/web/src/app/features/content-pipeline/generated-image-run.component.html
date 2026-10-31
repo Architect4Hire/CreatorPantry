@@ -22,11 +22,67 @@
         Your prompt is longer than we can send — {{ promptLengthText() }}. {{ wording().tooLongRemedy }}
       </cp-notice>
     }
+  }
 
+  <!-- How good each picture is, before how many (AP.3.1A). Outside the prompt's branch, so the price list reads
+       even before there is a prompt. Nothing here blocks Make: while the list is loading or could not be read the
+       request names no class, and the host's default — which the quote prices meanwhile — is what is made. -->
+  <!-- Both regions are always in the page, so each is announced when it has something to say. -->
+  <p class="cp-sr-only" role="status">{{ classesState().status === 'loading' ? 'Finding the picture qualities…' : '' }}</p>
+  <cp-notice
+    tone="warning"
+    role="status"
+    [quiet]="classesState().status !== 'error'"
+    [id]="sectionIdPrefix() + '-quality-problem'"
+  >
+    @if (classesState().status === 'error') {
+      We couldn’t load the picture qualities just now, so pictures are made at the usual quality.
+      <!-- Not "Try again": the Make button says that after a failed ask, and two controls of one name in one
+           section would be two different things a creator cannot tell apart. -->
+      <button cpButton type="button" variant="text" size="sm" (click)="retryClasses()">Load the qualities again</button>
+    }
+  </cp-notice>
+
+  @switch (classesState().status) {
+    @case ('loading') {
+      <div class="quality" aria-busy="true">
+        <cp-skeleton shape="line" [count]="3" />
+      </div>
+    }
+    @case ('error') {}
+    @default {
+      @if (offersChoice()) {
+        <div class="quality">
+          <!-- Shown for the eye; the group carries the same words as its own name, so it is said once. -->
+          <p class="quality-label" aria-hidden="true">Picture quality</p>
+          <cp-choice-group
+            label="Picture quality"
+            layout="fit"
+            [idPrefix]="sectionIdPrefix() + '-quality-'"
+            [name]="sectionIdPrefix() + '-quality'"
+            [options]="classOptions()"
+            [value]="chosenValue()"
+            [describedBy]="lockedSentence() === '' ? '' : sectionIdPrefix() + '-quality-locked'"
+            (valueChange)="chooseClass($event)"
+          />
+          <!-- What the plan locks, in reading order and as the group's description: a locked tile is a disabled
+               radio, so the keyboard never reaches the reason inside it (AP.4.3). -->
+          @if (lockedSentence() !== '') {
+            <p class="cp-muted" [id]="sectionIdPrefix() + '-quality-locked'">{{ lockedSentence() }}</p>
+          }
+        </div>
+      } @else if (onlyClassSentence() !== '') {
+        <p class="cp-muted">{{ onlyClassSentence() }}</p>
+      }
+    }
+  }
+
+  @if (sendText() !== '') {
     <p class="cp-muted">
       Asking for {{ count() === 1 ? 'one picture' : count() + ' pictures' }}. {{ wording().countRemedy }}
     </p>
   }
+
 
   @switch (tracker.phase().kind) {
     @case ('forbidden') {
@@ -38,7 +94,10 @@
       </cp-notice>
     }
     @case ('refused') {
-      <cp-notice tone="error" role="alert">{{ refusalMessage() }}</cp-notice>
+      <!-- Each of the three limits says which it is (DL.9). The request above is left exactly as it was. -->
+      <!-- Focusable, and focused after a limit refusal: the price is asked again, and when it blocks the button the
+           creator just pressed is disabled under them, which would leave focus nowhere (DESIGN-SYSTEM.md). -->
+      <cp-notice tone="error" role="alert" tabindex="-1" [id]="sectionIdPrefix() + '-refusal'">{{ refusalMessage() }}</cp-notice>
     }
     @case ('rate_limited') {
       <cp-notice tone="warning" role="status">
@@ -77,13 +136,62 @@
     }
   }
 
+  <!-- The price, before the pictures are asked for (AP.2.6); every figure in it is the server's. Each region is in
+       the page before it has anything to say, so it is announced when it does, and sits outside the prompt's branch
+       so the description the Make button points at always exists. "Working out…" is shown and not announced:
+       stepping through counts is then said once a step, when the price is known. -->
+  <!-- Today's pictures on the plan (DL.9), each figure the server's. Not a live region: it changes with every count
+       the server reads, and is said once when a run settles (`announced`) and with the Make button it describes. -->
+  @switch (dayLine()) {
+    @case ('loading') {
+      <!-- The line as it will arrive, and not said: the price's own status below is the run's one loading sentence. -->
+      <div class="today-pending"><cp-skeleton shape="line" /></div>
+    }
+    @case ('error') {
+      <p class="cp-muted" [id]="sectionIdPrefix() + '-today'">
+        We couldn’t check today’s pictures just now.
+        <button cpButton type="button" variant="text" size="sm" (click)="checkPicturesAgain()">Check again</button>
+      </p>
+    }
+    @case ('ready') {
+      <p class="cp-muted" [id]="sectionIdPrefix() + '-today'">{{ dayText() }}</p>
+    }
+  }
+
+  <p class="cp-muted" [id]="sectionIdPrefix() + '-quote'">
+    <span role="status">{{ quoteLine() }}</span>
+    @if (quoteState().status === 'loading') {
+      <span aria-hidden="true">Working out what this costs…</span>
+    }
+  </p>
+  <cp-notice tone="warning" role="status" [quiet]="!quoteWarning()" [id]="sectionIdPrefix() + '-quote-warning'">
+    {{ quoteWarning() }}
+  </cp-notice>
+  <cp-notice tone="error" role="alert" [quiet]="!quoteRefusal()" [id]="sectionIdPrefix() + '-quote-refusal'">
+    {{ quoteRefusal() }}
+  </cp-notice>
+
   <div class="cp-actions">
     @if (hasPictures()) {
-      <button cpButton type="button" variant="secondary" [disabled]="!canGenerate()" (click)="generateFresh()">
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        [disabled]="!canGenerate()"
+        [attr.aria-describedby]="makeDescribedBy()"
+        (click)="generateFresh()"
+      >
         Make new pictures
       </button>
     } @else {
-      <button cpButton type="button" variant="primary" [disabled]="!canGenerate()" (click)="generate()">
+      <button
+        cpButton
+        type="button"
+        variant="primary"
+        [disabled]="!canGenerate()"
+        [attr.aria-describedby]="makeDescribedBy()"
+        (click)="generate()"
+      >
         {{ tracker.phase().kind === 'idle' ? 'Make the pictures' : 'Try again' }}
       </button>
     }

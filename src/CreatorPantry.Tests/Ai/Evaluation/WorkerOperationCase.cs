@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Persistence;
@@ -115,7 +116,10 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             var outcome = await gateway.CompleteAsync(
                 new AiCompletionRequest<AiOutputDocument>(
                     envelope, "fixture.worker.v1", context.Scope, "fixture.worker", "1.0.0", context.CorrelationId,
-                    AiOutputValidator.AsDelegate),
+                    AiOutputValidator.AsDelegate)
+                {
+                    Task = AiTaskType.RecipeConcepts,
+                },
                 ct);
 
             return outcome.Succeeded
@@ -216,6 +220,7 @@ internal sealed class WorkerOperationCase : IAiEvaluationCase
             .AddSingleton(clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()

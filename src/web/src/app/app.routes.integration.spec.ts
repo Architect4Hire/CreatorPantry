@@ -29,10 +29,15 @@ const published: PlanCatalogue = {
       qualityClasses: ['draft', 'standard', 'high'],
       recommended: true,
       trialDays: null,
+      trialImageCap: null,
+      picturesAtDefaultQuality: 120,
+      exampleCounts: { recipeDrafts: 50, socialPosts: 100, pictures: 80 },
     },
   ],
   packs: [],
   rates: null,
+  pictureClasses: [],
+  defaultPictureClass: null,
 };
 
 /**

@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.RegularExpressions;
 using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Caching;
@@ -25,6 +26,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Content;
 
@@ -67,6 +70,9 @@ public sealed class PromptTextDownloadTests : IAsyncDisposable
             .AddIngredientModule()
             .AddRecipesModule()
             .AddContentModule()
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()
             .AddDistributedMemoryCache()

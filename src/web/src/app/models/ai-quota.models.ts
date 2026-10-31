@@ -26,13 +26,21 @@ export type AiQuotaRefusal =
       readonly resetsAt: string;
     }
   /** `403`. AI is switched off for this account. No balance and no reset: there is nothing to wait for. */
-  | { readonly status: 'account_suspended'; readonly unit: string };
+  | { readonly status: 'account_suspended'; readonly unit: string }
+  /**
+   * `403`. The account's free trial is over and it has not chosen a plan (AP.7.1). Like a suspension there is no
+   * balance and no reset — choosing a plan is the remedy — but it says something different, so it is its own case.
+   */
+  | { readonly status: 'trial_ended'; readonly trialEndedAt: string | null };
 
 /** `AiProposalErrors.QuotaExhausted`, mirrored. Renaming it server-side is a breaking API change. */
-const QUOTA_EXHAUSTED_CODE = 'ai.quota.exhausted';
+export const QUOTA_EXHAUSTED_CODE = 'ai.quota.exhausted';
 
 /** `AiProposalErrors.QuotaSuspended`, mirrored. */
 const QUOTA_SUSPENDED_CODE = 'ai.quota.suspended';
+
+/** `AiQuotaErrors.TrialEnded`, mirrored. */
+export const QUOTA_TRIAL_ENDED_CODE = 'ai.quota.trial_ended.forbidden';
 
 /**
  * The quota refusal an error carries, or `null` when it is not one.
@@ -48,6 +56,11 @@ export function decodeAiQuotaRefusal(error: unknown): AiQuotaRefusal | null {
 
   if (code === QUOTA_SUSPENDED_CODE) {
     return { status: 'account_suspended', unit: textOf(body?.['unit']) };
+  }
+
+  if (code === QUOTA_TRIAL_ENDED_CODE) {
+    const ended = body?.['trialEndedAt'];
+    return { status: 'trial_ended', trialEndedAt: typeof ended === 'string' ? ended : null };
   }
 
   if (code !== QUOTA_EXHAUSTED_CODE) return null;

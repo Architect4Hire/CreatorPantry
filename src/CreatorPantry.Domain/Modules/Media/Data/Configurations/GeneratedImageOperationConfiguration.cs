@@ -92,6 +92,9 @@ internal sealed class GeneratedImageOperationConfiguration
 
         // A retry returns the first answer. Image generation is the most expensive call this product makes,
         // so this index is the difference between a lost response and a second charge.
+        builder.Property(operation => operation.RequestedByAccountId)
+            .HasMaxLength(MediaPolicy.AccountIdMaxLength);
+
         builder.HasIndex(operation => new { operation.WorkspaceId, operation.IdempotencyKey })
             .IsUnique()
             .HasDatabaseName("UX_GeneratedImageOperations_Workspace_IdempotencyKey");
@@ -125,6 +128,33 @@ internal sealed class GeneratedImageOperationConfiguration
             table.HasCheckConstraint(
                 "CK_GeneratedImageOperations_IdempotencyKey_NotBlank",
                 "trim(IdempotencyKey) <> ''");
+
+            // The billing counts (AP.2.5). Unusable variants are a subset of the billed ones, and flagged a
+            // subset of those; a row that said otherwise would charge an account for pictures the provider
+            // never made, or report a success as a safety block. Deliberately not bounded above by
+            // VariantCount: a resumed pass re-runs a variant nothing could be staged from, and the provider
+            // bills for both attempts, so a generation can legitimately be billed more than it asked for.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_BilledVariants_Coherent",
+                "BilledVariantCount >= 0 "
+                    + "AND UnusableVariantCount >= 0 "
+                    + "AND FlaggedVariantCount >= 0 "
+                    + "AND UnusableVariantCount <= BilledVariantCount "
+                    + "AND FlaggedVariantCount <= UnusableVariantCount");
+
+            // The plan's running cap and the account it is counted against travel together (AP.4.2): a cap with
+            // no account would hold nobody to it, and an account with no cap is a recorded id nothing reads.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_RunningImagesCap_Account",
+                "(RequestedByAccountId IS NULL AND RunningImagesCap IS NULL) "
+                    + "OR (RequestedByAccountId IS NOT NULL AND RunningImagesCap >= 1)");
+
+            // A quality class is one of the declared ones or absent (AP.3.1) — absent only for a request made
+            // on a host that offers none, or before the column existed.
+            table.HasCheckConstraint(
+                "CK_GeneratedImageOperations_QualityClass_Declared",
+                $"QualityClass IS NULL OR (QualityClass >= {(int)GeneratedImageQualityClass.Draft} "
+                    + $"AND QualityClass <= {(int)GeneratedImageQualityClass.High4K})");
         });
     }
 

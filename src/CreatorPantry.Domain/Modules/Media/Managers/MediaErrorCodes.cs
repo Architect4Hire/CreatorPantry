@@ -40,6 +40,63 @@ public static class MediaErrorCodes
     public const string GenerationContextUnprocessable = "media.generation.context.unprocessable";
 
     /// <summary>
+    /// The request or quote names a quality class this host does not offer (AP.3.1). Maps to 422, naming
+    /// <c>qualityClass</c>: well formed — it is one of the five — and still not something this host can make.
+    /// </summary>
+    public const string GenerationQualityClassUnprocessable = "media.generation.quality_class.unprocessable";
+
+    /// <summary>
+    /// The request or quote names a quality class this host offers but the account's plan does not allow
+    /// (PRICE-006/007, AP.4.3). Maps to 403, naming <c>qualityClass</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 403 and not 422, for the reason <c>ai.quota.suspended</c> is a 403: the class is a real one this host can
+    /// make, and what refuses it is what the account is entitled to. <c>retry</c> is therefore <c>none</c> — the
+    /// same request can never succeed, where a 429 would invite a wait that changes nothing.
+    /// </para>
+    /// <para>
+    /// The problem names the plan that would allow it, in the sentence and in <c>requiresPlan</c> (its key) and
+    /// <c>requiresPlanName</c>, with <c>qualityClass</c> for a client that words the class itself. A class no
+    /// plan allows carries neither, and says so in one sentence rather than naming a plan that does not exist.
+    /// </para>
+    /// <para>
+    /// Refused at the request and at the quote it prices, and never against a replayed key: a replay's answer is
+    /// the operation it already bought, at the class it was bought at. Not re-checked when the worker runs — the
+    /// credits were held at the request, so a downgrade in between does not cancel pictures already paid for.
+    /// </para>
+    /// </remarks>
+    public const string GenerationQualityClassForbidden = "media.generation.quality_class.forbidden";
+
+    /// <summary>
+    /// The prompt and its avoid list are longer than the model the chosen quality class sends to takes, and a
+    /// shorter prompt would fit (AP.3.2). Maps to 422, naming <c>promptText</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Refused, never cut: a prompt shortened at a character boundary is a picture of something the creator did
+    /// not ask for. The problem carries <c>characterLimit</c>, <c>characterCount</c> and <c>promptBudget</c> — how
+    /// long the prompt may be with the avoid list kept whole — so a client can say what to do or ask for a
+    /// compact variant to that budget, without parsing a sentence.
+    /// </para>
+    /// <para>
+    /// Checked after the class is chosen and never against a replayed key, whose answer is the operation it
+    /// already bought.
+    /// </para>
+    /// </remarks>
+    public const string GenerationPromptUnprocessable = "media.generation.prompt.unprocessable";
+
+    /// <summary>
+    /// The avoid list alone leaves too little of the chosen class's limit for any prompt (AP.3.2). Maps to 422,
+    /// naming <c>avoidText</c>, with the same figures as <see cref="GenerationPromptUnprocessable"/>.
+    /// </summary>
+    /// <remarks>
+    /// Apart from <see cref="GenerationPromptUnprocessable"/> because the remedy is different: a shorter prompt
+    /// cannot fix it, and the avoid list is the creator's own and is never shortened for them.
+    /// </remarks>
+    public const string GenerationAvoidUnprocessable = "media.generation.avoid.unprocessable";
+
+    /// <summary>
     /// No image-generation operation of this workspace has that id.
     /// </summary>
     /// <remarks>
@@ -47,6 +104,23 @@ public static class MediaErrorCodes
     /// discloses the other (tenancy.md). The global query filter makes the two genuinely one case rather than
     /// merely reported as one. Carries no field errors: the id came from the route, so there is no field to name.
     /// </remarks>
+    /// <summary>
+    /// This host cannot price the pictures the request would make, so it will not queue them (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 503, from the <c>.unavailable</c> suffix, and it belongs there: an image model with no credit rate is a
+    /// misconfiguration of this deployment rather than anything about the caller or their allowance. Startup
+    /// refuses a host that can request an unrated picture, so reaching this means a model no sizing profile
+    /// covers.
+    /// </para>
+    /// <para>
+    /// Deliberately not an exhausted-allowance refusal, which would tell a creator to wait for a period reset
+    /// that will not change the answer, and deliberately carries no figures: their balance is not the problem.
+    /// </para>
+    /// </remarks>
+    public const string GenerationUnpriceable = "media.generation.unavailable";
+
     public const string GenerationOperationNotFound = "media.generation_operation.not_found";
 
     /// <summary>No such generated image in the resolved workspace. Also a neighbour's, deliberately.</summary>

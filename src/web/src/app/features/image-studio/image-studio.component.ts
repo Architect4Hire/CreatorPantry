@@ -137,16 +137,15 @@ const STUDIO_RUN_WORDING: GeneratedImageRunWording = {
 
 /**
  * Where the prompt and the count are a step back rather than above — on the studio's own page and in a guided step
- * alike, since both go one step at a time (13A.19, AU.5.2). The count's sentence is also where the cost is said
- * before anything is made: pictures are not drawn from the AI allowance, which the planning steps show before each
- * of their own asks.
+ * alike, since both go one step at a time (13A.19, AU.5.2). What the pictures cost is the run's own quote, said
+ * beside the count before anything is made (AP.2.6).
  */
 const STEP_RUN_WORDING: GeneratedImageRunWording = {
   ...STUDIO_RUN_WORDING,
   makeIntro: 'This is your prompt from the last step, exactly as it will be sent. Go back a step to change it.',
   noPrompt: 'There is no prompt yet. Go back a step to write one, or have one written for you.',
   tooLongRemedy: 'Shorten it a step back.',
-  countRemedy: 'Making pictures doesn’t use your AI allowance. To change how many, go back to the first step.',
+  countRemedy: 'To change how many, go back to the first step.',
 };
 
 /** Work begun in a guided step is filed through the run, so the attempt is remembered for as long as the step is. */
@@ -243,7 +242,7 @@ function memoryFiling(): CreativeContextFilingStore {
 })
 export class ImageStudioComponent {
   /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
-  protected readonly pageTitle = injectRouteTitle('Image Studio');
+  protected readonly pageTitle = injectRouteTitle('AI Image Studio');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);

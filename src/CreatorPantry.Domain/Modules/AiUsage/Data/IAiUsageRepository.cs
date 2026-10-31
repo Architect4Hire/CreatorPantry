@@ -11,6 +11,10 @@ internal interface IAiUsageRepository
     Task<IReadOnlySet<int>> FindPostedAttemptNumbersAsync(
         Guid aiOperationId, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="IAiUsageDataLayer.FindPostedImageChargeNumbersAsync"/>
+    Task<IReadOnlySet<int>> FindPostedImageChargeNumbersAsync(
+        Guid generatedImageOperationId, CancellationToken cancellationToken);
+
     /// <summary>Adds entries to the change tracker. The caller's save commits them.</summary>
     void AddRange(IEnumerable<AccountAiUsageEntry> entries);
 }
@@ -35,6 +39,19 @@ internal sealed class AiUsageRepository(CreatorPantryDbContext context) : IAiUsa
         Guid aiOperationId, CancellationToken cancellationToken) =>
         (await context.AccountAiUsageEntries
             .Where(entry => entry.AiOperationId == aiOperationId)
+            .Select(entry => entry.AttemptNumber)
+            .ToListAsync(cancellationToken))
+        .ToHashSet();
+
+    /// <remarks>
+    /// The same question for a picture's charges, on its own filtered index
+    /// (<c>UX_AccountAiUsageEntries_ImageOperation_Attempt</c>). Kept separate rather than taking a nullable
+    /// pair, so neither query can be handed the other kind's id and silently match the rows with a null there.
+    /// </remarks>
+    public async Task<IReadOnlySet<int>> FindPostedImageChargeNumbersAsync(
+        Guid generatedImageOperationId, CancellationToken cancellationToken) =>
+        (await context.AccountAiUsageEntries
+            .Where(entry => entry.GeneratedImageOperationId == generatedImageOperationId)
             .Select(entry => entry.AttemptNumber)
             .ToListAsync(cancellationToken))
         .ToHashSet();

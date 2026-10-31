@@ -4,6 +4,7 @@ using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Brand.Managers;
 using CreatorPantry.Domain.Modules.Content.Managers;
 using CreatorPantry.Domain.Modules.Media.Managers;
@@ -48,6 +49,20 @@ public static class ProblemResults
     /// </remarks>
     public static IReadOnlySet<string> RereadCodes { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
+        // The account's plan chain moved under an ops change (AP.4.4): read it again and decide against what is
+        // there now, rather than resending a change that was composed against the old end of the chain.
+        AccountPlanAdministrationErrors.Conflict,
+
+        // A grant's balance moved under a claw-back (AP.5.1): nothing was taken, and what is left is read again.
+        AccountCreditGrantAdministrationErrors.Conflict,
+
+        // The billing page offered a command its account's subscription no longer fits (AP.6.5): a Checkout for an
+        // account now subscribed, a plan change for one with none, or the plan already in force. Reading the page
+        // again offers the right button.
+        BillingAccountErrors.AlreadySubscribed,
+        BillingAccountErrors.SubscriptionRequired,
+        BillingAccountErrors.Unchanged,
+
         ConcurrencyConflictCode,
         AiFeatureErrors.Conflict,
         AiUsageAdministrationErrors.QuotaConflict,

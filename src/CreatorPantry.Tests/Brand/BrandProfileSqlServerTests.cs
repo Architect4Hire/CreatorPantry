@@ -2,6 +2,7 @@ using CreatorPantry.Domain.Managers.Audit;
 using CreatorPantry.Domain.Managers.Idempotency;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data;
@@ -15,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using CreatorPantry.Tests.Media;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Domain.Modules.AiUsage;
 
 namespace CreatorPantry.Tests.Brand;
 
@@ -51,6 +53,9 @@ public sealed class BrandProfileSqlServerTests : IAsyncLifetime
 
             // The profile facade asks the Media module whether a submitted logo is in this workspace's library
             // (12.10k), so its lookup seam has to be resolvable here as it is in every real host.
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddMediaModule()
             .AddLogging()
             .AddDbContext<CreatorPantryDbContext>(options => options.UseSqlServer(_container.GetConnectionString()))

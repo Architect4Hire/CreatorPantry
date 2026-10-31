@@ -60,6 +60,7 @@ public sealed class AiEvaluationHarness(AiEvaluationFixtureStore store, IReadOnl
             new PictureGroundingCase(),
             new LongFormOutlineOutputValidationCase(),
             new LongFormSectionOutputValidationCase(),
+            new ImagePromptCompactionOutputValidationCase(),
         }.ToDictionary(evaluationCase => evaluationCase.Kind);
 
     public static AiEvaluationHarness Default(AiEvaluationFixtureStore store) => new(store, Cases);

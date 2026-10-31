@@ -16,6 +16,12 @@ const PERIOD = {
 const PAYLOAD = {
   period: PERIOD,
   isSuspended: false,
+  isNearlySpent: false,
+  pictures: 0,
+  writing: '360.5',
+  packRemaining: '400',
+  plan: { key: 'creator', name: 'Creator', allowanceRenews: true },
+  lowCredit: { isNoticed: true, isDismissed: false, noticeEnabled: true, spendable: '1040' },
   byTask: [
     { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
     { taskType: 'RecipeRevision', amount: 120, requests: 4 },
@@ -37,6 +43,41 @@ describe('decodeAccountAiUsage', () => {
     expect(usage?.isSuspended).toBeFalse();
     expect(usage?.byTask.length).toBe(2);
     expect(usage?.byWorkspace.length).toBe(2);
+  });
+
+  // DL.9: today's pictures and a trial's, each the server's figures.
+  it('decodes today’s pictures and a trial’s, with the figures as the server sends them', () => {
+    const usage = decodeAccountAiUsage({
+      ...PAYLOAD,
+      picturesToday: { cap: 5, used: '3', left: 2, resetsAt: '2026-10-31T00:00:00+00:00' },
+      trialPictures: { cap: 10, used: 7, left: '3' },
+    });
+
+    expect(usage?.picturesToday).toEqual({ cap: 5, used: 3, left: 2, resetsAt: '2026-10-31T00:00:00+00:00' });
+    expect(usage?.trialPictures).toEqual({ cap: 10, used: 7, left: 3 });
+  });
+
+  it('reads absent picture figures as none, as a server from before DL.9 sends them', () => {
+    const usage = decodeAccountAiUsage(PAYLOAD);
+
+    expect(usage).not.toBeNull();
+    expect(usage?.picturesToday).toBeNull();
+    expect(usage?.trialPictures).toBeNull();
+  });
+
+  it('reads a picture count it cannot read as none, and keeps the allowance beside it', () => {
+    for (const bad of [
+      { picturesToday: { cap: 5, used: 3, left: 2.5, resetsAt: 'x' } },
+      { picturesToday: { cap: 5, used: 3, left: 2 } },
+      { trialPictures: 'ten' },
+    ]) {
+      const usage = decodeAccountAiUsage({ ...PAYLOAD, ...bad });
+
+      expect(usage).withContext(JSON.stringify(bad)).not.toBeNull();
+      expect(usage?.period.remaining).toBe(640);
+      expect(usage?.picturesToday).toBeNull();
+      expect(usage?.trialPictures).toBeNull();
+    }
   });
 
   /**
@@ -121,6 +162,26 @@ describe('decodeAccountAiUsage', () => {
     expect(decodeAccountAiUsage({ ...PAYLOAD, byWorkspace: 'not an array' })).toBeNull();
   });
 
+  /** The nearly-spent answer and the two totals are the server's (AP.2.6); a read without them is not one. */
+  it('reads the server’s nearly-spent answer and its pictures and writing totals', () => {
+    const usage = decodeAccountAiUsage({ ...PAYLOAD, isNearlySpent: true, pictures: 150 });
+
+    expect(usage?.isNearlySpent).toBeTrue();
+    expect(usage?.pictures).toBe(150);
+    expect(usage?.writing).toBe(360.5);
+  });
+
+  it('refuses a read missing the nearly-spent answer or a total', () => {
+    const { isNearlySpent, ...withoutAnswer } = PAYLOAD;
+    const { pictures, ...withoutPictures } = PAYLOAD;
+
+    expect(isNearlySpent).toBeFalse();
+    expect(pictures).toBe(0);
+    expect(decodeAccountAiUsage(withoutAnswer)).toBeNull();
+    expect(decodeAccountAiUsage(withoutPictures)).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, isNearlySpent: 'yes' })).toBeNull();
+  });
+
   /** `requests` is published as an integer; a decimal would be the server sending what it says it cannot. */
   it('rejects a fractional request count', () => {
     const usage = decodeAccountAiUsage({
@@ -135,5 +196,39 @@ describe('decodeAccountAiUsage', () => {
     const usage = decodeAccountAiUsage({ ...PAYLOAD, isSuspended: true });
 
     expect(usage?.isSuspended).toBeTrue();
+  });
+
+  /** The packs and the plan (AP.5.3): the balance is a decimal like every other, and is read either way. */
+  it('reads the pack balance and the plan', () => {
+    const usage = decodeAccountAiUsage(PAYLOAD);
+
+    expect(usage?.packRemaining).toBe(400);
+    expect(usage?.plan).toEqual({ key: 'creator', name: 'Creator', allowanceRenews: true });
+  });
+
+  /**
+   * A missing balance is not "no packs": reading it as nought would lock a creator out of credits they hold, so
+   * the read fails loudly instead.
+   */
+  it('refuses a read missing the pack balance', () => {
+    const { packRemaining, ...withoutPacks } = PAYLOAD;
+
+    expect(packRemaining).toBe('400');
+    expect(decodeAccountAiUsage(withoutPacks)).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, packRemaining: 'lots' })).toBeNull();
+  });
+
+  /** Every production host today names no plan; that is a plan of null, not a failed read. */
+  it('reads a host with no plan catalogue as no plan', () => {
+    const { plan, ...withoutPlan } = PAYLOAD;
+
+    expect(plan.key).toBe('creator');
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: null })?.plan).toBeNull();
+    expect(decodeAccountAiUsage(withoutPlan)?.plan).toBeNull();
+  });
+
+  it('refuses a plan that is not one', () => {
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: 'creator' })).toBeNull();
+    expect(decodeAccountAiUsage({ ...PAYLOAD, plan: { key: 'creator', name: 'Creator' } })).toBeNull();
   });
 });

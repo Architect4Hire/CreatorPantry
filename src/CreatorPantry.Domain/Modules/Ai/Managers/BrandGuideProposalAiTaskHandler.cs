@@ -123,7 +123,10 @@ internal sealed class BrandGuideProposalAiTaskHandler(
                 AiBrandGuideOutputValidator.AsDelegate(new AiBrandGuideRequestContext(
                     request.Dimensions,
                     request.ChannelKeys,
-                    supplied.Passages.ToDictionary(passage => passage.PassageId, passage => passage.Text)))),
+                    supplied.Passages.ToDictionary(passage => passage.PassageId, passage => passage.Text))))
+            {
+                Task = AiTaskType.BrandGuideProposal,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

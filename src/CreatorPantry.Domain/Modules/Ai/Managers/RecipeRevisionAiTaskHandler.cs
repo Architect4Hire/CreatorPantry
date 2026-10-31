@@ -84,7 +84,10 @@ internal sealed class RecipeRevisionAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiOutputValidator.AsDelegate),
+                AiOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.RecipeRevision,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

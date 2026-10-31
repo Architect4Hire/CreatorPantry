@@ -77,6 +77,17 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
     /// <summary>How many images were asked for. Between one and four (<see cref="MediaPolicy"/>).</summary>
     public int VariantCount { get; set; }
 
+    /// <summary>
+    /// The quality class the pictures are made at, resolved at the request — the one asked for, or the default
+    /// (AP.3.1). Null for a request made on a host that offers no classes, or before this column existed.
+    /// </summary>
+    /// <remarks>
+    /// The class, not what it sends: the worker resolves the model and settings from configuration when it
+    /// runs, and the hold already fixed the price per picture, so a remapped class cannot re-price a request
+    /// already admitted. Part of what a key names (12.10l): the same key with a different class is refused.
+    /// </remarks>
+    public GeneratedImageQualityClass? QualityClass { get; set; }
+
     /// <summary>The provider the operation was run against, once a worker has chosen one.</summary>
     public string? ProviderName { get; set; }
 
@@ -103,7 +114,87 @@ public sealed class GeneratedImageOperation : IWorkspaceOwned
     /// </remarks>
     public string IdempotencyKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The hold this generation's pictures are paid for from (AP.2.5). Null only for a generation admitted
+    /// before this column existed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set before the row is saved, so an operation that exists always names the hold that paid for it: a
+    /// queued generation with no hold would make pictures nobody was charged for. The other direction cannot
+    /// be made atomic — the hold commits first, because the period's row version needs its own transaction —
+    /// so a hold whose operation never got written is released on the way out of
+    /// <c>GeneratedImageGenerationDataLayer.RequestAsync</c>, with the expiry sweep behind that.
+    /// </para>
+    /// <para>
+    /// An id, not a foreign key, and deliberately: the reservation belongs to the account rather than to this
+    /// workspace, and a workspace deletion cascading into an account's allowance is the thing
+    /// <c>AccountAiUsageEntry</c> declares no relationships to avoid.
+    /// </para>
+    /// </remarks>
+    public Guid? AiQuotaReservationId { get; set; }
+
+    /// <summary>
+    /// How many variants the provider has generated and billed for, over every pass this operation has taken.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Cumulative, and that is what makes a resumed generation charge each picture once.</strong> A
+    /// variant whose bytes could not be staged leaves no <c>GeneratedImage</c> row, so the rows are not a
+    /// record of what was billed; a later pass re-runs that variant and the provider bills again, which this
+    /// counts again because it genuinely happened twice.
+    /// </para>
+    /// <para>
+    /// It counts what the provider <em>generated</em>. A call that failed before generation —
+    /// rate-limited, unreachable, refused outright — is not in it, and its share of the hold is released.
+    /// </para>
+    /// </remarks>
+    public int BilledVariantCount { get; set; }
+
+    /// <summary>
+    /// How many of <see cref="BilledVariantCount"/> nothing could be staged from: bytes that did not hold
+    /// together, a picture too large, or one the provider flagged.
+    /// </summary>
+    /// <remarks>
+    /// Charged all the same — the provider made the picture and bills for it — and recorded apart so the
+    /// ledger can say so rather than reporting every charge as a success.
+    /// </remarks>
+    public int UnusableVariantCount { get; set; }
+
+    /// <summary>
+    /// How many of <see cref="UnusableVariantCount"/> the provider withheld on its own safety grounds.
+    /// </summary>
+    public int FlaggedVariantCount { get; set; }
+
     public Guid RequestedByMembershipId { get; set; }
+
+    /// <summary>
+    /// The Identity account that asked, recorded with <see cref="RunningImagesCap"/> so the queue can hold that
+    /// account to its plan's running pictures across every workspace it works in (AP.4.2). Null with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// From <c>IWorkspaceContext.AccountId</c> in the request scope — never a request field — and the initiating
+    /// account auth.md asks a background job to record. The worker never charges or authorizes by it: it runs as a
+    /// service identity, and the allowance was held at the request.
+    /// </para>
+    /// <para>
+    /// Read only by the claim, as an identifier compared with other rows' and never returned. Account erasure
+    /// (9A.3) clears it with the account's quota and plan rows.
+    /// </para>
+    /// </remarks>
+    public string? RequestedByAccountId { get; set; }
+
+    /// <summary>
+    /// How many pictures <see cref="RequestedByAccountId"/>'s plan let it have generating at once when this was
+    /// asked for (AP.4.2); null when no plan applied, and the workspace's flat cap alone holds it.
+    /// </summary>
+    /// <remarks>
+    /// Taken at the request rather than read at the claim, because the claim cannot ask a plan anything — it is a
+    /// query, and it runs before the worker knows whose work it is. So a plan changed while this waits does not
+    /// change it: the next request carries the new number.
+    /// </remarks>
+    public int? RunningImagesCap { get; set; }
 
     public DateTimeOffset RequestedAt { get; set; }
 

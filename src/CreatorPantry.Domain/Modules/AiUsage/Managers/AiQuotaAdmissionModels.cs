@@ -49,7 +49,10 @@ public enum AiQuotaAdmissionOutcome
     /// </summary>
     NotMetered = 2,
 
-    /// <summary>The period's allowance would not cover the estimate. Nothing was written.</summary>
+    /// <summary>
+    /// The period's allowance and the account's grants together would not cover the estimate (AP.5.2). Nothing was
+    /// written.
+    /// </summary>
     Exhausted = 3,
 
     /// <summary>AI access is switched off for this account regardless of any remaining allowance.</summary>
@@ -68,6 +71,58 @@ public enum AiQuotaAdmissionOutcome
     /// that a moment later would have been admitted.
     /// </remarks>
     Busy = 5,
+
+    /// <summary>
+    /// This deployment has no credit rate for the picture that was asked for (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// <strong>A refusal, never a free picture.</strong> Startup refuses a host that can request an unrated
+    /// picture, so reaching this means a request for something no sizing profile offers. It is told apart from
+    /// <see cref="Exhausted"/> because the account's allowance is not the problem and waiting for the period to
+    /// reset would not help.
+    /// </remarks>
+    Unrated = 6,
+
+    /// <summary>
+    /// Admitting this picture would take the whole platform's image spend for the day past its ceiling
+    /// (PRICE-005, AP.2.7). Nothing was held and nothing was counted.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not this account's fact.</strong> The account may have plenty left; it is told only that pictures
+    /// cannot be made right now, with no figure, because every figure behind this answer is everybody's.
+    /// </remarks>
+    PlatformCeiling = 7,
+
+    /// <summary>
+    /// The account has asked for as many pictures today as its plan allows (AP.4.2). Nothing was held.
+    /// </summary>
+    /// <remarks>
+    /// The account's own line, across every workspace it works in, and judged before its balance: it comes back
+    /// at the next UTC midnight, which an exhausted balance does not. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.DailyImageCap"/> and
+    /// <see cref="AiQuotaAdmissionServiceModel.DailyImageCapResetsAt"/>, and no balance.
+    /// </remarks>
+    DailyImageCap = 8,
+
+    /// <summary>
+    /// The account is on a trial that has ended (AP.7.1, B-54). Nothing was held, and no work of any kind is admitted
+    /// — pack credits included — until the account is on a plan.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Exhausted"/>: there is no reset to wait for. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.TrialEndsAt"/> and no balance.
+    /// </remarks>
+    TrialEnded = 9,
+
+    /// <summary>
+    /// The trial's pictures are spent: the request would take the account past its plan's lifetime picture cap
+    /// (AP.7.1, B-52). Nothing was held. The trial goes on, and so does work that is not a picture.
+    /// </summary>
+    /// <remarks>
+    /// Judged before <see cref="DailyImageCap"/>, because "come back tomorrow" would be untrue. Carries
+    /// <see cref="AiQuotaAdmissionServiceModel.TrialImageCap"/> and <see cref="AiQuotaAdmissionServiceModel.TrialEndsAt"/>.
+    /// </remarks>
+    TrialImageCap = 10,
 }
 
 /// <summary>What an admission decided, in the only terms a caller needs.</summary>
@@ -91,7 +146,69 @@ public sealed record AiQuotaAdmissionServiceModel(
     decimal Reserved,
     decimal Remaining,
     AiQuotaUnit Unit,
-    DateTimeOffset? PeriodEndsAt);
+    DateTimeOffset? PeriodEndsAt)
+{
+    /// <summary>
+    /// What admitting this would have taken, whether or not it was admitted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>On a refusal this is the figure USAGE-007 requires</strong> — a creator told only "your
+    /// allowance is spent" cannot tell whether they are one picture over or twenty.
+    /// <see cref="Reserved"/> cannot carry it, because that says what <em>was</em> held and a refusal held
+    /// nothing; reporting the attempted amount there would make a refused request look like a successful hold
+    /// to anything summing holds.
+    /// </para>
+    /// <para>
+    /// Zero where nothing was computed: an unmeterable run, a suspension, or a period too contended to read.
+    /// The completion path leaves it zero and refuses through <c>IAiRequestQuotaGate</c>, which gets the same
+    /// figure from <see cref="AiQuotaStateServiceModel.Required"/>.
+    /// </para>
+    /// </remarks>
+    public decimal Required { get; init; }
+
+    /// <summary>
+    /// The account's unspent grant credits after this admission — its pack balance, which never resets (B-50).
+    /// Reported beside <see cref="Remaining"/>, never folded into it, so a refusal can say what each source has left
+    /// (USAGE-007, AP.5.2).
+    /// </summary>
+    /// <remarks>
+    /// Read on <see cref="AiQuotaAdmissionOutcome.Admitted"/> and <see cref="AiQuotaAdmissionOutcome.Exhausted"/>;
+    /// nought otherwise, and on a period counted in tokens, which never spends grants.
+    /// </remarks>
+    public decimal PackRemaining { get; init; }
+
+    /// <summary>The plan's daily picture cap, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
+    public int? DailyImageCap { get; init; }
+
+    /// <summary>When the cap's UTC day ends, on <see cref="AiQuotaAdmissionOutcome.DailyImageCap"/> only.</summary>
+    public DateTimeOffset? DailyImageCapResetsAt { get; init; }
+
+    /// <summary>The trial's lifetime picture cap, on <see cref="AiQuotaAdmissionOutcome.TrialImageCap"/> only.</summary>
+    public int? TrialImageCap { get; init; }
+
+    /// <summary>
+    /// When the trial ends or ended, on <see cref="AiQuotaAdmissionOutcome.TrialEnded"/> and
+    /// <see cref="AiQuotaAdmissionOutcome.TrialImageCap"/>; null when Identity has no such account.
+    /// </summary>
+    public DateTimeOffset? TrialEndsAt { get; init; }
+}
+
+/// <summary>Whether a picture's hold may still be spent when a worker claims it (AP.2.5, AP.7.2).</summary>
+public enum AiImageHoldState
+{
+    /// <summary>Held, and its account may spend.</summary>
+    Live = 1,
+
+    /// <summary>Lapsed, released or already settled: nobody is paying for the pictures any more.</summary>
+    Lapsed = 2,
+
+    /// <summary>AI access was switched off for the account after the hold was taken.</summary>
+    Suspended = 3,
+
+    /// <summary>The account's trial ended after the hold was taken, and it is still on the trial (B-61).</summary>
+    TrialEnded = 4,
+}
 
 /// <summary>Whether an account may spend right now, without anything being held to find out.</summary>
 public enum AiQuotaStateOutcome
@@ -104,6 +221,9 @@ public enum AiQuotaStateOutcome
 
     /// <summary>AI access is switched off, whatever is left.</summary>
     Suspended = 3,
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No reset, and no balance to report.</summary>
+    TrialEnded = 4,
 }
 
 /// <summary>
@@ -111,7 +231,9 @@ public enum AiQuotaStateOutcome
 /// </summary>
 /// <param name="Outcome">Whether a run of the asked-about task could be admitted right now.</param>
 /// <param name="Unit">What the three amounts below are denominated in.</param>
-/// <param name="Allowance">The period's spendable total: its allowance plus anything carried into it.</param>
+/// <param name="Allowance">
+/// The period's spendable total: its allowance, anything an upgrade added (AP.4.2), and anything carried into it.
+/// </param>
 /// <param name="Remaining">What is left of that after everything settled and everything outstanding.</param>
 /// <param name="Required">
 /// What admitting the asked-about task would hold. Zero for a task that cannot spend anything.
@@ -139,10 +261,216 @@ public sealed record AiQuotaStateServiceModel(
     decimal Allowance,
     decimal Remaining,
     decimal Required,
-    DateTimeOffset? ResetsAt);
+    DateTimeOffset? ResetsAt)
+{
+    /// <summary>
+    /// The account's unspent grant credits — its pack balance (B-50). Spent after <see cref="Remaining"/>, so
+    /// <see cref="AiQuotaStateOutcome.Exhausted"/> means the two together do not cover <see cref="Required"/>
+    /// (AP.5.2). Never resets, so <see cref="ResetsAt"/> is not about it. Nought on a suspension, and on a period
+    /// counted in tokens.
+    /// </summary>
+    public decimal PackRemaining { get; init; }
+
+    /// <summary>When the trial ended, on <see cref="AiQuotaStateOutcome.TrialEnded"/> only.</summary>
+    public DateTimeOffset? TrialEndedAt { get; init; }
+}
 
 /// <summary>What one maintenance sweep over outstanding holds did.</summary>
 /// <param name="Posted">Settlements applied to a period that a worker did not live long enough to apply.</param>
 /// <param name="Expired">Holds released because their lease lapsed with nothing settled against them.</param>
 /// <param name="Finalized">Ended periods whose totals can no longer move.</param>
 public sealed record AiQuotaMaintenanceSummary(int Posted, int Expired, int Finalized);
+
+/// <summary>
+/// Who is asking to make pictures, and for how many (AP.2.5). Every field is resolved server-side by the
+/// caller before this type exists.
+/// </summary>
+/// <param name="AccountId">
+/// The Identity account, from <c>IWorkspaceContext.AccountId</c> — never a request field, an unsigned header,
+/// or anything a model supplied (USAGE-001).
+/// </param>
+/// <param name="GeneratedImageOperationId">The generation about to be queued.</param>
+/// <param name="VariantCount">How many pictures the request asked for.</param>
+/// <param name="ModelName">The image model that will be asked, which is what the rate is read against.</param>
+/// <param name="Resolution">The resolution tier the request will carry, or null when the model takes none.</param>
+/// <param name="Quality">The quality the request will carry, or null when the model offers none.</param>
+/// <param name="ExpiresAt">
+/// When the hold lapses. It has to cover every pass the operation may take rather than just the first: a
+/// requeued generation is still holding this allowance, and a hold that lapsed between passes would leave the
+/// next one generating against an allowance nobody had checked.
+/// </param>
+/// <param name="DailyImageCap">
+/// How many pictures the account's plan allows it in a UTC day, across every workspace (AP.4.2); null when no plan
+/// applies — no plans configured, or limits switched off — and only the workspace's flat cap stands.
+/// </param>
+/// <param name="TrialImageCap">
+/// How many pictures the account's trial allows in all, across every workspace and every day (AP.7.1, B-52); null
+/// on a paid plan, and when no plan applies, as for <paramref name="DailyImageCap"/>. Read from the same
+/// <c>Billing:Plans</c> entry the catalogue publishes, never a copy of it.
+/// </param>
+/// <remarks>
+/// <para>
+/// <strong>Admitted at the request, not at the worker</strong>, which is where this differs from
+/// <see cref="AiQuotaAdmissionRequestServiceModel"/>. The image worker resolves its workspace as a service
+/// identity so a picture finishes after its creator has left the workspace, which means the worker's ambient
+/// account is not the creator's and cannot be charged. The request scope is the one place the account is
+/// known, so the hold is taken there and settled later against its id alone.
+/// </para>
+/// <para>
+/// <strong>There is no <c>IsMeterable</c>.</strong> Every picture costs money; a request that cannot be priced
+/// is refused rather than admitted free (PRICE-001).
+/// </para>
+/// </remarks>
+public sealed record AiImageQuotaAdmissionRequestServiceModel(
+    string AccountId,
+    Guid GeneratedImageOperationId,
+    int VariantCount,
+    string ModelName,
+    string? Resolution,
+    string? Quality,
+    DateTimeOffset ExpiresAt,
+    int? DailyImageCap = null,
+    int? TrialImageCap = null);
+
+/// <summary>
+/// What one image generation's charges were, for the ledger and the settlement together (AP.2.5).
+/// </summary>
+/// <param name="ReservationId">The hold admission took, which is also where the account is read from.</param>
+/// <param name="WorkspaceId">Where the pictures were made, as a reporting dimension only. Never an owner.</param>
+/// <param name="GeneratedImageOperationId">The generation these charges belong to.</param>
+/// <param name="StagedVariants">
+/// How many variants the provider generated and this workspace staged, cumulative over every pass.
+/// </param>
+/// <param name="UnusableVariants">
+/// How many variants the provider generated and billed but nothing could be staged from — bytes that did not
+/// hold together, a picture too large, or one the provider flagged.
+/// </param>
+/// <param name="FlaggedVariants">
+/// How many of <paramref name="UnusableVariants"/> the provider withheld on its own safety grounds, so the
+/// ledger can say <see cref="AiUsageOutcome.SafetyBlocked"/> rather than a bare failure.
+/// </param>
+/// <param name="OccurredAt">When the generation finished. The instant its period is assigned from.</param>
+/// <param name="ProviderName">The provider that billed for them.</param>
+/// <param name="ModelName">The model it ran.</param>
+/// <param name="ModelDeployment">The deployment that served it, when the provider distinguishes one.</param>
+/// <remarks>
+/// <para>
+/// <strong>Counts, not per-variant rows, and that is the whole point.</strong> A variant the provider generated
+/// but whose bytes could not be staged leaves no record of its own — there is nothing to write a
+/// <c>GeneratedImage</c> row from — so the only durable account of what was billed is a count carried on the
+/// operation. One model serves one operation, so provider, model and deployment are the operation's own and
+/// the same for every charge in it.
+/// </para>
+/// <para>
+/// <strong>It names no account.</strong> The Media module never learns one: this module reads it from the
+/// reservation, which took it from the request scope where it was known. A ledger entry and the hold it settles
+/// therefore cannot disagree about who paid.
+/// </para>
+/// </remarks>
+public sealed record AiImageUsageServiceModel(
+    Guid ReservationId,
+    Guid WorkspaceId,
+    Guid GeneratedImageOperationId,
+    int StagedVariants,
+    int UnusableVariants,
+    int FlaggedVariants,
+    DateTimeOffset OccurredAt,
+    string ProviderName,
+    string ModelName,
+    string? ModelDeployment)
+{
+    /// <summary>Every variant the provider generated and billed for, whatever became of it.</summary>
+    public int BilledVariants => StagedVariants + UnusableVariants;
+}
+
+/// <summary>Whether an image request could be admitted right now (AP.2.6).</summary>
+public enum AiImageQuoteOutcome
+{
+    Unspecified = 0,
+
+    /// <summary>What is left covers the whole request.</summary>
+    Affordable = 1,
+
+    /// <summary>What is left does not cover it; <see cref="AiImageQuoteServiceModel.AffordableVariants"/> says how many it would.</summary>
+    Exhausted = 2,
+
+    /// <summary>AI access is switched off, whatever is left.</summary>
+    Suspended = 3,
+
+    /// <summary>This host has no rate for the picture it would make, so it cannot be priced or admitted.</summary>
+    Unpriced = 4,
+
+    /// <summary>The account's trial has ended and it is on no plan (AP.7.1). No figures: nothing can be spent.</summary>
+    TrialEnded = 5,
+
+    /// <summary>
+    /// The request would take the account past its plan's pictures for the UTC day (AP.4.2, AP.7.2). Priced as
+    /// usual; <see cref="AiImageQuoteServiceModel.PicturesLeft"/> says how many the day still has.
+    /// </summary>
+    DailyImageCap = 6,
+
+    /// <summary>
+    /// The request would take the account past its trial's pictures in all (AP.7.1, AP.7.2). Priced as usual;
+    /// <see cref="AiImageQuoteServiceModel.PicturesLeft"/> says how many the trial still has.
+    /// </summary>
+    TrialImageCap = 7,
+}
+
+/// <summary>
+/// What an image request would cost and what it would leave, read without holding or writing anything (AP.2.6).
+/// </summary>
+/// <param name="Outcome">Whether the request could be admitted right now.</param>
+/// <param name="Unit">What every amount here is counted in.</param>
+/// <param name="Variants">How many pictures were asked about.</param>
+/// <param name="PerPicture">One picture's price, rounded as a hold is; null when it cannot be priced.</param>
+/// <param name="Total">The whole request's price — exactly the hold admission would take; null when unpriced.</param>
+/// <param name="Allowance">The period's spendable total.</param>
+/// <param name="Remaining">What is left of it now, after settled and outstanding holds.</param>
+/// <param name="RemainingAfter">What would be left of the allowance after this request; null unless it is affordable.</param>
+/// <param name="AffordableVariants">
+/// How many of the asked-for pictures what is left — the allowance, then the pack balance — would cover now, by the
+/// same test admission applies.
+/// </param>
+/// <param name="LeavesNearlySpent">Whether going ahead leaves the allowance at or below its nearly-spent line (USAGE-010).</param>
+/// <param name="ResetsAt">When the allowance comes back. Null for a suspension, which does not come back by itself.</param>
+/// <param name="TimeZoneId">The zone <paramref name="ResetsAt"/> is a local midnight in.</param>
+/// <remarks>
+/// <strong>A snapshot, not a reservation</strong>, exactly as <c>PeekAsync</c> is: another tab can spend the
+/// balance between this answer and the request. Admission decides; this only lets a creator see the price first.
+/// Every figure is computed here so a surface renders it and never works one out (PRICE-004).
+/// </remarks>
+public sealed record AiImageQuoteServiceModel(
+    AiImageQuoteOutcome Outcome,
+    AiQuotaUnit Unit,
+    int Variants,
+    decimal? PerPicture,
+    decimal? Total,
+    decimal Allowance,
+    decimal Remaining,
+    decimal? RemainingAfter,
+    int AffordableVariants,
+    bool LeavesNearlySpent,
+    DateTimeOffset? ResetsAt,
+    string? TimeZoneId)
+{
+    /// <summary>The account's unspent grant credits now — its pack balance, spent after the allowance (AP.5.2).</summary>
+    public decimal PackRemaining { get; init; }
+
+    /// <summary>
+    /// What would be left of the pack balance after this request; null unless it is affordable. With
+    /// <see cref="RemainingAfter"/>, which is the allowance's alone, it says where the request's credits come from.
+    /// </summary>
+    public decimal? PackRemainingAfter { get; init; }
+
+    /// <summary>
+    /// The picture cap that binds this request, when one does: the trial's in all, or the plan's for the day (AP.7.2).
+    /// Set on <see cref="AiImageQuoteOutcome.TrialImageCap"/> and <see cref="AiImageQuoteOutcome.DailyImageCap"/>.
+    /// </summary>
+    public int? PictureCap { get; init; }
+
+    /// <summary>How many pictures that cap still allows; set with <see cref="PictureCap"/>.</summary>
+    public int? PicturesLeft { get; init; }
+
+    /// <summary>When the day's cap turns over; null for the trial's, which never does.</summary>
+    public DateTimeOffset? PictureCapResetsAt { get; init; }
+}

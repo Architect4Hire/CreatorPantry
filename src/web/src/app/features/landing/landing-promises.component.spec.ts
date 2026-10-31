@@ -5,7 +5,7 @@ import { PlanCatalogue } from '../../models/plan-catalogue.models';
 import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { BILLING_PROMISES, COMING_WITH_BILLING, LandingPromisesComponent } from './landing-promises.component';
 
-const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
+const rates = { textDraft: 10, longFormSection: 10 };
 
 const plan = {
   key: 'creator',
@@ -20,6 +20,9 @@ const plan = {
   qualityClasses: ['draft'],
   recommended: true,
   trialDays: null,
+  trialImageCap: null,
+  picturesAtDefaultQuality: 120,
+  exampleCounts: null,
 };
 
 const published: PlanCatalogue = {
@@ -30,6 +33,8 @@ const published: PlanCatalogue = {
     { key: 'large', credits: 20000, price: 60 },
   ],
   rates,
+  pictureClasses: [],
+  defaultPictureClass: null,
 };
 
 describe('LandingPromisesComponent', () => {
@@ -68,9 +73,19 @@ describe('LandingPromisesComponent', () => {
     expect(Array.from(host.querySelectorAll('h3')).map((el) => el.textContent?.trim())).toEqual([
       'Prepaid, and that is all',
       'At zero, AI waits',
-      'Top-up is yours to switch on',
+      'Running low? You hear first',
       'Need more in a busy month?',
     ]);
+  });
+
+  /**
+   * B-59: nothing is ever bought for a creator. Running low brings a notice offering a pack; a promise of an
+   * automatic purchase would describe a feature that will not exist.
+   */
+  it('never promises to buy anything on the creator’s behalf', () => {
+    const text = BILLING_PROMISES.map((promise) => `${promise.heading} ${promise.body}`).join(' ');
+
+    expect(text).not.toMatch(/automatic|top-?up|auto-?refill/i);
   });
 
   /**
@@ -82,11 +97,11 @@ describe('LandingPromisesComponent', () => {
     const cards = Array.from(host.querySelectorAll('cp-card'));
     const labelled = cards.map((card) => card.querySelector('cp-badge')?.textContent?.trim() ?? null);
 
-    expect(labelled).toEqual([COMING_WITH_BILLING, null, COMING_WITH_BILLING]);
-    expect(BILLING_PROMISES.filter((promise) => promise.comingLabel).length).toBe(2);
+    expect(labelled).toEqual([COMING_WITH_BILLING, null, null]);
+    expect(BILLING_PROMISES.filter((promise) => promise.comingLabel).length).toBe(1);
   });
 
-  /** The one promise with no label is the one the product already keeps: an allowance at nought refuses work. */
+  /** The promises with no label are the ones the product already keeps. */
   it('leaves the shipped promise unlabelled', async () => {
     await create(published);
     const atZero = Array.from(host.querySelectorAll('cp-card')).find((card) => card.textContent?.includes('At zero'))!;
@@ -94,6 +109,20 @@ describe('LandingPromisesComponent', () => {
     expect(atZero.querySelector('cp-badge')).toBeNull();
     // "download" rather than "export": every picture has a download, and no picture export route exists.
     expect(atZero.textContent).toContain('stay yours to read, edit and download');
+  });
+
+  /**
+   * The low-credit notice shipped with AP.6.4 (B-59), so the tile that promises it no longer says it is
+   * coming — and it still promises nothing automatic, which is the part B-59 is about.
+   */
+  it('leaves the low-credit promise unlabelled and promises no purchase', async () => {
+    await create(published);
+    const running = Array.from(host.querySelectorAll('cp-card')).find((card) =>
+      card.textContent?.includes('Running low'),
+    )!;
+
+    expect(running.querySelector('cp-badge')).toBeNull();
+    expect(running.textContent).toContain('Nothing is ever bought for you');
   });
 
   /** A pack cannot be bought yet either, so it carries the same words the two tiles do. */

@@ -59,6 +59,10 @@ public sealed class AiCompletionGateway(
         var attempts = new List<AiAttemptRecord>();
         var messages = InitialMessages(request.Envelope);
 
+        // The task's output ceiling, on every attempt including the correction (AP.2.2). Deployment
+        // configuration only: nothing on the request can raise it.
+        var chatOptions = new ChatOptions { MaxOutputTokens = options.MaxOutputTokensFor(request.Task) };
+
         logger.LogInformation(
             "AI completion starting. correlationId={CorrelationId} template={TemplateId}@{TemplateVersion} envelope=[{Envelope}]",
             request.CorrelationId,
@@ -73,7 +77,7 @@ public sealed class AiCompletionGateway(
             var wasCorrection = attemptNumber > 1;
             var (record, response, failure) = await AttemptAsync(
                 request.PromptTemplateId, request.PromptTemplateVersion, request.CorrelationId,
-                messages, attemptNumber, wasCorrection, cancellationToken);
+                messages, chatOptions, attemptNumber, wasCorrection, cancellationToken);
 
             attempts.Add(record);
 
@@ -82,14 +86,26 @@ public sealed class AiCompletionGateway(
                 return new AiCompletionOutcome<TDocument> { Failure = failure, Attempts = attempts };
             }
 
-            var validation = request.Validate(response!.Text, request.ExpectedSchemaVersion, request.Scope);
+            AiOutputFailure invalid;
 
-            if (validation.Succeeded)
+            // Cut off at the ceiling: what came back is the front of an answer, and a validator that happened to
+            // accept it would be accepting less than the model meant to say. So it is never parsed, only corrected.
+            if (response!.FinishReason == ChatFinishReason.Length)
             {
-                return new AiCompletionOutcome<TDocument> { Document = validation.Document, Attempts = attempts };
+                invalid = Truncated;
+            }
+            else
+            {
+                var validation = request.Validate(response.Text, request.ExpectedSchemaVersion, request.Scope);
+
+                if (validation.Succeeded)
+                {
+                    return new AiCompletionOutcome<TDocument> { Document = validation.Document, Attempts = attempts };
+                }
+
+                invalid = validation.Failure!;
             }
 
-            var invalid = validation.Failure!;
             attempts[^1] = record with
             {
                 FailureCategory = invalid.Category,
@@ -118,8 +134,14 @@ public sealed class AiCompletionGateway(
                 invalid.ReasonCode);
 
             // The model's own reply, then what was wrong with it. The reason code and message are ours and are
-            // already sanitized; the reply is echoed back because a correction without it has no referent.
-            messages.Add(new ChatMessage(ChatRole.Assistant, response.Text));
+            // already sanitized; the reply is echoed back because a correction without it has no referent. A
+            // reasoning model cut off before it wrote anything leaves no reply to echo, and an empty assistant
+            // turn is one a provider may refuse, so the correction then stands alone.
+            if (!string.IsNullOrEmpty(response.Text))
+            {
+                messages.Add(new ChatMessage(ChatRole.Assistant, response.Text));
+            }
+
             messages.Add(new ChatMessage(ChatRole.User, CorrectionMessage(invalid)));
         }
 
@@ -133,6 +155,7 @@ public sealed class AiCompletionGateway(
         string promptTemplateVersion,
         Guid correlationId,
         IList<ChatMessage> messages,
+        ChatOptions chatOptions,
         int attemptNumber,
         bool wasCorrection,
         CancellationToken cancellationToken)
@@ -145,7 +168,7 @@ public sealed class AiCompletionGateway(
             var pipeline = pipelines.GetPipeline(options.ResiliencePipelineKey);
 
             var response = await pipeline.ExecuteAsync(
-                async token => await SendAsync(messages, token, cancellationToken),
+                async token => await SendAsync(messages, chatOptions, token, cancellationToken),
                 cancellationToken);
 
             elapsed.Stop();
@@ -217,12 +240,13 @@ public sealed class AiCompletionGateway(
     /// </remarks>
     private async Task<ChatResponse> SendAsync(
         IList<ChatMessage> messages,
+        ChatOptions chatOptions,
         CancellationToken pipelineToken,
         CancellationToken callerToken)
     {
         try
         {
-            return await chatClient.GetResponseAsync(messages, cancellationToken: pipelineToken);
+            return await chatClient.GetResponseAsync(messages, chatOptions, pipelineToken);
         }
         catch (Exception exception)
         {
@@ -314,6 +338,13 @@ public sealed class AiCompletionGateway(
             new(ChatRole.User, parts),
         ];
     }
+
+    /// <summary>An answer the provider stopped at the output ceiling. Correctable: asked again, it can be shorter.</summary>
+    private static readonly AiOutputFailure Truncated = new(
+        AiFailureCategory.OutputSchemaInvalid,
+        AiOutputReason.Truncated,
+        "the reply was cut off at the length limit before it was complete; give a complete answer, more briefly",
+        IsCorrectableByReprompt: true);
 
     /// <summary>
     /// The corrective turn. Names what was wrong using our own sanitized message, and restates the contract.

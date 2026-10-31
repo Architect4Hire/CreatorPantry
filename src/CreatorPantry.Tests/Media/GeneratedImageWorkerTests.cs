@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Reflection;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Content.Facade;
@@ -28,6 +29,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
 
 namespace CreatorPantry.Tests.Media;
 
@@ -78,7 +81,12 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
                     ["Idempotency:FingerprintKey"] = Convert.ToBase64String(new byte[32]),
                 })
                 .Build())
-            .AddMediaModule()
+            // Media holds an account's allowance for the pictures it is about to generate (AP.2.5).
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.WithQualityClasses())
+            // Three quality classes on fake models (AP.3.1). Standard is the default and sends to the model every
+            // other test here already prices, so a request that names no class is made exactly as before.
+            .AddMediaModule(ImageQuotaTestSettings.WithQualityClasses())
             .AddGeneratedImageWorker()
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)
@@ -90,6 +98,13 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         services.AddSingleton<IPrivateObjectStore>(_store);
         services.RemoveAll<IMalwareScanGateway>();
         services.AddSingleton<IMalwareScanGateway>(_scanner);
+
+        // The real quota facade, behind one that can make a settlement fail on a passing error (DL.7). Off unless
+        // a test sets _settlementFailures.
+        services.RemoveAll<IAiQuotaAdmissionFacade>();
+        services.AddScoped<AiQuotaAdmissionFacade>();
+        services.AddScoped(provider => FailingSettlement.Wrap(
+            provider.GetRequiredService<AiQuotaAdmissionFacade>(), this));
 
         // The request path asks the Ai module whether a named prompt proposal belongs to this workspace
         // (12.10l). Nothing here names one: these tests are about the worker, and a stub keeps the whole Ai
@@ -230,6 +245,41 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         // Provenance, which the columns require: a staged image always says what made it.
         Assert.Equal(FakeImageGenerator.Provider, image.ProviderName);
         Assert.Equal(FakeImageGenerator.Model, image.ModelName);
+    }
+
+    /// <summary>
+    /// What the provider was asked for — quality and size, as the generator reports sending them — is recorded
+    /// with the picture (AP.2.3), so a picture's cost and look can be traced to the request that made it.
+    /// </summary>
+    [Fact]
+    public async Task A_staged_image_records_the_quality_and_size_the_provider_was_asked_for()
+    {
+        _generator.Stamp = new AdditionalPropertiesDictionary
+        {
+            [ImageGenerationSettings.QualitySent] = "medium",
+            [ImageGenerationSettings.SizeSent] = "1K 1:1",
+        };
+
+        var requested = await RequestAsync(WorkspaceA, variants: 2);
+        await RunAsync();
+
+        Assert.All(await ImagesAsync(WorkspaceA, requested.Id), image =>
+        {
+            Assert.Equal("medium", image.GenerationQuality);
+            Assert.Equal("1K 1:1", image.GenerationSize);
+        });
+    }
+
+    /// <summary>A generator that reports nothing leaves both unknown rather than guessed.</summary>
+    [Fact]
+    public async Task A_staged_image_from_a_generator_that_reports_nothing_records_no_quality_or_size()
+    {
+        var requested = await RequestAsync(WorkspaceA, variants: 1);
+        await RunAsync();
+
+        var image = Assert.Single(await ImagesAsync(WorkspaceA, requested.Id));
+        Assert.Null(image.GenerationQuality);
+        Assert.Null(image.GenerationSize);
     }
 
     [Fact]
@@ -843,7 +893,11 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         return scope;
     }
 
-    private AsyncServiceScope ScopeFor(Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner)
+    /// <summary>The account a scope belongs to when a test does not care which (AP.2.5 made it matter).</summary>
+    private const string DefaultAccount = "acct";
+
+    private AsyncServiceScope ScopeFor(
+        Guid workspaceId, WorkspaceRole role = WorkspaceRole.Owner, string account = DefaultAccount)
     {
         var scope = _provider.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<IWorkspaceContextResolver>().Resolve(
@@ -851,7 +905,7 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
             workspaceId == WorkspaceA ? "workspace-a" : "workspace-b",
             Guid.NewGuid(),
             role,
-            "acct");
+            account);
 
         return scope;
     }
@@ -864,9 +918,10 @@ public sealed partial class GeneratedImageWorkerTests : IDisposable
         Guid workspaceId,
         int variants = 1,
         string prompt = "a bowl of soup on a wooden table",
-        string? key = null)
+        string? key = null,
+        string account = DefaultAccount)
     {
-        await using var scope = ScopeFor(workspaceId);
+        await using var scope = ScopeFor(workspaceId, account: account);
 
         var result = await scope.ServiceProvider.GetRequiredService<IGeneratedImageGenerationFacade>()
             .RequestAsync(Request(variants, prompt, key), TestContext.Current.CancellationToken);
@@ -1052,6 +1107,18 @@ internal sealed class FakeImageGenerator : IImageGenerator
 
     public const string Model = "fake-image-1";
 
+    /// <summary>
+    /// The size and quality this generator says it will send, which is what its pictures are priced at.
+    /// </summary>
+    /// <remarks>
+    /// Settable, so a test can make this deployment one whose model is priced per tier and quality. Null for
+    /// both by default, matching an aspect-ratio model: one price a picture, keyed by the model alone.
+    /// </remarks>
+    public ImageGenerationDefaults? Defaults { get; set; } = new(null, null);
+
+    /// <summary>Each model's prompt character limit, by model id (AP.3.2). Empty: no model says.</summary>
+    public Dictionary<string, int> PromptLimits { get; } = new(StringComparer.Ordinal);
+
     private readonly List<int> _requestedCounts = [];
     private readonly List<string> _prompts = [];
     private readonly Dictionary<int, byte[]> _perCall = [];
@@ -1072,6 +1139,9 @@ internal sealed class FakeImageGenerator : IImageGenerator
     public Action<int>? OnCall { get; set; }
 
     public void Returns(byte[] bytes) => _bytes = bytes;
+
+    /// <summary>What the generator reports having sent, stamped on each image it returns (AP.2.3).</summary>
+    public AdditionalPropertiesDictionary? Stamp { get; set; }
 
     /// <summary>Answers differently on one call, counted from zero. For partial-batch tests.</summary>
     public void ReturnsAt(int call, byte[] bytes) => _perCall[call] = bytes;
@@ -1097,7 +1167,13 @@ internal sealed class FakeImageGenerator : IImageGenerator
         Calls = 0;
         _requestedCounts.Clear();
         _prompts.Clear();
+        _options.Clear();
     }
+
+    private readonly List<ImageGenerationOptions?> _options = [];
+
+    /// <summary>The options each call was made with, so a test can see which model and settings were sent.</summary>
+    public IReadOnlyList<ImageGenerationOptions?> RequestedOptions => _options;
 
     public Task<ImageGenerationResponse> GenerateAsync(
         ImageGenerationRequest request,
@@ -1107,6 +1183,7 @@ internal sealed class FakeImageGenerator : IImageGenerator
         var call = Calls++;
         _requestedCounts.Add(options?.Count ?? 0);
         _prompts.Add(request.Prompt ?? string.Empty);
+        _options.Add(options);
         OnCall?.Invoke(Calls);
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -1125,7 +1202,8 @@ internal sealed class FakeImageGenerator : IImageGenerator
             ? scripted
             : _bytes ?? BrandSourceSampleFiles.Png(width: 16, height: 12);
 
-        return Task.FromResult(new ImageGenerationResponse([new DataContent(bytes, "image/png")]));
+        return Task.FromResult(new ImageGenerationResponse(
+            [new DataContent(bytes, "image/png") { AdditionalProperties = Stamp }]));
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)
@@ -1135,6 +1213,23 @@ internal sealed class FakeImageGenerator : IImageGenerator
         if (serviceType == typeof(ImageGeneratorMetadata) && serviceKey is null)
         {
             return new ImageGeneratorMetadata(Provider, null, Model);
+        }
+
+        // What this deployment would send when a request names no size (AP.2.5). The real generator settles
+        // it from the model's sizing profile; this one has a flat rate, so it names neither — which is a
+        // priceable answer, and quite different from the null a generator that cannot say returns.
+        if (serviceType == typeof(ImageGenerationDefaults) && serviceKey is null)
+        {
+            return Defaults;
+        }
+
+        // A model's prompt character limit (AP.3.2), keyed by model id as the real generator is. None by default,
+        // so a test that does not set one measures nothing and sends what it always sent.
+        if (serviceType == typeof(ImagePromptLimit))
+        {
+            return (serviceKey as string ?? Model) is { } model && PromptLimits.TryGetValue(model, out var limit)
+                ? new ImagePromptLimit(limit)
+                : null;
         }
 
         return serviceType.IsInstanceOfType(this) && serviceKey is null ? this : null;

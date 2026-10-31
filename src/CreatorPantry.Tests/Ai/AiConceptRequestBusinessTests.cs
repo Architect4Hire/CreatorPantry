@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
@@ -46,6 +47,7 @@ public sealed class AiConceptRequestBusinessTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
 
             // The concept seam can follow a themed day (AF.7.4), so it asks the content module about a piece

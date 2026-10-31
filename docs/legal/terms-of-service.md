@@ -6,6 +6,24 @@
 > `[BRACKETS]` is a placeholder or an open decision. Clauses marked *(product fact)* describe what the
 > software does today and must be re-checked whenever that changes.
 
+> **Revision for counsel, 2026-10-28.** Updated for the owner's billing decisions in
+> `docs/architecture-decisions/ai-pricing.md`: the trial and its picture cap (B-48, B-52), credits and packs
+> (B-50, B-56), when plan changes take effect (B-54, B-56), Stripe and Link as merchant of record (B-57, B-58), and
+> a low-balance notice in place of automatic top-up (B-59). Changed: section 5 ("Limits"), section 7 (payments),
+> and section 8, which is rewritten. Points still open or only proposed stay in `[BRACKETS]`. The merchant-of-record
+> wording in section 8 is the part most in need of review: under Stripe Managed Payments, purchases are sold
+> through Link, not by us.
+
+> **Revision for counsel, 2026-10-28 (second).** The low-balance notice of B-59 is now built (AP.6.4), so the
+> bracketed proposal in section 7 is replaced by what the software does: on by default, at most one notice per
+> allowance period, and a setting in the account that turns it off. Nothing is ever charged or bought for a
+> creator by it. No other clause changed.
+
+> **Revision for counsel, 2026-10-29.** The trial's limits are now built (AP.7.1, `ai-pricing.md` B-52, B-61), so
+> the bracketed question in section 8 is replaced by what the software does: the 14 days run from when the account
+> was created; after them, until a plan is chosen, no AI work is accepted — pack credits included — while
+> everything already made stays available. The picture limit is now enforced as stated. No other clause changed.
+
 **Last updated:** [DATE OF PUBLICATION]
 
 ## 1. Who we are and what these terms cover
@@ -75,8 +93,9 @@ recipes from other people, and that using it in the Service does not break the l
 - **Picture safety.** Picture generation runs with the provider's safety filtering on, and pictures it flags
   are not shown to you *(product fact)*. Filtering is not perfect, and you remain responsible for what you
   publish.
-- **Limits.** AI use is measured in credits and limited by your plan and by fair-use limits that protect the
-  Service, such as a daily picture limit per workspace (section 8).
+- **Limits.** AI use is measured in credits and limited by your plan — including a daily picture limit that
+  counts your pictures across every workspace you work in — and by fair-use limits per workspace that protect the
+  Service *(product fact)* (section 8).
 
 ## 6. Food, health and safety
 
@@ -95,8 +114,8 @@ You are responsible for the recipes and claims you publish to your audience.
 
 The Service relies on other companies, including [CONFIRM THE LIST AT PUBLICATION]: Microsoft (Azure AI
 Foundry) for text AI, Venice.ai for pictures, Buffer for scheduling social posts, the USDA FoodData Central
-service for nutrition evidence, and [Stripe] for payments. When you use a feature that depends on one of them,
-their own terms may also apply.
+service for nutrition evidence, and Stripe — through Link, its merchant-of-record service — for payments
+(section 8). When you use a feature that depends on one of them, their own terms may also apply.
 
 - **Publishing.** Nothing is posted to an external service without your explicit confirmation *(product
   fact)*. Scheduling through Buffer is not yet available to every account.
@@ -105,28 +124,73 @@ their own terms may also apply.
 
 ## 8. Trials, plans, credits and payment
 
-> Billing is not live yet *(product fact)*. This section describes the intended model and must be checked
-> against the shipped billing work (AP.4 to AP.7) before publication.
+> Billing is not live yet *(product fact)*. This section describes the decided model and must be checked
+> against the shipped billing work (AP.6 and AP.7) before publication.
 
-- **Free trial.** New accounts get a free trial of [14] days. [OPEN: whether a card is required, or the trial
-  has a cap on pictures (AP.7.1).] We will tell you before a trial converts to a paid plan [CONFIRM: does the
-  trial convert automatically?].
-- **Plans.** Each account has one plan at a time, shared across every workspace it works in. Plan features,
-  prices and included credits are shown on our pricing page at the time you buy.
-- **Prepaid credits.** Plans include a monthly allowance of AI credits, and you can buy extra credit packs. You
-  pay before you use. **We never bill you afterwards for AI use**: when your credits run out, new AI requests
-  are refused until your allowance renews or you add credits. Your existing content stays available.
-- **Unused credits.** Plan credits do not carry over to the next period. Packs are used after your plan's
-  credits and expire [12] months after purchase [PROPOSED, NOT YET DECIDED]. Credits have no cash value, cannot
-  be transferred, and are not refundable except where the law requires.
-- **Automatic top-up** is off unless you turn it on. If you do, we buy the smallest pack when you run out, up
-  to the monthly limit you set, and you can turn it off at any time.
-- **Billing.** Subscriptions renew automatically at the end of each monthly or yearly period until cancelled.
-  [OPEN: taxes and VAT (AP.6.1).] We may change prices with at least [30] days' notice; a change takes effect at
-  your next renewal.
-- **Cancelling.** You can cancel at any time from [BILLING PAGE]. [OPEN (AP.6.2): cancellation and downgrades
-  take effect at the end of the current period, and you keep access until then.]
-- **Refunds.** [OPEN: refund policy for subscriptions and packs, including chargebacks (AP.6.3).]
+**Free trial**
+
+- New accounts get a free trial of 14 days. No card is needed to start it.
+- During the trial you can generate at most [10] pictures in all, beside the trial's daily picture limit. The
+  trial's credits are given once, not every month.
+- Running out of trial credits or pictures stops AI work but does not end the trial; the trial ends after its 14
+  days.
+- The 14 days start when you create your account *(product fact)*.
+- Because we never take a card for the trial, it never turns into a paid plan by itself. Once the trial has ended
+  and until you choose a plan, AI requests are refused, including any that pack credits would cover. Everything
+  you made stays yours and available: you can still read, edit, organize and export it *(product fact)*.
+
+**Plans**
+
+- Each account has one plan at a time, shared across every workspace it works in *(product fact)*. Plan
+  features, prices, included credits and picture limits are shown on our pricing page at the time you buy.
+- You pay for a plan monthly or yearly, in advance.
+- **Upgrading** takes effect straight away. You are charged the difference for the rest of the current period,
+  and you get the difference in credits as soon as that payment goes through.
+- **Downgrading** takes effect at the end of the current period. You keep your current plan until then.
+
+**Credits**
+
+- Plans include a monthly allowance of AI credits, and you can buy extra credit packs. You pay before you use.
+  **We never bill you afterwards for AI use**: when your credits run out, new AI requests are refused until your
+  allowance renews or you add credits *(product fact)*. Your existing content stays available.
+- **Plan credits** do not carry over to the next period [PROPOSED, NOT YET DECIDED].
+- **Pack credits do not expire.** They keep until you spend them, and are used after your plan's credits for the
+  period, oldest pack first *(product fact)*.
+- Credits have no cash value, cannot be transferred, and are not refundable except as this section or the law
+  provides.
+- **Running low.** We never buy credits for you. When your credits run low, we tell you and offer a pack, and you
+  decide whether to buy one. The notice is on by default, you are told at most once in each allowance period, and
+  you can turn it off in your account at any time *(product fact)*. Turning it off changes nothing else: when your
+  credits run out, new AI requests are still refused and you are still told why.
+
+**Who you pay, and tax**
+
+- Purchases are made through Stripe's checkout and are sold through **Link**, operated by Stripe, which acts as
+  the merchant of record. Link processes your payment, calculates and collects any sales tax, VAT or GST, and
+  sends your receipts. Your card statement shows `LINK.COM*` followed by [STATEMENT DESCRIPTOR]. Link's own terms
+  apply to the purchase. [COUNSEL: review the Stripe Managed Payments terms and how the relationship between the
+  customer, Link and CreatorPantry should be described — including which party is the seller, who handles
+  consumer-law obligations such as withdrawal rights, and how these Terms should refer to Link's.]
+- Prices are set in US dollars. Checkout may show and charge the equivalent in your local currency. [OPEN:
+  whether prices shown on our pricing page include tax, or tax is added at checkout.]
+
+**Renewal, price changes and cancelling**
+
+- Subscriptions renew automatically at the end of each monthly or yearly period until cancelled.
+- We may change prices with at least [30] days' notice; a change takes effect at your next renewal.
+- You can cancel at any time from the Billing page in your account settings, which opens Stripe's billing portal.
+  Cancelling takes effect at the end of the current period, and you keep your plan until then. You can also
+  manage the purchase through Link.
+- [OPEN (AP.6.2): what happens when a renewal payment fails — how long we keep your plan while payment is retried,
+  and what the account becomes if it never succeeds.]
+
+**Refunds and disputes**
+
+- If a pack is refunded or its payment is disputed, the credits from that pack that you have not yet spent are
+  removed. Credits already spent are not taken back from your plan's allowance.
+- Link may issue refunds directly, in some cases within 60 days of a purchase, as part of handling customer
+  support for the payment.
+- [OPEN: our own refund policy for subscriptions and packs (AP.6.3).]
 
 ## 9. Acceptable use
 

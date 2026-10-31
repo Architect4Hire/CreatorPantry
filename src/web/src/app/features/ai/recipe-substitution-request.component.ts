@@ -221,6 +221,7 @@ export class RecipeSubstitutionRequestComponent {
       // reached the server and was answered: a retry is a new request, not a re-send.
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.pendingRequestKey = null;
         this.quotaRefusalSignal.set(outcome);
         void this.usage.refresh();

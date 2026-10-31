@@ -3,6 +3,7 @@ extern alias ApiService;
 using System.Globalization;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -28,6 +29,8 @@ public sealed class QuotaProblemResultsTests
     [Theory]
     [InlineData(AiProposalErrors.QuotaExhausted, StatusCodes.Status429TooManyRequests)]
     [InlineData(AiProposalErrors.QuotaSuspended, StatusCodes.Status403Forbidden)]
+    [InlineData(AiProposalErrors.QuotaTrialEnded, StatusCodes.Status403Forbidden)]
+    [InlineData(AiQuotaErrors.TrialImagesSpent, StatusCodes.Status403Forbidden)]
     public void Each_quota_code_maps_to_the_status_its_remedy_implies(string code, int expected) =>
         Assert.Equal(expected, ApiService::CreatorPantry.ApiService.Http.ProblemResults.StatusFor(code));
 

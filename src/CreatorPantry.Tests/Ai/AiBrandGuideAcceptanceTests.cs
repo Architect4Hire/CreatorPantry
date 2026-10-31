@@ -11,6 +11,7 @@ using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Brand;
 using CreatorPantry.Domain.Modules.Media;
 using CreatorPantry.Domain.Modules.Brand.Data.Entities;
@@ -25,6 +26,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Ai;
 
@@ -85,7 +87,8 @@ public sealed class AiBrandGuideAcceptanceTests : IAsyncDisposable
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiBrandGuideAcceptanceBusiness, AiBrandGuideAcceptanceBusiness>()
-            .AddAiUsageModule()
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddIdempotency(configuration)
             .AddDbContext<CreatorPantryDbContext>(options => options
                 .UseSqlite(_connection)

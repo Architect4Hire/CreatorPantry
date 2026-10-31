@@ -68,6 +68,55 @@ export interface AccountAiUsageWorkspaceTotal {
   readonly requests: number;
 }
 
+/** The plan the account is on, as its usage page names it. Mirrors `AccountAiUsagePlanServiceModel`. */
+export interface AccountAiUsagePlan {
+  readonly key: string;
+  readonly name: string;
+  /**
+   * Whether this period's allowance comes back when it resets — <strong>false for a trial's credits, which are
+   * granted once</strong> (B-48). The server's answer: never promise "comes back on…" when this is false.
+   */
+  readonly allowanceRenews: boolean;
+}
+
+/**
+ * The plan's pictures for the UTC day. Mirrors `AccountAiUsagePicturesTodayServiceModel` (DL.9).
+ *
+ * <strong>Every figure is the server's</strong>: `left` is sent rather than worked out from `cap` and `used`, so a
+ * page that shows it never subtracts. A snapshot — admission counts again and decides.
+ */
+export interface AccountAiUsagePicturesToday {
+  readonly cap: number;
+  readonly used: number;
+  readonly left: number;
+  /** The next UTC midnight. Shown in UTC: the day is UTC's, whatever the creator's own zone. */
+  readonly resetsAt: string;
+}
+
+/** A trial's pictures in all, which never turn over. Mirrors `AccountAiUsageTrialPicturesServiceModel` (DL.9). */
+export interface AccountAiUsageTrialPictures {
+  readonly cap: number;
+  readonly used: number;
+  readonly left: number;
+}
+
+/**
+ * Where the account stands with the low-credit notice. Mirrors `AccountAiLowCreditServiceModel` (B-59).
+ *
+ * Facts, not a decision about what to draw: whether the notice is shown is the app's call, and
+ * `AiUsageService.lowCredit` is the one place that makes it.
+ */
+export interface AccountAiLowCredit {
+  /** Whether an admission this period left the account at or below the server's low-credit line. */
+  readonly isNoticed: boolean;
+  /** Whether the creator has put this period's notice away. False again when the period rolls. */
+  readonly isDismissed: boolean;
+  /** Whether the account wants the notice at all. True until it says otherwise. */
+  readonly noticeEnabled: boolean;
+  /** What the account can actually spend: `period.remaining` plus `packRemaining`, summed by the server. */
+  readonly spendable: number;
+}
+
 /** The signed-in account's allowance right now, and what it has gone on. Mirrors `AccountAiUsageServiceModel`. */
 export interface AccountAiUsage {
   readonly period: AccountAiUsagePeriod;
@@ -75,6 +124,33 @@ export interface AccountAiUsage {
   readonly isSuspended: boolean;
   readonly byTask: readonly AccountAiUsageTaskTotal[];
   readonly byWorkspace: readonly AccountAiUsageWorkspaceTotal[];
+  /**
+   * Whether what is left is nearly spent — <strong>the server's line, not this bundle's</strong> (USAGE-010,
+   * AP.2.6). The threshold lives in `Ai:Quota:NearlySpentFraction`, so every surface that warns agrees with the
+   * image quote's `leavesNearlySpent` without keeping a copy of it.
+   */
+  readonly isNearlySpent: boolean;
+  /** What pictures charged this period. With `writing`, makes up `period.consumed`. */
+  readonly pictures: number;
+  /** What every other kind of AI help charged this period. */
+  readonly writing: number;
+  /**
+   * The account's credit packs, which never expire (B-50) and are spent after the allowance (AP.5.2).
+   * <strong>Beside `period.remaining`, never added to it</strong> — the same figure a quote and a refusal call
+   * `packRemaining`.
+   */
+  readonly packRemaining: number;
+  /** The plan the account is on; null on a host with no plan catalogue. */
+  readonly plan: AccountAiUsagePlan | null;
+  /** Where the account stands with the low-credit notice (B-59). */
+  readonly lowCredit: AccountAiLowCredit;
+  /**
+   * The plan's pictures today. Null when no daily cap is enforced, and when the account can make nothing at all —
+   * suspended, or a trial that has ended — so there is nothing to count down.
+   */
+  readonly picturesToday: AccountAiUsagePicturesToday | null;
+  /** A trial's pictures in all; null on a paid plan, and when `picturesToday` is null for the same reason. */
+  readonly trialPictures: AccountAiUsageTrialPictures | null;
 }
 
 /**
@@ -91,12 +167,123 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
   const isSuspended = value['isSuspended'];
   const byTask = decodeList(value['byTask'], decodeTaskTotal);
   const byWorkspace = decodeList(value['byWorkspace'], decodeWorkspaceTotal);
+  const isNearlySpent = value['isNearlySpent'];
+  const pictures = amountOf(value['pictures']);
+  const writing = amountOf(value['writing']);
+  const packRemaining = amountOf(value['packRemaining']);
+  const plan = decodePlan(value['plan']);
+  const lowCredit = decodeLowCredit(value['lowCredit']);
+  const picturesToday = decodePictureCount(value['picturesToday'], true);
+  const trialPictures = decodePictureCount(value['trialPictures'], false);
 
-  if (period === null || typeof isSuspended !== 'boolean' || byTask === null || byWorkspace === null) {
+  if (
+    period === null ||
+    typeof isSuspended !== 'boolean' ||
+    typeof isNearlySpent !== 'boolean' ||
+    byTask === null ||
+    byWorkspace === null ||
+    pictures === null ||
+    writing === null ||
+    // Required, though the schema marks it optional: the server always sends it, and a missing balance read as
+    // none would lock a creator out of credits they hold.
+    packRemaining === null ||
+    plan === undefined ||
+    lowCredit === null
+  ) {
     return null;
   }
 
-  return { period, isSuspended, byTask, byWorkspace };
+  return {
+    period,
+    isSuspended,
+    byTask,
+    byWorkspace,
+    isNearlySpent,
+    pictures,
+    writing,
+    packRemaining,
+    plan,
+    lowCredit,
+    // A count that cannot be read is said as none rather than failing the read: the allowance, the plan and the
+    // breakdowns beside it are still true, and the server still decides at the request (DESIGN-SYSTEM.md, "Meters
+    // and figures"). Nothing is blocked by a missing count.
+    picturesToday: picturesToday ?? null,
+    trialPictures: trialPictures ?? null,
+  };
+}
+
+/**
+ * A picture count — today's when `withReset`, a trial's otherwise — null when the server sends none, or undefined
+ * when what arrived is not one. Absent reads as null: a server from before DL.9 sends neither.
+ */
+function decodePictureCount(
+  value: unknown,
+  withReset: true,
+): AccountAiUsagePicturesToday | null | undefined;
+function decodePictureCount(
+  value: unknown,
+  withReset: false,
+): AccountAiUsageTrialPictures | null | undefined;
+function decodePictureCount(
+  value: unknown,
+  withReset: boolean,
+): AccountAiUsagePicturesToday | AccountAiUsageTrialPictures | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return undefined;
+
+  const cap = countOf(value['cap']);
+  const used = countOf(value['used']);
+  const left = countOf(value['left']);
+
+  if (cap === null || used === null || left === null) return undefined;
+  if (!withReset) return { cap, used, left };
+
+  const resetsAt = value['resetsAt'];
+
+  return typeof resetsAt === 'string' && resetsAt !== '' ? { cap, used, left, resetsAt } : undefined;
+}
+
+/**
+ * The notice block, or null when what arrived is not one.
+ *
+ * Required rather than tolerated as absent: a missing block read as "no notice" would quietly stop telling a
+ * creator their credits are running low, which is the one thing this feature exists to do.
+ */
+function decodeLowCredit(value: unknown): AccountAiLowCredit | null {
+  if (!isRecord(value)) return null;
+
+  const isNoticed = value['isNoticed'];
+  const isDismissed = value['isDismissed'];
+  const noticeEnabled = value['noticeEnabled'];
+  const spendable = amountOf(value['spendable']);
+
+  if (
+    typeof isNoticed !== 'boolean' ||
+    typeof isDismissed !== 'boolean' ||
+    typeof noticeEnabled !== 'boolean' ||
+    spendable === null
+  ) {
+    return null;
+  }
+
+  return { isNoticed, isDismissed, noticeEnabled, spendable };
+}
+
+/**
+ * The plan, null when the host names none, or undefined when what arrived is not one. Absent reads as null: a
+ * host with no catalogue may leave the field out rather than send it empty.
+ */
+function decodePlan(value: unknown): AccountAiUsagePlan | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return undefined;
+
+  const key = value['key'];
+  const name = value['name'];
+  const allowanceRenews = value['allowanceRenews'];
+
+  if (typeof key !== 'string' || typeof name !== 'string' || typeof allowanceRenews !== 'boolean') return undefined;
+
+  return { key, name, allowanceRenews };
 }
 
 function decodePeriod(value: unknown): AccountAiUsagePeriod | null {

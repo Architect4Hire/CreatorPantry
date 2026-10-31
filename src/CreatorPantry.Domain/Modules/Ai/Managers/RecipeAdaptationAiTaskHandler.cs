@@ -124,7 +124,10 @@ internal sealed class RecipeAdaptationAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                validate),
+                validate)
+            {
+                Task = AiTaskType.RecipeAdaptation,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

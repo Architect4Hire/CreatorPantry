@@ -232,8 +232,9 @@ public sealed class AccountAiQuotaModelShapeTests : IDisposable
     }
 
     /// <summary>
-    /// Both tables hold terms and counts. The only strings are the account id, the actor id and the IANA zone
-    /// — no reason text, no administrator note, and nowhere for creator content to land.
+    /// Both tables hold terms and counts. The only strings are the account id, the actor id, the IANA zone and
+    /// the key of the plan a period opened under (AP.4.2) — no reason text, no administrator note, and nowhere
+    /// for creator content to land.
     /// </summary>
     [Fact]
     public void Neither_table_has_a_free_text_column()
@@ -250,6 +251,7 @@ public sealed class AccountAiQuotaModelShapeTests : IDisposable
         Assert.Equal(
             [
                 nameof(AccountAiQuotaPeriod.AccountId),
+                nameof(AccountAiQuotaPeriod.PlanKey),
                 nameof(AccountAiQuotaPeriod.TimeZoneId),
             ],
             Periods().GetProperties().Where(property => property.ClrType == typeof(string))

@@ -40,6 +40,27 @@
               <p class="second-line">{{ second }}</p>
             }
             <!--
+              The pitch (owner, 2026-10-28): what the credits make in one period, all of it together. The lead
+              says "all together" so the rows read as "and"; the server holds the mix to the plan's credits.
+
+              Rows of text with the count emphasised, not tiles: a card a quarter of the page wide has no room
+              for two boxes side by side, and a box inside a card is one edge too many. Each row is one phrase —
+              "60 recipes drafted" — so it reads and is announced as a sentence, with the counts lined up in a
+              column of their own.
+            -->
+            @if (plan.exampleCounts; as counts) {
+              <div class="pitch">
+                <p class="pitch-lead">{{ pitchLeadOf(plan) }}</p>
+                <ul class="pitch-rows">
+                  <li><strong class="count">{{ counts.recipeDrafts.toLocaleString() }}</strong> recipes drafted</li>
+                  <li><strong class="count">{{ counts.pictures.toLocaleString() }}</strong> {{ pitchPicturesLabel() }}</li>
+                  @if (counts.socialPosts > 0) {
+                    <li><strong class="count">{{ counts.socialPosts.toLocaleString() }}</strong> social posts</li>
+                  }
+                </ul>
+              </div>
+            }
+            <!--
               Sentences rather than a `cpFacts` list: a card on a marketing page is read, not looked up, and
               the term-and-value pairs belong in the comparison table below, where a reader is comparing.
             -->

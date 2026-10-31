@@ -4,12 +4,21 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
 import {
+  GeneratedImageLimitRefusal,
   GeneratedImageOperation,
   GeneratedImageOperationDetail,
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
+  GeneratedImageQuote,
   IDEMPOTENCY_KEY_REQUIRED_CODE,
+  QUALITY_CLASS_FORBIDDEN_CODE,
   RequestGeneratedImagesRequest,
+  isAccountRefusalCode,
+  decodeGeneratedImageLimitRefusal,
   decodeGeneratedImageOperation,
   decodeGeneratedImageOperationDetail,
+  decodeGeneratedImageQualityClasses,
+  decodeGeneratedImageQuote,
   encodeRequestGeneratedImages,
 } from '../models/generated-image.models';
 import { PictureRendition, renditionQuery } from '../models/picture-rendition.models';
@@ -24,6 +33,8 @@ export type GeneratedImageRequestOutcome =
       readonly status: 'refused';
       readonly message: string;
       readonly fieldErrors: Readonly<Record<string, readonly string[]>>;
+      /** Which of the three limits refused it, when it was one (DL.9). Absent for every other refusal. */
+      readonly limit?: GeneratedImageLimitRefusal;
     }
   /** The `Idempotency-Key` header was missing. A client defect, and its own case so it reads as one. */
   | { readonly status: 'key_required' }
@@ -181,6 +192,50 @@ export class GeneratedImageService {
     }
   }
 
+  /**
+   * What asking for `variants` pictures would cost the signed-in creator, and what it would leave (AP.2.6).
+   *
+   * Read-only and free to ask again. Null for anything that is not a quote — a failure, a refusal, a body that
+   * does not decode — because a surface with no quote says so and lets the request decide: the server refuses an
+   * unaffordable request properly on its own.
+   */
+  async quote(
+    workspaceSlug: string,
+    variants: number,
+    qualityClass: GeneratedImageQualityClass | null = null,
+  ): Promise<GeneratedImageQuote | null> {
+    // No class prices the host's default, which is what a request naming none is made at (AP.3.1).
+    const named = qualityClass === null ? '' : `&qualityClass=${encodeURIComponent(qualityClass)}`;
+    const url = this.url(workspaceSlug, `/quote?variants=${encodeURIComponent(String(variants))}${named}`);
+    if (!url) return null;
+
+    try {
+      return decodeGeneratedImageQuote(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The picture qualities this host offers, each with what one picture costs (AP.3.1). The same for every member:
+   * a price list, not a balance.
+   *
+   * Null for anything that is not a list. A surface with no list offers no choice and asks for nothing by name, so
+   * its pictures are made at the host's default — nothing is refused for want of it.
+   */
+  async qualityClasses(workspaceSlug: string): Promise<GeneratedImageQualityClasses | null> {
+    const url = this.url(workspaceSlug, '/quality-classes');
+    if (!url) return null;
+
+    try {
+      return decodeGeneratedImageQualityClasses(
+        await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })),
+      );
+    } catch {
+      return null;
+    }
+  }
+
   private url(workspaceSlug: string, suffix = ''): string | null {
     return this.apiBase.url(
       `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/generated-images${suffix}`,
@@ -215,6 +270,31 @@ function mapRequestError(error: unknown): GeneratedImageRequestOutcome {
       status: 'refused',
       message: problemMessageOf(error) ?? 'The pictures could not be asked for.',
       fieldErrors: decodeFieldErrors(error),
+    };
+  }
+
+  // A plan that does not allow the quality asked for, not a permission the workspace could grant (AP.4.3): the
+  // server's own sentence names the plan that would allow it, so it is reported as a refusal and shown as
+  // written rather than replaced by "ask an Owner or Editor".
+  if (code === 403 && problemCodeOf(error) === QUALITY_CLASS_FORBIDDEN_CODE) {
+    return {
+      status: 'refused',
+      message: problemMessageOf(error) ?? 'That picture quality is not on your plan.',
+      fieldErrors: decodeFieldErrors(error),
+    };
+  }
+
+  // The account's own allowance or limits (AP.7.1, AP.7.2): switched off, spent, a trial's pictures or its end, a
+  // day's cap. None is a permission the workspace could grant or a reason to slow down, and the server's sentence
+  // says what is true instead, so each is a refusal shown as written.
+  if ((code === 403 || code === 429) && isAccountRefusalCode(problemCodeOf(error))) {
+    const limit = decodeGeneratedImageLimitRefusal(error);
+
+    return {
+      status: 'refused',
+      message: problemMessageOf(error) ?? 'Your AI allowance does not cover these pictures right now.',
+      fieldErrors: {},
+      ...(limit === null ? {} : { limit }),
     };
   }
 

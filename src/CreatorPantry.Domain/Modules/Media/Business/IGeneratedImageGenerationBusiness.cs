@@ -2,6 +2,9 @@ using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Managers.Time;
+using CreatorPantry.Domain.Modules.AiUsage.Facade;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Facade;
 using CreatorPantry.Domain.Modules.Media.Data;
 using CreatorPantry.Domain.Modules.Media.Data.Entities;
 using CreatorPantry.Domain.Modules.Media.Gateways;
@@ -41,6 +44,13 @@ public interface IGeneratedImageGenerationBusiness
     Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Ends a generation whose last lease lapsed, charging what its passes made and releasing the rest (DL.7).
+    /// Calls no provider.
+    /// </summary>
+    Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
+
     /// <summary>Records a request for this workspace, or returns the one its idempotency key already bought.</summary>
     Task<GeneratedImageRequestResult> RequestAsync(
         string promptText,
@@ -50,10 +60,57 @@ public interface IGeneratedImageGenerationBusiness
         Guid requestedByMembershipId,
         string idempotencyKey,
         GeneratedImageSubject subject,
+        GeneratedImageQualityClass? qualityClass,
         CancellationToken cancellationToken);
 
     /// <summary>How many images one operation of the resolved workspace has staged.</summary>
     Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What a request for <paramref name="variants"/> pictures at <paramref name="qualityClass"/> would cost the
+    /// caller's account right now, priced for the model, tier and quality that class sends (AP.2.6, AP.3.1).
+    /// Writes nothing.
+    /// </summary>
+    /// <param name="qualityClass">Already resolved by the facade; null on a host that offers no classes.</param>
+    Task<GeneratedImageQuoteServiceModel> QuoteAsync(
+        int variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The quality classes this host offers, each at the rate it is charged and each saying whether the caller's
+    /// plan allows it (AP.3.1, B-55, AP.4.3).
+    /// </summary>
+    Task<GeneratedImageQualityClassesServiceModel> ListQualityClassesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The plan that would allow <paramref name="qualityClass"/>, when the caller's own plan does not allow it
+    /// (PRICE-006/007, AP.4.3); null when the plan allows it or no plans are configured.
+    /// </summary>
+    /// <remarks>
+    /// Asked of a class the facade has already resolved against this host's own list, so "not offered here" and
+    /// "not on your plan" stay two answers rather than one. A null <paramref name="qualityClass"/> — a host that
+    /// offers no classes — is never plan-refused: there is no class to weigh.
+    /// </remarks>
+    Task<GeneratedImageQualityPlanRefusal?> RefuseIfPlanDisallowsAsync(
+        GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The class a request or quote is made at: the one named, or the default when none was (AP.3.1). False when
+    /// the named class is not offered here — including any class at all on a host that offers none, where a
+    /// request naming none is made at the deployment's own default and <paramref name="chosen"/> is null.
+    /// </summary>
+    bool TryChooseQualityClass(GeneratedImageQualityClass? requested, out GeneratedImageQualityClass? chosen);
+
+    /// <summary>Whether this key has already bought an operation in the resolved workspace.</summary>
+    Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How a prompt and its avoid list measure against the model <paramref name="qualityClass"/> sends to
+    /// (AP.3.2), or null when there is nothing to measure against: no image deployment, or one that will not say
+    /// its limit. Reads configuration only.
+    /// </summary>
+    /// <param name="qualityClass">Already resolved; null on a host that offers no classes.</param>
+    GeneratedImagePromptFitServiceModel? MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass);
 
     /// <summary>
     /// The in-progress cap and the daily variant budget (15.3), or null when this request may be queued. A key that
@@ -95,11 +152,30 @@ public interface IGeneratedImageGenerationBusiness
 /// </remarks>
 internal sealed class GeneratedImageGenerationBusiness(
     IGeneratedImageGenerationDataLayer dataLayer,
+    IAiQuotaAdmissionFacade quota,
+    IAccountPlanFacade plans,
     IWorkspaceContext workspace,
     IClock clock,
     IOptions<LimitsOptions> limits,
+    IOptions<GeneratedImageQualityClassOptions> qualityClasses,
     ILogger<GeneratedImageGenerationBusiness> logger) : IGeneratedImageGenerationBusiness
 {
+    /// <summary>
+    /// What a request at <paramref name="qualityClass"/> sends, or null for the deployment's own default — the
+    /// answer on a host that offers no classes.
+    /// </summary>
+    private GeneratedImageSettings? SettingsFor(GeneratedImageQualityClass? qualityClass) =>
+        qualityClass is { } chosen
+            ? GeneratedImageQualityClassCatalogue.Settings(qualityClasses.Value, chosen)
+            : null;
+
+    /// <summary>
+    /// What will actually be sent: the class's model and settings, or the deployment's defaults when there is
+    /// no class. Priced as one, so the quote, the hold and the request can never describe different pictures.
+    /// </summary>
+    private static GeneratedImageSettings Sent(GeneratedImageSettings? settings, GeneratedImageModel model) =>
+        settings ?? new GeneratedImageSettings(null, model.ModelName!, model.Resolution, model.Quality);
+
     public async Task<OperationError?> RefuseIfOverLimitsAsync(
         string idempotencyKey, int variantCount, CancellationToken cancellationToken)
     {
@@ -138,7 +214,7 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.FindDetailAsync(operationId, cancellationToken);
 
-    public Task<GeneratedImageRequestResult> RequestAsync(
+    public async Task<GeneratedImageRequestResult> RequestAsync(
         string promptText,
         string? avoidText,
         Guid? aiProposalId,
@@ -146,13 +222,46 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid requestedByMembershipId,
         string idempotencyKey,
         GeneratedImageSubject subject,
+        GeneratedImageQualityClass? qualityClass,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subject);
 
         var now = clock.UtcNow;
 
-        return dataLayer.RequestAsync(
+        // What the pictures will cost, read from the deployment rather than guessed: the tier and quality are
+        // decided by the model's own sizing profile, and holding allowance for a picture at a size nobody will
+        // send would charge the wrong amount (AP.2.4, AP.2.5). A host with no image provider holds nothing —
+        // the request is queued and the worker fails it as provider-not-configured, which is what it did
+        // before allowance existed.
+        var model = dataLayer.DescribeModel();
+
+        // At the quality class's own model and settings when there is one (AP.3.1): its rate is what is held,
+        // and so what is charged — the class's price is the row it sends, never a figure of its own (B-55).
+        var sent = model is { Status: GeneratedImageModelStatus.Identified }
+            ? Sent(SettingsFor(qualityClass), model)
+            : null;
+
+        // The account's plan, for its picture caps. Pictures a UTC day (AP.4.2), judged with the allowance hold, and
+        // pictures generating at once, carried on the row for the claim, are limits beside the workspace's flat ones
+        // and switch off with them (`limited` below). A trial's pictures in all (AP.7.1, B-52) are not a limit but the
+        // trial's own term — the gate chosen instead of a card on file — so they apply whatever Limits says (owner,
+        // 2026-10-29, AP.7.2). With no plans configured there is no plan, and the flat caps alone apply, as before
+        // plans existed. Billing through its facade, keyed by the account the request resolved — never a request field.
+        var plan = await plans.ResolveAsync(workspace.AccountId, cancellationToken);
+        var limited = limits.Value.Enabled ? plan : null;
+
+        var admission = sent is not null
+            ? new GeneratedImageAdmissionRequest(
+                workspace.AccountId,
+                sent.ModelName,
+                sent.Resolution,
+                sent.Quality,
+                limited?.DailyImageCap,
+                plan?.TrialImageCap)
+            : null;
+
+        return await dataLayer.RequestAsync(
             new GeneratedImageOperation
             {
                 Id = Guid.NewGuid(),
@@ -168,18 +277,214 @@ internal sealed class GeneratedImageGenerationBusiness(
                 RecipeVersionId = subject.RecipeVersionId,
                 CreativeContextId = subject.CreativeContextId,
                 VariantCount = variantCount,
+                QualityClass = qualityClass,
                 IdempotencyKey = idempotencyKey,
                 RequestedByMembershipId = requestedByMembershipId,
                 RequestedAt = now,
                 StatusChangedAt = now,
                 Attempts = 0,
                 AvailableAt = now,
+                RequestedByAccountId = limited is null ? null : workspace.AccountId,
+                RunningImagesCap = limited?.RunningImages,
             },
+            admission,
             cancellationToken);
     }
 
     public Task<int> StagedCountAsync(Guid operationId, CancellationToken cancellationToken) =>
         dataLayer.StagedCountAsync(operationId, cancellationToken);
+
+    public async Task<GeneratedImageQuoteServiceModel> QuoteAsync(
+        int variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
+    {
+        // The same description RequestAsync admits against, so the quote prices the picture the request would
+        // make: the model, the tier and the quality its sizing profile decides. A host with no image provider
+        // has nothing to quote.
+        var model = dataLayer.DescribeModel();
+
+        if (model is not { Status: GeneratedImageModelStatus.Identified, ModelName: not null })
+        {
+            return GeneratedImageQuoteServiceModel.Unavailable(variants, qualityClass);
+        }
+
+        // The account from the resolved context — the creator asking — never a request field (USAGE-001). Priced
+        // at what the class sends, by the same Sent the request admits with, so the quote is the hold — and judged
+        // by the same picture caps the request is handed (AP.7.2), read the same way, so a quote that says
+        // "affordable" is not a request the day's or the trial's cap then refuses.
+        var plan = await plans.ResolveAsync(workspace.AccountId, cancellationToken);
+        var limited = limits.Value.Enabled ? plan : null;
+
+        var quote = await dataLayer.QuoteAsync(
+            workspace.AccountId,
+            Sent(SettingsFor(qualityClass), model),
+            variants,
+            cancellationToken,
+            limited?.DailyImageCap,
+            plan?.TrialImageCap);
+
+        return quote.Outcome switch
+        {
+            AiImageQuoteOutcome.Affordable
+                or AiImageQuoteOutcome.Exhausted
+                or AiImageQuoteOutcome.DailyImageCap
+                or AiImageQuoteOutcome.TrialImageCap => new GeneratedImageQuoteServiceModel(
+                quote.Outcome switch
+                {
+                    AiImageQuoteOutcome.Affordable => GeneratedImageQuoteOutcome.Affordable,
+                    AiImageQuoteOutcome.DailyImageCap => GeneratedImageQuoteOutcome.DailyImageCap,
+                    AiImageQuoteOutcome.TrialImageCap => GeneratedImageQuoteOutcome.TrialImageCap,
+                    _ => GeneratedImageQuoteOutcome.Exhausted,
+                },
+                quote.Unit.ToString(),
+                quote.Variants,
+                quote.PerPicture,
+                quote.Total,
+                quote.Allowance,
+                quote.Remaining,
+                quote.RemainingAfter,
+                quote.AffordableVariants,
+                quote.LeavesNearlySpent,
+                quote.ResetsAt,
+                quote.TimeZoneId,
+                qualityClass)
+            {
+                PackRemaining = quote.PackRemaining,
+                PackRemainingAfter = quote.PackRemainingAfter,
+                PictureCap = quote.PictureCap,
+                PicturesLeft = quote.PicturesLeft,
+                PictureCapResetsAt = quote.PictureCapResetsAt,
+            },
+
+            // No balance and no reset date, as the request's own suspension refusal carries none.
+            AiImageQuoteOutcome.Suspended => new GeneratedImageQuoteServiceModel(
+                GeneratedImageQuoteOutcome.Suspended,
+                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null, qualityClass),
+
+            // Nothing can be spent once a trial has ended (AP.7.1), so, as for a suspension, no figure at all.
+            AiImageQuoteOutcome.TrialEnded => new GeneratedImageQuoteServiceModel(
+                GeneratedImageQuoteOutcome.TrialEnded,
+                quote.Unit.ToString(), variants, null, null, null, null, null, 0, false, null, null, qualityClass),
+
+            // Unpriced is this host's misconfiguration, not the creator's balance; it reads as no provider.
+            _ => GeneratedImageQuoteServiceModel.Unavailable(variants, qualityClass),
+        };
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Each price is read, never written down (B-55).</strong> The rate <c>Ai:Quota:ImageRates</c> holds
+    /// for what the class sends, through the AiUsage module's own converter — the figure a hold for one picture
+    /// of it takes. A class with no rate is left off rather than shown at nothing: startup refuses such a host,
+    /// so its absence here is a guard for a table changed while running, not a state anyone should see.
+    /// </para>
+    /// <para>
+    /// Reads configuration only. No account and no period: a price list is the same for everyone who may ask.
+    /// </para>
+    /// </remarks>
+    public bool TryChooseQualityClass(GeneratedImageQualityClass? requested, out GeneratedImageQualityClass? chosen)
+    {
+        var options = qualityClasses.Value;
+
+        if (!GeneratedImageQualityClassCatalogue.Offers(options))
+        {
+            chosen = null;
+
+            return requested is null;
+        }
+
+        chosen = GeneratedImageQualityClassCatalogue.Choose(options, requested);
+
+        return chosen is not null;
+    }
+
+    public Task<bool> IsReplayAsync(string idempotencyKey, CancellationToken cancellationToken) =>
+        dataLayer.IsReplayAsync(idempotencyKey, cancellationToken);
+
+    /// <remarks>
+    /// The model is the one the class sends to, or the deployment's own when there is no class — the same
+    /// choice <see cref="Sent"/> makes for pricing, so what is measured is what the worker will send to.
+    /// </remarks>
+    public GeneratedImagePromptFitServiceModel? MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass)
+    {
+        ArgumentNullException.ThrowIfNull(promptText);
+
+        var modelName = SettingsFor(qualityClass)?.ModelName
+            ?? (dataLayer.DescribeModel() is { Status: GeneratedImageModelStatus.Identified, ModelName: { } named }
+                ? named
+                : null);
+
+        return modelName is not null && dataLayer.PromptCharacterLimit(modelName) is { } limit and > 0
+            ? GeneratedImagePromptComposition.Measure(promptText, avoidText, limit)
+            : null;
+    }
+
+    public async Task<GeneratedImageQualityClassesServiceModel> ListQualityClassesAsync(
+        CancellationToken cancellationToken)
+    {
+        var options = qualityClasses.Value;
+
+        var priced = GeneratedImageQualityClassCatalogue.All(options)
+            .Select(settings => (settings.QualityClass!.Value, Price: dataLayer.PriceInCredits(settings)))
+            .Where(entry => entry.Price is not null)
+            .ToList();
+
+        // Which of them this account's plan allows (AP.4.3), asked once for the whole list rather than per class.
+        // Billing through its facade, keyed by the account the request resolved — never a request field. Null when
+        // no plans are configured, which is every production deployment today: every class this host offers is
+        // then allowed,
+        // exactly as it was before plans existed.
+        var plan = await plans.ResolveQualityAsync(
+            workspace.AccountId,
+            [.. priced.Select(entry => entry.Value.ToString())],
+            cancellationToken);
+
+        var allowance = plan?.Classes.ToDictionary(row => row.QualityClass, StringComparer.Ordinal);
+
+        var classes = priced
+            .Select(entry =>
+            {
+                // Keyed by the name Billing was asked about, which it echoes back unchanged, so nothing here
+                // normalises a class name or knows how a plan spells one.
+                var row = allowance?.GetValueOrDefault(entry.Value.ToString());
+
+                return new GeneratedImageQualityClassPriceServiceModel(
+                    entry.Value,
+                    entry.Price!.Value,
+                    entry.Value == options.DefaultClass,
+                    row?.Allowed ?? true,
+                    row?.RequiresPlanKey,
+                    row?.RequiresPlanName);
+            })
+            .ToList();
+
+        // The default only when it is in the list, so a page never preselects a class it cannot show. It is always
+        // one the plan allows: startup refuses a plan that does not allow Ai:Images:DefaultClass.
+        return new GeneratedImageQualityClassesServiceModel(
+            classes.Any(entry => entry.IsDefault) ? options.DefaultClass : null, AiQuotaUnit.Credits.ToString(), classes);
+    }
+
+    /// <remarks>
+    /// One class rather than the list, because a request asks for one. The same facade call either way, so the
+    /// picker's locked tile and the refusal a request gets cannot disagree about which plan unlocks a class.
+    /// </remarks>
+    public async Task<GeneratedImageQualityPlanRefusal?> RefuseIfPlanDisallowsAsync(
+        GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
+    {
+        if (qualityClass is not { } asked)
+        {
+            return null;
+        }
+
+        var plan = await plans.ResolveQualityAsync(
+            workspace.AccountId, [asked.ToString()], cancellationToken);
+
+        var row = plan?.Classes.FirstOrDefault();
+
+        return row is null || row.Allowed
+            ? null
+            : new GeneratedImageQualityPlanRefusal(asked, row.RequiresPlanKey, row.RequiresPlanName);
+    }
 
     public async Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken)
@@ -197,6 +502,42 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             return GeneratedImageRunOutcome.Cancelled;
         }
+    }
+
+    /// <remarks>
+    /// <para>
+    /// The settlement every other ending gets, under the lease the sweep took for it: the counts each pass wrote
+    /// as its variants' fates were known are already on the row, so the charge is for exactly what was made and
+    /// billed, and whatever was held for the rest goes back. Staged images decide partial success from failure,
+    /// as they do when a requeue runs out.
+    /// </para>
+    /// <para>
+    /// A hold that expired before this ran settles nothing — AiUsage's own rule — so a generation abandoned
+    /// past <see cref="MediaPolicy.GenerationHoldDuration"/> is still ended, uncharged.
+    /// </para>
+    /// </remarks>
+    public async Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken)
+    {
+        var work = await dataLayer.OpenAsync(operationId, leaseToken, cancellationToken);
+
+        if (work.Outcome is not GeneratedImageWriteOutcome.Applied)
+        {
+            return GeneratedImageRunOutcome.Skipped;
+        }
+
+        // Not FailAsync even with nothing staged: a pass can have been billed for pictures nothing could be
+        // staged from, and those are charged here like any others.
+        var staged = work.StagedVariants is { Count: > 0 };
+
+        return await SettleAsync(
+            operationId,
+            leaseToken,
+            staged ? GeneratedImageOperationStatus.PartiallySucceeded : GeneratedImageOperationStatus.Failed,
+            GeneratedImageFailureCategory.LeaseAbandoned,
+            MediaPolicy.LeaseAbandonedSummary,
+            staged ? GeneratedImageRunOutcome.PartiallyGenerated : GeneratedImageRunOutcome.Failed,
+            cancellationToken);
     }
 
     private async Task<GeneratedImageRunOutcome> RunAsync(
@@ -236,6 +577,33 @@ internal sealed class GeneratedImageGenerationBusiness(
                 cancellationToken);
         }
 
+        // The allowance this generation was admitted against, confirmed still spendable before a single picture is
+        // made (PRICE-001). The hold is taken at the request and never renewed, so a generation that waited
+        // long enough — behind its workspace's running cap — can be claimed after the expiry sweep has already
+        // given it back, and settlement would charge nothing. Its account is asked again too (AP.7.2, B-61): one
+        // switched off, or a trial that ended, while the request waited is refused as a text run is at its claim.
+        // Failing here settles the hold at nothing, because nothing was made.
+        if (work.ReservationId is { } hold
+            && await quota.CheckImageHoldAsync(hold, cancellationToken) is var state and not AiImageHoldState.Live)
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.Quota,
+                state switch
+                {
+                    // One sentence for both, and it names no account state. This summary is stored on the
+                    // operation, and a workspace's operations are readable by every member of it down to
+                    // Viewer — so "this account's trial ended" would tell a creator's colleagues when their
+                    // trial ran out or that their access was switched off. The creator who asked learns
+                    // which it was from their own usage and billing pages, where it is theirs to read.
+                    AiImageHoldState.Suspended or AiImageHoldState.TrialEnded =>
+                        "AI work was not available when these pictures were to be made.",
+                    _ => "This request waited longer than the allowance held for it; ask for the pictures again.",
+                },
+                cancellationToken);
+        }
+
         var model = dataLayer.DescribeModel();
 
         switch (model.Status)
@@ -257,7 +625,47 @@ internal sealed class GeneratedImageGenerationBusiness(
                     cancellationToken);
         }
 
-        if (await dataLayer.RecordProviderAsync(operationId, leaseToken, model, cancellationToken)
+        // A provider to ask and nothing held to pay for it (AP.7.2, PRICE-001): a request made while this host could
+        // not price a picture — no deployment then, or one it could not identify — takes no hold, and a host that
+        // can by the time it is claimed would otherwise make the pictures for nothing. Asked after the model, so a
+        // host with no provider still says so rather than this.
+        if (work.ReservationId is null)
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.Quota,
+                "No allowance was held for this request, so no pictures were made; ask for them again.",
+                cancellationToken);
+        }
+
+        // What this generation's class sends, read now (AP.3.1). A class this host no longer offers is not sent
+        // at some other setting: the hold priced that class, and a picture of anything else is not what was
+        // asked for or paid for.
+        var settings = SettingsFor(work.QualityClass);
+
+        if (work.QualityClass is not null && settings is null)
+        {
+            return await FailAsync(
+                operationId,
+                leaseToken,
+                GeneratedImageFailureCategory.ProviderNotConfigured,
+                "The picture quality this request asked for is no longer offered on this host.",
+                cancellationToken);
+        }
+
+        // The model actually asked, which for a class is the class's — not the deployment's default model.
+        var asked = settings is null
+            ? model
+            : model with
+            {
+                ModelName = settings.ModelName,
+                ModelDeployment = settings.ModelName,
+                Resolution = settings.Resolution,
+                Quality = settings.Quality,
+            };
+
+        if (await dataLayer.RecordProviderAsync(operationId, leaseToken, asked, cancellationToken)
             is not GeneratedImageWriteOutcome.Applied)
         {
             return GeneratedImageRunOutcome.Skipped;
@@ -275,7 +683,7 @@ internal sealed class GeneratedImageGenerationBusiness(
                 continue;
             }
 
-            if (!await RunVariantAsync(operationId, leaseToken, variant, work, run, cancellationToken))
+            if (!await RunVariantAsync(operationId, leaseToken, variant, work, settings, run, cancellationToken))
             {
                 break;
             }
@@ -297,10 +705,11 @@ internal sealed class GeneratedImageGenerationBusiness(
         Guid leaseToken,
         int variant,
         GeneratedImageWork work,
+        GeneratedImageSettings? settings,
         GeneratedImagePassState run,
         CancellationToken cancellationToken)
     {
-        var generated = await dataLayer.GenerateAsync(work.PromptText, work.AvoidText, cancellationToken);
+        var generated = await dataLayer.GenerateAsync(work.PromptText, work.AvoidText, settings, cancellationToken);
 
         switch (generated.Outcome)
         {
@@ -324,6 +733,21 @@ internal sealed class GeneratedImageGenerationBusiness(
                     "The image provider refused this request.");
                 return false;
 
+            case GeneratedImageProviderOutcome.Flagged:
+                // Generated and withheld, which the provider bills for either way (AP.2.5) — so it is counted
+                // before the pass stops. Terminal rather than retryable: the same prompt gets the same answer,
+                // and asking again would buy another charge for it.
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Flagged, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
+                run.Terminal(GeneratedImageFailureCategory.ProviderFlagged,
+                    "The image provider made this picture and would not hand it over.");
+                return false;
+
             case GeneratedImageProviderOutcome.InvalidResponse:
                 // One bad answer rather than a verdict on the request: the next variant may well arrive.
                 run.Terminal(GeneratedImageFailureCategory.InvalidResponse,
@@ -331,23 +755,49 @@ internal sealed class GeneratedImageGenerationBusiness(
                 return true;
         }
 
+        // Bytes arrived, so the provider has generated and billed for this picture whatever this host now
+        // makes of it (AP.2.5). Which way it is counted is settled below, once its fate is known — a count
+        // written only where staging succeeded would hand an account a free picture for every one of this
+        // host's own refusals, and one written before the inspection would record a refused picture as a
+        // staged one in the ledger.
         var inspection = GeneratedImageInspector.Inspect(generated.Bytes.Span);
 
         switch (inspection.Outcome)
         {
             case GeneratedImageInspectionOutcome.Empty:
             case GeneratedImageInspectionOutcome.Unsupported:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.UnsupportedMediaType,
                     "The image provider returned something that is not a supported image format.");
                 return true;
 
             case GeneratedImageInspectionOutcome.Corrupt:
             case GeneratedImageInspectionOutcome.TrailingData:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
 
             case GeneratedImageInspectionOutcome.TooLarge:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned an image with more pixels than this workspace will stage.");
                 return true;
@@ -357,6 +807,13 @@ internal sealed class GeneratedImageGenerationBusiness(
 
             default:
                 // An outcome added to the inspector and not named here is a refusal, never a staged image.
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.CorruptImage,
                     "The image provider returned an image that does not hold together as one.");
                 return true;
@@ -370,39 +827,109 @@ internal sealed class GeneratedImageGenerationBusiness(
             inspection.MediaType!,
             inspection.Width,
             inspection.Height,
+            generated.QualitySent,
+            generated.SizeSent,
             cancellationToken);
 
         switch (stage)
         {
             case GeneratedImageStageOutcome.Staged:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Staged, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Staged();
                 return true;
 
             case GeneratedImageStageOutcome.AlreadyStaged:
                 // Another attempt won this variant while this one was at the provider. Its bytes are the
-                // ones in storage; these are discarded, which is the cost of losing that race.
+                // ones in storage; these are discarded, which is the cost of losing that race. Still billed:
+                // this pass asked the provider for a picture and the provider made one, so two passes racing
+                // one variant cost two pictures however many of them end up in storage.
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Staged();
                 return true;
 
             case GeneratedImageStageOutcome.Rejected:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.MalwareDetected,
                     "The scanner refused the bytes the image provider returned.");
                 return true;
 
             case GeneratedImageStageOutcome.TooLarge:
+                if (!await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken))
+                {
+                    // The lease is gone, so this count could not be written — and nothing more may be
+                    // bought under it. Another worker owns this operation, and its pass is what is billed.
+                    return false;
+                }
+
                 run.Terminal(GeneratedImageFailureCategory.ImageTooLarge,
                     "The image provider returned more bytes than this workspace will stage.");
                 return true;
 
             case GeneratedImageStageOutcome.Unavailable:
+                // The picture was made and billed for; reaching storage is this host's problem, not the
+                // provider's. Counted, then retried — and the retry buys another picture, which the provider
+                // charges for again, which the count will say.
+                await BillAsync(operationId, leaseToken, GeneratedImageBilling.Unusable, run, cancellationToken);
                 run.Retryable(GeneratedImageFailureCategory.Storage,
                     "Private staging storage could not be reached.");
                 return false;
 
             default:
+                // The lease is gone, so nothing can be written — the count included. Another worker owns this
+                // operation and its own pass is what will be billed.
                 run.LeaseLost();
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Counts one variant the provider generated and bills for, under the lease (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Returns whether it was written. A lost lease is the only failure and it means another worker owns this
+    /// operation, so the pass stops rather than generating pictures nobody will be charged for.
+    /// </para>
+    /// <para>
+    /// <strong>Its own write, between provider calls.</strong> It has to survive a crash before the next
+    /// variant: the settlement at the end charges from this count, and a count that lived only in memory would
+    /// let a resumed generation re-run the variants it had already paid for and charge for neither pass.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> BillAsync(
+        Guid operationId,
+        Guid leaseToken,
+        GeneratedImageBilling billing,
+        GeneratedImagePassState run,
+        CancellationToken cancellationToken)
+    {
+        if (await dataLayer.RecordBilledVariantAsync(operationId, leaseToken, billing, cancellationToken)
+            is GeneratedImageWriteOutcome.Applied)
+        {
+            return true;
+        }
+
+        run.LeaseLost();
+
+        return false;
     }
 
     /// <summary>
@@ -484,6 +1011,10 @@ internal sealed class GeneratedImageGenerationBusiness(
                 cancellationToken);
     }
 
+    /// <remarks>
+    /// <strong>The one place a generation's allowance is reckoned</strong>, because it is the one place a
+    /// generation ends — the data layer stages its ledger entries and settles its hold here.
+    /// </remarks>
     private async Task<GeneratedImageRunOutcome> SettleAsync(
         Guid operationId,
         Guid leaseToken,
@@ -497,6 +1028,11 @@ internal sealed class GeneratedImageGenerationBusiness(
             ? outcome
             : GeneratedImageRunOutcome.Skipped;
 
+    /// <remarks>
+    /// Every caller of this failed before a provider was reached — no deployment, no model identity, or the
+    /// day's budget already spent — so nothing was generated, nothing is charged, and the hold is released
+    /// whole by the settlement below.
+    /// </remarks>
     private async Task<GeneratedImageRunOutcome> FailAsync(
         Guid operationId,
         Guid leaseToken,

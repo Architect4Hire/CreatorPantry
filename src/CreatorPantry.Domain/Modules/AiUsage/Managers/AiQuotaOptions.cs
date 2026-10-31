@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Managers.Ai;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 
 namespace CreatorPantry.Domain.Modules.AiUsage.Managers;
@@ -114,6 +115,27 @@ public sealed class AiQuotaOptions
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Credits per image, by model, resolution tier and quality (AP.2.4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Keyed by <see cref="AiImageRateKeys"/>: <c>gpt-image-2-5-flare/4K/high</c> where the model is priced by
+    /// quality at a tier, <c>qwen-image-2-1-turbo/2K</c> where it is priced by tier alone,
+    /// <c>seedream-v5-lite</c> where one price covers every picture. Each figure is the model's own list price
+    /// at the pinned unit of <c>ai-pricing.md</c> B-49 — credits = list $ per picture × 1,250 — and its match
+    /// under <c>Ai:Cost:Images</c> is the list price itself.
+    /// </para>
+    /// <para>
+    /// <strong>Unlike <see cref="TaskEstimates"/> there is no default below this.</strong> A completion's cost
+    /// is not known until it has been written, so an unrated model settles at an estimate; a picture's cost is
+    /// known before it is made, so a missing rate is a gap in configuration rather than an unknown, and
+    /// admission refuses the request. <c>AiProviderRegistration.RequireImageRates</c> refuses to start a host
+    /// that could reach that refusal, in every environment.
+    /// </para>
+    /// </remarks>
+    public Dictionary<string, decimal> ImageRates { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// How many tokens one credit represents, for a period denominated in
     /// <see cref="AiQuotaUnit.Tokens"/>.
     /// </summary>
@@ -123,6 +145,91 @@ public sealed class AiQuotaOptions
     /// is already tokens.
     /// </remarks>
     public decimal TokensPerCredit { get; set; } = 1000m;
+
+    /// <summary>
+    /// The share of a period's spendable allowance at or below which it counts as nearly spent (USAGE-010).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The one place this line is drawn.</strong> It used to be a constant in the browser, which meant the
+    /// usage page and anything else that warned had to agree by copying it. The server now says it — on the
+    /// usage read (<c>isNearlySpent</c>) and on an image quote (<c>leavesNearlySpent</c>) — so a surface renders
+    /// the answer and never works it out (AP.2.6).
+    /// </para>
+    /// <para>
+    /// A product decision, not a limit: nothing is refused at it. A fifth is the point at which telling somebody
+    /// is still useful rather than merely alarming. Above nought and below one.
+    /// </para>
+    /// </remarks>
+    public decimal NearlySpentFraction { get; set; } = 0.2m;
+
+    /// <summary>
+    /// The share of a period's spendable allowance at or below which an account's spendable credits bring the
+    /// low-credit notice (PRICE-011 as amended, B-59).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A different line from <see cref="NearlySpentFraction"/>, measuring a different thing.</strong>
+    /// Nearly-spent counts the period's allowance alone and says so for as long as it is true; this counts what
+    /// the account can actually spend — the allowance left <em>plus</em> every pack's balance — and is said once
+    /// a period. An account holding packs is not running low at nought allowance, which is the whole reason the
+    /// two figures cannot be one.
+    /// </para>
+    /// <para>
+    /// A tenth, below the fifth the nearly-spent warning draws, so a creator gets the quiet warning first and
+    /// the offer of a pack after it rather than the same sentence twice. Above nought and below one.
+    /// </para>
+    /// </remarks>
+    public decimal LowCreditNoticeFraction { get; set; } = 0.1m;
+
+    /// <summary>
+    /// The most the whole platform may admit in pictures on one UTC day, in US dollars of provider list price
+    /// (PRICE-005, AP.2.7). Null switches the breaker off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A circuit breaker, not an allowance.</strong> Every account's own allowance still applies first;
+    /// this is the backstop for the day every allowance is honoured and the bill is still more than the platform
+    /// will carry. Priced from <c>Ai:Cost:Images</c> (<see cref="AiImageListPriceOptions"/>), the list price
+    /// itself, rather than from the credits, which carry the margin.
+    /// </para>
+    /// <para>
+    /// Above nought when set. Null is allowed only in Development: the API refuses to start anywhere else
+    /// without one, because a deployment with no ceiling is the leak PRICE-005 exists to close.
+    /// </para>
+    /// </remarks>
+    public decimal? PlatformImageSpendPerDay { get; set; }
+
+    /// <summary>
+    /// The largest ceiling accepted, in US dollars. Far beyond any real day, and well inside what the counter's
+    /// micro-dollars can hold; a figure past it is a typo, not a policy.
+    /// </summary>
+    public const decimal PlatformImageSpendPerDayMax = 1_000_000m;
+}
+
+/// <summary>
+/// The provider list price of one picture, by <see cref="CreatorPantry.Domain.Managers.Ai.AiImageRateKeys"/>
+/// key, in US dollars — read so the platform's daily image spend can be counted in dollars (AP.2.7).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>A second reader of <c>Ai:Cost:Images</c>, not a second table.</strong> The rows belong to the AI
+/// module's <c>AiCostOptions</c>, which this module may not name (<c>ModuleBoundaryTests</c>), so it binds the
+/// same section into a type of its own. There is still one place an operator writes a price, and
+/// <c>ImageRateTableTests</c> already holds each row to its credit rate.
+/// </para>
+/// <para>
+/// Not derived from <see cref="AiQuotaOptions.ImageRates"/> by dividing by 1,250: that would put the pinned
+/// unit of <c>ai-pricing.md</c> B-49 into C# as a literal, and a margin the owner changes in configuration would
+/// then silently move the ceiling.
+/// </para>
+/// </remarks>
+public sealed class AiImageListPriceOptions
+{
+    public const string SectionName = "Ai:Cost";
+
+    /// <summary>List price per picture, keyed as <c>Ai:Quota:ImageRates</c> is.</summary>
+    public Dictionary<string, decimal> Images { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <param name="CreditsPerMillionInputTokens">Credits charged per million reported input tokens.</param>

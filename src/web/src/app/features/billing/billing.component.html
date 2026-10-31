@@ -1,0 +1,197 @@
+<cp-page-head [heading]="pageTitle" lede="Your plan, your credits, and what you can buy.">
+  @if (account()?.subscription) {
+    <button cpPageHeadActions cpButton variant="secondary" type="button"
+      [attr.aria-busy]="busy() === 'portal' ? 'true' : null" (click)="openPortal()">
+      {{ busy() === 'portal' ? 'Opening…' : 'Manage payment and invoices' }}
+    </button>
+  }
+</cp-page-head>
+
+<div class="billing">
+  <!--
+    The one fixed place for what the page has done or been told (DESIGN-SYSTEM.md, "Composing a page"). News goes in
+    a polite region that is always here — quiet until it has text — so it is announced when it arrives; a refusal the
+    creator has just met is an alert, newly inserted beside it.
+  -->
+  <cp-notice [tone]="news()?.tone ?? 'neutral'" [quiet]="!news()" role="status">
+    {{ news()?.text }}
+    @if (news() && news()!.text.includes('refresh in a moment')) {
+      <button cpButton variant="text" size="sm" type="button" (click)="refresh()">Refresh</button>
+    }
+  </cp-notice>
+  @if (refusal(); as said) {
+    <cp-notice tone="warning" role="alert">{{ said }}</cp-notice>
+  }
+
+  @switch (state().kind) {
+    @case ('loading') {
+      <div class="loading" aria-busy="true">
+        <p class="cp-sr-only" role="status">Loading your billing…</p>
+        <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
+        <ul cpCardGrid minColumn="15rem">
+          @for (place of [1, 2, 3]; track place) {
+            <li><cp-skeleton shape="card" /></li>
+          }
+        </ul>
+      </div>
+    }
+
+    @case ('error') {
+      <cp-card>
+        <div class="failed">
+          <cp-status-pill tone="error">Couldn’t load</cp-status-pill>
+          <p>{{ couldNotLoad }}</p>
+          <!-- aria-disabled rather than disabled, and the card kept while it tries: the person who pressed it keeps
+               focus and hears what happens next (as the allowance page does). -->
+          <button cpButton variant="secondary" type="button"
+            [attr.aria-disabled]="retrying() ? 'true' : null" [attr.aria-busy]="retrying() ? 'true' : null"
+            (click)="retry()">
+            {{ retrying() ? 'Trying…' : 'Try again' }}
+          </button>
+        </div>
+      </cp-card>
+    }
+
+    @default {
+      @if (account(); as billing) {
+        @if (!billing.paymentsAvailable) {
+          <cp-notice tone="neutral">Payments aren’t available right now. You can see the plans and packs, but nothing can be bought here.</cp-notice>
+        } @else if (billing.isTestMode) {
+          <cp-notice tone="neutral">Payments are in test mode: no real money moves.</cp-notice>
+        }
+
+        <!-- Spent credits put both remedies first. Buttons rather than fragment links: each scrolls to its card and
+             moves focus there, so a keyboard lands where the eye does. -->
+        @if (spent()) {
+          <cp-notice tone="warning">
+            Your AI credits are spent.
+            @if (billing.canBuyPacks) {
+              <button cpButton variant="text" size="sm" type="button" (click)="goTo(packsPlace)">Buy credits</button>
+            }
+            <button cpButton variant="text" size="sm" type="button" (click)="goTo(plansPlace)">
+              {{ billing.subscription ? 'Upgrade your plan' : 'Choose a plan' }}
+            </button>
+          </cp-notice>
+        }
+
+        <div class="place" [id]="planPlace" tabindex="-1">
+          <cp-topic-card heading="Your plan">
+            @if (billing.plan; as plan) {
+              <p class="status">
+                <strong class="plan-name">{{ plan.name }}</strong>
+                @if (planStatus(); as status) {
+                  <cp-status-pill [tone]="status.tone">{{ status.label }}</cp-status-pill>
+                }
+              </p>
+              <dl cpFacts layout="inline">
+                @for (fact of planFacts(); track fact.label) {
+                  <div cpFact [label]="fact.label">{{ fact.value }}</div>
+                }
+              </dl>
+              @if (plan.trialEnded && !billing.subscription) {
+                <p class="cp-muted">Your free trial has ended. Choose a plan below to keep using AI help — everything you made is still here.</p>
+              }
+            } @else {
+              <p class="cp-muted">No plans are set up here yet, so there is nothing to show.</p>
+            }
+
+            @if (billing.subscription?.nextPlanName) {
+              <div cpTopicCardActions>
+                <button cpButton variant="secondary" type="button"
+                  [attr.aria-busy]="busy() === 'withdraw' ? 'true' : null" (click)="withdrawChange()">
+                  {{ busy() === 'withdraw' ? 'Withdrawing…' : 'Keep my current plan' }}
+                </button>
+              </div>
+            }
+          </cp-topic-card>
+        </div>
+
+        <div class="place" [id]="plansPlace" tabindex="-1">
+          <cp-topic-card heading="Plans" wide>
+            @switch (catalogue()) {
+              @case (undefined) {
+                <div aria-busy="true"><cp-skeleton shape="card" [count]="3" /></div>
+              }
+              @case (null) {
+                <p>We couldn’t load the plans just now.</p>
+                <button cpButton variant="secondary" type="button" (click)="retryCatalogue()">Try again</button>
+              }
+              @default {
+                @if (plans().length === 0) {
+                  <p class="cp-muted">No plans are on offer right now.</p>
+                } @else {
+                  <div cpChipGroup label="How often you pay">
+                    <button cpChip type="button" [pressed]="cycle() === 'Monthly'" (click)="setCycle('Monthly')">Monthly</button>
+                    <button cpChip type="button" [pressed]="cycle() === 'Annual'" (click)="setCycle('Annual')">Yearly</button>
+                  </div>
+
+                  <ul cpCardGrid minColumn="15rem">
+                    @for (plan of plans(); track plan.key) {
+                      <li>
+                        <cp-option-card
+                          [heading]="plan.name"
+                          [summary]="plan.exampleMix"
+                          [facts]="factsOf(plan)"
+                          detailLabel="What each picture costs"
+                          [chooseLabel]="chooseLabel(plan)"
+                          [selected]="isCurrent(plan)"
+                          [disabled]="plansUnavailable() !== ''"
+                          [disabledReason]="plansUnavailable()"
+                          (chosen)="choosePlan(plan)"
+                        />
+                      </li>
+                    }
+                  </ul>
+                  @if (billing.subscription) {
+                    <p class="cp-muted">
+                      An upgrade starts now: Stripe shows what it charges for the rest of this period before you pay. A move to
+                      a smaller plan, or to the other billing, waits for the end of the period.
+                    </p>
+                  }
+                  <p class="tax cp-muted">{{ taxLine }}</p>
+                }
+              }
+            }
+          </cp-topic-card>
+        </div>
+
+        <div class="place" [id]="packsPlace" tabindex="-1">
+          <cp-topic-card heading="Credit packs" wide>
+            <p class="cp-muted">Used after your plan’s credits. They don’t expire.</p>
+            @if (catalogue() && packs().length === 0) {
+              <p class="cp-muted">No packs are on offer right now.</p>
+            } @else if (catalogue()) {
+              <ul cpCardGrid minColumn="12rem">
+                @for (pack of packs(); track pack.key) {
+                  <li>
+                    <cp-option-card
+                      [heading]="packHeading(pack)"
+                      [facts]="packFacts(pack)"
+                      [chooseLabel]="packLabel(pack)"
+                      [disabled]="packsUnavailable() !== ''"
+                      [disabledReason]="packsUnavailable()"
+                      (chosen)="buyPack(pack)"
+                    />
+                  </li>
+                }
+              </ul>
+              <p class="tax cp-muted">{{ taxLine }}</p>
+            }
+          </cp-topic-card>
+        </div>
+
+        <!-- The low-balance notice's setting (AP.6.4, B-59), the same one the allowance page holds: there is no
+             auto top-up, so this is what stands in for one. -->
+        <cp-topic-card heading="Running low">
+          <p>When your credits are running low we tell you once each period. Nothing is ever bought for you.</p>
+          <cp-checkbox
+            label="Tell me when my credits are running low"
+            [checked]="noticeEnabled()"
+            (checkedChange)="setNoticeEnabled($event)"
+          />
+          <p><a routerLink="/app/ai-usage">See your AI allowance</a></p>
+        </cp-topic-card>
+      }
+    }
+  }
+</div>

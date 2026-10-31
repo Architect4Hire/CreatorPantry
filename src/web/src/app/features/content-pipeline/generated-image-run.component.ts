@@ -2,6 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -13,11 +16,14 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 import {
   CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
   CpEmptyStateComponent,
   CpFormSectionComponent,
   CpGeneratedComponent,
   CpNoticeComponent,
   CpProgressComponent,
+  CpSkeletonComponent,
   CpStatusPillComponent,
 } from '@creator-pantry/ui';
 
@@ -38,6 +44,15 @@ import {
 import { DamAssetService } from '../../services/dam-asset.service';
 import { matchSavedPictures } from '../../services/dam-saved-pictures';
 import { GeneratedImageService, StagedImageRejectOutcome } from '../../services/generated-image.service';
+import { AccountAiUsage } from '../../models/ai-usage.models';
+import {
+  GeneratedImageLimitRefusal,
+  GeneratedImageQualityClass,
+  GeneratedImageQualityClasses,
+  GeneratedImageQuote,
+} from '../../models/generated-image.models';
+import { AiUsageService } from '../../services/ai-usage.service';
+import { allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
 import {
   SaveToLibraryDialogComponent,
   SaveToLibraryProgress,
@@ -84,6 +99,61 @@ export interface GeneratedImageRunWording {
   /** Finishes "These pictures stop being available after <when>," with what to do about it. */
   readonly expiryRemedy: string;
 }
+
+/** How long a quote waits after the count last changed before it asks, so stepping through counts asks once. */
+export const QUOTE_SETTLE_MS = 250;
+
+/** A count of pictures inside a sentence; {@link pictureCount} starts one. */
+function picturesInSentence(count: number): string {
+  return count === 1 ? 'one picture' : `${count} pictures`;
+}
+
+/**
+ * Today's pictures and a trial's, in the server's figures (DL.9), or null when it states neither. Both are said when
+ * both apply rather than one chosen by comparing them: which of the two binds is admission's to judge, not this one's.
+ */
+function picturesLeftSentence(usage: AccountAiUsage): string | null {
+  const today = usage.picturesToday;
+  const trial = usage.trialPictures;
+  const parts: string[] = [];
+
+  if (today !== null) {
+    const plan = usage.plan === null ? 'your plan’s' : `your ${usage.plan.name} plan’s`;
+    parts.push(`${leftWord(today.left)} of ${plan} ${today.cap} pictures left today. ${moreComeBack(today.resetsAt)}`);
+  }
+
+  if (trial !== null) {
+    parts.push(`${leftWord(trial.left)} of your trial’s ${trial.cap} pictures left in all.`);
+  }
+
+  return parts.length === 0 ? null : parts.join(' ');
+}
+
+function leftWord(count: number): string {
+  return count === 0 ? 'None' : String(count);
+}
+
+/** When a day's pictures come back. The day is UTC's (LimitDay), so it is said in UTC whatever the creator's zone. */
+function moreComeBack(resetsAt: string | null): string {
+  const when = resetsAt === null ? null : formatAllowanceReset(resetsAt, 'Etc/UTC');
+
+  return when === null ? 'More come back at midnight UTC.' : `More come back on ${when} (UTC).`;
+}
+
+/**
+ * What each quality class is called and what it is for (AP.3.1A), in words the owner approved. A plain steer
+ * between classes, never a promise about how a particular picture will look; the price beside it is always the
+ * server's.
+ */
+export const QUALITY_CLASS_WORDING: Readonly<
+  Record<GeneratedImageQualityClass, { readonly label: string; readonly purpose: string }>
+> = {
+  Draft: { label: 'Draft', purpose: 'Quick, for trying an idea.' },
+  Standard: { label: 'Standard', purpose: 'Good for most posts.' },
+  High: { label: 'High', purpose: 'Finer detail.' },
+  High2K: { label: 'High, 2K', purpose: 'Finer detail, larger.' },
+  High4K: { label: 'High, 4K', purpose: 'Finer detail, at the largest size.' },
+};
 
 /** The Content Pipeline's wording, and the default — it was the first caller. */
 export const PIPELINE_IMAGE_RUN_WORDING: GeneratedImageRunWording = {
@@ -174,11 +244,13 @@ const STAGED_SAVE: StagedImageSave = { state: 'staged', assetId: null, title: nu
   imports: [
     NgTemplateOutlet,
     CpButtonComponent,
+    CpChoiceGroupComponent,
     CpEmptyStateComponent,
     CpFormSectionComponent,
     CpGeneratedComponent,
     CpNoticeComponent,
     CpProgressComponent,
+    CpSkeletonComponent,
     CpStatusPillComponent,
     ContentPipelineImageGridComponent,
     ContentPipelineImageLightboxComponent,
@@ -192,7 +264,10 @@ export class GeneratedImageRunComponent {
   private readonly service = inject(GeneratedImageService);
   private readonly assets = inject(DamAssetService);
   private readonly confirm = inject(ConfirmService);
+  private readonly usage = inject(AiUsageService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly workspaceSlug = input.required<string>();
   /** The prompt as the caller holds it. Trimmed here before it is shown or sent; nothing here edits it. */
@@ -288,10 +363,74 @@ export class GeneratedImageRunComponent {
    */
   private gone = false;
 
+  /**
+   * What this request would cost, asked of the server before the creator asks for the pictures (AP.2.6).
+   *
+   * `error` covers a quote that failed and a quote that could not be read alike, and neither blocks anything:
+   * only a known, spent allowance stops a request, and the server refuses an unaffordable one properly on its own.
+   */
+  protected readonly quoteState = signal<
+    | { readonly status: 'loading' }
+    | { readonly status: 'ready'; readonly quote: GeneratedImageQuote }
+    | { readonly status: 'error' }
+  >({ status: 'loading' });
+
+  private quoteGeneration = 0;
+  private quoteTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * The qualities this host offers and what one picture of each costs (AP.3.1A). A list that has not arrived or
+   * could not be read blocks nothing: the request then names no class and is made at the host's default, which is
+   * exactly what the quote prices meanwhile.
+   */
+  protected readonly classesState = signal<
+    | { readonly status: 'loading' }
+    | { readonly status: 'ready'; readonly list: GeneratedImageQualityClasses }
+    | { readonly status: 'error' }
+  >({ status: 'loading' });
+
+  /**
+   * The class the creator has picked, or null before the list has said what there is.
+   *
+   * Held here for the visit rather than in the draft: it is a choice about the next request, and nothing about
+   * the prompt or the count. Changing it changes the price and the next request, and touches neither.
+   */
+  protected readonly chosenClass = signal<GeneratedImageQualityClass | null>(null);
+
+  private classesGeneration = 0;
+
   constructor() {
     this.destroyRef.onDestroy(() => {
       this.gone = true;
       this.tracker.destroy();
+      if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+    });
+
+    // Today's pictures (DL.9) come from the account's usage read, which other surfaces share: read once if nobody
+    // has, and again whenever this run changes the count.
+    void this.usage.ensureLoaded();
+
+    // A fresh price whenever what it prices changes: the count, the quality, or the workspace it would be made
+    // in. Asked wherever pictures can be made, the guided step included — leaving the maker's name off the
+    // provenance line hides what made a picture, never what one costs.
+    // Not until the price list has settled, either way: asked before it, the price is the default's and then
+    // changes a moment later to the class the list picks — a figure that moves under the creator for nothing.
+    effect(() => {
+      const slug = this.workspaceSlug();
+      const count = this.count();
+      const qualityClass = this.requestClass();
+      const listing = this.classesState().status === 'loading';
+      untracked(() => (listing ? this.holdQuote() : this.requote(slug, count, qualityClass)));
+    });
+
+    // The price list belongs to the workspace it was read for, so another workspace reads its own and starts
+    // again from its default: a pick is a choice made about one workspace's request.
+    effect(() => {
+      const slug = this.workspaceSlug();
+      untracked(() => {
+        this.chosenClass.set(null);
+        void this.loadClasses(slug);
+      });
     });
 
     // Follow whatever run the draft names, for whichever workspace the step is pointed at. One effect rather
@@ -335,9 +474,12 @@ export class GeneratedImageRunComponent {
       this.announcedPhase = phase.kind;
 
       if (phase.kind === 'ready') {
-        this.announced.emit(`${pictureCount(phase.operation.images.length)} ready to choose from.`);
+        const sentence = `${pictureCount(phase.operation.images.length)} ready to choose from.`;
+        untracked(() => void this.announceReady(sentence));
       } else if (phase.kind === 'failed') {
         this.announced.emit('Your pictures could not be made. The reason is on the step.');
+        // Pictures never made give their place in the day back (DL.5), so the count is read again — and not said.
+        untracked(() => void this.usage.refresh());
       }
     });
   }
@@ -371,10 +513,300 @@ export class GeneratedImageRunComponent {
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,
   );
 
+  /**
+   * The class the next request names: the creator's pick from a list that arrived, or none — the host's default.
+   *
+   * Never a class the account's plan locks (AP.4.3). The picker cannot pick one, so this is the guard for a list
+   * that changed under a pick already made; naming it would buy a 403 the browser could have avoided, and leaving
+   * it out falls back to the default, which every plan allows.
+   */
+  protected readonly requestClass = computed<GeneratedImageQualityClass | null>(() => {
+    const state = this.classesState();
+    const chosen = this.chosenClass();
+    if (state.status !== 'ready' || chosen === null) return null;
+
+    return state.list.classes.some((row) => row.qualityClass === chosen && row.allowed) ? chosen : null;
+  });
+
+  /**
+   * The qualities as tiles, each with its own price as the server states it. Formatting only (PRICE-004, PRICE-013):
+   * no figure here is compared, added or worked out.
+   */
+  protected readonly classOptions = computed<readonly CpChoiceOption[]>(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return [];
+
+    return state.list.classes.map((row) => {
+      const wording = QUALITY_CLASS_WORDING[row.qualityClass];
+      const price = formatAllowanceAmount(row.perPicture, state.list.unit);
+
+      // A locked class keeps its price and says what would unlock it (AP.4.3). The reason is in the hint, which
+      // sits inside the tile's own label, so it is part of what the control is called rather than something only
+      // the eye gets — and "Locked" is a word as well as a greyed tile, never colour alone.
+      const purpose = row.allowed
+        ? wording.purpose
+        : row.requiresPlanName
+          ? `Locked — the ${row.requiresPlanName} plan includes it.`
+          : 'Locked — not on any plan yet.';
+
+      return {
+        value: row.qualityClass,
+        label: wording.label,
+        hint: price === null ? purpose : `${price} a picture. ${purpose}`,
+        disabled: !row.allowed,
+      };
+    });
+  });
+
+  /**
+   * What the plan locks, said in reading order rather than only inside tiles nobody can reach (AP.4.3).
+   *
+   * **Why this exists as well as the tile hints.** A locked tile is a disabled radio, so it is out of the tab
+   * order and out of the group's arrow-key movement: a creator moving by keyboard never lands on it, and the
+   * reason in its label is never read to them. `DESIGN-SYSTEM.md` ("locked by what locked the tab") says a
+   * locked control is "described by the line that explains" it — this is that line, and it is wired as the
+   * group's `aria-describedby`, so entering the group says what is not on offer and what would put it there.
+   *
+   * Semicolons rather than commas because two of the labels have commas of their own ("High, 2K").
+   */
+  protected readonly lockedSentence = computed(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return '';
+
+    const locked = state.list.classes.filter((row) => !row.allowed);
+    if (locked.length === 0) return '';
+
+    const parts = locked.map((row) => {
+      const label = QUALITY_CLASS_WORDING[row.qualityClass].label;
+
+      return row.requiresPlanName === null
+        ? `${label} is not on any plan yet`
+        : `${label} comes with the ${row.requiresPlanName} plan`;
+    });
+
+    return `Not on your plan: ${parts.join('; ')}.`;
+  });
+
+  /** The classes the creator may actually pick, in the server's order: the offered ones the plan allows. */
+  protected readonly pickableClasses = computed<readonly GeneratedImageQualityClass[]>(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready') return [];
+
+    return state.list.classes.filter((row) => row.allowed).map((row) => row.qualityClass);
+  });
+
+  /**
+   * The tiles offer a choice only when there are two or more; one class is a sentence, and none is nothing.
+   *
+   * A list with one class on the plan and the rest locked is still a choice to show: the locked tiles are how a
+   * creator learns the higher qualities exist and what they would cost (AP.4.3).
+   */
+  protected readonly offersChoice = computed(() => this.classOptions().length > 1);
+
+  /**
+   * The one class a host offers, said rather than offered: "Pictures are made at Standard quality — …".
+   *
+   * One class and that class locked cannot happen: a host with plans allows its default class on every one of
+   * them, so the single class is the default and is allowed.
+   */
+  protected readonly onlyClassSentence = computed(() => {
+    const state = this.classesState();
+    if (state.status !== 'ready' || state.list.classes.length !== 1) return '';
+
+    const only = state.list.classes[0];
+    const price = formatAllowanceAmount(only.perPicture, state.list.unit);
+    const label = QUALITY_CLASS_WORDING[only.qualityClass].label;
+
+    return price === null
+      ? `Pictures are made at ${label} quality.`
+      : `Pictures are made at ${label} quality — ${price} a picture.`;
+  });
+
+  protected readonly chosenValue = computed<readonly string[]>(() => {
+    const chosen = this.requestClass();
+    return chosen === null ? [] : [chosen];
+  });
+
+  /**
+   * Whether the server has said this request cannot be afforded right now — spent, switched off, or a trial that
+   * has ended. A quote still loading, failed or unavailable stops nothing: the server is the authority and refuses
+   * properly.
+   */
+  protected readonly quoteBlocks = computed(() => {
+    const state = this.quoteState();
+
+    return (
+      state.status === 'ready' &&
+      (state.quote.outcome === 'Exhausted' ||
+        state.quote.outcome === 'Suspended' ||
+        state.quote.outcome === 'TrialEnded' ||
+        state.quote.outcome === 'DailyImageCap' ||
+        state.quote.outcome === 'TrialImageCap')
+    );
+  });
+
   /** Refused here rather than by the server, so the creator is told what to fix and where. */
   protected readonly canGenerate = computed(
-    () => this.sendText() !== '' && !this.promptTooLong() && !this.tracker.busy() && !this.working(),
+    () =>
+      this.sendText() !== '' &&
+      !this.promptTooLong() &&
+      !this.quoteBlocks() &&
+      !this.tracker.busy() &&
+      !this.working(),
   );
+
+  /**
+   * The price, said beside the count. Every figure is the server's: nothing here adds, subtracts or compares
+   * amounts (PRICE-004). Empty while there is nothing to say — no quote yet, or a host with no image provider,
+   * whose request reports that itself.
+   */
+  protected readonly quoteLine = computed(() => {
+    const state = this.quoteState();
+
+    // Nothing announced while asking: the template shows "Working out…" beside this, hidden from a screen reader.
+    if (state.status === 'loading') return '';
+    if (state.status === 'error') return 'We couldn’t work out what this costs just now.';
+
+    const quote = state.quote;
+    if (quote.outcome !== 'Affordable') return '';
+
+    const total = this.amount(quote.total, quote.unit);
+    const after = this.amount(quote.remainingAfter, quote.unit);
+    const packAfter = this.hasPacks(quote) ? this.amount(quote.packRemainingAfter, quote.unit) : null;
+
+    // A unit this product does not quote figures in is described rather than counted (allowance-text.ts). With a
+    // pack balance, the two are said apart, as the server sends them: only the allowance comes back (AP.5.2).
+    if (total === null || after === null) return 'This uses some of your AI allowance.';
+
+    return packAfter === null
+      ? `${pictureCount(quote.variants)} · ${total}. ${after} left after this.`
+      : `${pictureCount(quote.variants)} · ${total}. ${after} of your allowance and ${packAfter} in credit packs left after this.`;
+  });
+
+  /** USAGE-010's warning: affordable, but going ahead leaves the allowance nearly spent — the server's line. */
+  protected readonly quoteWarning = computed(() => {
+    const state = this.quoteState();
+    if (state.status !== 'ready' || state.quote.outcome !== 'Affordable' || !state.quote.leavesNearlySpent) {
+      return null;
+    }
+
+    return `That leaves your AI allowance nearly spent ${this.untilReset(state.quote)}.`;
+  });
+
+  /**
+   * Why the request cannot go ahead, said where it would be made. The filled-in request is left exactly as it
+   * is: changing the count asks again, and the button comes back as soon as the request fits.
+   */
+  protected readonly quoteRefusal = computed(() => {
+    const state = this.quoteState();
+    if (state.status !== 'ready') return null;
+
+    // The request was just refused for the same reason the price now gives: said once, by the refusal (DL.9). Two
+    // alerts with near-identical sentences would be read out one after the other.
+    if (this.refusedFor(state.quote)) return null;
+
+    const quote = state.quote;
+
+    if (quote.outcome === 'Suspended') {
+      return 'AI assistance is switched off for your account, so pictures can’t be made just now. Get in touch and we can look into it.';
+    }
+
+    if (quote.outcome === 'TrialEnded') {
+      return 'Your free trial has ended, so pictures can’t be made. Choose a plan to keep making them.';
+    }
+
+    // A picture cap the request would pass (AP.7.2): the server's cap and what it has left, said before the
+    // creator asks rather than after. Nothing is worked out here — `picturesLeft` is the server's count.
+    if (quote.outcome === 'TrialImageCap' || quote.outcome === 'DailyImageCap') {
+      return this.capSentence(quote);
+    }
+
+    if (quote.outcome !== 'Exhausted') return null;
+
+    const total = this.amount(quote.total, quote.unit);
+    const allowanceLeft = this.amount(quote.remaining, quote.unit);
+    const packLeft = this.hasPacks(quote) ? this.amount(quote.packRemaining, quote.unit) : null;
+    const remaining =
+      allowanceLeft === null || packLeft === null
+        ? allowanceLeft
+        : `${allowanceLeft} of your allowance and ${packLeft} in credit packs`;
+    const reset = this.resetSentence(quote);
+
+    if (total === null || remaining === null) {
+      return `There isn’t enough of your AI allowance left for this. ${reset}`;
+    }
+
+    const fits =
+      quote.affordableVariants > 0
+        ? ` — enough for ${picturesInSentence(quote.affordableVariants)}. ${this.wording().countRemedy}`
+        : '.';
+
+    const need = quote.variants === 1 ? 'needs' : 'need';
+    const asked = this.requestClass();
+
+    // Without a choice on screen, the sentence is AP.2.6's. With one, it says which quality the figures are for,
+    // and — when there is a lower one — that the choice is still open. Which lower one would fit is not worked
+    // out here: that would be pricing in the browser. The list is in the server's order, lowest quality first.
+    if (!this.offersChoice() || asked === null) {
+      return `${pictureCount(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits} ${reset}`;
+    }
+
+    // The lowest the creator can actually pick, not the lowest shown: offering "a lower quality" when the only
+    // lower ones are locked by the plan would send them to a tile they cannot choose (AP.4.3). The list is in the
+    // server's order, lowest quality first.
+    const pickable = this.pickableClasses();
+    const lower = pickable[0] === asked || pickable.length < 2 ? '' : ' You can also choose a lower quality.';
+
+    return `At ${QUALITY_CLASS_WORDING[asked].label} quality, ${picturesInSentence(quote.variants)} ${need} ${total}, and you have ${remaining} left${fits}${lower} ${reset}`;
+  });
+
+  /**
+   * Where today's pictures stand (DL.9). `none` when the server states no cap — no plan catalogue, limits off, an
+   * account that can make nothing — and while the quote's cap refusal already says how many are left and when.
+   * Nothing here blocks: the quote and the server decide.
+   */
+  protected readonly dayLine = computed<'loading' | 'none' | 'error' | 'ready'>(() => {
+    const state = this.usage.state();
+
+    if (state.status === 'loading') return 'loading';
+    if (state.status === 'error') return 'error';
+    if (this.capRefused()) return 'none';
+
+    return picturesLeftSentence(state.usage) === null ? 'none' : 'ready';
+  });
+
+  protected readonly dayText = computed(() => {
+    const state = this.usage.state();
+    if (state.status !== 'ready' && state.status !== 'degraded') return '';
+
+    const sentence = picturesLeftSentence(state.usage) ?? '';
+
+    return state.status === 'degraded' ? `${sentence} These are the last figures we had.` : sentence;
+  });
+
+  /** The quote refuses on a picture cap, and says the count itself. */
+  private readonly capRefused = computed(() => {
+    const state = this.quoteState();
+
+    return (
+      state.status === 'ready' &&
+      (state.quote.outcome === 'DailyImageCap' || state.quote.outcome === 'TrialImageCap')
+    );
+  });
+
+  /** What the Make button is described by: today's pictures when they are said, and the quote's refusal when it blocks. */
+  protected readonly makeDescribedBy = computed(() => {
+    const prefix = this.sectionIdPrefix();
+    const day = this.dayLine();
+    const refusal = this.tracker.phase().kind === 'refused';
+    const ids = [
+      ...(day === 'ready' || day === 'error' ? [`${prefix}-today`] : []),
+      ...(refusal ? [`${prefix}-refusal`] : []),
+      ...(this.quoteBlocks() && this.quoteRefusal() !== null ? [`${prefix}-quote-refusal`] : []),
+    ];
+
+    return ids.length === 0 ? null : ids.join(' ');
+  });
 
   protected readonly detail = this.tracker.detail;
 
@@ -555,6 +987,7 @@ export class GeneratedImageRunComponent {
   protected readonly refusalMessage = computed(() => {
     const phase = this.tracker.phase();
     if (phase.kind !== 'refused') return '';
+    if (phase.limit !== undefined) return this.limitSentence(phase.limit, phase.message);
 
     const fields = Object.values(phase.fieldErrors).flat();
 
@@ -574,6 +1007,218 @@ export class GeneratedImageRunComponent {
     return stranded && this.imagesState().operationId !== null;
   });
 
+  /**
+   * Asks the price of `count` pictures at `qualityClass`, a moment after the last change so a creator stepping
+   * through counts or qualities asks once. The most recently started ask wins whichever answers first.
+   */
+  private requote(slug: string, count: number, qualityClass: GeneratedImageQualityClass | null): void {
+    const generation = ++this.quoteGeneration;
+    this.quoteState.set({ status: 'loading' });
+
+    if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+
+    this.quoteTimer = setTimeout(async () => {
+      this.quoteTimer = null;
+
+      let quote: GeneratedImageQuote | null;
+
+      try {
+        quote = await this.service.quote(slug, count, qualityClass);
+      } catch {
+        quote = null;
+      }
+
+      if (this.gone || generation !== this.quoteGeneration) return;
+
+      this.quoteState.set(quote === null ? { status: 'error' } : { status: 'ready', quote });
+    }, QUOTE_SETTLE_MS);
+  }
+
+  /** "Working out…" while the price list is still coming, with any ask already waiting called off. */
+  private holdQuote(): void {
+    ++this.quoteGeneration;
+    if (this.quoteTimer !== null) clearTimeout(this.quoteTimer);
+    this.quoteTimer = null;
+    this.quoteState.set({ status: 'loading' });
+  }
+
+  /** Read the price list for `slug`. The latest read wins, so a change of workspace never shows the last one's. */
+  protected async loadClasses(slug: string = this.workspaceSlug()): Promise<void> {
+    const generation = ++this.classesGeneration;
+    this.classesState.set({ status: 'loading' });
+
+    let list: GeneratedImageQualityClasses | null;
+
+    try {
+      list = await this.service.qualityClasses(slug);
+    } catch {
+      list = null;
+    }
+
+    if (this.gone || generation !== this.classesGeneration) return;
+
+    // A price this page cannot word is no price list: tiles with no figure would read as free (PRICE-013).
+    if (list === null || (list.classes.length > 0 && !allowanceIsCountable(list.unit))) {
+      this.classesState.set({ status: 'error' });
+      return;
+    }
+
+    // A pick that is still offered and still on the plan stays — a retry after a failure must not undo a choice —
+    // and anything else starts from the host's default, or the one class there is. A class the plan has stopped
+    // allowing since it was picked is let go of here rather than sent and refused (AP.4.3); the default is always
+    // allowed, because the server refuses a catalogue whose plans do not allow it.
+    const chosen = this.chosenClass();
+    const offered = list.classes.some((row) => row.qualityClass === chosen && row.allowed);
+    const only = list.classes.length === 1 && list.classes[0].allowed ? list.classes[0].qualityClass : null;
+    this.chosenClass.set(offered ? chosen : (list.defaultClass ?? only));
+    this.classesState.set({ status: 'ready', list });
+  }
+
+  /**
+   * Ask for the list again from the failed notice. The button goes with the notice while it loads, so focus is put
+   * back once it settles: on the quality picked, on the next thing to do when there is nothing to pick, or on the
+   * button again if it failed again.
+   */
+  protected async retryClasses(): Promise<void> {
+    await this.loadClasses();
+    if (this.gone) return;
+
+    afterNextRender(
+      () => {
+        const root = this.host.nativeElement;
+        const prefix = this.sectionIdPrefix();
+        const status = this.classesState().status;
+        const target =
+          status === 'error'
+            ? root.querySelector<HTMLElement>(`#${prefix}-quality-problem button`)
+            : status === 'ready' && this.offersChoice()
+              // Never a locked tile: its input is disabled, so focusing it would put focus nowhere (AP.4.3).
+              ? root.querySelector<HTMLElement>('.quality input:checked') ??
+                root.querySelector<HTMLElement>('.quality input:not(:disabled)')
+              : root.querySelector<HTMLElement>('.cp-actions button');
+
+        target?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected chooseClass(value: readonly string[]): void {
+    const state = this.classesState();
+    if (state.status !== 'ready') return;
+
+    // Allowed only: a disabled tile cannot report a change, so this is the guard for a list that locked the
+    // picked class between the render and the event (AP.4.3).
+    const picked = state.list.classes.find((row) => row.qualityClass === value[0] && row.allowed);
+    if (picked) this.chosenClass.set(picked.qualityClass);
+  }
+
+  private amount(value: number | null, unit: string | null): string | null {
+    return value === null || unit === null ? null : formatAllowanceAmount(value, unit);
+  }
+
+  /**
+   * Whether the server says the creator has a pack balance at all — credits beyond the allowance (AP.5.2). Not a
+   * comparison of amounts: none and nought both mean there is nothing to name.
+   */
+  private hasPacks(quote: GeneratedImageQuote): boolean {
+    return quote.packRemaining !== null && quote.packRemaining !== 0;
+  }
+
+  private capSentence(quote: GeneratedImageQuote): string {
+    const left = quote.picturesLeft ?? 0;
+    const fits = left > 0 ? ` — enough for ${picturesInSentence(left)}. ${this.wording().countRemedy}` : '.';
+
+    if (quote.outcome === 'TrialImageCap') {
+      const cap = quote.pictureCap === null ? 'a set number of' : String(quote.pictureCap);
+
+      return `Your free trial includes ${cap} pictures and has ${picturesInSentence(left)} left${fits}` +
+        (left > 0 ? '' : ' Choose a plan to make more.');
+    }
+
+    const when =
+      quote.pictureCapResetsAt === null ? null : formatAllowanceReset(quote.pictureCapResetsAt, 'Etc/UTC');
+    const day = quote.pictureCap === null ? 'Your plan’s pictures for today' : `Your plan’s ${quote.pictureCap} pictures a day`;
+
+    return `${day} would be passed: ${picturesInSentence(left)} left today${fits}` +
+      (when === null ? ' More come back tomorrow (UTC).' : ` More come back on ${when} (UTC).`);
+  }
+
+  /**
+   * One of the three limits, said as itself (DL.9): the plan's day is the person's across every workspace, the
+   * workspace's day is nobody's plan, and credits are not a day at all. Each ends by saying the request is kept,
+   * because it is: a refusal leaves the prompt, the count and the quality exactly as they were.
+   */
+  private limitSentence(limit: GeneratedImageLimitRefusal, serverSentence: string): string {
+    switch (limit.kind) {
+      case 'plan-day': {
+        const usage = this.usage.state();
+        const name = usage.status === 'ready' || usage.status === 'degraded' ? (usage.usage.plan?.name ?? null) : null;
+        const plan = name === null ? 'Your plan' : `Your ${name} plan`;
+        const makes =
+          limit.cap === null
+            ? 'They count across all your workspaces.'
+            : `${plan} makes ${limit.cap} a day, across all your workspaces.`;
+
+        return `Your plan’s pictures for today are used up. ${makes} ${moreComeBack(limit.resetsAt)} Your request is still here, ready to ask for again then.`;
+      }
+
+      case 'workspace-day': {
+        const made =
+          limit.cap === null
+            ? 'This workspace has made all its pictures for today.'
+            : `This workspace has made its ${limit.cap} pictures for today.`;
+
+        return `${made} That’s a limit on the workspace, not on your plan, so this didn’t use any of your own pictures. ${moreComeBack(limit.resetsAt)} Your request is still here.`;
+      }
+
+      case 'credits':
+        return `Not enough credits for these pictures. ${serverSentence} Your request is still here.`;
+    }
+  }
+
+  /** Whether the refusal on screen is the limit this quote refuses on, so only one of them says it. */
+  private refusedFor(quote: GeneratedImageQuote): boolean {
+    const phase = this.tracker.phase();
+    if (phase.kind !== 'refused' || phase.limit === undefined) return false;
+
+    return (
+      (phase.limit.kind === 'plan-day' && quote.outcome === 'DailyImageCap') ||
+      (phase.limit.kind === 'credits' && quote.outcome === 'Exhausted')
+    );
+  }
+
+  /** Ask for today's pictures again, from the line that said they could not be checked. */
+  protected checkPicturesAgain(): void {
+    void this.usage.refresh();
+  }
+
+  /**
+   * Says that a run's pictures are ready — with how many today now leaves, once the usage read has caught up with
+   * the run (DL.9). One sentence, said once per run, so the count is announced when it moved and not on every read.
+   */
+  private async announceReady(sentence: string): Promise<void> {
+    await this.usage.refresh();
+    if (this.gone) return;
+
+    const state = this.usage.state();
+    const today = state.status === 'ready' ? state.usage.picturesToday : null;
+
+    this.announced.emit(today === null ? sentence : `${sentence} ${leftWord(today.left)} left today.`);
+  }
+
+  private untilReset(quote: GeneratedImageQuote): string {
+    const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
+
+    return when === null ? 'until it comes back' : `until it comes back on ${when}`;
+  }
+
+  private resetSentence(quote: GeneratedImageQuote): string {
+    const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
+
+    return when === null ? 'Your allowance comes back when the period resets.' : `Your allowance comes back on ${when}.`;
+  }
+
   /** Ask for the pictures — or ask again for the same ones, after an answer that never arrived. */
   protected async generate(): Promise<void> {
     if (!this.canGenerate()) return;
@@ -585,10 +1230,12 @@ export class GeneratedImageRunComponent {
       avoidText: this.avoidText(),
       variantCount: this.count(),
       subject: this.subject(),
+      qualityClass: this.requestClass(),
     };
 
     // A key names one request (12.10l). If what is being asked for has changed since the attempt that took
-    // the key — the prompt was reworded, the count changed — this is a different ask and takes a new one. The
+    // the key — the prompt was reworded, the count or the quality changed — this is a different ask and takes a
+    // new one. The
     // server refuses a key reused for a different request, so keeping it would strand the creator on a retry
     // that can never succeed.
     const asked = JSON.stringify(request);
@@ -605,7 +1252,22 @@ export class GeneratedImageRunComponent {
       ),
     );
 
-    if (operationId === null) return;
+    if (operationId === null) {
+      // A limit has moved under the creator since the last price: read the figures again, so the line, the quote and
+      // the button agree with the refusal they have just been shown. The request itself is left as it is.
+      const phase = this.tracker.phase();
+      if (phase.kind === 'refused' && phase.limit !== undefined) {
+        void this.usage.refresh();
+        this.requote(this.workspaceSlug(), this.count(), this.requestClass());
+
+        afterNextRender(
+          () => this.host.nativeElement.querySelector<HTMLElement>(`#${this.sectionIdPrefix()}-refusal`)?.focus(),
+          { injector: this.injector },
+        );
+      }
+
+      return;
+    }
 
     this.idempotency.clear();
     this.keyedRequest = null;
@@ -614,6 +1276,11 @@ export class GeneratedImageRunComponent {
     this.followedKey = `${this.workspaceSlug()}|${operationId}`;
     this.emitImages({ operationId });
     this.announced.emit(`Making ${this.count() === 1 ? 'one picture' : this.count() + ' pictures'}.`);
+
+    // What is left has moved by exactly this request's hold, so the next price is read again rather than kept —
+    // and today's pictures with it, which count a held request in full.
+    this.requote(this.workspaceSlug(), this.count(), this.requestClass());
+    void this.usage.refresh();
   }
 
   /**

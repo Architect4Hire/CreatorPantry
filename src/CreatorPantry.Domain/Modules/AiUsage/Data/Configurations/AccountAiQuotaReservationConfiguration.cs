@@ -54,6 +54,34 @@ internal sealed class AccountAiQuotaReservationConfiguration
             table.HasCheckConstraint(
                 "CK_AccountAiQuotaReservations_Posted_Requires_Settlement",
                 "PostedAt IS NULL OR SettledAmount IS NOT NULL");
+
+            // The allowance's part of a hold is some of it or all of it (AP.5.2); the rest came from grants. Cast,
+            // because SQLite keeps a decimal as text and '20.0' <= '100.0' is false there.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_FromAllowance_Within_Hold",
+                "CAST(ReservedFromAllowance AS FLOAT) >= 0 "
+                    + "AND CAST(ReservedFromAllowance AS FLOAT) <= CAST(ReservedAmount AS FLOAT)");
+
+            // Posting is the instant and the allowance's share of the charge together: a posted row that said
+            // nothing about the allowance would leave Consumed unexplained.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_ChargedToAllowance_Matches_Posting",
+                "(PostedAt IS NULL AND ChargedToAllowance IS NULL) "
+                    + "OR (PostedAt IS NOT NULL AND ChargedToAllowance IS NOT NULL AND CAST(ChargedToAllowance AS FLOAT) >= 0)");
+
+            // A hold that counted against the platform's day counted something; nought would give back nothing
+            // and a negative figure would give back more than it took.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_PlatformImageSpend_Positive",
+                "PlatformImageSpendMicros IS NULL OR PlatformImageSpendMicros > 0");
+
+            // A picture hold is for at least one picture, and what it billed is a count of them. Not bounded above
+            // by what was asked: a provider that billed a variant a crashed pass had already paid for is a charge
+            // to record, not a row to refuse.
+            table.HasCheckConstraint(
+                "CK_AccountAiQuotaReservations_Images_Counts",
+                "(ImagesRequested IS NULL OR ImagesRequested >= 1) "
+                    + "AND (ImagesBilled IS NULL OR (ImagesRequested IS NOT NULL AND ImagesBilled >= 0))");
         });
 
         builder.HasKey(reservation => reservation.Id);
@@ -81,6 +109,13 @@ internal sealed class AccountAiQuotaReservationConfiguration
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         builder.Property(reservation => reservation.SettledAmount)
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(reservation => reservation.ReservedFromAllowance)
+            .IsRequired()
+            .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
+
+        builder.Property(reservation => reservation.ChargedToAllowance)
             .HasPrecision(AiUsagePolicy.AllowancePrecision, AiUsagePolicy.AllowanceScale);
 
         // The one real relationship in this module. A reservation without its period is uninterpretable rather
@@ -111,6 +146,13 @@ internal sealed class AccountAiQuotaReservationConfiguration
         builder.HasIndex(reservation => reservation.SettledAt)
             .HasFilter("PostedAt IS NULL")
             .HasDatabaseName("IX_AccountAiQuotaReservations_Unposted");
+
+        // An account's pictures for the UTC day (AP.4.2), read inside every picture admission. Leads with the
+        // account because the question is always one account's, and filtered to picture holds so completions —
+        // most of the table — are not in it.
+        builder.HasIndex(reservation => new { reservation.AccountId, reservation.HeldAt })
+            .HasFilter("ImagesRequested IS NOT NULL")
+            .HasDatabaseName("IX_AccountAiQuotaReservations_Account_Images");
 
         // The operator's leaderboard (USAGE-009): charged spend across every account in a window. It leads with
         // PostedAt rather than the account because the question is "who, in this window" — the window is the

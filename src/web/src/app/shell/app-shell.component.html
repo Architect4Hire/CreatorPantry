@@ -85,12 +85,23 @@
     }
   }
 
-  <main>
+  <!-- tabindex="-1" so the shell can put focus back somewhere sensible when it removes something the
+       creator was standing on — dismissing the low-credit notice takes its own button away with it. Not a tab
+       stop. -->
+  <main #mainRegion tabindex="-1">
     <!-- The one gutter and the one width every signed-in page has; a route picks its width with
          `data: { pageWidth }`, and a tool its tone with `data: { tone }` — set here and nowhere else, so the nav
          and the top bar, outside this frame, never take it. No title here: the page's one h1 is its own
          cp-page-head (DESIGN-SYSTEM.md). -->
     <div class="page-frame" [attr.data-page-width]="currentPageWidth()" [attr.data-cp-tone]="currentPageTone()">
+      <!-- Running low on credits, wherever the creator happens to be when it happens (B-59). Inside the frame
+           so it takes the page's gutter and width, above the outlet so it is never under what it is about. It
+           is the shell's and not a page's: it follows the account, not the route, and no page may draw one. -->
+      <cp-low-credit-notice
+        [notice]="lowCredit()"
+        [offerPack]="offerPack()"
+        (dismissed)="dismissLowCredit()"
+      />
       <router-outlet />
     </div>
   </main>

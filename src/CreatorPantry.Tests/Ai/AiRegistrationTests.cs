@@ -1,5 +1,6 @@
 using CreatorPantry.AiProvider;
 using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Tests.AiUsage;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -181,6 +182,293 @@ public sealed class AiRegistrationTests
     }
 
     /// <summary>
+    /// A configured image model with no sizing profile is not guessed at (AP.2.3): its dialect is unknown, so
+    /// any size sent could be a 400 on every picture, and none sent leaves its dearest default quality in force.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_configured_image_model_with_no_sizing_profile_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: "Endpoint=https://venice.example/api/v1;Key=images-test-key;Model=unprofiled-model"));
+
+        Assert.Contains("'unprofiled-model' has no sizing profile", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A picture this deployment can request but has no rate for is never made for nothing (AP.2.4). The
+    /// alternative is a creator refused at admission for a reason nothing in the product explains, so the
+    /// missing row is named here instead — in every environment, because the model table is configuration a
+    /// developer changes too.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_requestable_picture_with_no_credit_rate_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:tiered-model:Sizing"] = "Resolution",
+                ["Venice:Models:tiered-model:Resolutions:0"] = "1K",
+                ["Venice:Models:tiered-model:DefaultResolution"] = "1K",
+                ["Venice:Models:tiered-model:Qualities:0"] = "medium",
+                ["Venice:Models:tiered-model:Qualities:1"] = "high",
+                ["Venice:Models:tiered-model:DefaultQuality"] = "medium",
+                ["Venice:Models:tiered-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:tiered-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:tiered-model:PromptCharacterLimit"] = "10000",
+
+                // Only the quality this host would send by default, so the one it can also be asked for is the
+                // gap. A profile is the statement that the model may be requested, which is why the check
+                // reads every profile rather than the configured model alone.
+                ["Ai:Quota:ImageRates:tiered-model/1K/medium"] = "50",
+                ["Ai:Cost:Images:tiered-model/1K/medium"] = "0.04",
+            }));
+
+        Assert.Contains(
+            "tiered-model/1K/high is missing from Ai:Quota:ImageRates and Ai:Cost:Images",
+            failure.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("tiered-model/1K/medium", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A rate or price of nought passes a presence check and would charge nothing for a picture the provider
+    /// bills for — an omission found on an invoice rather than at startup. Refused by name, and the message
+    /// says which table is wrong rather than calling it missing.
+    /// </summary>
+    [Theory]
+    [InlineData("0", "Development")]
+    [InlineData("-10", "Production")]
+    public void A_requestable_picture_rated_at_nought_or_below_refuses_to_start(
+        string configured, string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: FoundryLocalConnectionString,
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            images: ImagesConnectionString,
+            settings: new() { ["Ai:Quota:ImageRates:image-model-test"] = configured }));
+
+        Assert.Contains(
+            "image-model-test is not above nought in Ai:Quota:ImageRates",
+            failure.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("missing from", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A model whose name holds the key separator cannot carry a rate: every key it spells runs into the next
+    /// part and reads another tier and quality's row. Said as what it is rather than as a missing rate.
+    /// </summary>
+    [Fact]
+    public void A_model_whose_name_cannot_carry_a_rate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:vendor/model:Sizing"] = "AspectRatio",
+                ["Venice:Models:vendor/model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:vendor/model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:vendor/model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains("vendor/model holds '/'", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A blank or separator-bearing quality in a profile is refused as a profile that cannot be used (AP.2.3's
+    /// check, for AP.2.4's reason): a blank one drops out of a rate key and reads the coarser row, and reaches
+    /// Venice as an empty field; one holding the separator runs into the next part of the key.
+    /// </summary>
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("med/ium")]
+    public void A_profile_offering_a_blank_or_unkeyable_value_refuses_to_start(string quality)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:blank-model:Sizing"] = "Resolution",
+                ["Venice:Models:blank-model:Resolutions:0"] = "1K",
+                ["Venice:Models:blank-model:DefaultResolution"] = "1K",
+                ["Venice:Models:blank-model:Qualities:0"] = quality,
+                ["Venice:Models:blank-model:DefaultQuality"] = quality,
+                ["Venice:Models:blank-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:blank-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:blank-model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains(
+            "blank-model: a resolution, quality or aspect ratio is blank",
+            failure.Message,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A rate with no list price behind it is refused too, and the message names only the table that is short:
+    /// credits charged for a picture whose provider cost reads null is the cost report nobody can audit.
+    /// </summary>
+    [Fact]
+    public void A_rated_picture_with_no_list_price_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:rated-model:Sizing"] = "AspectRatio",
+                ["Venice:Models:rated-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:rated-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:rated-model:PromptCharacterLimit"] = "10000",
+                ["Ai:Quota:ImageRates:rated-model"] = "50",
+            }));
+
+        Assert.Contains("rated-model is missing from Ai:Cost:Images", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ai:Quota:ImageRates", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A quality class is checked the way a request at it would be (AP.3.1): a class that sends to a model with
+    /// no sizing profile cannot be sent at all, and is refused by class and model before anything starts.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_sending_to_an_unprofiled_model_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "Standard",
+                ["Ai:Images:Classes:Standard:Model"] = "image-model-test",
+                ["Ai:Images:Classes:Standard:Quality"] = "",
+                ["Ai:Images:Classes:Standard:Resolution"] = "",
+                ["Ai:Images:Classes:High:Model"] = "nobody-profiled-this",
+            }));
+
+        Assert.Contains(
+            "High sends to 'nobody-profiled-this', which has no sizing profile", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Standard", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A class asking its model for a setting the model does not take would be refused on every request; it is
+    /// refused here instead. The fixture model is sized by aspect ratio and takes no quality.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_asking_for_a_setting_its_model_does_not_take_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "High",
+                ["Ai:Images:Classes:High:Model"] = "image-model-test",
+                ["Ai:Images:Classes:High:Quality"] = "high",
+                ["Ai:Images:Classes:High:Resolution"] = "",
+            }));
+
+        Assert.Contains("High cannot be sent to 'image-model-test'", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <strong>A class with no rate does not start</strong> (AP.3.1, AP.2.4's rule per class): it would cost
+    /// nothing, or be refused on every request. Here the class asks a tiered model for a quality the profile
+    /// offers and nobody priced, and the refusal names the exact row the class would be charged at.
+    /// </summary>
+    [Fact]
+    public void A_quality_class_with_no_rate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:tiered-model:Sizing"] = "Resolution",
+                ["Venice:Models:tiered-model:Resolutions:0"] = "1K",
+                ["Venice:Models:tiered-model:DefaultResolution"] = "1K",
+                ["Venice:Models:tiered-model:Qualities:0"] = "medium",
+                ["Venice:Models:tiered-model:Qualities:1"] = "high",
+                ["Venice:Models:tiered-model:DefaultQuality"] = "medium",
+                ["Venice:Models:tiered-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:tiered-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:tiered-model:PromptCharacterLimit"] = "10000",
+                ["Ai:Quota:ImageRates:tiered-model/1K/medium"] = "50",
+                ["Ai:Cost:Images:tiered-model/1K/medium"] = "0.04",
+                ["Ai:Images:DefaultClass"] = "High",
+                ["Ai:Images:Classes:High:Model"] = "tiered-model",
+                ["Ai:Images:Classes:High:Quality"] = "high",
+                ["Ai:Images:Classes:High:Resolution"] = "1K",
+            }));
+
+        Assert.Contains("tiered-model/1K/high", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Quota:ImageRates", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Classes that can each be sized and priced start — overridden here, and as shipped.</summary>
+    [Fact]
+    public void Quality_classes_this_host_can_size_and_price_start()
+    {
+        using var host = BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Ai:Images:DefaultClass"] = "Standard",
+                ["Ai:Images:Classes:Standard:Model"] = "image-model-test",
+                ["Ai:Images:Classes:Standard:Quality"] = "",
+                ["Ai:Images:Classes:Standard:Resolution"] = "",
+            });
+
+        using var shipped = BuildHost(chat: null, embeddings: null, images: ImagesConnectionString);
+    }
+
+    /// <summary>A profile that contradicts itself is refused by name, whichever model is configured.</summary>
+    [Fact]
+    public void A_sizing_profile_that_cannot_be_used_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: null,
+            embeddings: null,
+            images: ImagesConnectionString,
+            settings: new()
+            {
+                ["Venice:Models:broken-model:Sizing"] = "Resolution",
+                ["Venice:Models:broken-model:Resolutions:0"] = "1K",
+                ["Venice:Models:broken-model:DefaultResolution"] = "4K",
+                ["Venice:Models:broken-model:AspectRatios:0"] = "1:1",
+                ["Venice:Models:broken-model:DefaultAspectRatio"] = "1:1",
+                ["Venice:Models:broken-model:PromptCharacterLimit"] = "10000",
+            }));
+
+        Assert.Contains("broken-model: DefaultResolution must be one of Resolutions", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// A connection string missing a part would otherwise start cleanly and fail every generation with a
     /// status that reads like a provider outage. The refusal names the part and never quotes the key.
     /// </summary>
@@ -200,11 +488,224 @@ public sealed class AiRegistrationTests
         Assert.DoesNotContain("images-test-key", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Outside development the chat model must be rated and priced (AP.2.1), so the shared fixture deployment
+    /// carries both unless a case says otherwise. The figures are arbitrary; only their presence is read here.
+    /// </summary>
+    private static readonly Dictionary<string, string?> RatedFixtureModel = new()
+    {
+        ["Ai:Quota:ModelRates:phi-4-mini-instruct-generic-gpu:CreditsPerMillionInputTokens"] = "1",
+        ["Ai:Quota:ModelRates:phi-4-mini-instruct-generic-gpu:CreditsPerMillionOutputTokens"] = "1",
+        ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:InputPerMillionTokens"] = "0.001",
+        ["Ai:Cost:Models:phi-4-mini-instruct-generic-gpu:OutputPerMillionTokens"] = "0.001",
+
+        // The image fixture's model, sized by aspect ratio (AP.2.3): a configured model must have a profile.
+        ["Venice:Models:image-model-test:Sizing"] = "AspectRatio",
+        ["Venice:Models:image-model-test:AspectRatios:0"] = "1:1",
+        ["Venice:Models:image-model-test:DefaultAspectRatio"] = "1:1",
+        ["Venice:Models:image-model-test:PromptCharacterLimit"] = "10000",
+
+        // And its rate and price (AP.2.4): a profiled model is one this deployment can request, and a picture
+        // it can request has to be rated. Sized by aspect ratio, so one row covers it.
+        ["Ai:Quota:ImageRates:image-model-test"] = "10",
+        ["Ai:Cost:Images:image-model-test"] = "0.008",
+    };
+
+    private const string AzureChat =
+        "Endpoint=https://example.openai.azure.com/openai/deployments/{0};Key=chat-test-key;DeploymentId={0}";
+
+    /// <summary>
+    /// An unrated chat model starts and settles every call at the flat estimate, with its cost unknown. Outside
+    /// development that is found at startup, by name, rather than on an invoice.
+    /// </summary>
+    [Fact]
+    public void Unrated_chat_model_outside_development_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-9-unpriced"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production));
+
+        Assert.Contains("'gpt-9-unpriced'", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Quota:ModelRates", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Cost:Models", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("chat-test-key", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A rate with no price, or a price with no rate, is half a configuration, and is named as such.</summary>
+    [Fact]
+    public void A_chat_model_rated_but_not_priced_names_the_missing_half()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            // A model the shipped tables do not hold: the host also reads the output folder's appsettings.json.
+            chat: string.Format(AzureChat, "gpt-test-rated-only"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new()
+            {
+                ["Ai:Quota:ModelRates:gpt-test-rated-only:CreditsPerMillionInputTokens"] = "250",
+                ["Ai:Quota:ModelRates:gpt-test-rated-only:CreditsPerMillionOutputTokens"] = "1562.5",
+            }));
+
+        Assert.Contains("Ai:Cost:Models", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ai:Quota:ModelRates", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The deployed configuration as shipped: the API's own rate table rates the model the Azure deployment
+    /// runs, under its plain name and under a dated deployment name alike.
+    /// </summary>
+    [Theory]
+    [InlineData("gpt-5.4-nano")]
+    [InlineData("gpt-4o-mini-2024-07-18")]
+    public void The_shipped_rate_table_lets_a_rated_deployment_start(string deployment)
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, deployment),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: ModelRateTableTests.ShippedRateSettings());
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
+    /// <summary>A deployment named for its role rather than its model says which model it runs.</summary>
+    [Fact]
+    public void The_declared_model_is_checked_instead_of_the_deployment_name()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "chat"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Gateway:ModelName"] = "gpt-5.4-nano" });
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
+    /// <summary>
+    /// The deployment is read from whichever of DeploymentId, Deployment or Model the connection string uses —
+    /// Aspire's own parser refuses a string with more than one. A string naming none cannot be checked, and says
+    /// how to fix that.
+    /// </summary>
+    [Theory]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;DeploymentId=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;Deployment=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k;Model=gpt-5.4-nano", null)]
+    [InlineData("Endpoint=https://example.openai.azure.com;Key=k", "names no deployment")]
+    public void The_chat_deployment_is_read_from_the_connection_string(string chat, string? refusal)
+    {
+        IHost Build() => BuildHost(
+            chat: chat,
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: ModelRateTableTests.ShippedRateSettings());
+
+        if (refusal is null)
+        {
+            using var host = Build();
+            Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+            return;
+        }
+
+        var failure = Assert.Throws<InvalidOperationException>(() => Build());
+        Assert.Contains(refusal, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Ai:Gateway:ModelName", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The registered chat client sends a ceiling the way reasoning models take it (AP.2.2).</summary>
+    [Fact]
+    public void The_chat_client_sends_its_ceiling_as_max_completion_tokens()
+    {
+        using var host = BuildHost(chat: FoundryLocalConnectionString, embeddings: FoundryLocalConnectionString);
+
+        Assert.NotNull(host.Services.GetRequiredService<IChatClient>().GetService(typeof(MaxCompletionTokensChatClient)));
+    }
+
+    /// <summary>
+    /// A ceiling worth more credits than the estimate its call is held under lets one call settle past its
+    /// hold. Found at startup, by task and by figure — in development too, where it is cheapest to fix.
+    /// </summary>
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void A_task_estimate_below_its_ceilings_worst_case_refuses_to_start(string environment)
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            environment: environment,
+            settings: new(ModelRateTableTests.ShippedRateSettings())
+            {
+                ["Ai:Quota:TaskEstimates:LongFormSection"] = "10",
+            }));
+
+        Assert.Contains("LongFormSection: 8,000 output tokens is 12.5 credits", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("LongFormOutline", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The hold is the per-call estimate times the calls a run may make; one fewer than the gateway's corrections
+    /// allow under-holds every corrected run.
+    /// </summary>
+    [Fact]
+    public void Fewer_estimated_calls_than_a_corrected_run_makes_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Quota:EstimatedCallsPerRun"] = "1" }));
+
+        Assert.Contains("EstimatedCallsPerRun is 1", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Raising a ceiling past what its estimate covers is the same mistake from the other side.</summary>
+    [Fact]
+    public void Raising_the_default_ceiling_past_the_default_estimate_refuses_to_start()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(() => BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            settings: new(ModelRateTableTests.ShippedRateSettings()) { ["Ai:Gateway:MaxOutputTokens"] = "16000" }));
+
+        Assert.Contains("RecipeFirstDraft: 16,000 output tokens is 25 credits", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>The shipped ceilings and estimates agree on the shipped chat model, long-form included.</summary>
+    [Fact]
+    public void The_shipped_ceilings_fit_the_shipped_estimates()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "gpt-5.4-nano"),
+            embeddings: FoundryLocalConnectionString,
+            environment: Environments.Production,
+            settings: new(ModelRateTableTests.ShippedRateSettings())
+            {
+                ["Ai:Quota:TaskEstimates:LongFormOutline"] = "15",
+                ["Ai:Quota:TaskEstimates:LongFormSection"] = "15",
+            });
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
+    /// <summary>Development may try a model before anyone has priced it; its calls settle at the estimate.</summary>
+    [Fact]
+    public void Unrated_chat_model_in_development_still_starts()
+    {
+        using var host = BuildHost(
+            chat: string.Format(AzureChat, "gpt-9-unpriced"),
+            embeddings: FoundryLocalConnectionString,
+            rateFixtureModel: false);
+
+        Assert.IsNotType<UnconfiguredChatClient>(host.Services.GetRequiredService<IChatClient>());
+    }
+
     private static IHost BuildHost(
         string? chat,
         string? embeddings,
         string environment = "Development",
-        string? images = null)
+        string? images = null,
+        Dictionary<string, string?>? settings = null,
+        bool rateFixtureModel = true)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -219,6 +720,12 @@ public sealed class AiRegistrationTests
             [$"ConnectionStrings:{AiModelConnections.Images}"] = images,
         });
 
+        if (rateFixtureModel)
+        {
+            builder.Configuration.AddInMemoryCollection(RatedFixtureModel);
+        }
+
+        builder.Configuration.AddInMemoryCollection(settings ?? []);
         builder.AddCreatorPantryAi();
 
         return builder.Build();

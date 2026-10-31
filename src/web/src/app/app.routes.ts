@@ -52,8 +52,8 @@ const SECTION_ROUTES: Routes = [
     path: 'image-studio',
     data: { tone: 'pink' },
     children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio', pageWidth: 'wide' } },
-      { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'Image Studio', pageWidth: 'wide' } },
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'AI Image Studio', pageWidth: 'wide' } },
+      { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/image-studio/image-studio.component').then((m) => m.ImageStudioComponent), data: { title: 'AI Image Studio', pageWidth: 'wide' } },
     ],
   },
   // The same two addresses as the Image Studio, for the same reason: with an id it reads that piece of work,
@@ -62,8 +62,8 @@ const SECTION_ROUTES: Routes = [
     path: 'social-studio',
     data: { tone: 'blue' },
     children: [
-      { path: '', pathMatch: 'full', loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },
-      { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'Social Studio', pageWidth: 'wide' } },
+      { path: '', pathMatch: 'full', loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'AI Social Studio', pageWidth: 'wide' } },
+      { path: `${CONTEXT_ROUTE_SEGMENT}/:${CONTEXT_ROUTE_PARAM}`, loadComponent: () => import('./features/social-studio/social-studio.component').then((m) => m.SocialStudioComponent), canDeactivate: [socialStudioCanDeactivateGuard], data: { title: 'AI Social Studio', pageWidth: 'wide' } },
     ],
   },
   { path: 'dam', loadChildren: () => import('./features/dam/dam.routes').then((m) => m.DAM_ROUTES) },
@@ -170,6 +170,8 @@ export const routes: Routes = [
       // person, and the answer spans every workspace they work in. A route under ':workspaceSlug' could only
       // narrow it to one or answer about workspaces it does not name.
       { path: 'ai-usage', loadComponent: () => import('./features/ai-usage/ai-usage.component').then((m) => m.AiUsageComponent), data: { title: 'AI allowance' } },
+      // The account's billing (AP.6.5): a plan and a pack are the person's, like the allowance beside it.
+      { path: 'billing', loadComponent: () => import('./features/billing/billing.component').then((m) => m.BillingComponent), data: { title: 'Billing' } },
     ],
   },
   // Must come after every literal top-level path (sign-in, app, pricing, design-system, ...):

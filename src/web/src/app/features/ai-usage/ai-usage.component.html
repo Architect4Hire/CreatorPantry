@@ -1,7 +1,10 @@
 <cp-page-head
   [heading]="pageTitle"
   lede="What you have left for AI help across every workspace you work in, and when it comes back."
-/>
+>
+  <!-- Where more credits and other plans are (AP.6.5). -->
+  <a cpPageHeadActions cpButton variant="secondary" routerLink="/app/billing">Billing</a>
+</cp-page-head>
 
 <div class="usage">
   <!--
@@ -9,6 +12,14 @@
     newly-created live region was born with. Polite throughout: nothing here has failed a request.
   -->
   <p class="cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
+
+  <!-- The one fixed place on this page for what it has just done, directly under the head, wherever the
+       control that did it happens to sit (DESIGN-SYSTEM.md, "Composing a page"). -->
+  @if (noticeProblem()) {
+    <cp-notice tone="error" role="alert">
+      We couldn’t save your low-credit notice setting just now. Check your connection and try again.
+    </cp-notice>
+  }
 
   @switch (summaryState()) {
     @case ('loading') {
@@ -85,7 +96,26 @@
           }
 
           <!-- What carried over is said with the allowance figure it is part of, in that tile's context. -->
-          <p class="explanation">{{ explanation() }}</p>
+          <!-- Empty only on a healthy allowance whose reset the facts below already say. -->
+          @if (explanation()) {
+            <p class="explanation">{{ explanation() }}</p>
+          }
+
+          <!-- The plan, and whether this allowance comes back (PRICE-007, AP.5.3). Absent on a host with no plan
+               catalogue, where the explanation above says when it resets instead. No credit figure for the plan:
+               an ops-set allowance can differ from it, and the tiles are the account's real figures. -->
+          @if (plan(); as plan) {
+            <dl cpFacts>
+              <div cpFact label="Plan">{{ plan.name }}</div>
+              @if (resetFact(); as reset) {
+                <div cpFact [label]="reset.label">{{ reset.value }}</div>
+              }
+              <!-- Pictures are counted, not charged here: the day's and a trial's, as admission counts them (DL.9). -->
+              @for (fact of pictureFacts(); track fact.label) {
+                <div cpFact [label]="fact.label">{{ fact.value }}</div>
+              }
+            </dl>
+          }
 
           @if (state().status === 'degraded') {
             <div cpTopicCardActions class="cp-actions">
@@ -102,6 +132,26 @@
               </button>
             </div>
           }
+      </cp-topic-card>
+
+      <!-- The one thing on this page the creator can change (B-59). A topic card of its own rather than a
+           control inside "Your allowance": that card reports figures, and this decides something. -->
+      <cp-topic-card heading="Running low">
+        <p>
+          When your credits are running low we tell you once, and offer a credit pack. Nothing is ever bought
+          for you — a pack is always a purchase you make yourself.
+        </p>
+
+        <!--
+          No `disabled` while the save is in flight: disabling the control a creator has just pressed drops
+          focus to the body, which is the trap the error state's button below already documents. A second
+          press is ignored in the handler instead.
+        -->
+        <cp-checkbox
+          label="Tell me when my credits are running low"
+          [checked]="noticeEnabled()"
+          (checkedChange)="setNoticeEnabled($event)"
+        />
       </cp-topic-card>
 
       <div class="breakdowns">

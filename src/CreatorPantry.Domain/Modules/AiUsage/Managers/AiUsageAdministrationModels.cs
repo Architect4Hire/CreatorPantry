@@ -110,6 +110,12 @@ public static class AiUsageAdministrationErrors
 
     /// <summary>The requested window is empty, backwards, or longer than the platform will scan.</summary>
     public const string WindowInvalid = "ops.usage_window.invalid";
+
+    /// <summary>No image spend ceiling is configured on this host, so there is no breaker to lift (AP.2.7).</summary>
+    public const string ImageSpendCeilingOff = "ops.platform_image_spend.unprocessable";
+
+    /// <summary>A lift without a usable reason (AP.2.7).</summary>
+    public const string ImageSpendLiftInvalid = "ops.platform_image_spend.invalid";
 }
 
 /// <summary>Audit action codes and the subject type they are written against. Append-only.</summary>

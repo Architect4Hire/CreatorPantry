@@ -1032,6 +1032,100 @@
         }
       }
     },
+    "/api/v1/webhooks/stripe": {
+      "post": {
+        "tags": [
+          "BillingWebhooks"
+        ],
+        "summary": "Takes one event delivery from Stripe. 200 for a verified event, new or already stored; 400 for a delivery whose\nsignature does not verify; 503 on a host given no signing secret, which Stripe retries.",
+        "parameters": [
+          {
+            "name": "Stripe-Signature",
+            "in": "header",
+            "description": "The provider\u0027s signature over the raw body. Verified before the body is read.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/workspaces/{workspaceSlug}/brand-guide-proposal-requests": {
       "post": {
         "tags": [
@@ -10705,7 +10799,7 @@
           "GeneratedImages"
         ],
         "summary": "Asks for one to four images to be generated from a prompt.",
-        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
+        "description": "Contributor and above. \u0060202 Accepted\u0060, because nothing is generated in the request: the operation\nis queued and a worker claims it, which is what \u0060api-contract.md\u0060 asks of long-running work. The\nbody is the operation \u2014 its id and status \u2014 and a repeated key returns the first one rather than a\nconflict, because the caller asked for images and images are coming.\n\nThe guarantee is the unique index on \u0060(WorkspaceId, IdempotencyKey)\u0060 rather than a stored response:\na second row for one key is unrepresentable, so a lost answer cannot become a second charge however\nthe retry arrives.\n\n**A key names one request.** The same key sent again with a different prompt, avoid list, variant\ncount, quality class, proposal, recipe or piece of work \u2014 or by a different member \u2014 answers\n\u0060422 idempotency.key_reused\u0060 and queues nothing, rather than returning the first request\u0027s operation\nfor something else that was asked.\n\n\u0060aiProposalId\u0060, when sent, must name a prompt proposal of this workspace. One that names nothing and\nanother workspace\u0027s both answer \u0060422 media.generation.proposal.unprocessable\u0060 naming \u0060aiProposalId\u0060,\nin the same words.\n\n**A run can say what it is for.** \u0060recipeId\u0060, \u0060recipeVersionId\u0060 and \u0060creativeContextId\u0060 are each\noptional and are recorded on the run and returned with it, so a run can be traced to the recipe and\nthe piece of work that asked for it. They ground nothing \u2014 the prompt is sent as written. Each must be\nthis workspace\u0027s: a recipe or version that is not answers \u0060422 media.generation.recipe.unprocessable\u0060\nand a piece of work that is not answers \u0060422 media.generation.context.unprocessable\u0060, each naming its\nfield and each in the same words for an id nobody has and for another workspace\u0027s. A version sent\nwithout its recipe answers \u0060400 media.generation.invalid_request\u0060.\n\nA missing header answers \u0060400 idempotency.key_required\u0060. Asking for fewer than one or more than\nfour variants answers \u0060400 media.generation.invalid_request\u0060; a Viewer answers\n\u0060403 media.generation.forbidden\u0060.\n\n**A request names how good a picture, never which model** (AP.3.1). \u0060qualityClass\u0060 is one of \u0060Draft\u0060,\n\u0060Standard\u0060, \u0060High\u0060, \u0060High2K\u0060 or \u0060High4K\u0060, and is optional: a request that names none is made at the\nhost\u0027s default class, which \u0060GET .../generated-images/quality-classes\u0060 names. A class this host does not\noffer answers \u0060422 media.generation.quality_class.unprocessable\u0060 naming \u0060qualityClass\u0060. The class is part\nof what a key names: the same key naming a different class answers \u0060422 idempotency.key_reused\u0060. A retry\nthat names none is the request it retries, at whatever class that was made \u2014 so a lost answer still finds\nits operation if the default has changed \u2014 and a replayed key is answered even if its class has since\nbeen taken off this host.\n\n**A plan says which qualities an account may ask for** (PRICE-007, AP.4.3). A class this host offers but\nthe account\u0027s plan does not allow answers \u0060403 media.generation.quality_class.forbidden\u0060, naming\n\u0060qualityClass\u0060 and carrying \u0060requiresPlan\u0060 and \u0060requiresPlanName\u0060 \u2014 the cheapest plan that would allow it,\nor null when no plan does. \u0060retry\u0060 is \u0060none\u0060: the same request cannot succeed until the plan changes.\nNothing is held or queued. A request that names no class is never refused this way, because every plan\nallows the host\u0027s default class: \u0060AddBillingModule\u0060\u0027s startup validation refuses a catalogue where one does\nnot, which is what makes the class-less path safe rather than merely untested. A replayed key is never\nrefused, so a downgrade does not strand pictures already paid for, and the worker does not check again.\n\nAsked before the allowance and the suspension, deliberately: it is the cheapest refusal and the most\nspecific, and it writes nothing. A suspended account naming a locked class is told about the class.\n\n**This narrows what the route accepts, on purpose** (PRICE-007). Before plans, every class this host\noffered could be asked for by any member; now an account\u0027s plan decides. No API version was added: the gate\nships with the picker that respects it, and no deployment configures plans yet, so no shipped client is\nrefused anything it was previously granted.\n\n**The prompt has to fit the class\u0027s model, and is never cut to fit** (AP.3.2). What is sent is the prompt,\nthen the avoid list under a heading of its own, and each class\u0027s model takes so many characters of it. A\nrequest over that answers \u0060422 media.generation.prompt.unprocessable\u0060 naming \u0060promptText\u0060 when a shorter\nprompt would fit \u2014 \u0060POST .../image-prompt-requests/compactions\u0060 asks for one \u2014 or\n\u0060422 media.generation.avoid.unprocessable\u0060 naming \u0060avoidText\u0060 when the avoid list alone leaves too little\nroom. Both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and \u0060promptBudget\u0060, the most the prompt may be with\nthe avoid list kept whole. Nothing is held or queued, and a replayed key is never refused.\n\n**Pictures are charged to the requesting account\u0027s AI allowance** (AP.2.5), and the whole request is\nheld against it before anything is queued: \u0060variantCount\u0060 \u00D7 the configured rate for the model, tier\nand quality the request\u0027s class sends. An account whose period will not cover all of it answers\n\u0060429 ai.quota.exhausted\u0060 with \u0060unit\u0060, \u0060remaining\u0060, \u0060required\u0060 and \u0060resetsAt\u0060 plus a \u0060Retry-After\u0060, and\none whose AI access is switched off answers \u0060403 ai.quota.suspended\u0060 \u2014 the same codes a text request is\nrefused with, because it is the same allowance. Nothing is queued either way. A replayed key is never\nrefused: its answer is the operation it already bought, and the hold that bought it.\n\n**A trial is gated twice** (AP.7.1). Its pictures are capped in all, across every workspace and day: a\nrequest that would pass the trial plan\u0027s \u0060trialImageCap\u0060 answers \u0060403 ai.quota.trial_images.forbidden\u0060 with\n\u0060trialImageCap\u0060 and \u0060trialEndsAt\u0060, and writing goes on. Once the trial\u0027s days are over and no plan has been\nchosen, every request answers \u0060403 ai.quota.trial_ended.forbidden\u0060 with \u0060trialEndedAt\u0060, pack credits or not.\nNeither carries a balance or a reset, and nothing is queued.\n\nA host with no credit rate for the picture it would make answers \u0060503 media.generation.unavailable\u0060\nand carries no figures: that is this deployment\u0027s misconfiguration, not the caller\u0027s balance.\n\nThe action is named \u0060RequestImages\u0060 rather than \u0060Request\u0060, which other controllers use and get\naway with: this one reads \u0060ControllerBase.Request\u0060 for the conditional download below, and an\naction of that name hides it.",
         "parameters": [
           {
             "name": "workspaceSlug",
@@ -10799,8 +10893,193 @@
               }
             }
           },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "429": {
             "description": "A limit was reached: \u0060limits.rate.exhausted\u0060, \u0060limits.concurrency.exhausted\u0060 or \u0060limits.budget.exhausted\u0060, with \u0060operation\u0060, \u0060scope\u0060 and \u0060limit\u0060, and \u0060resetsAt\u0060 with a \u0060Retry-After\u0060 header when the limit names an instant.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/quote": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "What asking for this many pictures would cost the caller, and what it would leave them (PRICE-004).",
+        "description": "Read-only: nothing is held, reserved or written, so it is a GET and asking it twice is free. Priced by\nthe same code that admits the request, for the model, tier and quality the asked-about \u0060qualityClass\u0060\nsends \u2014 the host\u0027s default when none is named \u2014 and the class priced comes back as \u0060qualityClass\u0060. A\nsnapshot: the request is still the decision, and can be refused if the balance moved in between.\n\nRefused as the request it prices would be: \u0060400 media.generation.invalid_request\u0060 for a count outside one\nto four, \u0060422 media.generation.quality_class.unprocessable\u0060 for a class this host does not offer,\n\u0060403 media.generation.quality_class.forbidden\u0060 for one the account\u0027s plan does not allow (AP.4.3), and\n\u0060403 media.generation.forbidden\u0060 for a member below Contributor.\n\n**A host that cannot price the picture answers \u0060200\u0060 with \u0060outcome: Unavailable\u0060, not \u0060503\u0060.** The request\nanswers \u0060503 media.generation.unavailable\u0060 because it cannot do what was asked; a quote can \u2014 it says there\nis no price to show \u2014 and a page asking on every change of count would otherwise log an error per step for\none misconfiguration.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variants",
+            "in": "query",
+            "description": "The pictures to price: how many, and optionally at which quality class.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "qualityClass",
+            "in": "query",
+            "description": "The pictures to price: how many, and optionally at which quality class.",
+            "schema": {
+              "$ref": "#/components/schemas/GeneratedImageQualityClass"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQuote"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/generated-images/quality-classes": {
+      "get": {
+        "tags": [
+          "GeneratedImages"
+        ],
+        "summary": "The picture qualities a creator may ask for here, each with what one picture of it costs (PRICE-006, PRICE-013).",
+        "description": "Read-only: a price list, not the caller\u0027s balance \u2014 what a particular request would cost and leave is the\nquote\u0027s. Contributor, like the quote and the request it is for.\n\n\u0060classes\u0060 is in ascending order, \u0060Draft\u0060 to \u0060High4K\u0060, and holds only the classes this host offers. Each\n\u0060perPicture\u0060 is in \u0060unit\u0060 (credits) and is the rate the request is charged at for what that class sends\n\u2014 read from the same table admission holds from, so it is exact, not typical (B-55). It names no model:\na request names a class. \u0060defaultClass\u0060 is what a request that names none is made at. A host that offers\nno classes answers an empty list and a null \u0060defaultClass\u0060; every picture there is the deployment\u0027s own\ndefault.\n\n**The prices are the same for every member; which classes are allowed is not** (PRICE-007, AP.4.3). Each\nclass carries \u0060allowed\u0060 \u2014 whether the asking account\u0027s plan allows a picture of it \u2014 and, when it does\nnot, \u0060requiresPlan\u0060 and \u0060requiresPlanName\u0060: the cheapest plan that would, or null when no plan does. A\nlocked class stays in the list with its price, so a picker can show it and say what unlocks it; asking\nfor one answers \u0060403 media.generation.quality_class.forbidden\u0060, and hiding it in the browser is\npresentation only. A plan belongs to the account rather than the workspace (B-47), so two members of one\nworkspace can read different flags from this list and nothing may cache it by workspace alone. On a host\nwith no plans configured every class is \u0060allowed\u0060 with no plan named.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed. The workspace is resolved server-side from this segment and\nthe caller\u0027s membership before the action runs, and nothing here reads it (tenancy.md).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQualityClasses"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQualityClasses"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratedImageQualityClasses"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -11271,6 +11550,144 @@
           },
           "429": {
             "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/workspaces/{workspaceSlug}/image-prompt-requests/compactions": {
+      "post": {
+        "tags": [
+          "ImagePromptRequests"
+        ],
+        "summary": "Asks for a shorter version of a prompt, to fit a picture quality whose model takes fewer characters.",
+        "description": "Contributor or above. \u0060202\u0060, and the \u0060Location\u0060 header points at the same status resource a composed\nprompt is read from: a shorter prompt is an image-prompt request, and its proposal has the same shape \u2014 the\nprompt, and the avoid list.\n\n**Measured the way a picture request is.** The prompt and avoid list are measured against the model the\nclass sends to, exactly as \u0060POST .../generated-images\u0060 measures them. One that already fits is refused\n\u0060422 ai.imagePromptCompaction.prompt.unprocessable\u0060, and one whose avoid list alone leaves no room is refused\n\u0060422 ai.imagePromptCompaction.avoid.unprocessable\u0060; both carry \u0060characterLimit\u0060, \u0060characterCount\u0060 and\n\u0060promptBudget\u0060. A class this host does not offer is \u0060422 media.generation.quality_class.unprocessable\u0060, the\npicture request\u0027s own refusal. A deployment that cannot say its limit answers\n\u0060503 ai.imagePromptCompaction.unavailable\u0060.\n\n**The avoid list is kept word for word and never shown to the model.** The proposal carries it as written,\nbeside a prompt shortened to fit what is left. A prompt the model cannot fit to that is refused, never cut,\nand the operation fails.\n\n**Never silent.** Every proposal says it was shortened by AI and that the creator\u0027s own prompt is\nunchanged, and lists what the model says it left out. Nothing is sent for pictures until the creator does\nso, with the shortened text and this proposal\u0027s id.",
+        "parameters": [
+          {
+            "name": "workspaceSlug",
+            "in": "path",
+            "description": "Bound only so the route is well formed, as on the request above.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Required, for the reason composing a prompt requires one.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestImagePromptCompaction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiProposalStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem\u002Bjson": {
                 "schema": {
@@ -13967,6 +14384,823 @@
         ]
       }
     },
+    "/api/v1/me/billing": {
+      "get": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "The account\u0027s plan, its subscription, its pack balance, and what it may buy now.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingAccount"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/subscription": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Starts hosted Checkout for a first subscription (B-57).",
+        "description": "\u0060planKey\u0060 is a paid plan this catalogue offers and \u0060cycle\u0060 is \u0060Monthly\u0060 or \u0060Annual\u0060; anything else answers\n\u0060422 billing.plan.unprocessable\u0060. An account that already has a live subscription answers\n\u0060409 billing.checkout.subscribed.conflict\u0060, \u0060retry: reread\u0060 \u2014 a second Checkout would make a second subscription,\nso it changes plan instead. \u0060returnOrigin\u0060 is the page\u0027s own origin, used only when this host lists it.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Starts hosted Checkout for a first subscription (B-57).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlanCheckout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/pack": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Starts hosted Checkout for a credit pack (B-57).",
+        "description": "An account whose free trial has ended while it is still on the trial answers\n\u0060403 billing.pack.plan_required.forbidden\u0060: no AI work is admitted then, pack credits included (B-61), so a plan\ncomes first. An unknown pack answers \u0060422 billing.pack.unprocessable\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Starts hosted Checkout for a credit pack (B-57).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPackCheckout"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/plan-change": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Changes the plan of an account already paying: up at once, anything else at period end.",
+        "description": "A plan with a higher monthly price answers with the provider\u0027s page to confirm and pay the prorated difference\n(B-56). Anything else \u2014 a lower plan, or the other cycle \u2014 is scheduled for the end of the paid period (B-54) and\nanswers \u0060scheduled: true\u0060 with no page. No live subscription answers\n\u0060409 billing.plan_change.no_subscription.conflict\u0060; the plan and cycle already in force answer\n\u0060409 billing.plan_change.unchanged.conflict\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Changes the plan of an account already paying: up at once, anything else at period end.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlan"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Withdraws a plan change scheduled for the end of the period.",
+        "description": "Nothing scheduled answers \u0060404 billing.plan_change.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Withdraws a plan change scheduled for the end of the period.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/portal": {
+      "post": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Opens the provider\u0027s portal: payment methods, invoices, cancelling at period end.",
+        "description": "An account that has never paid answers \u0060404 billing.portal.not_found\u0060.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenBillingPortal"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingRedirect"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/billing/checkout/{sessionId}": {
+      "get": {
+        "tags": [
+          "MeBilling"
+        ],
+        "summary": "Whether what a Checkout bought has landed, for the page the provider sends the creator back to.",
+        "description": "\u0060kind\u0060 is \u0060Plan\u0060 or \u0060Pack\u0060, as the return URL says. \u0060Pending\u0060 until the provider\u0027s webhook has put the plan in\nforce or granted the pack \u2014 a browser arriving back is not a payment. Another account\u0027s session reads as pending.",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "description": "Whether what a Checkout bought has landed, for the page the provider sends the creator back to.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/BillingCheckoutKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCheckoutStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "tags": [
@@ -14027,7 +15261,7 @@
           "Me"
         ],
         "summary": "The signed-in account\u0027s AI allowance for the running period, and what it has gone on (USAGE-008).",
-        "description": "The totals are the period\u0027s own unit; both breakdowns are in it too and both sum to \u0060consumed\u0060.\nRequest counts travel beside the amounts because work done before allowances existed was never charged\nagainst one, and would otherwise read as no usage at all.\n\nA workspace the account no longer holds active membership in keeps its totals and is returned with a\nnull name. The spend is the creator\u0027s own history; the name is not theirs to have any more.\n\nTakes no parameters, and there is deliberately nowhere to put an account id \u2014 not a route segment, a\nbody, a query value or a header. The account comes from the validated session.",
+        "description": "The totals are the period\u0027s own unit; both breakdowns are in it too and both sum to \u0060consumed\u0060.\nRequest counts travel beside the amounts because work done before allowances existed was never charged\nagainst one, and would otherwise read as no usage at all.\n\n\u0060packRemaining\u0060 is the account\u0027s credit packs, which never reset (B-50) and are spent after the\nperiod\u0027s allowance; it is reported beside \u0060period.remaining\u0060, never added to it. \u0060plan\u0060 names the\nplan the account is on, and is null on a host with no plan catalogue (PRICE-007, AP.5.3).\n\nA workspace the account no longer holds active membership in keeps its totals and is returned with a\nnull name. The spend is the creator\u0027s own history; the name is not theirs to have any more.\n\nTakes no parameters, and there is deliberately nowhere to put an account id \u2014 not a route segment, a\nbody, a query value or a header. The account comes from the validated session.",
         "responses": {
           "200": {
             "description": "OK",
@@ -14105,6 +15339,104 @@
                   "items": {
                     "$ref": "#/components/schemas/AccountAiUsagePeriod"
                   }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ai-usage/low-credit-notice/dismissal": {
+      "post": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Puts away this period\u0027s low-credit notice (PRICE-011 as amended, B-59).",
+        "description": "Idempotent, and answers \u0060204\u0060 whether or not there was anything to dismiss. A notice the creator has\nalready put away, a period that rolled while they were reading it, and an account that has never been\nlow are all the state the caller asked for, and none of them is worth a refusal they cannot act on.\n\nA dismissal lasts the period. The next period is a new row, and an account that runs low again is told\nagain \u2014 to stop being told at all, see the setting below.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bffSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/ai-usage/low-credit-notice": {
+      "put": {
+        "tags": [
+          "Me"
+        ],
+        "summary": "Says whether this account wants to be told when its credits run low (PRICE-011 as amended, B-59).",
+        "description": "On until the account says otherwise: a notice is not a charge, so it needs no opt-in. Switching it off\nstops the notice being shown; nothing else about the allowance changes, and an account at zero is still\nrefused at admission and still told so.\n\nIdempotent \u2014 setting it to what it already is answers \u0060204\u0060 and writes nothing.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AntiforgeryToken"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/LowCreditNotice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationProblemDetails"
                 }
               }
             }
@@ -15064,6 +16396,123 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlanCatalogue"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem details with a stable \u0060code\u0060 and \u0060traceId\u0060.",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plans/estimate": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "What a month of \u0060pictures\u0060 and \u0060writing\u0060 comes to, and the smallest paid plan\nthat carries it (LP.7, AP.7.2): the landing page\u0027s estimator, worked out here so the browser only formats it.",
+        "description": "Anonymous and publicly cacheable for the reason the catalogue is: the answer is a function of the published\nconfiguration and the three query values, with nothing about any caller in it. The pictures are priced at\n\u0060qualityClass\u0060 when the catalogue publishes it, else at the default class, else the cheapest; the class used\ncomes back as \u0060qualityClass\u0060. Only paid plans are weighed, and one fits when its credits cover the month and\nits daily picture cap over a 30-day month covers the pictures. A count below 0 or above 100,000 answers\n\u0060400 billing.estimate.invalid\u0060; a deployment that publishes no catalogue answers\n\u0060404 billing.estimate.not_found\u0060.",
+        "parameters": [
+          {
+            "name": "pictures",
+            "in": "query",
+            "description": "Pictures a month.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "writing",
+            "in": "query",
+            "description": "Recipe drafts and posts a month.",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "qualityClass",
+            "in": "query",
+            "description": "The picture quality to price at; omitted for the default.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanEstimate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -26880,12 +28329,46 @@
           }
         }
       },
+      "AccountAiLowCredit": {
+        "required": [
+          "isNoticed",
+          "isDismissed",
+          "noticeEnabled",
+          "spendable"
+        ],
+        "type": "object",
+        "properties": {
+          "isNoticed": {
+            "type": "boolean"
+          },
+          "isDismissed": {
+            "type": "boolean"
+          },
+          "noticeEnabled": {
+            "type": "boolean"
+          },
+          "spendable": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "AccountAiUsage": {
         "required": [
           "period",
           "isSuspended",
           "byTask",
-          "byWorkspace"
+          "byWorkspace",
+          "isNearlySpent",
+          "pictures",
+          "writing",
+          "packRemaining",
+          "plan",
+          "lowCredit"
         ],
         "type": "object",
         "properties": {
@@ -26906,6 +28389,66 @@
             "items": {
               "$ref": "#/components/schemas/AccountAiUsageWorkspaceTotal"
             }
+          },
+          "isNearlySpent": {
+            "type": "boolean"
+          },
+          "pictures": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "writing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "packRemaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsagePlan"
+              }
+            ]
+          },
+          "lowCredit": {
+            "$ref": "#/components/schemas/AccountAiLowCredit"
+          },
+          "picturesToday": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsagePicturesToday"
+              }
+            ]
+          },
+          "trialPictures": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccountAiUsageTrialPictures"
+              }
+            ]
           }
         }
       },
@@ -26983,6 +28526,64 @@
           }
         }
       },
+      "AccountAiUsagePicturesToday": {
+        "required": [
+          "cap",
+          "used",
+          "left",
+          "resetsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "left": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AccountAiUsagePlan": {
+        "required": [
+          "key",
+          "name",
+          "allowanceRenews"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowanceRenews": {
+            "type": "boolean"
+          }
+        }
+      },
       "AccountAiUsageTaskTotal": {
         "required": [
           "taskType",
@@ -27003,6 +28604,40 @@
             "format": "double"
           },
           "requests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AccountAiUsageTrialPictures": {
+        "required": [
+          "cap",
+          "used",
+          "left"
+        ],
+        "type": "object",
+        "properties": {
+          "cap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "left": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -28075,7 +29710,8 @@
           "DishFacetSuggestion",
           "ChannelPosts",
           "LongFormOutline",
-          "LongFormSection"
+          "LongFormSection",
+          "ImageGeneration"
         ],
         "type": "string"
       },
@@ -28458,6 +30094,269 @@
             ]
           }
         }
+      },
+      "BillingAccount": {
+        "required": [
+          "paymentsAvailable",
+          "isTestMode",
+          "plan",
+          "subscription",
+          "packBalance",
+          "canSubscribe",
+          "canBuyPacks",
+          "upgradePlanKeys"
+        ],
+        "type": "object",
+        "properties": {
+          "paymentsAvailable": {
+            "type": "boolean"
+          },
+          "isTestMode": {
+            "type": "boolean"
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingAccountPlan"
+              }
+            ]
+          },
+          "subscription": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingAccountSubscription"
+              }
+            ]
+          },
+          "packBalance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "canSubscribe": {
+            "type": "boolean"
+          },
+          "canBuyPacks": {
+            "type": "boolean"
+          },
+          "upgradePlanKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BillingAccountPlan": {
+        "required": [
+          "key",
+          "name",
+          "credits",
+          "period",
+          "dailyImageCap",
+          "isTrial",
+          "trialEndsAt",
+          "trialEnded"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "period": {
+            "$ref": "#/components/schemas/PlanAllowancePeriod"
+          },
+          "dailyImageCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isTrial": {
+            "type": "boolean"
+          },
+          "trialEndsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "trialEnded": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BillingAccountSubscription": {
+        "required": [
+          "status",
+          "planKey",
+          "cycle",
+          "currentPeriodEnd",
+          "cancelAt",
+          "nextPlanKey",
+          "nextPlanName",
+          "nextCycle",
+          "nextChangeAt"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/BillingSubscriptionStatus"
+          },
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "$ref": "#/components/schemas/BillingCycle"
+          },
+          "currentPeriodEnd": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "cancelAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "nextPlanKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nextCycle": {
+            "$ref": "#/components/schemas/BillingCycle"
+          },
+          "nextChangeAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "BillingCheckoutKind": {
+        "enum": [
+          "Unspecified",
+          "Plan",
+          "Pack"
+        ],
+        "type": "string"
+      },
+      "BillingCheckoutState": {
+        "enum": [
+          "Unspecified",
+          "Pending",
+          "Complete"
+        ],
+        "type": "string"
+      },
+      "BillingCheckoutStatus": {
+        "required": [
+          "state",
+          "planName",
+          "credits"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/BillingCheckoutState"
+          },
+          "planName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "BillingCycle": {
+        "enum": [
+          "Unspecified",
+          "Monthly",
+          "Annual"
+        ],
+        "type": "string"
+      },
+      "BillingRedirect": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          },
+          "scheduled": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "BillingSubscriptionStatus": {
+        "enum": [
+          "Unspecified",
+          "Incomplete",
+          "IncompleteExpired",
+          "Trialing",
+          "Active",
+          "PastDue",
+          "Unpaid",
+          "Canceled",
+          "Paused"
+        ],
+        "type": "string"
       },
       "BrandActiveStyleGuide": {
         "required": [
@@ -31079,6 +32978,33 @@
           },
           "newPassword": {
             "type": "string"
+          }
+        }
+      },
+      "ChangePlan": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingCycle"
+              }
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -33755,10 +35681,7 @@
       "CreditRates": {
         "required": [
           "textDraft",
-          "longFormSection",
-          "imageDraft",
-          "imageStandard",
-          "imageHigh"
+          "longFormSection"
         ],
         "type": "object",
         "properties": {
@@ -33771,30 +35694,6 @@
             "format": "int32"
           },
           "longFormSection": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageDraft": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageStandard": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "imageHigh": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -35246,6 +37145,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
           }
         }
       },
@@ -35349,6 +37258,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
           }
         }
       },
@@ -35361,6 +37280,258 @@
           "PartiallySucceeded",
           "Failed",
           "Cancelled"
+        ],
+        "type": "string"
+      },
+      "GeneratedImageQualityClass": {
+        "enum": [
+          "Draft",
+          "Standard",
+          "High",
+          "High2K",
+          "High4K"
+        ],
+        "type": "string"
+      },
+      "GeneratedImageQualityClasses": {
+        "required": [
+          "defaultClass",
+          "unit",
+          "classes"
+        ],
+        "type": "object",
+        "properties": {
+          "defaultClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GeneratedImageQualityClassPrice"
+            }
+          }
+        }
+      },
+      "GeneratedImageQualityClassPrice": {
+        "required": [
+          "qualityClass",
+          "perPicture",
+          "isDefault",
+          "allowed",
+          "requiresPlan",
+          "requiresPlanName"
+        ],
+        "type": "object",
+        "properties": {
+          "qualityClass": {
+            "$ref": "#/components/schemas/GeneratedImageQualityClass"
+          },
+          "perPicture": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "requiresPlan": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "requiresPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GeneratedImageQuote": {
+        "required": [
+          "outcome",
+          "unit",
+          "variants",
+          "perPicture",
+          "total",
+          "allowance",
+          "remaining",
+          "remainingAfter",
+          "affordableVariants",
+          "leavesNearlySpent",
+          "resetsAt",
+          "timeZoneId"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/GeneratedImageQuoteOutcome"
+          },
+          "unit": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "variants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "perPicture": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "allowance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "remainingAfter": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "affordableVariants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "leavesNearlySpent": {
+            "type": "boolean"
+          },
+          "resetsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "timeZoneId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
+          },
+          "packRemaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "packRemainingAfter": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "pictureCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "picturesLeft": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pictureCapResetsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GeneratedImageQuoteOutcome": {
+        "enum": [
+          "Unspecified",
+          "Affordable",
+          "Exhausted",
+          "Suspended",
+          "Unavailable",
+          "TrialEnded",
+          "DailyImageCap",
+          "TrialImageCap"
         ],
         "type": "string"
       },
@@ -36850,6 +39021,20 @@
           "Over"
         ],
         "type": "string"
+      },
+      "LowCreditNotice": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
       },
       "MeasurementDimension": {
         "enum": [
@@ -38825,6 +41010,17 @@
         ],
         "type": "string"
       },
+      "OpenBillingPortal": {
+        "type": "object",
+        "properties": {
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PackageQuantityToken": {
         "required": [
           "span",
@@ -39075,6 +41271,26 @@
           }
         }
       },
+      "PictureClassRate": {
+        "required": [
+          "qualityClass",
+          "perPicture"
+        ],
+        "type": "object",
+        "properties": {
+          "qualityClass": {
+            "type": "string"
+          },
+          "perPicture": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "Plan": {
         "required": [
           "key",
@@ -39088,7 +41304,10 @@
           "dailyImageCap",
           "qualityClasses",
           "recommended",
-          "trialDays"
+          "trialDays",
+          "trialImageCap",
+          "picturesAtDefaultQuality",
+          "exampleCounts"
         ],
         "type": "object",
         "properties": {
@@ -39166,15 +41385,53 @@
               "string"
             ],
             "format": "int32"
+          },
+          "trialImageCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "picturesAtDefaultQuality": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "exampleCounts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlanExample"
+              }
+            ]
           }
         }
+      },
+      "PlanAllowancePeriod": {
+        "enum": [
+          "Unspecified",
+          "Monthly",
+          "Once"
+        ],
+        "type": "string"
       },
       "PlanCatalogue": {
         "required": [
           "currency",
           "plans",
           "packs",
-          "rates"
+          "rates",
+          "pictureClasses",
+          "defaultPictureClass"
         ],
         "type": "object",
         "properties": {
@@ -39195,6 +41452,106 @@
           },
           "rates": {
             "$ref": "#/components/schemas/CreditRates"
+          },
+          "pictureClasses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PictureClassRate"
+            }
+          },
+          "defaultPictureClass": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlanEstimate": {
+        "required": [
+          "credits",
+          "qualityClass",
+          "fitsPlanKey",
+          "fitsPlanName",
+          "creditsToSpare",
+          "largestPlanName"
+        ],
+        "type": "object",
+        "properties": {
+          "credits": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "qualityClass": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fitsPlanKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fitsPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creditsToSpare": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "largestPlanName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlanExample": {
+        "required": [
+          "recipeDrafts",
+          "socialPosts",
+          "pictures"
+        ],
+        "type": "object",
+        "properties": {
+          "recipeDrafts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "socialPosts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pictures": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -42788,6 +45145,17 @@
             ],
             "description": "The piece of work these pictures are for, when they are for one. Recorded on the run.",
             "format": "uuid"
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ],
+            "description": "How good a picture to make (AP.3.1). Omitted means the host\u0027s default class. A class, never a model."
           }
         },
         "description": "The body of an image-generation request (IMG-003)."
@@ -42882,6 +45250,36 @@
               "boolean"
             ],
             "description": "Send false to compose this prompt without the themed day\u0027s standing notes, for this request only. Omit it, or send true, to follow them."
+          }
+        }
+      },
+      "RequestImagePromptCompaction": {
+        "type": "object",
+        "properties": {
+          "promptText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The prompt to shorten, exactly as it would be sent for pictures."
+          },
+          "avoidText": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The avoid list that goes with the prompt. Optional. Kept word for word; never shortened."
+          },
+          "qualityClass": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The picture quality the shorter prompt must fit. Optional; the default quality when omitted.",
+                "$ref": "#/components/schemas/GeneratedImageQualityClass"
+              }
+            ]
           }
         }
       },
@@ -44406,6 +46804,50 @@
               "$ref": "#/components/schemas/LongFormSectionRole"
             },
             "description": "Sections the plan must include, by role. Omit it to leave the plan to the outline."
+          }
+        }
+      },
+      "StartPackCheckout": {
+        "type": "object",
+        "properties": {
+          "packKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StartPlanCheckout": {
+        "type": "object",
+        "properties": {
+          "planKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cycle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BillingCycle"
+              }
+            ]
+          },
+          "returnOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -48244,6 +50686,9 @@
       "name": "Auth"
     },
     {
+      "name": "BillingWebhooks"
+    },
+    {
       "name": "BrandGuideProposalRequests"
     },
     {
@@ -48323,6 +50768,9 @@
     },
     {
       "name": "LongFormSeoPackageRequests"
+    },
+    {
+      "name": "MeBilling"
     },
     {
       "name": "Me"

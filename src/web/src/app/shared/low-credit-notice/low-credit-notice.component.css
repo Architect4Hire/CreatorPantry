@@ -1,0 +1,15 @@
+/* A block, so the notice takes a line of its own wherever it is placed rather than sitting inline. */
+:host {
+  display: block;
+}
+
+/* Three lines in the notice's body: what is happening, what it means, and what can be done about it. A grid
+   rather than inline flow so the heading keeps its own line at every width. */
+.low-credit {
+  display: grid;
+  gap: var(--cp-space-2);
+}
+
+.low-credit strong {
+  color: var(--cp-text);
+}

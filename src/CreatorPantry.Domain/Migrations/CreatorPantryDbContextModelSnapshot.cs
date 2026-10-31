@@ -905,6 +905,32 @@ namespace CreatorPantry.Domain.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiNoticeSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("LastChangedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("LowCreditNoticeEnabled")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiNoticeSettings_Account");
+
+                    b.ToTable("AccountAiNoticeSettings", (string)null);
+                });
+
             modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.AccountAiQuota", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1013,8 +1039,22 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<decimal>("GrantReserved")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<DateOnly>("LocalStartDate")
                         .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("LowCreditNoticeDismissedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LowCreditNoticedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<decimal>("Reserved")
                         .HasPrecision(18, 4)
@@ -1040,6 +1080,10 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<int>("Unit")
                         .HasColumnType("int");
 
+                    b.Property<decimal>("UpgradeGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EndsAt")
@@ -1054,11 +1098,17 @@ namespace CreatorPantry.Domain.Migrations
                         {
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Ends_After_Starts", "EndsAt > StartsAt");
 
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_GrantReserved_NotNegative", "CAST(GrantReserved AS FLOAT) >= 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_LowCreditNotice_Dismissed_After_Raised", "LowCreditNoticeDismissedAt IS NULL OR (LowCreditNoticedAt IS NOT NULL AND LowCreditNoticeDismissedAt >= LowCreditNoticedAt)");
+
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Settled_After_End", "SettledAt IS NULL OR SettledAt >= EndsAt");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Totals_NotNegative", "Allowance >= 0 AND CarriedOver >= 0 AND Consumed >= 0 AND Reserved >= 0");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaPeriods_Unit_Declared", "Unit <> 0");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaPeriods_UpgradeGranted_FromPlan", "UpgradeGranted >= 0 AND (PlanKey IS NOT NULL OR CAST(UpgradeGranted AS REAL) <= 0)");
                         });
                 });
 
@@ -1076,11 +1126,21 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("AiOperationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("ChargedToAllowance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset>("HeldAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ImagesBilled")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ImagesRequested")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("LeaseToken")
                         .HasColumnType("uniqueidentifier");
@@ -1092,6 +1152,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("PeriodId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long?>("PlatformImageSpendMicros")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTimeOffset?>("PostedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -1099,6 +1162,10 @@ namespace CreatorPantry.Domain.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<decimal>("ReservedAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("ReservedFromAllowance")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
@@ -1133,6 +1200,10 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("IX_AccountAiQuotaReservations_Unposted")
                         .HasFilter("PostedAt IS NULL");
 
+                    b.HasIndex("AccountId", "HeldAt")
+                        .HasDatabaseName("IX_AccountAiQuotaReservations_Account_Images")
+                        .HasFilter("ImagesRequested IS NOT NULL");
+
                     b.HasIndex("AiOperationId", "LeaseToken")
                         .IsUnique()
                         .HasDatabaseName("UX_AccountAiQuotaReservations_Operation_Lease");
@@ -1145,7 +1216,15 @@ namespace CreatorPantry.Domain.Migrations
                         {
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Amounts_NotNegative", "ReservedAmount > 0 AND PerAttemptEstimate > 0 AND (SettledAmount IS NULL OR SettledAmount >= 0)");
 
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_ChargedToAllowance_Matches_Posting", "(PostedAt IS NULL AND ChargedToAllowance IS NULL) OR (PostedAt IS NOT NULL AND ChargedToAllowance IS NOT NULL AND CAST(ChargedToAllowance AS FLOAT) >= 0)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_FromAllowance_Within_Hold", "CAST(ReservedFromAllowance AS FLOAT) >= 0 AND CAST(ReservedFromAllowance AS FLOAT) <= CAST(ReservedAmount AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_Images_Counts", "(ImagesRequested IS NULL OR ImagesRequested >= 1) AND (ImagesBilled IS NULL OR (ImagesRequested IS NOT NULL AND ImagesBilled >= 0))");
+
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Outcome_Matches_Status", "(Status IN (1, 4) AND SettledAt IS NULL AND SettledAmount IS NULL) OR (Status IN (2, 3) AND SettledAt IS NOT NULL AND SettledAmount IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_AccountAiQuotaReservations_PlatformImageSpend_Positive", "PlatformImageSpendMicros IS NULL OR PlatformImageSpendMicros > 0");
 
                             t.HasCheckConstraint("CK_AccountAiQuotaReservations_Posted_Requires_Settlement", "PostedAt IS NULL OR SettledAmount IS NOT NULL");
 
@@ -1168,7 +1247,7 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<Guid>("AiOperationId")
+                    b.Property<Guid?>("AiOperationId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AttemptNumber")
@@ -1177,6 +1256,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<decimal?>("EstimatedCost")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid?>("GeneratedImageOperationId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("InputTokens")
                         .HasColumnType("int");
@@ -1226,7 +1308,13 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.HasIndex("AiOperationId", "AttemptNumber")
                         .IsUnique()
-                        .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt");
+                        .HasDatabaseName("UX_AccountAiUsageEntries_Operation_Attempt")
+                        .HasFilter("AiOperationId IS NOT NULL");
+
+                    b.HasIndex("GeneratedImageOperationId", "AttemptNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountAiUsageEntries_ImageOperation_Attempt")
+                        .HasFilter("GeneratedImageOperationId IS NOT NULL");
 
                     b.HasIndex("AccountId", "WorkspaceId", "OccurredAt")
                         .HasDatabaseName("IX_AccountAiUsageEntries_Account_Workspace_OccurredAt");
@@ -1237,6 +1325,8 @@ namespace CreatorPantry.Domain.Migrations
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Cost_NotNegative", "EstimatedCost IS NULL OR EstimatedCost >= 0");
 
+                            t.HasCheckConstraint("CK_AccountAiUsageEntries_Names_One_Operation", "(AiOperationId IS NOT NULL AND GeneratedImageOperationId IS NULL) OR (AiOperationId IS NULL AND GeneratedImageOperationId IS NOT NULL)");
+
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Outcome_Declared", "Outcome <> 0");
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_TaskType_Declared", "TaskType <> 0");
@@ -1244,6 +1334,34 @@ namespace CreatorPantry.Domain.Migrations
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_Tokens_NotNegative", "(InputTokens IS NULL OR InputTokens >= 0) AND (OutputTokens IS NULL OR OutputTokens >= 0) AND (TotalTokens IS NULL OR TotalTokens >= 0)");
 
                             t.HasCheckConstraint("CK_AccountAiUsageEntries_UsageReported_Matches_Tokens", "(UsageReported = 0 AND InputTokens IS NULL AND OutputTokens IS NULL AND TotalTokens IS NULL) OR (UsageReported = 1 AND (InputTokens IS NOT NULL OR OutputTokens IS NOT NULL OR TotalTokens IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.AiUsage.Data.Entities.PlatformImageSpendDay", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<long>("AdmittedMicros")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("LiftedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LiftedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("TrippedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Day");
+
+                    b.ToTable("PlatformImageSpendDays", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlatformImageSpendDays_Admitted_NotNegative", "AdmittedMicros >= 0");
+
+                            t.HasCheckConstraint("CK_PlatformImageSpendDays_Lift_Complete", "(LiftedAt IS NULL AND LiftedBy IS NULL) OR (LiftedAt IS NOT NULL AND LiftedBy IS NOT NULL)");
                         });
                 });
 
@@ -1379,6 +1497,485 @@ namespace CreatorPantry.Domain.Migrations
                         .HasDatabaseName("UX_OpsApiClients_Name");
 
                     b.ToTable("OpsApiClients", (string)null);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset?>("ClawedBackAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsRemaining")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ExternalReferenceId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Source", "ExternalReferenceId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountCreditGrants_Source_Reference")
+                        .HasFilter("ExternalReferenceId IS NOT NULL");
+
+                    b.HasIndex("AccountId", "GrantedAt", "Id")
+                        .HasDatabaseName("IX_AccountCreditGrants_Account_GrantedAt");
+
+                    b.ToTable("AccountCreditGrants", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountCreditGrants_ClawBack_Recorded", "(ClawedBackAt IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (ClawedBackAt IS NOT NULL AND CAST(CreditsRemaining AS FLOAT) = 0 AND ClawedBackAt >= GrantedAt)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_ClawedBack_Within_Granted", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Granted_Positive", "CAST(CreditsGranted AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Purchase_Referenced", "Source <> 1 OR ExternalReferenceId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Reference_NotBlank", "ExternalReferenceId IS NULL OR trim(ExternalReferenceId) <> ''");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Remaining_Within_Granted", "CAST(CreditsRemaining AS FLOAT) >= 0 AND CAST(CreditsRemaining AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrants_Source_Declared", "Source <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrantDraw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsHeld")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("CreditsSpent")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("GrantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("HeldAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("HoldId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrantId")
+                        .HasDatabaseName("IX_AccountCreditGrantDraws_Grant");
+
+                    b.HasIndex("HoldId", "GrantId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountCreditGrantDraws_Hold_Grant");
+
+                    b.ToTable("AccountCreditGrantDraws", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_ClawedBack_Within_Held", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsHeld AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Held_Positive", "CAST(CreditsHeld AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Resolution_Recorded", "(ResolvedAt IS NULL AND CreditsSpent IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (ResolvedAt IS NOT NULL AND CreditsSpent IS NOT NULL AND ResolvedAt >= HeldAt)");
+
+                            t.HasCheckConstraint("CK_AccountCreditGrantDraws_Spent_Within_Held", "CreditsSpent IS NULL OR (CAST(CreditsSpent AS FLOAT) >= 0 AND CAST(CreditsSpent AS FLOAT) <= CAST(CreditsHeld AS FLOAT))");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("SupersedesFrom")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("AccountId", "EffectiveFrom")
+                        .HasName("AK_AccountPlans_Account_EffectiveFrom");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountPlans_Account_Root")
+                        .HasFilter("SupersedesFrom IS NULL");
+
+                    b.HasIndex("AccountId", "SupersedesFrom")
+                        .IsUnique()
+                        .HasDatabaseName("UX_AccountPlans_Account_Successor")
+                        .HasFilter("SupersedesFrom IS NOT NULL");
+
+                    b.ToTable("AccountPlans", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AccountPlans_After_Superseded", "SupersedesFrom IS NULL OR SupersedesFrom < EffectiveFrom");
+
+                            t.HasCheckConstraint("CK_AccountPlans_PlanKey_NotBlank", "PlanKey IS NULL OR trim(PlanKey) <> ''");
+
+                            t.HasCheckConstraint("CK_AccountPlans_Source_Declared", "Source <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingCustomer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExternalCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalCustomerId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingCustomers_ExternalCustomerId");
+
+                    b.HasIndex("AccountId", "IsLiveMode")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingCustomers_Account_Mode");
+
+                    b.ToTable("BillingCustomers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingCustomers_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingCustomers_ExternalCustomerId_NotBlank", "trim(ExternalCustomerId) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingPackPurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CreditsClawedBack")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("CreditsGranted")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ExternalPaymentReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalReversalReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalSessionId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("GrantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PackKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("PurchasedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Reversal")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ReversedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalPaymentReference")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingPackPurchases_Payment")
+                        .HasFilter("ExternalPaymentReference IS NOT NULL");
+
+                    b.HasIndex("ExternalSessionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingPackPurchases_Session");
+
+                    b.HasIndex("GrantId");
+
+                    b.HasIndex("AccountId", "PurchasedAt")
+                        .HasDatabaseName("IX_BillingPackPurchases_Account_PurchasedAt");
+
+                    b.ToTable("BillingPackPurchases", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingPackPurchases_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_ClawedBack_Within_Granted", "CAST(CreditsClawedBack AS FLOAT) >= 0 AND CAST(CreditsClawedBack AS FLOAT) <= CAST(CreditsGranted AS FLOAT)");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Credits_Positive", "CAST(CreditsGranted AS FLOAT) > 0");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_PackKey_NotBlank", "trim(PackKey) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Payment_NotBlank", "ExternalPaymentReference IS NULL OR trim(ExternalPaymentReference) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_Reversal_Recorded", "(Reversal = 0 AND ReversedAt IS NULL AND ExternalReversalReference IS NULL AND CAST(CreditsClawedBack AS FLOAT) = 0) OR (Reversal <> 0 AND ReversedAt IS NOT NULL AND ReversedAt >= PurchasedAt)");
+
+                            t.HasCheckConstraint("CK_BillingPackPurchases_SessionId_NotBlank", "trim(ExternalSessionId) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingProviderEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ExternalEventId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ObjectReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RedrivenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Redrives")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SubscriptionReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalEventId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingProviderEvents_ExternalEventId");
+
+                    b.HasIndex("Status", "ReceivedAt")
+                        .HasDatabaseName("IX_BillingProviderEvents_Status_ReceivedAt");
+
+                    b.ToTable("BillingProviderEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingProviderEvents_EventType_NotBlank", "trim(EventType) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingProviderEvents_ExternalEventId_NotBlank", "trim(ExternalEventId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingProviderEvents_Status_Declared", "Status <> 0");
+                        });
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTimeOffset?>("CancelAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("CurrentPeriodEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Cycle")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExternalCustomerId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ExternalSubscriptionId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ItemId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("LatestInvoicePaid")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("NextCycle")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("NextPhaseStartsAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NextPlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("PlanKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("ScheduleId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalSubscriptionId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_BillingSubscriptions_ExternalSubscriptionId");
+
+                    b.HasIndex("AccountId", "IsLiveMode")
+                        .HasDatabaseName("IX_BillingSubscriptions_Account_Mode");
+
+                    b.ToTable("BillingSubscriptions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BillingSubscriptions_AccountId_NotBlank", "trim(AccountId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_ExternalCustomerId_NotBlank", "trim(ExternalCustomerId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_ExternalSubscriptionId_NotBlank", "trim(ExternalSubscriptionId) <> ''");
+
+                            t.HasCheckConstraint("CK_BillingSubscriptions_NextPhase_Whole", "(NextPlanKey IS NULL AND NextPhaseStartsAt IS NULL) OR NextPhaseStartsAt IS NOT NULL");
+                        });
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>
@@ -4506,6 +5103,14 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid>("GeneratedImageOperationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("GenerationQuality")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("GenerationSize")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<int>("Height")
                         .HasColumnType("int");
 
@@ -4605,6 +5210,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<Guid?>("AiProposalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AiQuotaReservationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
@@ -4614,6 +5222,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<string>("AvoidText")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int>("BilledVariantCount")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
@@ -4628,6 +5239,9 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<string>("FailureSummary")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("FlaggedVariantCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
@@ -4657,6 +5271,9 @@ namespace CreatorPantry.Domain.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("QualityClass")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("RecipeId")
                         .HasColumnType("uniqueidentifier");
 
@@ -4666,8 +5283,15 @@ namespace CreatorPantry.Domain.Migrations
                     b.Property<DateTimeOffset>("RequestedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("RequestedByAccountId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<Guid>("RequestedByMembershipId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("RunningImagesCap")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("datetimeoffset");
@@ -4677,6 +5301,9 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.Property<DateTimeOffset>("StatusChangedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("UnusableVariantCount")
+                        .HasColumnType("int");
 
                     b.Property<int>("VariantCount")
                         .HasColumnType("int");
@@ -4706,9 +5333,15 @@ namespace CreatorPantry.Domain.Migrations
 
                     b.ToTable("GeneratedImageOperations", null, t =>
                         {
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_BilledVariants_Coherent", "BilledVariantCount >= 0 AND UnusableVariantCount >= 0 AND FlaggedVariantCount >= 0 AND UnusableVariantCount <= BilledVariantCount AND FlaggedVariantCount <= UnusableVariantCount");
+
                             t.HasCheckConstraint("CK_GeneratedImageOperations_IdempotencyKey_NotBlank", "trim(IdempotencyKey) <> ''");
 
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_QualityClass_Declared", "QualityClass IS NULL OR (QualityClass >= 1 AND QualityClass <= 5)");
+
                             t.HasCheckConstraint("CK_GeneratedImageOperations_RecipeVersion_NeedsRecipe", "RecipeVersionId IS NULL OR RecipeId IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_GeneratedImageOperations_RunningImagesCap_Account", "(RequestedByAccountId IS NULL AND RunningImagesCap IS NULL) OR (RequestedByAccountId IS NOT NULL AND RunningImagesCap >= 1)");
 
                             t.HasCheckConstraint("CK_GeneratedImageOperations_Status_Declared", "Status <> 0");
 
@@ -7969,6 +8602,38 @@ namespace CreatorPantry.Domain.Migrations
                         .WithMany()
                         .HasForeignKey("LastWorkspaceId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrantDraw", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", "Grant")
+                        .WithMany()
+                        .HasForeignKey("GrantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grant");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountPlan", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "SupersedesFrom")
+                        .HasPrincipalKey("AccountId", "EffectiveFrom")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("FK_AccountPlans_Superseded");
+                });
+
+            modelBuilder.Entity("CreatorPantry.Domain.Modules.Billing.Data.Entities.BillingPackPurchase", b =>
+                {
+                    b.HasOne("CreatorPantry.Domain.Modules.Billing.Data.Entities.AccountCreditGrant", "Grant")
+                        .WithMany()
+                        .HasForeignKey("GrantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Grant");
                 });
 
             modelBuilder.Entity("CreatorPantry.Domain.Modules.Brand.Data.Entities.BrandAssetLink", b =>

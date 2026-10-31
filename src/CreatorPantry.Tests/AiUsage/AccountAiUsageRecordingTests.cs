@@ -9,6 +9,7 @@ using CreatorPantry.Domain.Modules.AiUsage;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Facade;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using Microsoft.Data.Sqlite;
@@ -44,6 +45,7 @@ public sealed class AccountAiUsageRecordingTests : IDisposable
         _provider = new ServiceCollection()
             .AddTenancy()
             .AddAudit()
+            .AddBillingModule()
             .AddAiUsageModule()
 
             // The quota seam the module now also registers reads an account's own calendar, so the module

@@ -1,0 +1,17 @@
+{
+  "id": "image.prompt.compact.a-handle-carried-over-is-refused",
+  "version": "1.0.0",
+  "category": "RefusalSafety",
+  "kind": "ImagePromptCompactionOutputValidation",
+  "description": "An account handle in the creator's prompt is not carried into the shorter one, for the reason a link or markup is not: it is not part of a description of a photograph.",
+  "input": {
+    "payload": "{\"schemaVersion\":\"fixture.image-prompt-compact.v1\",\"prompt\":\"Overhead photograph of a plum galette on pale linen in the style of @bakerjane, soft window light, warm and unhurried.\",\"leftOut\":[\"a small jug of cream just in frame\",\"two forks on a folded napkin\"],\"warnings\":[]}",
+    "expectedSchemaVersion": "fixture.image-prompt-compact.v1",
+    "promptBudget": 200
+  },
+  "expect": {
+    "outcome": "Rejected",
+    "reasonCode": "ai.output.image_prompt_text_not_permitted",
+    "category": "DomainInvalid"
+  }
+}

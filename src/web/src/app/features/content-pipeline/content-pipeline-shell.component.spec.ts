@@ -270,7 +270,13 @@ async function create(
       { provide: ReferenceImageService, useValue: { request: () => Promise.resolve({ status: 'unavailable' as const }), watch: () => of() } },
       {
         provide: AiUsageService,
-        useValue: { allowance: signal<AiAllowanceState>({ kind: 'unknown' }), ensureLoaded: () => Promise.resolve() },
+        useValue: {
+          allowance: signal<AiAllowanceState>({ kind: 'unknown' }),
+          // The picture run reads today's pictures from here (DL.9); none stated, as on a host with no plans.
+          state: signal({ status: 'loading' as const }),
+          ensureLoaded: () => Promise.resolve(),
+          refresh: () => Promise.resolve(),
+        },
       },
       {
         provide: BrandSourceDocumentService,

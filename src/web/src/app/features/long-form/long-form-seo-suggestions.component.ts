@@ -138,6 +138,7 @@ export class LongFormSeoSuggestionsComponent {
         return;
       case 'quota_exhausted':
       case 'account_suspended':
+      case 'trial_ended':
         this.pendingKey = null;
         this.state.set({ kind: 'idle' });
         this.blocked.emit(outcome);

@@ -230,7 +230,7 @@ function memoryFiling(): CreativeContextFilingStore {
 })
 export class SocialStudioComponent {
   /** The page's name, from its own route: what `cp-page-head` prints as the one `h1`. */
-  protected readonly pageTitle = injectRouteTitle('Social Studio');
+  protected readonly pageTitle = injectRouteTitle('AI Social Studio');
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly location = inject(Location);

@@ -117,7 +117,10 @@ internal sealed class DishFacetSuggestionAiTaskHandler(
                 template.Id,
                 template.Version.ToString(),
                 context.CorrelationId,
-                AiDishFacetsOutputValidator.AsDelegate),
+                AiDishFacetsOutputValidator.AsDelegate)
+            {
+                Task = AiTaskType.DishFacetSuggestion,
+            },
             cancellationToken);
 
         if (!outcome.Succeeded)

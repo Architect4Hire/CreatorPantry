@@ -9,6 +9,8 @@ using CreatorPantry.Domain.Modules.Auth.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Gateways;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Billing;
+using CreatorPantry.Domain.Modules.Billing.Managers;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -18,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Registry;
 using Polly.Timeout;
@@ -63,6 +66,7 @@ public sealed class AiOperationWorkerTests : IDisposable
             .AddSingleton<IClock>(_clock)
             .AddAudit()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
@@ -396,6 +400,7 @@ public sealed class AiOperationWorkerTests : IDisposable
         .AddSingleton<IClock>(_clock)
         .AddAudit()
         .AddScoped<IAiOperationRepository, AiOperationRepository>()
+        .AddBillingModule()
         .AddAiUsageModule()
         .AddApplicationTime()
         .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
@@ -433,7 +438,10 @@ public sealed class AiOperationWorkerTests : IDisposable
             var outcome = await gateway.CompleteAsync(
                 new AiCompletionRequest<AiOutputDocument>(
                     envelope, Schema, context.Scope, "fixture.worker", "1.0.0", context.CorrelationId,
-                    AiOutputValidator.AsDelegate),
+                    AiOutputValidator.AsDelegate)
+                {
+                    Task = AiTaskType.RecipeConcepts,
+                },
                 ct);
 
             Assert.True(outcome.Succeeded, outcome.Failure?.Message);
@@ -569,6 +577,43 @@ public sealed class AiOperationWorkerTests : IDisposable
         Assert.Equal(0, _handler.Calls);
 
         Assert.Equal(AiFailureCategory.AccountSuspended, (await LoadAsync(operationId)).FailureCategory);
+        Assert.Empty(await PeriodsAsync());
+    }
+
+    /// <summary>
+    /// Asked for on the trial's last day and claimed after it ended (AP.7.1): the end applies to the work that runs,
+    /// not only to the work asked for, so the run fails terminally before any provider call and nothing is held.
+    /// </summary>
+    [Fact]
+    public async Task A_run_claimed_after_its_accounts_trial_ended_fails_before_the_handler()
+    {
+        var billing = _provider.GetRequiredService<IOptions<BillingOptions>>().Value;
+        billing.DefaultPlan = "trial";
+        billing.Plans.Add(new PlanOption
+        {
+            Key = "trial",
+            Name = "Trial",
+            Credits = 1000,
+            DailyImageCap = 5,
+            RunningImages = 1,
+            Period = PlanAllowancePeriod.Once,
+            QualityClasses = ["standard"],
+            TrialDays = 14,
+            TrialImageCap = 10,
+        });
+
+        // user-a was created at the fixture's start, so its trial ends fourteen days on.
+        _clock.Advance(TimeSpan.FromDays(14) - TimeSpan.FromMinutes(1));
+        var operationId = await RequestAsync(WorkspaceA, MembershipA, "key-1", AiTaskType.RecipeConcepts);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(1, (await RunPendingAsync()).Failed);
+        Assert.Equal(0, _handler.Calls);
+
+        var stored = await LoadAsync(operationId);
+        Assert.Equal(AiOperationStatus.Failed, stored.Status);
+        Assert.Equal(AiFailureCategory.Quota, stored.FailureCategory);
+        Assert.Empty(await ReservationsAsync());
         Assert.Empty(await PeriodsAsync());
     }
 

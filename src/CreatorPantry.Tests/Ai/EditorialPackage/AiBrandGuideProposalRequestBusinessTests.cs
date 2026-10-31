@@ -1,3 +1,4 @@
+using CreatorPantry.Domain.Modules.Billing;
 using System.Text.Json;
 using CreatorPantry.Domain.Modules.Ai;
 using CreatorPantry.Domain.Managers.Audit;
@@ -21,6 +22,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using CreatorPantry.Tests.Media;
 
 namespace CreatorPantry.Tests.Ai.EditorialPackage;
 
@@ -65,7 +67,8 @@ public sealed class AiBrandGuideProposalRequestBusinessTests : IAsyncDisposable
             .AddSingleton(_tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
-            .AddAiUsageModule()
+            .AddBillingModule()
+            .AddAiUsageModule(ImageQuotaTestSettings.For())
             .AddApplicationTime()
             .AddScoped<IAiOperationDataLayer, AiOperationDataLayer>()
             .AddScoped<IAiRequestQuotaGate, AiRequestQuotaGate>()

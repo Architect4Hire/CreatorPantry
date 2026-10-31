@@ -279,6 +279,25 @@ public enum AiEvaluationKind
     /// <see cref="LongFormSectionOutputValidationCase"/>.
     /// </remarks>
     LongFormSectionOutputValidation,
+
+    /// <summary>
+    /// <see cref="CreatorPantry.Domain.Modules.Ai.Managers.AiImagePromptCompactionOutputValidator.Validate"/>
+    /// directly, for AP.3.2's shorter prompt and the budget its request was given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="ImagePromptOutputValidation"/> because the shape is different on purpose: a shorter
+    /// prompt carries no avoid list — the creator's travels beside it, word for word, and an answer that brings one
+    /// is refused — and its ceiling is the request's budget rather than a fixed length.
+    /// </para>
+    /// <para>
+    /// What a fixture here can show: the budget as a hard ceiling, the left-out list's bounds, the refusal of an
+    /// avoid list in the answer, and IMG-002's own claim, link and rendering-directive bans. What it cannot show is
+    /// whether the shorter prompt describes the same picture or lists everything it dropped; the live check
+    /// measures that.
+    /// </para>
+    /// </remarks>
+    ImagePromptCompactionOutputValidation,
 }
 
 /// <summary>

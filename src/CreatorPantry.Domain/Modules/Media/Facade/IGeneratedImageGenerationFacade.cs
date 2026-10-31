@@ -1,4 +1,6 @@
+using System.Globalization;
 using CreatorPantry.Domain.Managers.Idempotency;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Persistence;
 using CreatorPantry.Domain.Managers.Results;
 using CreatorPantry.Domain.Modules.Ai.Facade;
@@ -7,6 +9,7 @@ using CreatorPantry.Domain.Modules.Media.Business;
 using CreatorPantry.Domain.Modules.Media.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Facade;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
+using CreatorPantry.Domain.Modules.AiUsage.Managers;
 
 namespace CreatorPantry.Domain.Modules.Media.Facade;
 
@@ -52,6 +55,14 @@ public interface IGeneratedImageGenerationFacade
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Ends a generation whose last lease lapsed, under the lease the maintenance sweep took for it: the
+    /// pictures its passes made are charged and the rest of its hold is released (DL.7). The Worker only,
+    /// checked as <see cref="ExecuteAsync"/> is.
+    /// </summary>
+    Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken);
+
+    /// <summary>
     /// One operation of the resolved workspace, with the images it has produced so far.
     /// </summary>
     /// <remarks>
@@ -67,6 +78,54 @@ public interface IGeneratedImageGenerationFacade
     /// </remarks>
     Task<OperationResult<GeneratedImageOperationDetailServiceModel>> GetOperationAsync(
         Guid operationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// What asking for <paramref name="variants"/> pictures would cost the caller and leave them, before they
+    /// ask (PRICE-004, AP.2.6). Read-only: nothing is held or written.
+    /// </summary>
+    /// <remarks>
+    /// Contributor, the same as the request it prices: a Viewer cannot ask for pictures, so has no price to see.
+    /// The count is checked as the request checks it, so a quote can never be for a request that would be refused
+    /// as invalid.
+    /// </remarks>
+    /// <param name="variants">How many pictures to price.</param>
+    /// <param name="qualityClass">The class to price; null for the host's default (AP.3.1).</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
+        int? variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The quality classes a creator may ask for here, each with what one picture of it costs (AP.3.1, B-55).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Contributor, like the quote and the request: the list exists to choose between, and a Viewer cannot ask.
+    /// Read-only — a price list, not the asker's balance.
+    /// </para>
+    /// <para>
+    /// <strong>The prices are the same for every member; which classes are allowed is not</strong> (AP.4.3). Each
+    /// class says whether the asking account's plan allows it and, when it does not, the cheapest plan that
+    /// would — a plan belongs to the account rather than the workspace (B-47), so this is no longer one answer
+    /// per workspace.
+    /// </para>
+    /// </remarks>
+    Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How a prompt and its avoid list measure against the model a quality class sends to (AP.3.2) — the same
+    /// measure a request for pictures is refused on. Reads configuration only.
+    /// </summary>
+    /// <remarks>
+    /// Contributor, like the request it measures. Null as a success when there is nothing to measure against:
+    /// no image deployment, or one that will not say its limit. A class this host does not offer is the
+    /// request's own refusal.
+    /// </remarks>
+    /// <param name="promptText">The prompt, as it would be sent.</param>
+    /// <param name="avoidText">The avoid list, as it would be sent, or null for none.</param>
+    /// <param name="qualityClass">The class to measure against; null for the host's default.</param>
+    OperationResult<GeneratedImagePromptFitServiceModel?> MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass);
 }
 
 /// <inheritdoc cref="IGeneratedImageGenerationFacade"/>
@@ -90,6 +149,280 @@ internal sealed class GeneratedImageGenerationFacade(
                 "That image request could not be found in this workspace.",
                 new Dictionary<string, string[]>()))
             : OperationResult<GeneratedImageOperationDetailServiceModel>.Success(detail);
+    }
+
+    /// <summary>
+    /// The refusal an unaffordable generation is answered with (AP.2.5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The shipped quota codes, not Media's own: an exhausted allowance is one fact however the account tried
+    /// to spend it, and a second pair of codes would make a client learn two ways to read "the month is spent".
+    /// <c>ProblemResults</c> already maps them to 429 and 403 with a <c>Retry-After</c>.
+    /// </para>
+    /// <para>
+    /// <strong>Unrated reads as exhausted-shaped but is not.</strong> A deployment with no rate for the
+    /// picture it would make cannot price the request, which is this host's misconfiguration rather than the
+    /// creator's balance — startup refuses such a host, so reaching it means a model nothing profiled. It is
+    /// answered as a provider problem, with no figures, because quoting an allowance would tell a creator to
+    /// wait for a reset that will not help.
+    /// </para>
+    /// </remarks>
+    private static OperationError QuotaRefusal(AiQuotaAdmissionServiceModel refusal) => refusal.Outcome switch
+    {
+        AiQuotaAdmissionOutcome.Suspended => new OperationError(
+            AiQuotaErrors.Suspended,
+            "AI assistance is switched off for your account.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?> { ["unit"] = refusal.Unit.ToString() }),
+
+        AiQuotaAdmissionOutcome.Unrated => new OperationError(
+            MediaErrorCodes.GenerationUnpriceable,
+            "Images cannot be generated on this host right now.",
+            new Dictionary<string, string[]>()),
+
+        // The platform's daily image spend breaker (AP.2.7). Deliberately no extensions at all: no unit, no
+        // remaining figure, no reset. The account may have plenty left, and every figure behind this answer is
+        // other people's usage. The request the creator filled in is untouched; nothing was written.
+        AiQuotaAdmissionOutcome.PlatformCeiling => new OperationError(
+            AiQuotaErrors.CapacityUnavailable,
+            "Pictures can't be made right now. Please try again later.",
+            new Dictionary<string, string[]>()),
+
+        // The plan's daily picture cap (AP.4.2): the account's own day across every workspace, said as every other
+        // daily limit is — a 429 with the cap and the reset, and no balance, which is not why.
+        AiQuotaAdmissionOutcome.DailyImageCap => DailyCapRefusal(refusal),
+
+        // The trial is over (AP.7.1): no balance and no reset, because a plan is the remedy, not waiting.
+        AiQuotaAdmissionOutcome.TrialEnded => new OperationError(
+            AiQuotaErrors.TrialEnded,
+            "Your free trial has ended. Choose a plan to keep using AI assistance.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                ["unit"] = refusal.Unit.ToString(),
+                ["trialEndedAt"] = refusal.TrialEndsAt,
+            }),
+
+        // The trial's pictures are spent (AP.7.1, B-52). The trial and its writing go on; only pictures stop, for
+        // the rest of the trial, so the cap and the trial's end are the figures — never a reset that will not come.
+        AiQuotaAdmissionOutcome.TrialImageCap => new OperationError(
+            AiQuotaErrors.TrialImagesSpent,
+            $"Your free trial includes {refusal.TrialImageCap} pictures, and this would go past them. "
+                + "Choose a plan to make more pictures.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                ["trialImageCap"] = refusal.TrialImageCap,
+                ["trialEndsAt"] = refusal.TrialEndsAt,
+            }),
+
+        // Exhausted, and Busy with it: a period too contended to admit against is not a statement about the
+        // balance, but a creator cannot act on "try again, we could not read your allowance" any differently.
+        _ => new OperationError(
+            AiQuotaErrors.Exhausted,
+            "Your AI allowance for this period and your pack credits don't cover this. Your allowance comes back when the period resets.",
+            new Dictionary<string, string[]>(),
+            new Dictionary<string, object?>
+            {
+                // The allowance and the pack balance apart, because only the allowance resets (AP.5.2).
+                ["unit"] = refusal.Unit.ToString(),
+                ["remaining"] = refusal.Remaining,
+                ["packRemaining"] = refusal.PackRemaining,
+                ["required"] = refusal.Required,
+                ["resetsAt"] = refusal.PeriodEndsAt,
+            }),
+    };
+
+    private static OperationError DailyCapRefusal(AiQuotaAdmissionServiceModel refusal)
+    {
+        LimitsTelemetry.Refused(LimitedOperation.ImageGeneration, "budget", LimitScope.User);
+
+        // Both are set on every refusal of this kind; admission is the only thing that makes one.
+        return LimitRefusal.Budget(
+            LimitedOperation.ImageGeneration,
+            refusal.DailyImageCap!.Value,
+            refusal.DailyImageCapResetsAt!.Value,
+            LimitScope.User);
+    }
+
+    public async Task<OperationResult<GeneratedImageQualityClassesServiceModel>> ListQualityClassesAsync(
+        CancellationToken cancellationToken)
+    {
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImageQualityClassesServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        return OperationResult<GeneratedImageQualityClassesServiceModel>.Success(
+            await business.ListQualityClassesAsync(cancellationToken));
+    }
+
+    /// <summary>
+    /// Whether a replayed key asked for the same quality as the request that took it (AP.3.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>A retry that names no class is the request it retries, whatever class that was made at.</strong>
+    /// A lost answer is retried with the body it was sent with, and the default it resolved to may have changed
+    /// in between; refusing it then would strand a creator on a key that can never succeed. What a key must not
+    /// do is buy a different class by naming one, so a retry that names a class is compared with the class
+    /// stored — which makes naming the default the same request as naming none, while the default stands.
+    /// </para>
+    /// <para>
+    /// An operation with no class was made where no class applied — before this column existed, or on a host
+    /// offering none — and only a retry that names none is that request.
+    /// </para>
+    /// </remarks>
+    private static bool SameQuality(
+        GeneratedImageQualityClass? stored, GeneratedImageQualityClass? requested, GeneratedImageQualityClass? chosen) =>
+        requested is null || (stored is not null && stored == chosen);
+
+    /// <summary>
+    /// The refusal for a class this host does not offer, naming the field, in the same words for a quote and a
+    /// request so a client reads one case.
+    /// </summary>
+    private static OperationError QualityClassNotOffered(string message) =>
+        OperationError.Validation(
+            MediaErrorCodes.GenerationQualityClassUnprocessable,
+            message,
+            [("qualityClass", "That picture quality is not offered here.")]);
+
+    /// <summary>
+    /// The refusal for a class this host offers that the account's plan does not allow (AP.4.3), naming the plan
+    /// that would allow it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The sentence carries the plan rather than a generic "the images could not be requested", because this is an
+    /// entitlement refusal of the family <c>ai.quota.suspended</c> belongs to: there is one fact to state and it
+    /// is the whole remedy. The field error names <c>qualityClass</c> as well, for a client that places a problem
+    /// on the control it came from.
+    /// </para>
+    /// <para>
+    /// The class is named in an extension and not in the sentence, as the prompt-fit refusals name no class
+    /// either: the words a creator reads for <c>High2K</c> are the picker's ("High, 2K"), and a second
+    /// vocabulary on the server would be one to drift.
+    /// </para>
+    /// </remarks>
+    private static OperationError QualityClassNotOnPlan(GeneratedImageQualityPlanRefusal refusal)
+    {
+        var sentence = refusal.RequiresPlanName is { } plan
+            ? $"That picture quality is not on your plan. The {plan} plan includes it."
+            : "That picture quality is not on your plan.";
+
+        return new OperationError(
+            MediaErrorCodes.GenerationQualityClassForbidden,
+            sentence,
+            new Dictionary<string, string[]> { ["qualityClass"] = ["That picture quality is not on your plan."] },
+            new Dictionary<string, object?>
+            {
+                ["qualityClass"] = refusal.QualityClass.ToString(),
+                ["requiresPlan"] = refusal.RequiresPlanKey,
+                ["requiresPlanName"] = refusal.RequiresPlanName,
+            });
+    }
+
+    /// <summary>
+    /// The refusal for a prompt the chosen class's model cannot take, naming the part that has to change and
+    /// carrying the figures a client acts on (AP.3.2).
+    /// </summary>
+    private static OperationError PromptDoesNotFit(GeneratedImagePromptFitServiceModel fit, string message)
+    {
+        var refusal = fit.Outcome is GeneratedImagePromptFitOutcome.AvoidTooLong
+            ? OperationError.Validation(
+                MediaErrorCodes.GenerationAvoidUnprocessable,
+                message,
+                [("avoidText", string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Pictures at this quality take {0:N0} characters, and the avoid list alone leaves room for "
+                        + "fewer than {1} characters of prompt. Shorten the avoid list.",
+                    fit.Limit,
+                    MediaPolicy.ShortestPromptBudget))])
+            : OperationError.Validation(
+                MediaErrorCodes.GenerationPromptUnprocessable,
+                message,
+                [("promptText", string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Pictures at this quality take {0:N0} characters, and this prompt with its avoid list is "
+                        + "{1:N0}. Keep the prompt to {2:N0} characters, or ask for a shorter version of it.",
+                    fit.Limit,
+                    fit.Length,
+                    fit.PromptBudget))]);
+
+        return refusal with
+        {
+            Extensions = new Dictionary<string, object?>
+            {
+                ["characterLimit"] = fit.Limit,
+                ["characterCount"] = fit.Length,
+                ["promptBudget"] = fit.PromptBudget,
+            },
+        };
+    }
+
+    public OperationResult<GeneratedImagePromptFitServiceModel?> MeasurePrompt(
+        string promptText, string? avoidText, GeneratedImageQualityClass? qualityClass)
+    {
+        ArgumentNullException.ThrowIfNull(promptText);
+
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImagePromptFitServiceModel?>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (!business.TryChooseQualityClass(qualityClass, out var chosen))
+        {
+            return OperationResult<GeneratedImagePromptFitServiceModel?>.Failure(
+                QualityClassNotOffered("The prompt could not be measured."));
+        }
+
+        return OperationResult<GeneratedImagePromptFitServiceModel?>.Success(business.MeasurePrompt(
+            promptText.Trim(),
+            string.IsNullOrWhiteSpace(avoidText) ? null : avoidText.Trim(),
+            chosen));
+    }
+
+    public async Task<OperationResult<GeneratedImageQuoteServiceModel>> QuoteAsync(
+        int? variants, GeneratedImageQualityClass? qualityClass, CancellationToken cancellationToken)
+    {
+        if (workspace.Role < WorkspaceRole.Contributor)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(new OperationError(
+                MediaErrorCodes.GenerationForbidden,
+                "You do not have permission to generate images in this workspace.",
+                new Dictionary<string, string[]>()));
+        }
+
+        if (variants is not { } count || count < 1 || count > MediaPolicy.MaxVariantsPerOperation)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(OperationError.Validation(
+                MediaErrorCodes.GenerationInvalidRequest,
+                "The images could not be priced.",
+                [("variants", $"Ask about between 1 and {MediaPolicy.MaxVariantsPerOperation} images.")]));
+        }
+
+        if (!business.TryChooseQualityClass(qualityClass, out var chosen))
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(
+                QualityClassNotOffered("The images could not be priced."));
+        }
+
+        // Priced only if it could be asked for (AP.4.3). A quote for a class the plan locks would be a figure for
+        // a request that is refused, and the quote exists so that cannot happen.
+        if (await business.RefuseIfPlanDisallowsAsync(chosen, cancellationToken) is { } locked)
+        {
+            return OperationResult<GeneratedImageQuoteServiceModel>.Failure(QualityClassNotOnPlan(locked));
+        }
+
+        return OperationResult<GeneratedImageQuoteServiceModel>.Success(
+            await business.QuoteAsync(count, chosen, cancellationToken));
     }
 
     public async Task<OperationResult<GeneratedImageOperationServiceModel>> RequestAsync(
@@ -116,8 +449,45 @@ internal sealed class GeneratedImageGenerationFacade(
                 MediaErrorCodes.GenerationInvalidRequest, "The images could not be requested.", failures));
         }
 
+        // The class, decided before anything else about the request is looked up: a request at a quality this
+        // host cannot make is refused in words, and nothing is held or queued for it (AP.3.1). A replayed key is
+        // the exception, because a replay is never refused: its answer is the operation it already bought, even
+        // when the class it was bought at has since been taken off this host — and comparing that operation with
+        // what is asked now is the key check's job below, not this one's.
+        if (!business.TryChooseQualityClass(request.QualityClass, out var qualityClass))
+        {
+            if (!await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+            {
+                return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                    QualityClassNotOffered("The images could not be requested."));
+            }
+
+            qualityClass = request.QualityClass;
+        }
+
+        // And a quality the account's plan allows (PRICE-007, AP.4.3). Asked straight after "does this host offer
+        // it", because it is the same kind of fact about the class and the cheapest one to state: nothing is read
+        // about the prompt, the proposal or the workspace's own limits before it. A replayed key is the exception
+        // again — a replay is never refused, so a plan that has since been downgraded still answers the operation
+        // the creator already paid for.
+        if (await business.RefuseIfPlanDisallowsAsync(qualityClass, cancellationToken) is { } locked
+            && !await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(QualityClassNotOnPlan(locked));
+        }
+
         var promptText = request.PromptText.Trim();
         var avoidText = string.IsNullOrWhiteSpace(request.AvoidText) ? null : request.AvoidText.Trim();
+
+        // What would be sent has to fit the model the class sends to (AP.3.2). The generator refuses an over-long
+        // prompt rather than cutting it, but only in the worker, after the pictures were held for — so the same
+        // measure is asked here, before anything is held or queued. A replay is still never refused.
+        if (business.MeasurePrompt(promptText, avoidText, qualityClass) is { Fits: false } fit
+            && !await business.IsReplayAsync(request.IdempotencyKey.Trim(), cancellationToken))
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                PromptDoesNotFit(fit, "The images could not be requested."));
+        }
 
         // The proposal the prompt came from, when one is named, has to be one of this workspace's (12.10l).
         // The composite key on the operation already refuses anything else, but as an exception nobody reads:
@@ -179,12 +549,22 @@ internal sealed class GeneratedImageGenerationFacade(
             workspace.MembershipId,
             request.IdempotencyKey.Trim(),
             subject,
+            qualityClass,
             cancellationToken);
 
+        // The account could not pay for the pictures (PRICE-001, USAGE-006/007). Nothing was written and
+        // nothing is queued, and the refusal carries this account's own figures and names no workspace —
+        // the same problem family a completion is refused with, because it is the same allowance.
+        if (result.Operation is null)
+        {
+            return OperationResult<GeneratedImageOperationServiceModel>.Failure(
+                QuotaRefusal(result.Refusal!));
+        }
+
         // A key names one request. Found again with anything about the request different — the words, the
-        // number of images, the proposal, or who is asking — it is a second request wearing the first one's
-        // key, and answering it with the first one's operation would hand back images of something else
-        // (12.10l). Refused as every other idempotent command refuses it, and nothing is queued.
+        // number of images, the quality, the proposal, or who is asking — it is a second request wearing the
+        // first one's key, and answering it with the first one's operation would hand back images of something
+        // else (12.10l). Refused as every other idempotent command refuses it, and nothing is queued.
         if (result.Replayed
             && !(string.Equals(result.Operation.PromptText, promptText, StringComparison.Ordinal)
                 && string.Equals(result.Operation.AvoidText, avoidText, StringComparison.Ordinal)
@@ -193,6 +573,7 @@ internal sealed class GeneratedImageGenerationFacade(
                 && result.Operation.RecipeVersionId == subject.RecipeVersionId
                 && result.Operation.CreativeContextId == subject.CreativeContextId
                 && result.Operation.VariantCount == request.VariantCount
+                && SameQuality(result.Operation.QualityClass, request.QualityClass, qualityClass)
                 && result.Operation.RequestedByMembershipId == workspace.MembershipId))
         {
             return OperationResult<GeneratedImageOperationServiceModel>.Failure(new OperationError(
@@ -221,12 +602,19 @@ internal sealed class GeneratedImageGenerationFacade(
                 result.Operation.CompletedAt,
                 result.Operation.RecipeId,
                 result.Operation.RecipeVersionId,
-                result.Operation.CreativeContextId));
+                result.Operation.CreativeContextId,
+                result.Operation.QualityClass));
     }
 
     public Task<GeneratedImageRunOutcome> ExecuteAsync(
         Guid operationId, Guid leaseToken, CancellationToken cancellationToken) =>
         workspace.MembershipId == WorkspaceServiceIdentity.MembershipId
             ? business.ExecuteAsync(operationId, leaseToken, cancellationToken)
+            : Task.FromResult(GeneratedImageRunOutcome.Skipped);
+
+    public Task<GeneratedImageRunOutcome> SettleAbandonedAsync(
+        Guid operationId, Guid leaseToken, CancellationToken cancellationToken) =>
+        workspace.MembershipId == WorkspaceServiceIdentity.MembershipId
+            ? business.SettleAbandonedAsync(operationId, leaseToken, cancellationToken)
             : Task.FromResult(GeneratedImageRunOutcome.Skipped);
 }

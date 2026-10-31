@@ -1,0 +1,57 @@
+{
+  "id": "sub_1MowQVLkdIwHu7ixeRlqHVzs",
+  "object": "subscription",
+  "application": null,
+  "billing_cycle_anchor": 2104761600,
+  "cancel_at": null,
+  "cancel_at_period_end": false,
+  "canceled_at": null,
+  "collection_method": "charge_automatically",
+  "created": 2104761600,
+  "currency": "usd",
+  "customer": "cus_NffrFeUfNV2Hib",
+  "ended_at": null,
+  "items": {
+    "object": "list",
+    "data": [
+      {
+        "id": "si_Na6dzxczY5fwHx",
+        "object": "subscription_item",
+        "created": 2104761601,
+        "current_period_end": 2107440000,
+        "current_period_start": 2104761600,
+        "metadata": {},
+        "price": {
+          "id": "price_creator_monthly",
+          "object": "price",
+          "active": true,
+          "currency": "usd",
+          "livemode": false,
+          "product": "prod_NWjs8kKbJWmuuc",
+          "recurring": { "interval": "month", "interval_count": 1, "usage_type": "licensed" },
+          "type": "recurring",
+          "unit_amount": 1200
+        },
+        "quantity": 1,
+        "subscription": "sub_1MowQVLkdIwHu7ixeRlqHVzs"
+      }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/subscription_items?subscription=sub_1MowQVLkdIwHu7ixeRlqHVzs"
+  },
+  "latest_invoice": { "id": "in_1MowQWLkdIwHu7ixuzkSPfKd", "object": "invoice", "amount_due": 1200, "status": "paid" },
+  "livemode": false,
+  "metadata": {
+    "creatorpantry_account_id": "user-sam-8f2e",
+    "creatorpantry_purchase": "subscription",
+    "creatorpantry_plan_key": "creator",
+    "creatorpantry_billing_cycle": "monthly"
+  },
+  "pending_update": null,
+  "schedule": null,
+  "start_date": 2104761600,
+  "status": "active",
+  "trial_end": null,
+  "trial_start": null
+}

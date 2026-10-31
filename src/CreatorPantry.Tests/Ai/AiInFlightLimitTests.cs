@@ -7,6 +7,7 @@ using CreatorPantry.Domain.Modules.Ai.Business;
 using CreatorPantry.Domain.Modules.Ai.Data;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage;
+using CreatorPantry.Domain.Modules.Billing;
 using CreatorPantry.Domain.Modules.Tenancy;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -49,6 +50,7 @@ public sealed class AiInFlightLimitTests : IAsyncDisposable
             .AddSingleton(tasks)
             .AddAiTaskGate()
             .AddScoped<IAiOperationRepository, AiOperationRepository>()
+            .AddBillingModule()
             .AddAiUsageModule()
             .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextFacade, NoCreativeContexts>()
             .AddScoped<CreatorPantry.Domain.Modules.Content.Facade.ICreativeContextPackageFacade, NoCreativeContexts>()

@@ -35,7 +35,7 @@ namespace CreatorPantry.Tests.Media;
 /// timer — the API host has no queue driver, by design, so a request can never generate inside itself.
 /// </para>
 /// </remarks>
-public sealed class CreativePipelineEndToEndTests : IAsyncLifetime
+public sealed partial class CreativePipelineEndToEndTests : IAsyncLifetime
 {
     private readonly InMemoryPrivateObjectStore _store = new();
     private readonly FakeImageGenerator _generator = new();

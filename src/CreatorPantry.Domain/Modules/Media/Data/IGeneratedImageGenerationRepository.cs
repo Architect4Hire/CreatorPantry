@@ -59,6 +59,17 @@ public interface IGeneratedImageGenerationRepository
     /// </remarks>
     void Forget(GeneratedImage image);
 
+    /// <summary>
+    /// Forgets an operation whose insert failed, so a later save on this context does not attempt it again.
+    /// </summary>
+    /// <remarks>
+    /// The request path needs it for the same reason the staging path does, and with money on it: after a
+    /// failed insert the operation is still pending, so the very next save — the one releasing the allowance
+    /// hold that operation would have spent — would re-send the doomed insert, fail again, and leave the hold
+    /// standing. Detaching it is what lets the compensation through.
+    /// </remarks>
+    void Forget(GeneratedImageOperation operation);
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
 
@@ -127,6 +138,9 @@ internal sealed class GeneratedImageGenerationRepository(CreatorPantryDbContext 
     public void Add(GeneratedImage image) => context.GeneratedImages.Add(image);
 
     public void Forget(GeneratedImage image) => context.Entry(image).State = EntityState.Detached;
+
+    public void Forget(GeneratedImageOperation operation) =>
+        context.Entry(operation).State = EntityState.Detached;
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
         context.SaveChangesAsync(cancellationToken);

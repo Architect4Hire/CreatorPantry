@@ -1,8 +1,15 @@
+using System.Diagnostics;
+using System.Globalization;
+using CreatorPantry.Domain.Managers.Ai;
+using CreatorPantry.Domain.Managers.Audit;
+using CreatorPantry.Domain.Managers.Limits;
 using CreatorPantry.Domain.Managers.Time;
 using CreatorPantry.Domain.Modules.Ai.Managers;
 using CreatorPantry.Domain.Modules.AiUsage.Data;
 using CreatorPantry.Domain.Modules.AiUsage.Data.Entities;
 using CreatorPantry.Domain.Modules.AiUsage.Managers;
+using CreatorPantry.Domain.Modules.Billing.Facade;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace CreatorPantry.Domain.Modules.AiUsage.Business;
@@ -23,6 +30,37 @@ internal interface IAiQuotaAdmissionBusiness
     Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken);
 
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.QuoteImageAsync"/>
+    Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ImageCredits"/>
+    decimal? ImageCredits(string modelName, string? resolution, string? quality);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.AdmitImageAsync"/>
+    Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Settles an image generation's hold from what it was billed for, and gives back the account it is
+    /// charged to; null when the hold was already settled (AP.2.5). Stages; does not save.
+    /// </summary>
+    Task<string?> StageImageSettlementAsync(
+        AiImageUsageServiceModel usage, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.CheckImageHoldAsync"/>
+    Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken);
+
+    /// <inheritdoc cref="Facade.IAiQuotaAdmissionFacade.ReleaseImageAsync"/>
+    Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken);
+
     Task StageSettlementAsync(
         Guid reservationId,
         IReadOnlyCollection<AiUsageAttemptServiceModel> attempts,
@@ -38,11 +76,23 @@ internal interface IAiQuotaAdmissionBusiness
 /// <inheritdoc cref="IAiQuotaAdmissionBusiness"/>
 internal sealed class AiQuotaAdmissionBusiness(
     IAiQuotaDataLayer dataLayer,
+    IPlatformImageSpendDataLayer platformSpend,
     IAiQuotaPeriodResolver periods,
+    IAccountCreditSpendFacade credits,
     IClock clock,
-    IOptions<AiQuotaOptions> options) : IAiQuotaAdmissionBusiness
+    IOptions<AiQuotaOptions> options,
+    IOptions<AiImageListPriceOptions> listPrices,
+    ILogger<AiQuotaAdmissionBusiness> logger) : IAiQuotaAdmissionBusiness
 {
+    /// <summary>The alerting event for a tripped breaker: one a day, raised by the refusal that tripped it.</summary>
+    private static readonly EventId BreakerTripped = new(9701, "PlatformImageSpendCeilingTripped");
+
+    /// <summary>A notice that could not be written down. Not an error: the next admission tries again.</summary>
+    private static readonly EventId NoticeNotRecorded = new(9702, "AiLowCreditNoticeNotRecorded");
+
     private readonly AiQuotaOptions _options = options.Value;
+
+    private readonly AiImageListPriceOptions _listPrices = listPrices.Value;
 
     public async Task<AiQuotaAdmissionServiceModel> AdmitAsync(
         AiQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
@@ -95,6 +145,11 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaAdmissionOutcome.Suspended, null, 0m, 0m, terms.Unit, null);
         }
 
+        if (TrialEnded(terms, now) is { } ended)
+        {
+            return ended;
+        }
+
         var period = await periods.OpenAsync(request.AccountId, terms, now, cancellationToken);
 
         var perAttempt = AiQuotaUnitConverter.Estimate(period.Unit, EstimateFor(request.TaskType), _options);
@@ -103,45 +158,60 @@ internal sealed class AiQuotaAdmissionBusiness(
         var (outcome, reservation, written) = await dataLayer.ReserveAsync(
             request.AccountId,
             now,
-            current => Covers(current, hold)
-                ? new AccountAiQuotaReservation
-                {
-                    Id = Guid.NewGuid(),
-                    AccountId = request.AccountId,
-                    PeriodId = current.Id,
-                    AiOperationId = request.AiOperationId,
-                    LeaseToken = request.LeaseToken,
-                    TaskType = request.TaskType,
-                    Unit = current.Unit,
-                    ReservedAmount = hold,
-                    PerAttemptEstimate = AiQuotaUnitConverter.Round(perAttempt),
-                    Status = AiQuotaReservationStatus.Held,
-                    HeldAt = now,
-                    ExpiresAt = request.ExpiresAt,
-                }
-                : null,
+            async (current, _, token) =>
+            {
+                var id = Guid.NewGuid();
+
+                return await SplitAsync(current, request.AccountId, id, hold, now, token) is { } fromAllowance
+                    ? new AccountAiQuotaReservation
+                    {
+                        Id = id,
+                        AccountId = request.AccountId,
+                        PeriodId = current.Id,
+                        AiOperationId = request.AiOperationId,
+                        LeaseToken = request.LeaseToken,
+                        TaskType = request.TaskType,
+                        Unit = current.Unit,
+                        ReservedAmount = hold,
+                        ReservedFromAllowance = fromAllowance,
+                        PerAttemptEstimate = AiQuotaUnitConverter.Round(perAttempt),
+                        Status = AiQuotaReservationStatus.Held,
+                        HeldAt = now,
+                        ExpiresAt = request.ExpiresAt,
+                    }
+                    : null;
+            },
+            platform: null,
+            images: null,
             cancellationToken);
 
         // The period as the write left it, which after a retry is not the instance resolved above.
         var settled = written ?? period;
 
-        return outcome switch
+        if (outcome is AiQuotaWriteOutcome.Applied)
         {
-            AiQuotaWriteOutcome.Applied => new AiQuotaAdmissionServiceModel(
+            var admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+
+            await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+
+            return new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Admitted,
                 reservation!.Id,
                 hold,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt),
+                settled.EndsAt) { PackRemaining = admittedPacks };
+        }
 
+        return outcome switch
+        {
             AiQuotaWriteOutcome.Refused => new AiQuotaAdmissionServiceModel(
                 AiQuotaAdmissionOutcome.Exhausted,
                 null,
                 0m,
                 Remaining(settled),
                 settled.Unit,
-                settled.EndsAt),
+                settled.EndsAt) { PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken) },
 
             // Contended, or a period that vanished between two reads, which nothing does. Neither is a
             // statement about the account's balance, so neither refuses the run: the caller requeues.
@@ -164,6 +234,132 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// against a balance — not even an overspent one, where every other task is refused.
     /// </para>
     /// </remarks>
+    public async Task<AiImageQuoteServiceModel> QuoteImageAsync(
+        string accountId,
+        string modelName,
+        string? resolution,
+        string? quality,
+        int variantCount,
+        CancellationToken cancellationToken,
+        int? dailyImageCap = null,
+        int? trialImageCap = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(variantCount);
+
+        var now = clock.UtcNow;
+        var terms = await periods.ResolveTermsAsync(accountId, cancellationToken);
+
+        if (terms.IsSuspended)
+        {
+            // No balance and no reset, for the reason PeekAsync gives: a suspension has nothing to wait for.
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.Suspended, terms.Unit, variantCount, null, null, 0m, 0m, null, 0, false, null, null);
+        }
+
+        if (terms.Plan?.TrialHasEnded(now) == true)
+        {
+            // Nothing can be spent, pack credits included (AP.7.1), so no figure would mean anything.
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.TrialEnded, terms.Unit, variantCount, null, null, 0m, 0m, null, 0, false, null, null);
+        }
+
+        // Projected, never opened: a quote is a GET, and asking a price must not spend a row (AiUsageReadBusiness).
+        var period = await periods.ProjectAsync(accountId, terms, now, cancellationToken);
+        var spendable = Spendable(period);
+        var remaining = Remaining(period);
+
+        // The same price admission takes, from the same converter on the same inputs, so the figure a creator
+        // is shown is the hold their request is then admitted against — never an approximation of it.
+        var perImage = AiImageQuotaConverter.Charge(period.Unit, modelName, resolution, quality, _options);
+
+        if (perImage is not > 0m)
+        {
+            return new AiImageQuoteServiceModel(
+                AiImageQuoteOutcome.Unpriced, period.Unit, variantCount, null, null, spendable, remaining,
+                null, 0, false, period.EndsAt, period.TimeZoneId);
+        }
+
+        var total = AiQuotaUnitConverter.Round(perImage.Value * variantCount);
+        var packs = await PackBalanceAsync(accountId, period.Unit, cancellationToken);
+        var affordable = AiQuotaSourceSplit.Covers(total, remaining, packs);
+
+        // The picture caps admission judges before the balance (AP.7.2): the trial's in all, then the day's, counted
+        // as admission counts them. How many either still allows bounds what fits, and the first that the request
+        // would pass is the answer — in admission's order, so the quote and the refusal name the same line.
+        var pictures = dailyImageCap is null && trialImageCap is null
+            ? AccountImageCounts.None
+            : await dataLayer.CountImagesAsync(
+                accountId,
+                new AccountImageWindows(LimitDay.StartOf(now), InAll: trialImageCap is not null),
+                cancellationToken);
+
+        int? trialLeft = trialImageCap is { } trialCap ? Math.Max(0, trialCap - pictures.InAll) : null;
+        int? dayLeft = dailyImageCap is { } dayCap ? Math.Max(0, dayCap - pictures.Today) : null;
+
+        // Counted down with admission's own predicate and rounding rather than divided, so "enough for two"
+        // is a request for two that admission would then accept.
+        var fits = Math.Min(variantCount, Math.Min(trialLeft ?? int.MaxValue, dayLeft ?? int.MaxValue));
+
+        while (fits > 0
+            && !AiQuotaSourceSplit.Covers(AiQuotaUnitConverter.Round(perImage.Value * fits), remaining, packs))
+        {
+            fits--;
+        }
+
+        var capped = trialLeft < variantCount ? AiImageQuoteOutcome.TrialImageCap
+            : dayLeft < variantCount ? AiImageQuoteOutcome.DailyImageCap
+            : (AiImageQuoteOutcome?)null;
+
+        // Split as admission would split it: the allowance first, then the pack balance (AP.5.2), so each source
+        // says what it would have left and neither is read as the other. Nothing is left "after" a request a cap
+        // refuses, so neither figure is given for one.
+        var goes = affordable && capped is null;
+        var (fromAllowance, fromGrants) = AiQuotaSourceSplit.Hold(total, remaining);
+        decimal? after = goes ? remaining - fromAllowance : null;
+        decimal? packAfter = goes ? packs - fromGrants : null;
+
+        return new AiImageQuoteServiceModel(
+            capped ?? (affordable ? AiImageQuoteOutcome.Affordable : AiImageQuoteOutcome.Exhausted),
+            period.Unit,
+            variantCount,
+            AiQuotaUnitConverter.Round(perImage.Value),
+            total,
+            spendable,
+            remaining,
+            after,
+            fits,
+            after is { } left
+                && AiQuotaPeriodCalculator.IsNearlySpent(spendable, left, _options.NearlySpentFraction),
+            period.EndsAt,
+            period.TimeZoneId)
+        {
+            PackRemaining = packs,
+            PackRemainingAfter = packAfter,
+            PictureCap = capped switch
+            {
+                AiImageQuoteOutcome.TrialImageCap => trialImageCap,
+                AiImageQuoteOutcome.DailyImageCap => dailyImageCap,
+                _ => null,
+            },
+            PicturesLeft = capped switch
+            {
+                AiImageQuoteOutcome.TrialImageCap => trialLeft,
+                AiImageQuoteOutcome.DailyImageCap => dayLeft,
+                _ => null,
+            },
+            PictureCapResetsAt = capped is AiImageQuoteOutcome.DailyImageCap ? LimitDay.NextAfter(now) : null,
+        };
+    }
+
+    /// <remarks>
+    /// Rounded as a hold is, so the per-picture figure a picker shows is the one a quote for one picture shows.
+    /// </remarks>
+    public decimal? ImageCredits(string modelName, string? resolution, string? quality) =>
+        AiImageQuotaConverter.Charge(AiQuotaUnit.Credits, modelName, resolution, quality, _options) is > 0m and var credits
+            ? AiQuotaUnitConverter.Round(credits)
+            : null;
+
     public async Task<AiQuotaStateServiceModel> PeekAsync(
         string accountId, AiTaskType taskType, bool isMeterable, CancellationToken cancellationToken)
     {
@@ -180,6 +376,13 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaStateOutcome.Suspended, terms.Unit, 0m, 0m, 0m, null);
         }
 
+        if (terms.Plan is { TrialEndsAt: { } trialEndedAt } plan && plan.TrialHasEnded(now))
+        {
+            // No balance and no reset, as for a suspension: the remedy is a plan, not waiting.
+            return new AiQuotaStateServiceModel(
+                AiQuotaStateOutcome.TrialEnded, terms.Unit, 0m, 0m, 0m, null) { TrialEndedAt = trialEndedAt };
+        }
+
         var period = await periods.ProjectAsync(accountId, terms, now, cancellationToken);
 
         var required = isMeterable
@@ -187,17 +390,20 @@ internal sealed class AiQuotaAdmissionBusiness(
                 AiQuotaUnitConverter.Estimate(period.Unit, EstimateFor(taskType), _options) * CallsPerRun())
             : 0m;
 
-        // The same predicate admission applies, so the two cannot disagree about where the line is. At the
-        // limit exactly is available: a hold the balance covers to the penny is one the balance covers.
-        var covered = !isMeterable || Covers(period, required);
+        var packs = await PackBalanceAsync(accountId, period.Unit, cancellationToken);
+
+        // The same predicate admission applies, so the two cannot disagree about where the line is: the allowance
+        // and then the pack balance (AP.5.2). At the limit exactly is available: a hold the balance covers to the
+        // penny is one the balance covers.
+        var covered = !isMeterable || AiQuotaSourceSplit.Covers(required, Remaining(period), packs);
 
         return new AiQuotaStateServiceModel(
             covered ? AiQuotaStateOutcome.Available : AiQuotaStateOutcome.Exhausted,
             period.Unit,
-            period.Allowance + period.CarriedOver,
+            Spendable(period),
             Remaining(period),
             required,
-            period.EndsAt);
+            period.EndsAt) { PackRemaining = packs };
     }
 
     /// <remarks>
@@ -280,7 +486,7 @@ internal sealed class AiQuotaAdmissionBusiness(
     }
 
     public async Task PostAsync(Guid reservationId, CancellationToken cancellationToken) =>
-        await dataLayer.PostAsync(reservationId, clock.UtcNow, cancellationToken);
+        await dataLayer.PostAsync(reservationId, clock.UtcNow, ResolveGrantsAsync, cancellationToken);
 
     public async Task RenewAsync(
         Guid reservationId, DateTimeOffset expiresAt, CancellationToken cancellationToken) =>
@@ -298,7 +504,7 @@ internal sealed class AiQuotaAdmissionBusiness(
         // row -- but it would leave the charge unposted for another whole sweep.
         foreach (var id in await dataLayer.FindUnpostedReservationIdsAsync(cancellationToken))
         {
-            if (await dataLayer.PostAsync(id, now, cancellationToken) is AiQuotaWriteOutcome.Applied)
+            if (await dataLayer.PostAsync(id, now, ResolveGrantsAsync, cancellationToken) is AiQuotaWriteOutcome.Applied)
             {
                 posted++;
             }
@@ -306,7 +512,7 @@ internal sealed class AiQuotaAdmissionBusiness(
 
         foreach (var id in await dataLayer.FindLapsedReservationIdsAsync(now, cancellationToken))
         {
-            if (await dataLayer.ExpireAsync(id, now, cancellationToken) is AiQuotaWriteOutcome.Applied)
+            if (await dataLayer.ExpireAsync(id, now, ResolveGrantsAsync, cancellationToken) is AiQuotaWriteOutcome.Applied)
             {
                 expired++;
             }
@@ -366,8 +572,592 @@ internal sealed class AiQuotaAdmissionBusiness(
                     + $"{_options.EstimatedCallsPerRun}; a run makes at least one provider call.");
 
     /// <summary>The admission predicate, and the only place a balance is read.</summary>
-    private static bool Covers(AccountAiQuotaPeriod period, decimal hold) =>
-        period.Consumed + period.Reserved + hold <= period.Allowance + period.CarriedOver;
+    /// <summary>
+    /// The lease token an image reservation is filed under.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Empty, because there is no lease to name.</strong> A completion is admitted by the worker that
+    /// already holds a claim, so its reservation is keyed by operation <em>and</em> claim: one claim, one hold.
+    /// A picture is admitted at the request, before any worker has claimed it, and then settled once however
+    /// many passes it takes — so the operation alone is the key, and the unique index on
+    /// <c>(AiOperationId, LeaseToken)</c> enforces exactly that with this constant in the second column.
+    /// </remarks>
+    private static readonly Guid ImageLeaseToken = Guid.Empty;
+
+    public async Task<AiQuotaAdmissionServiceModel> AdmitImageAsync(
+        AiImageQuotaAdmissionRequestServiceModel request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.AccountId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ModelName);
+
+        if (request.VariantCount < 1)
+        {
+            throw new ArgumentException(
+                "An admitted generation must ask for at least one picture.", nameof(request));
+        }
+
+        // A replayed admission for the same generation finds the hold it already took, exactly as a
+        // redelivered claim does. The unique index is the backstop for a genuine race.
+        var existing = await dataLayer.FindReservationAsync(
+            request.GeneratedImageOperationId, ImageLeaseToken, cancellationToken);
+
+        if (existing is not null)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                existing.Status is AiQuotaReservationStatus.Held
+                    ? AiQuotaAdmissionOutcome.Admitted
+                    : AiQuotaAdmissionOutcome.Busy,
+                existing.Status is AiQuotaReservationStatus.Held ? existing.Id : null,
+                existing.ReservedAmount,
+                0m,
+                existing.Unit,
+                null);
+        }
+
+        var now = clock.UtcNow;
+        var terms = await periods.ResolveTermsAsync(request.AccountId, cancellationToken);
+
+        if (terms.IsSuspended)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Suspended, null, 0m, 0m, terms.Unit, null);
+        }
+
+        if (TrialEnded(terms, now) is { } ended)
+        {
+            return ended;
+        }
+
+        var period = await periods.OpenAsync(request.AccountId, terms, now, cancellationToken);
+
+        // The exact price of one picture, not an estimate of it: the provider prices the model, the tier and
+        // the quality, all of which are known before anything is generated (AP.2.4). An unrated picture has no
+        // price, and is refused rather than admitted for nothing (PRICE-001).
+        var perImage = AiImageQuotaConverter.Charge(
+            period.Unit, request.ModelName, request.Resolution, request.Quality, _options);
+
+        if (perImage is not > 0m)
+        {
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Unrated, null, 0m, Remaining(period), period.Unit, period.EndsAt);
+        }
+
+        var hold = AiQuotaUnitConverter.Round(perImage.Value * request.VariantCount);
+
+        // What the request adds to the platform's day, at list price, when a ceiling is configured (AP.2.7). A
+        // picture with a credit rate and no list price cannot be counted, and is refused rather than let through
+        // uncounted — the same reading of an unknown cost as Unrated, and startup refuses such a host anyway.
+        PlatformImageSpendCharge? platform = null;
+
+        if (_options.PlatformImageSpendPerDay is { } ceiling)
+        {
+            if (AiImageRateKeys.Figure(_listPrices.Images, request.ModelName, request.Resolution, request.Quality)
+                is not { } listPrice)
+            {
+                return new AiQuotaAdmissionServiceModel(
+                    AiQuotaAdmissionOutcome.Unrated, null, 0m, Remaining(period), period.Unit, period.EndsAt);
+            }
+
+            platform = new PlatformImageSpendCharge(
+                PlatformImageSpendPolicy.DayOf(now),
+                PlatformImageSpendPolicy.ToMicros(listPrice * request.VariantCount),
+                PlatformImageSpendPolicy.ToMicros(ceiling),
+                request.GeneratedImageOperationId,
+                ImageLeaseToken);
+        }
+
+        // The plan's daily picture cap (AP.4.2), judged before the balance: the cap says when to come back, and
+        // credits do not come back today. Judged inside the reservation, against a count read after the period on
+        // every attempt, so the period's row version that keeps two admissions from spending one balance also
+        // keeps them from both taking the account's last pictures of the day. The flag says which line refused;
+        // the delegate runs again on every retry, so it is set afresh each time.
+        var overDay = false;
+
+        // The trial's lifetime picture cap (AP.7.1, B-52), judged the same way and before the day: a trial whose
+        // pictures are spent would otherwise be told to come back tomorrow, which would not help. Counted from the
+        // account's own holds, which carry no workspace, so it is one count across every workspace the account
+        // works in and survives any of them being deleted.
+        var overTrial = false;
+
+        // Committed here, not staged: the period's row version is what makes two admissions for one account
+        // unable to both succeed, and a concurrency check needs its own transaction. So the hold exists before
+        // the operation row does, and a caller whose operation then fails to write owes a release —
+        // ReleaseImageAsync, with the expiry sweep behind it.
+        var (outcome, reservation, written) = await dataLayer.ReserveAsync(
+            request.AccountId,
+            now,
+            async (current, images, token) =>
+            {
+                // All of this request or none of it, as the workspace's cap is: four with three left is refused.
+                overTrial = request.TrialImageCap is { } trialCap && images.InAll + request.VariantCount > trialCap;
+                overDay = !overTrial && request.DailyImageCap is { } cap && images.Today + request.VariantCount > cap;
+
+                if (overTrial || overDay)
+                {
+                    return null;
+                }
+
+                var id = Guid.NewGuid();
+
+                return await SplitAsync(current, request.AccountId, id, hold, now, token) is not { } fromAllowance
+                    ? null
+                    : new AccountAiQuotaReservation
+                {
+                    Id = id,
+                    AccountId = request.AccountId,
+                    PeriodId = current.Id,
+                    AiOperationId = request.GeneratedImageOperationId,
+                    LeaseToken = ImageLeaseToken,
+                    TaskType = AiTaskType.ImageGeneration,
+                    Unit = current.Unit,
+                    ReservedAmount = hold,
+                    ReservedFromAllowance = fromAllowance,
+
+                    // The per-picture price. Settlement multiplies it by what was billed, so it never needs
+                    // the model, tier or quality again — which is what lets a worker that does not know them
+                    // settle correctly.
+                    PerAttemptEstimate = AiQuotaUnitConverter.Round(perImage.Value),
+                    Status = AiQuotaReservationStatus.Held,
+                    HeldAt = now,
+                    ExpiresAt = request.ExpiresAt,
+
+                    // Counted against the account's day whether or not this request carried a cap, so a cap that
+                    // arrives with a plan later in the day counts what was already asked for.
+                    ImagesRequested = request.VariantCount,
+                };
+            },
+            platform,
+            new AccountImageWindows(LimitDay.StartOf(now), InAll: request.TrialImageCap is not null),
+            cancellationToken);
+
+        var settled = written ?? period;
+
+        if (outcome is AiQuotaWriteOutcome.Applied && platform is not null)
+        {
+            PlatformImageSpendTelemetry.RecordAdmitted(platform.Micros);
+        }
+
+        if (outcome is AiQuotaWriteOutcome.Refused && overTrial)
+        {
+            // The account's own figures only: its cap and when its trial ends. No balance, which is not why, and no
+            // reset, because there is none — the cap is for the whole trial (B-52).
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.TrialImageCap, null, 0m, 0m, settled.Unit, null)
+            {
+                Required = hold,
+                TrialImageCap = request.TrialImageCap,
+                TrialEndsAt = terms.Plan?.TrialEndsAt,
+            };
+        }
+
+        if (outcome is AiQuotaWriteOutcome.Refused && overDay)
+        {
+            // The account's own figures only — its cap and when the day turns — and nothing about the balance,
+            // which is not why. LimitRefusal's shape, so a client reads it as every other daily limit.
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.DailyImageCap, null, 0m, 0m, settled.Unit, null)
+            {
+                Required = hold,
+                DailyImageCap = request.DailyImageCap,
+                DailyImageCapResetsAt = LimitDay.NextAfter(now),
+            };
+        }
+
+        if (outcome is AiQuotaWriteOutcome.OverPlatformCeiling)
+        {
+            await TripAsync(platform!, now, cancellationToken);
+
+            // No balance, no reset and no figure of any kind: the account's own allowance is not why, and every
+            // number behind the real reason is everybody's. Required stays the account's own hold, which is the
+            // one figure here that is theirs, for a caller that logs it.
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.PlatformCeiling, null, 0m, 0m, settled.Unit, null) { Required = hold };
+        }
+
+        if (outcome is AiQuotaWriteOutcome.Applied)
+        {
+            // Both of these run after the hold has committed, and neither may fail the admission. The caller
+            // learns the reservation id from this return and nothing else can release the hold, so throwing
+            // here would strand it — holding the account's day and its credits for a picture nobody asked
+            // for any more, until the sweep reached it. A balance this request could not read and a notice it
+            // could not write are both worth less than that.
+            var admittedPacks = 0m;
+
+            try
+            {
+                admittedPacks = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken);
+
+                // Pictures spend the same credits as writing does, so they bring the same notice (B-59).
+                await NoticeLowCreditAsync(settled, Remaining(settled) + admittedPacks, cancellationToken);
+            }
+            // Cancellation included, deliberately: a caller that gave up still has to be told its
+            // reservation id, because that is what its own failure path releases the hold with.
+            catch (Exception exception)
+            {
+                logger.LogWarning(
+                    NoticeNotRecorded,
+                    "An admitted picture hold could not read its pack balance or write its low-credit notice ({ExceptionType}).",
+                    exception.GetType().Name);
+            }
+
+            return new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Admitted,
+                reservation!.Id,
+                hold,
+                Remaining(settled),
+                settled.Unit,
+                settled.EndsAt)
+            {
+                Required = hold,
+                PackRemaining = admittedPacks,
+            };
+        }
+
+        return outcome switch
+        {
+            // Carrying what it would have taken, which is what the refusal has to be able to tell a creator
+            // (USAGE-007): "your allowance is spent" alone does not say whether they are one picture over or
+            // twenty. Nothing was held, so Reserved stays nought.
+            AiQuotaWriteOutcome.Refused => new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Exhausted,
+                null,
+                0m,
+                Remaining(settled),
+                settled.Unit,
+                settled.EndsAt)
+            {
+                Required = hold,
+                PackRemaining = await PackBalanceAsync(request.AccountId, settled.Unit, cancellationToken),
+            },
+
+            _ => new AiQuotaAdmissionServiceModel(
+                AiQuotaAdmissionOutcome.Busy, null, 0m, 0m, settled.Unit, settled.EndsAt) { Required = hold },
+        };
+    }
+
+    /// <remarks>
+    /// <para>
+    /// <strong>Exact, not estimated.</strong> A completion's settlement converts reported tokens and falls back
+    /// to an estimate for a call the provider said nothing about; a picture has a price, held on the
+    /// reservation as <c>PerAttemptEstimate</c>, so the charge is that price times the number of pictures the
+    /// provider actually made. Nothing is read from configuration here, which also means a rate changed between
+    /// the request and the settlement cannot re-price a generation already admitted.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing billed is a release, not a zero charge.</strong> A generation whose every call failed
+    /// before anything was generated owes nothing, and holding its allowance until the lease lapsed would
+    /// strand it.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> StageImageSettlementAsync(
+        AiImageUsageServiceModel usage, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var now = clock.UtcNow;
+        string? accountId = null;
+
+        var outcome = await dataLayer.StageSettlementAsync(
+            usage.ReservationId,
+            reservation =>
+            {
+                // A replay. The recorded outcome stands and nothing is written a second time, which is what
+                // makes a redelivered settlement post once (USAGE-004).
+                if (reservation.Status is not AiQuotaReservationStatus.Held)
+                {
+                    return false;
+                }
+
+                accountId = reservation.AccountId;
+
+                // What stays counted against the account's day (AP.4.2): what was charged, and nothing that was
+                // never sent — but never more than was asked for. A crashed pass can have a variant billed twice,
+                // and that second charge is the platform's fault, not a picture the creator chose to spend their
+                // day on. Left null on a hold taken before pictures were counted.
+                // Capped once, and the same figure pays for both (owner, 2026-10-30). A crashed pass can
+                // have a variant billed twice — one billed but never staged is generated again on resume —
+                // and the creator is charged for what they asked for, never for the platform's second go at
+                // it. The day's count was already capped here; the charge below was not, so a resumed pass
+                // could spend past its own hold, which DL.5 forbids.
+                var billed = reservation.ImagesRequested is { } requested
+                    ? Math.Min(usage.BilledVariants, requested)
+                    : usage.BilledVariants;
+
+                if (reservation.ImagesRequested is not null)
+                {
+                    reservation.ImagesBilled = billed;
+                }
+
+                if (usage.BilledVariants == 0)
+                {
+                    reservation.Status = AiQuotaReservationStatus.Released;
+                    reservation.SettledAmount = 0m;
+                    reservation.UsageReported = false;
+                    reservation.SettledAt = now;
+
+                    return true;
+                }
+
+                reservation.Status = AiQuotaReservationStatus.Settled;
+
+                // True, and it means something different here than it does for a completion: an image provider
+                // reports no tokens, but what it charged for is known exactly, which is the question this flag
+                // is asked at settlement.
+                reservation.UsageReported = true;
+                reservation.SettledAmount = AiQuotaUnitConverter.Round(
+                    reservation.PerAttemptEstimate * billed);
+                reservation.SettledAt = now;
+
+                return true;
+            },
+            cancellationToken);
+
+        if (outcome is AiQuotaWriteOutcome.NotFound)
+        {
+            throw new InvalidOperationException(
+                $"Image generation {usage.GeneratedImageOperationId} settled against reservation "
+                    + $"{usage.ReservationId}, which does not exist.");
+        }
+
+        return accountId;
+    }
+
+    /// <remarks>
+    /// The terms are read as admission reads them, from the account the hold belongs to — never the worker's own
+    /// service identity — so the answer here is the one a request made now would get.
+    /// </remarks>
+    public async Task<AiImageHoldState> CheckImageHoldAsync(Guid reservationId, CancellationToken cancellationToken)
+    {
+        // Its own expiry, not just its status: the sweep runs on an interval, so a hold can be past
+        // ExpiresAt and still read Held for up to one sweep. Judging it Live then would send pictures to the
+        // provider against an allowance that is about to be given back, and settlement would charge nothing
+        // for them. The clock decides, so the answer does not depend on how recently the sweep ran.
+        if (await dataLayer.FindReservationByIdAsync(reservationId, cancellationToken)
+            is not { Status: AiQuotaReservationStatus.Held, ReleasedAt: null } hold
+            || hold.ExpiresAt <= clock.UtcNow)
+        {
+            return AiImageHoldState.Lapsed;
+        }
+
+        var terms = await periods.ResolveTermsAsync(hold.AccountId, cancellationToken);
+
+        return terms.IsSuspended ? AiImageHoldState.Suspended
+            : TrialEnded(terms, clock.UtcNow) is not null ? AiImageHoldState.TrialEnded
+            : AiImageHoldState.Live;
+    }
+
+    /// <remarks>
+    /// Gives back what the hold added to the platform's day as well (AP.2.7): a request that was never queued
+    /// can never reach a provider, so counting it would trip the breaker on spend that cannot happen. This is the
+    /// only give-back the counter has — see <c>PlatformImageSpendDay.AdmittedMicros</c>.
+    /// </remarks>
+    public async Task ReleaseImageAsync(Guid reservationId, CancellationToken cancellationToken) =>
+        await dataLayer.ReleaseImageAsync(reservationId, clock.UtcNow, ResolveGrantsAsync, cancellationToken);
+
+    /// <summary>
+    /// Records a refusal for the ceiling and, for the one refusal that trips the day, raises the alert: the
+    /// platform audit row and an error-level log line (PRICE-005).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One alert a day, not one a refusal.</strong> The trip is a guarded write that exactly one caller
+    /// wins, and only that caller logs; every refusal still counts on the metric, so a dashboard sees the
+    /// pressure while the pager sees one event.
+    /// </para>
+    /// <para>
+    /// <strong>A failure to alert never changes the creator's answer.</strong> The refusal has already been
+    /// decided and nothing was written for it; an exception here would turn a deliberate 503 into a 500 that
+    /// tells nobody anything. It is logged at the same level the trip would have been, so it still pages.
+    /// </para>
+    /// <para>
+    /// The log line carries the day and the configured ceiling, never an account, a workspace or a model — what
+    /// tripped it is the sum of everybody.
+    /// </para>
+    /// </remarks>
+    private async Task TripAsync(PlatformImageSpendCharge charge, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        PlatformImageSpendTelemetry.RecordRefused();
+
+        var ceiling = _options.PlatformImageSpendPerDay;
+
+        try
+        {
+            var day = await platformSpend.FindDayAsync(charge.Day, cancellationToken);
+
+            // Already tripped, or lifted since: nothing to raise. Read rather than attempted, so a client
+            // retrying on 503 during an incident costs one read here, not a transaction on the row every
+            // admission is waiting for. The guarded write below is still what decides a race.
+            if (day is null or { TrippedAt: not null } or { LiftedAt: not null })
+            {
+                return;
+            }
+
+            var admitted = PlatformImageSpendPolicy.ToDollars(day.AdmittedMicros);
+
+            var before = new PlatformImageSpendDayServiceModel(
+                charge.Day, PlatformImageSpendPolicy.Currency, ceiling, admitted, null,
+                PlatformImageSpendState.Armed, null, null, null);
+
+            var entry = new PlatformAuditEntry(
+                PlatformImageSpendPolicy.Breaker.Type,
+                PlatformImageSpendPolicy.Breaker.Id,
+                PlatformImageSpendPolicy.Breaker.Name,
+                PlatformImageSpendAuditActions.Tripped,
+                PlatformImageSpendAuditActions.SubjectType,
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                CorrelationId(),
+                PlatformImageSpendPolicy.TripReason,
+                PlatformImageSpendPolicy.AuditReference(before),
+                PlatformImageSpendPolicy.AuditReference(before with { State = PlatformImageSpendState.Tripped }));
+
+            if (!await platformSpend.TripAsync(charge.Day, now, entry, cancellationToken))
+            {
+                return;
+            }
+
+            PlatformImageSpendTelemetry.RecordTripped();
+
+            logger.LogError(
+                BreakerTripped,
+                "The platform's estimated image spend for {ImageSpendDay} reached its ceiling of {ImageSpendCeiling} USD "
+                    + "({ImageSpendAdmitted} USD admitted). New picture requests are refused until the UTC day ends or "
+                    + "an operator lifts the breaker.",
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ceiling,
+                admitted);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(
+                BreakerTripped,
+                exception,
+                "A picture request was refused for the platform's image spend ceiling on {ImageSpendDay}, but the "
+                    + "trip could not be recorded.",
+                charge.Day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+    }
+
+    /// <summary>
+    /// The ambient trace id as a Guid, so the trip's audit row ties back to the request that tripped it.
+    /// </summary>
+    /// <remarks>The derivation <c>AiUsageAdministrationBusiness</c> uses, for the same reason.</remarks>
+    private static Guid CorrelationId()
+    {
+        var traceId = Activity.Current?.TraceId;
+
+        return traceId is { } id && id != default ? Guid.ParseExact(id.ToHexString(), "N") : Guid.NewGuid();
+    }
+
+    /// <summary>
+    /// How much of <paramref name="hold"/> the period's allowance covers, with the rest taken from the account's
+    /// grants and staged on this unit of work; null, having staged nothing, when the two together fall short
+    /// (AP.5.2). The admission predicate, and the only place a hold is split.
+    /// </summary>
+    /// <remarks>
+    /// Run inside the reservation's retried write, against the period it has just read. Every hold moves the
+    /// period, so a hold that commits after that read fails this attempt's save; one that committed before it is
+    /// already in the grants read here. A period counted in tokens spends its allowance only — grants are credits,
+    /// and <see cref="AiQuotaUnit.Tokens"/> is declared rather than used.
+    /// </remarks>
+    private async Task<decimal?> SplitAsync(
+        AccountAiQuotaPeriod period,
+        string accountId,
+        Guid holdId,
+        decimal hold,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var (fromAllowance, fromGrants) = AiQuotaSourceSplit.Hold(hold, Remaining(period));
+
+        if (fromGrants == 0m)
+        {
+            return fromAllowance;
+        }
+
+        if (period.Unit is not AiQuotaUnit.Credits)
+        {
+            return null;
+        }
+
+        return await credits.StageDrawAsync(accountId, holdId, fromGrants, now, cancellationToken)
+            ? fromAllowance
+            : null;
+    }
+
+    /// <summary>
+    /// Records that this admission left the account low on spendable credits, once a period (B-59).
+    /// </summary>
+    /// <param name="period">The period as the admission's own write left it.</param>
+    /// <param name="spendable">
+    /// What the account can still spend: the period's remaining allowance plus every pack's balance. The two
+    /// together, because an account holding packs is not running low at nought allowance.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the mark. Never cancels the admission, which has committed.</param>
+    /// <remarks>
+    /// <para>
+    /// <strong>After the hold has committed, and it can never take the hold back.</strong> PRICE-011 as amended
+    /// requires that a notice failing neither refuses nor delays work, so this runs outside the reservation's
+    /// write and swallows everything it can go wrong with: a contended period, a vanished one, a database that
+    /// blinked. The creator is then told at the next admission instead, which is a notice a few seconds late
+    /// rather than a refused request.
+    /// </para>
+    /// <para>
+    /// <strong>It marks, and does not send.</strong> Nothing is delivered from here — the account's own usage
+    /// read reports the mark and the surfaces draw it — so there is no provider to wait on and no channel to
+    /// fail. Whether the creator wants the notice at all is read where it is drawn rather than here: a
+    /// preference read on every admission would cost every account a round trip for a column almost none of
+    /// them has set, and a mark is a fact about the balance either way.
+    /// </para>
+    /// <para>
+    /// An account with nothing to take a fraction of — a period opened with no allowance at all, or one
+    /// counted in tokens, which never spends packs — is never low and is never marked.
+    /// </para>
+    /// </remarks>
+    private async Task NoticeLowCreditAsync(
+        AccountAiQuotaPeriod period, decimal spendable, CancellationToken cancellationToken)
+    {
+        if (period.LowCreditNoticedAt is not null
+            || period.Unit is not AiQuotaUnit.Credits
+            || Spendable(period) <= 0m
+            || spendable > Spendable(period) * _options.LowCreditNoticeFraction)
+        {
+            return;
+        }
+
+        try
+        {
+            await dataLayer.MarkLowCreditNoticedAsync(period.Id, clock.UtcNow, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // Deliberately every exception, cancellation included: the work this notice is about has already
+            // been admitted and committed, and nothing here may unpick that. Logged without the account, which
+            // is not this log line's business.
+            logger.LogWarning(
+                NoticeNotRecorded, exception, "A low-credit notice could not be recorded for a period.");
+        }
+    }
+
+    /// <summary>The account's pack balance, or nought for a period counted in tokens, which never spends it.</summary>
+    private async Task<decimal> PackBalanceAsync(string accountId, AiQuotaUnit unit, CancellationToken cancellationToken) =>
+        unit is AiQuotaUnit.Credits ? await credits.BalanceAsync(accountId, cancellationToken) : 0m;
+
+    /// <summary>
+    /// Ends a hold's draws on the account's grants as part of the write that releases it: what the charge took from
+    /// them is kept, the rest goes back to the grant it came from (AP.5.2). Staged on the same save.
+    /// </summary>
+    private Task ResolveGrantsAsync(
+        AccountAiQuotaReservation reservation, decimal spentFromGrants, CancellationToken cancellationToken) =>
+        credits.StageResolveAsync(
+            reservation.AccountId, reservation.Id, spentFromGrants, clock.UtcNow, cancellationToken);
+
+    /// <summary>
+    /// What the period may spend in all: what it opened with, what upgrades added (AP.4.2), and what the period
+    /// before handed over.
+    /// </summary>
+    private static decimal Spendable(AccountAiQuotaPeriod period) =>
+        period.Allowance + period.UpgradeGranted + period.CarriedOver;
 
     /// <summary>
     /// What is left, from the shared calculator, so the figure a refusal reports is the one the creator's own
@@ -375,7 +1165,30 @@ internal sealed class AiQuotaAdmissionBusiness(
     /// </summary>
     private static decimal Remaining(AccountAiQuotaPeriod period) =>
         AiQuotaPeriodCalculator.Remaining(
-            period.Allowance, period.CarriedOver, period.Consumed, period.Reserved);
+            period.Allowance + period.UpgradeGranted, period.CarriedOver, period.Consumed, period.Reserved);
+
+    /// <summary>
+    /// The refusal for an account whose trial has ended while it is still on the trial (AP.7.1, B-54); null when it
+    /// is not. Judged before a period is opened, so an ended trial writes nothing to be told no.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Every kind of work, pack credits included</strong> (owner, 2026-10-29): a pack is spent under a plan's
+    /// caps and classes, and an ended trial is no plan to spend under. The remedy is choosing one, so there is no
+    /// balance and no reset to report.
+    /// </para>
+    /// <para>
+    /// Read from the plan in the terms, which an ops-set allowance replaces (USAGE-009): an administrator who gives
+    /// an account a number has decided what it may spend, trial or not.
+    /// </para>
+    /// </remarks>
+    private static AiQuotaAdmissionServiceModel? TrialEnded(AiQuotaTerms terms, DateTimeOffset now) =>
+        terms.Plan is { } plan && plan.TrialHasEnded(now)
+            ? new AiQuotaAdmissionServiceModel(AiQuotaAdmissionOutcome.TrialEnded, null, 0m, 0m, terms.Unit, null)
+            {
+                TrialEndsAt = plan.TrialEndsAt,
+            }
+            : null;
 
     // The terms, the period roll and the zone fallback all moved to IAiQuotaPeriodResolver when the read seam
     // needed them too. Two copies of a roll would eventually show a creator a balance the next admission did

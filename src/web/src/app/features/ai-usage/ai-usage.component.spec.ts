@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { RuntimeConfigService } from '../../core/runtime-config.service';
 import { AiUsageService } from '../../services/ai-usage.service';
@@ -8,7 +9,21 @@ import { AiUsageComponent } from './ai-usage.component';
 
 const URL = 'https://gateway.example/api/v1/me/ai-usage';
 
-function payload(overrides: { remaining?: number; allowance?: number; isSuspended?: boolean; byTask?: unknown[]; byWorkspace?: unknown[] } = {}) {
+function payload(
+  overrides: {
+    remaining?: number;
+    allowance?: number;
+    isSuspended?: boolean;
+    isNearlySpent?: boolean;
+    pictures?: number;
+    writing?: number;
+    byTask?: unknown[];
+    byWorkspace?: unknown[];
+    packRemaining?: number;
+    lowCredit?: { isNoticed?: boolean; isDismissed?: boolean; noticeEnabled?: boolean; spendable?: number };
+    plan?: { key: string; name: string; allowanceRenews: boolean } | null;
+  } = {},
+) {
   const allowance = overrides.allowance ?? 1000;
   const remaining = overrides.remaining ?? 640;
 
@@ -26,6 +41,19 @@ function payload(overrides: { remaining?: number; allowance?: number; isSuspende
       resetsAt: '2026-04-01T00:00:00+01:00',
     },
     isSuspended: overrides.isSuspended ?? false,
+    // What the server would say for these figures, unless a case says otherwise.
+    isNearlySpent: overrides.isNearlySpent ?? (remaining > 0 && remaining <= allowance / 5),
+    pictures: overrides.pictures ?? 0,
+    writing: overrides.writing ?? 360,
+    // No packs and no plan unless a case says so: what every production host sends today.
+    packRemaining: overrides.packRemaining ?? 0,
+    lowCredit: {
+      isNoticed: overrides.lowCredit?.isNoticed ?? false,
+      isDismissed: overrides.lowCredit?.isDismissed ?? false,
+      noticeEnabled: overrides.lowCredit?.noticeEnabled ?? true,
+      spendable: overrides.lowCredit?.spendable ?? 0,
+    },
+    plan: overrides.plan ?? null,
     byTask: overrides.byTask ?? [
       { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
       { taskType: 'IngredientSubstitution', amount: 120, requests: 4 },
@@ -44,7 +72,8 @@ describe('AiUsageComponent', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [AiUsageComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      // A router for the head's link to the billing page (AP.6.5).
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
 
@@ -190,6 +219,19 @@ describe('AiUsageComponent', () => {
 
     expect(host.textContent).toContain('A workspace you’ve left');
     expect(host.textContent).toContain('120 credits');
+  });
+
+  /** Pictures told apart from writing, beside what was used — the server's two totals, formatted (AP.2.6). */
+  it('says what the used credits went on, pictures apart from writing', async () => {
+    const host = await render(payload({ pictures: 150, writing: 210 }));
+
+    expect(tileTexts(host)[1]).toContain('150 AI credits on pictures and 210 AI credits on writing.');
+  });
+
+  it('says nothing about what was used on before anything has been', async () => {
+    const host = await render(payload({ pictures: 0, writing: 0 }));
+
+    expect(tileTexts(host)[1]).not.toContain('on pictures');
   });
 
   it('names a nearly spent allowance in words, not only in colour', async () => {
@@ -350,5 +392,239 @@ describe('AiUsageComponent', () => {
 
     expect(region?.textContent).toContain('Nearly spent');
     expect(region?.textContent).toContain('120 AI credits left');
+  });
+
+  // ---- The plan and the credit packs (AP.5.3) ----
+
+  const CREATOR = { key: 'creator', name: 'Creator', allowanceRenews: true };
+  const TRIAL = { key: 'trial', name: 'Trial', allowanceRenews: false };
+  const factTexts = (host: HTMLElement) =>
+    Array.from(host.querySelectorAll('cp-topic-card dl[cpFacts] [cpFact]')).map((fact) =>
+      fact.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+
+  /** Beside the allowance and never added to it: its own figure, and the allowance's figures unchanged. */
+  it('shows the credit packs as a figure of their own, saying they keep', async () => {
+    const host = await render(payload({ packRemaining: 400 }));
+
+    const tiles = tileTexts(host);
+    expect(tiles.length).toBe(4);
+    expect(tiles[3]).toContain('400 AI credits in credit packs');
+    expect(tiles[3]).toContain('Used after your allowance. They don’t expire.');
+    expect(tiles[0]).toContain('640 AI credits left');
+    expect(tiles[2]).toContain('1,000 AI credits in your allowance');
+  });
+
+  it('shows no pack figure when there are no packs', async () => {
+    const host = await render(payload({ packRemaining: 0 }));
+
+    expect(tileTexts(host).length).toBe(3);
+    expect(host.textContent).not.toContain('credit packs');
+  });
+
+  /**
+   * The allowance is gone but the packs are not, so AI help goes on (AP.5.2): said in words and a glyph, not
+   * "Spent", and the meter still the allowance's own.
+   */
+  it('says AI help is coming from the packs once the allowance is used up', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Using credit packs');
+    expect(host.querySelector('cp-status-pill')?.textContent).not.toContain('Spent');
+    expect(host.querySelector('.explanation')?.textContent).toContain(
+      'Your allowance is used up this month, so AI help now comes from your credit packs, which hold 400 AI credits.',
+    );
+    expect(host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('which hold 400 AI credits');
+  });
+
+  /** One state, one reading: the meter does not warn about what the pill and the words call ordinary. */
+  it('does not draw the packs state as a warning', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-progress')?.getAttribute('data-tone')).toBe('default');
+    expect(host.querySelector('cp-status-pill')?.textContent).not.toContain('Nearly spent');
+  });
+
+  it('still says spent when the allowance and the packs are both gone', async () => {
+    const host = await render(payload({ remaining: 0, packRemaining: 0 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Spent');
+  });
+
+  /** "Not much more" would be untrue with packs behind the allowance; the server's warning stays, with them said. */
+  it('says the packs follow a nearly spent allowance', async () => {
+    const host = await render(payload({ remaining: 120, packRemaining: 400 }));
+
+    expect(host.querySelector('cp-status-pill')?.textContent).toContain('Nearly spent');
+    const explanation = host.querySelector('.explanation')?.textContent ?? '';
+    expect(explanation).toContain('After that, AI help comes from your credit packs, which hold 400 AI credits.');
+    expect(explanation).not.toContain('not much more');
+  });
+
+  it('names the plan beside when the allowance comes back', async () => {
+    const host = await render(payload({ plan: CREATOR }));
+
+    const facts = factTexts(host);
+    expect(facts[0]).toContain('Plan');
+    expect(facts[0]).toContain('Creator');
+    expect(facts[1]).toContain('Allowance comes back');
+    expect(facts[1]).toContain('April');
+  });
+
+  /** Said once on screen — the facts hold the date — and still in the one sentence a screen reader hears. */
+  it('says the reset date once in the card when the plan is named', async () => {
+    const healthy = await render(payload({ plan: CREATOR }));
+    expect(healthy.querySelector('.explanation')).toBeNull();
+    expect(healthy.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
+
+    const spent = await render(payload({ plan: CREATOR, remaining: 0 }));
+    expect(spent.querySelector('.explanation')?.textContent?.trim()).toBe('You can keep writing and editing recipes as usual.');
+    expect(spent.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
+  });
+
+  /** Every production host today: no catalogue, so no plan to name and no facts strip. */
+  it('names no plan on a host that has none', async () => {
+    const host = await render(payload({ plan: null }));
+
+    expect(host.querySelector('cp-topic-card dl[cpFacts]')).toBeNull();
+    expect(host.textContent).not.toContain('Plan');
+  });
+
+  /** A trial's credits are granted once (B-48): the page must not promise them back on a date. */
+  it('never promises a trial’s credits back', async () => {
+    const host = await render(payload({ plan: TRIAL, remaining: 0 }));
+
+    expect(host.textContent).not.toContain('Comes back on');
+    expect(host.textContent).not.toContain('Allowance comes back');
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      'Trial credits are granted once, so they don’t come back.',
+    );
+
+    const facts = factTexts(host);
+    expect(facts[0]).toContain('Trial');
+    expect(facts[1]).toContain('Trial credits');
+    expect(facts[1]).toContain('Not renewed');
+  });
+
+  // ---- today's pictures (DL.9) -------------------------------------------------------------------------
+
+  const TODAY = { cap: 25, used: 3, left: 22, resetsAt: '2026-10-31T00:00:00+00:00' };
+
+  it("shows today's pictures used of the plan's cap, what is left and when more come, beside the plan", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: TODAY });
+
+    const pictures = factTexts(host).find((fact) => fact.startsWith('Pictures today'));
+    expect(pictures).toContain('3 of 25 used');
+    expect(pictures).toContain('22 left');
+    expect(pictures).toContain('more come back on');
+    expect(pictures).toContain('(UTC)');
+    // The credits stay where they were: used of the allowance, in their own tiles and meter.
+    expect(tileTexts(host)[1]).toContain('360 AI credits used this month');
+    expect(tileTexts(host)[2]).toContain('1,000 AI credits in your allowance');
+  });
+
+  it("states the server's left, never one worked out from the cap", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: { ...TODAY, used: 26, left: 0 } });
+
+    expect(factTexts(host).find((fact) => fact.startsWith('Pictures today'))).toContain('26 of 25 used · 0 left');
+  });
+
+  it("shows a trial's pictures in all beside its day", async () => {
+    const host = await render({
+      ...payload({ plan: TRIAL }),
+      picturesToday: { ...TODAY, cap: 5, used: 1, left: 4 },
+      trialPictures: { cap: 10, used: 7, left: 3 },
+    });
+
+    const facts = factTexts(host);
+    expect(facts.find((fact) => fact.startsWith('Pictures today'))).toContain('1 of 5 used · 4 left');
+    expect(facts.find((fact) => fact.startsWith('Trial pictures'))).toContain('7 of 10 used · 3 left');
+  });
+
+  it('shows no picture facts when the server states no cap', async () => {
+    const host = await render(payload({ plan: CREATOR }));
+
+    expect(factTexts(host).some((fact) => fact.startsWith('Pictures today'))).toBeFalse();
+    expect(factTexts(host).some((fact) => fact.startsWith('Trial pictures'))).toBeFalse();
+  });
+
+  it("keeps today's pictures when a check fails, beside the allowance's last figures", async () => {
+    const host = await render({ ...payload({ plan: CREATOR }), picturesToday: TODAY });
+
+    void TestBed.inject(AiUsageService).refresh();
+    http.expectOne(URL).error(new ProgressEvent('network'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(factTexts(host).find((fact) => fact.startsWith('Pictures today'))).toContain('3 of 25 used');
+    expect(tileTexts(host)[0]).toContain('The last figures we had.');
+  });
+
+  // ---- the low-credit setting (B-59) -------------------------------------------------------------------
+
+  const NOTICE = `${URL}/low-credit-notice`;
+
+  /** The one thing on this page the creator can change, and what it promises while they read it. */
+  it('offers the low-credit setting, on by default, and promises no purchase', async () => {
+    const host = await render();
+    const card = Array.from(host.querySelectorAll('cp-topic-card')).find((topic) =>
+      topic.textContent?.includes('Running low'),
+    )!;
+
+    expect(card).toBeTruthy();
+    expect(card.textContent).toContain('Nothing is ever bought for you');
+
+    const checkbox = card.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBeTrue();
+  });
+
+  it('reads the setting the server reports', async () => {
+    const host = await render(payload({ lowCredit: { noticeEnabled: false } }));
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeFalse();
+  });
+
+  it('records the choice and re-reads', async () => {
+    const host = await render();
+
+    host.querySelector<HTMLInputElement>('cp-checkbox input')!.click();
+    fixture.detectChanges();
+
+    const request = http.expectOne(NOTICE);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ enabled: false });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    http.expectOne(URL).flush(payload({ lowCredit: { noticeEnabled: false } }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeFalse();
+    expect(host.querySelector('cp-notice[role="alert"]')).toBeNull();
+  });
+
+  /**
+   * A failure puts the control back rather than leaving a creator believing they have switched something off
+   * that is still on.
+   */
+  it('puts the control back and says so when the choice could not be saved', async () => {
+    const host = await render();
+
+    host.querySelector<HTMLInputElement>('cp-checkbox input')!.click();
+    fixture.detectChanges();
+
+    http.expectOne(NOTICE).error(new ProgressEvent('network'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(host.querySelector<HTMLInputElement>('cp-checkbox input')!.checked).toBeTrue();
+
+    const problem = host.querySelector('cp-notice[role="alert"]')!;
+    expect(problem.textContent).toContain('We couldn’t save your low-credit notice setting');
+
+    // In the page's one fixed place for messages, under the head, not inside the card that holds the control.
+    expect(problem.closest('cp-topic-card')).toBeNull();
   });
 });

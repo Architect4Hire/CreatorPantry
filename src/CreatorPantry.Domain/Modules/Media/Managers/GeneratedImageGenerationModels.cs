@@ -26,7 +26,8 @@ public sealed record GeneratedImageOperationServiceModel(
     DateTimeOffset? CompletedAt,
     Guid? RecipeId = null,
     Guid? RecipeVersionId = null,
-    Guid? CreativeContextId = null);
+    Guid? CreativeContextId = null,
+    GeneratedImageQualityClass? QualityClass = null);
 
 /// <summary>
 /// What a caller must supply to request images. A trusted-caller shape, not an HTTP ViewModel.
@@ -44,6 +45,10 @@ public sealed record GeneratedImageOperationServiceModel(
 /// </para>
 /// </remarks>
 /// <param name="AiProposalId">The IMG-002 proposal the prompt was composed from, when it was composed.</param>
+/// <param name="QualityClass">
+/// How good a picture to make (AP.3.1); null for the host's default class. Never a model: what a class sends is
+/// configuration.
+/// </param>
 /// <param name="IdempotencyKey">
 /// What makes a repeated request return the first answer. Required, because image generation is the most
 /// expensive call this product makes and a lost response must never become a second charge.
@@ -54,7 +59,8 @@ public sealed record GeneratedImageRequest(
     Guid? AiProposalId,
     int VariantCount,
     string IdempotencyKey,
-    GeneratedImageSubject? Subject = null);
+    GeneratedImageSubject? Subject = null,
+    GeneratedImageQualityClass? QualityClass = null);
 
 /// <summary>
 /// What a run of pictures was asked for: a recipe, an exact version of it, a piece of work — any or none.

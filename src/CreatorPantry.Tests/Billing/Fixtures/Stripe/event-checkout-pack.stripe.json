@@ -1,0 +1,23 @@
+{
+  "id": "evt_1NG8Du2eZvKYlo2CCheckoutP",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 2104761605,
+  "data": {
+    "object": {
+      "id": "cs_test_b22ZZufWQzNY63zpQ6QSNRQhkUpVph4WRmzW0zWJO2znZKdVujZ0N0S22u",
+      "object": "checkout.session",
+      "client_reference_id": "user-sam-8f2e",
+      "customer": "cus_NffrFeUfNV2Hib",
+      "livemode": false,
+      "mode": "payment",
+      "payment_status": "paid",
+      "status": "complete",
+      "subscription": null
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "checkout.session.completed"
+}

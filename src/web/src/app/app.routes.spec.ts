@@ -268,7 +268,7 @@ describe('app routes', () => {
     for (const route of socialStudio.children!) {
       expect(await route.loadComponent!()).toBe(SocialStudioComponent);
       expect(route.canDeactivate).toEqual([socialStudioCanDeactivateGuard]);
-      expect(route.data?.['title']).toBe('Social Studio');
+      expect(route.data?.['title']).toBe('AI Social Studio');
     }
     expect(socialStudio.children![0].pathMatch).toBe('full');
 
@@ -280,7 +280,7 @@ describe('app routes', () => {
     for (const route of imageStudio.children!) {
       expect(await route.loadComponent!()).withContext(route.path!).toBe(ImageStudioComponent);
       expect(route.canDeactivate).withContext(route.path!).toBeUndefined();
-      expect(route.data?.['title']).withContext(route.path!).toBe('Image Studio');
+      expect(route.data?.['title']).withContext(route.path!).toBe('AI Image Studio');
     }
     expect(imageStudio.children![0].pathMatch).toBe('full');
 
