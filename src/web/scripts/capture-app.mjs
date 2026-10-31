@@ -59,7 +59,10 @@ const LOADING_SHOT_AFTER_MS = 1_200;
 const PAGES = [
   { id: 'dashboard', path: (ws) => `/${ws}/dashboard` },
   { id: 'workflows', path: (ws) => `/${ws}/workflows` },
-  { id: 'workflow-run', discover: { on: (ws) => `/${ws}/workflows`, href: (ws) => new RegExp(`^/${ws}/workflows/runs/[^/?#]+$`) } },
+  {
+    id: 'workflow-run',
+    discover: { on: (ws) => `/${ws}/workflows`, href: (ws) => new RegExp(`^/${ws}/workflows/runs/[^/?#]+$`) },
+  },
   { id: 'content-pipeline', path: (ws) => `/${ws}/workflows/content-pipeline` },
   { id: 'long-form', path: (ws) => `/${ws}/workflows/long-form` },
   { id: 'quick-recipe', path: (ws) => `/${ws}/workflows/quick-recipe` },
@@ -67,7 +70,10 @@ const PAGES = [
   { id: 'my-week', path: (ws) => `/${ws}/my-week` },
   { id: 'recipes', path: (ws) => `/${ws}/recipes` },
   { id: 'recipe-new', path: (ws) => `/${ws}/recipes/new` },
-  { id: 'recipe-editor', discover: { on: (ws) => `/${ws}/recipes`, href: (ws) => new RegExp(`^/${ws}/recipes/(?!new$)[^/?#]+$`) } },
+  {
+    id: 'recipe-editor',
+    discover: { on: (ws) => `/${ws}/recipes`, href: (ws) => new RegExp(`^/${ws}/recipes/(?!new$)[^/?#]+$`) },
+  },
   { id: 'recipe-kitchen', from: { page: 'recipe-editor', suffix: '/kitchen' } },
   { id: 'ai-recipe-studio', path: (ws) => `/${ws}/ai-recipe-studio` },
   { id: 'recipe-first-draft', path: (ws) => `/${ws}/ai-recipe-studio/draft` },
@@ -76,16 +82,29 @@ const PAGES = [
   { id: 'pictures', path: (ws) => `/${ws}/dam` },
   { id: 'picture', discover: { on: (ws) => `/${ws}/dam`, href: (ws) => new RegExp(`^/${ws}/dam/[^/?#]+$`) } },
   { id: 'content-board', path: (ws) => `/${ws}/content-board` },
-  { id: 'content-card', discover: { on: (ws) => `/${ws}/content-board`, href: (ws) => new RegExp(`^/${ws}/content-board/[^/?#]+$`) } },
+  {
+    id: 'content-card',
+    discover: { on: (ws) => `/${ws}/content-board`, href: (ws) => new RegExp(`^/${ws}/content-board/[^/?#]+$`) },
+  },
   { id: 'brand', path: (ws) => `/${ws}/brand` },
   { id: 'brand-setup', path: (ws) => `/${ws}/brand/setup` },
   { id: 'brand-library', path: (ws) => `/${ws}/brand/library` },
-  { id: 'brand-example', discover: { on: (ws) => `/${ws}/brand/library`, href: (ws) => new RegExp(`^/${ws}/brand/library/[^/?#]+$`) } },
-  { id: 'brand-guide', requiresUrl: true, needs: 'the address of a voice guide, /<workspace>/brand/style-guide/<guideId>.' },
+  {
+    id: 'brand-example',
+    discover: { on: (ws) => `/${ws}/brand/library`, href: (ws) => new RegExp(`^/${ws}/brand/library/[^/?#]+$`) },
+  },
+  {
+    id: 'brand-guide',
+    requiresUrl: true,
+    needs: 'the address of a voice guide, /<workspace>/brand/style-guide/<guideId>.',
+  },
   { id: 'brand-guide-history', from: { page: 'brand-guide', suffix: '/history' } },
   { id: 'brand-test-drive', from: { page: 'brand-guide', suffix: '/test-drive' } },
   { id: 'prompt-library', path: (ws) => `/${ws}/prompt-library` },
-  { id: 'prompt', discover: { on: (ws) => `/${ws}/prompt-library`, href: (ws) => new RegExp(`^/${ws}/prompt-library/[^/?#]+$`) } },
+  {
+    id: 'prompt',
+    discover: { on: (ws) => `/${ws}/prompt-library`, href: (ws) => new RegExp(`^/${ws}/prompt-library/[^/?#]+$`) },
+  },
   { id: 'settings', path: (ws) => `/${ws}/settings` },
   { id: 'themed-days', path: (ws) => `/${ws}/settings/themed-days` },
   { id: 'ai-usage', account: true, path: () => '/app/ai-usage' },
@@ -137,7 +156,8 @@ async function api(page, method, path, body) {
 
 async function memberships(page) {
   const response = await api(page, 'GET', '/api/v1/me');
-  if (response.status !== 200 || !Array.isArray(response.body)) throw new Error(`GET /api/v1/me answered ${response.status}.`);
+  if (response.status !== 200 || !Array.isArray(response.body))
+    throw new Error(`GET /api/v1/me answered ${response.status}.`);
   return response.body.filter((entry) => entry.status === 'Active');
 }
 
@@ -147,16 +167,22 @@ async function emptyWorkspace(page, label) {
   if (reuse) {
     const mine = (await memberships(page)).find((entry) => entry.workspaceSlug === reuse);
     if (!mine?.workspaceName.startsWith(EMPTY_WORKSPACE_PREFIX)) {
-      throw new Error(`CAPTURE_EMPTY_WORKSPACE="${reuse}" is not a workspace an earlier capture made ("${EMPTY_WORKSPACE_PREFIX} …").`);
+      throw new Error(
+        `CAPTURE_EMPTY_WORKSPACE="${reuse}" is not a workspace an earlier capture made ("${EMPTY_WORKSPACE_PREFIX} …").`,
+      );
     }
     return reuse;
   }
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-  const created = await api(page, 'POST', '/api/v1/workspaces', { name: `${EMPTY_WORKSPACE_PREFIX} ${label} ${stamp}` });
+  const created = await api(page, 'POST', '/api/v1/workspaces', {
+    name: `${EMPTY_WORKSPACE_PREFIX} ${label} ${stamp}`,
+  });
   if (created.status !== 201 || typeof created.body?.slug !== 'string') {
     throw new Error(`Could not create the run's empty workspace: POST /api/v1/workspaces answered ${created.status}.`);
   }
-  console.log(`created the empty workspace "${created.body.slug}" (reuse it next time with CAPTURE_EMPTY_WORKSPACE=${created.body.slug})`);
+  console.log(
+    `created the empty workspace "${created.body.slug}" (reuse it next time with CAPTURE_EMPTY_WORKSPACE=${created.body.slug})`,
+  );
   return created.body.slug;
 }
 
@@ -165,7 +191,8 @@ function guardFor(workspace) {
   return (pathname) => {
     const first = pathname.split('/')[1] ?? '';
     if (first === 'app') return;
-    if (first !== workspace) throw new Error(`refused: ${pathname} is outside the workspace being photographed ("${workspace}").`);
+    if (first !== workspace)
+      throw new Error(`refused: ${pathname} is outside the workspace being photographed ("${workspace}").`);
   };
 }
 
@@ -175,9 +202,12 @@ function guardFor(workspace) {
  */
 async function accountPagesAllowed(page) {
   const others = (await memberships(page)).filter(
-    (entry) => !SAMPLE_WORKSPACES.includes(entry.workspaceSlug) && !entry.workspaceName.startsWith(EMPTY_WORKSPACE_PREFIX),
+    (entry) =>
+      !SAMPLE_WORKSPACES.includes(entry.workspaceSlug) && !entry.workspaceName.startsWith(EMPTY_WORKSPACE_PREFIX),
   );
-  return others.length === 0 ? null : `the account also belongs to ${others.length} other workspace(s), which this page would show.`;
+  return others.length === 0
+    ? null
+    : `the account also belongs to ${others.length} other workspace(s), which this page would show.`;
 }
 
 /**
@@ -196,7 +226,13 @@ async function settle(page) {
 }
 
 async function heading(page) {
-  return ((await page.locator('h1').first().textContent({ timeout: 2_000 }).catch(() => '')) ?? '').trim();
+  return (
+    (await page
+      .locator('h1')
+      .first()
+      .textContent({ timeout: 2_000 })
+      .catch(() => '')) ?? ''
+  ).trim();
 }
 
 /**
@@ -224,12 +260,17 @@ async function resolveAddresses(page, baseUrl, workspace, isSample) {
         await page.goto(`${baseUrl}${entry.discover.on(workspace)}`, { waitUntil: 'networkidle' });
         await settle(page);
         const pattern = entry.discover.href(workspace);
-        const hrefs = await page.locator('main a[href]').evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
+        const hrefs = await page
+          .locator('main a[href]')
+          .evaluateAll((links) => links.map((link) => link.getAttribute('href') ?? ''));
         const href = hrefs.find((candidate) => pattern.test(candidate));
         if (href) found.set(entry.id, href);
         else missing.set(entry.id, `no link on ${entry.discover.on(workspace)} matches ${pattern}.`);
       } else if (entry.requiresUrl) {
-        missing.set(entry.id, isSample ? `no address given. Pass ${entry.needs}` : 'not applicable in an empty workspace.');
+        missing.set(
+          entry.id,
+          isSample ? `no address given. Pass ${entry.needs}` : 'not applicable in an empty workspace.',
+        );
       }
     } catch (error) {
       missing.set(entry.id, error.message);
@@ -288,7 +329,12 @@ async function photographSet({ browser, storageState, baseUrl, outDir, set, work
 async function photographLoading({ browser, storageState, baseUrl, outDir, workspace, addresses, accountRefusal }) {
   const guard = guardFor(workspace);
   const shots = [];
-  const context = await browser.newContext({ storageState, viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', ignoreHTTPSErrors: true });
+  const context = await browser.newContext({
+    storageState,
+    viewport: { width: 1440, height: 900 },
+    reducedMotion: 'reduce',
+    ignoreHTTPSErrors: true,
+  });
   await context.addInitScript(() => window.localStorage.setItem('creator-pantry-theme', 'light'));
   const held = new RegExp(`/api/v1/(workspaces/${workspace}/|me/ai-usage)`);
   await context.route(held, async (route) => {
@@ -303,13 +349,22 @@ async function photographLoading({ browser, storageState, baseUrl, outDir, works
     try {
       guard(new URL(address, baseUrl).pathname);
       await page.goto(`${baseUrl}${address}`, { waitUntil: 'domcontentloaded' });
-      await page.locator('h1').first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+      await page
+        .locator('h1')
+        .first()
+        .waitFor({ timeout: 15_000 })
+        .catch(() => undefined);
       await page.waitForTimeout(LOADING_SHOT_AFTER_MS);
       guard(new URL(page.url()).pathname);
       const file = join('loading', `${entry.id}.png`);
       await page.screenshot({ path: join(outDir, file) });
       const busy = await page.locator('main [aria-busy="true"], main [role="status"]').allTextContents();
-      shots.push({ ...shot, url: new URL(page.url()).pathname, file, saying: busy.map((text) => text.trim()).filter(Boolean) });
+      shots.push({
+        ...shot,
+        url: new URL(page.url()).pathname,
+        file,
+        saying: busy.map((text) => text.trim()).filter(Boolean),
+      });
     } catch (error) {
       shots.push({ ...shot, failed: error.message });
     }
@@ -322,7 +377,13 @@ async function photographLoading({ browser, storageState, baseUrl, outDir, works
 async function contactSheet(sharp, outDir, shots, set, width) {
   const tile = width === 1440 ? { w: 480, h: 300 } : { w: 188, h: 406 };
   const rows = PAGES.map((entry) => entry.id)
-    .map((id) => THEMES.map((theme) => shots.find((shot) => shot.page === id && shot.set === set && shot.theme === theme && shot.width === width && shot.file)))
+    .map((id) =>
+      THEMES.map((theme) =>
+        shots.find(
+          (shot) => shot.page === id && shot.set === set && shot.theme === theme && shot.width === width && shot.file,
+        ),
+      ),
+    )
     .filter((pair) => pair.some(Boolean));
   if (rows.length === 0) return null;
   const perRow = width === 1440 ? 2 : 4;
@@ -333,29 +394,45 @@ async function contactSheet(sharp, outDir, shots, set, width) {
   for (const [index, pair] of rows.entries()) {
     const x = 16 + (index % columns) * (cell.w + 16);
     const y = 16 + Math.floor(index / columns) * (cell.h + 16);
-    const name = (pair.find(Boolean)).page;
-    layers.push({ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${cell.w}" height="24"><text x="0" y="17" font-family="sans-serif" font-size="15" font-weight="700" fill="#222">${name}</text></svg>`), left: x, top: y });
+    const name = pair.find(Boolean).page;
+    layers.push({
+      input: Buffer.from(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${cell.w}" height="24"><text x="0" y="17" font-family="sans-serif" font-size="15" font-weight="700" fill="#222">${name}</text></svg>`,
+      ),
+      left: x,
+      top: y,
+    });
     for (const [side, shot] of pair.entries()) {
       if (!shot) continue;
-      const image = await sharp(join(outDir, shot.file)).resize({ width: tile.w, height: tile.h, fit: 'cover', position: 'top' }).toBuffer();
+      const image = await sharp(join(outDir, shot.file))
+        .resize({ width: tile.w, height: tile.h, fit: 'cover', position: 'top' })
+        .toBuffer();
       layers.push({ input: image, left: x + side * (tile.w + 12), top: y + 26 });
     }
   }
   const file = `contact-${set}-${width}.png`;
-  await sharp({ create: { width: sheet.w, height: sheet.h, channels: 3, background: '#e9e6df' } }).composite(layers).png().toFile(join(outDir, file));
+  await sharp({ create: { width: sheet.w, height: sheet.h, channels: 3, background: '#e9e6df' } })
+    .composite(layers)
+    .png()
+    .toFile(join(outDir, file));
   return file;
 }
 
 /** A page to look through the run with: every page as a row, every variant as a column, each linking to its file. */
 async function contactPage(outDir, label, shots, workspaces) {
   const columns = [
-    ...['sample', 'empty'].flatMap((set) => VIEWPORTS.flatMap((viewport) => THEMES.map((theme) => ({ set, theme, width: viewport.width })))),
+    ...['sample', 'empty'].flatMap((set) =>
+      VIEWPORTS.flatMap((viewport) => THEMES.map((theme) => ({ set, theme, width: viewport.width }))),
+    ),
     { set: 'loading', theme: 'light', width: 1440 },
   ];
   const cellFor = (id, column) => {
-    const shot = shots.find((s) => s.page === id && s.set === column.set && s.theme === column.theme && s.width === column.width);
+    const shot = shots.find(
+      (s) => s.page === id && s.set === column.set && s.theme === column.theme && s.width === column.width,
+    );
     if (!shot) return '<td class="none">—</td>';
-    if (shot.file) return `<td><a href="${shot.file.replaceAll('\\', '/')}"><img loading="lazy" src="${shot.file.replaceAll('\\', '/')}" alt=""></a>${shot.note ? `<small>${shot.note}</small>` : ''}</td>`;
+    if (shot.file)
+      return `<td><a href="${shot.file.replaceAll('\\', '/')}"><img loading="lazy" src="${shot.file.replaceAll('\\', '/')}" alt=""></a>${shot.note ? `<small>${shot.note}</small>` : ''}</td>`;
     return `<td class="none"><small>${escapeHtml(shot.skipped ?? shot.failed ?? '')}</small></td>`;
   };
   const html = `<!doctype html><meta charset="utf-8"><title>Captures: ${label}</title>
@@ -374,7 +451,8 @@ function escapeHtml(text) {
 async function main() {
   const baseUrl = required('CAPTURE_BASE_URL').replace(/\/$/, '');
   const label = process.env.CAPTURE_LABEL ?? 'before';
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(label)) throw new Error(`CAPTURE_LABEL "${label}" must be lower-case letters, digits and dashes.`);
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(label))
+    throw new Error(`CAPTURE_LABEL "${label}" must be lower-case letters, digits and dashes.`);
   const sample = process.env.CAPTURE_WORKSPACE ?? SAMPLE_WORKSPACES[0];
   if (!SAMPLE_WORKSPACES.includes(sample)) {
     throw new Error(
@@ -393,7 +471,11 @@ async function main() {
   const workspaces = { sample, empty: '' };
   try {
     // One sign-in for the run; every theme and width reuses its session rather than signing in again.
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true, reducedMotion: 'reduce' });
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      ignoreHTTPSErrors: true,
+      reducedMotion: 'reduce',
+    });
     const page = await context.newPage();
     await signIn(page, baseUrl);
     if (!(await memberships(page)).some((entry) => entry.workspaceSlug === sample)) {
@@ -409,7 +491,9 @@ async function main() {
     const common = { browser, storageState, baseUrl, outDir, accountRefusal };
     shots.push(...(await photographSet({ ...common, set: 'sample', workspace: sample, addresses: sampleAddresses })));
     console.log('photographed the sample workspace');
-    shots.push(...(await photographSet({ ...common, set: 'empty', workspace: workspaces.empty, addresses: emptyAddresses })));
+    shots.push(
+      ...(await photographSet({ ...common, set: 'empty', workspace: workspaces.empty, addresses: emptyAddresses })),
+    );
     console.log('photographed the empty workspace');
     shots.push(...(await photographLoading({ ...common, workspace: sample, addresses: sampleAddresses })));
     console.log('photographed the loading states');
@@ -425,7 +509,10 @@ async function main() {
     }
   }
   await contactPage(outDir, label, shots, workspaces);
-  await writeFile(join(outDir, 'manifest.json'), JSON.stringify({ label, takenAt: new Date().toISOString(), baseUrl, workspaces, shots }, null, 2));
+  await writeFile(
+    join(outDir, 'manifest.json'),
+    JSON.stringify({ label, takenAt: new Date().toISOString(), baseUrl, workspaces, shots }, null, 2),
+  );
 
   const taken = shots.filter((shot) => shot.file).length;
   const failed = shots.filter((shot) => shot.failed);
@@ -436,7 +523,9 @@ async function main() {
     console.log(`\nNot photographed:\n  ${[...reasons].map(([page, why]) => `${page}: ${why}`).join('\n  ')}`);
   }
   if (failed.length) {
-    console.error(`\nFailed:\n  ${failed.map((shot) => `${shot.page} (${shot.set}, ${shot.theme} ${shot.width}): ${shot.failed}`).join('\n  ')}`);
+    console.error(
+      `\nFailed:\n  ${failed.map((shot) => `${shot.page} (${shot.set}, ${shot.theme} ${shot.width}): ${shot.failed}`).join('\n  ')}`,
+    );
     process.exitCode = 1;
   }
 }

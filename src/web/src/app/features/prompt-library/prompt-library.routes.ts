@@ -7,6 +7,15 @@ import { Routes } from '@angular/router';
  * loses nothing.
  */
 export const PROMPT_LIBRARY_ROUTES: Routes = [
-  { path: '', pathMatch: 'full', loadComponent: () => import('./prompt-library.component').then((m) => m.PromptLibraryComponent), data: { title: 'Prompt Library' } },
-  { path: ':promptRecordId', loadComponent: () => import('./prompt-detail.component').then((m) => m.PromptDetailComponent), data: { title: 'Prompt' } },
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./prompt-library.component').then((m) => m.PromptLibraryComponent),
+    data: { title: 'Prompt Library' },
+  },
+  {
+    path: ':promptRecordId',
+    loadComponent: () => import('./prompt-detail.component').then((m) => m.PromptDetailComponent),
+    data: { title: 'Prompt' },
+  },
 ];

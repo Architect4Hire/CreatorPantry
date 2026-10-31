@@ -124,7 +124,9 @@ export class LandingCreditsComponent {
   protected readonly fits = computed<Plan | null>(() => {
     const estimate = this.estimate();
     const pictures = this.picturesAMonth();
-    return this.paidPlans().find((plan) => plan.credits >= estimate && plan.dailyImageCap * DAYS_A_MONTH >= pictures) ?? null;
+    return (
+      this.paidPlans().find((plan) => plan.credits >= estimate && plan.dailyImageCap * DAYS_A_MONTH >= pictures) ?? null
+    );
   });
 
   /**

@@ -4,7 +4,9 @@
 
 <section class="themed-days" aria-label="Themed days">
   <!-- Always present, and outside the busy form (APP-003): one place the page says it is still loading. -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your themed days…' : '' }}</p>
+  <p class="cp-sr-only" role="status" aria-live="polite">{{
+    load().status === 'loading' ? 'Loading your themed days…' : ''
+  }}</p>
 
   @switch (load().status) {
     @case ('loading') {
@@ -119,7 +121,8 @@
 
                   <div class="day-actions">
                     <button cpButton type="button" variant="secondary" size="sm" (click)="takeOffWeek(day)">
-                      {{ theme.key === null ? 'Remove' : 'Take off the week' }}<span class="cp-sr-only">: {{ day }}’s theme</span>
+                      {{ theme.key === null ? 'Remove' : 'Take off the week'
+                      }}<span class="cp-sr-only">: {{ day }}’s theme</span>
                     </button>
                     @if (canDelete() && storedTheme(day); as stored) {
                       <button
@@ -130,7 +133,8 @@
                         [disabled]="deleting() !== null"
                         (click)="deleteTheme(stored)"
                       >
-                        {{ deleting() === stored.key ? 'Deleting…' : 'Delete permanently' }}<span class="cp-sr-only">: {{ stored.displayName }}</span>
+                        {{ deleting() === stored.key ? 'Deleting…' : 'Delete permanently'
+                        }}<span class="cp-sr-only">: {{ stored.displayName }}</span>
                       </button>
                     }
                   </div>
@@ -156,7 +160,9 @@
                         @if (row.pending) {
                           <cp-status-pill tone="warning">Comes off the week when you save</cp-status-pill>
                         } @else {
-                          <cp-status-pill tone="neutral">Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill>
+                          <cp-status-pill tone="neutral"
+                            >Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill
+                          >
                         }
                       </div>
                       <div class="day-actions">
@@ -180,7 +186,8 @@
                             [disabled]="deleting() !== null"
                             (click)="deleteTheme(row.theme)"
                           >
-                            {{ deleting() === row.theme.key ? 'Deleting…' : 'Delete permanently' }}<span class="cp-sr-only">: {{ row.theme.displayName }}</span>
+                            {{ deleting() === row.theme.key ? 'Deleting…' : 'Delete permanently'
+                            }}<span class="cp-sr-only">: {{ row.theme.displayName }}</span>
                           </button>
                         }
                       </div>
@@ -214,7 +221,9 @@
                   <cp-notice tone="success">Saved your week.</cp-notice>
                 }
                 @case ('invalid') {
-                  <cp-notice tone="error">Something needs another look before this can be saved. It is marked above.</cp-notice>
+                  <cp-notice tone="error"
+                    >Something needs another look before this can be saved. It is marked above.</cp-notice
+                  >
                 }
                 @case ('conflict') {
                   <cp-notice tone="warning">
@@ -264,14 +273,19 @@
             }
 
             @if (retired().length > 0) {
-              <cp-form-section heading="Retired themes" intro="Themes that are off the week. Work that used one still shows it.">
+              <cp-form-section
+                heading="Retired themes"
+                intro="Themes that are off the week. Work that used one still shows it."
+              >
                 <ul class="retired">
                   @for (row of retired(); track row.theme.key) {
                     <li class="retired-row">
                       <div class="retired-head">
                         <span class="retired-name">{{ row.theme.displayName }}</span>
                         <span class="cp-muted">{{ row.theme.day }}</span>
-                        <cp-status-pill tone="neutral">Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill>
+                        <cp-status-pill tone="neutral"
+                          >Retired {{ row.theme.retiredAt | date: 'mediumDate' }}</cp-status-pill
+                        >
                       </div>
                       <ng-container
                         *ngTemplateOutlet="historyBlock; context: { key: row.theme.key, name: row.theme.displayName }"
@@ -292,7 +306,9 @@
      cost seven requests to look at. -->
 <ng-template #historyBlock let-key="key" let-name="name">
   <details class="cp-disclosure history" (toggle)="onHistoryToggle(key, $event)">
-    <summary>Already made<span class="cp-sr-only"> for {{ name }}</span></summary>
+    <summary
+      >Already made<span class="cp-sr-only"> for {{ name }}</span></summary
+    >
 
     <!-- No live region for the list: the creator has just opened this and is moving into it, and a region inside
          a disclosure that may be closed is not one a screen reader can be relied on to announce. The loading
@@ -301,7 +317,9 @@
          emptied once the list is read (AU.6.4). -->
     <div class="history-body">
       @let state = historyOf(key);
-      <p class="cp-sr-only" role="status">{{ state === null || state.status === 'loading' ? "Loading what you've made…" : '' }}</p>
+      <p class="cp-sr-only" role="status">{{
+        state === null || state.status === 'loading' ? "Loading what you've made…" : ''
+      }}</p>
       @if (state === null || state.status === 'loading') {
         <!-- What was made, arriving as a few lines. -->
         <div aria-busy="true"><cp-skeleton shape="line" [count]="2" /></div>
@@ -350,7 +368,8 @@
             [disabled]="state.more === 'loading'"
             (click)="loadMoreHistory(key)"
           >
-            {{ state.more === 'loading' ? 'Loading more…' : 'Show more' }}<span class="cp-sr-only"> made for {{ name }}</span>
+            {{ state.more === 'loading' ? 'Loading more…' : 'Show more'
+            }}<span class="cp-sr-only"> made for {{ name }}</span>
           </button>
         }
         @if (state.more === 'failed') {

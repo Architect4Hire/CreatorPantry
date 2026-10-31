@@ -499,7 +499,9 @@ describe('BrandStyleTestDriveComponent', () => {
     const run = '0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f';
     const fromRun = render({ workflowRun: run });
     expect(fromRun.querySelector('a[cpBackLink]')!.textContent?.replace('←', '').trim()).toBe('Guide history');
-    const carryOn = Array.from(fromRun.querySelectorAll('cp-workflow-return-notice a')).find((a) => a.textContent?.includes('Carry on with it'))!;
+    const carryOn = Array.from(fromRun.querySelectorAll('cp-workflow-return-notice a')).find((a) =>
+      a.textContent?.includes('Carry on with it'),
+    )!;
     expect(carryOn.getAttribute('href')).toBe(`/cozy-fall/workflows/runs/${run}`);
 
     TestBed.resetTestingModule();

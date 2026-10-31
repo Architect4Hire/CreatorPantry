@@ -107,7 +107,10 @@ describe('DamAssetService — uploading a picture', () => {
   });
 
   it('carries the server’s field errors for a refused request', async () => {
-    const event = await failedWith(400, { code: 'media.asset.invalid_request', errors: { title: ['A title is required.'] } });
+    const event = await failedWith(400, {
+      code: 'media.asset.invalid_request',
+      errors: { title: ['A title is required.'] },
+    });
 
     expect(event).toEqual({
       kind: 'done',

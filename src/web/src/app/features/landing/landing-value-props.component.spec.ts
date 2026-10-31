@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 
-import { COMING_TO_EVERY_ACCOUNT, DEFAULT_VALUE_PROPS, LandingValuePropsComponent } from './landing-value-props.component';
+import {
+  COMING_TO_EVERY_ACCOUNT,
+  DEFAULT_VALUE_PROPS,
+  LandingValuePropsComponent,
+} from './landing-value-props.component';
 
 describe('LandingValuePropsComponent', () => {
   async function createFixture() {
@@ -36,13 +40,17 @@ describe('LandingValuePropsComponent', () => {
   // LP.1 finding 4: every "In the works" label was stale.
   it('labels nothing "In the works"', async () => {
     const fixture = await createFixture();
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toMatch(/in the works|active development|near-term roadmap/i);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toMatch(
+      /in the works|active development|near-term roadmap/i,
+    );
   });
 
   it('says publishing is not yet for every account in the badge text, not the tone alone', async () => {
     const fixture = await createFixture();
     const cards = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('cp-card'));
-    const publishing = cards.find((card) => card.querySelector('h3')?.textContent?.includes('Schedule to your social channels'));
+    const publishing = cards.find((card) =>
+      card.querySelector('h3')?.textContent?.includes('Schedule to your social channels'),
+    );
     const badge = publishing?.querySelector('cp-badge');
 
     expect(badge?.textContent?.trim()).toBe(COMING_TO_EVERY_ACCOUNT);
@@ -94,7 +102,10 @@ describe('LandingValuePropsComponent', () => {
 
   it('links each card that has a tour panel to it once the tour has them all, naming the card for a screen reader', async () => {
     const fixture = await createFixture();
-    fixture.componentRef.setInput('tourPanels', DEFAULT_VALUE_PROPS.flatMap((item) => (item.tourPanel ? [item.tourPanel] : [])));
+    fixture.componentRef.setInput(
+      'tourPanels',
+      DEFAULT_VALUE_PROPS.flatMap((item) => (item.tourPanel ? [item.tourPanel] : [])),
+    );
     fixture.detectChanges();
 
     const links = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('cp-card a'));
@@ -120,7 +131,7 @@ describe('LandingValuePropsComponent', () => {
     expect(el.querySelector('cp-card h3')?.textContent).toContain('Custom heading');
   });
 
-  it("labels the section by its own heading, giving it an accessible name", async () => {
+  it('labels the section by its own heading, giving it an accessible name', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
     const section = el.querySelector('section')!;

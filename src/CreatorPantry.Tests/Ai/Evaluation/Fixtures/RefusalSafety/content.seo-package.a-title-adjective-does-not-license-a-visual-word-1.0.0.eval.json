@@ -8,10 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Golden milk in a mug\",\"basis\":\"RecipeTitle\"}]}}",
     "expectedSchemaVersion": "content.seo-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25"
-      ],
+      "numbers": ["220", "25"],
       "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
       "storageNotes": null
     },
@@ -25,9 +22,6 @@
   },
   "expect": {
     "outcome": "Accepted",
-    "warnings": [
-      "seo.alt_text_not_checked_against_image",
-      "seo.unsupported_visual_detail"
-    ]
+    "warnings": ["seo.alt_text_not_checked_against_image", "seo.unsupported_visual_detail"]
   }
 }

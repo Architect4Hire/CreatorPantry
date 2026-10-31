@@ -16,7 +16,12 @@ type Compared =
   | { readonly status: 'unavailable' }
   | { readonly status: 'unchanged' }
   | { readonly status: 'missing' }
-  | { readonly status: 'ready'; readonly from: number; readonly to: number; readonly comparison: RecipeVersionComparison };
+  | {
+      readonly status: 'ready';
+      readonly from: number;
+      readonly to: number;
+      readonly comparison: RecipeVersionComparison;
+    };
 
 /**
  * "Compare with before" (13A.15): the recipe as it stood when this run began, beside how it is now — the recipe
@@ -29,7 +34,9 @@ type Compared =
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
-    <p class="cp-sr-only" role="status">{{ compared().status === 'loading' ? 'Comparing your recipe with how it was…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      compared().status === 'loading' ? 'Comparing your recipe with how it was…' : ''
+    }}</p>
     @switch (compared().status) {
       @case ('loading') {
         <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
@@ -44,11 +51,16 @@ type Compared =
         <p class="plain">Nothing has changed since you started.</p>
       }
       @case ('missing') {
-        <cp-notice tone="warning" role="status">There’s no recipe chosen yet, so nothing to compare. Go back to the first step and choose one.</cp-notice>
+        <cp-notice tone="warning" role="status"
+          >There’s no recipe chosen yet, so nothing to compare. Go back to the first step and choose one.</cp-notice
+        >
       }
       @case ('ready') {
         @if (ready(); as shown) {
-          <p class="plain">Version {{ shown.from }}, from before you started, beside version {{ shown.to }}, as it is now. Every version is kept.</p>
+          <p class="plain"
+            >Version {{ shown.from }}, from before you started, beside version {{ shown.to }}, as it is now. Every
+            version is kept.</p
+          >
           <cp-recipe-version-comparison [comparison]="shown.comparison" />
         }
       }
@@ -110,9 +122,12 @@ export class RecipeImproveCompareStepComponent implements OnInit {
     const began = new Date(this.run().startedAt).getTime();
     const before = versions.filter((version) => new Date(version.createdAt).getTime() <= began);
     const numbers = versions.map((version) => version.versionNumber);
-    const from = before.length > 0
-      ? Math.max(...before.map((version) => version.versionNumber))
-      : numbers.length > 0 ? Math.min(...numbers) : null;
+    const from =
+      before.length > 0
+        ? Math.max(...before.map((version) => version.versionNumber))
+        : numbers.length > 0
+          ? Math.min(...numbers)
+          : null;
     const to = numbers.length > 0 ? Math.max(...numbers) : null;
 
     if (from === null || to === null || from === to) {
@@ -121,7 +136,11 @@ export class RecipeImproveCompareStepComponent implements OnInit {
     }
 
     const outcome = await this.recipes.compareVersions(this.workspaceSlug(), id, from, to);
-    this.compared.set(outcome.status === 'found' ? { status: 'ready', from, to, comparison: outcome.comparison } : { status: 'unavailable' });
+    this.compared.set(
+      outcome.status === 'found'
+        ? { status: 'ready', from, to, comparison: outcome.comparison }
+        : { status: 'unavailable' },
+    );
   }
 
   /** The recipe's versions, as far back as the run began, or null when they could not be read. */

@@ -33,7 +33,15 @@ type Read =
 @Component({
   selector: 'cp-publish-check-step',
   standalone: true,
-  imports: [RouterLink, CpBadgeComponent, CpButtonComponent, CpFactComponent, CpFactsComponent, CpNoticeComponent, CpSkeletonComponent],
+  imports: [
+    RouterLink,
+    CpBadgeComponent,
+    CpButtonComponent,
+    CpFactComponent,
+    CpFactsComponent,
+    CpNoticeComponent,
+    CpSkeletonComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always present, and outside the busy lines (APP-003): the one place this step says it is still loading. -->
@@ -59,7 +67,9 @@ type Read =
       }
       @case ('ready') {
         @if (detail(); as shown) {
-          <p class="plain"><strong>{{ shown.card.title }}</strong></p>
+          <p class="plain"
+            ><strong>{{ shown.card.title }}</strong></p
+          >
           <dl cpFacts>
             <div cpFact label="On the board">{{ column(shown) }}</div>
             <div cpFact label="Planned for">{{ shown.card.plannedDate ?? 'No day yet' }}</div>
@@ -70,17 +80,23 @@ type Read =
             <p class="prose">{{ words }}</p>
           } @else {
             <cp-notice role="note">
-              This card has no words on it yet. You can still pick a time, and write them on the card before it goes out.
+              This card has no words on it yet. You can still pick a time, and write them on the card before it goes
+              out.
             </cp-notice>
           }
           @if (shown.card.lineage.mediaAssetId) {
             <cp-notice role="note">
-              A picture can’t be sent through the provider yet, so what goes out is the words. The picture stays on
-              the card.
+              A picture can’t be sent through the provider yet, so what goes out is the words. The picture stays on the
+              card.
             </cp-notice>
           }
           <p class="plain">
-            <a cpButton variant="secondary" size="sm" [routerLink]="['/', workspaceSlug(), 'content-board', shown.card.id]">
+            <a
+              cpButton
+              variant="secondary"
+              size="sm"
+              [routerLink]="['/', workspaceSlug(), 'content-board', shown.card.id]"
+            >
               Open the card
             </a>
             <cp-badge>Nothing is scheduled yet</cp-badge>

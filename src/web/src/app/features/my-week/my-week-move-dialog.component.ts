@@ -40,8 +40,8 @@ import { MyWeekDestination, MyWeekPlace, destinationsFor, listOf, placeOf, place
 
       @if (partlyLoaded()) {
         <p class="plain cp-muted">
-          Only the first tasks in this list are on the board, so only they are offered as places. “At the bottom” is below
-          every task in it, shown or not.
+          Only the first tasks in this list are on the board, so only they are offered as places. “At the bottom” is
+          below every task in it, shown or not.
         </p>
       }
 
@@ -62,7 +62,6 @@ import { MyWeekDestination, MyWeekPlace, destinationsFor, listOf, placeOf, place
           }
         </p>
       }
-
     </form>
 
     <div cpDialogActions class="cp-actions">

@@ -15,9 +15,7 @@ import { TestIssueSeverity, TEST_ISSUE_SEVERITY_VALUES } from './recipe-test-run
  * **Every number is the server's.** Nothing here adds, subtracts or derives a count: what the page shows is
  * what came back.
  */
-export type DashboardSection<T> =
-  | { readonly status: 'ready'; readonly data: T }
-  | { readonly status: 'unavailable' };
+export type DashboardSection<T> = { readonly status: 'ready'; readonly data: T } | { readonly status: 'unavailable' };
 
 export interface DashboardStatusCount<S extends string> {
   readonly status: S;
@@ -310,7 +308,12 @@ function publishingItem(raw: unknown): DashboardPublishingItem | null {
   const { id, contentCardId, contentCardTitle, platform, scheduledAt } = raw;
   const status = publishingStatus(raw['status']);
 
-  return isId(id) && isStringOrNull(contentCardId) && isStringOrNull(contentCardTitle) && isString(platform) && isString(scheduledAt) && status !== null
+  return isId(id) &&
+    isStringOrNull(contentCardId) &&
+    isStringOrNull(contentCardTitle) &&
+    isString(platform) &&
+    isString(scheduledAt) &&
+    status !== null
     ? { id, contentCardId, contentCardTitle, platform, status, scheduledAt }
     : null;
 }
@@ -332,7 +335,17 @@ function workflowRun(raw: unknown): DashboardWorkflowRun | null {
     isStringOrNull(stepTitle) &&
     isString(updatedAt) &&
     reasons
-    ? { id, title, definitionKey, goal, stepKey, stepTitle, youCanDoIt: raw['youCanDoIt'], updatedAt, attentionReasons: reasons }
+    ? {
+        id,
+        title,
+        definitionKey,
+        goal,
+        stepKey,
+        stepTitle,
+        youCanDoIt: raw['youCanDoIt'],
+        updatedAt,
+        attentionReasons: reasons,
+      }
     : null;
 }
 
@@ -359,7 +372,12 @@ function task(raw: unknown): DashboardTask | null {
   const priority = decodeEnum<WorkTaskPriority>(TASK_PRIORITIES, raw['priority']);
   const { id, title, dueDate, scheduledDate } = raw;
 
-  return isId(id) && isString(title) && status !== null && priority !== null && isStringOrNull(dueDate) && isStringOrNull(scheduledDate)
+  return isId(id) &&
+    isString(title) &&
+    status !== null &&
+    priority !== null &&
+    isStringOrNull(dueDate) &&
+    isStringOrNull(scheduledDate)
     ? { id, title, status, priority, dueDate, scheduledDate }
     : null;
 }
@@ -367,8 +385,18 @@ function task(raw: unknown): DashboardTask | null {
 function workWeek(raw: unknown): DashboardWorkWeek | null {
   if (!isRecord(raw)) return null;
 
-  const { weekStart, weekEnd, plannedTaskCount, estimatedTaskCount, estimatedMinutes, inProgressCount, waitingCount, completedCount } = raw;
-  const minutes = estimatedMinutes === null || isCount(estimatedMinutes) ? (estimatedMinutes as number | null) : undefined;
+  const {
+    weekStart,
+    weekEnd,
+    plannedTaskCount,
+    estimatedTaskCount,
+    estimatedMinutes,
+    inProgressCount,
+    waitingCount,
+    completedCount,
+  } = raw;
+  const minutes =
+    estimatedMinutes === null || isCount(estimatedMinutes) ? (estimatedMinutes as number | null) : undefined;
 
   return isString(weekStart) &&
     isString(weekEnd) &&
@@ -378,12 +406,22 @@ function workWeek(raw: unknown): DashboardWorkWeek | null {
     isCount(inProgressCount) &&
     isCount(waitingCount) &&
     isCount(completedCount)
-    ? { weekStart, weekEnd, plannedTaskCount, estimatedTaskCount, estimatedMinutes: minutes, inProgressCount, waitingCount, completedCount }
+    ? {
+        weekStart,
+        weekEnd,
+        plannedTaskCount,
+        estimatedTaskCount,
+        estimatedMinutes: minutes,
+        inProgressCount,
+        waitingCount,
+        completedCount,
+      }
     : null;
 }
 
 function workPlan(raw: unknown): DashboardWorkPlan | null {
-  if (!isRecord(raw) || !isCount(raw['overdueCount']) || !isCount(raw['todayCount']) || !isCount(raw['unplannedCount'])) return null;
+  if (!isRecord(raw) || !isCount(raw['overdueCount']) || !isCount(raw['todayCount']) || !isCount(raw['unplannedCount']))
+    return null;
 
   const { date, timeZoneId } = raw;
   const overdue = list(raw['overdue'], task);
@@ -420,7 +458,9 @@ function recipesInProgress(raw: unknown): DashboardRecipesInProgress | null {
     const status = decodeEnum<RecipeStatus>(RECIPE_STATUSES, item['status']);
     const { id, title, updatedAt } = item;
 
-    return isId(id) && isString(title) && status !== null && isString(updatedAt) ? { id, title, status, updatedAt } : null;
+    return isId(id) && isString(title) && status !== null && isString(updatedAt)
+      ? { id, title, status, updatedAt }
+      : null;
   });
 
   return counts && recent ? { counts, recent } : null;
@@ -438,7 +478,9 @@ function readiness(raw: unknown): DashboardReadiness | null {
     );
     const { recipeId, title, blockerCount } = item;
 
-    return isId(recipeId) && isString(title) && isCount(blockerCount) && blockers ? { recipeId, title, blockerCount, blockers } : null;
+    return isId(recipeId) && isString(title) && isCount(blockerCount) && blockers
+      ? { recipeId, title, blockerCount, blockers }
+      : null;
   });
 
   return blocked ? { evaluated: raw['evaluated'], unevaluated: raw['unevaluated'], blocked } : null;
@@ -469,7 +511,13 @@ function testFollowUps(raw: unknown): DashboardTestFollowUps | null {
     const severity = decodeEnum<TestIssueSeverity>(TEST_ISSUE_SEVERITY_VALUES, item['severity']);
     const { issueId, testRunId, recipeId, recipeTitle, title, testedAt } = item;
 
-    return isId(issueId) && isId(testRunId) && isId(recipeId) && isString(recipeTitle) && isString(title) && severity !== null && isString(testedAt)
+    return isId(issueId) &&
+      isId(testRunId) &&
+      isId(recipeId) &&
+      isString(recipeTitle) &&
+      isString(title) &&
+      severity !== null &&
+      isString(testedAt)
       ? { issueId, testRunId, recipeId, recipeTitle, title, severity, testedAt }
       : null;
   });

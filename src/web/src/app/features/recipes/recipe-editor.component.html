@@ -59,399 +59,403 @@
     @if (host) {
       <ng-container *ngTemplateOutlet="hostedForm" />
     } @else {
-    <!-- The head holds the way back, the recipe's name, and everything that acts on the whole recipe. The
+      <!-- The head holds the way back, the recipe's name, and everything that acts on the whole recipe. The
          breadcrumb is a plain link, so leaving with unsaved changes is the route guard's to confirm, exactly
          as it is for the sidebar. -->
-    <cp-page-head [heading]="isCreateMode ? 'New recipe' : form.title() || 'Edit recipe'">
-      <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
-      <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
-      <!-- The recipe's lead picture (APP-005), or nothing: one that cannot be shown leaves the slot empty, and
+      <cp-page-head [heading]="isCreateMode ? 'New recipe' : form.title() || 'Edit recipe'">
+        <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'recipes']">Recipes</a>
+        <cp-shell-nav-icon cpPageHeadIcon name="recipes" />
+        <!-- The recipe's lead picture (APP-005), or nothing: one that cannot be shown leaves the slot empty, and
            the Media tab is where its pictures are looked after. -->
-      @let picture = hero.state();
-      @if (picture.status === 'ready') {
-        <img cpPageHeadMedia [src]="picture.url" [alt]="picture.alt" />
-      } @else if (picture.status === 'loading') {
-        <cp-skeleton cpPageHeadMedia shape="block" />
-      }
-      <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
-      <ng-container ngProjectAs="[cpPageHeadActions]">
-        @if (isDirty() && saveState().status !== 'saving') {
-          <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
+        @let picture = hero.state();
+        @if (picture.status === 'ready') {
+          <img cpPageHeadMedia [src]="picture.url" [alt]="picture.alt" />
+        } @else if (picture.status === 'loading') {
+          <cp-skeleton cpPageHeadMedia shape="block" />
         }
+        <!-- ngProjectAs: a block with more than one root is not projected into a named slot on its own. -->
+        <ng-container ngProjectAs="[cpPageHeadActions]">
+          @if (isDirty() && saveState().status !== 'saving') {
+            <cp-status-pill tone="warning" role="status" class="dirty-indicator">Unsaved changes</cp-status-pill>
+          }
 
-        <!-- Said here as well as under the Timing field, because Save is in this header and is reachable from
+          <!-- Said here as well as under the Timing field, because Save is in this header and is reachable from
              every tab while the field is on one of them. A creator who opens a recipe, edits a step and saves
              would otherwise replace the stored total having never been near the sentence that says so. Not a
              confirmation: the total is derived now, and a modal on every save of a recipe whose stored total
              disagrees would be a toll rather than a choice. -->
-        @if (form.totalTimeReplacementNote()) {
-          <cp-status-pill tone="warning" role="status" class="dirty-indicator"
-            >Total time will be recalculated</cp-status-pill
-          >
-        }
+          @if (form.totalTimeReplacementNote()) {
+            <cp-status-pill tone="warning" role="status" class="dirty-indicator"
+              >Total time will be recalculated</cp-status-pill
+            >
+          }
 
-        <!-- The two ways out of the form to something a cook can use. Links rather than buttons: both go to
+          <!-- The two ways out of the form to something a cook can use. Links rather than buttons: both go to
              the kitchen view, which shows the saved recipe, so leaving with unsaved changes is the route
              guard's to confirm, exactly as it is for the breadcrumb above. Print arrives there asking for
              the print dialog, because what prints well is that page and not this form. -->
-        @if (!isCreateMode) {
-          <a
-            cpButton
-            variant="ghost"
-            [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']"
-            [queryParams]="{ print: 1 }"
-          >
-            Print
-          </a>
-          <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']">
-            Kitchen view
-          </a>
-        }
+          @if (!isCreateMode) {
+            <a
+              cpButton
+              variant="ghost"
+              [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']"
+              [queryParams]="{ print: 1 }"
+            >
+              Print
+            </a>
+            <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty, 'kitchen']">
+              Kitchen view
+            </a>
+          }
 
-        <!-- The seven tools that read the saved recipe, opened beside it in a drawer rather than behind a tab
+          <!-- The seven tools that read the saved recipe, opened beside it in a drawer rather than behind a tab
              of tabs. Before the first save there is no saved recipe to read: the control is still here and
              still focusable, so a keyboard user can find out why it does nothing — aria-disabled, never
              disabled — and it is described by the same line that explains the greyed-out areas. -->
-        <button
-          cpButton
-          id="recipe-tools-control"
-          variant="secondary"
-          type="button"
-          [attr.aria-disabled]="isCreateMode ? 'true' : null"
-          [attr.aria-describedby]="isCreateMode ? 'recipe-area-lock-note' : null"
-          (click)="openTools()"
-        >
-          Tools
-        </button>
-        <!-- A proposal request that was sent and has not been answered is still there while the drawer is
-             shut, so it is said here, in words, where it cannot be forgotten. It does not say what state the
-             request is in — writing, ready, failed — because only the tool knows; it says there is one. -->
-        @if (openToolRequests() > 0) {
-          <cp-status-pill tone="progress" role="status" class="tools-indicator">
-            {{
-              openToolRequests() === 1
-                ? 'Tools has an AI request to come back to'
-                : 'Tools has ' + openToolRequests() + ' AI requests to come back to'
-            }}
-          </cp-status-pill>
-        }
-
-        <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a
-             danger control. It is offered only to a role that could use it; the server still decides. -->
-        @if (!isCreateMode && !isArchived() && canArchive()) {
           <button
             cpButton
+            id="recipe-tools-control"
             variant="secondary"
             type="button"
-            [disabled]="lifecycleWorking()"
-            [attr.aria-busy]="lifecycleWorking()"
-            (click)="setArchived(true)"
+            [attr.aria-disabled]="isCreateMode ? 'true' : null"
+            [attr.aria-describedby]="isCreateMode ? 'recipe-area-lock-note' : null"
+            (click)="openTools()"
           >
-            {{ lifecycleWorking() ? 'Archiving…' : 'Archive…' }}
+            Tools
           </button>
-        }
+          <!-- A proposal request that was sent and has not been answered is still there while the drawer is
+             shut, so it is said here, in words, where it cannot be forgotten. It does not say what state the
+             request is in — writing, ready, failed — because only the tool knows; it says there is one. -->
+          @if (openToolRequests() > 0) {
+            <cp-status-pill tone="progress" role="status" class="tools-indicator">
+              {{
+                openToolRequests() === 1
+                  ? 'Tools has an AI request to come back to'
+                  : 'Tools has ' + openToolRequests() + ' AI requests to come back to'
+              }}
+            </cp-status-pill>
+          }
 
-        <button
-          cpButton
-          size="lg"
-          type="button"
-          [disabled]="!canSave()"
-          [attr.aria-busy]="saveState().status === 'saving'"
-          [attr.title]="isArchived() ? 'Archived recipes cannot be saved. Bring this one back first.' : null"
-          [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
-          (click)="save()"
-        >
-          {{ saveState().status === 'saving' ? 'Saving…' : 'Save' }}
-        </button>
-      </ng-container>
-    </cp-page-head>
+          <!-- Shelving is not deleting, so it sits beside Save as an ordinary secondary action rather than as a
+             danger control. It is offered only to a role that could use it; the server still decides. -->
+          @if (!isCreateMode && !isArchived() && canArchive()) {
+            <button
+              cpButton
+              variant="secondary"
+              type="button"
+              [disabled]="lifecycleWorking()"
+              [attr.aria-busy]="lifecycleWorking()"
+              (click)="setArchived(true)"
+            >
+              {{ lifecycleWorking() ? 'Archiving…' : 'Archive…' }}
+            </button>
+          }
 
-    <!-- What a cook checks before starting, as saved: see savedFacts. The yield is the creator's own words, and
+          <button
+            cpButton
+            size="lg"
+            type="button"
+            [disabled]="!canSave()"
+            [attr.aria-busy]="saveState().status === 'saving'"
+            [attr.title]="isArchived() ? 'Archived recipes cannot be saved. Bring this one back first.' : null"
+            [attr.aria-describedby]="isArchived() ? 'recipe-archived-banner' : null"
+            (click)="save()"
+          >
+            {{ saveState().status === 'saving' ? 'Saving…' : 'Save' }}
+          </button>
+        </ng-container>
+      </cp-page-head>
+
+      <!-- What a cook checks before starting, as saved: see savedFacts. The yield is the creator's own words, and
          the serving count a fact of its own beside it; Total is the stored total. A recipe being created has
          none yet, so there is no strip. -->
-    @if (savedFacts().length > 0) {
-      <dl cpFacts layout="across" class="recipe-facts">
-        @for (fact of savedFacts(); track fact.label) {
-          <div cpFact [label]="fact.label">{{ fact.value }}</div>
-        }
-      </dl>
-    }
+      @if (savedFacts().length > 0) {
+        <dl cpFacts layout="across" class="recipe-facts">
+          @for (fact of savedFacts(); track fact.label) {
+            <div cpFact [label]="fact.label">{{ fact.value }}</div>
+          }
+        </dl>
+      }
 
-    <!-- The discard confirmation is a SweetAlert2 modal raised by ConfirmService, not markup here: it has to
+      <!-- The discard confirmation is a SweetAlert2 modal raised by ConfirmService, not markup here: it has to
          outlive this view, because the router asks for it while navigating away from it. -->
 
-    <!-- Announced here rather than in the history panel: a restore switches the creator back to this tab, so
+      <!-- Announced here rather than in the history panel: a restore switches the creator back to this tab, so
          the panel that raised it is no longer what they are looking at. Always in the DOM, never created
          alongside its own text — a live region inserted already populated is not reliably announced, and
          this banner is the only confirmation a restore gets. -->
-    <cp-notice role="status" [quiet]="notice() === null" [tone]="(notice()?.isProblem ?? false) ? 'error' : 'neutral'">
-      {{ notice()?.text }}
+      <cp-notice
+        role="status"
+        [quiet]="notice() === null"
+        [tone]="(notice()?.isProblem ?? false) ? 'error' : 'neutral'"
+      >
+        {{ notice()?.text }}
 
-      <!-- The copy exists whether or not the creator followed it, so the way back to it is a link, never a
+        <!-- The copy exists whether or not the creator followed it, so the way back to it is a link, never a
            button that would make a second one. -->
-      @if (notice()?.recipeLink; as copy) {
-        <a cpButton variant="secondary" size="sm" [routerLink]="['/', workspaceSlug, 'recipes', copy.recipeId]">
-          Open {{ copy.title }}
-        </a>
-      }
-    </cp-notice>
-
-    <!-- Shelved, not deleted — and the banner says what is still true rather than only what is off. It is the
-         one place the way back lives, so it is never conditional on a role: a Contributor who opens an
-         archived recipe still learns why editing is off. -->
-    @if (isArchived()) {
-      <cp-notice id="recipe-archived-banner" tone="warning" glyph="⚑" role="status">
-        <span>
-          <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here, and the history
-          and comparisons still work. Editing is off until you bring it back, and it stays out of your library unless
-          you filter for Archived.
-        </span>
-
-        @if (canArchive()) {
-          <button
-            cpButton
-            variant="secondary"
-            type="button"
-            [disabled]="lifecycleWorking()"
-            [attr.aria-busy]="lifecycleWorking()"
-            (click)="setArchived(false)"
-          >
-            {{ lifecycleWorking() ? 'Bringing it back…' : 'Bring it back' }}
-          </button>
+        @if (notice()?.recipeLink; as copy) {
+          <a cpButton variant="secondary" size="sm" [routerLink]="['/', workspaceSlug, 'recipes', copy.recipeId]">
+            Open {{ copy.title }}
+          </a>
         }
       </cp-notice>
-    }
 
-    @switch (lifecycleState().status) {
-      @case ('conflict') {
-        <cp-notice tone="error" role="alert">
-          This recipe changed elsewhere since you loaded it, so nothing was moved.
-          <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
+      <!-- Shelved, not deleted — and the banner says what is still true rather than only what is off. It is the
+         one place the way back lives, so it is never conditional on a role: a Contributor who opens an
+         archived recipe still learns why editing is off. -->
+      @if (isArchived()) {
+        <cp-notice id="recipe-archived-banner" tone="warning" glyph="⚑" role="status">
+          <span>
+            <strong>Archived — shelved, not deleted.</strong> Every version, tag and photo is still here, and the
+            history and comparisons still work. Editing is off until you bring it back, and it stays out of your library
+            unless you filter for Archived.
+          </span>
+
+          @if (canArchive()) {
+            <button
+              cpButton
+              variant="secondary"
+              type="button"
+              [disabled]="lifecycleWorking()"
+              [attr.aria-busy]="lifecycleWorking()"
+              (click)="setArchived(false)"
+            >
+              {{ lifecycleWorking() ? 'Bringing it back…' : 'Bring it back' }}
+            </button>
+          }
         </cp-notice>
       }
-      @case ('forbidden') {
-        <cp-notice tone="error" role="alert">Archiving a recipe needs the Editor role in this workspace.</cp-notice>
-      }
-      @case ('not_found') {
-        <cp-notice tone="error" role="alert">This recipe could not be found.</cp-notice>
-      }
-      @case ('unavailable') {
-        <cp-notice tone="error" role="alert">
-          Couldn't move this recipe. Check your connection and try again.
-        </cp-notice>
-      }
-    }
 
-    <ng-container *ngTemplateOutlet="saveNotices" />
+      @switch (lifecycleState().status) {
+        @case ('conflict') {
+          <cp-notice tone="error" role="alert">
+            This recipe changed elsewhere since you loaded it, so nothing was moved.
+            <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
+          </cp-notice>
+        }
+        @case ('forbidden') {
+          <cp-notice tone="error" role="alert">Archiving a recipe needs the Editor role in this workspace.</cp-notice>
+        }
+        @case ('not_found') {
+          <cp-notice tone="error" role="alert">This recipe could not be found.</cp-notice>
+        }
+        @case ('unavailable') {
+          <cp-notice tone="error" role="alert">
+            Couldn't move this recipe. Check your connection and try again.
+          </cp-notice>
+        }
+      }
 
-    <cp-card class="editor-card">
-      <!-- A recipe being created has one area it can use, so it gets no row of areas: a tablist with one live
+      <ng-container *ngTemplateOutlet="saveNotices" />
+
+      <cp-card class="editor-card">
+        <!-- A recipe being created has one area it can use, so it gets no row of areas: a tablist with one live
          tab and five greyed-out ones is chrome, and what it carried is said once, in words, in the form. The
          form is the same markup either way — editForm below. -->
-      @if (isCreateMode) {
-        <div class="edit-surface">
-          <ng-container [ngTemplateOutlet]="editForm" />
-        </div>
-      } @else {
-        <cp-tabs [tabs]="areas" ariaLabel="Recipe areas" [(selectedId)]="selectedAreaId">
-          <!-- Two levels, and they mean different things. Out here are areas: Edit is the form, and Tools, Media
+        @if (isCreateMode) {
+          <div class="edit-surface">
+            <ng-container [ngTemplateOutlet]="editForm" />
+          </div>
+        } @else {
+          <cp-tabs [tabs]="areas" ariaLabel="Recipe areas" [(selectedId)]="selectedAreaId">
+            <!-- Two levels, and they mean different things. Out here are areas: Edit is the form, and Tools, Media
            and History are surfaces that read a saved recipe — the calculators refuse to run while the form is
            dirty, so they must not sit inline beside edits they structurally cannot see. Inside Edit is the
            form itself, split into three tabs that all save together under the one Save in the header. What
            made an earlier five-tab form unusable was that a field error could land on a panel nobody was
            looking at; revealFirstFieldError() now selects the tab holding the field, so the split costs
            nothing there. -->
-          <cp-tab-panel id="edit">
-            <ng-container [ngTemplateOutlet]="editForm" />
-          </cp-tab-panel>
-
-          @if (!isCreateMode) {
-            <cp-tab-panel id="media">
-              <!-- Mounted lazily by the tab. recipeId is non-null here — the tab is disabled entirely in create
-               mode. The panel reads and changes links only; the recipe and its token belong to this component,
-               which applies whatever recipe a link or unlink returns. -->
-              <cp-recipe-media
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [links]="savedAssetLinks()"
-                [steps]="mediaSteps()"
-                [concurrencyToken]="concurrencyToken()"
-                [editorIsDirty]="isDirty()"
-                [canChange]="canChangeMedia()"
-                [isArchived]="isArchived()"
-                (changed)="onMediaChanged($event)"
-                (reloadRequested)="onMediaReloadRequested()"
-              />
+            <cp-tab-panel id="edit">
+              <ng-container [ngTemplateOutlet]="editForm" />
             </cp-tab-panel>
 
-            <cp-tab-panel id="history">
-              <!-- Mounted lazily by the tab: the history and any comparison are fetched when the tab is first
+            @if (!isCreateMode) {
+              <cp-tab-panel id="media">
+                <!-- Mounted lazily by the tab. recipeId is non-null here — the tab is disabled entirely in create
+               mode. The panel reads and changes links only; the recipe and its token belong to this component,
+               which applies whatever recipe a link or unlink returns. -->
+                <cp-recipe-media
+                  [workspaceSlug]="workspaceSlug"
+                  [recipeId]="recipeIdOrEmpty"
+                  [links]="savedAssetLinks()"
+                  [steps]="mediaSteps()"
+                  [concurrencyToken]="concurrencyToken()"
+                  [editorIsDirty]="isDirty()"
+                  [canChange]="canChangeMedia()"
+                  [isArchived]="isArchived()"
+                  (changed)="onMediaChanged($event)"
+                  (reloadRequested)="onMediaReloadRequested()"
+                />
+              </cp-tab-panel>
+
+              <cp-tab-panel id="history">
+                <!-- Mounted lazily by the tab: the history and any comparison are fetched when the tab is first
                opened rather than on every recipe load. recipeId is non-null here — the tab is disabled
                entirely in create mode. Reading is all the panel does on its own; restoring is a command it
                raises and this component applies, because the recipe and its token belong here. -->
-              <cp-recipe-history
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [concurrencyToken]="concurrencyToken()"
-                [editorIsDirty]="isDirty()"
-                [recipeTitle]="form.title()"
-                (restored)="onVersionRestored($event)"
-                (duplicated)="onRecipeDuplicated($event)"
-                (reloadRequested)="onHistoryReloadRequested()"
-              />
-            </cp-tab-panel>
+                <cp-recipe-history
+                  [workspaceSlug]="workspaceSlug"
+                  [recipeId]="recipeIdOrEmpty"
+                  [concurrencyToken]="concurrencyToken()"
+                  [editorIsDirty]="isDirty()"
+                  [recipeTitle]="form.title()"
+                  (restored)="onVersionRestored($event)"
+                  (duplicated)="onRecipeDuplicated($event)"
+                  (reloadRequested)="onHistoryReloadRequested()"
+                />
+              </cp-tab-panel>
 
-            <cp-tab-panel id="tests">
-              <!-- Mounted lazily by the tab. Unlike Readiness it is offered while the form is dirty, because
+              <cp-tab-panel id="tests">
+                <!-- Mounted lazily by the tab. Unlike Readiness it is offered while the form is dirty, because
                reading what earlier cooks found does not depend on what is unsaved; the panel itself refuses
                to *record* a test until the edits are saved, since a test is filed against the saved version.
                Nothing here changes the recipe, so there is no token to quote and nothing to apply back. -->
-              <cp-recipe-test-kitchen
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [versionNumber]="currentVersionNumber()"
-                [editorIsDirty]="isDirty()"
-                (versionActivated)="onTestVersionActivated()"
-              />
-            </cp-tab-panel>
+                <cp-recipe-test-kitchen
+                  [workspaceSlug]="workspaceSlug"
+                  [recipeId]="recipeIdOrEmpty"
+                  [versionNumber]="currentVersionNumber()"
+                  [editorIsDirty]="isDirty()"
+                  (versionActivated)="onTestVersionActivated()"
+                />
+              </cp-tab-panel>
 
-            <cp-tab-panel id="readiness">
-              <!-- Mounted lazily by the tab. It checks the *saved* recipe and moves it through the states to
+              <cp-tab-panel id="readiness">
+                <!-- Mounted lazily by the tab. It checks the *saved* recipe and moves it through the states to
                Approved, so it is not offered while the form has edits that are not saved: the check would
                describe words the creator is no longer looking at, and applying a confirmed move would
                overwrite them. The server decides every verdict and every move; nothing here does. -->
-              @if (isDirty()) {
-                <cp-notice role="status">
-                  You have changes that are not saved yet. Save them first, then come back here: readiness checks the
-                  saved recipe.
-                </cp-notice>
-              } @else {
-                <cp-recipe-readiness
-                  [workspaceSlug]="workspaceSlug"
-                  [recipeId]="recipeIdOrEmpty"
-                  [status]="recipeStatus()"
-                  [concurrencyToken]="concurrencyToken() ?? ''"
-                  (transitioned)="onRecipeTransitioned($event)"
-                  (evidenceActivated)="onReadinessEvidenceActivated()"
-                />
-              }
-            </cp-tab-panel>
+                @if (isDirty()) {
+                  <cp-notice role="status">
+                    You have changes that are not saved yet. Save them first, then come back here: readiness checks the
+                    saved recipe.
+                  </cp-notice>
+                } @else {
+                  <cp-recipe-readiness
+                    [workspaceSlug]="workspaceSlug"
+                    [recipeId]="recipeIdOrEmpty"
+                    [status]="recipeStatus()"
+                    [concurrencyToken]="concurrencyToken() ?? ''"
+                    (transitioned)="onRecipeTransitioned($event)"
+                    (evidenceActivated)="onReadinessEvidenceActivated()"
+                  />
+                }
+              </cp-tab-panel>
 
-            <cp-tab-panel id="publish">
-              <!-- Mounted lazily by the tab. It reads a summary of the saved version and builds download links; the
+              <cp-tab-panel id="publish">
+                <!-- Mounted lazily by the tab. It reads a summary of the saved version and builds download links; the
                files are made by the server, so nothing here produces or judges an export. The version number
                is passed only so a save or a restore makes it read again. -->
-              <cp-recipe-publish-panel
-                [workspaceSlug]="workspaceSlug"
-                [recipeId]="recipeIdOrEmpty"
-                [versionHint]="currentVersionNumber()"
-              />
-            </cp-tab-panel>
-          }
-        </cp-tabs>
-      }
-    </cp-card>
+                <cp-recipe-publish-panel
+                  [workspaceSlug]="workspaceSlug"
+                  [recipeId]="recipeIdOrEmpty"
+                  [versionHint]="currentVersionNumber()"
+                />
+              </cp-tab-panel>
+            }
+          </cp-tabs>
+        }
+      </cp-card>
 
-    <ng-template #editForm>
-      <!-- One Save, three surfaces. The section rail this replaced marked a single scroll surface five
+      <ng-template #editForm>
+        <!-- One Save, three surfaces. The section rail this replaced marked a single scroll surface five
              sections long, which read as one very long form; these split it where the work splits, and the
              panels keep their content mounted once opened so an edit in one is never lost by looking at
              another. Everything here still saves together: isDirty() and the snapshot are per-form, not
              per-tab, and revealFirstFieldError() selects whichever tab holds the field at fault. -->
-      <!-- Said once, here, rather than on each field: three fields across these three tabs are required and
+        <!-- Said once, here, rather than on each field: three fields across these three tabs are required and
              the other sixteen are not, so marking the optional ones would be marking almost everything — and
              marking one of them makes the rest read as required by contrast. -->
-      <p class="required-legend">
-        Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.
-      </p>
+        <p class="required-legend">
+          Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.
+        </p>
 
-      <!-- Said in the form, under the sentence that says what the asterisk means, because in create mode the
+        <!-- Said in the form, under the sentence that says what the asterisk means, because in create mode the
              areas it names are not on screen at all: there is no tablist to put it under. Plain text rather
              than a tooltip, and not a live region — see lockedAreaNotice. The Tools control in the page head
              is described by it too. Create mode only; the sentence is empty once the recipe exists. -->
-      @if (isCreateMode && lockedAreaNotice) {
-        <p class="area-lock-note" id="recipe-area-lock-note">
-          <span class="area-lock-icon" aria-hidden="true">⚑</span>
-          <span>{{ lockedAreaNotice }}</span>
-        </p>
-      }
+        @if (isCreateMode && lockedAreaNotice) {
+          <p class="area-lock-note" id="recipe-area-lock-note">
+            <span class="area-lock-icon" aria-hidden="true">⚑</span>
+            <span>{{ lockedAreaNotice }}</span>
+          </p>
+        }
 
-      <cp-tabs [tabs]="editTabs" ariaLabel="Recipe form" [(selectedId)]="selectedEditTabId">
-        <cp-tab-panel id="general">
-          <!-- Three sections rather than three more tabs: each is short, and they are read together when
+        <cp-tabs [tabs]="editTabs" ariaLabel="Recipe form" [(selectedId)]="selectedEditTabId">
+          <cp-tab-panel id="general">
+            <!-- Three sections rather than three more tabs: each is short, and they are read together when
                  a creator is setting a recipe up. -->
-          <!-- The same nav the Ingredients and Instructions tabs use, over this tab's four sections. A gutter
+            <!-- The same nav the Ingredients and Instructions tabs use, over this tab's four sections. A gutter
                  beside them when the editor is wide, a wrapping row above them when it is not: see
                  .general-layout. Every section stays rendered, so the nav only scrolls and focuses. -->
-          <div class="general-layout">
-            <!-- Two navs, one shown at a time (see .general-layout): four links in a row for a phone, where this tab is
+            <div class="general-layout">
+              <!-- Two navs, one shown at a time (see .general-layout): four links in a row for a phone, where this tab is
                  several screens long, and two in a gutter for a wide editor, where the three short sections are
                  a screen apart at most. Same name, because only one is ever in the accessibility tree. -->
-            <cp-anchor-nav
-              class="general-nav"
-              ariaLabel="Sections of this tab"
-              [items]="generalSectionNav"
-              [activeTargetId]="activeGeneralSectionId()"
-              (activated)="onGeneralNavActivated($event)"
-            />
-            <cp-anchor-nav
-              class="general-nav-wide"
-              ariaLabel="Sections of this tab"
-              [items]="generalWideNav"
-              [activeTargetId]="activeGeneralWideTargetId()"
-              (activated)="onGeneralNavActivated($event)"
-            />
-            <div class="tab-sections" #generalSections>
-              <cp-recipe-details-section />
+              <cp-anchor-nav
+                class="general-nav"
+                ariaLabel="Sections of this tab"
+                [items]="generalSectionNav"
+                [activeTargetId]="activeGeneralSectionId()"
+                (activated)="onGeneralNavActivated($event)"
+              />
+              <cp-anchor-nav
+                class="general-nav-wide"
+                ariaLabel="Sections of this tab"
+                [items]="generalWideNav"
+                [activeTargetId]="activeGeneralWideTargetId()"
+                (activated)="onGeneralNavActivated($event)"
+              />
+              <div class="tab-sections" #generalSections>
+                <cp-recipe-details-section />
 
-              <cp-recipe-notes-section />
+                <cp-recipe-notes-section />
 
-              <cp-recipe-timing-section />
+                <cp-recipe-timing-section />
 
-              <!-- Its own section rather than four more cells in the timing grid. Two things were wrong with that:
+                <!-- Its own section rather than four more cells in the timing grid. Two things were wrong with that:
            yield fields interleaved with time fields in one auto-fitting row, and — the substantive one — the
            only structured amount a recipe could record was a measured batch, so a creator had no way at all to
            say how many people it feeds. "Serves" is that field, and it is first here because it is the yield
            most recipes state. -->
-              <cp-recipe-yield-section />
+                <cp-recipe-yield-section />
+              </div>
             </div>
-          </div>
-        </cp-tab-panel>
+          </cp-tab-panel>
 
-        <cp-tab-panel id="ingredients">
-          <!-- The problem goes to the section rather than being drawn here: cp-form-section announces it and
+          <cp-tab-panel id="ingredients">
+            <!-- The problem goes to the section rather than being drawn here: cp-form-section announces it and
            describes the section by it, so the section revealFirstFieldError focuses reads its heading and then
            the reason on arrival. The same pairing CpFieldComponent uses for an ordinary field. -->
-          <ng-container *ngTemplateOutlet="ingredientsSection" />
-        </cp-tab-panel>
+            <ng-container *ngTemplateOutlet="ingredientsSection" />
+          </cp-tab-panel>
 
-        <cp-tab-panel id="instructions">
-          <!-- The same pairing as the Ingredients section above, for the method's own one sentence. -->
-          <cp-recipe-instructions-section />
-        </cp-tab-panel>
-      </cp-tabs>
-    </ng-template>
+          <cp-tab-panel id="instructions">
+            <!-- The same pairing as the Ingredients section above, for the method's own one sentence. -->
+            <cp-recipe-instructions-section />
+          </cp-tab-panel>
+        </cp-tabs>
+      </ng-template>
 
-    <!-- The tools that read the saved recipe, opened from the Tools control in the page head. The drawer owns what
+      <!-- The tools that read the saved recipe, opened from the Tools control in the page head. The drawer owns what
          is open and what has been mounted; the apply of a calculation is the editor's, because the recipe and
          its concurrency token belong here. -->
-    @if (!isCreateMode) {
-      <cp-recipe-tools-drawer
-        [workspaceSlug]="workspaceSlug"
-        [recipeId]="recipeIdOrEmpty"
-        [currentVersionNumber]="currentVersionNumber()"
-        [currentVersionId]="currentVersionId()"
-        [savedIngredientGroups]="form.ingredientGroups()"
-        [savedInstructionGroups]="savedInstructionGroups()"
-        [savedYieldQuantity]="savedYieldQuantity()"
-        [savedYieldText]="savedYieldText()"
-        [savedYieldUnitId]="savedYieldUnitId()"
-        [editorIsDirty]="isDirty()"
-        (unitConversionApplyRequested)="onUnitConversionApplyRequested($event)"
-        (temperatureApplyRequested)="onTemperatureApplyRequested($event)"
-        (yieldApplyRequested)="onYieldApplyRequested($event)"
-      />
-    }
+      @if (!isCreateMode) {
+        <cp-recipe-tools-drawer
+          [workspaceSlug]="workspaceSlug"
+          [recipeId]="recipeIdOrEmpty"
+          [currentVersionNumber]="currentVersionNumber()"
+          [currentVersionId]="currentVersionId()"
+          [savedIngredientGroups]="form.ingredientGroups()"
+          [savedInstructionGroups]="savedInstructionGroups()"
+          [savedYieldQuantity]="savedYieldQuantity()"
+          [savedYieldText]="savedYieldText()"
+          [savedYieldUnitId]="savedYieldUnitId()"
+          [editorIsDirty]="isDirty()"
+          (unitConversionApplyRequested)="onUnitConversionApplyRequested($event)"
+          (temperatureApplyRequested)="onTemperatureApplyRequested($event)"
+          (yieldApplyRequested)="onYieldApplyRequested($event)"
+        />
+      }
     }
   }
 }
@@ -472,17 +476,22 @@
     @if (hiddenProblemSections().length > 0) {
       <cp-notice tone="error" role="alert">
         @if (isCreateMode) {
-          {{ hiddenProblemSections().join(', ') }} {{ hiddenProblemSections().length === 1 ? 'needs' : 'need' }} attention.
-          Give the recipe its name here first, and fill that in at its own step.
+          {{ hiddenProblemSections().join(', ') }}
+          {{ hiddenProblemSections().length === 1 ? 'needs' : 'need' }} attention. Give the recipe its name here first,
+          and fill that in at its own step.
         } @else {
-          {{ hiddenProblemSections().join(', ') }} {{ hiddenProblemSections().length === 1 ? 'needs' : 'need' }} fixing on the recipe’s own page.
+          {{ hiddenProblemSections().join(', ') }} {{ hiddenProblemSections().length === 1 ? 'needs' : 'need' }} fixing
+          on the recipe’s own page.
           <a [routerLink]="['/', workspaceSlug, 'recipes', recipeIdOrEmpty]">Open the recipe</a>
         }
       </cp-notice>
     }
 
     @if (hostedShowsRequiredLegend) {
-      <p class="required-legend">Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.</p>
+      <p class="required-legend"
+        >Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are
+        required.</p
+      >
     }
 
     @for (section of hostedSections; track section) {
@@ -511,33 +520,38 @@
 </ng-template>
 
 <ng-template #saveNotices>
-    @switch (saveState().status) {
-      @case ('success') {
-        <cp-notice role="status">Saved.</cp-notice>
-      }
-      @case ('validation_failed') {
-        <cp-notice tone="error" role="alert">{{ validationBannerText() }}</cp-notice>
-      }
-      @case ('forbidden') {
-        <cp-notice tone="error" role="alert">You don't have permission to save this recipe.</cp-notice>
-      }
-      @case ('conflict') {
-        <cp-notice tone="error" role="alert">
-          This recipe changed elsewhere since you loaded it.
-          <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
-        </cp-notice>
-      }
-      @case ('unavailable') {
-        <cp-notice tone="error" role="alert">Couldn't save. Check your connection and try again.</cp-notice>
-      }
-      @case ('idempotency_key_conflict') {
-        <cp-notice tone="error" role="alert">Couldn't save. Please try again.</cp-notice>
-      }
+  @switch (saveState().status) {
+    @case ('success') {
+      <cp-notice role="status">Saved.</cp-notice>
     }
-    @if (showValidationSummary()) {
-      <!-- The banner above is the live region, so this one does not announce a second time. -->
-      <cp-validation-summary [issues]="summaryIssues()" [labelOf]="fieldLabelOf" [announce]="false" (issueSelected)="revealIssue($event)" />
+    @case ('validation_failed') {
+      <cp-notice tone="error" role="alert">{{ validationBannerText() }}</cp-notice>
     }
+    @case ('forbidden') {
+      <cp-notice tone="error" role="alert">You don't have permission to save this recipe.</cp-notice>
+    }
+    @case ('conflict') {
+      <cp-notice tone="error" role="alert">
+        This recipe changed elsewhere since you loaded it.
+        <button cpButton variant="secondary" type="button" (click)="reloadAfterConflict()">Reload latest</button>
+      </cp-notice>
+    }
+    @case ('unavailable') {
+      <cp-notice tone="error" role="alert">Couldn't save. Check your connection and try again.</cp-notice>
+    }
+    @case ('idempotency_key_conflict') {
+      <cp-notice tone="error" role="alert">Couldn't save. Please try again.</cp-notice>
+    }
+  }
+  @if (showValidationSummary()) {
+    <!-- The banner above is the live region, so this one does not announce a second time. -->
+    <cp-validation-summary
+      [issues]="summaryIssues()"
+      [labelOf]="fieldLabelOf"
+      [announce]="false"
+      (issueSelected)="revealIssue($event)"
+    />
+  }
 </ng-template>
 
 <!-- The form's sections, each a component of its own over the one RecipeFormState. The tabbed page places them in its
@@ -559,4 +573,3 @@
     />
   </cp-form-section>
 </ng-template>
-

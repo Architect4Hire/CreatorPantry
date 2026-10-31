@@ -39,12 +39,7 @@
       @if (text.text) {
         <!-- Read-only and focusable, so a keyboard reader can scroll it. Untrusted creator material: shown
              as text, never as markup. -->
-        <div
-          class="text"
-          tabindex="0"
-          role="region"
-          aria-label="The text read from this version"
-        >{{ text.text }}</div>
+        <div class="text" tabindex="0" role="region" aria-label="The text read from this version">{{ text.text }}</div>
       } @else {
         <p class="state">There is no text on record for this version.</p>
       }
@@ -61,7 +56,13 @@
             </button>
           }
           @if (canCorrect()) {
-            <button cpButton variant="secondary" type="button" [disabled]="busy() !== null" (click)="openCorrect($event)">
+            <button
+              cpButton
+              variant="secondary"
+              type="button"
+              [disabled]="busy() !== null"
+              (click)="openCorrect($event)"
+            >
               Correct the text
             </button>
           }

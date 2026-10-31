@@ -70,9 +70,7 @@ interface PageRequest {
         } @else {
           <div class="scroll" role="region" tabindex="0" aria-label="Usage history">
             <table>
-              <caption class="cp-sr-only">
-                Where and when this picture has been used, newest first
-              </caption>
+              <caption class="cp-sr-only"> Where and when this picture has been used, newest first </caption>
               <thead>
                 <tr>
                   <th scope="col">Date</th>
@@ -113,7 +111,9 @@ interface PageRequest {
           <p class="summary" role="status" aria-live="polite">{{ summary() }}</p>
 
           @if (moreFailed()) {
-            <cp-notice tone="error" role="alert">Couldn't load more of the history. The rows above are still here.</cp-notice>
+            <cp-notice tone="error" role="alert"
+              >Couldn't load more of the history. The rows above are still here.</cp-notice
+            >
           }
 
           @if (hasMore()) {
@@ -220,7 +220,11 @@ export class DamAssetUsageHistoryComponent {
   private generation = 0;
 
   private readonly requests$ = new Subject<PageRequest>();
-  private readonly target = computed(() => ({ slug: this.workspaceSlug(), id: this.assetId(), reload: this.reloadToken() }));
+  private readonly target = computed(() => ({
+    slug: this.workspaceSlug(),
+    id: this.assetId(),
+    reload: this.reloadToken(),
+  }));
 
   protected readonly hasMore = computed(() => this.phase() === 'ready' && this.nextCursor() !== null);
 
@@ -346,9 +350,7 @@ export class DamAssetUsageHistoryComponent {
   private focusRow(useId: string): void {
     afterNextRender(
       () => {
-        this.host.nativeElement
-          .querySelector<HTMLElement>(`[data-use-id="${CSS.escape(useId)}"] th`)
-          ?.focus();
+        this.host.nativeElement.querySelector<HTMLElement>(`[data-use-id="${CSS.escape(useId)}"] th`)?.focus();
       },
       { injector: this.injector },
     );

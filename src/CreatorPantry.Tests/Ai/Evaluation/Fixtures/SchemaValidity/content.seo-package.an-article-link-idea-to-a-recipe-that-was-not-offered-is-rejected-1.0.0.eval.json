@@ -6,9 +6,7 @@
   "description": "LF.5.3: an article may link to any recipe it was offered and to no other. An id the request did not offer - invented, or another workspace's - is rejected.",
   "input": {
     "subject": "article",
-    "candidates": [
-      "bbbbbbbb-0000-0000-0000-000000000001"
-    ],
+    "candidates": ["bbbbbbbb-0000-0000-0000-000000000001"],
     "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"internalLinks\":[{\"recipeId\":\"eeeeeeee-0000-0000-0000-000000000009\",\"anchorText\":\"A loaf\",\"reason\":\"It is another loaf.\"}]}}",
     "expectedSchemaVersion": "content.seo-package.v1"
   },

@@ -87,13 +87,7 @@
       }
 
       <div class="cp-actions">
-        <button
-          cpButton
-          type="button"
-          variant="primary"
-          [disabled]="!canAsk()"
-          (click)="ask()"
-        >
+        <button cpButton type="button" variant="primary" [disabled]="!canAsk()" (click)="ask()">
           {{ chosen().length === 1 ? 'Write the post' : 'Write the posts' }}
         </button>
         @if (hasPosts()) {

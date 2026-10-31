@@ -16,7 +16,10 @@ describe('authInterceptor', () => {
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         { provide: AntiforgeryService, useValue: { getToken: () => Promise.resolve('the-csrf-token') } },
-        { provide: ApiBaseService, useValue: { resolve: () => ({ status: 'ready', baseUrl: 'https://gateway.example' }) } },
+        {
+          provide: ApiBaseService,
+          useValue: { resolve: () => ({ status: 'ready', baseUrl: 'https://gateway.example' }) },
+        },
       ],
     });
     http = TestBed.inject(HttpClient);

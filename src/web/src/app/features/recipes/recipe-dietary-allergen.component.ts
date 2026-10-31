@@ -149,11 +149,9 @@ export const PANEL_COPY = {
     'kitchen or a person.',
   noVersion: 'This recipe has no saved version yet, so there is nothing to read records against. Save it first.',
   dirtyPill: "Unsaved edits aren't included",
-  dirty:
-    'These findings come from the recipe as last saved. Save your edits and check again to include them.',
+  dirty: 'These findings come from the recipe as last saved. Save your edits and check again to include them.',
   listsLoading: 'Loading the allergen and dietary lists…',
-  listsUnavailable:
-    "The allergen and dietary lists couldn't be loaded, so there's nothing to pick yet.",
+  listsUnavailable: "The allergen and dietary lists couldn't be loaded, so there's nothing to pick yet.",
   allergenIntro: `Pick the ones you want read. Up to ${MAX_ANALYSIS_SUBJECTS}.`,
   dietaryIntro: `Descriptive patterns, not certifications. Up to ${MAX_ANALYSIS_SUBJECTS}.`,
   pickSomething: 'Pick at least one allergen or dietary pattern.',
@@ -162,16 +160,14 @@ export const PANEL_COPY = {
   submit: 'Check the records',
   recheck: 'Check again',
   stalePill: 'Out of date',
-  stale:
-    'This recipe has a newer version than the one these findings were read against. Check it again.',
+  stale: 'This recipe has a newer version than the one these findings were read against. Check it again.',
   regionLabel: 'Dietary and allergen records',
   resultsHeading: 'What the records say',
   nothingRecorded:
     'No reviewed record covers these ingredients yet, so nothing is known either way. That is the records ' +
     'being empty, not a finding about the recipe.',
   noLines: 'This version has no ingredient lines, so there was nothing to read.',
-  optionalLines:
-    "Optional lines are read too: a garnish or a 'to taste' can still bring an allergen.",
+  optionalLines: "Optional lines are read too: a garnish or a 'to taste' can still bring an allergen.",
   hiddenSources:
     'Only where a source said so. Nothing here is worked out from an ingredient’s category, its neighbours, ' +
     'or the words of the line itself.',
@@ -180,8 +176,7 @@ export const PANEL_COPY = {
   compatibleGroup:
     'Not a statement that these lines suit anyone — only that the records cited for them describe them as ' +
     'compatible.',
-  lineConflict:
-    'Approved sources disagree about this line. The more cautious word was kept, and both are cited below.',
+  lineConflict: 'Approved sources disagree about this line. The more cautious word was kept, and both are cited below.',
   sourcesHeading: 'Sources read',
   scope:
     'Ingredient lines only. Notes, the headnote, substitutions and serving suggestions are not read, so an ' +
@@ -197,14 +192,12 @@ export const PANEL_COPY = {
     "One of the things you picked isn't in the catalogue any more. Reload the lists and pick again.",
   versionNotFound: 'That version no longer exists — reload the recipe and check it again.',
   notFound: "This recipe couldn't be found. It may have been removed.",
-  unauthorized:
-    'You are no longer signed in, or no longer have access to this recipe. Sign in again to continue.',
+  unauthorized: 'You are no longer signed in, or no longer have access to this recipe. Sign in again to continue.',
   unavailable: "The records couldn't be read. Check your connection and try again.",
 } as const;
 
 /** Said only where the records are incomplete or disagree, under the pill that says which. */
-export const CONFIDENCE_CAVEAT =
-  'This describes how complete the records are, not how likely the finding is.';
+export const CONFIDENCE_CAVEAT = 'This describes how complete the records are, not how likely the finding is.';
 
 /** How a conflict reads. A count, because the lines themselves are flagged where they are listed. */
 export function conflictSentence(lines: number): string {
@@ -221,8 +214,7 @@ export function conflictSentence(lines: number): string {
 export const NOT_COUNTED_REASONS: Readonly<Record<TraitCountedReason, string | null>> = {
   Counted: null,
   SourceDoesNotSay: "This source was consulted and does not say, so it doesn't move the finding.",
-  UnvettedKind:
-    "This kind of source isn't vetted to state that something is absent, so it doesn't move the finding.",
+  UnvettedKind: "This kind of source isn't vetted to state that something is absent, so it doesn't move the finding.",
   RetiredSource: "This source has been retired, so it doesn't move the finding.",
 };
 
@@ -234,10 +226,7 @@ export function notCountedReason(reason: TraitCountedReason): string {
 // View shapes
 // ---------------------------------------------------------------------------
 
-type ListsState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'ready' }
-  | { readonly status: 'unavailable' };
+type ListsState = { readonly status: 'loading' } | { readonly status: 'ready' } | { readonly status: 'unavailable' };
 
 type RequestState =
   | { readonly status: 'idle' }
@@ -418,8 +407,7 @@ export class RecipeDietaryAllergenComponent {
    * handler is what refuses a second one.
    */
   readonly canRequest = computed(
-    () =>
-      this.listsSignal().status === 'ready' && this.sourceVersionNumber() !== null && this.hasSelection(),
+    () => this.listsSignal().status === 'ready' && this.sourceVersionNumber() !== null && this.hasSelection(),
   );
 
   /**
@@ -763,11 +751,7 @@ export class RecipeDietaryAllergenComponent {
       return subject.lines.filter((line) => wanted.has(line.lineId)).map(rowFor);
     };
 
-    const flagged = new Set([
-      ...subject.incompatibleLines,
-      ...subject.dependsOnProductLines,
-      ...subject.unknownLines,
-    ]);
+    const flagged = new Set([...subject.incompatibleLines, ...subject.dependsOnProductLines, ...subject.unknownLines]);
     const rest = subject.lines.filter((line) => !flagged.has(line.lineId)).map(rowFor);
 
     const groups: LineGroup[] = [
@@ -821,7 +805,6 @@ export class RecipeDietaryAllergenComponent {
       groups: groups.filter((group) => group.rows.length > 0),
     };
   }
-
 
   sourceKindLabel(source: AnalysisSource): string {
     return SOURCE_KIND_LABELS[source.kind];

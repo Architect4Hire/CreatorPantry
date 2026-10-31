@@ -81,9 +81,7 @@ const NEED_LINKS: Readonly<Record<string, string>> = {
 
 /** A read the hub makes, as it stands: not answered yet, answered, or not answerable right now. */
 type Read<T> =
-  | { readonly state: 'loading' }
-  | { readonly state: 'read'; readonly value: T }
-  | { readonly state: 'unavailable' };
+  { readonly state: 'loading' } | { readonly state: 'read'; readonly value: T } | { readonly state: 'unavailable' };
 
 type Phase = 'loading' | 'unavailable' | 'not_found' | 'ready';
 
@@ -133,7 +131,8 @@ export interface GoalCard {
    */
   readonly caveat?: string;
   /** A catalogue workflow is started as a run; a journey with a page of its own is opened. */
-  readonly start: { readonly kind: 'run'; readonly key: string } | { readonly kind: 'links'; readonly links: readonly GoalLink[] };
+  readonly start:
+    { readonly kind: 'run'; readonly key: string } | { readonly kind: 'links'; readonly links: readonly GoalLink[] };
   readonly canStart: boolean;
   readonly roleNote: string | null;
   readonly needs: readonly GoalNeed[];
@@ -160,7 +159,10 @@ function time(iso: string): number {
 function whenText(iso: string, style: 'day' | 'dayTime' = 'dayTime'): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  return new Intl.DateTimeFormat(undefined, style === 'day' ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' }).format(at);
+  return new Intl.DateTimeFormat(
+    undefined,
+    style === 'day' ? { dateStyle: 'medium' } : { dateStyle: 'medium', timeStyle: 'short' },
+  ).format(at);
 }
 
 /**
@@ -177,7 +179,12 @@ function runName(run: WorkflowRunSummary): string {
 }
 
 /** A run link's accessible name: what it does, which run, and when — so two runs on one step are still two links. */
-function runLinkLabel(action: string, run: WorkflowRunSummary, when: string, whenWord: 'last saved' | 'finished'): string {
+function runLinkLabel(
+  action: string,
+  run: WorkflowRunSummary,
+  when: string,
+  whenWord: 'last saved' | 'finished',
+): string {
   return when === '' ? `${action} ${runName(run)}` : `${action} ${runName(run)}, ${whenWord} ${when}`;
 }
 
@@ -261,7 +268,9 @@ export class WorkflowsHubComponent {
   protected readonly longForm = signal<Read<readonly LongFormDraftSummary[]>>({ state: 'loading' });
 
   /** The Content Pipeline run this device keeps for this owner, and the context it is on. */
-  private readonly kept = signal<{ readonly draft: ContentPipelineDraft; readonly contextId: string | null } | null>(null);
+  private readonly kept = signal<{ readonly draft: ContentPipelineDraft; readonly contextId: string | null } | null>(
+    null,
+  );
   protected readonly discarded = signal(false);
 
   protected readonly query = signal('');
@@ -372,7 +381,9 @@ export class WorkflowsHubComponent {
   readonly continueHasMore = computed(() => this.hasMore('mine', this.continueRows().length));
 
   /** Some of the creator's work in progress could not be read. */
-  readonly continueDegraded = computed(() => this.mine().state === 'unavailable' || this.longForm().state === 'unavailable');
+  readonly continueDegraded = computed(
+    () => this.mine().state === 'unavailable' || this.longForm().state === 'unavailable',
+  );
 
   // ---- Needs attention ----
 
@@ -384,9 +395,10 @@ export class WorkflowsHubComponent {
     const attention = this.attention();
     if (attention.state === 'read') {
       for (const run of attention.value.items) {
-        const theirs = run.owner.membershipId !== me
-          ? `Started by ${run.owner.displayName ?? 'someone who has left the workspace'}.`
-          : null;
+        const theirs =
+          run.owner.membershipId !== me
+            ? `Started by ${run.owner.displayName ?? 'someone who has left the workspace'}.`
+            : null;
         const when = whenText(run.updatedAt);
         rows.push({
           id: `run:${run.id}`,
@@ -429,7 +441,9 @@ export class WorkflowsHubComponent {
 
   readonly attentionHasMore = computed(() => this.hasMore('attention', this.attentionRows().length));
 
-  readonly attentionDegraded = computed(() => this.attention().state === 'unavailable' || this.longForm().state === 'unavailable');
+  readonly attentionDegraded = computed(
+    () => this.attention().state === 'unavailable' || this.longForm().state === 'unavailable',
+  );
 
   // ---- Recent outcomes ----
 
@@ -495,7 +509,13 @@ export class WorkflowsHubComponent {
                 start: {
                   kind: 'links',
                   links: [
-                    { label: 'Start', ariaLabel: 'Start a blog post or newsletter', link: this.longFormLink(), queryParams: { from: 'recipe' }, primary: true },
+                    {
+                      label: 'Start',
+                      ariaLabel: 'Start a blog post or newsletter',
+                      link: this.longFormLink(),
+                      queryParams: { from: 'recipe' },
+                      primary: true,
+                    },
                   ],
                 },
               }
@@ -515,8 +535,19 @@ export class WorkflowsHubComponent {
         // Said before Start, not only on the card that offers to continue: the idea, the channel, the day and
         // the picture are kept in the workspace, but wording typed and not yet sent is this device's alone, and
         // a creator who moves to another one would find it gone without having been told.
-        caveat: 'The run itself is kept in your workspace. Wording you have typed but not yet sent stays on this device.',
-        start: { kind: 'links', links: [{ label: 'Start', ariaLabel: 'Start making a picture and posts', link: this.pipelineLink(FIRST_CONTENT_PIPELINE_STEP), primary: true }] },
+        caveat:
+          'The run itself is kept in your workspace. Wording you have typed but not yet sent stays on this device.',
+        start: {
+          kind: 'links',
+          links: [
+            {
+              label: 'Start',
+              ariaLabel: 'Start making a picture and posts',
+              link: this.pipelineLink(FIRST_CONTENT_PIPELINE_STEP),
+              primary: true,
+            },
+          ],
+        },
         ...local,
       },
       {
@@ -524,7 +555,17 @@ export class WorkflowsHubComponent {
         goal: 'Draft a recipe from a dish name',
         description: 'Name a dish, and get a draft recipe and a lead picture for it, saved together.',
         outcome: 'A draft recipe with its picture in your library, ready to work on.',
-        start: { kind: 'links', links: [{ label: 'Start', ariaLabel: 'Start drafting a recipe from a dish name', link: ['/', slug, 'workflows', 'quick-recipe'], primary: true }] },
+        start: {
+          kind: 'links',
+          links: [
+            {
+              label: 'Start',
+              ariaLabel: 'Start drafting a recipe from a dish name',
+              link: ['/', slug, 'workflows', 'quick-recipe'],
+              primary: true,
+            },
+          ],
+        },
         ...local,
       },
     );
@@ -533,7 +574,11 @@ export class WorkflowsHubComponent {
   });
 
   readonly shownGoals = computed(() => {
-    const words = this.query().trim().toLowerCase().split(/\s+/).filter((word) => word !== '');
+    const words = this.query()
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word !== '');
     if (words.length === 0) return this.goalCards();
     return this.goalCards().filter((card) => {
       const text = `${card.goal} ${card.description} ${card.outcome}`.toLowerCase();
@@ -559,13 +604,18 @@ export class WorkflowsHubComponent {
   });
 
   /** Still finding out what the creator has in progress. */
-  readonly checking = computed(() => [this.mine(), this.attention(), this.finished()].some((read) => read.state === 'loading'));
+  readonly checking = computed(() =>
+    [this.mine(), this.attention(), this.finished()].some((read) => read.state === 'loading'),
+  );
 
   /** Whether the work-in-progress cards have anything to show yet: what the skeleton in their place waits for. */
   readonly workInProgressShown = computed(
     () =>
       !this.firstUse() &&
-      (this.continueRows().length > 0 || this.continueDegraded() || this.attentionRows().length > 0 || this.attentionDegraded()),
+      (this.continueRows().length > 0 ||
+        this.continueDegraded() ||
+        this.attentionRows().length > 0 ||
+        this.attentionDegraded()),
   );
 
   /**
@@ -673,7 +723,8 @@ export class WorkflowsHubComponent {
   private async fetchMore(view: HubRunView): Promise<void> {
     const into = this.pageOf(view);
     const page = into();
-    const rows = view === 'mine' ? this.continueRows() : view === 'attention' ? this.attentionRows() : this.outcomeRows();
+    const rows =
+      view === 'mine' ? this.continueRows() : view === 'attention' ? this.attentionRows() : this.outcomeRows();
     if (page.state !== 'read' || page.value.nextCursor === null || rows.length >= this.shown[view]()) return;
 
     const slug = this.workspaceSlug();
@@ -689,7 +740,10 @@ export class WorkflowsHubComponent {
       return;
     }
 
-    into.set({ state: 'read', value: { items: [...page.value.items, ...outcome.page.items], nextCursor: outcome.page.nextCursor } });
+    into.set({
+      state: 'read',
+      value: { items: [...page.value.items, ...outcome.page.items], nextCursor: outcome.page.nextCursor },
+    });
   }
 
   private hasMore(view: HubRunView, rows: number): boolean {
@@ -704,7 +758,14 @@ export class WorkflowsHubComponent {
   private focusSection(section: HubSection): void {
     afterNextRender(
       () => {
-        const card = section === 'continue' ? this.continueCard() : section === 'attention' ? this.attentionCard() : section === 'outcomes' ? this.outcomesCard() : undefined;
+        const card =
+          section === 'continue'
+            ? this.continueCard()
+            : section === 'attention'
+              ? this.attentionCard()
+              : section === 'outcomes'
+                ? this.outcomesCard()
+                : undefined;
         if (card) card.focusHeading();
         else this.goalsHeading()?.nativeElement.focus();
       },
@@ -754,9 +815,12 @@ export class WorkflowsHubComponent {
         void this.readDefinitions(slug, this.readKey, { keep: true });
         return;
       case 'unavailable':
-        this.problemFor(card.id, outcome.offline
-          ? 'You’re offline. Nothing was started — try again when you’re back online.'
-          : 'This couldn’t be started just now. Nothing was started — try again.');
+        this.problemFor(
+          card.id,
+          outcome.offline
+            ? 'You’re offline. Nothing was started — try again when you’re back online.'
+            : 'This couldn’t be started just now. Nothing was started — try again.',
+        );
         return;
       default:
         this.startKeys.delete(card.id);
@@ -802,14 +866,25 @@ export class WorkflowsHubComponent {
   }
 
   /** `keep` leaves what is shown in place until the answer comes, for a read again rather than a first read. */
-  private async readDefinitions(slug: string, key: string | null, options: { readonly keep?: boolean } = {}): Promise<void> {
+  private async readDefinitions(
+    slug: string,
+    key: string | null,
+    options: { readonly keep?: boolean } = {},
+  ): Promise<void> {
     if (!options.keep) this.definitions.set({ state: 'loading' });
     const outcome = await this.hub.definitions(slug);
     if (key !== this.readKey) return;
-    this.definitions.set(outcome.status === 'found' ? { state: 'read', value: outcome.definitions } : { state: 'unavailable' });
+    this.definitions.set(
+      outcome.status === 'found' ? { state: 'read', value: outcome.definitions } : { state: 'unavailable' },
+    );
   }
 
-  private async readRuns(slug: string, key: string | null, view: HubRunView, options: { readonly keep?: boolean } = {}): Promise<void> {
+  private async readRuns(
+    slug: string,
+    key: string | null,
+    view: HubRunView,
+    options: { readonly keep?: boolean } = {},
+  ): Promise<void> {
     const into = this.pageOf(view);
     if (!options.keep) into.set({ state: 'loading' });
     const outcome = await this.hub.runs(slug, { view, limit: WORKFLOWS_HUB_ROWS * 2 });
@@ -817,15 +892,19 @@ export class WorkflowsHubComponent {
     into.set(outcome.status === 'found' ? { state: 'read', value: outcome.page } : { state: 'unavailable' });
   }
 
-  private async readLongForm(slug: string, key: string | null, options: { readonly keep?: boolean } = {}): Promise<void> {
+  private async readLongForm(
+    slug: string,
+    key: string | null,
+    options: { readonly keep?: boolean } = {},
+  ): Promise<void> {
     if (!options.keep) this.longForm.set({ state: 'loading' });
     const outcome = await this.longFormDrafts.list(slug, { limit: LONG_FORM_LOOKBACK });
     if (key !== this.readKey) return;
     this.longForm.set(
       outcome.status === 'found'
         ? { state: 'read', value: outcome.page.items }
-        // A list this member may not read is a list with nothing in it for them, not a fault to report.
-        : outcome.status === 'forbidden'
+        : // A list this member may not read is a list with nothing in it for them, not a fault to report.
+          outcome.status === 'forbidden'
           ? { state: 'read', value: [] }
           : { state: 'unavailable' },
     );

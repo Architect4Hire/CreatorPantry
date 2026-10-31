@@ -5,7 +5,9 @@
 
 <section class="workspace-settings" aria-label="Workspace settings">
   <!-- Always present, and outside the busy form (APP-003): one place the page says it is still loading. -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your workspace settings…' : '' }}</p>
+  <p class="cp-sr-only" role="status" aria-live="polite">{{
+    load().status === 'loading' ? 'Loading your workspace settings…' : ''
+  }}</p>
 
   @switch (load().status) {
     @case ('loading') {
@@ -44,7 +46,10 @@
                 (valueChange)="pick($event)"
               />
             } @else {
-              <p class="current">This workspace works in <strong>{{ currentLabel() }}</strong>.</p>
+              <p class="current"
+                >This workspace works in <strong>{{ currentLabel() }}</strong
+                >.</p
+              >
               <cp-notice role="note">Only an Owner of this workspace can change this.</cp-notice>
             }
           </cp-form-section>

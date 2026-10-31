@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
   CpButtonComponent,
@@ -23,12 +34,12 @@ type UploadState =
  * report has to be given words rather than reaching a creator as a blank.
  */
 const FAILURE_MESSAGE: Readonly<Record<DamAssetUploadFailure, string>> = {
-  unsupported:
-    'That file is not a picture the library takes. Try a PNG, JPEG, WebP or GIF. Nothing was stored.',
+  unsupported: 'That file is not a picture the library takes. Try a PNG, JPEG, WebP or GIF. Nothing was stored.',
   too_large: 'That file is larger than 32 MB, which is the most the library takes. Nothing was stored.',
   invalid: 'That picture could not be accepted. Check the details below and try again.',
   forbidden: 'You need Contributor access in this workspace to add a picture. Nothing was stored.',
-  unavailable: 'The picture could not be stored just now, and nothing was left behind. Your file is still chosen, so try again.',
+  unavailable:
+    'The picture could not be stored just now, and nothing was left behind. Your file is still chosen, so try again.',
 };
 
 /**
@@ -186,9 +197,17 @@ export class DamAssetUploadComponent {
 
     const state = this.state();
     if (state.status === 'uploading') {
-      return [{ id: 'file', name: file.name, status: 'uploading', ...(state.percent === null ? {} : { progress: state.percent }) }];
+      return [
+        {
+          id: 'file',
+          name: file.name,
+          status: 'uploading',
+          ...(state.percent === null ? {} : { progress: state.percent }),
+        },
+      ];
     }
-    if (state.status === 'failed') return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
+    if (state.status === 'failed')
+      return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
 
     return [{ id: 'file', name: file.name, status: 'queued' }];
   });

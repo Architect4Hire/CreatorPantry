@@ -8,9 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"tips\":[{\"text\":\"Use two tablespoons of butter.\"}]}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "2 tbsp"
-      ],
+      "numbers": ["2 tbsp"],
       "freeText": "Cream 2 tbsp butter with the sugar.",
       "storageNotes": null
     }

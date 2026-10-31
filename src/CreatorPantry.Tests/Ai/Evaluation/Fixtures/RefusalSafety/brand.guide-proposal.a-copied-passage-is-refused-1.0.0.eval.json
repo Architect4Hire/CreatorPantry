@@ -7,7 +7,12 @@
   "input": {
     "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"WE WRITE LIKE A FRIEND WHO HAPPENS TO COOK, AND WE NEVER TALK DOWN TO ANYONE, EVER!\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"11111111-1111-1111-1111-111111111111\"}]}]}",
     "expectedSchemaVersion": "brand.guide-proposal.v1",
-    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "we write like a friend who happens to cook and we never talk down to anyone ever" }]
+    "passages": [
+      {
+        "passageId": "11111111-1111-1111-1111-111111111111",
+        "text": "we write like a friend who happens to cook and we never talk down to anyone ever"
+      }
+    ]
   },
   "expect": {
     "outcome": "Rejected",

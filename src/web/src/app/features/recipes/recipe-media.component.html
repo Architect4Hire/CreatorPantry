@@ -3,8 +3,8 @@
     <div>
       <h2 id="cp-recipe-media-heading">Pictures</h2>
       <p class="lede">
-        Pictures from your library that this recipe uses. Linking or unlinking one saves a new version of the
-        recipe; the picture itself is never changed from here.
+        Pictures from your library that this recipe uses. Linking or unlinking one saves a new version of the recipe;
+        the picture itself is never changed from here.
       </p>
     </div>
 
@@ -45,7 +45,9 @@
     <cp-notice tone="error" role="alert">
       <span tabindex="-1" data-problem>{{ issue.text }}</span>
       @if (issue.offersReload) {
-        <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()">Reload the recipe</button>
+        <button cpButton type="button" variant="secondary" size="sm" (click)="requestReload()"
+          >Reload the recipe</button
+        >
       }
     </cp-notice>
   }

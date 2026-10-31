@@ -3,16 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { RuntimeConfigService } from '../core/runtime-config.service';
-import {
-  NutritionEstimateOutcome,
-  NutritionMappingDecisionOutcome,
-  NutritionService,
-} from './nutrition.service';
+import { NutritionEstimateOutcome, NutritionMappingDecisionOutcome, NutritionService } from './nutrition.service';
 
 const RECIPE_ID = '2a1b7c6d-0000-4000-8000-000000000001';
 const INGREDIENT_ID = '2a1b7c6d-0000-4000-8000-0000000000a1';
-const ESTIMATE_URL =
-  `https://gateway.example/api/v1/workspaces/cozy-fall/recipes/${RECIPE_ID}/versions/4/analysis/nutrition`;
+const ESTIMATE_URL = `https://gateway.example/api/v1/workspaces/cozy-fall/recipes/${RECIPE_ID}/versions/4/analysis/nutrition`;
 const MAPPING_URL = `https://gateway.example/api/v1/workspaces/cozy-fall/nutrition-mappings/${INGREDIENT_ID}`;
 
 function estimatePayload(): Record<string, unknown> {
@@ -122,10 +117,12 @@ describe('NutritionService', () => {
 
     it('carries the field errors from a refused serving count', async () => {
       const call = estimate(0);
-      http.expectOne(ESTIMATE_URL).flush(
-        { code: 'nutrition.estimate.invalid', errors: { servings: ['Enter a number above 0.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne(ESTIMATE_URL)
+        .flush(
+          { code: 'nutrition.estimate.invalid', errors: { servings: ['Enter a number above 0.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       const outcome = await call;
       expect(outcome.status).toBe('invalid_request');
@@ -136,10 +133,12 @@ describe('NutritionService', () => {
 
     it("keeps the server's sentence for a total too large to state", async () => {
       const call = estimate();
-      http.expectOne(ESTIMATE_URL).flush(
-        { code: 'nutrition.estimate.quantities.unprocessable', title: 'The total energy is too large to state.' },
-        { status: 422, statusText: 'Unprocessable Content' },
-      );
+      http
+        .expectOne(ESTIMATE_URL)
+        .flush(
+          { code: 'nutrition.estimate.quantities.unprocessable', title: 'The total energy is too large to state.' },
+          { status: 422, statusText: 'Unprocessable Content' },
+        );
 
       const outcome = await call;
       expect(outcome.status).toBe('quantities_unprocessable');
@@ -160,7 +159,9 @@ describe('NutritionService', () => {
 
       const outcome = await call;
       expect(outcome.status).toBe('source_unavailable');
-      expect(outcome.status === 'source_unavailable' && outcome.message).toContain('not available on this installation');
+      expect(outcome.status === 'source_unavailable' && outcome.message).toContain(
+        'not available on this installation',
+      );
     });
 
     it('tells a missing version from an unreadable recipe by the stable code on the 404', async () => {
@@ -263,10 +264,12 @@ describe('NutritionService', () => {
 
     it('reports a 503 as retryable, with the sentence saying which one it was', async () => {
       const call = confirm();
-      http.expectOne(`${MAPPING_URL}/confirm`).flush(
-        { code: 'nutrition.mapping.save.unavailable', title: 'The store refused the write. Nothing was saved.' },
-        { status: 503, statusText: 'Service Unavailable' },
-      );
+      http
+        .expectOne(`${MAPPING_URL}/confirm`)
+        .flush(
+          { code: 'nutrition.mapping.save.unavailable', title: 'The store refused the write. Nothing was saved.' },
+          { status: 503, statusText: 'Service Unavailable' },
+        );
 
       const outcome = await call;
       expect(outcome.status).toBe('retryable');
@@ -285,9 +288,9 @@ describe('NutritionService', () => {
 
       const outcome = await call;
       expect(outcome.status).toBe('invalid_request');
-      expect(
-        outcome.status === 'invalid_request' && outcome.fieldErrors['expectedConcurrencyToken'][0],
-      ).toContain('Name the token');
+      expect(outcome.status === 'invalid_request' && outcome.fieldErrors['expectedConcurrencyToken'][0]).toContain(
+        'Name the token',
+      );
     });
   });
 });

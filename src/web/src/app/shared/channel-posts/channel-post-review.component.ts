@@ -103,7 +103,8 @@ function lengthOf(
   limit: number | null,
   over: boolean,
 ): Pick<ChannelPostLimitReading, 'text' | 'limited' | 'percent' | 'over'> {
-  if (limit === null || limit <= 0) return { text: channelPostCountText(count, null), limited: false, percent: 0, over };
+  if (limit === null || limit <= 0)
+    return { text: channelPostCountText(count, null), limited: false, percent: 0, over };
 
   const by = count - limit;
 
@@ -178,9 +179,7 @@ export class ChannelPostReviewComponent {
 
   protected readonly statusWord = computed(() => STATUS_WORDS[this.channel().status] ?? 'Waiting for you');
 
-  protected readonly statusTone = computed<CpStatusPillTone>(
-    () => STATUS_TONES[this.channel().status] ?? 'neutral',
-  );
+  protected readonly statusTone = computed<CpStatusPillTone>(() => STATUS_TONES[this.channel().status] ?? 'neutral');
 
   /** True for words a model wrote that the creator has neither replaced nor decided about. */
   protected readonly isGenerated = computed(() => isGeneratedAwaitingReview(this.channel()));

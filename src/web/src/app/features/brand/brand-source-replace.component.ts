@@ -39,7 +39,8 @@ const FAILURE_MESSAGE: Record<BrandSourceAddFailure, string> = {
   // the vocabulary is shared, and a silent blank would be worse than a sentence nobody sees.
   conflict: 'This example changed while you were replacing it. Reopen it and try again.',
   archived_conflict: 'This example is on the shelf. Bring it back before replacing its file.',
-  unavailable: 'The file could not be replaced just now, and nothing was stored. Your file is still chosen, so try again.',
+  unavailable:
+    'The file could not be replaced just now, and nothing was stored. Your file is still chosen, so try again.',
 };
 
 /**
@@ -116,7 +117,8 @@ export class BrandSourceReplaceComponent {
 
     const state = this.state();
     if (state.status === 'uploading') return [{ id: 'file', name: file.name, status: 'uploading' }];
-    if (state.status === 'failed') return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
+    if (state.status === 'failed')
+      return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
 
     return [{ id: 'file', name: file.name, status: 'queued' }];
   });

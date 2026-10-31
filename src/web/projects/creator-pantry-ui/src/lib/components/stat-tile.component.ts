@@ -31,9 +31,14 @@ import { CpCardComponent } from './card.component';
       @if (value()) {
         <!-- The space is interpolated: Angular drops whitespace between two elements, and "12recipes" is one word
              to a screen reader however the gap looks. -->
-        <p class="figure"><span class="value">{{ value() }}</span>{{ ' ' }}<span class="label">{{ label() }}</span></p>
+        <p class="figure"
+          ><span class="value">{{ value() }}</span
+          >{{ ' ' }}<span class="label">{{ label() }}</span></p
+        >
       } @else {
-        <p class="figure"><span class="label">{{ label() }}</span></p>
+        <p class="figure"
+          ><span class="label">{{ label() }}</span></p
+        >
       }
       @if (context()) {
         <p class="context">{{ context() }}</p>

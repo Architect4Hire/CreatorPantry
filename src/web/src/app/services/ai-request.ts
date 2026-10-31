@@ -48,7 +48,11 @@ export { decodeFieldErrors, problemCodeOf, problemMessageOf, statusCodeOf };
  * "your request is the wrong shape". They are matched before the generic fallbacks because they arrive as the
  * same statuses.
  */
-export function mapAiRequestError(error: unknown, notEnabledCode: string, refusalCodes: readonly string[]): AiRequestOutcome {
+export function mapAiRequestError(
+  error: unknown,
+  notEnabledCode: string,
+  refusalCodes: readonly string[],
+): AiRequestOutcome {
   const code = statusCodeOf(error);
   const problem = problemCodeOf(error);
 

@@ -18,7 +18,12 @@ const CONCEPT: CreativeContextSource = {
 
 const DESTINATIONS: readonly HandoffDestination[] = [
   { key: 'draft', label: 'Draft this recipe', primary: true, route: HANDOFF_ROUTES.recipeDraft },
-  { key: 'picture', label: 'Make a picture', detail: 'Opens Image Studio with this idea.', route: HANDOFF_ROUTES.imageStudio },
+  {
+    key: 'picture',
+    label: 'Make a picture',
+    detail: 'Opens Image Studio with this idea.',
+    route: HANDOFF_ROUTES.imageStudio,
+  },
   { key: 'pipeline', label: 'Start a content run', route: HANDOFF_ROUTES.contentPipeline },
 ];
 
@@ -48,7 +53,12 @@ describe('UseThisInComponent', () => {
   let router: Router;
 
   /** Every create the control asked for, and the stream each one is waiting on. */
-  let calls: { slug: string; draft: CreativeContextDraft; key: string; answer: Subject<CreativeContextCreateOutcome> }[];
+  let calls: {
+    slug: string;
+    draft: CreativeContextDraft;
+    key: string;
+    answer: Subject<CreativeContextCreateOutcome>;
+  }[];
   let handedOff: HandoffCompleted[];
   let failed: HandoffFailed[];
 
@@ -200,7 +210,9 @@ describe('UseThisInComponent', () => {
       second.componentRef.setInput('destinations', DESTINATIONS);
       second.detectChanges();
 
-      const other = (second.nativeElement as HTMLElement).querySelector('[role="group"]')!.getAttribute('aria-labelledby');
+      const other = (second.nativeElement as HTMLElement)
+        .querySelector('[role="group"]')!
+        .getAttribute('aria-labelledby');
       expect(other).not.toBe(first);
     });
   });

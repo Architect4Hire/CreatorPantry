@@ -12,21 +12,13 @@
       {
         "title": "Gluten-Free Brownies",
         "yieldText": "Makes 16",
-        "ingredients": [
-          "200 g almond flour",
-          "150 g dark chocolate"
-        ],
-        "steps": [
-          "Melt the chocolate.",
-          "Fold in the almond flour."
-        ]
+        "ingredients": ["200 g almond flour", "150 g dark chocolate"],
+        "steps": ["Melt the chocolate.", "Fold in the almond flour."]
       }
     ]
   },
   "expect": {
     "outcome": "Accepted",
-    "notFlagged": [
-      "gluten"
-    ]
+    "notFlagged": ["gluten"]
   }
 }

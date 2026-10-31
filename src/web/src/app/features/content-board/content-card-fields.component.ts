@@ -113,7 +113,10 @@ export class ContentCardFieldsComponent {
     const current = this.value().channelKey;
     const options = this.channels()
       .filter((channel) => channel.isActive || channel.key === current)
-      .map((channel) => ({ key: channel.key, label: channel.isActive ? channel.displayName : `${channel.displayName} (retired)` }));
+      .map((channel) => ({
+        key: channel.key,
+        label: channel.isActive ? channel.displayName : `${channel.displayName} (retired)`,
+      }));
 
     if (current !== null && !options.some((option) => option.key === current)) {
       options.push({ key: current, label: current });

@@ -26,7 +26,16 @@ const creator = {
 
 const rates = { textDraft: 10, longFormSection: 10, imageDraft: 25, imageStandard: 50, imageHigh: 90 };
 
-const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14 };
+const trial = {
+  ...creator,
+  key: 'trial',
+  name: 'Trial',
+  monthlyPrice: 0,
+  annualMonthlyPrice: 0,
+  annualSaving: 0,
+  recommended: false,
+  trialDays: 14,
+};
 
 describe('LandingPricingComponent', () => {
   let fixture: ComponentFixture<LandingPricingComponent>;
@@ -215,7 +224,14 @@ describe('LandingPricingComponent', () => {
   it('does not count the price under reduced motion', async () => {
     const real = window.matchMedia.bind(window);
     spyOn(window, 'matchMedia').and.callFake((query: string) =>
-      query.includes('prefers-reduced-motion') ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList) : real(query),
+      query.includes('prefers-reduced-motion')
+        ? ({
+            matches: true,
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          } as unknown as MediaQueryList)
+        : real(query),
     );
     await create(published);
     const frames = spyOn(window, 'requestAnimationFrame').and.callThrough();
@@ -249,7 +265,12 @@ describe('LandingPricingComponent', () => {
   });
 
   it('carries no price of its own: every figure on screen came from the catalogue', async () => {
-    await create({ currency: 'USD', plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }], packs: [], rates });
+    await create({
+      currency: 'USD',
+      plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }],
+      packs: [],
+      rates,
+    });
 
     expect(prices()).toEqual(['$99']);
     expect(secondLines()).toContain('Billed yearly at $1,188 — $288 saved');

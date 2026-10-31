@@ -76,7 +76,13 @@ describe('WeeklyThemesService', () => {
   });
 
   it('replaces the whole week in one write', async () => {
-    const input = { day: 'Monday' as const, key: 'meat-free-monday', displayName: 'Meat-free Monday', description: null, standingNotes: 'Never tofu.' };
+    const input = {
+      day: 'Monday' as const,
+      key: 'meat-free-monday',
+      displayName: 'Meat-free Monday',
+      description: null,
+      standingNotes: 'Never tofu.',
+    };
 
     const saving = service.replaceWeek('sams-kitchen', [input]);
     const request = http.expectOne(THEMES_URL);
@@ -106,10 +112,12 @@ describe('WeeklyThemesService', () => {
 
   it('returns a validation refusal’s field errors in this client’s casing', async () => {
     const saving = service.replaceWeek('sams-kitchen', []);
-    http.expectOne(THEMES_URL).flush(
-      { code: 'content.weekly_themes.invalid', errors: { 'themes[0].StandingNotes': ['Too long.'] } },
-      { status: 400, statusText: 'Bad Request' },
-    );
+    http
+      .expectOne(THEMES_URL)
+      .flush(
+        { code: 'content.weekly_themes.invalid', errors: { 'themes[0].StandingNotes': ['Too long.'] } },
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     const outcome = await saving;
 

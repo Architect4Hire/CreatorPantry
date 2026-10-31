@@ -243,7 +243,10 @@ describe('RecipeFormState', () => {
     it('counts an indexed refusal by the key the server sent, once however many messages it carries', () => {
       const form = createForm();
       form.title.set('Soup');
-      form.fieldErrors.set({ 'ingredientGroups[0].ingredients[2].quantity': ['Too big.', 'Not a number.'], instructions: ['Too short.'] });
+      form.fieldErrors.set({
+        'ingredientGroups[0].ingredients[2].quantity': ['Too big.', 'Not a number.'],
+        instructions: ['Too short.'],
+      });
 
       expect(form.errorPaths()).toEqual(['ingredientGroups[0].ingredients[2].quantity', 'instructions']);
     });

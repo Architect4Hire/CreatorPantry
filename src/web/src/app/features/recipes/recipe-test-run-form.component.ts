@@ -609,7 +609,15 @@ export class RecipeTestRunFormComponent {
 
     this.issues.update((rows) => [
       ...rows,
-      { key: newRowKey(), id: null, severity: '', title: '', description: '', fromObservationKey: null, resolved: false },
+      {
+        key: newRowKey(),
+        id: null,
+        severity: '',
+        title: '',
+        description: '',
+        fromObservationKey: null,
+        resolved: false,
+      },
     ]);
   }
 
@@ -762,8 +770,7 @@ export class RecipeTestRunFormComponent {
     // Both lists travel together or neither does. An issue may only name an observation by position when the
     // observations are sent in the same request, and sending observations without the issues would repoint
     // every stored link against a list the issues were not measured against.
-    const listsChanged =
-      !sameJson(observations, this.baseline.observations) || !sameJson(issues, this.baseline.issues);
+    const listsChanged = !sameJson(observations, this.baseline.observations) || !sameJson(issues, this.baseline.issues);
 
     const request: UpdateRecipeTestRunRequest = {
       expectedConcurrencyToken: this.concurrencyTokenSignal(),
@@ -941,7 +948,7 @@ export class RecipeTestRunFormComponent {
           title: issue.title,
           description: issue.description ?? '',
           fromObservationKey:
-            issue.testObservationId === null ? null : keyByObservationId.get(issue.testObservationId) ?? null,
+            issue.testObservationId === null ? null : (keyByObservationId.get(issue.testObservationId) ?? null),
           resolved: issue.resolution !== null,
         })),
     );
@@ -1054,7 +1061,11 @@ export class RecipeTestRunFormComponent {
   }
 
   /** A field that may change but not be cleared: emptiness is left absent rather than sent as null. */
-  private changedText(current: string, baseline: string | null, convert: (value: string) => string | null): PatchField<string> {
+  private changedText(
+    current: string,
+    baseline: string | null,
+    convert: (value: string) => string | null,
+  ): PatchField<string> {
     const value = convert(current);
     if (value === null || value === baseline) return absent<string>();
 

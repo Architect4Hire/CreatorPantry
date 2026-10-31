@@ -17,7 +17,9 @@
       <div class="loading" aria-busy="true">
         <ul cpCardGrid minColumn="15rem">
           @for (place of tilePlaces; track place) {
-            <li><cp-card><cp-skeleton shape="line" [count]="2" /></cp-card></li>
+            <li
+              ><cp-card><cp-skeleton shape="line" [count]="2" /></cp-card
+            ></li>
           }
         </ul>
         <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
@@ -64,44 +66,44 @@
       }
 
       <cp-topic-card heading="Your allowance">
-          <p class="status">
-            <!-- The state in words with a glyph beside it. The meter's colour repeats this; it never carries it alone. -->
-            <cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill>
-          </p>
+        <p class="status">
+          <!-- The state in words with a glyph beside it. The meter's colour repeats this; it never carries it alone. -->
+          <cp-status-pill [tone]="statusTone()">{{ statusLabel() }}</cp-status-pill>
+        </p>
 
-          <!-- What is left, not a percentage and not a token count. Only when there are no figures above to say it. -->
-          @if (tiles() === null) {
-            <p class="headline">{{ headline() }}</p>
-          }
+        <!-- What is left, not a percentage and not a token count. Only when there are no figures above to say it. -->
+        @if (tiles() === null) {
+          <p class="headline">{{ headline() }}</p>
+        }
 
-          @if (figures(); as period) {
-            <cp-progress
-              class="meter"
-              label="Allowance used this period"
-              [value]="period.usedPercent"
-              [valueText]="meterText()"
-              [tone]="meterTone()"
-            />
-          }
+        @if (figures(); as period) {
+          <cp-progress
+            class="meter"
+            label="Allowance used this period"
+            [value]="period.usedPercent"
+            [valueText]="meterText()"
+            [tone]="meterTone()"
+          />
+        }
 
-          <!-- What carried over is said with the allowance figure it is part of, in that tile's context. -->
-          <p class="explanation">{{ explanation() }}</p>
+        <!-- What carried over is said with the allowance figure it is part of, in that tile's context. -->
+        <p class="explanation">{{ explanation() }}</p>
 
-          @if (state().status === 'degraded') {
-            <div cpTopicCardActions class="cp-actions">
-              <button
-                cpButton
-                variant="secondary"
-                size="sm"
-                type="button"
-                [attr.aria-disabled]="retrying() ? 'true' : null"
-                [attr.aria-busy]="retrying() ? 'true' : null"
-                (click)="retry()"
-              >
-                {{ retrying() ? 'Checking…' : 'Check again' }}
-              </button>
-            </div>
-          }
+        @if (state().status === 'degraded') {
+          <div cpTopicCardActions class="cp-actions">
+            <button
+              cpButton
+              variant="secondary"
+              size="sm"
+              type="button"
+              [attr.aria-disabled]="retrying() ? 'true' : null"
+              [attr.aria-busy]="retrying() ? 'true' : null"
+              (click)="retry()"
+            >
+              {{ retrying() ? 'Checking…' : 'Check again' }}
+            </button>
+          </div>
+        }
       </cp-topic-card>
 
       <div class="breakdowns">

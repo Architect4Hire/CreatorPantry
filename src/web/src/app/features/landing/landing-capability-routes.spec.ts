@@ -6,7 +6,9 @@ import { routes } from '../../app.routes';
 import brandSetupShellTemplate from '../brand/setup/brand-setup-shell.component.html' with { loader: 'text' };
 import { BrandSetupShellComponent } from '../brand/setup/brand-setup-shell.component';
 import { BrandSetupStepPlaceholderComponent } from '../brand/setup/brand-setup-step-placeholder.component';
-import contentPipelineShellTemplate from '../content-pipeline/content-pipeline-shell.component.html' with { loader: 'text' };
+import contentPipelineShellTemplate from '../content-pipeline/content-pipeline-shell.component.html' with {
+  loader: 'text',
+};
 import { ContentPipelineShellComponent } from '../content-pipeline/content-pipeline-shell.component';
 import { ContentPipelineStepPlaceholderComponent } from '../content-pipeline/content-pipeline-step-placeholder.component';
 import { DEFAULT_VALUE_PROPS } from './landing-value-props.component';
@@ -30,7 +32,12 @@ const CAPABILITY_ROUTES: Readonly<Record<string, readonly string[]>> = {
   'Food pictures on demand': ['image-studio', 'dam'],
   'A post for every channel': ['social-studio'],
   'Blog posts and newsletters': ['workflows/long-form'],
-  'Sounds like you': ['brand/setup/goals', 'brand/setup/style', 'brand/setup/examples', 'brand/style-guide/guide-1/test-drive'],
+  'Sounds like you': [
+    'brand/setup/goals',
+    'brand/setup/style',
+    'brand/setup/examples',
+    'brand/style-guide/guide-1/test-drive',
+  ],
   'See what’s next': ['content-board', 'my-day', 'my-week'],
   'Take it anywhere': ['recipes/recipe-1'],
   'Schedule to your social channels': ['content-board/card-1'],
@@ -39,12 +46,18 @@ const CAPABILITY_ROUTES: Readonly<Record<string, readonly string[]>> = {
 const IN_THE_WORKS = 'In the works';
 const WORKSPACE = 'sample-kitchen';
 
-const PLACEHOLDERS: readonly Type<unknown>[] = [BrandSetupStepPlaceholderComponent, ContentPipelineStepPlaceholderComponent];
+const PLACEHOLDERS: readonly Type<unknown>[] = [
+  BrandSetupStepPlaceholderComponent,
+  ContentPipelineStepPlaceholderComponent,
+];
 
 /** The step shells, each with the template whose step switch decides what a step renders. */
 const STEP_SHELLS = new Map<Type<unknown>, { template: string; placeholder: string }>([
   [BrandSetupShellComponent, { template: brandSetupShellTemplate, placeholder: 'cp-brand-setup-step-placeholder' }],
-  [ContentPipelineShellComponent, { template: contentPipelineShellTemplate, placeholder: 'cp-content-pipeline-step-placeholder' }],
+  [
+    ContentPipelineShellComponent,
+    { template: contentPipelineShellTemplate, placeholder: 'cp-content-pipeline-step-placeholder' },
+  ],
 ]);
 
 /** The text between the brace at `open` and the one that closes it. */
@@ -105,9 +118,9 @@ describe('Landing capability routes (LND-001)', () => {
   });
 
   it('maps every card not badged "In the works" to at least one page', () => {
-    const unmapped = DEFAULT_VALUE_PROPS.filter((item) => item.badgeLabel !== IN_THE_WORKS && !CAPABILITY_ROUTES[item.heading]?.length).map(
-      (item) => item.heading,
-    );
+    const unmapped = DEFAULT_VALUE_PROPS.filter(
+      (item) => item.badgeLabel !== IN_THE_WORKS && !CAPABILITY_ROUTES[item.heading]?.length,
+    ).map((item) => item.heading);
     expect(unmapped).withContext('cards with no backing page').toEqual([]);
   });
 
@@ -129,7 +142,9 @@ describe('Landing capability routes (LND-001)', () => {
       it(`backs "${item.heading}" with a real page at ${path}`, async () => {
         const url = `/${WORKSPACE}/${path}`;
 
-        expect(await router.navigateByUrl(url)).withContext(`navigating to ${url}`).toBeTrue();
+        expect(await router.navigateByUrl(url))
+          .withContext(`navigating to ${url}`)
+          .toBeTrue();
         expect(router.url).withContext('redirected away from the claimed page').toBe(url);
 
         const leaf = leafOf(router.routerState.snapshot.root);
@@ -141,7 +156,9 @@ describe('Landing capability routes (LND-001)', () => {
         if (step !== null) {
           const shell = STEP_SHELLS.get(component!);
           expect(shell).withContext(`${component!.name} takes a step but is not a known step shell`).toBeDefined();
-          expect(stepSwitch(shell!.template).cases).withContext(`step "${step}" falls through to the placeholder`).toContain(step);
+          expect(stepSwitch(shell!.template).cases)
+            .withContext(`step "${step}" falls through to the placeholder`)
+            .toContain(step);
         }
       });
     }

@@ -22,13 +22,55 @@ export interface ExampleKindOption {
 }
 
 export const EXAMPLE_KINDS: readonly ExampleKindOption[] = [
-  { key: 'sounds-like-me', label: 'This sounds like me', hint: 'Something you wrote that captures your voice', documentType: 'WritingSample', purpose: 'Voice' },
-  { key: 'not-like-me', label: "This doesn't sound like me", hint: 'Something to steer away from', documentType: 'WritingSample', purpose: 'NotMyVoice' },
-  { key: 'blog', label: 'A blog post', hint: 'One of your published posts', documentType: 'PublishedPost', purpose: 'WritingStyle' },
-  { key: 'social', label: 'A social post', hint: 'A caption or post you shared', documentType: 'SocialSample', purpose: 'WritingStyle' },
-  { key: 'newsletter', label: 'A newsletter', hint: 'An email you sent your readers', documentType: 'Newsletter', purpose: 'WritingStyle' },
-  { key: 'visual', label: 'A look I like', hint: 'A photo or layout that shows your style', documentType: 'VisualReference', purpose: 'VisualDirection' },
-  { key: 'other', label: 'Something else', hint: 'Anything else that helps', documentType: 'Other', purpose: 'Background' },
+  {
+    key: 'sounds-like-me',
+    label: 'This sounds like me',
+    hint: 'Something you wrote that captures your voice',
+    documentType: 'WritingSample',
+    purpose: 'Voice',
+  },
+  {
+    key: 'not-like-me',
+    label: "This doesn't sound like me",
+    hint: 'Something to steer away from',
+    documentType: 'WritingSample',
+    purpose: 'NotMyVoice',
+  },
+  {
+    key: 'blog',
+    label: 'A blog post',
+    hint: 'One of your published posts',
+    documentType: 'PublishedPost',
+    purpose: 'WritingStyle',
+  },
+  {
+    key: 'social',
+    label: 'A social post',
+    hint: 'A caption or post you shared',
+    documentType: 'SocialSample',
+    purpose: 'WritingStyle',
+  },
+  {
+    key: 'newsletter',
+    label: 'A newsletter',
+    hint: 'An email you sent your readers',
+    documentType: 'Newsletter',
+    purpose: 'WritingStyle',
+  },
+  {
+    key: 'visual',
+    label: 'A look I like',
+    hint: 'A photo or layout that shows your style',
+    documentType: 'VisualReference',
+    purpose: 'VisualDirection',
+  },
+  {
+    key: 'other',
+    label: 'Something else',
+    hint: 'Anything else that helps',
+    documentType: 'Other',
+    purpose: 'Background',
+  },
 ];
 
 const KIND_KEYS: ReadonlySet<string> = new Set(EXAMPLE_KINDS.map((k) => k.key));
@@ -110,7 +152,8 @@ export function decodeExamples(slice: Readonly<Record<string, unknown>> | null):
   for (const entry of raw) {
     if (typeof entry !== 'object' || entry === null) continue;
     const { documentId, kind } = entry as Record<string, unknown>;
-    if (typeof documentId !== 'string' || typeof kind !== 'string' || !KIND_KEYS.has(kind) || seen.has(documentId)) continue;
+    if (typeof documentId !== 'string' || typeof kind !== 'string' || !KIND_KEYS.has(kind) || seen.has(documentId))
+      continue;
     seen.add(documentId);
     items.push({ documentId, kind: kind as ExampleKind });
   }

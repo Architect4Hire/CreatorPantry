@@ -120,7 +120,9 @@ describe('PromptLibraryComponent', () => {
    * another spec may have left something in.
    */
   function drawer(): HTMLElement | null {
-    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+    return (
+      (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null
+    );
   }
 
   /** Long enough for the drawer's leave animation to finish and its nodes to go. */
@@ -154,7 +156,12 @@ describe('PromptLibraryComponent', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: ':workspaceSlug/prompt-library', pathMatch: 'full', component: PromptLibraryComponent, data: { title: 'Prompt Library' } },
+          {
+            path: ':workspaceSlug/prompt-library',
+            pathMatch: 'full',
+            component: PromptLibraryComponent,
+            data: { title: 'Prompt Library' },
+          },
           { path: ':workspaceSlug/prompt-library/:promptRecordId', component: DetailStubComponent },
         ]),
         { provide: PromptLibraryService, useValue: { search: searchSpy, get: getSpy } },
@@ -257,7 +264,9 @@ describe('PromptLibraryComponent', () => {
   });
 
   it('says how many are shown of how many, and that the order is newest first', async () => {
-    searchSpy = jasmine.createSpy('search').and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 57 })));
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.returnValue(found(page(TWO.items, { nextCursor: 'c1', totalCount: 57 })));
     await create();
 
     const summaryRegion = root().querySelector('.result-summary') as HTMLElement;
@@ -513,7 +522,9 @@ describe('PromptLibraryComponent', () => {
     searchSpy = jasmine.createSpy('search').and.returnValue(found(TWO));
     getSpy = jasmine
       .createSpy('get')
-      .and.returnValue(of<PromptDetailOutcome>({ status: 'found', prompt: detail('p1', 'The whole prompt, every word.') }));
+      .and.returnValue(
+        of<PromptDetailOutcome>({ status: 'found', prompt: detail('p1', 'The whole prompt, every word.') }),
+      );
     await create();
 
     const opener = rows()[0].querySelector('button') as HTMLButtonElement;
@@ -549,7 +560,9 @@ describe('PromptLibraryComponent', () => {
     opener.click();
     await settle();
 
-    (drawer() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    (drawer() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
     await drawerGone();
 
     expect(drawer()).toBeNull();
@@ -558,11 +571,13 @@ describe('PromptLibraryComponent', () => {
 
   // ---- Two workspaces ----
 
-  it("shows nothing of one workspace, and sends none of its cursor, when the route moves to another", async () => {
+  it('shows nothing of one workspace, and sends none of its cursor, when the route moves to another', async () => {
     const otherPage = new Subject<PromptSearchOutcome>();
-    searchSpy = jasmine.createSpy('search').and.callFake((slug: string) =>
-      slug === SLUG ? found(page(TWO.items, { nextCursor: 'cursor-of-a', totalCount: 9 })) : otherPage,
-    );
+    searchSpy = jasmine
+      .createSpy('search')
+      .and.callFake((slug: string) =>
+        slug === SLUG ? found(page(TWO.items, { nextCursor: 'cursor-of-a', totalCount: 9 })) : otherPage,
+      );
     getSpy = jasmine
       .createSpy('get')
       .and.returnValue(of<PromptDetailOutcome>({ status: 'found', prompt: detail('p1', 'Workspace A words.') }));

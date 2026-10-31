@@ -187,11 +187,7 @@ export class RecipeCalculationService {
    * scaled: a preview shown beside a recipe that has since moved on is a preview of the older content, and
    * the echoed `sourceVersionNumber` is what lets a caller notice.
    */
-  async scaleRecipe(
-    workspaceSlug: string,
-    recipeId: string,
-    request: ScaleRecipeRequest,
-  ): Promise<ScaleRecipeOutcome> {
+  async scaleRecipe(workspaceSlug: string, recipeId: string, request: ScaleRecipeRequest): Promise<ScaleRecipeOutcome> {
     const url = calculationUrl(this.apiBase, workspaceSlug, recipeId, 'scale');
     if (!url) return { status: 'unavailable' };
 

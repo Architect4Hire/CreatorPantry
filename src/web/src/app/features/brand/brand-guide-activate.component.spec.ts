@@ -2,10 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { BrandStyleGuideVersionRow } from '../../models/brand-style-guide.models';
 import { BrandStyleGuideActivateOutcome, BrandStyleGuideService } from '../../services/brand-style-guide.service';
-import {
-  BrandGuideActivateComponent,
-  BrandStyleGuideVersionActivated,
-} from './brand-guide-activate.component';
+import { BrandGuideActivateComponent, BrandStyleGuideVersionActivated } from './brand-guide-activate.component';
 
 function version(overrides: Partial<BrandStyleGuideVersionRow> = {}): BrandStyleGuideVersionRow {
   return {
@@ -115,9 +112,7 @@ describe('BrandGuideActivateComponent', () => {
   }
 
   function maybeButton(label: string): HTMLButtonElement | null {
-    return (
-      Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null
-    );
+    return Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null;
   }
 
   function button(label: string): HTMLButtonElement {
@@ -286,7 +281,7 @@ describe('BrandGuideActivateComponent', () => {
     await render();
     await submit();
 
-    expect(text()).toContain("default changed while this dialog was open");
+    expect(text()).toContain('default changed while this dialog was open');
   });
 
   it('says an unapproved version has to be approved first', async () => {

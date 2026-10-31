@@ -132,7 +132,9 @@ describe('generated-image.models', () => {
       expect(decoded?.id).toBe('op-1');
       expect(decoded?.status).toBe('Requested');
       expect(decoded?.variantCount).toBe(4);
-      expect(Object.keys(decoded ?? {})).withContext('the 202 names no picture').not.toContain('images');
+      expect(Object.keys(decoded ?? {}))
+        .withContext('the 202 names no picture')
+        .not.toContain('images');
     });
 
     it('refuses a body whose status is not one of the seven', () => {
@@ -148,7 +150,12 @@ describe('generated-image.models', () => {
   describe('decodeGeneratedImageOperationDetail', () => {
     it('reads a run whose pictures have not all landed yet', () => {
       const decoded = decodeGeneratedImageOperationDetail(
-        operationBody({ status: 'Running', variantCount: 4, stagedCount: 2, images: [stagedRow(), stagedRow({ id: 'img-2', variantIndex: 2 })] }),
+        operationBody({
+          status: 'Running',
+          variantCount: 4,
+          stagedCount: 2,
+          images: [stagedRow(), stagedRow({ id: 'img-2', variantIndex: 2 })],
+        }),
       );
 
       expect(decoded?.variantCount).toBe(4);
@@ -210,16 +217,12 @@ describe('generated-image.models', () => {
   describe('failure sentences', () => {
     it('has a sentence for every category the server records', () => {
       for (const category of SERVER_FAILURE_CATEGORIES) {
-        expect(GENERATED_IMAGE_FAILURE_SENTENCES[category]?.length)
-          .withContext(category)
-          .toBeGreaterThan(0);
+        expect(GENERATED_IMAGE_FAILURE_SENTENCES[category]?.length).withContext(category).toBeGreaterThan(0);
       }
     });
 
     it('names no category the server does not, so the two cannot drift apart unnoticed', () => {
-      expect(Object.keys(GENERATED_IMAGE_FAILURE_SENTENCES).sort()).toEqual(
-        [...SERVER_FAILURE_CATEGORIES].sort(),
-      );
+      expect(Object.keys(GENERATED_IMAGE_FAILURE_SENTENCES).sort()).toEqual([...SERVER_FAILURE_CATEGORIES].sort());
     });
 
     it('tells a creator to ask again for exactly the failures a later attempt could get past', () => {

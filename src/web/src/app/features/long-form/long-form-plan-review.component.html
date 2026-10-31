@@ -80,9 +80,7 @@
       </div>
 
       @if (closed()) {
-        <cp-notice role="note">
-          This piece is already being written, so its plan can no longer be changed.
-        </cp-notice>
+        <cp-notice role="note"> This piece is already being written, so its plan can no longer be changed. </cp-notice>
       } @else if (isSuggestion()) {
         <p class="cp-muted">
           This plan was suggested for you. Change anything you like — nothing is written until you approve it.
@@ -232,12 +230,7 @@
         <!-- aria-disabled rather than disabled on all three: a disabled button drops focus to the body the
              moment it is pressed and its own action makes it unavailable. Each handler refuses for itself. -->
         <div class="cp-actions" data-testid="plan-actions">
-          <button
-            cpButton
-            type="button"
-            [attr.aria-disabled]="!canApprove() ? 'true' : null"
-            (click)="approve()"
-          >
+          <button cpButton type="button" [attr.aria-disabled]="!canApprove() ? 'true' : null" (click)="approve()">
             {{ busy() === 'approving' ? 'Approving…' : 'Approve plan' }}
           </button>
           <button

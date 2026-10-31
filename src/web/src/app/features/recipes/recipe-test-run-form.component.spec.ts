@@ -10,7 +10,11 @@ import {
 } from '../../models/recipe-test-run.models';
 import { MeasurementUnit } from '../../models/reference.models';
 import { ListUnitsOutcome, ReferenceService } from '../../services/reference.service';
-import { CreateTestRunOutcome, RecipeTestRunService, UpdateTestRunOutcome } from '../../services/recipe-test-run.service';
+import {
+  CreateTestRunOutcome,
+  RecipeTestRunService,
+  UpdateTestRunOutcome,
+} from '../../services/recipe-test-run.service';
 import { RecipeTestRunFormComponent, TestRunSaved } from './recipe-test-run-form.component';
 
 const UNITS: readonly MeasurementUnit[] = [
@@ -38,7 +42,9 @@ const UNITS: readonly MeasurementUnit[] = [
   },
 ];
 
-function createdOutcome(overrides: Partial<{ observationIds: readonly string[]; issueIds: readonly string[] }> = {}): CreateTestRunOutcome {
+function createdOutcome(
+  overrides: Partial<{ observationIds: readonly string[]; issueIds: readonly string[] }> = {},
+): CreateTestRunOutcome {
   return {
     status: 'created',
     replayed: false,
@@ -301,11 +307,17 @@ describe('RecipeTestRunFormComponent', () => {
 
     for (const suffix of ['actualYieldText', 'environmentNotes', 'equipmentNotes', 'actualPrepTimeMinutes']) {
       const field = control<HTMLInputElement | HTMLTextAreaElement>(element, suffix);
-      expect(field.placeholder).withContext(suffix).toMatch(/^e\.g\. /);
-      expect(field.getAttribute('aria-describedby') ?? '').withContext(suffix).not.toContain('-hint');
+      expect(field.placeholder)
+        .withContext(suffix)
+        .toMatch(/^e\.g\. /);
+      expect(field.getAttribute('aria-describedby') ?? '')
+        .withContext(suffix)
+        .not.toContain('-hint');
     }
     for (const suffix of ['testedAt', 'outcome', 'rating']) {
-      expect(control(element, suffix).getAttribute('aria-describedby') ?? '').withContext(suffix).not.toContain('-hint');
+      expect(control(element, suffix).getAttribute('aria-describedby') ?? '')
+        .withContext(suffix)
+        .not.toContain('-hint');
     }
     expect(control(element, 'actualTotalTimeMinutes').getAttribute('aria-describedby')).toContain('-hint');
   });
@@ -763,7 +775,9 @@ describe('RecipeTestRunFormComponent', () => {
     expect(fixture.componentInstance.rowFieldError('issues', issueKey, 'severity')).toBe(
       'Say how badly this affects the recipe.',
     );
-    expect(control<HTMLSelectElement>(element, `issues-severity-${issueKey}`).getAttribute('aria-invalid')).toBe('true');
+    expect(control<HTMLSelectElement>(element, `issues-severity-${issueKey}`).getAttribute('aria-invalid')).toBe(
+      'true',
+    );
   });
 
   /** A position naming a row that has since gone is dropped rather than blamed on whatever moved into it. */

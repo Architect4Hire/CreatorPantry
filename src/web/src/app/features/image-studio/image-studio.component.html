@@ -255,8 +255,8 @@
     @case ('read_only') {
       <div class="refusal">
         <cp-notice role="note">
-          You have view-only access to this workspace, so you can't make pictures here. Ask an Owner or Editor to
-          make them for you.
+          You have view-only access to this workspace, so you can't make pictures here. Ask an Owner or Editor to make
+          them for you.
         </cp-notice>
         <a cpButton variant="secondary" [routerLink]="['/', workspaceSlug(), 'dashboard']">Back to the dashboard</a>
       </div>
@@ -277,8 +277,8 @@
     }
     @case ('filing_failed') {
       <cp-notice tone="warning" role="alert">
-        Your unfinished work couldn't be saved to your workspace right now. It is still on this device, and
-        nothing has been lost.
+        Your unfinished work couldn't be saved to your workspace right now. It is still on this device, and nothing has
+        been lost.
         <button cpButton type="button" variant="secondary" size="sm" (click)="retryOpen()">Try again</button>
       </cp-notice>
     }

@@ -8,10 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"altText\":[{\"assetLinkId\":\"aaaaaaaa-0000-0000-0000-000000000001\",\"text\":\"Golden sliced soda bread\",\"basis\":\"Caption\"}]}}",
     "expectedSchemaVersion": "content.seo-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25"
-      ],
+      "numbers": ["220", "25"],
       "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
       "storageNotes": null
     },
@@ -25,8 +22,6 @@
   },
   "expect": {
     "outcome": "Accepted",
-    "warnings": [
-      "seo.alt_text_not_checked_against_image"
-    ]
+    "warnings": ["seo.alt_text_not_checked_against_image"]
   }
 }

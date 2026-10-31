@@ -43,8 +43,8 @@
     @case ('read_only') {
       <cp-card>
         <cp-notice role="note">
-          You have view-only access to this workspace, so you can't write a piece here. Ask an Owner or Editor to
-          write it with you.
+          You have view-only access to this workspace, so you can't write a piece here. Ask an Owner or Editor to write
+          it with you.
         </cp-notice>
       </cp-card>
     }
@@ -69,7 +69,8 @@
       <cp-topic-card heading="Pick up where you left off" headingId="cp-long-form-resume-heading" featured>
         @if (resumeStep(); as last) {
           <p class="plain">
-            You were on <strong>{{ last.label }}</strong>. The piece is saved, and opens where it stands now.
+            You were on <strong>{{ last.label }}</strong
+            >. The piece is saved, and opens where it stands now.
           </p>
         }
         <div cpTopicCardActions class="cp-actions">
@@ -200,7 +201,9 @@
                   >
                     {{ planning() ? 'Asking for an outline…' : 'Plan the outline' }}
                   </button>
-                  <span class="cp-muted" id="cp-long-form-plan-cost">This uses some of your AI allowance. Nothing is written yet.</span>
+                  <span class="cp-muted" id="cp-long-form-plan-cost"
+                    >This uses some of your AI allowance. Nothing is written yet.</span
+                  >
                 } @else if (!isLast()) {
                   <!-- Never disabled, as a workflow run's is not: pressed early it stays put and says what is needed. -->
                   <button

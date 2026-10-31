@@ -252,16 +252,16 @@ export class RecipeAdaptationRequestComponent {
       case 'source_version_invalid':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the '
-            + 'adaptation is against the version you are looking at.',
+          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the ' +
+            'adaptation is against the version you are looking at.',
         );
         return;
 
       case 'yield_target_invalid':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          "That target could not be scaled to — either the number isn't usable, or this recipe's yield "
-            + 'is not a plain number to scale from.',
+          "That target could not be scaled to — either the number isn't usable, or this recipe's yield " +
+            'is not a plain number to scale from.',
         );
         return;
 

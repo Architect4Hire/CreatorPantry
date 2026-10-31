@@ -8,19 +8,13 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"My grandmother made this every autumn and I tested it five times.\"}}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25",
-        "12"
-      ],
+      "numbers": ["220", "25", "12"],
       "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
       "storageNotes": "Keeps two days in a tin."
     }
   },
   "expect": {
     "outcome": "Accepted",
-    "warnings": [
-      "editorial.unsupported_provenance"
-    ]
+    "warnings": ["editorial.unsupported_provenance"]
   }
 }

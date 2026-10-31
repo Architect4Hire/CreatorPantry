@@ -107,7 +107,10 @@ describe('handing a chosen concept to another surface', () => {
             children: [
               { path: 'ai-recipe-studio', component: HostComponent },
               { path: 'image-studio', children: withProbe(imageStudioRoutes()) },
-              { path: 'workflows', children: [{ path: 'content-pipeline', children: withProbe(CONTENT_PIPELINE_ROUTES) }] },
+              {
+                path: 'workflows',
+                children: [{ path: 'content-pipeline', children: withProbe(CONTENT_PIPELINE_ROUTES) }],
+              },
             ],
           },
         ]),

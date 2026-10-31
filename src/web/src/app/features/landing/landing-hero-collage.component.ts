@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+} from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { CpThemeService } from '@creator-pantry/ui';
 

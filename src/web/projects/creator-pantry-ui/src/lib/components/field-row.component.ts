@@ -69,9 +69,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           minmax(
             max(
               min(var(--cp-field-row-min, 14rem), 100%),
-              calc(
-                (100% - (var(--cp-field-row-columns) - 1) * var(--cp-space-4)) / var(--cp-field-row-columns) - 0.5px
-              )
+              calc((100% - (var(--cp-field-row-columns) - 1) * var(--cp-space-4)) / var(--cp-field-row-columns) - 0.5px)
             ),
             1fr
           )

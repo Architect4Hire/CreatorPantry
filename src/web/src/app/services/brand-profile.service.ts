@@ -3,7 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
-import { BrandProfile, ContentChannel, decodeBrandProfile, decodeContentChannels } from '../models/brand-profile.models';
+import {
+  BrandProfile,
+  ContentChannel,
+  decodeBrandProfile,
+  decodeContentChannels,
+} from '../models/brand-profile.models';
 
 type FieldErrors = Readonly<Record<string, readonly string[]>>;
 
@@ -47,8 +52,7 @@ export type SaveBrandProfileOutcome =
   | { readonly status: 'unavailable' };
 
 export type ContentChannelsOutcome =
-  | { readonly status: 'found'; readonly channels: readonly ContentChannel[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly channels: readonly ContentChannel[] } | { readonly status: 'unavailable' };
 
 function statusCodeOf(error: unknown): number | null {
   return error instanceof HttpErrorResponse ? error.status : null;
@@ -186,7 +190,8 @@ export class BrandProfileService {
 
       if (code === 400) return { status: 'validation_failed', fieldErrors: decodeFieldErrors(error) };
       if (code === 403) return { status: 'forbidden' };
-      if (code === 404) return problem === PROFILE_NOT_FOUND_CODE ? { status: 'profile_missing' } : { status: 'unavailable' };
+      if (code === 404)
+        return problem === PROFILE_NOT_FOUND_CODE ? { status: 'profile_missing' } : { status: 'unavailable' };
       if (code === 409) return problem === ALREADY_EXISTS_CODE ? { status: 'already_exists' } : { status: 'conflict' };
       // 422 has two meanings on this route, told apart by code: a logo that cannot be linked, or a reused key. Any other
       // 422 is something this client does not know, and is reported as a failure rather than guessed at.

@@ -10,8 +10,6 @@
   },
   "expect": {
     "outcome": "Accepted",
-    "findings": [
-      "editorial.unsupported_safety_claim"
-    ]
+    "findings": ["editorial.unsupported_safety_claim"]
   }
 }

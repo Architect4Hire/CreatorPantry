@@ -1,11 +1,16 @@
-<label [for]="forId()">{{label()}} @if(required()){<span aria-hidden="true">*</span>}</label>
+<label [for]="forId()"
+  >{{ label() }}
+  @if (required()) {
+    <span aria-hidden="true">*</span>
+  }
+</label>
 <ng-content />
-@if(hint()){
-  <small [id]="hintId()">{{hint()}}</small>
+@if (hint()) {
+  <small [id]="hintId()">{{ hint() }}</small>
 }
-@if(error()){
-  <small class="error" [id]="errorId()" role="alert">{{error()}}</small>
+@if (error()) {
+  <small class="error" [id]="errorId()" role="alert">{{ error() }}</small>
 }
-@if(warning()){
-  <small class="warning" [id]="warningId()"><span class="sr-only">Heads up: </span>{{warning()}}</small>
+@if (warning()) {
+  <small class="warning" [id]="warningId()"><span class="sr-only">Heads up: </span>{{ warning() }}</small>
 }

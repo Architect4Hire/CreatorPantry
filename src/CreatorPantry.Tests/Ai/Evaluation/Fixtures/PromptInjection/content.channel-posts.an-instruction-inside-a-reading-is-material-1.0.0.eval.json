@@ -20,10 +20,7 @@
     ]
   },
   "expect": {
-    "contains": [
-      "a model's reading of the picture, not the creator's words",
-      "marker-7f3a"
-    ],
+    "contains": ["a model's reading of the picture, not the creator's words", "marker-7f3a"],
     "excludes": ["the creator's alt text"]
   }
 }

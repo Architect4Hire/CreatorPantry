@@ -66,7 +66,6 @@ export class RecipeReviewRequestComponent {
   /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
   readonly headingLevel = input<2 | 3>(2);
 
-
   private readonly reviews = inject(RecipeReviewService);
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly usage = inject(AiUsageService);
@@ -190,8 +189,8 @@ export class RecipeReviewRequestComponent {
       case 'source_version_invalid':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          'This recipe was saved while the request was being made. Reload it and ask again, so the review '
-            + 'is against the version you are looking at.',
+          'This recipe was saved while the request was being made. Reload it and ask again, so the review ' +
+            'is against the version you are looking at.',
         );
         return;
 

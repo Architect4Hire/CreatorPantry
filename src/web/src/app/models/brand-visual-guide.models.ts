@@ -1,13 +1,6 @@
 import { BrandGuideChoice } from './brand-guide-control.models';
-import {
-  BrandVisualReference,
-  BrandVisualStyleLine,
-} from './brand-visual-style-control.models';
-import {
-  BrandWritingGuideActive,
-  decodeBrandWritingGuideActive,
-  staleReasonFor,
-} from './brand-writing-guide.models';
+import { BrandVisualReference, BrandVisualStyleLine } from './brand-visual-style-control.models';
+import { BrandWritingGuideActive, decodeBrandWritingGuideActive, staleReasonFor } from './brand-writing-guide.models';
 import { isRecord } from './recipe.models';
 
 /**

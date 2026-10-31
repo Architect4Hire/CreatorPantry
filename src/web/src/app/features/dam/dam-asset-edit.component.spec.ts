@@ -135,7 +135,9 @@ describe('DamAssetEditComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim().startsWith(label));
+    const match = Array.from(root().querySelectorAll('button')).find((each) =>
+      each.textContent?.trim().startsWith(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -172,15 +174,21 @@ describe('DamAssetEditComponent', () => {
     return patchSpy.calls.mostRecent().args[2];
   }
 
-  async function create(options: { tags?: WorkspaceTagsOutcome | 'pending'; asset?: DamAssetDetail } = {}): Promise<void> {
-    patchSpy = jasmine.createSpy('patchMetadata').and.callFake(() =>
-      Promise.resolve<DamAssetPatchOutcome>({ status: 'updated', asset: asset({ concurrencyToken: 'token-2' }) }),
-    );
+  async function create(
+    options: { tags?: WorkspaceTagsOutcome | 'pending'; asset?: DamAssetDetail } = {},
+  ): Promise<void> {
+    patchSpy = jasmine
+      .createSpy('patchMetadata')
+      .and.callFake(() =>
+        Promise.resolve<DamAssetPatchOutcome>({ status: 'updated', asset: asset({ concurrencyToken: 'token-2' }) }),
+      );
     detailSpy = jasmine.createSpy('detail');
     tagsSpy =
       options.tags === 'pending'
         ? jasmine.createSpy('list').and.returnValue(new Promise<WorkspaceTagsOutcome>(() => undefined))
-        : jasmine.createSpy('list').and.resolveTo(options.tags ?? ({ status: 'found', tags: VOCABULARY } as WorkspaceTagsOutcome));
+        : jasmine
+            .createSpy('list')
+            .and.resolveTo(options.tags ?? ({ status: 'found', tags: VOCABULARY } as WorkspaceTagsOutcome));
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(true);
 
     await TestBed.configureTestingModule({
@@ -466,7 +474,9 @@ describe('DamAssetEditComponent', () => {
   it('uses a fresh idempotency key after a conflict, because it is a different edit', async () => {
     await create();
     patchSpy.and.resolveTo({ status: 'stale' });
-    detailSpy.and.returnValue(of<DamAssetDetailOutcome>({ status: 'found', asset: asset({ concurrencyToken: 'token-9' }) }));
+    detailSpy.and.returnValue(
+      of<DamAssetDetailOutcome>({ status: 'found', asset: asset({ concurrencyToken: 'token-9' }) }),
+    );
 
     type('title', 'My title');
     await settle();
@@ -503,7 +513,10 @@ describe('DamAssetEditComponent', () => {
     await create();
     patchSpy.and.resolveTo({ status: 'stale' });
     detailSpy.and.returnValue(
-      of<DamAssetDetailOutcome>({ status: 'found', asset: asset({ title: 'Same title', concurrencyToken: 'token-9' }) }),
+      of<DamAssetDetailOutcome>({
+        status: 'found',
+        asset: asset({ title: 'Same title', concurrencyToken: 'token-9' }),
+      }),
     );
 
     type('title', 'Same title');
@@ -752,18 +765,26 @@ describe('DamAssetEditComponent', () => {
   it('labels every control, marks the title required, and names each section', async () => {
     await create();
 
-    for (const id of ['title', 'description', 'alt-text', 'channel', 'day', 'platform', 'style', 'rights-holder', 'attribution', 'add-tag']) {
+    for (const id of [
+      'title',
+      'description',
+      'alt-text',
+      'channel',
+      'day',
+      'platform',
+      'style',
+      'rights-holder',
+      'attribution',
+      'add-tag',
+    ]) {
       const label = root().querySelector(`label[for="cp-dam-edit-${id}"]`);
       expect(label?.textContent?.trim()).withContext(id).not.toBe('');
     }
 
     expect(field('title').getAttribute('aria-required')).toBe('true');
-    expect(Array.from(root().querySelectorAll('cp-form-section h3, cp-form-section h2')).map((h) => h.textContent?.trim())).toEqual([
-      'What it is',
-      'What it is for',
-      'Rights',
-      'Tags',
-    ]);
+    expect(
+      Array.from(root().querySelectorAll('cp-form-section h3, cp-form-section h2')).map((h) => h.textContent?.trim()),
+    ).toEqual(['What it is', 'What it is for', 'Rights', 'Tags']);
     // Optionality is said once, not field by field.
     expect(text()).toContain('Only the title is needed');
     expect(text()).not.toContain('(optional)');

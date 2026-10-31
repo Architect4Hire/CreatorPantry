@@ -74,7 +74,7 @@ describe("app routing at '/'", () => {
     expect(ctas[1]?.getAttribute('href')).toBe('/sign-in');
   });
 
-  it('redirects an authenticated visitor away from \'/\' into the app, never rendering the marketing page', async () => {
+  it("redirects an authenticated visitor away from '/' into the app, never rendering the marketing page", async () => {
     configureWithSession({ status: 'authenticated', displayName: 'Robert' });
 
     const harness = await RouterTestingHarness.create();
@@ -131,7 +131,7 @@ describe("app routing at '/'", () => {
     expect(el.querySelector('h1')).toBeTruthy();
   });
 
-  it('sends an authenticated visitor at /pricing into the app, exactly as it does at \'/\'', async () => {
+  it("sends an authenticated visitor at /pricing into the app, exactly as it does at '/'", async () => {
     configureWithSession({ status: 'authenticated', displayName: 'Robert' }, published);
 
     const harness = await RouterTestingHarness.create();

@@ -33,9 +33,7 @@ function source(
   return { documentId, state, fromVersionNumber: null, toVersionNumber: null, ...overrides };
 }
 
-function comparison(
-  overrides: Partial<BrandStyleGuideVersionComparison> = {},
-): BrandStyleGuideVersionComparison {
+function comparison(overrides: Partial<BrandStyleGuideVersionComparison> = {}): BrandStyleGuideVersionComparison {
   return {
     from: { versionId: 'v3', versionNumber: 3, status: 'Approved', createdAt: '2026-09-01T00:00:00Z' },
     to: { versionId: 'v5', versionNumber: 5, status: 'Draft', createdAt: '2026-09-20T00:00:00Z' },

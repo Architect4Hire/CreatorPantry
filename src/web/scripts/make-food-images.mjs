@@ -125,15 +125,21 @@ async function main() {
     const sum = written.reduce((bytes, file) => bytes + file.size, 0);
     total += sum;
     firstLoad += written.find((file) => file.name.endsWith(`-${FALLBACK_WIDTH}.avif`)).size;
-    const shown = written.map((file) => `${file.name.replace(`photo-${id}-`, '')} ${(file.size / 1024).toFixed(0)}k`).join('  ');
+    const shown = written
+      .map((file) => `${file.name.replace(`photo-${id}-`, '')} ${(file.size / 1024).toFixed(0)}k`)
+      .join('  ');
     console.log(`  photo-${id}: ${shown}`);
   }
 
   const gone = await removeSuperseded();
   if (gone.length) console.log(`\nDeleted superseded: ${gone.join(', ')}`);
 
-  console.log(`\n${COUNT} photos, ${WIDTHS.join('/')} px, AVIF+WebP (+JPEG at ${FALLBACK_WIDTH}): ${(total / 1024 / 1024).toFixed(1)} MB on disk.`);
-  console.log(`The three the hero shows, as ${FALLBACK_WIDTH}w AVIF, average ${(firstLoad / COUNT / 1024).toFixed(0)} KB each.`);
+  console.log(
+    `\n${COUNT} photos, ${WIDTHS.join('/')} px, AVIF+WebP (+JPEG at ${FALLBACK_WIDTH}): ${(total / 1024 / 1024).toFixed(1)} MB on disk.`,
+  );
+  console.log(
+    `The three the hero shows, as ${FALLBACK_WIDTH}w AVIF, average ${(firstLoad / COUNT / 1024).toFixed(0)} KB each.`,
+  );
 }
 
 await main();

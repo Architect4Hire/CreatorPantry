@@ -113,8 +113,18 @@ describe('app routes', () => {
     const sectionPaths = workspaceRoute?.children?.map((route) => route.path).filter((path) => path !== '');
 
     expect(sectionPaths).toEqual([
-      'dashboard', 'workflows', 'my-day', 'my-week', 'recipes', 'brand',
-      'ai-recipe-studio', 'image-studio', 'social-studio', 'dam', 'content-board', 'prompt-library',
+      'dashboard',
+      'workflows',
+      'my-day',
+      'my-week',
+      'recipes',
+      'brand',
+      'ai-recipe-studio',
+      'image-studio',
+      'social-studio',
+      'dam',
+      'content-board',
+      'prompt-library',
       'settings',
     ]);
   });
@@ -127,7 +137,8 @@ describe('app routes', () => {
       for (const route of table) {
         const path = [prefix, route.path ?? '(matcher)'].filter(Boolean).join('/');
         if (route.data?.['tone'] !== undefined) found[path] = route.data['tone'];
-        const children = route.children ?? (route.loadChildren ? await (route.loadChildren as () => Promise<Routes>)() : undefined);
+        const children =
+          route.children ?? (route.loadChildren ? await (route.loadChildren as () => Promise<Routes>)() : undefined);
         if (Array.isArray(children)) Object.assign(found, await tonesUnder(children, path));
       }
       return found;
@@ -218,7 +229,9 @@ describe('app routes', () => {
         route.path !== 'my-week' &&
         route.path !== 'settings',
     )) {
-      expect(await section.loadComponent!()).withContext(section.path!).toBe(PlaceholderSectionComponent);
+      expect(await section.loadComponent!())
+        .withContext(section.path!)
+        .toBe(PlaceholderSectionComponent);
     }
 
     // My Day is a page of its own now (13A.32), one column at the reading width.
@@ -278,7 +291,9 @@ describe('app routes', () => {
     const imageStudio = workspaceRoute.children!.find((route) => route.path === 'image-studio')!;
     expect(imageStudio.children!.map((route) => route.path)).toEqual(['', 'context/:contextId']);
     for (const route of imageStudio.children!) {
-      expect(await route.loadComponent!()).withContext(route.path!).toBe(ImageStudioComponent);
+      expect(await route.loadComponent!())
+        .withContext(route.path!)
+        .toBe(ImageStudioComponent);
       expect(route.canDeactivate).withContext(route.path!).toBeUndefined();
       expect(route.data?.['title']).withContext(route.path!).toBe('Image Studio');
     }
@@ -339,9 +354,13 @@ describe('app routes', () => {
     expect(aiRecipeStudioChildren).toBe(AI_RECIPE_STUDIO_ROUTES);
     for (const path of ['', 'context/:contextId', 'draft', 'draft/context/:contextId']) {
       const route = aiRecipeStudioChildren.find((each) => each.path === path)!;
-      expect(await route.loadComponent!()).withContext(path).toBe(RecipeStudioFlowComponent);
+      expect(await route.loadComponent!())
+        .withContext(path)
+        .toBe(RecipeStudioFlowComponent);
       expect(route.canDeactivate).withContext(path).toEqual([recipeStudioFlowCanDeactivateGuard]);
-      expect(route.data?.['legacyDraft'] === true).withContext(path).toBe(path.startsWith('draft'));
+      expect(route.data?.['legacyDraft'] === true)
+        .withContext(path)
+        .toBe(path.startsWith('draft'));
     }
 
     // 'recipes' is a nested grouping instead of a single placeholder: an index library route plus
@@ -423,7 +442,12 @@ describe("the Content Pipeline's place in the route tree", () => {
 
     // The context routes come before ':step'. A step is one segment and so is `context`, so the other order
     // would hand `context/<id>` to nobody and `context` to the step route first.
-    expect(children.map((route) => route.path)).toEqual(['', 'context/:contextId', 'context/:contextId/:step', ':step']);
+    expect(children.map((route) => route.path)).toEqual([
+      '',
+      'context/:contextId',
+      'context/:contextId/:step',
+      ':step',
+    ]);
     expect(children[0].redirectTo).toBe('about');
     expect(children[1].redirectTo).toBe('context/:contextId/about');
     expect(children[1].pathMatch).toBe('full');

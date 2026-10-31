@@ -57,9 +57,22 @@ const INGREDIENT_MATCH_STATUS_VALUES: ReadonlySet<string> = new Set<IngredientMa
   'NoMatch',
   'Ambiguous',
 ]);
-const INGREDIENT_SCALING_VALUES: ReadonlySet<string> = new Set<IngredientScaling>(['Proportional', 'Fixed', 'ReviewRequired']);
-const INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES: ReadonlySet<string> = new Set<IngredientDisplayTextSource>(['Creator', 'Composed']);
-const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>(['Hero', 'Gallery', 'Process', 'Social', 'Step']);
+const INGREDIENT_SCALING_VALUES: ReadonlySet<string> = new Set<IngredientScaling>([
+  'Proportional',
+  'Fixed',
+  'ReviewRequired',
+]);
+const INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES: ReadonlySet<string> = new Set<IngredientDisplayTextSource>([
+  'Creator',
+  'Composed',
+]);
+const RECIPE_ASSET_ROLE_VALUES: ReadonlySet<string> = new Set<RecipeAssetRole>([
+  'Hero',
+  'Gallery',
+  'Process',
+  'Social',
+  'Step',
+]);
 
 export function decodeEnum<T extends string>(values: ReadonlySet<string>, value: unknown): T | null {
   return typeof value === 'string' && values.has(value) ? (value as T) : null;
@@ -433,7 +446,10 @@ function decodeRecipeIngredient(value: unknown): RecipeIngredient | null {
   } = value;
   const matchStatus = decodeEnum<IngredientMatchStatus>(INGREDIENT_MATCH_STATUS_VALUES, rawMatchStatus);
   const scalingBehavior = decodeEnum<IngredientScaling>(INGREDIENT_SCALING_VALUES, rawScalingBehavior);
-  const displayTextSource = decodeEnum<IngredientDisplayTextSource>(INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES, rawDisplayTextSource);
+  const displayTextSource = decodeEnum<IngredientDisplayTextSource>(
+    INGREDIENT_DISPLAY_TEXT_SOURCE_VALUES,
+    rawDisplayTextSource,
+  );
 
   if (
     typeof id !== 'string' ||
@@ -483,7 +499,12 @@ export interface RecipeIngredientGroup {
 function decodeRecipeIngredientGroup(value: unknown): RecipeIngredientGroup | null {
   if (!isRecord(value)) return null;
   const { id, title, sortOrder, ingredients } = value;
-  if (typeof id !== 'string' || !isStringOrNull(title) || typeof sortOrder !== 'number' || !Array.isArray(ingredients)) {
+  if (
+    typeof id !== 'string' ||
+    !isStringOrNull(title) ||
+    typeof sortOrder !== 'number' ||
+    !Array.isArray(ingredients)
+  ) {
     return null;
   }
 

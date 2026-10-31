@@ -332,7 +332,10 @@ export class QuickRecipeComponent {
       case 'refused':
         return { kind: 'missed', sentence: picture.message };
       case 'rate_limited':
-        return { kind: 'missed', sentence: 'Too many requests at once, so no picture was made. Try it again in a moment.' };
+        return {
+          kind: 'missed',
+          sentence: 'Too many requests at once, so no picture was made. Try it again in a moment.',
+        };
       case 'forbidden':
         return { kind: 'missed', sentence: 'Your role in this workspace does not allow making pictures.' };
       case 'gone':
@@ -343,9 +346,10 @@ export class QuickRecipeComponent {
         break;
     }
 
-    return planningView(this.prompt.phase(), 'Writing the brief for the picture…')
-      ?? planningView(this.looks.phase(), 'Planning the picture…')
-      ?? { kind: 'none' };
+    return (
+      planningView(this.prompt.phase(), 'Writing the brief for the picture…') ??
+      planningView(this.looks.phase(), 'Planning the picture…') ?? { kind: 'none' }
+    );
   });
 
   /** The staged picture a save would keep, or null when there is none to keep. */
@@ -486,9 +490,7 @@ export class QuickRecipeComponent {
     }
 
     const slug = this.workspaceSlug();
-    const requestId = await this.draft.submit(() =>
-      this.drafts.requestDraftForDish(slug, name, this.draftKey.next()),
-    );
+    const requestId = await this.draft.submit(() => this.drafts.requestDraftForDish(slug, name, this.draftKey.next()));
 
     if (requestId === null) {
       // A reused key is the one refusal a fresh key fixes; every other failure keeps it so a retry replays.
@@ -656,7 +658,9 @@ export class QuickRecipeComponent {
         });
 
         if (accepted.status !== 'accepted') {
-          this.saveProblem.set(ACCEPT_PROBLEMS[accepted.status] ?? (accepted.status === 'refused' ? accepted.message : ''));
+          this.saveProblem.set(
+            ACCEPT_PROBLEMS[accepted.status] ?? (accepted.status === 'refused' ? accepted.message : ''),
+          );
           return;
         }
 
@@ -850,7 +854,8 @@ const IN_LIBRARY_NOT_LINKED =
 
 /** Why accepting the draft did not create a recipe, for every answer but the server's own refusal. */
 const ACCEPT_PROBLEMS: Readonly<Record<string, string>> = {
-  already_decided: 'This draft has already been decided another way, so no recipe was created from it. Start again to make one.',
+  already_decided:
+    'This draft has already been decided another way, so no recipe was created from it. Start again to make one.',
   not_found: 'This draft is not there any more, so no recipe was created. Start again to make one.',
   forbidden: 'Your role in this workspace does not permit creating recipes.',
   unavailable:

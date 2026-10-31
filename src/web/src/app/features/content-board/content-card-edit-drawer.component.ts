@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { CpButtonComponent, CpDrawerComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
@@ -65,8 +75,17 @@ const REBASED =
     </form>
 
     <span cpDrawerActions class="cp-muted state" role="status">{{ stateText() }}</span>
-    <button cpDrawerActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()">Cancel</button>
-    <button cpDrawerActions cpButton type="submit" form="content-card-edit-form" variant="primary" [disabled]="saving() || !dirty()">
+    <button cpDrawerActions cpButton type="button" variant="secondary" [disabled]="saving()" (click)="cancel()"
+      >Cancel</button
+    >
+    <button
+      cpDrawerActions
+      cpButton
+      type="submit"
+      form="content-card-edit-form"
+      variant="primary"
+      [disabled]="saving() || !dirty()"
+    >
       {{ saving() ? 'Saving…' : 'Save changes' }}
     </button>
   </cp-drawer>`,

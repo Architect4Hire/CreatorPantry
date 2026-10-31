@@ -200,7 +200,9 @@ export function encodeNewContentCard(
   column: ContentBoardColumn,
   lineage: ContentCardLineageInput = {},
 ): Record<string, unknown> {
-  const linked = Object.fromEntries(Object.entries(lineage).filter(([, value]) => value !== null && value !== undefined));
+  const linked = Object.fromEntries(
+    Object.entries(lineage).filter(([, value]) => value !== null && value !== undefined),
+  );
 
   return {
     title: fields.title,
@@ -240,7 +242,10 @@ export function contentCardFieldsEqual(one: ContentCardFields, other: ContentCar
   );
 }
 
-export function encodeContentCardMove(place: ContentCardPlace, expectedConcurrencyToken: string): Record<string, unknown> {
+export function encodeContentCardMove(
+  place: ContentCardPlace,
+  expectedConcurrencyToken: string,
+): Record<string, unknown> {
   return {
     expectedConcurrencyToken,
     column: place.column,
@@ -411,7 +416,8 @@ function decodeMove(raw: unknown): ContentCardMove | null {
   if (!isRecord(raw)) return null;
 
   const rawFrom = raw['fromColumn'];
-  const fromColumn = rawFrom === null || rawFrom === undefined ? null : decodeEnum<ContentBoardColumn>(COLUMNS, rawFrom);
+  const fromColumn =
+    rawFrom === null || rawFrom === undefined ? null : decodeEnum<ContentBoardColumn>(COLUMNS, rawFrom);
   const toColumn = decodeEnum<ContentBoardColumn>(COLUMNS, raw['toColumn']);
   const { sequence, note, occurredAt } = raw;
 

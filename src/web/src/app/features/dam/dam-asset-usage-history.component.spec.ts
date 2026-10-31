@@ -18,7 +18,10 @@ function use(id: string, overrides: Partial<DamAssetUtilization> = {}): DamAsset
   };
 }
 
-function page(items: readonly DamAssetUtilization[], overrides: Partial<DamAssetUtilizationPage> = {}): DamAssetUtilizationPage {
+function page(
+  items: readonly DamAssetUtilization[],
+  overrides: Partial<DamAssetUtilizationPage> = {},
+): DamAssetUtilizationPage {
   return { items, nextCursor: null, totalCount: items.length, ...overrides };
 }
 
@@ -104,14 +107,16 @@ describe('DamAssetUsageHistoryComponent', () => {
   });
 
   it('lists each use with its date, weekday, platform, campaign and notes', async () => {
-    spy = jasmine.createSpy('utilization').and.returnValue(
-      found(
-        page([
-          use('u1', { campaignName: 'Autumn bakes', notes: 'Carousel, slide one.' }),
-          use('u2', { utilizedOn: '2026-09-30', utilizedDay: 'Wednesday', platformKey: 'newsletter' }),
-        ]),
-      ),
-    );
+    spy = jasmine
+      .createSpy('utilization')
+      .and.returnValue(
+        found(
+          page([
+            use('u1', { campaignName: 'Autumn bakes', notes: 'Carousel, slide one.' }),
+            use('u2', { utilizedOn: '2026-09-30', utilizedDay: 'Wednesday', platformKey: 'newsletter' }),
+          ]),
+        ),
+      );
     await create();
 
     expect(rows().length).toBe(2);
@@ -228,11 +233,15 @@ describe('DamAssetUsageHistoryComponent', () => {
 
   it("shows nothing of one workspace's history, and sends none of its cursor, when the workspace changes", async () => {
     const other = new Subject<DamAssetUtilizationOutcome>();
-    spy = jasmine.createSpy('utilization').and.callFake((slug: string) =>
-      slug === 'cozy-fall'
-        ? found(page([use('u1', { campaignName: 'Workspace A campaign' })], { nextCursor: 'cursor-of-a', totalCount: 5 }))
-        : other,
-    );
+    spy = jasmine
+      .createSpy('utilization')
+      .and.callFake((slug: string) =>
+        slug === 'cozy-fall'
+          ? found(
+              page([use('u1', { campaignName: 'Workspace A campaign' })], { nextCursor: 'cursor-of-a', totalCount: 5 }),
+            )
+          : other,
+      );
     await create();
     expect(text()).toContain('Workspace A campaign');
 
@@ -253,9 +262,9 @@ describe('DamAssetUsageHistoryComponent', () => {
 
   it('drops an answer that arrives for an asset the page has moved on from', async () => {
     const slow = new Subject<DamAssetUtilizationOutcome>();
-    spy = jasmine.createSpy('utilization').and.callFake((_slug: string, id: string) =>
-      id === 'a1' ? slow : found(page([use('second')])),
-    );
+    spy = jasmine
+      .createSpy('utilization')
+      .and.callFake((_slug: string, id: string) => (id === 'a1' ? slow : found(page([use('second')]))));
     await create();
 
     fixture.componentInstance.assetId.set('a2');
@@ -271,7 +280,9 @@ describe('DamAssetUsageHistoryComponent', () => {
     await create();
 
     expect(root().querySelector('caption')?.textContent).toContain('newest first');
-    expect(Array.from(root().querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col')).toBeTrue();
+    expect(
+      Array.from(root().querySelectorAll('thead th')).every((th) => th.getAttribute('scope') === 'col'),
+    ).toBeTrue();
     expect(rows()[0].querySelector('th')?.getAttribute('scope')).toBe('row');
 
     const region = root().querySelector('[role="region"]') as HTMLElement;

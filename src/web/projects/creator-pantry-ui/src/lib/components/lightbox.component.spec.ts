@@ -6,7 +6,12 @@ import { CpLightboxComponent } from './lightbox.component';
 @Component({
   imports: [CpLightboxComponent],
   template: `<button id="opener" type="button">View larger</button>
-    <cp-lightbox [open]="open()" heading="Lead picture" [description]="description()" (closeRequested)="requests.push('asked')">
+    <cp-lightbox
+      [open]="open()"
+      heading="Lead picture"
+      [description]="description()"
+      (closeRequested)="requests.push('asked')"
+    >
       <img id="picture" alt="Picture 1 of 1" width="8" height="8" />
       @if (caption()) {
         <p cpLightboxCaption id="caption">Web size</p>

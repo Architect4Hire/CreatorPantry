@@ -142,10 +142,12 @@ describe('BrandStyleTestDriveService', () => {
     it('tells a suspended account apart from a role refusal', async () => {
       const suspended = service.request('cozy-fall', { guideId: GUIDE_ID, versionNumber: 2 }, 'key-1');
 
-      http.expectOne(BASE).flush(
-        { ...problem('ai.quota.suspended', 'Switched off.'), unit: 'Credits' },
-        { status: 403, statusText: 'Forbidden' },
-      );
+      http
+        .expectOne(BASE)
+        .flush(
+          { ...problem('ai.quota.suspended', 'Switched off.'), unit: 'Credits' },
+          { status: 403, statusText: 'Forbidden' },
+        );
 
       expect((await suspended).status).toBe('account_suspended');
 

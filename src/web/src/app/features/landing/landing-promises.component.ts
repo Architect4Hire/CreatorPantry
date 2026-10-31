@@ -71,7 +71,8 @@ export class LandingPromisesComponent {
   protected readonly promises = BILLING_PROMISES;
   protected readonly packsHeading = 'Need more in a busy month?';
   /** A decided promise, not a hedge: a pack is credits already paid for (owner, 2026-10-24). */
-  protected readonly packsNote = 'A pack is credits you have bought, so they keep until you spend them. They never expire.';
+  protected readonly packsNote =
+    'A pack is credits you have bought, so they keep until you spend them. They never expire.';
   protected readonly comingWithBilling = COMING_WITH_BILLING;
 
   protected readonly packs = computed(() => this.catalogue().packs);

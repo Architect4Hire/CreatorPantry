@@ -45,14 +45,11 @@ function splitList(value: string | null): readonly string[] {
 export function decodeComposedImagePrompt(detail: AiProposalDetail | null): ComposedImagePrompt | null {
   if (detail === null) return null;
 
-  const addRow = detail.changes.find(
-    (change) => change.changeKind === 'Add' && change.targetKind === 'ImagePrompt',
-  );
+  const addRow = detail.changes.find((change) => change.changeKind === 'Add' && change.targetKind === 'ImagePrompt');
   if (addRow === undefined || addRow.afterValue === null) return null;
 
   const avoidRow = detail.changes.find(
-    (change) =>
-      change.changeKind === 'Set' && change.targetKind === 'ImagePrompt' && change.fieldName === 'avoid',
+    (change) => change.changeKind === 'Set' && change.targetKind === 'ImagePrompt' && change.fieldName === 'avoid',
   );
 
   return { prompt: addRow.afterValue, avoid: splitList(avoidRow?.afterValue ?? null) };

@@ -194,7 +194,17 @@ describe('RecipeReviewRequestComponent', () => {
           modelName: 'test-model',
           createdAt: '2026-09-28T14:02:00Z',
           changes: [
-            { changeId: 'a1', changeKind: 'Add', targetKind: 'RecipeReviewFinding', targetId: 't1', fieldName: null, beforeValue: null, afterValue: 'No yield is stated.', proposedPosition: 0, disposition: 'Pending' },
+            {
+              changeId: 'a1',
+              changeKind: 'Add',
+              targetKind: 'RecipeReviewFinding',
+              targetId: 't1',
+              fieldName: null,
+              beforeValue: null,
+              afterValue: 'No yield is stated.',
+              proposedPosition: 0,
+              disposition: 'Pending',
+            },
           ],
           warnings: [],
         },

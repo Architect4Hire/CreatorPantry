@@ -6,8 +6,8 @@
   }
   @case ('unavailable') {
     <cp-notice tone="error" role="alert">
-      Your board couldn't be read just now, so this step cannot say whether this run is already on it. Nothing
-      has been lost.
+      Your board couldn't be read just now, so this step cannot say whether this run is already on it. Nothing has been
+      lost.
       <button cpButton type="button" variant="secondary" size="sm" (click)="retryRead()">Try again</button>
     </cp-notice>
   }
@@ -23,12 +23,14 @@
       }
     } @else {
       <p class="cp-muted">
-        Put this run on your content board as one card, linked to this piece of work, its recipe, its posts and
-        the first picture you saved. It plans the work; it does not schedule or publish anything.
+        Put this run on your content board as one card, linked to this piece of work, its recipe, its posts and the
+        first picture you saved. It plans the work; it does not schedule or publish anything.
       </p>
 
       @if (savedCount() === 0) {
-        <cp-notice role="note">Save at least one of the pictures you kept to your library to add this run to your board.</cp-notice>
+        <cp-notice role="note"
+          >Save at least one of the pictures you kept to your library to add this run to your board.</cp-notice
+        >
       } @else if (unsavedNote(); as sentence) {
         <p class="cp-muted">{{ sentence }}</p>
       }

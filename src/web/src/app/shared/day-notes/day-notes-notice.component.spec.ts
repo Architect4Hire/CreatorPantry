@@ -171,7 +171,15 @@ describe('DayNotesNoticeComponent', () => {
   it('reads the week again when the work’s theme changes, and not otherwise', async () => {
     themes.outcome = {
       status: 'found',
-      themes: [theme(), theme({ day: 'Friday', key: 'fakeaway-friday', displayName: 'Fakeaway Friday', standingNotes: 'Nothing deep-fried.' })],
+      themes: [
+        theme(),
+        theme({
+          day: 'Friday',
+          key: 'fakeaway-friday',
+          displayName: 'Fakeaway Friday',
+          standingNotes: 'Nothing deep-fried.',
+        }),
+      ],
     };
     await create();
     expect(themes.reads.length).toBe(1);

@@ -23,17 +23,17 @@ import { UnitCatalogueState, recipeUnitOptions } from './recipe-unit-options';
   standalone: true,
   imports: [CpComboboxComponent],
   template: `<cp-combobox
-      [inputId]="inputId()"
-      [options]="options()"
-      mode="free-text"
-      placeholder="e.g. cups"
-      [value]="unitLabel()"
-      (valueChange)="textChanged.emit($event)"
-      [selected]="selection()"
-      (selectedChange)="onSelected($event)"
-    >
-      <span cpComboboxEmpty>{{ emptyText() }}</span>
-    </cp-combobox>`,
+    [inputId]="inputId()"
+    [options]="options()"
+    mode="free-text"
+    placeholder="e.g. cups"
+    [value]="unitLabel()"
+    (valueChange)="textChanged.emit($event)"
+    [selected]="selection()"
+    (selectedChange)="onSelected($event)"
+  >
+    <span cpComboboxEmpty>{{ emptyText() }}</span>
+  </cp-combobox>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IngredientUnitPickerComponent {

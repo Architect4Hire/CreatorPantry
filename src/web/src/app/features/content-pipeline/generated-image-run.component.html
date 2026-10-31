@@ -1,8 +1,4 @@
-<cp-form-section
-  heading="Make the pictures"
-  [intro]="wording().makeIntro"
-  [sectionId]="sectionIdPrefix() + '-make'"
->
+<cp-form-section heading="Make the pictures" [intro]="wording().makeIntro" [sectionId]="sectionIdPrefix() + '-make'">
   <!-- Always in the page, so the words are announced when they change: a live region created already holding its
        text may never be read. What is coming is drawn below, in the grid the pictures will land in. -->
   <p class="cp-sr-only" role="status">{{ tracker.phase().kind === 'submitting' ? 'Asking for your pictures…' : '' }}</p>
@@ -103,8 +99,8 @@
 
   @if (tracker.stopped() && isWatching()) {
     <p class="cp-muted">
-      We have stopped checking for now. Your pictures are still being made — "Check again" picks the run back
-      up. Nothing here cancels it.
+      We have stopped checking for now. Your pictures are still being made — "Check again" picks the run back up.
+      Nothing here cancels it.
     </p>
   }
 </cp-form-section>

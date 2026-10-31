@@ -7,9 +7,7 @@
   "input": {
     "payload": "{\"schemaVersion\": \"content.channel-posts.v2\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"Olive oil cake for the weekend, bright with lemon and easy to love. The recipe is on the blog. #oliveoilcake #baking\"}]}",
     "expectedSchemaVersion": "content.channel-posts.v1",
-    "requestedChannels": [
-      "instagram"
-    ]
+    "requestedChannels": ["instagram"]
   },
   "expect": {
     "outcome": "Rejected",

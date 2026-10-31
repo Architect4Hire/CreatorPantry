@@ -67,7 +67,14 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
 @Component({
   selector: 'cp-dam-asset-log-use',
   standalone: true,
-  imports: [NgTemplateOutlet, CpButtonComponent, CpDrawerComponent, CpFieldComponent, CpFormSectionComponent, CpNoticeComponent],
+  imports: [
+    NgTemplateOutlet,
+    CpButtonComponent,
+    CpDrawerComponent,
+    CpFieldComponent,
+    CpFormSectionComponent,
+    CpNoticeComponent,
+  ],
   template: `
     @if (inline()) {
       @if (draft(); as form) {
@@ -94,85 +101,91 @@ const FIELD_IDS: Readonly<Record<DamUseField, string>> = {
     }
 
     <ng-template #body let-form>
-        <form class="form" novalidate (submit)="onSubmit($event)">
-          <!-- Optionality is said once, here, rather than field by field. Inline, the step that hosts the form says it. -->
-          @if (!inline()) {
-            <p class="legend">Platform and date are needed. The rest is optional.</p>
-          }
+      <form class="form" novalidate (submit)="onSubmit($event)">
+        <!-- Optionality is said once, here, rather than field by field. Inline, the step that hosts the form says it. -->
+        @if (!inline()) {
+          <p class="legend">Platform and date are needed. The rest is optional.</p>
+        }
 
-          @if (problem()) {
-            <cp-notice tone="error" role="alert">{{ problem() }}</cp-notice>
-          }
+        @if (problem()) {
+          <cp-notice tone="error" role="alert">{{ problem() }}</cp-notice>
+        }
 
-          <cp-form-section heading="Where and when">
-            <cp-field
-              label="Platform"
-              [forId]="ids.platformKey"
-              [required]="true"
-              hint="A short key of your own, like instagram or newsletter."
-              [error]="errorFor('platformKey')"
+        <cp-form-section heading="Where and when">
+          <cp-field
+            label="Platform"
+            [forId]="ids.platformKey"
+            [required]="true"
+            hint="A short key of your own, like instagram or newsletter."
+            [error]="errorFor('platformKey')"
+          >
+            <input
+              type="text"
+              [id]="ids.platformKey"
+              autocomplete="off"
+              [attr.maxlength]="limits.platformMaxLength"
+              [value]="form.platformKey"
+              (input)="set('platformKey', $event)"
+            />
+          </cp-field>
+
+          <cp-field
+            label="Date used"
+            [forId]="ids.utilizedOn"
+            [required]="true"
+            hint="Today or any earlier day."
+            [error]="errorFor('utilizedOn')"
+          >
+            <input
+              type="date"
+              [id]="ids.utilizedOn"
+              [attr.max]="latestDate"
+              [value]="form.utilizedOn"
+              (input)="set('utilizedOn', $event)"
+            />
+          </cp-field>
+        </cp-form-section>
+
+        <cp-form-section heading="Anything else">
+          <cp-field label="Campaign" [forId]="ids.campaignName" [error]="errorFor('campaignName')">
+            <input
+              type="text"
+              [id]="ids.campaignName"
+              autocomplete="off"
+              [attr.maxlength]="limits.campaignMaxLength"
+              [value]="form.campaignName"
+              (input)="set('campaignName', $event)"
+            />
+          </cp-field>
+
+          <cp-field label="Notes" [forId]="ids.notes" [error]="errorFor('notes')">
+            <textarea
+              rows="3"
+              [id]="ids.notes"
+              [attr.maxlength]="limits.notesMaxLength"
+              [value]="form.notes"
+              (input)="set('notes', $event)"
+            ></textarea>
+          </cp-field>
+        </cp-form-section>
+
+        @if (inline()) {
+          <div class="cp-actions">
+            <button
+              cpButton
+              type="button"
+              variant="secondary"
+              [disabled]="saving() || gone() || !dirty()"
+              (click)="save()"
             >
-              <input
-                type="text"
-                [id]="ids.platformKey"
-                autocomplete="off"
-                [attr.maxlength]="limits.platformMaxLength"
-                [value]="form.platformKey"
-                (input)="set('platformKey', $event)"
-              />
-            </cp-field>
+              {{ saving() ? 'Logging…' : 'Log this use' }}
+            </button>
+          </div>
+        }
 
-            <cp-field
-              label="Date used"
-              [forId]="ids.utilizedOn"
-              [required]="true"
-              hint="Today or any earlier day."
-              [error]="errorFor('utilizedOn')"
-            >
-              <input
-                type="date"
-                [id]="ids.utilizedOn"
-                [attr.max]="latestDate"
-                [value]="form.utilizedOn"
-                (input)="set('utilizedOn', $event)"
-              />
-            </cp-field>
-          </cp-form-section>
-
-          <cp-form-section heading="Anything else">
-            <cp-field label="Campaign" [forId]="ids.campaignName" [error]="errorFor('campaignName')">
-              <input
-                type="text"
-                [id]="ids.campaignName"
-                autocomplete="off"
-                [attr.maxlength]="limits.campaignMaxLength"
-                [value]="form.campaignName"
-                (input)="set('campaignName', $event)"
-              />
-            </cp-field>
-
-            <cp-field label="Notes" [forId]="ids.notes" [error]="errorFor('notes')">
-              <textarea
-                rows="3"
-                [id]="ids.notes"
-                [attr.maxlength]="limits.notesMaxLength"
-                [value]="form.notes"
-                (input)="set('notes', $event)"
-              ></textarea>
-            </cp-field>
-          </cp-form-section>
-
-          @if (inline()) {
-            <div class="cp-actions">
-              <button cpButton type="button" variant="secondary" [disabled]="saving() || gone() || !dirty()" (click)="save()">
-                {{ saving() ? 'Logging…' : 'Log this use' }}
-              </button>
-            </div>
-          }
-
-          <!-- So Enter in a text box submits. The visible button lives in the dialog's footer, outside this form. -->
-          <button type="submit" hidden tabindex="-1"></button>
-        </form>
+        <!-- So Enter in a text box submits. The visible button lives in the dialog's footer, outside this form. -->
+        <button type="submit" hidden tabindex="-1"></button>
+      </form>
     </ng-template>
   `,
   styles: [

@@ -2,8 +2,8 @@
   <header class="substitution-header">
     <h2 id="cp-substitution-heading">Find alternatives for an ingredient</h2>
     <p class="substitution-lede">
-      Choose one ingredient line and say why if you like. This changes nothing in the recipe — you read the
-      alternatives and edit the recipe yourself.
+      Choose one ingredient line and say why if you like. This changes nothing in the recipe — you read the alternatives
+      and edit the recipe yourself.
     </p>
   </header>
 
@@ -37,11 +37,7 @@
       </button>
     </div>
   } @else {
-    <cp-field
-      label="Which ingredient?"
-      forId="cp-substitution-ingredient"
-      [error]="errorFor('IngredientId')"
-    >
+    <cp-field label="Which ingredient?" forId="cp-substitution-ingredient" [error]="errorFor('IngredientId')">
       <cp-combobox
         inputId="cp-substitution-ingredient"
         [options]="ingredientOptions()"

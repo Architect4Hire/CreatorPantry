@@ -194,11 +194,7 @@ export class BrandStyleTestDriveComponent {
   );
 
   readonly canSubmit = computed(
-    () =>
-      this.hasVersion()
-      && this.canRequest()
-      && !this.submitting()
-      && !allowanceBlocksNewRequests(this.allowance()),
+    () => this.hasVersion() && this.canRequest() && !this.submitting() && !allowanceBlocksNewRequests(this.allowance()),
   );
 
   readonly working = computed(() => {
@@ -295,10 +291,10 @@ export class BrandStyleTestDriveComponent {
       // discovered: each half is allowed one more attempt if its answer comes back malformed, so two calls is
       // the ordinary case and four is the most it can be.
       message:
-        `This writes a blog opening, a caption and a photo direction twice — once with no guidance at all, and `
-        + `once from version ${this.versionNumber} of your guide. That is two short pieces of AI work against `
-        + 'your allowance — up to four if an answer comes back malformed and we have to ask again. Nothing is '
-        + 'saved to your recipes, posts or guide: these are samples to read.',
+        `This writes a blog opening, a caption and a photo direction twice — once with no guidance at all, and ` +
+        `once from version ${this.versionNumber} of your guide. That is two short pieces of AI work against ` +
+        'your allowance — up to four if an answer comes back malformed and we have to ask again. Nothing is ' +
+        'saved to your recipes, posts or guide: these are samples to read.',
       confirmLabel: 'Write both versions',
       cancelLabel: 'Not now',
       tone: 'neutral',
@@ -368,8 +364,8 @@ export class BrandStyleTestDriveComponent {
       case 'guide_has_no_guidance':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          'There is nothing written in this version of your guide yet, so both versions would read the same. '
-            + 'Write a part of your guide and try again — nothing was spent.',
+          'There is nothing written in this version of your guide yet, so both versions would read the same. ' +
+            'Write a part of your guide and try again — nothing was spent.',
         );
         return;
 
@@ -411,8 +407,7 @@ export class BrandStyleTestDriveComponent {
     const deadline = Date.now() + POLL_CEILING_MS;
     let failures = 0;
 
-    const ask = (): Observable<WatchTestDriveOutcome> =>
-      this.testDrives.watchStatus(this.workspaceSlug, requestId);
+    const ask = (): Observable<WatchTestDriveOutcome> => this.testDrives.watchStatus(this.workspaceSlug, requestId);
 
     const again = (outcome: WatchTestDriveOutcome): Observable<WatchTestDriveOutcome> => {
       if (outcome.status === 'not_found' || outcome.status === 'forbidden') return EMPTY;

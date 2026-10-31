@@ -3,15 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { RuntimeConfigService } from '../core/runtime-config.service';
-import {
-  DietaryAllergenAnalysisOutcome,
-  DietaryAllergenAnalysisService,
-} from './dietary-allergen-analysis.service';
+import { DietaryAllergenAnalysisOutcome, DietaryAllergenAnalysisService } from './dietary-allergen-analysis.service';
 
 const RECIPE_ID = '2a1b7c6d-0000-4000-8000-000000000001';
 const URL =
-  `https://gateway.example/api/v1/workspaces/cozy-fall/recipes/${RECIPE_ID}` +
-  '/versions/4/analysis/dietary-allergen';
+  `https://gateway.example/api/v1/workspaces/cozy-fall/recipes/${RECIPE_ID}` + '/versions/4/analysis/dietary-allergen';
 
 function analysisPayload(): Record<string, unknown> {
   return {
@@ -137,15 +133,11 @@ describe('DietaryAllergenAnalysisService', () => {
 
   it('tells a missing version from an unreadable recipe by the stable code on the 404', async () => {
     const version = analyse();
-    http
-      .expectOne(URL)
-      .flush({ code: 'recipes.version.not_found' }, { status: 404, statusText: 'Not Found' });
+    http.expectOne(URL).flush({ code: 'recipes.version.not_found' }, { status: 404, statusText: 'Not Found' });
     expect((await version).status).toBe('version_not_found');
 
     const recipe = analyse();
-    http
-      .expectOne(URL)
-      .flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
+    http.expectOne(URL).flush({ code: 'recipes.recipe.not_found' }, { status: 404, statusText: 'Not Found' });
     expect((await recipe).status).toBe('not_found');
   });
 

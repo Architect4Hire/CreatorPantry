@@ -8,11 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"No storage guidance supplied.\"}}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25",
-        "12"
-      ],
+      "numbers": ["220", "25", "12"],
       "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
       "storageNotes": null
     }

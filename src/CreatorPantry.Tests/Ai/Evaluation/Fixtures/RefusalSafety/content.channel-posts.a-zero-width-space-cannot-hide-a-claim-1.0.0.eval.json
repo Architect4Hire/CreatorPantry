@@ -7,9 +7,7 @@
   "input": {
     "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"instagram\", \"body\": \"A gluten\\u200bfree olive oil cake for the weekend.\"}]}",
     "expectedSchemaVersion": "content.channel-posts.v1",
-    "requestedChannels": [
-      "instagram"
-    ]
+    "requestedChannels": ["instagram"]
   },
   "expect": {
     "outcome": "Rejected",

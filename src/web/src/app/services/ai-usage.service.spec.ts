@@ -26,7 +26,9 @@ function payload(overrides: { remaining?: number; allowance?: number; consumed?:
     },
     isSuspended: overrides.isSuspended ?? false,
     byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }],
-    byWorkspace: [{ workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 }],
+    byWorkspace: [
+      { workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 },
+    ],
   };
 }
 

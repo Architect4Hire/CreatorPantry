@@ -31,7 +31,12 @@ describe('ContentBoardState', () => {
 
   describe('reading', () => {
     it('reads each column on its own, in the server’s order, with its count', () => {
-      expect(server.lists.map((read) => read.column).sort()).toEqual(['Approved', 'InProcess', 'ReadyForReview', 'ToDo']);
+      expect(server.lists.map((read) => read.column).sort()).toEqual([
+        'Approved',
+        'InProcess',
+        'ReadyForReview',
+        'ToDo',
+      ]);
       expect(ids('ToDo')).toEqual(['a', 'b', 'c']);
       expect(board.column('ToDo').count).toBe(3);
       expect(board.column('ReadyForReview').cards).toEqual([]);

@@ -757,7 +757,9 @@ export function encodeDamAssetPatch(
  * The lengths are also enforced by `maxlength` on each control, so these are reached only by a paste a browser
  * did not cut — but a refusal the creator can read beats one the server has to send.
  */
-export function validateDamMetadataDraft(draft: DamAssetMetadataDraft): Readonly<Partial<Record<DamMetadataField, string>>> {
+export function validateDamMetadataDraft(
+  draft: DamAssetMetadataDraft,
+): Readonly<Partial<Record<DamMetadataField, string>>> {
   const errors: Partial<Record<DamMetadataField, string>> = {};
   const tooLong = (field: DamMetadataTextField, max: number, name: string): void => {
     if (draft[field].trim().length > max) errors[field] = `${name} can be at most ${max} characters.`;
@@ -973,7 +975,9 @@ export function decodeDamAssetRemoval(value: unknown): DamAssetRemoval | null {
     const recipeId = item['id'];
     const recipeTitle = item['title'];
 
-    return typeof recipeId === 'string' && typeof recipeTitle === 'string' ? { id: recipeId, title: recipeTitle } : null;
+    return typeof recipeId === 'string' && typeof recipeTitle === 'string'
+      ? { id: recipeId, title: recipeTitle }
+      : null;
   });
 
   if (

@@ -7,9 +7,7 @@
   "input": {
     "payload": "{\"schemaVersion\":\"content.channel-posts.v1\",\"posts\":null}",
     "expectedSchemaVersion": "content.channel-posts.v1",
-    "requestedChannels": [
-      "instagram"
-    ]
+    "requestedChannels": ["instagram"]
   },
   "expect": {
     "outcome": "Rejected",

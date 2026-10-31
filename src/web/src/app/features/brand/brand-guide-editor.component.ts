@@ -265,9 +265,7 @@ export class BrandGuideEditorComponent {
 
   readonly dirty = computed(() => isDirty(this.change()));
 
-  readonly statusTone = computed<CpStatusPillTone>(() =>
-    this.row()?.status === 'Approved' ? 'success' : 'neutral',
-  );
+  readonly statusTone = computed<CpStatusPillTone>(() => (this.row()?.status === 'Approved' ? 'success' : 'neutral'));
 
   readonly staleSourceCount = computed(() => this.row()?.staleSourceCount ?? 0);
 
@@ -297,7 +295,11 @@ export class BrandGuideEditorComponent {
 
   /** The section keys this guide does not hold yet, so a creator can add one. */
   readonly addableKeys = computed(() => {
-    const held = new Set(this.state().sections.filter((each) => each.channelKey === null).map((each) => each.sectionKey));
+    const held = new Set(
+      this.state()
+        .sections.filter((each) => each.channelKey === null)
+        .map((each) => each.sectionKey),
+    );
 
     return Object.keys(GUIDE_SECTION_LABELS).filter((key) => key === 'ChannelVariant' || !held.has(key));
   });
@@ -380,9 +382,7 @@ export class BrandGuideEditorComponent {
     ]);
 
     if (detail.status !== 'ok') {
-      this.loadStateSignal.set(
-        detail.status === 'not_found' ? { status: 'not_found' } : { status: 'unavailable' },
-      );
+      this.loadStateSignal.set(detail.status === 'not_found' ? { status: 'not_found' } : { status: 'unavailable' });
 
       return;
     }

@@ -1,13 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  computed,
-  effect,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
 
@@ -45,12 +36,7 @@ type PictureState = 'loading' | 'ready' | 'gone' | 'unavailable';
     <p class="cp-sr-only" role="status">{{ state() === 'loading' ? 'Loading this picture…' : '' }}</p>
     @switch (state()) {
       @case ('ready') {
-        <img
-          [src]="objectUrl()"
-          [alt]="altText()"
-          [attr.width]="image().width"
-          [attr.height]="image().height"
-        />
+        <img [src]="objectUrl()" [alt]="altText()" [attr.width]="image().width" [attr.height]="image().height" />
       }
       @case ('loading') {
         <!-- The picture's own shape, from the size the server gave, so nothing moves when it arrives. -->

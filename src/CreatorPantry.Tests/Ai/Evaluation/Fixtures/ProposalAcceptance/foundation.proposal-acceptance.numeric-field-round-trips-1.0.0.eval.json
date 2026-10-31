@@ -12,9 +12,7 @@
     "recipeTitle": "Olive oil cake",
     "yieldQuantity": 8,
     "schemaVersion": "fixture.v1",
-    "changes": [
-      { "changeKind": "Set", "targetKind": "Recipe", "fieldName": "yieldQuantity", "afterValue": "12" }
-    ]
+    "changes": [{ "changeKind": "Set", "targetKind": "Recipe", "fieldName": "yieldQuantity", "afterValue": "12" }]
   },
   "expect": {
     "outcome": "Assembled",

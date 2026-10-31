@@ -18,6 +18,8 @@ export const appConfig: ApplicationConfig = {
     // Injecting the theme service here (rather than only from the shell) runs its constructor
     // before the router renders any route, so the persisted/system theme applies to every page —
     // including sign-in and sign-up, which sit outside the authenticated shell.
-    provideAppInitializer(() => { inject(CpThemeService); }),
+    provideAppInitializer(() => {
+      inject(CpThemeService);
+    }),
   ],
 };

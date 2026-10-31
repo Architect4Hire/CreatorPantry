@@ -43,7 +43,12 @@ function session(overrides: Partial<BrandSetupSession> = {}): BrandSetupSession 
 }
 
 function finished(finish: Record<string, unknown>): BrandSetupSession {
-  return session({ status: 'completed', currentStep: 'finish', completedUtc: '2026-10-15T10:00:00Z', draftJson: JSON.stringify({ finish }) });
+  return session({
+    status: 'completed',
+    currentStep: 'finish',
+    completedUtc: '2026-10-15T10:00:00Z',
+    draftJson: JSON.stringify({ finish }),
+  });
 }
 
 function guide(overrides: Partial<BrandStyleGuideDetail> = {}): BrandStyleGuideDetail {
@@ -53,14 +58,26 @@ function guide(overrides: Partial<BrandStyleGuideDetail> = {}): BrandStyleGuideD
     purpose: null,
     isArchived: false,
     concurrencyToken: 'AAAAAAAAB9E=',
-    workingVersion: { id: 'gv-2', versionNumber: 2, changeReason: null, createdAt: '2026-10-15T10:00:00Z', isApproved: true, sections: [], rules: [] },
+    workingVersion: {
+      id: 'gv-2',
+      versionNumber: 2,
+      changeReason: null,
+      createdAt: '2026-10-15T10:00:00Z',
+      isApproved: true,
+      sections: [],
+      rules: [],
+    },
     activeVersionId: null,
     activeVersionNumber: null,
     ...overrides,
   } as BrandStyleGuideDetail;
 }
 
-function versionRow(versionNumber: number, status: 'Draft' | 'Approved', overrides: Partial<BrandStyleGuideVersionRow> = {}): BrandStyleGuideVersionRow {
+function versionRow(
+  versionNumber: number,
+  status: 'Draft' | 'Approved',
+  overrides: Partial<BrandStyleGuideVersionRow> = {},
+): BrandStyleGuideVersionRow {
   return {
     id: `gv-${versionNumber}`,
     versionNumber,
@@ -76,11 +93,13 @@ function versionRow(versionNumber: number, status: 'Draft' | 'Approved', overrid
 
 /** A "Create my brand voice" run, holding the guide unless it holds nothing. */
 function voiceRun(options: { guide?: boolean } = {}): WorkflowRun {
-  return decodeWorkflowRun(wireRun({
-    id: RUN_ID,
-    definitionKey: 'brand.voice',
-    links: options.guide === false ? [] : [{ kind: 'BrandStyleGuide', resourceId: 'guide-1', stepKey: 'set-up' }],
-  }))!;
+  return decodeWorkflowRun(
+    wireRun({
+      id: RUN_ID,
+      definitionKey: 'brand.voice',
+      links: options.guide === false ? [] : [{ kind: 'BrandStyleGuide', resourceId: 'guide-1', stepKey: 'set-up' }],
+    }),
+  )!;
 }
 
 let port: WorkflowStepPort;
@@ -103,10 +122,24 @@ function configure(): void {
   listDocuments = jasmine.createSpy('list').and.resolveTo({ status: 'ok', page: { items: [], nextCursor: null } });
   getDetail = jasmine.createSpy('getDetail').and.resolveTo({ status: 'ok', guide: guide() });
   getActive = jasmine.createSpy('getActive').and.resolveTo({ status: 'none' });
-  listVersions = jasmine.createSpy('listVersions').and.resolveTo({ status: 'ok', page: { items: [versionRow(2, 'Approved'), versionRow(1, 'Approved')], nextCursor: null } });
+  listVersions = jasmine.createSpy('listVersions').and.resolveTo({
+    status: 'ok',
+    page: { items: [versionRow(2, 'Approved'), versionRow(1, 'Approved')], nextCursor: null },
+  });
   memberships = signal<Record<string, unknown>>({
     status: 'ready',
-    memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+    memberships: [
+      {
+        workspaceId: 'w1',
+        workspaceSlug: SLUG,
+        workspaceName: 'Sam',
+        membershipId: 'm1',
+        get role() {
+          return role;
+        },
+        status: 'Active',
+      },
+    ],
   });
 
   TestBed.configureTestingModule({
@@ -117,7 +150,10 @@ function configure(): void {
       { provide: WorkflowStepPort, useValue: port },
       { provide: BrandSetupSessionService, useValue: { getSession } },
       { provide: BrandSourceDocumentService, useValue: { list: listDocuments, upload: jasmine.createSpy('upload') } },
-      { provide: BrandStyleGuideService, useValue: { getDetail, getActive, listVersions, activate: jasmine.createSpy('activate') } },
+      {
+        provide: BrandStyleGuideService,
+        useValue: { getDetail, getActive, listVersions, activate: jasmine.createSpy('activate') },
+      },
       { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } },
       {
         provide: WorkspaceMembershipService,
@@ -187,11 +223,16 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await setUp();
 
       expect(text(fixture)).toContain('You’re on step 3 of 7: Your examples.');
-      expect(linkNamed(fixture, 'Carry on with the setup')!.getAttribute('href')).toBe(`/${SLUG}/brand/setup/examples?workflowRun=${RUN_ID}`);
+      expect(linkNamed(fixture, 'Carry on with the setup')!.getAttribute('href')).toBe(
+        `/${SLUG}/brand/setup/examples?workflowRun=${RUN_ID}`,
+      );
     });
 
     it('names the guide a finished setup kept as the step’s result', async () => {
-      getSession.and.resolveTo({ status: 'found', session: finished({ name: 'Sam’s kitchen voice', guideId: 'guide-1', versionNumber: 2 }) });
+      getSession.and.resolveTo({
+        status: 'found',
+        session: finished({ name: 'Sam’s kitchen voice', guideId: 'guide-1', versionNumber: 2 }),
+      });
       const fixture = await setUp();
 
       expect(text(fixture)).toContain('Your guide “Sam’s kitchen voice” is built.');
@@ -202,7 +243,13 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
     it('says when the setup already switched the voice on, so the rest can be skipped', async () => {
       getSession.and.resolveTo({
         status: 'found',
-        session: finished({ name: 'Sam’s kitchen voice', guideId: 'guide-1', versionNumber: 2, approved: true, activated: true }),
+        session: finished({
+          name: 'Sam’s kitchen voice',
+          guideId: 'guide-1',
+          versionNumber: 2,
+          approved: true,
+          activated: true,
+        }),
       });
       const fixture = await setUp();
 
@@ -231,14 +278,34 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await render(BrandVoiceExamplesStepComponent, { run: voiceRun(), workspaceSlug: SLUG });
 
       expect(text(fixture)).toContain('You haven’t added any examples yet.');
-      const upload = fixture.debugElement.query((node) => node.componentInstance instanceof BrandLibraryUploadComponent).componentInstance as BrandLibraryUploadComponent;
+      const upload = fixture.debugElement.query((node) => node.componentInstance instanceof BrandLibraryUploadComponent)
+        .componentInstance as BrandLibraryUploadComponent;
       expect(upload.open()).toBeFalse();
 
-      Array.from(root(fixture).querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Add an example')!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((button) => button.textContent?.trim() === 'Add an example')!
+        .click();
       fixture.detectChanges();
       expect(upload.open()).toBeTrue();
 
-      listDocuments.and.resolveTo({ status: 'ok', page: { items: [{ id: 'd1', title: 'Spring post', documentType: 'BlogPost', purpose: 'VoiceExample', status: 'Ready', fileName: 'a.md', sizeBytes: 10, mediaType: 'text/markdown' }], nextCursor: null } });
+      listDocuments.and.resolveTo({
+        status: 'ok',
+        page: {
+          items: [
+            {
+              id: 'd1',
+              title: 'Spring post',
+              documentType: 'BlogPost',
+              purpose: 'VoiceExample',
+              status: 'Ready',
+              fileName: 'a.md',
+              sizeBytes: 10,
+              mediaType: 'text/markdown',
+            },
+          ],
+          nextCursor: null,
+        },
+      });
       upload.uploaded.emit({ id: 'd1' } as never);
       await fixture.whenStable();
       fixture.detectChanges();
@@ -249,10 +316,16 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
 
   describe('Read your guide, and try it', () => {
     it('opens the guide editor with the way back', async () => {
-      const fixture = await render(BrandVoiceGuideStepComponent, { run: voiceRun(), workspaceSlug: SLUG, mode: 'review' });
+      const fixture = await render(BrandVoiceGuideStepComponent, {
+        run: voiceRun(),
+        workspaceSlug: SLUG,
+        mode: 'review',
+      });
 
       expect(text(fixture)).toContain('Sam’s kitchen voice, version 2.');
-      expect(linkNamed(fixture, 'Open your guide')!.getAttribute('href')).toBe(`/${SLUG}/brand/style-guide/guide-1?workflowRun=${RUN_ID}`);
+      expect(linkNamed(fixture, 'Open your guide')!.getAttribute('href')).toBe(
+        `/${SLUG}/brand/style-guide/guide-1?workflowRun=${RUN_ID}`,
+      );
     });
 
     it('opens Test my style on the guide’s current version with the way back', async () => {
@@ -265,7 +338,11 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
     });
 
     it('says there is no guide yet when the run holds none', async () => {
-      const fixture = await render(BrandVoiceGuideStepComponent, { run: voiceRun({ guide: false }), workspaceSlug: SLUG, mode: 'review' });
+      const fixture = await render(BrandVoiceGuideStepComponent, {
+        run: voiceRun({ guide: false }),
+        workspaceSlug: SLUG,
+        mode: 'review',
+      });
 
       expect(text(fixture)).toContain('There’s no guide yet.');
     });
@@ -280,27 +357,38 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('makes version 2 of “Sam’s kitchen voice” this workspace’s voice');
-      expect(fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent)).toBeNull();
+      expect(
+        fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent),
+      ).toBeNull();
       expect(port.registration()!.ready!()).toBeFalse();
 
-      Array.from(root(fixture).querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Switch it on')!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((button) => button.textContent?.trim() === 'Switch it on')!
+        .click();
       fixture.detectChanges();
 
-      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent).componentInstance as BrandGuideActivateComponent;
+      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent)
+        .componentInstance as BrandGuideActivateComponent;
       expect(dialog.version().versionNumber).toBe(2);
       // Nothing else holds the voice, and the request says so.
       expect(dialog.expectedActiveVersionId()).toBeNull();
     });
 
     it('says which voice it replaces, and quotes it on the request, when another guide holds the voice', async () => {
-      getActive.and.resolveTo({ status: 'found', voice: { guideId: 'guide-0', displayName: 'Old house voice', versionId: 'gv-old', versionNumber: 4 } });
+      getActive.and.resolveTo({
+        status: 'found',
+        voice: { guideId: 'guide-0', displayName: 'Old house voice', versionId: 'gv-old', versionNumber: 4 },
+      });
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('It replaces “Old house voice”');
-      Array.from(root(fixture).querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Switch it on')!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((button) => button.textContent?.trim() === 'Switch it on')!
+        .click();
       fixture.detectChanges();
 
-      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent).componentInstance as BrandGuideActivateComponent;
+      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent)
+        .componentInstance as BrandGuideActivateComponent;
       expect(dialog.expectedActiveVersionId()).toBe('gv-old');
       expect(dialog.expectedActiveVersionNumber()).toBe(4);
     });
@@ -310,7 +398,11 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('is archived, so it can’t be switched on');
-      expect(Array.from(root(fixture).querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Switch it on')).toBeFalse();
+      expect(
+        Array.from(root(fixture).querySelectorAll('button')).some(
+          (button) => button.textContent?.trim() === 'Switch it on',
+        ),
+      ).toBeFalse();
     });
 
     it('finds an approved version past the first page of the history', async () => {
@@ -333,9 +425,12 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
 
     it('is done only when the server reads the guide as switched on', async () => {
       const fixture = await switchOn();
-      Array.from(root(fixture).querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Switch it on')!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((button) => button.textContent?.trim() === 'Switch it on')!
+        .click();
       fixture.detectChanges();
-      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent).componentInstance as BrandGuideActivateComponent;
+      const dialog = fixture.debugElement.query((node) => node.componentInstance instanceof BrandGuideActivateComponent)
+        .componentInstance as BrandGuideActivateComponent;
 
       getDetail.and.resolveTo({ status: 'ok', guide: guide({ activeVersionId: 'gv-2', activeVersionNumber: 2 }) });
       dialog.activated.emit({} as never);
@@ -354,7 +449,11 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('The workspace Owner switches a voice on.');
-      expect(Array.from(root(fixture).querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Switch it on')).toBeFalse();
+      expect(
+        Array.from(root(fixture).querySelectorAll('button')).some(
+          (button) => button.textContent?.trim() === 'Switch it on',
+        ),
+      ).toBeFalse();
     });
 
     it('says plainly when no version is approved, and offers nothing to switch on', async () => {
@@ -362,11 +461,21 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('hasn’t been approved yet');
-      expect(Array.from(root(fixture).querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Switch it on')).toBeFalse();
+      expect(
+        Array.from(root(fixture).querySelectorAll('button')).some(
+          (button) => button.textContent?.trim() === 'Switch it on',
+        ),
+      ).toBeFalse();
     });
 
     it('never offers a version whose examples have since changed', async () => {
-      listVersions.and.resolveTo({ status: 'ok', page: { items: [versionRow(2, 'Approved', { staleSourceCount: 1 }), versionRow(1, 'Approved')], nextCursor: null } });
+      listVersions.and.resolveTo({
+        status: 'ok',
+        page: {
+          items: [versionRow(2, 'Approved', { staleSourceCount: 1 }), versionRow(1, 'Approved')],
+          nextCursor: null,
+        },
+      });
       const fixture = await switchOn();
 
       expect(text(fixture)).toContain('makes version 1 of');
@@ -387,14 +496,36 @@ describe('"Create my brand voice" step screens (13A.17)', () => {
     const statuses = <T>(fixture: ComponentFixture<T>) =>
       Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
     const shown = <T>(fixture: ComponentFixture<T>, sentence: string) =>
-      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence));
+      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) =>
+        each.textContent?.includes(sentence),
+      );
     const busy = <T>(fixture: ComponentFixture<T>) => root(fixture).querySelector('[aria-busy="true"] cp-skeleton');
 
     const cases: readonly [string, () => void, () => Promise<ComponentFixture<unknown>>, string][] = [
-      ['finding the setup', () => getSession.and.returnValue(never()), () => render(BrandVoiceSetupStepComponent, { run: voiceRun({ guide: false }), workspaceSlug: SLUG }), 'Finding your setup…'],
-      ['counting the examples', () => listDocuments.and.returnValue(never()), () => render(BrandVoiceExamplesStepComponent, { run: voiceRun(), workspaceSlug: SLUG }), 'Counting your examples…'],
-      ['reading the guide to review', () => getDetail.and.returnValue(never()), () => render(BrandVoiceGuideStepComponent, { run: voiceRun(), workspaceSlug: SLUG, mode: 'review' }), 'Reading your guide…'],
-      ['reading the guide to switch on', () => getDetail.and.returnValue(never()), () => render(BrandVoiceSwitchOnStepComponent, { run: voiceRun(), workspaceSlug: SLUG }), 'Reading your guide…'],
+      [
+        'finding the setup',
+        () => getSession.and.returnValue(never()),
+        () => render(BrandVoiceSetupStepComponent, { run: voiceRun({ guide: false }), workspaceSlug: SLUG }),
+        'Finding your setup…',
+      ],
+      [
+        'counting the examples',
+        () => listDocuments.and.returnValue(never()),
+        () => render(BrandVoiceExamplesStepComponent, { run: voiceRun(), workspaceSlug: SLUG }),
+        'Counting your examples…',
+      ],
+      [
+        'reading the guide to review',
+        () => getDetail.and.returnValue(never()),
+        () => render(BrandVoiceGuideStepComponent, { run: voiceRun(), workspaceSlug: SLUG, mode: 'review' }),
+        'Reading your guide…',
+      ],
+      [
+        'reading the guide to switch on',
+        () => getDetail.and.returnValue(never()),
+        () => render(BrandVoiceSwitchOnStepComponent, { run: voiceRun(), workspaceSlug: SLUG }),
+        'Reading your guide…',
+      ],
     ];
 
     for (const [what, hold, mount, sentence] of cases) {

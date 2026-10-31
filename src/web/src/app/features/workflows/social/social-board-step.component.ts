@@ -30,7 +30,8 @@ type Read =
 /** What a press can end in, said in a sentence. */
 const PROBLEMS: Readonly<Record<string, string>> = {
   invalid: 'The card couldn’t be made from this work. Check it has a name or a recipe, then try again.',
-  refused: 'Something this work names can’t go on a card any more — it may have been removed. Read it again and try once more.',
+  refused:
+    'Something this work names can’t go on a card any more — it may have been removed. Read it again and try once more.',
   forbidden: 'You don’t have permission to add cards to the board.',
   not_found: 'This piece of work can’t be found any more.',
   stale: 'The board changed while this was being added. Trying again is safe.',
@@ -65,7 +66,9 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always in the page, so it is announced when its words change; the skeleton under it is aria-hidden. -->
-    <p class="cp-sr-only" role="status">{{ card() === null && read().status === 'loading' ? 'Reading your posts…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      card() === null && read().status === 'loading' ? 'Reading your posts…' : ''
+    }}</p>
 
     @if (card(); as onBoard) {
       <cp-notice tone="success" role="status">
@@ -107,7 +110,9 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
             <div cpFact label="Picture">{{ pictureText() }}</div>
           </dl>
           @if (keptCount() === 0) {
-            <cp-notice role="note">You haven’t kept a post yet. The card can still go on the board and be filled in later.</cp-notice>
+            <cp-notice role="note"
+              >You haven’t kept a post yet. The card can still go on the board and be filled in later.</cp-notice
+            >
           }
           @if (problem(); as sentence) {
             <cp-notice tone="error" role="alert">{{ sentence }}</cp-notice>
@@ -119,7 +124,9 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
               </button>
             </div>
           } @else {
-            <cp-notice role="note">You have view-only access, so you can’t add cards to the board. Ask an Owner or Editor.</cp-notice>
+            <cp-notice role="note"
+              >You have view-only access, so you can’t add cards to the board. Ask an Owner or Editor.</cp-notice
+            >
           }
         }
       }
@@ -228,7 +235,9 @@ export class SocialBoardStepComponent implements OnInit {
 
     // A card the run already holds is shown, never offered again.
     const cardId =
-      newestLinked(run, 'ContentCard') ?? run.steps.find((step) => step.draft?.kind === 'ContentCard')?.draft?.id ?? null;
+      newestLinked(run, 'ContentCard') ??
+      run.steps.find((step) => step.draft?.kind === 'ContentCard')?.draft?.id ??
+      null;
     if (cardId !== null) {
       this.read.set({ status: 'loading' });
       const held = await firstValueFrom(this.board.detail(slug, cardId));
@@ -262,7 +271,11 @@ export class SocialBoardStepComponent implements OnInit {
       return;
     }
 
-    this.read.set({ status: 'ready', context: context.context, posts: posts.status === 'found' ? posts.package : null });
+    this.read.set({
+      status: 'ready',
+      context: context.context,
+      posts: posts.status === 'found' ? posts.package : null,
+    });
   }
 
   protected async add(): Promise<void> {

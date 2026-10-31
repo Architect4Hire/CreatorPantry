@@ -22,7 +22,11 @@
 
       @if (staleSourceCount() > 0) {
         <cp-status-pill tone="stale" icon="!">
-          {{ staleSourceCount() === 1 ? 'An example it used has been replaced' : staleSourceCount() + ' examples it used have been replaced' }}
+          {{
+            staleSourceCount() === 1
+              ? 'An example it used has been replaced'
+              : staleSourceCount() + ' examples it used have been replaced'
+          }}
         </cp-status-pill>
       }
     }
@@ -71,8 +75,8 @@
         <!-- Editing an approved version does not change it: the approval stays with the version it was given
              to, and saving writes a draft beside it. Said before they type, not after they save. -->
         <cp-notice tone="neutral">
-          Version {{ baseVersion() }} is approved. Editing it writes a new version — this one keeps its
-          approval and stays exactly where it is.
+          Version {{ baseVersion() }} is approved. Editing it writes a new version — this one keeps its approval and
+          stays exactly where it is.
         </cp-notice>
       }
 
@@ -85,8 +89,8 @@
       @if (resumed()) {
         <cp-notice [tone]="resumedStale() ? 'warning' : 'neutral'" role="status">
           @if (resumedStale()) {
-            Picked up where you left off — and version {{ baseVersion() }} has been saved since you started,
-            so your changes will be applied on top of it.
+            Picked up where you left off — and version {{ baseVersion() }} has been saved since you started, so your
+            changes will be applied on top of it.
           } @else {
             Picked up where you left off. Nothing is part of the guide until you save a new version.
           }
@@ -127,20 +131,17 @@
       @switch (saveState().status) {
         @case ('saved') {
           <cp-notice tone="success" role="alert">
-            Saved as version {{ savedVersionNumber() }}. It is a draft version:
-            approving it and choosing what the workspace writes with are decisions on the history screen.
+            Saved as version {{ savedVersionNumber() }}. It is a draft version: approving it and choosing what the
+            workspace writes with are decisions on the history screen.
           </cp-notice>
         }
         @case ('unchanged') {
-          <cp-notice tone="neutral" role="alert">
-            Nothing had changed, so no new version was written.
-          </cp-notice>
+          <cp-notice tone="neutral" role="alert"> Nothing had changed, so no new version was written. </cp-notice>
         }
         @case ('rebase_needed') {
           <cp-notice tone="warning" role="alert">
-            Someone saved a new version of this guide while you were editing, so nothing was written. Your
-            changes are still here, and they name only the parts you touched — applying them on top of the
-            newer version keeps both.
+            Someone saved a new version of this guide while you were editing, so nothing was written. Your changes are
+            still here, and they name only the parts you touched — applying them on top of the newer version keeps both.
             <button cpButton variant="secondary" size="sm" type="button" (click)="rebase()">
               Apply my changes to the newer version
             </button>
@@ -148,8 +149,8 @@
         }
         @case ('unusable_sources') {
           <cp-notice tone="error" role="alert">
-            One of the examples this guide cites can't be used any more — it may have been removed from your
-            library. Stop citing it below, then save again.
+            One of the examples this guide cites can't be used any more — it may have been removed from your library.
+            Stop citing it below, then save again.
           </cp-notice>
         }
         @case ('archived') {
@@ -159,8 +160,7 @@
         }
         @case ('limit') {
           <cp-notice tone="error" role="alert">
-            That would take this guide past one of its limits, so nothing was written. Remove something and
-            try again.
+            That would take this guide past one of its limits, so nothing was written. Remove something and try again.
           </cp-notice>
         }
         @case ('forbidden') {
@@ -168,8 +168,8 @@
         }
         @case ('not_found') {
           <cp-notice tone="error" role="alert">
-            This guide can't be found any more, so nothing was written. Your changes are still on screen —
-            copy anything you need before leaving.
+            This guide can't be found any more, so nothing was written. Your changes are still on screen — copy anything
+            you need before leaving.
           </cp-notice>
         }
         @case ('key_reused') {
@@ -192,18 +192,14 @@
       <cp-card>
         <form class="editor" (submit)="$event.preventDefault()">
           <p class="legend">
-            Every part is optional — write what sounds like you and leave the rest. Nothing here is part of the
-            guide until you save a new version.
+            Every part is optional — write what sounds like you and leave the rest. Nothing here is part of the guide
+            until you save a new version.
           </p>
 
           <div class="layout" [class.layout--navigable]="anchors().length >= 2">
             @if (anchors().length >= 2) {
               <div class="nav">
-                <cp-anchor-nav
-                  ariaLabel="Parts of this guide"
-                  [items]="anchors()"
-                  (activated)="jump($event)"
-                />
+                <cp-anchor-nav ariaLabel="Parts of this guide" [items]="anchors()" (activated)="jump($event)" />
               </div>
             }
 
@@ -384,9 +380,7 @@
                 sectionId="cp-guide-citations"
               >
                 @if (citationViews().length === 0) {
-                  <p class="empty">
-                    This guide cites none of your examples — it is written from your own answers.
-                  </p>
+                  <p class="empty"> This guide cites none of your examples — it is written from your own answers. </p>
                 }
 
                 <ul class="citations" role="list">
@@ -407,7 +401,9 @@
                             size="sm"
                             type="button"
                             [disabled]="isArchived()"
-                            [attr.aria-label]="'Cite version ' + citation.currentVersionNumber + ' of ' + citation.title + ' instead'"
+                            [attr.aria-label]="
+                              'Cite version ' + citation.currentVersionNumber + ' of ' + citation.title + ' instead'
+                            "
                             (click)="repin(citation)"
                           >
                             Use version {{ citation.currentVersionNumber }} instead

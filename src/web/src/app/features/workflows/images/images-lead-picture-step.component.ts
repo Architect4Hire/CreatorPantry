@@ -158,7 +158,9 @@ export class ImagesLeadPictureStepComponent implements OnInit {
 
   protected readonly title = computed(() => this.recipe()?.title ?? '');
 
-  protected readonly hasLeadPicture = computed(() => this.recipe()?.assetLinks.some((link) => link.role === 'Hero') ?? false);
+  protected readonly hasLeadPicture = computed(
+    () => this.recipe()?.assetLinks.some((link) => link.role === 'Hero') ?? false,
+  );
 
   /** The pictures this run saved that the recipe does not already use. */
   protected readonly offers = computed(() => {
@@ -285,7 +287,10 @@ export class ImagesLeadPictureStepComponent implements OnInit {
     }
 
     const ids = outcome.context.references
-      .filter((reference) => reference.kind === 'DamAsset' && reference.purpose === 'Keeper' && reference.mediaAssetId !== null)
+      .filter(
+        (reference) =>
+          reference.kind === 'DamAsset' && reference.purpose === 'Keeper' && reference.mediaAssetId !== null,
+      )
       .map((reference) => reference.mediaAssetId!);
 
     const read = await Promise.all(

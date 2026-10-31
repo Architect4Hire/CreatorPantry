@@ -1,15 +1,13 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  OnInit,
-  computed,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { CpButtonComponent, CpChoiceGroupComponent, CpChoiceOption, CpFormSectionComponent, CpNoticeComponent, CpSkeletonComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpFormSectionComponent,
+  CpNoticeComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 import { firstValueFrom } from 'rxjs';
 
 import { keeperReferencesOf } from '../../../models/creative-context.models';
@@ -52,7 +50,11 @@ type WaitingRead =
 export const WAITING_LOOKBACK = 10;
 
 const WAYS: readonly CpChoiceOption[] = [
-  { value: 'upload', label: 'Upload a new picture', hint: 'From your device. Your original is kept exactly as you upload it.' },
+  {
+    value: 'upload',
+    label: 'Upload a new picture',
+    hint: 'From your device. Your original is kept exactly as you upload it.',
+  },
   { value: 'library', label: 'Choose one from your library', hint: 'A picture already saved in this workspace.' },
   {
     value: 'waiting',
@@ -142,8 +144,8 @@ const WAYS: readonly CpChoiceOption[] = [
 
     @if (keepFailed()) {
       <cp-notice tone="warning" role="status">
-        Your picture is in your library, but this workflow couldn’t be pointed at it just now. Continue will still
-        name it.
+        Your picture is in your library, but this workflow couldn’t be pointed at it just now. Continue will still name
+        it.
       </cp-notice>
     }
 
@@ -176,7 +178,9 @@ const WAYS: readonly CpChoiceOption[] = [
         }
         @case ('waiting') {
           <!-- Always present while this way in is open (APP-003): the one place it says it is still looking. -->
-          <p class="cp-sr-only" role="status">{{ waiting().status === 'loading' ? 'Looking through your recent work…' : '' }}</p>
+          <p class="cp-sr-only" role="status">{{
+            waiting().status === 'loading' ? 'Looking through your recent work…' : ''
+          }}</p>
           @switch (waiting().status) {
             @case ('loading') {
               <!-- The recent work arriving, as a few rows. -->
@@ -415,7 +419,9 @@ export class AssetsAddStepComponent implements OnInit {
       return;
     }
 
-    const read = await Promise.all(list.page.items.map((summary) => firstValueFrom(this.contexts.get(slug, summary.id))));
+    const read = await Promise.all(
+      list.page.items.map((summary) => firstValueFrom(this.contexts.get(slug, summary.id))),
+    );
     if (this.gone) return;
 
     const pictures: Waiting[] = [];

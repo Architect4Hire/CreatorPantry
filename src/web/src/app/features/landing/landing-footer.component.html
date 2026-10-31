@@ -1,7 +1,9 @@
 <footer class="landing-footer">
   <nav class="legal-links" aria-label="Legal">
     @for (link of legalLinks(); track link.path) {
-      <a class="legal-link" [routerLink]="link.path" routerLinkActive="current" ariaCurrentWhenActive="page">{{ link.label }}</a>
+      <a class="legal-link" [routerLink]="link.path" routerLinkActive="current" ariaCurrentWhenActive="page">{{
+        link.label
+      }}</a>
     }
   </nav>
   <span class="brand">© {{ currentYear }} {{ productName() }}</span>

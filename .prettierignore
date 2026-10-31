@@ -1,0 +1,30 @@
+# Prettier reads this file and ./.gitignore from the directory it runs in, which is always the repo root:
+# `npm run format` cds here, and so does .claude/hooks/format.sh. It does not read src/web/.gitignore.
+
+# Generated or installed in the web workspace.
+src/web/dist/
+src/web/.angular/
+src/web/coverage/
+src/web/.dev-certs/
+src/web/.captures/
+
+# Written by npm; formatting it only produces churn on the next install.
+package-lock.json
+
+# Each developer's own Claude Code settings, never committed.
+.claude/settings.local.json
+
+# Markdown is hand-wrapped prose. Prettier would pad every table to its widest cell and re-pad it on each edit.
+*.md
+
+# Prompt templates carry a body checksum (B-16), and a published version is immutable. Listed on their own so a
+# later decision about Markdown cannot reach them.
+**/*.prompt.md
+
+# Test files compared byte for byte, or written by the code under test (UPDATE_*_SNAPSHOT / UPDATE_*_GOLDEN).
+src/CreatorPantry.Tests/**/Golden/
+src/CreatorPantry.Tests/**/*Golden/
+src/CreatorPantry.Tests/**/Snapshots/
+
+# Recorded USDA FoodData Central responses, kept exactly as the provider served them.
+src/CreatorPantry.Tests/Ingredients/Fixtures/

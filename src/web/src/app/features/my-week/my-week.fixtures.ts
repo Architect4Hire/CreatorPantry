@@ -8,7 +8,11 @@ export { task };
 export const WEEK = '2038-10-11';
 export const TODAY = '2038-10-14';
 
-export function totals(taskCount: number, estimatedTaskCount = 0, estimatedMinutes: number | null = null): WorkTaskTotals {
+export function totals(
+  taskCount: number,
+  estimatedTaskCount = 0,
+  estimatedMinutes: number | null = null,
+): WorkTaskTotals {
   return { taskCount, estimatedTaskCount, estimatedMinutes };
 }
 
@@ -25,7 +29,9 @@ export function group(tasks: readonly WorkTask[] = [], overrides: Partial<WorkTa
   };
 }
 
-export function week(overrides: Partial<WeekWorkTasks> & { readonly dayTasks?: Record<number, readonly WorkTask[]> } = {}): WeekWorkTasks {
+export function week(
+  overrides: Partial<WeekWorkTasks> & { readonly dayTasks?: Record<number, readonly WorkTask[]> } = {},
+): WeekWorkTasks {
   const { dayTasks = {}, ...rest } = overrides;
   const weekStart = rest.weekStart ?? WEEK;
 
@@ -62,7 +68,9 @@ export function fullWeek(overrides: Partial<WeekWorkTasks> = {}): WeekWorkTasks 
       ],
     },
     backlog: group([task({ id: 'later', title: 'Pitch the cookbook', scheduledDate: null })]),
-    carriedOver: group([task({ id: 'old', title: 'Send the invoice', scheduledDate: null, planningWeekStart: '2038-10-04' })]),
+    carriedOver: group([
+      task({ id: 'old', title: 'Send the invoice', scheduledDate: null, planningWeekStart: '2038-10-04' }),
+    ]),
     unplanned: group([task({ id: 'loose', title: 'Someday soup', scheduledDate: null, planningWeekStart: null })]),
     inProgress: group([task({ id: 'going', title: 'Draft the newsletter', status: 'InProgress' })]),
     waiting: group([task({ id: 'held', title: 'Hear back from the editor', status: 'Waiting' })]),

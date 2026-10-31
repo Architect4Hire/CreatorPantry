@@ -1,4 +1,12 @@
-import { NO_FILTERS, columnsFor, nothingShown, shownWords, totalsWords, weekHeading, weekIsEmpty } from './my-week.logic';
+import {
+  NO_FILTERS,
+  columnsFor,
+  nothingShown,
+  shownWords,
+  totalsWords,
+  weekHeading,
+  weekIsEmpty,
+} from './my-week.logic';
 import { fullWeek, group, task, totals, week } from './my-week.fixtures';
 
 const headings = (columns: ReturnType<typeof columnsFor>) => columns.map((column) => column.heading);
@@ -52,7 +60,9 @@ describe('My Week columns', () => {
   });
 
   it('counts each column from the server’s totals, loaded or not', () => {
-    const cut = fullWeek({ inProgress: group([task({ id: 'going', status: 'InProgress' })], { hasMore: true, totals: totals(63) }) });
+    const cut = fullWeek({
+      inProgress: group([task({ id: 'going', status: 'InProgress' })], { hasMore: true, totals: totals(63) }),
+    });
     const inProgress = columnsFor(cut, 'compact', NO_FILTERS)[2];
 
     expect(inProgress.count).toBe(63);
@@ -73,10 +83,16 @@ describe('My Week filters', () => {
 
     // Over a list the server cut, a filter says it looked at the loaded ones only.
     const cut = fullWeek({
-      inProgress: group([task({ id: 'a', title: 'Galette', status: 'InProgress' }), task({ id: 'b', status: 'InProgress', title: 'Soup' })], {
-        hasMore: true,
-        totals: totals(63),
-      }),
+      inProgress: group(
+        [
+          task({ id: 'a', title: 'Galette', status: 'InProgress' }),
+          task({ id: 'b', status: 'InProgress', title: 'Soup' }),
+        ],
+        {
+          hasMore: true,
+          totals: totals(63),
+        },
+      ),
     });
     expect(shownWords(columnsFor(cut, 'compact', { ...NO_FILTERS, query: 'galette' })[2].sections[0], true)).toBe(
       '1 of the first 2 shown — 63 in all',

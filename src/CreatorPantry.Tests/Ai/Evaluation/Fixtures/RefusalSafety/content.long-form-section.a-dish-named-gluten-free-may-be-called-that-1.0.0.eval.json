@@ -11,20 +11,14 @@
     "recipes": [
       {
         "title": "Gluten-Free Seeded Loaf",
-        "ingredients": [
-          "300g gluten-free flour blend"
-        ],
-        "steps": [
-          "Mix and bake."
-        ]
+        "ingredients": ["300g gluten-free flour blend"],
+        "steps": ["Mix and bake."]
       }
     ],
     "workingTitle": "Gluten-Free Seeded Loaf"
   },
   "expect": {
     "outcome": "Accepted",
-    "notFlagged": [
-      "unsupported_safety_claim"
-    ]
+    "notFlagged": ["unsupported_safety_claim"]
   }
 }

@@ -77,7 +77,14 @@ function context(overrides: Partial<CreativeContext> = {}): CreativeContext {
     weeklyThemeKey: null,
     references: [
       reference({}),
-      reference({ id: 'ref-2', kind: 'DamAsset', recipeId: null, recipeVersionId: null, mediaAssetId: 'asset-1', mediaAssetVersionNumber: 2 }),
+      reference({
+        id: 'ref-2',
+        kind: 'DamAsset',
+        recipeId: null,
+        recipeVersionId: null,
+        mediaAssetId: 'asset-1',
+        mediaAssetVersionNumber: 2,
+      }),
     ],
     createdAt: '2026-10-15T09:00:00Z',
     updatedAt: '2026-10-15T10:00:00Z',
@@ -97,7 +104,13 @@ function postsPackage(statuses: readonly string[]): ChannelPostPackage {
 }
 
 function card(id = 'card-1'): ContentCardDetail {
-  return { card: { id, title: 'Plum galette week', column: 'ToDo' }, description: null, lineage: [], history: [], historyTruncated: false } as unknown as ContentCardDetail;
+  return {
+    card: { id, title: 'Plum galette week', column: 'ToDo' },
+    description: null,
+    lineage: [],
+    history: [],
+    historyTruncated: false,
+  } as unknown as ContentCardDetail;
 }
 
 function socialRun(links: readonly { kind: string; resourceId: string; stepKey: string | null }[]): WorkflowRun {
@@ -127,7 +140,9 @@ function configure(): void {
   port.connect(keepDraft);
   getActive = jasmine.createSpy('getActive').and.resolveTo({ status: 'none' });
   getContext = jasmine.createSpy('get').and.returnValue(of({ status: 'found', context: context() }));
-  readPackage = jasmine.createSpy('readPackage').and.resolveTo({ status: 'found', package: postsPackage(['Accepted', 'Proposed']) });
+  readPackage = jasmine
+    .createSpy('readPackage')
+    .and.resolveTo({ status: 'found', package: postsPackage(['Accepted', 'Proposed']) });
   create = jasmine.createSpy('create').and.returnValue(of({ status: 'saved', detail: card() }));
   detail = jasmine.createSpy('detail').and.returnValue(of({ status: 'found', detail: card() }));
 
@@ -144,7 +159,18 @@ function configure(): void {
         useValue: {
           state: signal({
             status: 'ready',
-            memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+            memberships: [
+              {
+                workspaceId: 'w1',
+                workspaceSlug: SLUG,
+                workspaceName: 'Sam',
+                membershipId: 'm1',
+                get role() {
+                  return role;
+                },
+                status: 'Active',
+              },
+            ],
           }),
           ensureLoaded: () => Promise.resolve(),
         },
@@ -194,15 +220,28 @@ describe('"Create social posts" step screens (13A.20)', () => {
 
   describe('the studio parts', () => {
     it('names the guide the posts are written in, as the server reads it, with where to change it', async () => {
-      getActive.and.resolveTo({ status: 'found', voice: { guideId: 'guide-1', displayName: 'Sam’s kitchen voice', versionId: 'gv-2', versionNumber: 2 } });
-      const fixture = await render(SocialStudioStepComponent, { part: 'about', run: socialRun([]), workspaceSlug: SLUG });
+      getActive.and.resolveTo({
+        status: 'found',
+        voice: { guideId: 'guide-1', displayName: 'Sam’s kitchen voice', versionId: 'gv-2', versionNumber: 2 },
+      });
+      const fixture = await render(SocialStudioStepComponent, {
+        part: 'about',
+        run: socialRun([]),
+        workspaceSlug: SLUG,
+      });
 
       expect(text(fixture)).toContain('Your posts are written in your brand guide, “Sam’s kitchen voice”, version 2');
-      expect((fixture.nativeElement as HTMLElement).querySelector('cp-notice a')?.getAttribute('href')).toBe(`/${SLUG}/brand/style-guide/guide-1`);
+      expect((fixture.nativeElement as HTMLElement).querySelector('cp-notice a')?.getAttribute('href')).toBe(
+        `/${SLUG}/brand/style-guide/guide-1`,
+      );
     });
 
     it('says so when no guide is switched on, and carries on', async () => {
-      const fixture = await render(SocialStudioStepComponent, { part: 'about', run: socialRun([]), workspaceSlug: SLUG });
+      const fixture = await render(SocialStudioStepComponent, {
+        part: 'about',
+        run: socialRun([]),
+        workspaceSlug: SLUG,
+      });
 
       expect(text(fixture)).toContain('You haven’t switched on a brand guide');
       expect((fixture.nativeElement as HTMLElement).querySelector('.stub-studio')).not.toBeNull();
@@ -215,7 +254,11 @@ describe('"Create social posts" step screens (13A.20)', () => {
     });
 
     it('keeps new work on the run the moment it is filed, and names it as what the first step made', async () => {
-      const fixture = await render(SocialStudioStepComponent, { part: 'about', run: socialRun([]), workspaceSlug: SLUG });
+      const fixture = await render(SocialStudioStepComponent, {
+        part: 'about',
+        run: socialRun([]),
+        workspaceSlug: SLUG,
+      });
       expect(port.registration()!.ready!()).toBeFalse();
 
       studio(fixture).host.filed('ctx-9');
@@ -244,7 +287,9 @@ describe('"Create social posts" step screens (13A.20)', () => {
       fixture = await render(SocialStudioStepComponent, { part: 'write', run: withWork(), workspaceSlug: SLUG });
       expect(studio(fixture).seenPart).toBe('write');
       expect(studio(fixture).seenContextId).toBe('ctx-1');
-      expect(port.registration()!.draft!()).withContext('a later part keeps no draft: its actions take none').toBeNull();
+      expect(port.registration()!.draft!())
+        .withContext('a later part keeps no draft: its actions take none')
+        .toBeNull();
       expect(studio(fixture).seenSuggestion).toBeNull();
     });
 
@@ -262,14 +307,22 @@ describe('"Create social posts" step screens (13A.20)', () => {
     });
 
     it('sends what is waiting before a move', async () => {
-      const fixture = await render(SocialStudioStepComponent, { part: 'picture', run: withWork(), workspaceSlug: SLUG });
+      const fixture = await render(SocialStudioStepComponent, {
+        part: 'picture',
+        run: withWork(),
+        workspaceSlug: SLUG,
+      });
 
       expect(await port.registration()!.flush()).toBeTrue();
       expect(studio(fixture).flushed).toBe(1);
     });
 
     it('says where the work is when a later part opens with none', async () => {
-      const fixture = await render(SocialStudioStepComponent, { part: 'write', run: socialRun([]), workspaceSlug: SLUG });
+      const fixture = await render(SocialStudioStepComponent, {
+        part: 'write',
+        run: socialRun([]),
+        workspaceSlug: SLUG,
+      });
 
       expect(text(fixture)).toContain('Go back to the first step to say what the posts are about.');
       expect((fixture.nativeElement as HTMLElement).querySelector('.stub-studio')).toBeNull();
@@ -313,7 +366,9 @@ describe('"Create social posts" step screens (13A.20)', () => {
       expect(keepDraft).toHaveBeenCalledOnceWith({ kind: 'ContentCard', id: 'card-1' });
       expect(port.registration()!.results!()).toEqual([{ kind: 'ContentCard', id: 'card-1' }]);
       expect(port.registration()!.ready!()).toBeTrue();
-      expect(text(fixture)).toContain('On your board as “Plum galette week”, in To do. Nothing is scheduled or posted yet.');
+      expect(text(fixture)).toContain(
+        'On your board as “Plum galette week”, in To do. Nothing is scheduled or posted yet.',
+      );
       expect(announced).toHaveBeenCalledWith('Added to your board as “Plum galette week”.');
     });
 
@@ -394,7 +449,9 @@ describe('"Create social posts" step screens (13A.20)', () => {
       button(fixture, 'Add to your board')!.click();
       await settle(fixture);
 
-      expect(create.calls.mostRecent().args[4]).toEqual(jasmine.objectContaining({ socialPackageId: null, mediaAssetId: null, recipeId: null }));
+      expect(create.calls.mostRecent().args[4]).toEqual(
+        jasmine.objectContaining({ socialPackageId: null, mediaAssetId: null, recipeId: null }),
+      );
     });
 
     it('says a refusal in a sentence, and that the work could not be read with a way to read it again', async () => {
@@ -451,15 +508,23 @@ describe('"Create social posts" step screens (13A.20)', () => {
       button(fixture, 'Add to your board')!.click();
       await settle(fixture);
 
-      expect(text(fixture)).toContain('The card is on your board, but this workflow couldn’t be pointed at it just now.');
-      expect(port.registration()!.results!()).withContext('Continue still names it').toEqual([{ kind: 'ContentCard', id: 'card-1' }]);
+      expect(text(fixture)).toContain(
+        'The card is on your board, but this workflow couldn’t be pointed at it just now.',
+      );
+      expect(port.registration()!.results!())
+        .withContext('Continue still names it')
+        .toEqual([{ kind: 'ContentCard', id: 'card-1' }]);
     });
 
     it('says there is nothing to add when the run holds no work', async () => {
       const fixture = await render(SocialBoardStepComponent, { run: socialRun([]), workspaceSlug: SLUG });
 
       expect(text(fixture)).toContain('There is nothing to put on the board yet.');
-      expect((fixture.nativeElement as HTMLElement).querySelector('cp-empty-state cp-illustration')?.getAttribute('data-name')).toBe('board');
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector('cp-empty-state cp-illustration')
+          ?.getAttribute('data-name'),
+      ).toBe('board');
       expect(button(fixture, 'Add to your board')).toBeNull();
     });
   });

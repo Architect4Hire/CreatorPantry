@@ -8,11 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"headnote\":{\"text\":\"A warm loaf.\"},\"introduction\":{\"text\":\"Start here.\"},\"tips\":[{\"text\":\"Rest the dough.\"}],\"substitutions\":[{\"lineId\":\"55555555-5555-5555-5555-555555555555\",\"suggestion\":\"Use oat milk.\",\"culinaryNote\":\"Slightly sweeter.\"}],\"storageReheating\":{\"text\":\"Keeps two days in a tin.\"},\"faq\":[{\"question\":\"How many does it make?\",\"answer\":\"It makes 12.\"}],\"cta\":{\"text\":\"Save it for later.\"}}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25",
-        "12"
-      ],
+      "numbers": ["220", "25", "12"],
       "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
       "storageNotes": "Keeps two days in a tin."
     }

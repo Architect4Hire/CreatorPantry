@@ -77,17 +77,13 @@ export class GeneratedImageTracker {
   readonly stopped: Signal<boolean> = this.stoppedSignal.asReadonly();
 
   /** `degraded` after a failed poll, so the status line says the reading is stale rather than implying it is live. */
-  readonly connection: Signal<AiStatusConnection> = computed(() =>
-    this.failuresSignal() > 0 ? 'degraded' : 'live',
-  );
+  readonly connection: Signal<AiStatusConnection> = computed(() => (this.failuresSignal() > 0 ? 'degraded' : 'live'));
 
   /** The last reading of the run, in whichever phase carries one. */
   readonly detail: Signal<GeneratedImageOperationDetail | null> = computed(() => {
     const phase = this.phaseSignal();
 
-    return phase.kind === 'watching' || phase.kind === 'ready' || phase.kind === 'failed'
-      ? phase.operation
-      : null;
+    return phase.kind === 'watching' || phase.kind === 'ready' || phase.kind === 'failed' ? phase.operation : null;
   });
 
   /** True while the creator is waiting, so an action that would start another run can be held. */
@@ -266,9 +262,7 @@ export class GeneratedImageTracker {
     // for and is still a run with pictures in it, so it lands in `ready` with the shortfall left to the step
     // to say.
     this.phaseSignal.set(
-      isGeneratedImageOperationFailed(operation.status)
-        ? { kind: 'failed', operation }
-        : { kind: 'ready', operation },
+      isGeneratedImageOperationFailed(operation.status) ? { kind: 'failed', operation } : { kind: 'ready', operation },
     );
   }
 }

@@ -9,7 +9,10 @@
   @if (showsHostedIntro()) {
     <!-- Hosted in the workflow, the step's card is the head: the sentence the page rests on is said here instead.
          The studio's own flow says it in its page lede. -->
-    <p class="cp-muted">Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the start of a draft.</p>
+    <p class="cp-muted"
+      >Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the
+      start of a draft.</p
+    >
   }
 }
 
@@ -29,13 +32,14 @@
       }
       @case ('missing') {
         <cp-notice tone="warning" role="status">
-          The work this page was opened for couldn't be read, so these ideas won't follow its themed day. You can
-          still ask for ideas.
+          The work this page was opened for couldn't be read, so these ideas won't follow its themed day. You can still
+          ask for ideas.
         </cp-notice>
       }
       @case ('found') {
         <p class="studio-work">
-          Ideas for <strong>{{ workTitle() }}</strong>.
+          Ideas for <strong>{{ workTitle() }}</strong
+          >.
         </p>
         <cp-day-notes-notice
           [workspaceSlug]="workspaceSlug"
@@ -50,8 +54,7 @@
          calculators' own blocked lines. Only something that went wrong takes the danger tone. -->
     @if (rolesKnown() && !canRequest()) {
       <p class="studio-blocked" role="status">
-        Your role in this workspace does not permit asking for recipe concepts. Ask a contributor, editor, or the
-        owner.
+        Your role in this workspace does not permit asking for recipe concepts. Ask a contributor, editor, or the owner.
       </p>
     }
 
@@ -304,9 +307,7 @@
         variant="no-results"
       />
     } @else if (state() === 'forbidden') {
-      <p class="studio-blocked" role="status">
-        This request can't be read with your role in this workspace.
-      </p>
+      <p class="studio-blocked" role="status"> This request can't be read with your role in this workspace. </p>
     } @else if (state() === 'loading' || state() === 'submitting') {
       <!-- The shape of what is coming: the request's status line, then the concepts (APP-003). Said by the status
            line at the top of the page, outside this busy region, or by the brief's own "Asking…". -->
@@ -336,7 +337,9 @@
 
       @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
         <div class="studio-recovery">
-          <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
+          <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()"
+            >Try a new brief</button
+          >
         </div>
       }
 
@@ -407,7 +410,9 @@
                       }
                       <!-- Words, so commas; the assumptions below are sentences, so a list. -->
                       @if (card.concept.suggestedIngredients.length > 0) {
-                        <div cpFact label="Suggested ingredients">{{ card.concept.suggestedIngredients.join(', ') }}</div>
+                        <div cpFact label="Suggested ingredients">{{
+                          card.concept.suggestedIngredients.join(', ')
+                        }}</div>
                       }
                       @if (card.concept.assumptions.length > 0) {
                         <div cpFact label="Assumed">
@@ -426,7 +431,9 @@
           </ul>
 
           <div cpGeneratedActions>
-            <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()">Try a new brief</button>
+            <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()"
+              >Try a new brief</button
+            >
           </div>
         </cp-generated>
       </cp-list-shell>
@@ -452,7 +459,12 @@
           The one next step for a chosen concept, directly under the list it was chosen from. A named region, so
           it can be found again; the sentence is a status, so choosing is announced without moving focus.
         -->
-        <cp-topic-card class="studio-selection" heading="Your chosen concept" headingId="studio-selection-heading" [headingLevel]="3">
+        <cp-topic-card
+          class="studio-selection"
+          heading="Your chosen concept"
+          headingId="studio-selection-heading"
+          [headingLevel]="3"
+        >
           <p class="studio-selection-text" role="status">
             You've chosen “{{ chosen.title }}.” Draft it as a recipe to review, edit and save.
           </p>
@@ -483,7 +495,9 @@
             >
               {{ drafting() ? 'Starting your draft…' : 'Draft this recipe' }}
             </button>
-            <span class="studio-selection-hint">Uses your AI allowance. Nothing is saved until you accept the draft.</span>
+            <span class="studio-selection-hint"
+              >Uses your AI allowance. Nothing is saved until you accept the draft.</span
+            >
           </div>
 
           <!--

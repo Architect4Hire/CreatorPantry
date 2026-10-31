@@ -34,15 +34,12 @@ module.exports = function (config) {
       },
     },
     jasmineHtmlReporter: {
-      suppressAll: true // removes the duplicated traces
+      suppressAll: true, // removes the duplicated traces
     },
     coverageReporter: {
       dir: require('path').join(__dirname, './coverage'),
       subdir: '.',
-      reporters: [
-        { type: 'html' },
-        { type: 'text-summary' }
-      ]
+      reporters: [{ type: 'html' }, { type: 'text-summary' }],
     },
     reporters: ['progress', 'kjhtml'],
     customLaunchers: {
@@ -52,6 +49,6 @@ module.exports = function (config) {
       },
     },
     browsers: ['ChromeHeadlessDesktop'],
-    restartOnFileChange: true
+    restartOnFileChange: true,
   });
 };

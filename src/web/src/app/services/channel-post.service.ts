@@ -161,9 +161,7 @@ export class ChannelPostService {
     return this.write(() =>
       url === null
         ? Promise.reject(new Error('No API base.'))
-        : firstValueFrom(
-            this.http.patch<unknown>(url, encodeEditChannelPost(request), { withCredentials: true }),
-          ),
+        : firstValueFrom(this.http.patch<unknown>(url, encodeEditChannelPost(request), { withCredentials: true })),
     );
   }
 
@@ -179,11 +177,7 @@ export class ChannelPostService {
     channelKey: string,
     request: ChannelPostDispositionRequest,
   ): Promise<ChannelPostWriteOutcome> {
-    const url = this.postsUrl(
-      workspaceSlug,
-      contextId,
-      `/${encodeURIComponent(channelKey)}/disposition`,
-    );
+    const url = this.postsUrl(workspaceSlug, contextId, `/${encodeURIComponent(channelKey)}/disposition`);
 
     return this.write(() =>
       url === null
@@ -239,9 +233,7 @@ export class ChannelPostService {
   }
 
   private requestsUrl(workspaceSlug: string, suffix = ''): string | null {
-    return this.apiBase.url(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/channel-post-requests${suffix}`,
-    );
+    return this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/channel-post-requests${suffix}`);
   }
 
   private postsUrl(workspaceSlug: string, contextId: string, suffix = ''): string | null {

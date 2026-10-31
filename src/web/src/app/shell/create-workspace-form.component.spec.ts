@@ -9,7 +9,9 @@ describe('CreateWorkspaceFormComponent', () => {
 
   async function createFixture() {
     TestBed.resetTestingModule();
-    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
+    createSpy = jasmine
+      .createSpy('create')
+      .and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [CreateWorkspaceFormComponent],

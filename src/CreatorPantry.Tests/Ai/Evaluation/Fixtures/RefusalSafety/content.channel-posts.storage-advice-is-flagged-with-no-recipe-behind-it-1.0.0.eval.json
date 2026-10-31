@@ -7,9 +7,7 @@
   "input": {
     "payload": "{\"schemaVersion\": \"content.channel-posts.v1\", \"posts\": [{\"channelKey\": \"facebook\", \"body\": \"A cake for slow Sundays. It keeps for days in the fridge.\"}]}",
     "expectedSchemaVersion": "content.channel-posts.v1",
-    "requestedChannels": [
-      "facebook"
-    ],
+    "requestedChannels": ["facebook"],
     "workingTitle": "Slow Sunday bakes"
   },
   "expect": {

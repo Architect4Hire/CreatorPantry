@@ -123,7 +123,5 @@ export function retentionDeadlineText(images: readonly { readonly retentionExpir
 
   if (soonest === undefined) return '';
 
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(soonest),
-  );
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(soonest));
 }

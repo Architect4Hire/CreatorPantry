@@ -10,7 +10,10 @@ describe('MyWeekCardComponent', () => {
   let fixture: ComponentFixture<MyWeekCardComponent>;
 
   async function create(shown: WorkTask, level: 4 | 5 = 4, canAct = false): Promise<HTMLElement> {
-    await TestBed.configureTestingModule({ imports: [MyWeekCardComponent], providers: [provideRouter([])] }).compileComponents();
+    await TestBed.configureTestingModule({
+      imports: [MyWeekCardComponent],
+      providers: [provideRouter([])],
+    }).compileComponents();
     fixture = TestBed.createComponent(MyWeekCardComponent);
     fixture.componentRef.setInput('task', shown);
     fixture.componentRef.setInput('workspaceSlug', 'sams-kitchen');
@@ -31,7 +34,9 @@ describe('MyWeekCardComponent', () => {
   });
 
   it('makes the title the deep link to where the work is, and says what it opens', async () => {
-    const root = await create(task({ links: { ...task().links, workflowRunId: RUN, workflowRunRoute: `workflows/runs/${RUN}` } }));
+    const root = await create(
+      task({ links: { ...task().links, workflowRunId: RUN, workflowRunRoute: `workflows/runs/${RUN}` } }),
+    );
 
     expect(root.querySelector('h4 a')!.getAttribute('href')).toBe(`/sams-kitchen/workflows/runs/${RUN}`);
     expect(root.textContent).toContain('the workflow');
@@ -46,7 +51,12 @@ describe('MyWeekCardComponent', () => {
 
   it('says priority, estimate, labels and a late due date in words, never by colour alone', async () => {
     const root = await create(
-      task({ priority: 'High', estimateMinutes: 90, dueDate: '2038-10-12', labels: [{ id: 'tag-1', name: 'Weeknight' }] }),
+      task({
+        priority: 'High',
+        estimateMinutes: 90,
+        dueDate: '2038-10-12',
+        labels: [{ id: 'tag-1', name: 'Weeknight' }],
+      }),
     );
 
     expect(root.textContent).toContain('High');
@@ -77,7 +87,9 @@ describe('MyWeekCardComponent', () => {
   it('offers a finished task only Reopen', async () => {
     const root = await create(task({ status: 'Done', completedAt: '2038-10-13T10:00:00Z' }), 4, true);
 
-    expect([...root.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Reopen “Shoot the galette”']);
+    expect([...root.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Reopen “Shoot the galette”',
+    ]);
   });
 
   it('keeps its controls focusable but says they are unavailable while a change is on its way', async () => {
@@ -99,7 +111,14 @@ describe('MyWeekCardComponent', () => {
   });
 
   it('gives its labels as one fact, comma-separated', async () => {
-    const root = await create(task({ labels: [{ id: 'a', name: 'Weeknight' }, { id: 'b', name: 'Autumn' }] }));
+    const root = await create(
+      task({
+        labels: [
+          { id: 'a', name: 'Weeknight' },
+          { id: 'b', name: 'Autumn' },
+        ],
+      }),
+    );
 
     const facts = [...root.querySelectorAll('dl > div')].filter((fact) => fact.textContent!.includes('Weeknight'));
     expect(facts.length).toBe(1);

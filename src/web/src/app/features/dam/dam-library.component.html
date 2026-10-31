@@ -69,7 +69,9 @@
   heading="Library"
   [state]="listShellState()"
   loadingLayout="cards"
-  [errorMessage]="errorMessage()" emptyMessage="No pictures in the library yet.">
+  [errorMessage]="errorMessage()"
+  emptyMessage="No pictures in the library yet."
+>
   <div cpListShellActions>
     @if (phase() === 'error') {
       <button cpButton variant="secondary" type="button" (click)="retry()">Try again</button>
@@ -112,7 +114,12 @@
       <li [attr.data-asset-id]="asset.id">
         <!-- While its picture is on its way the card shows its own panel, drawn as a picture (AU.6.1). -->
         <cp-media-card illustration="picture" [description]="asset.description ?? ''">
-          <cp-dam-asset-thumbnail cpMediaCardPicture [workspaceSlug]="workspaceSlug()" [asset]="asset" [announce]="false" />
+          <cp-dam-asset-thumbnail
+            cpMediaCardPicture
+            [workspaceSlug]="workspaceSlug()"
+            [asset]="asset"
+            [announce]="false"
+          />
 
           <a cpMediaCardTitle [routerLink]="[asset.id]">{{ asset.title }}</a>
 

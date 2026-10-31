@@ -1,5 +1,15 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, afterNextRender, computed, inject, input, linkedSignal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  viewChild,
+} from '@angular/core';
 import { CpBadgeComponent, CpTabPanelComponent, CpTabsComponent, CpThemeService, CpTone } from '@creator-pantry/ui';
 
 import { LandingTourCapture, TOUR_CAPTURES, tourCaptureStem } from './landing-tour.captures';
@@ -133,7 +143,9 @@ export class LandingTourComponent {
   private readonly document = inject(DOCUMENT);
 
   /** The tour's panels: the LP.2 stops that have a screenshot, in LP.2's order. */
-  protected readonly stops = computed(() => TOUR_STOPS.filter((stop) => this.captures().some((capture) => capture.panel === stop.panel)));
+  protected readonly stops = computed(() =>
+    TOUR_STOPS.filter((stop) => this.captures().some((capture) => capture.panel === stop.panel)),
+  );
   protected readonly tabs = computed(() => this.stops().map((stop) => ({ id: stop.panel, label: stop.label })));
 
   protected readonly selected = linkedSignal<string | undefined>(() => this.stops()[0]?.panel);

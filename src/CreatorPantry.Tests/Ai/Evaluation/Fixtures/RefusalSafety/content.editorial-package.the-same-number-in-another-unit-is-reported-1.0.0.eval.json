@@ -8,19 +8,13 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"Refrigerate up to 3 weeks.\"}}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25",
-        "12"
-      ],
+      "numbers": ["220", "25", "12"],
       "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
       "storageNotes": "Refrigerate up to 3 days."
     }
   },
   "expect": {
     "outcome": "Accepted",
-    "warnings": [
-      "editorial.unsupported_number"
-    ]
+    "warnings": ["editorial.unsupported_number"]
   }
 }

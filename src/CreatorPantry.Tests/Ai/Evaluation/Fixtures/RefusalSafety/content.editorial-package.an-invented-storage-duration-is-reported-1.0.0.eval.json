@@ -8,20 +8,13 @@
     "payload": "{\"schemaVersion\":\"content.editorial-package.v1\",\"sections\":{\"storageReheating\":{\"text\":\"Keeps in the fridge for 5 days.\"}}}",
     "expectedSchemaVersion": "content.editorial-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25",
-        "12"
-      ],
+      "numbers": ["220", "25", "12"],
       "freeText": "Mix the dough. Bake at 220C for 25 minutes. Makes 12 rolls.",
       "storageNotes": null
     }
   },
   "expect": {
     "outcome": "Accepted",
-    "warnings": [
-      "editorial.unsupported_number",
-      "editorial.unsupported_storage_guidance"
-    ]
+    "warnings": ["editorial.unsupported_number", "editorial.unsupported_storage_guidance"]
   }
 }

@@ -2,7 +2,14 @@
   @if (dashboard()) {
     <!-- Never disabled: a focused control that disables itself drops focus to the page. A second press while a
          refresh is running is simply ignored, and the button says it is running. -->
-    <button cpPageHeadActions cpButton type="button" variant="secondary" [attr.aria-disabled]="refreshing() ? 'true' : null" (click)="refresh()">
+    <button
+      cpPageHeadActions
+      cpButton
+      type="button"
+      variant="secondary"
+      [attr.aria-disabled]="refreshing() ? 'true' : null"
+      (click)="refresh()"
+    >
       {{ refreshing() ? 'Refreshing…' : 'Refresh' }}
     </button>
   }
@@ -20,13 +27,17 @@
     <div class="loading" aria-busy="true">
       <ul cpCardGrid minColumn="15rem">
         @for (place of figurePlaces; track place) {
-          <li><cp-card><cp-skeleton shape="line" [count]="2" /></cp-card></li>
+          <li
+            ><cp-card><cp-skeleton shape="line" [count]="2" /></cp-card
+          ></li>
         }
       </ul>
       <cp-card><cp-skeleton shape="line" [count]="3" /></cp-card>
       <ul cpCardGrid minColumn="22rem">
         @for (place of topicPlaces; track place) {
-          <li><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card></li>
+          <li
+            ><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card
+          ></li>
         }
       </ul>
     </div>
@@ -38,7 +49,14 @@
     <cp-card>
       <cp-notice tone="error" role="alert">
         Your dashboard couldn't be loaded just now. Nothing has been lost.
-        <button cpButton type="button" variant="secondary" size="sm" aria-label="Try again to load your dashboard" (click)="refresh()">
+        <button
+          cpButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          aria-label="Try again to load your dashboard"
+          (click)="refresh()"
+        >
           Try again
         </button>
       </cp-notice>
@@ -55,7 +73,9 @@
                rest of the app shows a signed-in creator. Say which clock it is rather than show a time that
                looks simply wrong — and say which of the two reasons there is no day. -->
           UTC ·
-          {{ shown.timeZoneState === 'NotSet' ? 'no time zone set yet' : 'the workspace’s time zone could not be read' }}
+          {{
+            shown.timeZoneState === 'NotSet' ? 'no time zone set yet' : 'the workspace’s time zone could not be read'
+          }}
         }
       </p>
 
@@ -123,7 +143,11 @@
      workspace's), then what needs them now, then what is coming up, then where the work stands. -->
 
 <ng-template cpDashboardTopic="continue">
-  <cp-topic-card heading="Carry on where you left off" headingId="dashboard-continue-heading" [featured]="featured() === 'continue'">
+  <cp-topic-card
+    heading="Carry on where you left off"
+    headingId="dashboard-continue-heading"
+    [featured]="featured() === 'continue'"
+  >
     @if (workflows(); as workflows) {
       @if (workflows.continue.length === 0 && workflows.inProgressCount === 0) {
         <cp-empty-state
@@ -142,9 +166,11 @@
             <li>
               <!-- The run itself: opening it puts the creator back on the step it is on. A run nobody named is
                    titled after its goal, so the step it is on is what tells it from its siblings. -->
-              <a [routerLink]="link('workflows', 'runs', run.id)" [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))">{{
-                runName(run)
-              }}</a>
+              <a
+                [routerLink]="link('workflows', 'runs', run.id)"
+                [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))"
+                >{{ runName(run) }}</a
+              >
               @if (!run.youCanDoIt) {
                 <span class="tags">
                   <cp-status-pill tone="warning">Needs someone else</cp-status-pill>
@@ -168,7 +194,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="stuck">
-  <cp-topic-card heading="Workflows that need a look" headingId="dashboard-stuck-heading" [featured]="featured() === 'stuck'">
+  <cp-topic-card
+    heading="Workflows that need a look"
+    headingId="dashboard-stuck-heading"
+    [featured]="featured() === 'stuck'"
+  >
     @if (workflows(); as workflows) {
       @if (workflows.needsAttentionCount === 0) {
         <p class="plain cp-muted">Nothing has stalled.</p>
@@ -180,9 +210,11 @@
         <ul class="items" aria-label="Workflows that need a look">
           @for (run of workflows.needsAttention; track run.id) {
             <li>
-              <a [routerLink]="link('workflows', 'runs', run.id)" [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))">{{
-                runName(run)
-              }}</a>
+              <a
+                [routerLink]="link('workflows', 'runs', run.id)"
+                [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))"
+                >{{ runName(run) }}</a
+              >
               <ul class="reasons" [attr.aria-label]="'Why ' + runName(run) + ' needs a look'">
                 @for (reason of attentionWords(run.attentionReasons); track reason) {
                   <li>{{ reason }}</li>
@@ -270,7 +302,14 @@
       <a cpButton variant="secondary" size="sm" [routerLink]="link('my-day')">Open My Day</a>
       @if (canAct()) {
         <!-- The shell's one capture dialog, started on this page's day. -->
-        <button cpButton type="button" variant="secondary" size="sm" aria-haspopup="dialog" (click)="captureTask($any($event.currentTarget))">
+        <button
+          cpButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          aria-haspopup="dialog"
+          (click)="captureTask($any($event.currentTarget))"
+        >
           <span aria-hidden="true">+</span> Capture a task
         </button>
       }
@@ -281,7 +320,9 @@
 <ng-template cpDashboardTopic="week">
   <cp-topic-card heading="Your week" headingId="dashboard-week-heading" [featured]="featured() === 'week'">
     @if (workPlan(); as plan) {
-      <p class="plain cp-muted">{{ day(plan.thisWeek.weekStart, 'short') }} to {{ day(plan.thisWeek.weekEnd, 'short') }}</p>
+      <p class="plain cp-muted"
+        >{{ day(plan.thisWeek.weekStart, 'short') }} to {{ day(plan.thisWeek.weekEnd, 'short') }}</p
+      >
       <dl cpFacts layout="inline">
         <div cpFact label="Planned">{{ plan.thisWeek.plannedTaskCount }}</div>
         <div cpFact label="Under way">{{ plan.thisWeek.inProgressCount }}</div>
@@ -290,8 +331,8 @@
       </dl>
       @if (estimateWords(plan.thisWeek.estimatedMinutes); as estimated) {
         <p class="plain cp-muted">
-          About {{ estimated }} of planned work, from the
-          {{ plan.thisWeek.estimatedTaskCount }} of {{ plan.thisWeek.plannedTaskCount }} you have put a time to.
+          About {{ estimated }} of planned work, from the {{ plan.thisWeek.estimatedTaskCount }} of
+          {{ plan.thisWeek.plannedTaskCount }} you have put a time to.
         </p>
       } @else if (plan.thisWeek.plannedTaskCount > 0) {
         <p class="plain cp-muted">Nothing planned this week has a time on it yet.</p>
@@ -316,7 +357,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="publishing">
-  <cp-topic-card heading="Publishing that needs you" headingId="dashboard-attention-heading" [featured]="featured() === 'publishing'">
+  <cp-topic-card
+    heading="Publishing that needs you"
+    headingId="dashboard-attention-heading"
+    [featured]="featured() === 'publishing'"
+  >
     @if (publishing(); as attention) {
       @if (attention.needsAttentionCount === 0) {
         <p class="plain cp-muted">No post failed or is waiting on you.</p>
@@ -334,7 +379,9 @@
                 <span class="name">{{ postTitle(item) }}</span>
               }
               <span class="tags">
-                <cp-status-pill [tone]="publishingWords[item.status].tone">{{ publishingWords[item.status].label }}</cp-status-pill>
+                <cp-status-pill [tone]="publishingWords[item.status].tone">{{
+                  publishingWords[item.status].label
+                }}</cp-status-pill>
                 <cp-badge tone="blue">{{ platformName(item.platform) }}</cp-badge>
               </span>
               <dl cpFacts layout="inline">
@@ -351,14 +398,19 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="readiness">
-  <cp-topic-card heading="What is holding recipes back" headingId="dashboard-readiness-heading" [featured]="featured() === 'readiness'">
+  <cp-topic-card
+    heading="What is holding recipes back"
+    headingId="dashboard-readiness-heading"
+    [featured]="featured() === 'readiness'"
+  >
     @if (readiness(); as readiness) {
       @if (readiness.evaluated === 0 && readiness.unevaluated === 0) {
         <p class="plain cp-muted">No recipes in progress to check.</p>
       } @else {
         @if (readiness.evaluated > 0) {
           <p class="plain cp-muted">
-            Checked {{ readiness.evaluated === 1 ? 'the recipe' : 'the ' + readiness.evaluated + ' recipes' }} you changed most recently.
+            Checked {{ readiness.evaluated === 1 ? 'the recipe' : 'the ' + readiness.evaluated + ' recipes' }} you
+            changed most recently.
           </p>
         }
         @if (readiness.blocked.length === 0 && readiness.evaluated > 0) {
@@ -389,7 +441,8 @@
         }
         @if (readiness.unevaluated > 0) {
           <p class="plain cp-muted">
-            {{ readiness.unevaluated === 1 ? 'One recipe' : readiness.unevaluated + ' recipes' }} couldn't be checked just now.
+            {{ readiness.unevaluated === 1 ? 'One recipe' : readiness.unevaluated + ' recipes' }} couldn't be checked
+            just now.
           </p>
         }
       }
@@ -400,7 +453,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="tests">
-  <cp-topic-card heading="Test kitchen follow-ups" headingId="dashboard-tests-heading" [featured]="featured() === 'tests'">
+  <cp-topic-card
+    heading="Test kitchen follow-ups"
+    headingId="dashboard-tests-heading"
+    [featured]="featured() === 'tests'"
+  >
     @if (tests(); as tests) {
       @if (tests.open === 0) {
         <p class="plain cp-muted">No test issues are waiting to be resolved.</p>
@@ -416,7 +473,9 @@
             <li>
               <a [routerLink]="link('recipes', issue.recipeId)" [queryParams]="{ area: 'tests' }">{{ issue.title }}</a>
               <span class="tags">
-                <cp-status-pill [tone]="severityWords[issue.severity].tone">{{ severityWords[issue.severity].label }}</cp-status-pill>
+                <cp-status-pill [tone]="severityWords[issue.severity].tone">{{
+                  severityWords[issue.severity].label
+                }}</cp-status-pill>
               </span>
               <dl cpFacts layout="inline">
                 <div cpFact label="Recipe">{{ issue.recipeTitle }}</div>
@@ -433,7 +492,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="proposals">
-  <cp-topic-card heading="AI proposals to review" headingId="dashboard-proposals-heading" [featured]="featured() === 'proposals'">
+  <cp-topic-card
+    heading="AI proposals to review"
+    headingId="dashboard-proposals-heading"
+    [featured]="featured() === 'proposals'"
+  >
     @if (proposals(); as proposals) {
       @if (proposals.awaitingDecision === 0) {
         <p class="plain cp-muted">No proposals are waiting for you.</p>
@@ -502,7 +565,9 @@
                   <span class="name">{{ postTitle(post) }}</span>
                 }
                 <span class="tags">
-                  <cp-status-pill [tone]="publishingWords[post.status].tone">{{ publishingWords[post.status].label }}</cp-status-pill>
+                  <cp-status-pill [tone]="publishingWords[post.status].tone">{{
+                    publishingWords[post.status].label
+                  }}</cp-status-pill>
                   <cp-badge tone="blue">{{ platformName(post.platform) }}</cp-badge>
                 </span>
                 <dl cpFacts layout="inline">
@@ -522,7 +587,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="recipes">
-  <cp-topic-card heading="Recipes in progress" headingId="dashboard-recipes-heading" [featured]="featured() === 'recipes'">
+  <cp-topic-card
+    heading="Recipes in progress"
+    headingId="dashboard-recipes-heading"
+    [featured]="featured() === 'recipes'"
+  >
     @if (recipes(); as recipes) {
       @if (recipes.recent.length === 0 && noRecipesInProgress(recipes)) {
         <cp-empty-state
@@ -594,7 +663,11 @@
 </ng-template>
 
 <ng-template cpDashboardTopic="uploads">
-  <cp-topic-card heading="Recently added pictures" headingId="dashboard-uploads-heading" [featured]="featured() === 'uploads'">
+  <cp-topic-card
+    heading="Recently added pictures"
+    headingId="dashboard-uploads-heading"
+    [featured]="featured() === 'uploads'"
+  >
     @if (uploads(); as uploads) {
       @if (uploads.length === 0) {
         <cp-empty-state
@@ -634,8 +707,8 @@
      is missing and goes straight to where it is set, as My Day and My Week do for the same condition. -->
 <ng-template #needsZoneNotice>
   <cp-notice tone="neutral" role="status">
-    This needs your workspace’s time zone before it can show anything — a day starts and ends at midnight
-    where your workspace is. Nothing is guessed in the meantime.
+    This needs your workspace’s time zone before it can show anything — a day starts and ends at midnight where your
+    workspace is. Nothing is guessed in the meantime.
     <a cpButton variant="secondary" size="sm" [routerLink]="link('brand')">Set the time zone in Brand settings</a>
   </cp-notice>
 </ng-template>

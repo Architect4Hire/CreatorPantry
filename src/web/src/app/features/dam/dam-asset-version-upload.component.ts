@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
   CpButtonComponent,
@@ -22,15 +33,15 @@ type UploadState =
  * report has to be given words rather than reaching a creator as a blank.
  */
 const FAILURE_MESSAGE: Readonly<Record<DamVersionUploadFailure, string>> = {
-  unsupported:
-    'That file is not a picture the library takes. Try a PNG, JPEG, WebP or GIF. Nothing was stored.',
+  unsupported: 'That file is not a picture the library takes. Try a PNG, JPEG, WebP or GIF. Nothing was stored.',
   too_large: 'That file is larger than 32 MB, which is the most the library takes. Nothing was stored.',
   invalid: 'That file could not be accepted. Check it and try again.',
   forbidden: 'You need Contributor access in this workspace to add a version. Nothing was stored.',
   not_found: 'This picture is no longer in the library, so a version cannot be added to it.',
   version_taken:
     'Someone else added a version at the same moment, so yours was not stored. Your file is still chosen — try again and it will take the next number.',
-  unavailable: 'The version could not be stored just now, and nothing was left behind. Your file is still chosen, so try again.',
+  unavailable:
+    'The version could not be stored just now, and nothing was left behind. Your file is still chosen, so try again.',
 };
 
 /**
@@ -66,12 +77,12 @@ const FAILURE_MESSAGE: Readonly<Record<DamVersionUploadFailure, string>> = {
       <cp-form-section heading="The new file" [problem]="failure()">
         <!-- Said plainly, because adding a version sounds like replacing one and is not. -->
         <p class="standing">
-          Version {{ currentVersionNumber() }} stays downloadable, as does every version before it. The file you
-          choose becomes version {{ nextVersionNumber() }} and is the one shown from then on.
+          Version {{ currentVersionNumber() }} stays downloadable, as does every version before it. The file you choose
+          becomes version {{ nextVersionNumber() }} and is the one shown from then on.
         </p>
         <p class="standing">
-          Your title, alt text and other details are not changed. If the new picture looks different, check that
-          the alt text still describes it.
+          Your title, alt text and other details are not changed. If the new picture looks different, check that the alt
+          text still describes it.
         </p>
 
         <cp-uploader
@@ -163,9 +174,17 @@ export class DamAssetVersionUploadComponent {
 
     const state = this.state();
     if (state.status === 'uploading') {
-      return [{ id: 'file', name: file.name, status: 'uploading', ...(state.percent === null ? {} : { progress: state.percent }) }];
+      return [
+        {
+          id: 'file',
+          name: file.name,
+          status: 'uploading',
+          ...(state.percent === null ? {} : { progress: state.percent }),
+        },
+      ];
     }
-    if (state.status === 'failed') return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
+    if (state.status === 'failed')
+      return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
 
     return [{ id: 'file', name: file.name, status: 'queued' }];
   });

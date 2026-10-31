@@ -1,0 +1,8 @@
+{
+  "prettier.prettierPath": "./src/web/node_modules/prettier",
+  "prettier.requireConfig": true,
+  "[typescript][javascript][html][scss][css][json][jsonc][yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  }
+}

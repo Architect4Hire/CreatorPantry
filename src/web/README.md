@@ -17,6 +17,19 @@ script (see `DESIGN-SYSTEM.md`, "What the build checks"). The
 publishable library is emitted to `dist/creator-pantry-ui`, and the showcase bundle to
 `dist/showcase/browser`, which `dotnet publish` copies into `CreatorPantry.Web`.
 
+### Formatting
+
+Prettier (pinned here, configured by the repository root's `.prettierrc.json` and `.prettierignore`) formats
+every TypeScript, template, stylesheet, script, JSON and YAML file in the repository; Markdown is left as
+written. VS Code formats on save with the workspace settings; `npm run format` rewrites everything and
+`npm run format:check` reports what it would change.
+
+Templates use `htmlWhitespaceSensitivity: "strict"`, because Angular keeps whitespace beside text: wrapping
+`<p role="status">{{ status() }}</p>` would make its text `' Loading… '`. Strict mode still moves `@if` and
+`@for` onto their own lines, so an element whose control flow is written flush against its text — `selected@if
+(…) {, …}` — is marked `<!-- prettier-ignore -->`, or it gains a rendered space. A literal `@` in a template is
+written `&#64;`; Prettier's Angular parser reads a bare one as a block.
+
 ### The landing page's tour screenshots
 
 The product tour on the public landing page shows real screens, photographed from a running product with

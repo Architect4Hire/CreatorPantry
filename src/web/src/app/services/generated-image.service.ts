@@ -137,10 +137,7 @@ export class GeneratedImageService {
   ): Observable<StagedImagePreviewOutcome> {
     // No rendition is the route's own default, which is the web-size copy when the picture has one. A grid
     // asks for `thumbnail`; nothing asks for `original` just to look at a picture.
-    const url = this.url(
-      workspaceSlug,
-      `/${encodeURIComponent(generatedImageId)}/preview${renditionQuery(rendition)}`,
-    );
+    const url = this.url(workspaceSlug, `/${encodeURIComponent(generatedImageId)}/preview${renditionQuery(rendition)}`);
     if (!url) return of<StagedImagePreviewOutcome>({ status: 'unavailable' });
 
     return this.http.get(url, { withCredentials: true, responseType: 'blob' }).pipe(
@@ -161,10 +158,7 @@ export class GeneratedImageService {
   downloadUrl(workspaceSlug: string, generatedImageId: string, rendition?: PictureRendition): string | null {
     // Stated by the caller rather than left to the route's default, which is the web-size copy: a creator
     // who presses "Original" has to get the picture exactly as it was made.
-    return this.url(
-      workspaceSlug,
-      `/${encodeURIComponent(generatedImageId)}/content${renditionQuery(rendition)}`,
-    );
+    return this.url(workspaceSlug, `/${encodeURIComponent(generatedImageId)}/content${renditionQuery(rendition)}`);
   }
 
   /** Decline one picture, so retention may remove it. Contributor and above. */
@@ -182,9 +176,7 @@ export class GeneratedImageService {
   }
 
   private url(workspaceSlug: string, suffix = ''): string | null {
-    return this.apiBase.url(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/generated-images${suffix}`,
-    );
+    return this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/generated-images${suffix}`);
   }
 }
 

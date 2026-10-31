@@ -1,7 +1,4 @@
-import {
-  decodeDietaryAllergenAnalysis,
-  encodeDietaryAllergenSelection,
-} from './dietary-allergen-analysis.models';
+import { decodeDietaryAllergenAnalysis, encodeDietaryAllergenSelection } from './dietary-allergen-analysis.models';
 
 /** A payload shaped exactly as the route documents it (openapi-v1.json, DietaryAllergenAnalysis). */
 function payload(): Record<string, unknown> {

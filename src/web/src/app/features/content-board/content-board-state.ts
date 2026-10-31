@@ -41,7 +41,15 @@ type Columns = Readonly<Record<ContentBoardColumn, BoardColumnState>>;
 function blank(phase: BoardColumnPhase): Columns {
   const columns = {} as Record<ContentBoardColumn, BoardColumnState>;
   for (const column of CONTENT_BOARD_COLUMNS) {
-    columns[column] = { column, phase, cards: [], count: null, nextCursor: null, loadingMore: false, moreFailed: false };
+    columns[column] = {
+      column,
+      phase,
+      cards: [],
+      count: null,
+      nextCursor: null,
+      loadingMore: false,
+      moreFailed: false,
+    };
   }
 
   return columns;

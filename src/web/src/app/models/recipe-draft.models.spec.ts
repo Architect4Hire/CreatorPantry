@@ -93,11 +93,41 @@ describe('draftFromProposal', () => {
   it('assigns each line to the group that precedes it in the list', () => {
     const draft = draftFromProposal(
       proposal([
-        change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: 'For the sauce', proposedPosition: 0 }),
-        change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: '2 tbsp doubanjiang', proposedPosition: 0 }),
-        change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l2', afterValue: 'Salt, to taste', proposedPosition: 1 }),
-        change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g2', afterValue: 'For the tofu', proposedPosition: 1 }),
-        change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l3', afterValue: '1 block silken tofu', proposedPosition: 0 }),
+        change({
+          changeKind: 'Add',
+          targetKind: 'IngredientGroup',
+          targetId: 'g1',
+          afterValue: 'For the sauce',
+          proposedPosition: 0,
+        }),
+        change({
+          changeKind: 'Add',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          afterValue: '2 tbsp doubanjiang',
+          proposedPosition: 0,
+        }),
+        change({
+          changeKind: 'Add',
+          targetKind: 'Ingredient',
+          targetId: 'l2',
+          afterValue: 'Salt, to taste',
+          proposedPosition: 1,
+        }),
+        change({
+          changeKind: 'Add',
+          targetKind: 'IngredientGroup',
+          targetId: 'g2',
+          afterValue: 'For the tofu',
+          proposedPosition: 1,
+        }),
+        change({
+          changeKind: 'Add',
+          targetKind: 'Ingredient',
+          targetId: 'l3',
+          afterValue: '1 block silken tofu',
+          proposedPosition: 0,
+        }),
       ]),
     );
 
@@ -116,10 +146,28 @@ describe('draftFromProposal', () => {
       proposal([
         change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: null }),
         change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: '2 tbsp doubanjiang' }),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'ingredientNameText', afterValue: 'doubanjiang' }),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'unitText', afterValue: 'tbsp' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'ingredientNameText',
+          afterValue: 'doubanjiang',
+        }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'unitText',
+          afterValue: 'tbsp',
+        }),
         change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'quantity', afterValue: '2' }),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'preparationNote', afterValue: 'finely chopped' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'preparationNote',
+          afterValue: 'finely chopped',
+        }),
       ]),
     );
 
@@ -136,7 +184,13 @@ describe('draftFromProposal', () => {
       proposal([
         change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: null }),
         change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: 'Salt, to taste' }),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'isOptional', afterValue: 'true' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'isOptional',
+          afterValue: 'true',
+        }),
       ]),
     );
 
@@ -147,7 +201,13 @@ describe('draftFromProposal', () => {
     const draft = draftFromProposal(
       proposal([
         change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: 'For the streusel' }),
-        change({ changeKind: 'Set', targetKind: 'IngredientGroup', targetId: 'g1', fieldName: 'isOptional', afterValue: 'true' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'IngredientGroup',
+          targetId: 'g1',
+          fieldName: 'isOptional',
+          afterValue: 'true',
+        }),
       ]),
     );
 
@@ -179,8 +239,20 @@ describe('draftFromProposal', () => {
       proposal([
         change({ changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'ig1', afterValue: 'Make the sauce' }),
         change({ changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Fry the paste.' }),
-        change({ changeKind: 'Set', targetKind: 'InstructionStep', targetId: 's1', fieldName: 'note', afterValue: 'Do not burn it.' }),
-        change({ changeKind: 'Set', targetKind: 'InstructionStep', targetId: 's1', fieldName: 'durationMinutes', afterValue: '2' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'InstructionStep',
+          targetId: 's1',
+          fieldName: 'note',
+          afterValue: 'Do not burn it.',
+        }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'InstructionStep',
+          targetId: 's1',
+          fieldName: 'durationMinutes',
+          afterValue: '2',
+        }),
         change({ changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's2', afterValue: 'Add stock.' }),
       ]),
     );
@@ -198,9 +270,21 @@ describe('draftFromProposal', () => {
     const draft = draftFromProposal(
       proposal([
         change({ changeKind: 'Add', targetKind: 'Equipment', targetId: 'e1', afterValue: 'Wok' }),
-        change({ changeKind: 'Set', targetKind: 'Equipment', targetId: 'e1', fieldName: 'note', afterValue: 'A wide frying pan works.' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Equipment',
+          targetId: 'e1',
+          fieldName: 'note',
+          afterValue: 'A wide frying pan works.',
+        }),
         change({ changeKind: 'Add', targetKind: 'Equipment', targetId: 'e2', afterValue: 'Rice cooker' }),
-        change({ changeKind: 'Set', targetKind: 'Equipment', targetId: 'e2', fieldName: 'isOptional', afterValue: 'true' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Equipment',
+          targetId: 'e2',
+          fieldName: 'isOptional',
+          afterValue: 'true',
+        }),
       ]),
     );
 
@@ -215,7 +299,13 @@ describe('draftFromProposal', () => {
    * A `note` addressed to an ingredient is reported rather than silently stuck on.
    */
   it('does not place a field belonging to a different kind of row', () => {
-    const stray = change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'note', afterValue: 'nope' });
+    const stray = change({
+      changeKind: 'Set',
+      targetKind: 'Ingredient',
+      targetId: 'l1',
+      fieldName: 'note',
+      afterValue: 'nope',
+    });
     const draft = draftFromProposal(
       proposal([
         change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: null }),
@@ -233,9 +323,21 @@ describe('draftFromProposal', () => {
     const draft = draftFromProposal(
       proposal([
         change({ changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: 'Real heading' }),
-        change({ changeKind: 'Set', targetKind: 'IngredientGroup', targetId: 'g1', fieldName: 'title', afterValue: 'hijacked' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'IngredientGroup',
+          targetId: 'g1',
+          fieldName: 'title',
+          afterValue: 'hijacked',
+        }),
         change({ changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: 'Flour' }),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'changeId', afterValue: 'hijacked' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'changeId',
+          afterValue: 'hijacked',
+        }),
       ]),
     );
 

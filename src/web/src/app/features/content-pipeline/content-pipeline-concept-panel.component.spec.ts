@@ -129,9 +129,8 @@ async function mount(
 
 function buttonWith(text: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find((button) =>
-      (button.textContent ?? '').trim().startsWith(text),
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim().startsWith(text)) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -140,7 +139,10 @@ async function click(text: string): Promise<void> {
   await settle();
 }
 
-async function answerWatch(detail: AiProposalDetail | null, status: AiProposalStatus['status'] = 'Proposed'): Promise<void> {
+async function answerWatch(
+  detail: AiProposalDetail | null,
+  status: AiProposalStatus['status'] = 'Proposed',
+): Promise<void> {
   watches[watches.length - 1].next({ status: 'found', operation: operation(detail, status) });
   await settle();
 }
@@ -434,7 +436,9 @@ describe('ContentPipelineConceptPanelComponent', () => {
     expect(surface.querySelector('[cpGeneratedActions]')?.textContent).toContain('Plan different looks');
     // The creator's answer is theirs, not the model's: outside the surface, after it.
     expect(surface.querySelector('cp-choice-group')).toBeNull();
-    expect(surface.compareDocumentPosition(el.querySelector('cp-choice-group')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      surface.compareDocumentPosition(el.querySelector('cp-choice-group')!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(el.querySelector('[data-testid="looks-loading"]')).toBeNull();
   });
 
@@ -513,7 +517,7 @@ describe('ContentPipelineConceptPanelComponent', () => {
     expect(host.prompt().promptSource).toBe('none');
   });
 
-  it("keeps a prompt the creator wrote when a different shot is picked, and says nothing was theirs to lose", async () => {
+  it('keeps a prompt the creator wrote when a different shot is picked, and says nothing was theirs to lose', async () => {
     await mount();
     await click('Plan some looks');
     await answerWatch(TWO_LOOKS);
@@ -579,7 +583,9 @@ describe('ContentPipelineConceptPanelComponent', () => {
     await mount();
     await click('Plan some looks');
     await answerWatch(
-      proposal([row({ changeId: 'a1', changeKind: 'Add', targetId: 't-1', afterValue: 'A look', proposedPosition: 0 })]),
+      proposal([
+        row({ changeId: 'a1', changeKind: 'Add', targetId: 't-1', afterValue: 'A look', proposedPosition: 0 }),
+      ]),
     );
 
     expect(el.textContent).toContain('No shots came back');

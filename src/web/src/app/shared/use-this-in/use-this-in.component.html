@@ -1,5 +1,10 @@
 @if (destinations().length > 0) {
-  <div class="handoff" role="group" [attr.aria-labelledby]="headingId" [attr.aria-busy]="opening() !== null ? 'true' : null">
+  <div
+    class="handoff"
+    role="group"
+    [attr.aria-labelledby]="headingId"
+    [attr.aria-busy]="opening() !== null ? 'true' : null"
+  >
     <p class="heading" [id]="headingId">{{ heading() }}</p>
 
     <ul class="destinations">
@@ -30,8 +35,8 @@
     @switch (failure()) {
       @case ('source_unavailable') {
         <cp-notice tone="error" role="alert">
-          This could not be used to start new work. It, or a channel or themed day chosen with it, may have
-          been archived or removed. Nothing here has changed.
+          This could not be used to start new work. It, or a channel or themed day chosen with it, may have been
+          archived or removed. Nothing here has changed.
         </cp-notice>
       }
       @case ('forbidden') {

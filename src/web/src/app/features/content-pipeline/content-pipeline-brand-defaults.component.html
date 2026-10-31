@@ -9,8 +9,8 @@
   }
   @if (brandStatus() === 'unavailable') {
     <cp-notice tone="warning" role="status">
-      Your brand settings could not be loaded, so this run is using CreatorPantry’s own defaults. Everything else
-      still works.
+      Your brand settings could not be loaded, so this run is using CreatorPantry’s own defaults. Everything else still
+      works.
     </cp-notice>
   }
   @if (brandStatus() === 'none') {
@@ -70,7 +70,9 @@
                   @if (state.guide.styleLines.length > 0) {
                     <ul class="lines">
                       @for (line of state.guide.styleLines; track line.label) {
-                        <li><strong>{{ line.label }}.</strong> {{ line.summary }}</li>
+                        <li
+                          ><strong>{{ line.label }}.</strong> {{ line.summary }}</li
+                        >
                       }
                     </ul>
                   } @else {

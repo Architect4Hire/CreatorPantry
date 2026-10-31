@@ -159,7 +159,9 @@ describe('BrandSetupCreateStepComponent', () => {
     documents.hold = true;
     await mount({ sources: examples({ documentId: 'd1', kind: 'sounds-like-me' }) });
 
-    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Looking up your examples'))!;
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) =>
+      each.textContent?.includes('Looking up your examples'),
+    )!;
     expect(status.classList).toContain('cp-sr-only');
     const busy = el.querySelector('[aria-busy="true"]')!;
     expect(busy.querySelector('cp-skeleton')).not.toBeNull();
@@ -229,7 +231,10 @@ describe('BrandSetupCreateStepComponent', () => {
     });
 
     it('reads a malformed saved choice as no choice at all', async () => {
-      expect(decodeCreateChoice({ method: 'magic', costAcknowledged: 'yes' })).toEqual({ method: null, costAcknowledged: false });
+      expect(decodeCreateChoice({ method: 'magic', costAcknowledged: 'yes' })).toEqual({
+        method: null,
+        costAcknowledged: false,
+      });
       await mount({ draft: { method: 42 } });
       expect(last().canContinue).toBeFalse();
       expect(text()).toContain('Pick one of the two');
@@ -255,9 +260,12 @@ describe('BrandSetupCreateStepComponent', () => {
     });
 
     it('holds a draft chosen earlier and names the way forward', async () => {
-      await mount({ draft: { method: 'draft', costAcknowledged: true }, allowance: { kind: 'exhausted', period: figures(0) } });
+      await mount({
+        draft: { method: 'draft', costAcknowledged: true },
+        allowance: { kind: 'exhausted', period: figures(0) },
+      });
       expect(last().canContinue).toBeFalse();
-      expect(text()).toContain("choose \"I'll write it myself\"");
+      expect(text()).toContain('choose "I\'ll write it myself"');
       // The acknowledgement is not asked again for a draft that cannot be written anyway.
       expect(control('cp-create-cost-ack')).toBeNull();
     });
@@ -360,13 +368,18 @@ describe('BrandSetupCreateStepComponent', () => {
   describe('accessibility and words', () => {
     it('names its groups and every control, and offers no model or prompt vocabulary', async () => {
       documents.details.set('d1', detail('d1', 'A post'));
-      await mount({ sources: examples({ documentId: 'd1', kind: 'blog' }), allowance: { kind: 'healthy', period: figures(900) } });
+      await mount({
+        sources: examples({ documentId: 'd1', kind: 'blog' }),
+        allowance: { kind: 'healthy', period: figures(900) },
+      });
       await click('cp-create-method-draft');
 
       const group = el.querySelector('[role="radiogroup"]')!;
       expect(group.getAttribute('aria-label')).toBe('How should your guide get written?');
       for (const each of Array.from(el.querySelectorAll<HTMLInputElement>('input'))) {
-        expect(each.labels?.length || each.getAttribute('aria-label')).withContext(each.id).toBeTruthy();
+        expect(each.labels?.length || each.getAttribute('aria-label'))
+          .withContext(each.id)
+          .toBeTruthy();
       }
       expect(el.querySelectorAll('cp-form-section').length).toBe(2);
       expect(text().toLowerCase()).not.toMatch(/\b(prompt|model|token|provider|embedding|deployment|context window)\b/);
@@ -374,11 +387,15 @@ describe('BrandSetupCreateStepComponent', () => {
 
     it('announces the two things that hold Continue, where they happen', async () => {
       await mount();
-      const pick = Array.from(el.querySelectorAll('p')).find((each) => each.textContent?.includes('Pick one of the two'))!;
+      const pick = Array.from(el.querySelectorAll('p')).find((each) =>
+        each.textContent?.includes('Pick one of the two'),
+      )!;
       expect(pick.getAttribute('role')).toBeNull();
 
       await click('cp-create-method-draft');
-      const tick = Array.from(el.querySelectorAll('p')).find((each) => each.textContent?.includes('Tick the box above'))!;
+      const tick = Array.from(el.querySelectorAll('p')).find((each) =>
+        each.textContent?.includes('Tick the box above'),
+      )!;
       expect(tick.getAttribute('role')).toBe('status');
     });
 

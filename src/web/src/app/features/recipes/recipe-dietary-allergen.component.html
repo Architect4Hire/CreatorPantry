@@ -115,8 +115,8 @@
       <h2 class="results-heading" [id]="resultsHeadingId">{{ copy.resultsHeading }}</h2>
 
       <p class="cp-muted measure">
-        Read against version {{ result.versionNumber }} · records as of
-        {{ result.evaluatedOn | date: 'd MMMM y' }} · method {{ result.methodVersion }}
+        Read against version {{ result.versionNumber }} · records as of {{ result.evaluatedOn | date: 'd MMMM y' }} ·
+        method {{ result.methodVersion }}
       </p>
 
       @if (isStale()) {
@@ -182,8 +182,8 @@
                 <h4 class="group-title" [id]="groupId + '-title'">
                   {{ group.heading }}
                   <cp-status-pill [tone]="group.tone">
-                    {{ group.rows.length }}<span class="cp-sr-only">
-                      {{ group.rows.length === 1 ? 'line' : 'lines' }}</span>
+                    {{ group.rows.length
+                    }}<span class="cp-sr-only"> {{ group.rows.length === 1 ? 'line' : 'lines' }}</span>
                   </cp-status-pill>
                 </h4>
 

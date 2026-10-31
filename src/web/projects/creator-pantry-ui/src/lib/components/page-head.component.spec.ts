@@ -6,26 +6,30 @@ import { CpPageHeadComponent } from './page-head.component';
 
 @Component({
   imports: [CpPageHeadComponent, CpBackLinkComponent],
-  template: `<div [attr.data-cp-tone]="tone()" [style.width]="width()"><cp-page-head [heading]="heading()" [lede]="lede()" [breadcrumbLabel]="breadcrumbLabel()">
-    @if (icon()) {
-      <svg cpPageHeadIcon viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /></svg>
-    }
-    @if (media()) {
-      <img cpPageHeadMedia alt="" width="4" height="3" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
-    }
-    @if (wrappedMedia()) {
-      <figure cpPageHeadMedia><img alt="" width="1" height="9" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" /></figure>
-    }
-    @if (crumb()) {
-      <a cpBackLink cpPageHeadBreadcrumb href="/library">Library</a>
-    }
-    @if (badge()) {
-      <span cpPageHeadBadges class="badge">Draft</span>
-    }
-    @if (action()) {
-      <button cpPageHeadActions type="button">Upload</button>
-    }
-  </cp-page-head></div>`,
+  template: `<div [attr.data-cp-tone]="tone()" [style.width]="width()"
+    ><cp-page-head [heading]="heading()" [lede]="lede()" [breadcrumbLabel]="breadcrumbLabel()">
+      @if (icon()) {
+        <svg cpPageHeadIcon viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /></svg>
+      }
+      @if (media()) {
+        <img cpPageHeadMedia alt="" width="4" height="3" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" />
+      }
+      @if (wrappedMedia()) {
+        <figure cpPageHeadMedia
+          ><img alt="" width="1" height="9" src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+        /></figure>
+      }
+      @if (crumb()) {
+        <a cpBackLink cpPageHeadBreadcrumb href="/library">Library</a>
+      }
+      @if (badge()) {
+        <span cpPageHeadBadges class="badge">Draft</span>
+      }
+      @if (action()) {
+        <button cpPageHeadActions type="button">Upload</button>
+      }
+    </cp-page-head></div
+  >`,
 })
 class HostComponent {
   readonly heading = signal('Soda bread hero');
@@ -220,8 +224,12 @@ describe('CpPageHeadComponent — tone, icon and picture', () => {
       .flatMap((rule) => Array.from(rule.cssRules) as CSSStyleRule[]);
 
     const hidden = printed.filter((rule) => rule.style.display === 'none');
-    expect(hidden.some((rule) => /(^|,\s*)\.media\[/.test(rule.selectorText))).withContext('the picture').toBeTrue();
-    expect(hidden.some((rule) => /(^|,\s*)\.icon\[/.test(rule.selectorText))).withContext('the tile').toBeTrue();
+    expect(hidden.some((rule) => /(^|,\s*)\.media\[/.test(rule.selectorText)))
+      .withContext('the picture')
+      .toBeTrue();
+    expect(hidden.some((rule) => /(^|,\s*)\.icon\[/.test(rule.selectorText)))
+      .withContext('the tile')
+      .toBeTrue();
 
     const masthead = printed.filter((rule) => rule.selectorText?.startsWith('.masthead'));
     expect(masthead.length).toBe(1);
@@ -239,7 +247,13 @@ describe('CpBackLinkComponent', () => {
     expect(link.getAttribute('href')).toBe('/library');
     expect(link.querySelector('span[aria-hidden="true"]')?.textContent).toBe('←');
     // What is left once the hidden arrow is taken away is the destination, and nothing else.
-    expect(Array.from(link.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join('').trim()).toBe('Library');
+    expect(
+      Array.from(link.childNodes)
+        .filter((n) => n.nodeType === Node.TEXT_NODE)
+        .map((n) => n.textContent)
+        .join('')
+        .trim(),
+    ).toBe('Library');
   });
 
   it('is at least 40px tall', () => {

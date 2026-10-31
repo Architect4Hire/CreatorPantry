@@ -17,11 +17,6 @@
   },
   "expect": {
     "contains": ["the creator's alt text", "A torn soda loaf on a linen cloth."],
-    "excludes": [
-      "a model's reading",
-      "observations",
-      "confidence",
-      "A picture is attached, not described."
-    ]
+    "excludes": ["a model's reading", "observations", "confidence", "A picture is attached, not described."]
   }
 }

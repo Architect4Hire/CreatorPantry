@@ -15,8 +15,8 @@
   @if (!hasIssues()) {
     <!-- An empty issue list is not a verdict: the tester's own outcome says how the cook went. -->
     <p class="cp-muted measure">
-      This test recorded no problems. That is not the same as the recipe being right — the tester's verdict on the
-      test itself says how the cook went.
+      This test recorded no problems. That is not the same as the recipe being right — the tester's verdict on the test
+      itself says how the cook went.
     </p>
   }
 
@@ -54,9 +54,7 @@
           <div class="resolution">
             <div class="resolution-head">
               <cp-status-pill tone="success">{{ resolutionKindLabels[resolution.kind] }}</cp-status-pill>
-              <span class="resolution-when">
-                Recorded {{ resolution.resolvedAt | date: 'mediumDate' }}
-              </span>
+              <span class="resolution-when"> Recorded {{ resolution.resolvedAt | date: 'mediumDate' }} </span>
             </div>
 
             @if (resolution.notes) {
@@ -117,8 +115,12 @@
               </select>
             </cp-field>
 
-            <cp-field label="Notes" [forId]="idPrefix + '-notes-' + issue.id" [error]="fieldError('notes')"
-              hint="What was done, in your own words. This never rewrites the tester's note above.">
+            <cp-field
+              label="Notes"
+              [forId]="idPrefix + '-notes-' + issue.id"
+              [error]="fieldError('notes')"
+              hint="What was done, in your own words. This never rewrites the tester's note above."
+            >
               <textarea
                 [id]="idPrefix + '-notes-' + issue.id"
                 [name]="'notes-' + issue.id"
@@ -142,7 +144,9 @@
                 [hint]="
                   testedVersionNumber() === null
                     ? 'By number, as the recipe’s history lists it.'
-                    : 'By number. A correction normally comes after version ' + testedVersionNumber() + ', the one tested.'
+                    : 'By number. A correction normally comes after version ' +
+                      testedVersionNumber() +
+                      ', the one tested.'
                 "
               >
                 <input
@@ -177,17 +181,27 @@
               }
             }
 
-            <p class="resolve-warning">
-              A resolution is written once and cannot be edited or removed afterwards.
-            </p>
+            <p class="resolve-warning"> A resolution is written once and cannot be edited or removed afterwards. </p>
 
             <div class="resolve-actions">
-              <button cpButton variant="ghost" size="sm" type="button" [disabled]="submitting()"
-                (click)="cancelResolve()">
+              <button
+                cpButton
+                variant="ghost"
+                size="sm"
+                type="button"
+                [disabled]="submitting()"
+                (click)="cancelResolve()"
+              >
                 Cancel
               </button>
-              <button cpButton variant="primary" size="sm" type="submit" [disabled]="!canSubmit()"
-                [attr.aria-busy]="submitting()">
+              <button
+                cpButton
+                variant="primary"
+                size="sm"
+                type="submit"
+                [disabled]="!canSubmit()"
+                [attr.aria-busy]="submitting()"
+              >
                 @if (submitting()) {
                   Recording…
                 } @else {

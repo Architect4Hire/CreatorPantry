@@ -94,7 +94,9 @@ describe('LandingComponent', () => {
   it('links the value-prop cards to exactly the panels the tour was captured with', async () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
-    const links = Array.from(el.querySelectorAll<HTMLAnchorElement>('.tour-link')).map((link) => link.getAttribute('href'));
+    const links = Array.from(el.querySelectorAll<HTMLAnchorElement>('.tour-link')).map((link) =>
+      link.getAttribute('href'),
+    );
 
     // Both lists come from the generated captures, so a panel waiting on its screenshots is in neither.
     expect(links).toEqual(CAPTURED_TOUR_PANELS.map((panel) => `#tour-${panel}`));

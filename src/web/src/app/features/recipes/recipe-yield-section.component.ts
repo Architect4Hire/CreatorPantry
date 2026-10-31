@@ -49,10 +49,9 @@ export class RecipeYieldSectionComponent {
   revealMeasuredBatch(): void {
     this.form.measuredBatchRevealed.set(true);
 
-    afterNextRender(
-      () => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-yield-quantity')?.focus(),
-      { injector: this.injector },
-    );
+    afterNextRender(() => this.elementRef.nativeElement.querySelector<HTMLElement>('#recipe-yield-quantity')?.focus(), {
+      injector: this.injector,
+    });
   }
 
   /**

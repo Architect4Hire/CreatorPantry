@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -56,10 +66,12 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
   if (review > 0) return { word: review === 1 ? '1 needs another look' : `${review} need another look`, tone: 'stale' };
 
   const waiting = count('Proposed');
-  if (waiting > 0) return { word: waiting === 1 ? '1 waiting for you' : `${waiting} waiting for you`, tone: 'progress' };
+  if (waiting > 0)
+    return { word: waiting === 1 ? '1 waiting for you' : `${waiting} waiting for you`, tone: 'progress' };
 
   const accepted = count('Accepted');
-  if (accepted > 0) return { word: accepted === channels.length ? 'All accepted' : `${accepted} accepted`, tone: 'success' };
+  if (accepted > 0)
+    return { word: accepted === channels.length ? 'All accepted' : `${accepted} accepted`, tone: 'success' };
 
   return { word: 'None used', tone: 'neutral' };
 }
@@ -96,7 +108,9 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
   ],
   template: `
     <!-- Always in the page, so it is announced when its words change; the skeleton under it is aria-hidden. -->
-    <p class="cp-sr-only" role="status">{{ state().status === 'loading' ? 'Looking for posts you have written…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      state().status === 'loading' ? 'Looking for posts you have written…' : ''
+    }}</p>
 
     @switch (state().status) {
       @case ('loading') {
@@ -121,7 +135,11 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
         @if (sets().length === 0) {
           <cp-empty-state
             title="No posts yet"
-            [description]="more() ? 'None of your most recent work has posts yet.' : 'Nothing has posts yet. The first set you write will be listed here.'"
+            [description]="
+              more()
+                ? 'None of your most recent work has posts yet.'
+                : 'Nothing has posts yet. The first set you write will be listed here.'
+            "
             illustration="post"
           />
         } @else {
@@ -131,7 +149,10 @@ function standingOf(channels: readonly ChannelPostChannel[]): RecentSet['standin
                 <cp-card>
                   <div class="set">
                     <h3 class="title">
-                      <a [routerLink]="set.link" [attr.aria-current]="set.contextId === currentContextId() ? 'page' : null">
+                      <a
+                        [routerLink]="set.link"
+                        [attr.aria-current]="set.contextId === currentContextId() ? 'page' : null"
+                      >
                         {{ set.title ?? 'Untitled piece of work' }}
                       </a>
                     </h3>

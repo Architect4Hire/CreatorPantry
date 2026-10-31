@@ -10,8 +10,8 @@
 
   @if (isStale()) {
     <cp-notice tone="warning" role="status">
-      The recipe has changed since these words were accepted, so they may no longer be right. Reading them
-      again and saying they still stand is the way on — or edit them, or have them written again.
+      The recipe has changed since these words were accepted, so they may no longer be right. Reading them again and
+      saying they still stand is the way on — or edit them, or have them written again.
     </cp-notice>
   }
 
@@ -146,11 +146,9 @@
         <!-- Printed here only where there is no bar to print the figure. While typing it is also the live region,
              heard but not shown twice beside a bar. -->
         @if (!limit().limited || isEditing()) {
-          <span
-            class="count"
-            [class.cp-sr-only]="limit().limited"
-            [attr.aria-live]="isEditing() ? 'polite' : null"
-          >{{ limit().text }}</span>
+          <span class="count" [class.cp-sr-only]="limit().limited" [attr.aria-live]="isEditing() ? 'polite' : null">{{
+            limit().text
+          }}</span>
         }
       </p>
     </div>
@@ -184,7 +182,14 @@
         It still stands
       </button>
     }
-    <button cpButton type="button" variant="secondary" size="sm" [disabled]="working()" (click)="emit({ kind: 'edit' })">
+    <button
+      cpButton
+      type="button"
+      variant="secondary"
+      size="sm"
+      [disabled]="working()"
+      (click)="emit({ kind: 'edit' })"
+    >
       Edit
     </button>
     @if (canAccept()) {

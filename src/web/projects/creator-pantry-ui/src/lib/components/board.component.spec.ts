@@ -10,7 +10,10 @@ import { CpBoardColumnComponent, CpBoardComponent } from './board.component';
       <cp-board-column heading="To do" [count]="count()" [countLabel]="['card', 'cards']" [busy]="busy()">
         <ul aria-label="To do">
           <li>Soda bread</li>
-          <li>A title long enough that, unbroken, it would be wider than its column: Supercalifragilisticexpialidocious</li>
+          <li
+            >A title long enough that, unbroken, it would be wider than its column:
+            Supercalifragilisticexpialidocious</li
+          >
         </ul>
         @if (more()) {
           <button cpBoardColumnFooter type="button">Load more</button>

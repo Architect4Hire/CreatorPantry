@@ -225,7 +225,9 @@ export class LongFormPipelineShellComponent {
   protected readonly contextId = computed(() => this.session.context()?.id ?? this.routeContextId());
 
   /** Where the piece stands: the surface's reading where there is one, the draft's otherwise. */
-  private readonly status = computed<LongFormDraftStatus | null>(() => this.documentStatus() ?? this.draft()?.status ?? null);
+  private readonly status = computed<LongFormDraftStatus | null>(
+    () => this.documentStatus() ?? this.draft()?.status ?? null,
+  );
 
   protected readonly furthest = computed(() => furthestLongFormPipelineStep(this.status()));
 
@@ -239,7 +241,11 @@ export class LongFormPipelineShellComponent {
     const asked = this.routeStep();
     const furthest = this.furthest();
 
-    return isLongFormPipelineStepSlug(asked) && canOpenLongFormPipelineStep(asked, furthest) ? asked : asked === null ? 'about' : furthest;
+    return isLongFormPipelineStepSlug(asked) && canOpenLongFormPipelineStep(asked, furthest)
+      ? asked
+      : asked === null
+        ? 'about'
+        : furthest;
   });
 
   protected readonly step = computed(() => LONG_FORM_PIPELINE_STEPS[longFormPipelineStepIndex(this.current())]!);
@@ -361,7 +367,12 @@ export class LongFormPipelineShellComponent {
             return null;
           };
 
-          return { slug: read('workspaceSlug'), contextId: read('contextId'), draftId: read('draftId'), step: read('step') };
+          return {
+            slug: read('workspaceSlug'),
+            contextId: read('contextId'),
+            draftId: read('draftId'),
+            step: read('step'),
+          };
         }),
         takeUntilDestroyed(),
       )
@@ -490,7 +501,8 @@ export class LongFormPipelineShellComponent {
     await this.session.load(slug, contextId);
     if (ticket !== this.openTicket || this.session.open() !== 'ready') return;
 
-    const found = draftId === null ? await this.latestDraftOf(slug, contextId) : await this.readDraft(slug, draftId, contextId);
+    const found =
+      draftId === null ? await this.latestDraftOf(slug, contextId) : await this.readDraft(slug, draftId, contextId);
     if (ticket !== this.openTicket) return;
 
     if (found === 'not_found' || found === 'unavailable') {
@@ -507,7 +519,11 @@ export class LongFormPipelineShellComponent {
   }
 
   /** The draft the address names — which must be this piece of work's own. */
-  private async readDraft(slug: string, draftId: string, contextId: string): Promise<LongFormDraft | 'not_found' | 'unavailable'> {
+  private async readDraft(
+    slug: string,
+    draftId: string,
+    contextId: string,
+  ): Promise<LongFormDraft | 'not_found' | 'unavailable'> {
     const outcome = await this.drafts.read(slug, draftId);
 
     if (outcome.status === 'found') {
@@ -791,9 +807,12 @@ export class LongFormPipelineShellComponent {
    * Only an id is taken, and it is only offered: the recipe picker shows it as one button, and it is linked when the
    * creator presses it, never on arrival.
    */
-  protected readonly suggestedRecipe = toSignal(this.route.queryParamMap.pipe(map((query) => idFrom(query.get('recipe')))), {
-    initialValue: idFrom(this.route.snapshot.queryParamMap.get('recipe')),
-  });
+  protected readonly suggestedRecipe = toSignal(
+    this.route.queryParamMap.pipe(map((query) => idFrom(query.get('recipe')))),
+    {
+      initialValue: idFrom(this.route.snapshot.queryParamMap.get('recipe')),
+    },
+  );
 
   private startingPoint(): 'recipe' | 'brief' | null {
     const from = this.route.snapshot.queryParamMap.get('from');

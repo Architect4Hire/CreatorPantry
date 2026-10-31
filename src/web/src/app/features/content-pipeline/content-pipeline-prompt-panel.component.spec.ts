@@ -131,9 +131,8 @@ async function mount(
 
 function buttonWith(text: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find((button) =>
-      (button.textContent ?? '').trim().startsWith(text),
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim().startsWith(text)) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -396,7 +395,11 @@ describe('ContentPipelinePromptPanelComponent', () => {
     await mount();
     await click('Write the prompt');
     await answerWatch(
-      readyOperation('A loaf.', [], [{ kind: 'Limitation', message: 'Your brief was too long to read.', changeId: null }]),
+      readyOperation(
+        'A loaf.',
+        [],
+        [{ kind: 'Limitation', message: 'Your brief was too long to read.', changeId: null }],
+      ),
     );
 
     expect(el.textContent).toContain('Your brief was too long to read.');
@@ -429,7 +432,9 @@ describe('ContentPipelinePromptPanelComponent', () => {
     await type('My own prompt.');
 
     // Off the box once the words are theirs. The wording as it was written stays marked in its own disclosure.
-    const onTheBox = Array.from(el.querySelectorAll('cp-generated-label')).filter((label) => label.closest('cp-generated') === null);
+    const onTheBox = Array.from(el.querySelectorAll('cp-generated-label')).filter(
+      (label) => label.closest('cp-generated') === null,
+    );
     expect(onTheBox.length).toBe(0);
   });
 

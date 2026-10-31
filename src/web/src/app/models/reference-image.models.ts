@@ -15,14 +15,7 @@ import { AiProposalDetail, AiProposalWarning } from './ai-proposal.models';
 
 /** Mirrors AiReferenceImageAspect. Which property of the photograph one observation is about. */
 export type ReferenceImageAspect =
-  | 'Unspecified'
-  | 'Composition'
-  | 'Lighting'
-  | 'Colour'
-  | 'Styling'
-  | 'Surface'
-  | 'Subject'
-  | 'Mood';
+  'Unspecified' | 'Composition' | 'Lighting' | 'Colour' | 'Styling' | 'Surface' | 'Subject' | 'Mood';
 
 /** In the order a creator reads a photograph: what is in it, how it is lit, then how it feels. */
 export const REFERENCE_IMAGE_ASPECTS: readonly ReferenceImageAspect[] = [

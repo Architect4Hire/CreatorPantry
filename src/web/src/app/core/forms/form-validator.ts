@@ -25,7 +25,13 @@ export class FormValidator<TModel> {
 
   private readonly serverIssues = computed<readonly FormIssue[]>(() =>
     Object.entries(this.serverErrors()).flatMap(([path, messages]) =>
-      messages.map((message): FormIssue => ({ path, severity: 'error', code: SERVER_ISSUE_CODE, message, source: 'server' })),
+      messages.map((message): FormIssue => ({
+        path,
+        severity: 'error',
+        code: SERVER_ISSUE_CODE,
+        message,
+        source: 'server',
+      })),
     ),
   );
 
@@ -53,7 +59,9 @@ export class FormValidator<TModel> {
   constructor(
     private readonly rules: FormRules<TModel>,
     private readonly source: Signal<TModel>,
-    private readonly serverErrors: WritableSignal<Readonly<Record<string, readonly string[]>>> = signal<Readonly<Record<string, readonly string[]>>>({}),
+    private readonly serverErrors: WritableSignal<Readonly<Record<string, readonly string[]>>> = signal<
+      Readonly<Record<string, readonly string[]>>
+    >({}),
   ) {}
 
   /** The creator tried to save: every client error is shown from now on. */
@@ -70,7 +78,9 @@ export class FormValidator<TModel> {
 
   /** Visible issues at exactly `path`, in order. */
   issuesFor(path: string, severity?: IssueSeverity): readonly FormIssue[] {
-    return this.visibleIssues().filter((issue) => issue.path === path && (severity === undefined || issue.severity === severity));
+    return this.visibleIssues().filter(
+      (issue) => issue.path === path && (severity === undefined || issue.severity === severity),
+    );
   }
 
   /** The first error sentence for `path`, or an empty string — the shape `cp-field`'s `error` takes. */

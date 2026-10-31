@@ -124,9 +124,7 @@ describe('RecipeDraftService', () => {
   it('escapes the request id into the path', async () => {
     const pending = firstValueFrom(service.watchStatus('cozy fall', 'a b'));
 
-    const request = http.expectOne(
-      'https://gateway.example/api/v1/workspaces/cozy%20fall/recipe-draft-requests/a%20b',
-    );
+    const request = http.expectOne('https://gateway.example/api/v1/workspaces/cozy%20fall/recipe-draft-requests/a%20b');
     request.flush(statusPayload());
 
     await pending;
@@ -137,9 +135,7 @@ describe('RecipeDraftService', () => {
    * typed call for it before a screen sends one would be a promise this client does not keep.
    */
   it('offers asking, accepting and reading, and no way to reject', () => {
-    const methods = Object.getOwnPropertyNames(RecipeDraftService.prototype).filter(
-      (name) => name !== 'constructor',
-    );
+    const methods = Object.getOwnPropertyNames(RecipeDraftService.prototype).filter((name) => name !== 'constructor');
 
     expect(methods).toEqual(['requestDraft', 'requestDraftForDish', 'acceptDraft', 'watchStatus']);
   });
@@ -253,10 +249,12 @@ describe('RecipeDraftService', () => {
     it('keeps the server’s own sentence when it will not build a recipe from what was sent', async () => {
       const pending = service.acceptDraft('cozy-fall', REQUEST_ID, request);
 
-      http.expectOne(URL).flush(
-        { code: 'ai.recipeDraftSelection.invalid_request', title: 'A recipe needs a title.' },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne(URL)
+        .flush(
+          { code: 'ai.recipeDraftSelection.invalid_request', title: 'A recipe needs a title.' },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       expect(await pending).toEqual({ status: 'refused', message: 'A recipe needs a title.' });
     });

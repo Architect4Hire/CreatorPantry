@@ -45,7 +45,14 @@ function estimatePayload(): Record<string, unknown> {
       {
         code: 'VitaminD',
         unit: 'Microgram',
-        wholeRecipe: amount({ low: 0.004, high: 0.004, displayLow: 0, displayHigh: 0, displayPrecision: 1, trace: true }),
+        wholeRecipe: amount({
+          low: 0.004,
+          high: 0.004,
+          displayLow: 0,
+          displayHigh: 0,
+          displayPrecision: 1,
+          trace: true,
+        }),
         perServing: null,
         complete: false,
         linesMissingIt: ['l2'],

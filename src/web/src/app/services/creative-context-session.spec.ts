@@ -157,7 +157,9 @@ describe('CreativeContextSession', () => {
 
       expect(server.patches.length).toBe(1);
       expect(session.save()).toBe('saved');
-      expect(session.fields().pictureBrief).withContext('the creator’s own typing is left alone').toBe('A tight crop. ');
+      expect(session.fields().pictureBrief)
+        .withContext('the creator’s own typing is left alone')
+        .toBe('A tight crop. ');
     }));
 
     it('replaces the first channel and keeps the others a context names', fakeAsync(() => {
@@ -256,7 +258,9 @@ describe('CreativeContextSession', () => {
       expect(session.save()).toBe('conflict');
       expect(session.clash()).toEqual(['pictureBrief']);
       expect(session.fields().pictureBrief).toBe('A tight crop, soft light.');
-      expect(server.stored(SLUG, CTX)?.pictureBrief).withContext('nothing was replaced').toBe('A wide shot of the table.');
+      expect(server.stored(SLUG, CTX)?.pictureBrief)
+        .withContext('nothing was replaced')
+        .toBe('A wide shot of the table.');
     }));
 
     it('sends nothing more until the creator chooses, however much they type', fakeAsync(() => {
@@ -442,10 +446,7 @@ describe('CreativeContextSession', () => {
 
     it('removes a reference by its own id and leaves the rest', fakeAsync(() => {
       server.seed(SLUG, CTX, {
-        references: [
-          server.reference(SODA, 0),
-          server.reference({ kind: 'PromptRecord', promptRecordId: 'p-1' }, 1),
-        ],
+        references: [server.reference(SODA, 0), server.reference({ kind: 'PromptRecord', promptRecordId: 'p-1' }, 1)],
       });
       load();
       const recipe = session.context()!.references[0];
@@ -516,7 +517,12 @@ describe('CreativeContextSession', () => {
     }));
 
     describe('a picture just saved to the library', () => {
-      const KEPT = { kind: 'DamAsset', purpose: 'Keeper', mediaAssetId: 'asset-1', mediaAssetVersionNumber: 1 } as const;
+      const KEPT = {
+        kind: 'DamAsset',
+        purpose: 'Keeper',
+        mediaAssetId: 'asset-1',
+        mediaAssetVersionNumber: 1,
+      } as const;
 
       it('reads the work again and writes nothing when the save already named it', fakeAsync(() => {
         server.seed(SLUG, CTX);

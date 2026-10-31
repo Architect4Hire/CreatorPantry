@@ -30,7 +30,13 @@
       <p class="file-error" role="alert">{{ fileError() }}</p>
     }
 
-    <cp-field label="Name" forId="brand-example-title" [required]="true" [error]="titleError()" hint="How you will recognise this example in the library.">
+    <cp-field
+      label="Name"
+      forId="brand-example-title"
+      [required]="true"
+      [error]="titleError()"
+      hint="How you will recognise this example in the library."
+    >
       <input
         id="brand-example-title"
         type="text"
@@ -44,7 +50,13 @@
     </cp-field>
 
     <cp-field label="Kind of example" forId="brand-example-type" [required]="true" [error]="typeError()">
-      <select id="brand-example-type" [required]="true" [value]="documentType()" [disabled]="isUploading()" (change)="onDocumentType($event)">
+      <select
+        id="brand-example-type"
+        [required]="true"
+        [value]="documentType()"
+        [disabled]="isUploading()"
+        (change)="onDocumentType($event)"
+      >
         <option value="">Choose a kind</option>
         @for (type of documentTypes; track type) {
           <option [value]="type">{{ typeLabels[type] }}</option>
@@ -57,9 +69,15 @@
       forId="brand-example-purpose"
       [required]="true"
       [error]="purposeError()"
-      hint="What this example shows about your brand. Choose &quot;Doesn't sound like me&quot; to keep it as something to avoid."
+      hint='What this example shows about your brand. Choose "Doesn&apos;t sound like me" to keep it as something to avoid.'
     >
-      <select id="brand-example-purpose" [required]="true" [value]="purpose()" [disabled]="isUploading()" (change)="onPurpose($event)">
+      <select
+        id="brand-example-purpose"
+        [required]="true"
+        [value]="purpose()"
+        [disabled]="isUploading()"
+        (change)="onPurpose($event)"
+      >
         <option value="">Choose what it shows</option>
         @for (option of purposes; track option) {
           <option [value]="option">{{ purposeLabels[option] }}</option>
@@ -67,7 +85,12 @@
       </select>
     </cp-field>
 
-    <cp-field label="Audience" forId="brand-example-audience" [error]="audienceError()" hint="Who this piece was written for, if it matters.">
+    <cp-field
+      label="Audience"
+      forId="brand-example-audience"
+      [error]="audienceError()"
+      hint="Who this piece was written for, if it matters."
+    >
       <input
         id="brand-example-audience"
         type="text"

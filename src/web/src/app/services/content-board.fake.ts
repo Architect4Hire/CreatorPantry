@@ -68,10 +68,22 @@ export class FakeContentBoardService {
   refuseNext: FakeBoardRefusal | null = null;
   refuseDeleteWith: Exclude<ContentCardDeleteOutcome['status'], 'deleted'> | null = null;
 
-  readonly lists: { slug: string; filters: ContentBoardFilters; column: ContentBoardColumn | null; cursor: string | null; limit: number | null }[] = [];
+  readonly lists: {
+    slug: string;
+    filters: ContentBoardFilters;
+    column: ContentBoardColumn | null;
+    cursor: string | null;
+    limit: number | null;
+  }[] = [];
   readonly moves: { slug: string; cardId: string; place: ContentCardPlace; token: string }[] = [];
   readonly creates: { slug: string; fields: ContentCardFields; column: ContentBoardColumn; key: string }[] = [];
-  readonly updates: { slug: string; cardId: string; before: ContentCardFields; after: ContentCardFields; token: string }[] = [];
+  readonly updates: {
+    slug: string;
+    cardId: string;
+    before: ContentCardFields;
+    after: ContentCardFields;
+    token: string;
+  }[] = [];
   readonly removes: { slug: string; cardId: string; token: string; key: string }[] = [];
   readonly details: { slug: string; cardId: string }[] = [];
 
@@ -102,7 +114,10 @@ export class FakeContentBoardService {
 
   /** Somebody else deletes a card. */
   erase(slug: string, cardId: string): void {
-    this.boards.set(slug, (this.boards.get(slug) ?? []).filter((card) => card.id !== cardId));
+    this.boards.set(
+      slug,
+      (this.boards.get(slug) ?? []).filter((card) => card.id !== cardId),
+    );
   }
 
   list(
@@ -147,7 +162,12 @@ export class FakeContentBoardService {
     return of(card ? { status: 'found', detail: this.detailOf(card) } : { status: 'not_found' });
   }
 
-  create(slug: string, fields: ContentCardFields, column: ContentBoardColumn, key: string): Observable<ContentCardWriteOutcome> {
+  create(
+    slug: string,
+    fields: ContentCardFields,
+    column: ContentBoardColumn,
+    key: string,
+  ): Observable<ContentCardWriteOutcome> {
     if (this.offline) return of({ status: 'unavailable' });
 
     this.creates.push({ slug, fields, column, key });

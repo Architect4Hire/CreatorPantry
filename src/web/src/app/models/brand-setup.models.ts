@@ -38,7 +38,7 @@ export const BRAND_SETUP_STEPS = [
     slug: 'style',
     label: 'How you sound',
     help: 'A few easy choices about how you like to write: friendly or formal, short or chatty. There are no wrong answers.',
-    legend: "Every question here is optional, and there are no wrong answers.",
+    legend: 'Every question here is optional, and there are no wrong answers.',
     comingSoon: 'Describing how you like to sound is coming soon.',
     skippable: false,
   },
@@ -46,7 +46,7 @@ export const BRAND_SETUP_STEPS = [
     slug: 'examples',
     label: 'Your examples',
     help: 'Writing you are proud of helps show your style. This step is optional, and you can skip it if you would rather describe your style in your own words.',
-    legend: "Examples are optional. Add as many or as few as you like, or skip this step.",
+    legend: 'Examples are optional. Add as many or as few as you like, or skip this step.',
     comingSoon: 'Adding examples of your writing is coming soon.',
     skippable: true,
   },
@@ -54,7 +54,7 @@ export const BRAND_SETUP_STEPS = [
     slug: 'review-text',
     label: 'Check the text',
     help: 'If you added examples, you can check that the words we read from them are right before they are used. Nothing is used until you say so.',
-    legend: "Check the words we read from each example. Nothing is used until you say so.",
+    legend: 'Check the words we read from each example. Nothing is used until you say so.',
     comingSoon: 'Checking the text from your examples is coming soon.',
     skippable: true,
   },
@@ -62,7 +62,7 @@ export const BRAND_SETUP_STEPS = [
     slug: 'create',
     label: 'Build your guide',
     help: 'Choose whether to have a first draft of your guide written for you, or to write it yourself. Either way, you stay in charge.',
-    legend: "Choose how your guide gets written. Nothing is switched on yet.",
+    legend: 'Choose how your guide gets written. Nothing is switched on yet.',
     comingSoon: 'Building your guide is coming soon.',
     skippable: false,
   },
@@ -78,7 +78,7 @@ export const BRAND_SETUP_STEPS = [
     slug: 'finish',
     label: 'Try it and decide',
     help: 'Read back what you have written, then decide what happens to it: switch it on, or keep it as a draft. Finishing setup does not switch anything on by itself.',
-    legend: "Decide what happens to your guide. Nothing is switched on until you say so.",
+    legend: 'Decide what happens to your guide. Nothing is switched on until you say so.',
     comingSoon: 'Trying your guide and deciding is coming soon.',
     skippable: false,
   },
@@ -206,8 +206,7 @@ export function parseBrandSetupDraft(draftJson: string): BrandSetupDraft {
 }
 
 export type StepRouteResolution =
-  | { readonly kind: 'ok'; readonly index: number }
-  | { readonly kind: 'redirect'; readonly slug: BrandSetupStepSlug };
+  { readonly kind: 'ok'; readonly index: number } | { readonly kind: 'redirect'; readonly slug: BrandSetupStepSlug };
 
 /**
  * Where a URL's `:step` may land. An unknown slug goes to the first step; a step beyond the furthest the

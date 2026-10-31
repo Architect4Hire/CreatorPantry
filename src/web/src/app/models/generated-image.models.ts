@@ -12,13 +12,7 @@ import { decodeEnum, isRecord, isStringOrNull } from './recipe.models';
 import { decodeRenditionSize } from './picture-rendition.models';
 
 export type GeneratedImageOperationStatus =
-  | 'Unspecified'
-  | 'Requested'
-  | 'Running'
-  | 'Succeeded'
-  | 'PartiallySucceeded'
-  | 'Failed'
-  | 'Cancelled';
+  'Unspecified' | 'Requested' | 'Running' | 'Succeeded' | 'PartiallySucceeded' | 'Failed' | 'Cancelled';
 
 const OPERATION_STATUS_VALUES: ReadonlySet<string> = new Set<GeneratedImageOperationStatus>([
   'Unspecified',
@@ -102,9 +96,7 @@ export interface GeneratedImageOperationDetail extends GeneratedImageOperation {
  * came for. It is terminal with a caveat, not a failure.
  */
 export function isGeneratedImageOperationFinished(status: GeneratedImageOperationStatus): boolean {
-  return (
-    status === 'Succeeded' || status === 'PartiallySucceeded' || status === 'Failed' || status === 'Cancelled'
-  );
+  return status === 'Succeeded' || status === 'PartiallySucceeded' || status === 'Failed' || status === 'Cancelled';
 }
 
 /** True for an operation that produced nothing at all, which is the only state with no pictures to show. */
@@ -133,7 +125,7 @@ export const GENERATED_IMAGE_FAILURE_SENTENCES: Readonly<Record<string, string>>
   'provider-not-configured':
     'Making pictures is not switched on for this site yet, so nothing was made. Someone with access to the setup needs to turn it on.',
   'model-unidentified':
-    "Whatever answered would not say what had made the picture, so we did not keep it. If you might publish a picture, you are entitled to know what made it.",
+    'Whatever answered would not say what had made the picture, so we did not keep it. If you might publish a picture, you are entitled to know what made it.',
   'provider-unavailable': 'Something on our side did not answer. Asking again usually works.',
   'rate-limited': 'Too many requests at once. Waiting a moment and asking again usually works.',
   'budget-exhausted':
@@ -156,10 +148,7 @@ export const GENERATED_IMAGE_FAILURE_SENTENCES: Readonly<Record<string, string>>
  * is the fallback. An unrecognised category still produces something — a stored row can carry a category this
  * build has not heard of, and rendering nothing would drop the only explanation there is.
  */
-export function generatedImageFailureSentence(
-  failureCategory: string | null,
-  failureSummary: string | null,
-): string {
+export function generatedImageFailureSentence(failureCategory: string | null, failureSummary: string | null): string {
   const summary = failureSummary?.trim();
   if (summary) return summary;
 

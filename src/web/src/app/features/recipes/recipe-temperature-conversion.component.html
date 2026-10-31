@@ -162,7 +162,6 @@
     <p class="conversion-problem" role="alert">{{ problem }}</p>
   }
 
-
   <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
        region that appears already holding its content is not reliably announced. -->
   <p class="conversion-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
@@ -213,8 +212,8 @@
         <p class="result-caution">
           <span class="caution-glyph" aria-hidden="true">⚠</span>
           <span>
-            These words are yours, returned exactly as you typed them. CreatorPantry did not read or check
-            them, and does not confirm that any temperature is safe.
+            These words are yours, returned exactly as you typed them. CreatorPantry did not read or check them, and
+            does not confirm that any temperature is safe.
           </span>
         </p>
       }
@@ -231,8 +230,8 @@
           <dl class="apply-diff">
             <dt>{{ diff.label }}</dt>
             <dd>
-              <span class="apply-before">{{ diff.before }}</span>&ngsp;
-              <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
+              <span class="apply-before">{{ diff.before }}</span
+              >&ngsp; <span class="apply-arrow" aria-hidden="true">→</span>&ngsp;
               <span class="cp-sr-only">becomes</span>&ngsp;
               <span class="apply-after">{{ diff.after }}</span>
             </dd>

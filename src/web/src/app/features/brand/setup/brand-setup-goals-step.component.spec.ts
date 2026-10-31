@@ -58,7 +58,9 @@ describe('BrandSetupGoalsStepComponent', () => {
     await click('cp-goals-purpose-blog');
     expect(last().canContinue).toBeTrue();
     expect(last().isDirty).toBeTrue();
-    expect(last().draft).toEqual(jasmine.objectContaining({ purposes: ['blog'], audience: 'home-cooks', channels: ['blog', 'instagram'] }));
+    expect(last().draft).toEqual(
+      jasmine.objectContaining({ purposes: ['blog'], audience: 'home-cooks', channels: ['blog', 'instagram'] }),
+    );
   });
 
   it('cannot continue with no place to share', async () => {

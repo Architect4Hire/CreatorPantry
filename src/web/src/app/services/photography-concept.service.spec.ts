@@ -90,9 +90,7 @@ describe('PhotographyConceptService', () => {
     );
 
     http
-      .expectOne(
-        'https://gateway.example/api/v1/workspaces/cozy%20fall%2F..%2Fother/photography-concept-requests',
-      )
+      .expectOne('https://gateway.example/api/v1/workspaces/cozy%20fall%2F..%2Fother/photography-concept-requests')
       .flush(accepted(), { status: 202, statusText: 'Accepted' });
 
     await pending;

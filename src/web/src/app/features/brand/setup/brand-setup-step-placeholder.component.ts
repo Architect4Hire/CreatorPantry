@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, afterNextRender, inject, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  inject,
+  input,
+  output,
+} from '@angular/core';
 
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 
@@ -16,9 +25,19 @@ import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/
   template: `<p class="coming">{{ step().comingSoon }}</p>
     <p class="note">You can keep moving through setup. Nothing here is switched on.</p>`,
   styles: [
-    `:host{display:grid;gap:var(--cp-space-2)}
-    p{margin:0}
-    .note{color:var(--cp-text-muted);font-size:var(--cp-font-size-sm)}`,
+    `
+      :host {
+        display: grid;
+        gap: var(--cp-space-2);
+      }
+      p {
+        margin: 0;
+      }
+      .note {
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-sm);
+      }
+    `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

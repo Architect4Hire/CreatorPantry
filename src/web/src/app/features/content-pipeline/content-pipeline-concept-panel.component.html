@@ -11,15 +11,15 @@
 
 @if (needsSubject()) {
   <cp-notice tone="warning" role="note">
-    There is nothing to plan a look around yet. Say what the picture is of — a description, a scene or a style —
-    and we can plan some looks for it.
+    There is nothing to plan a look around yet. Say what the picture is of — a description, a scene or a style — and we
+    can plan some looks for it.
   </cp-notice>
 }
 
 @if (briefTooLong()) {
   <cp-notice tone="warning" role="note">
-    The brief is longer than {{ briefMaxLength }} characters, which is as much as a look can be planned from.
-    Shorten it and we can plan some looks. Nothing has been cut.
+    The brief is longer than {{ briefMaxLength }} characters, which is as much as a look can be planned from. Shorten it
+    and we can plan some looks. Nothing has been cut.
   </cp-notice>
 }
 
@@ -43,8 +43,8 @@
 
 @if (plannedFromOtherSubject()) {
   <cp-notice tone="warning" role="status">
-    You have renamed what this picture is of since these looks were planned, so they were planned under the
-    earlier name.
+    You have renamed what this picture is of since these looks were planned, so they were planned under the earlier
+    name.
     <button cpButton type="button" variant="secondary" size="sm" [disabled]="!canAsk()" (click)="askAgain()">
       Plan looks for the new name
     </button>
@@ -76,9 +76,7 @@
     </cp-notice>
   }
   @case ('forbidden') {
-    <cp-notice tone="error" role="alert">
-      You need Contributor access in this workspace to plan a shoot.
-    </cp-notice>
+    <cp-notice tone="error" role="alert"> You need Contributor access in this workspace to plan a shoot. </cp-notice>
   }
   @case ('gone') {
     <cp-notice tone="warning" role="alert">

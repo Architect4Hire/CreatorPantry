@@ -154,8 +154,8 @@ function text(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>): s
 }
 
 function canonicalPairs(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>): string[] {
-  return Array.from(fixture.nativeElement.querySelectorAll('.canonical-pair dt, .canonical-pair dd')).map(
-    (node) => ((node as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim(),
+  return Array.from(fixture.nativeElement.querySelectorAll('.canonical-pair dt, .canonical-pair dd')).map((node) =>
+    ((node as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
 }
 
@@ -337,9 +337,7 @@ describe('RecipeDisplayNormalizationComponent', () => {
     harness.fixture.componentInstance.setRounding('AwayFromZero');
 
     await render(harness, (req) => {
-      expect(req.request.body).toEqual(
-        jasmine.objectContaining({ useAbbreviation: true, rounding: 'AwayFromZero' }),
-      );
+      expect(req.request.body).toEqual(jasmine.objectContaining({ useAbbreviation: true, rounding: 'AwayFromZero' }));
       req.flush(payload({ text: '1.03 c', presentation: 'Decimal', rounding: 'AwayFromZero' }));
     });
 
@@ -538,7 +536,9 @@ describe('RecipeDisplayNormalizationComponent', () => {
 
     // The announcement is a persistent region whose text changes, not the card itself: a live region
     // inserted already holding its content is not reliably announced.
-    const region: HTMLElement = harness.fixture.nativeElement.querySelector('.calculation-announcement[role="status"][aria-live="polite"]');
+    const region: HTMLElement = harness.fixture.nativeElement.querySelector(
+      '.calculation-announcement[role="status"][aria-live="polite"]',
+    );
     expect(region.getAttribute('aria-live')).toBe('polite');
     expect(region.textContent?.trim().length).toBeGreaterThan(0);
     expect(harness.fixture.nativeElement.querySelector('.result-card').getAttribute('role')).toBeNull();
@@ -550,9 +550,7 @@ describe('RecipeDisplayNormalizationComponent', () => {
     harness.fixture.componentInstance.unitId.set('unit-cup');
     await render(harness, (req) => req.flush(payload()));
 
-    const terms: HTMLElement[] = Array.from(
-      harness.fixture.nativeElement.querySelectorAll('.canonical-pair dt'),
-    );
+    const terms: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.canonical-pair dt'));
     expect(terms.map((term) => term.textContent?.trim())).toEqual(['Canonical value', 'How it reads']);
   });
 

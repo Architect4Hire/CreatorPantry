@@ -84,7 +84,9 @@
           cpButton
           variant="secondary"
           [href]="href"
-          [attr.aria-label]="'Download original (' + originalSizeLabel() + '): picture ' + position() + ' of ' + total()"
+          [attr.aria-label]="
+            'Download original (' + originalSizeLabel() + '): picture ' + position() + ' of ' + total()
+          "
         >
           Download original ({{ originalSizeLabel() }})
         </a>

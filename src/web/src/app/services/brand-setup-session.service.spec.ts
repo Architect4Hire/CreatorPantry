@@ -109,7 +109,9 @@ describe('BrandSetupSessionService', () => {
     for (const [status, code, expected] of cases) {
       const pending = service.saveSession('w', BODY, 'rv1');
       http.expectOne(URL).flush(...fail(status, code));
-      expect((await pending).status).withContext(`${status} ${code}`).toBe(expected);
+      expect((await pending).status)
+        .withContext(`${status} ${code}`)
+        .toBe(expected);
     }
   });
 
@@ -154,7 +156,9 @@ describe('BrandSetupSessionService', () => {
 
   it('encodes the workspace slug from the caller only', async () => {
     const pending = service.getSession('a b');
-    http.expectOne('https://gateway.example/api/v1/workspaces/a%20b/brand-setup-session').flush(null, { status: 204, statusText: 'x' });
+    http
+      .expectOne('https://gateway.example/api/v1/workspaces/a%20b/brand-setup-session')
+      .flush(null, { status: 204, statusText: 'x' });
     expect((await pending).status).toBe('none');
   });
 });

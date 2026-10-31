@@ -7,7 +7,9 @@
   "input": {
     "payload": "{\"schemaVersion\":\"brand.guide-proposal.v1\",\"sections\":[{\"dimension\":\"Voice\",\"body\":\"Warm and direct.\",\"evidence\":\"Sources\",\"citations\":[{\"passageId\":\"99999999-9999-9999-9999-999999999999\"}]}]}",
     "expectedSchemaVersion": "brand.guide-proposal.v1",
-    "passages": [{ "passageId": "11111111-1111-1111-1111-111111111111", "text": "We write like a friend who happens to cook." }]
+    "passages": [
+      { "passageId": "11111111-1111-1111-1111-111111111111", "text": "We write like a friend who happens to cook." }
+    ]
   },
   "expect": {
     "outcome": "Rejected",

@@ -5,7 +5,10 @@ import { BRAND_SETUP_STEPS, BrandSetupStepReport } from '../../../models/brand-s
 import { BrandSourceDocumentDetail } from '../../../models/brand-source-document.models';
 import { BrandSourceExtraction } from '../../../models/brand-source-extraction.models';
 import { BrandSourceDocumentService } from '../../../services/brand-source-document.service';
-import { BrandSourceExtractionService, BrandSourceExtractionWriteOutcome } from '../../../services/brand-source-extraction.service';
+import {
+  BrandSourceExtractionService,
+  BrandSourceExtractionWriteOutcome,
+} from '../../../services/brand-source-extraction.service';
 import { decodeConfirmed, previewOf } from './brand-setup-review-text';
 import {
   BRAND_SETUP_REVIEW_MAX_POLLS,
@@ -69,10 +72,14 @@ function ext(overrides: Partial<BrandSourceExtraction> = {}): BrandSourceExtract
   };
 }
 
-const waitingExt = (): BrandSourceExtraction => ext({ state: 'NotExtracted', id: null, ordinal: 0, origin: null, text: null, isReading: true });
-const failedExt = (): BrandSourceExtraction => ext({ state: 'Failed', id: 'f1', text: null, reason: 'Could not be read.' });
-const scanExt = (): BrandSourceExtraction => ext({ state: 'Unsupported', id: 's1', text: null, reason: 'No text layer.' });
-const partialExt = (): BrandSourceExtraction => ext({ id: 'p1', reason: 'This document holds more text than is stored.' });
+const waitingExt = (): BrandSourceExtraction =>
+  ext({ state: 'NotExtracted', id: null, ordinal: 0, origin: null, text: null, isReading: true });
+const failedExt = (): BrandSourceExtraction =>
+  ext({ state: 'Failed', id: 'f1', text: null, reason: 'Could not be read.' });
+const scanExt = (): BrandSourceExtraction =>
+  ext({ state: 'Unsupported', id: 's1', text: null, reason: 'No text layer.' });
+const partialExt = (): BrandSourceExtraction =>
+  ext({ id: 'p1', reason: 'This document holds more text than is stored.' });
 
 let fixture: ComponentFixture<HostComponent>;
 let host: HostComponent;
@@ -181,7 +188,9 @@ describe('BrandSetupReviewTextStepComponent', () => {
   it('draws its examples arriving while they are checked, and says so once offscreen', async () => {
     await mount(null, { hold: true });
 
-    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) => each.textContent?.includes('Checking your examples'))!;
+    const status = Array.from(el.querySelectorAll('[role="status"]')).find((each) =>
+      each.textContent?.includes('Checking your examples'),
+    )!;
     expect(status.classList).toContain('cp-sr-only');
     const busy = el.querySelector('[aria-busy="true"]')!;
     expect(busy.querySelector('cp-skeleton')).not.toBeNull();
@@ -210,7 +219,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
     expect(last().canContinue).toBeTrue();
   });
 
-  it('asks the workspace\'s own library using the slug it was given, and sends no workspace id', async () => {
+  it("asks the workspace's own library using the slug it was given, and sends no workspace id", async () => {
     await mount(null);
     expect(docs['get']).toHaveBeenCalledWith('sams-kitchen', 'a');
     expect(exts['get']).toHaveBeenCalledWith('sams-kitchen', 'a', 1);
@@ -248,16 +257,25 @@ describe('BrandSetupReviewTextStepComponent', () => {
   });
 
   it('does not honour a confirmation of text that has since changed', async () => {
-    await mount(() => (reads['a'] = [ext({ id: 'x9' })]), { draft: { confirmed: [{ documentId: 'a', extractionId: 'x1' }] } });
+    await mount(() => (reads['a'] = [ext({ id: 'x9' })]), {
+      draft: { confirmed: [{ documentId: 'a', extractionId: 'x1' }] },
+    });
     expect(text()).toContain('We read this from your file');
     expect(last().canContinue).toBeFalse();
   });
 
   it('ignores a malformed saved draft', () => {
     expect(decodeConfirmed({ confirmed: 'x' })).toEqual([]);
-    expect(decodeConfirmed({ confirmed: [{ documentId: 1 }, null, { documentId: 'a', extractionId: 'x' }, { documentId: 'a', extractionId: 'y' }] })).toEqual([
-      { documentId: 'a', extractionId: 'x' },
-    ]);
+    expect(
+      decodeConfirmed({
+        confirmed: [
+          { documentId: 1 },
+          null,
+          { documentId: 'a', extractionId: 'x' },
+          { documentId: 'a', extractionId: 'y' },
+        ],
+      }),
+    ).toEqual([{ documentId: 'a', extractionId: 'x' }]);
     expect(previewOf('word '.repeat(200)).endsWith('…')).toBeTrue();
   });
 
@@ -336,7 +354,10 @@ describe('BrandSetupReviewTextStepComponent', () => {
 
     // Keep mine: read the newest, then save theirs over it.
     reads['a'] = [ext({ id: 'x2', text: 'Someone else changed this.', origin: 'Corrected', ordinal: 2 })];
-    exts['correct'].and.resolveTo({ status: 'ok', extraction: ext({ id: 'c3', ordinal: 3, origin: 'Corrected', text: 'My version' }) });
+    exts['correct'].and.resolveTo({
+      status: 'ok',
+      extraction: ext({ id: 'c3', ordinal: 3, origin: 'Corrected', text: 'My version' }),
+    });
     await click('Keep mine');
     expect(exts['correct'].calls.mostRecent().args[3].expectedExtractionId).toBe('x2');
     expect(exts['correct'].calls.mostRecent().args[3].text).toBe('My version');
@@ -366,7 +387,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
     expect(exts['correct']).not.toHaveBeenCalled();
   });
 
-  it('asks for a re-read of a failed read, checks until it lands, then asks for the creator\'s OK', async () => {
+  it("asks for a re-read of a failed read, checks until it lands, then asks for the creator's OK", async () => {
     await mount(() => (reads['a'] = [failedExt()]));
     expect(text()).toContain("We couldn't read this one.");
     expect(last().canContinue).toBeFalse();
@@ -424,7 +445,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
 
   it('says so when it cannot reach an example, and lets the creator check again', async () => {
     await mount(() => (details['a'] = 'down'));
-    expect(text()).toContain('We couldn\'t reach this one just now.');
+    expect(text()).toContain("We couldn't reach this one just now.");
     expect(last().canContinue).toBeFalse();
     details['a'] = detail('a');
     await click('Check again');
@@ -453,7 +474,7 @@ describe('BrandSetupReviewTextStepComponent', () => {
     expect(last().canContinue).toBeFalse();
   });
 
-  it('takes the document\'s new token once when it changed since it was read', async () => {
+  it("takes the document's new token once when it changed since it was read", async () => {
     await mount(null);
     docs['archive'].and.callFake(async (_s: string, _id: string, token: string) => {
       if (token === 'tok-a') return { status: 'conflict' };
@@ -480,7 +501,9 @@ describe('BrandSetupReviewTextStepComponent', () => {
     await mount(null);
     expect(el.querySelectorAll('cp-form-section h2').length).toBe(1);
     expect(button('Leave this one out')?.getAttribute('aria-label')).toBe('Leave Doc a out');
-    expect(el.querySelector('details.cp-disclosure .full-text')?.getAttribute('aria-label')).toBe('All the text of Doc a');
+    expect(el.querySelector('details.cp-disclosure .full-text')?.getAttribute('aria-label')).toBe(
+      'All the text of Doc a',
+    );
     expect(el.querySelector('.full-text')?.getAttribute('tabindex')).toBe('0');
     const live = el.querySelector('.cp-sr-only[role="status"][aria-atomic]');
     expect(live?.getAttribute('aria-live')).toBe('polite');

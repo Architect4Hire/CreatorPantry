@@ -133,10 +133,7 @@ export class RecipeRevisionRequestComponent {
   /** A section must be chosen: there is no sensible default, and the widest one is the wrong guess. */
   readonly canSubmit = computed(
     () =>
-      this.scope() !== null &&
-      !this.submitting() &&
-      this.canRequest() &&
-      !allowanceBlocksNewRequests(this.allowance()),
+      this.scope() !== null && !this.submitting() && this.canRequest() && !allowanceBlocksNewRequests(this.allowance()),
   );
 
   isChosen(section: RecipeRevisionSection): boolean {
@@ -213,8 +210,8 @@ export class RecipeRevisionRequestComponent {
       case 'source_version_invalid':
         this.pendingRequestKey = null;
         this.refusalSignal.set(
-          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the '
-            + 'revision is against the version you are looking at.',
+          'This recipe was saved while you were deciding what to ask for. Reload it and ask again, so the ' +
+            'revision is against the version you are looking at.',
         );
         return;
 

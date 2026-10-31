@@ -52,19 +52,31 @@ export const RULES = {
     'Columns of ordered things are `cp-board-column` inside `[cpBoard]`; the feature supplies the list in each and how a thing moves.',
   stepper: 'The steps of a flow are `cp-stepper`.',
   chip: 'A filter with a few fixed answers is `button[cpChip]` in a `[cpChipGroup]`.',
-  'stat-tile': 'A figure read at a glance is `cp-stat-tile`: the count and what it counts as one sentence, a line of context and a link (DESIGN-SYSTEM.md, "Meters and figures").',
-  'option-card': "One choice among several, compared side by side, is `cp-option-card` in a `ul[cpCardGrid]`: its key facts as tags, the rest behind its disclosure, and its one button. A value a Save submits is `cp-choice-group` (DESIGN-SYSTEM.md, \"Choosing between options\").",
-  drawer: 'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
-  illustration: "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
-  generated: "What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — \"Drafted by AI\", \"Made by AI\", \"Read by AI\"; a feature writes no label of its own (DESIGN-SYSTEM.md, \"Generated content\").",
-  skeleton: "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
-  loading: "Something on its way is drawn as the shape that is coming (`cp-skeleton`, or `cp-list-shell`'s `loadingLayout`) and said once, in a visually hidden status that is always present (`.cp-sr-only`, role=\"status\"). No visible \"Loading…\", \"Reading your…\" or \"Checking…\" sentence stands in for it. A pager button may say \"Loading more…\"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).",
-  enter: "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
-  tone: "A tool's tone is set by its route, `data: { tone }`, on the shell's page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, \"Warmth inside the app\").",
-  utilities: '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.scss. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
-  'public-h1': "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
-  'public-frame': "A public page frames each section from the public tokens: width `--cp-public-width`, `-narrow` or `-wide` (or `--cp-measure-prose`), gutter `--cp-public-gutter`. A section's `:host` sets no padding, margin or width, and a measure inside a section is a token, never a literal length. Only the hero sizes its own parts.",
-  'public-control': "A button on a public page is `cpButton` (`<button cpButton>` or `<a cpButton>`), so its size, focus and states are the library's.",
+  'stat-tile':
+    'A figure read at a glance is `cp-stat-tile`: the count and what it counts as one sentence, a line of context and a link (DESIGN-SYSTEM.md, "Meters and figures").',
+  'option-card':
+    'One choice among several, compared side by side, is `cp-option-card` in a `ul[cpCardGrid]`: its key facts as tags, the rest behind its disclosure, and its one button. A value a Save submits is `cp-choice-group` (DESIGN-SYSTEM.md, "Choosing between options").',
+  drawer:
+    'A panel over the page is `cp-drawer` (or `cp-dialog`), and a picture shown large is `cp-lightbox`; a feature positions nothing against the viewport.',
+  illustration:
+    "A drawing for an empty state or a card with no picture is `cp-illustration` (or `cp-empty-state`'s `illustration`), one of the drawn set, and the panel a card without a picture takes is `cp-media-card`'s (`illustration` or `glyph`); a feature draws neither of its own.",
+  generated:
+    'What a model made is marked by `cp-generated-label` (or `cp-generated` around it), whose `kind` picks the words — "Drafted by AI", "Made by AI", "Read by AI"; a feature writes no label of its own (DESIGN-SYSTEM.md, "Generated content").',
+  skeleton:
+    "Loading draws `cp-skeleton` (`line`, `block`, `circle`, `card`), or `cp-list-shell`'s `loadingLayout`; a feature draws no placeholder shimmer of its own.",
+  loading:
+    'Something on its way is drawn as the shape that is coming (`cp-skeleton`, or `cp-list-shell`\'s `loadingLayout`) and said once, in a visually hidden status that is always present (`.cp-sr-only`, role="status"). No visible "Loading…", "Reading your…" or "Checking…" sentence stands in for it. A pager button may say "Loading more…"; a button reporting what the creator just pressed keeps its own words (APP-003, AU.7).',
+  enter:
+    "Content arriving fades and rises once, by the library's `cpEnter` — a list shell's ready content, a generated result, a group of options (DESIGN-SYSTEM.md, \"Content arrives once, gently\"). The entrance tokens, the `cp-enter` keyframes and `data-cp-enter` are the directive's: carry `[cpEnter]` rather than rebuilding them. Motion about something else — a tab panel's switch, the public hero's collage — is not this rule's.",
+  tone: 'A tool\'s tone is set by its route, `data: { tone }`, on the shell\'s page frame. A feature reads `--cp-tone`, `--cp-tone-soft`, `--cp-tone-text` and `--cp-tone-on`; it never sets `data-cp-tone` or declares one of them (DESIGN-SYSTEM.md, "Warmth inside the app").',
+  utilities:
+    '`.cp-muted`, `.cp-actions` and `.cp-disclosure` live in global.scss. Use the class; do not redeclare it or keep a private `.muted` or `.actions` beside it.',
+  'public-h1':
+    "A public page has one `h1`: the landing hero's, or the legal document's title. Every section starts at `h2`.",
+  'public-frame':
+    "A public page frames each section from the public tokens: width `--cp-public-width`, `-narrow` or `-wide` (or `--cp-measure-prose`), gutter `--cp-public-gutter`. A section's `:host` sets no padding, margin or width, and a measure inside a section is a token, never a literal length. Only the hero sizes its own parts.",
+  'public-control':
+    "A button on a public page is `cpButton` (`<button cpButton>` or `<a cpButton>`), so its size, focus and states are the library's.",
 };
 
 /**
@@ -126,17 +138,20 @@ export const EXEMPTIONS = [
   {
     file: 'src/app/features/ai/recipe-first-draft-review.component.scss',
     rule: 'card-grid',
-    reason: "`.draft-fields-grid` holds a draft's yield and timing, each value with an editor that opens in place. Settled in AU.5.1: `dl[cpFacts] layout=\"across\"` sizes each fact to its content and wraps, so an editor opening in one would reflow its neighbours under the creator's hand, and its bold value would bolden \"Not suggested\" and the Edit control. The draft's provenance, which has no control, moved to `across`.",
+    reason:
+      '`.draft-fields-grid` holds a draft\'s yield and timing, each value with an editor that opens in place. Settled in AU.5.1: `dl[cpFacts] layout="across"` sizes each fact to its content and wraps, so an editor opening in one would reflow its neighbours under the creator\'s hand, and its bold value would bolden "Not suggested" and the Edit control. The draft\'s provenance, which has no control, moved to `across`.',
   },
   {
     file: 'src/app/shared/channel-posts/channel-post-picture.component.html',
     rule: 'loading',
-    reason: "\"Reading the picture…\" is an AI reading of the picture that the creator has just asked for and is spending allowance on, not something already theirs on its way. It reports an action, as \"Asking for your posts…\" does (AU.7).",
+    reason:
+      '"Reading the picture…" is an AI reading of the picture that the creator has just asked for and is spending allowance on, not something already theirs on its way. It reports an action, as "Asking for your posts…" does (AU.7).',
   },
   {
     file: 'src/app/features/content-pipeline/content-pipeline-idea-step.component.html',
     rule: 'loading',
-    reason: "\"Reading the name you typed…\" is an AI reading of the dish name the creator has just asked for, not something already theirs on its way. It reports an action (AU.7).",
+    reason:
+      '"Reading the name you typed…" is an AI reading of the dish name the creator has just asked for, not something already theirs on its way. It reports an action (AU.7).',
   },
 ];
 
@@ -450,7 +465,8 @@ export function templateViolations(html) {
  * The words a sentence starts with when it stands in for something on its way (AU.7). A sentence about what the
  * creator has just done — "Saving…", "Asking…", "Writing this one again…" — reports an action, and is not one.
  */
-const LOADING_VERB = '(?:Loading|Reading|Checking|Finding|Looking|Counting|Opening|Fetching|Comparing|Picking up|Taking you)\\b';
+const LOADING_VERB =
+  '(?:Loading|Reading|Checking|Finding|Looking|Counting|Opening|Fetching|Comparing|Picking up|Taking you)\\b';
 /**
  * Where such a sentence can be on screen: a text node (which may hold an apostrophe or an interpolation), or a
  * string in single or double quotes (an interpolation's or a binding's), each read whole.
@@ -460,7 +476,21 @@ const LOADING_SENTENCES = [
   new RegExp(`'(${LOADING_VERB}[^'\\n]*…)'`, 'g'),
   new RegExp(`"(${LOADING_VERB}[^"\\n]*…)"`, 'g'),
 ];
-const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+const VOID_ELEMENTS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+]);
 /** The hidden-status class, as a whole class name: not `not-cp-sr-only`. */
 const SR_ONLY = /\bclass=["'](?:[^"']*\s)?cp-sr-only(?=[\s"'])/;
 
@@ -497,10 +527,16 @@ export function loadingViolations(markup) {
     // Inside the hidden status at any depth (a span within it included), it is the one status, and fine.
     const around = enclosingElements(markup, at);
     if (around.some((element) => SR_ONLY.test(element.attributes))) continue;
-    const isButton = around.some((element) => element.tag === 'button' || /\scpButton(?=[\s>=]|$)/.test(element.attributes));
+    const isButton = around.some(
+      (element) => element.tag === 'button' || /\scpButton(?=[\s>=]|$)/.test(element.attributes),
+    );
     if (isButton && sentence !== 'Loading…') continue;
     if (!isButton && sentence === 'Loading more…') {
-      found.push({ rule: 'loading', line: lineAt(markup, at), what: 'says "Loading more…" outside the button that loads it' });
+      found.push({
+        rule: 'loading',
+        line: lineAt(markup, at),
+        what: 'says "Loading more…" outside the button that loads it',
+      });
       continue;
     }
     found.push({ rule: 'loading', line: lineAt(markup, at), what: `shows "${sentence}" in place of what is coming` });

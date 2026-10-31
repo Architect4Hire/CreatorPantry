@@ -62,7 +62,12 @@ const EMPTY_RECIPE: RecipeDetail = {
   tags: [],
 };
 
-function ingredient(id: string, sortOrder: number, displayText: string, isOptional = false): RecipeDetail['ingredientGroups'][number]['ingredients'][number] {
+function ingredient(
+  id: string,
+  sortOrder: number,
+  displayText: string,
+  isOptional = false,
+): RecipeDetail['ingredientGroups'][number]['ingredients'][number] {
   return {
     id,
     sortOrder,
@@ -88,7 +93,17 @@ function step(
   text: string,
   extra: Partial<RecipeDetail['instructionGroups'][number]['steps'][number]> = {},
 ): RecipeDetail['instructionGroups'][number]['steps'][number] {
-  return { id, sortOrder, text, techniqueId: null, durationMinutes: null, temperatureValue: null, temperatureUnitId: null, note: null, ...extra };
+  return {
+    id,
+    sortOrder,
+    text,
+    techniqueId: null,
+    durationMinutes: null,
+    temperatureValue: null,
+    temperatureUnitId: null,
+    note: null,
+    ...extra,
+  };
 }
 
 const CORNBREAD: RecipeDetail = {
@@ -113,7 +128,10 @@ const CORNBREAD: RecipeDetail = {
       id: 'g-dry',
       title: 'Dry',
       sortOrder: 1,
-      ingredients: [ingredient('i-2', 2, 'a pinch of cayenne', true), ingredient('i-1', 1, '1 1/2 cups stone-ground cornmeal')],
+      ingredients: [
+        ingredient('i-2', 2, 'a pinch of cayenne', true),
+        ingredient('i-1', 1, '1 1/2 cups stone-ground cornmeal'),
+      ],
     },
   ],
   instructionGroups: [
@@ -121,7 +139,9 @@ const CORNBREAD: RecipeDetail = {
       id: 's-a',
       title: 'Prepare',
       sortOrder: 1,
-      steps: [step('st-1', 1, 'Heat the oven with the skillet in it.', { temperatureValue: 425, temperatureUnitId: 'u-f' })],
+      steps: [
+        step('st-1', 1, 'Heat the oven with the skillet in it.', { temperatureValue: 425, temperatureUnitId: 'u-f' }),
+      ],
     },
     {
       id: 's-b',
@@ -133,7 +153,16 @@ const CORNBREAD: RecipeDetail = {
       ],
     },
   ],
-  equipment: [{ id: 'e-1', sortOrder: 1, displayText: '10-inch cast-iron skillet', equipmentTypeId: null, isOptional: false, note: null }],
+  equipment: [
+    {
+      id: 'e-1',
+      sortOrder: 1,
+      displayText: '10-inch cast-iron skillet',
+      equipmentTypeId: null,
+      isOptional: false,
+      note: null,
+    },
+  ],
 };
 
 class StubRecipeService {
@@ -242,7 +271,9 @@ describe('RecipeKitchenViewComponent', () => {
   }
 
   function texts(root: HTMLElement, selector: string): string[] {
-    return Array.from(root.querySelectorAll(selector)).map((node) => node.textContent?.replace(/\s+/g, ' ').trim() ?? '');
+    return Array.from(root.querySelectorAll(selector)).map(
+      (node) => node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    );
   }
 
   function buttonWith(root: HTMLElement, text: string): HTMLButtonElement | undefined {
@@ -283,7 +314,7 @@ describe('RecipeKitchenViewComponent', () => {
     expect(root.querySelector('.ingredients')?.textContent).not.toContain('99');
   });
 
-  it('numbers the steps through every section and shows each step\'s own time, temperature and note', async () => {
+  it("numbers the steps through every section and shows each step's own time, temperature and note", async () => {
     const root = await open();
 
     expect(texts(root, '.method h3')).toEqual(['Prepare', 'Bake']);
@@ -312,7 +343,9 @@ describe('RecipeKitchenViewComponent', () => {
     const root = await open();
 
     expect(root.textContent).not.toContain('425');
-    expect(root.querySelector('cp-notice.temperature-notice')?.textContent).toContain("Some step temperatures couldn't be shown");
+    expect(root.querySelector('cp-notice.temperature-notice')?.textContent).toContain(
+      "Some step temperatures couldn't be shown",
+    );
     // The rest of the recipe is still there to cook from.
     expect(texts(root, '.step-number')).toEqual(['1', '2', '3']);
   });
@@ -516,7 +549,9 @@ describe('RecipeKitchenViewComponent', () => {
   });
 
   it("shows the recipe's lead picture in the head, described by the alt text the creator wrote", async () => {
-    recipes.outcomes = [{ status: 'found', recipe: { ...CORNBREAD, assetLinks: [mediaLink({ role: 'Hero', mediaAssetId: 'a9' })] } }];
+    recipes.outcomes = [
+      { status: 'found', recipe: { ...CORNBREAD, assetLinks: [mediaLink({ role: 'Hero', mediaAssetId: 'a9' })] } },
+    ];
 
     const root = await open();
     const picture = root.querySelector<HTMLImageElement>('cp-page-head .media img');

@@ -22,48 +22,50 @@
        said so and eight "No changes" headings would only be noise to read through. -->
   @for (section of sections(); track section.key) {
     @if (hasChanges() || section.rows.length > 0) {
-    <section class="section">
-      <h4 class="section-heading">{{ section.heading }}</h4>
+      <section class="section">
+        <h4 class="section-heading">{{ section.heading }}</h4>
 
-      @if (section.rows.length === 0) {
-        <p class="section-empty">No changes</p>
-      } @else {
-        <ul class="rows" role="list">
-          @for (row of section.rows; track row.key) {
-            <li class="row" [attr.data-kind]="row.kind">
-              <!-- The glyph is decorative; the word beside it is what states the kind, so the meaning does
+        @if (section.rows.length === 0) {
+          <p class="section-empty">No changes</p>
+        } @else {
+          <ul class="rows" role="list">
+            @for (row of section.rows; track row.key) {
+              <li class="row" [attr.data-kind]="row.kind">
+                <!-- The glyph is decorative; the word beside it is what states the kind, so the meaning does
                    not depend on colour or on recognising a symbol (WCAG 2.2 AA, 1.4.1). -->
-              <span class="row-glyph" aria-hidden="true">{{ glyphFor(row.kind) }}</span>
-              <span class="row-kind">{{ row.kindLabel }}</span>
+                <span class="row-glyph" aria-hidden="true">{{ glyphFor(row.kind) }}</span>
+                <span class="row-kind">{{ row.kindLabel }}</span>
 
-              <div class="row-body">
-                <span class="row-label">{{ row.label }}</span>
+                <div class="row-body">
+                  <span class="row-label">{{ row.label }}</span>
 
-                @if (row.from !== null || row.to !== null) {
-                  <span class="row-values">
-                    @if (row.from !== null) {
-                      <span class="row-value row-value--from"><span class="row-value-tag">was</span> {{ row.from }}</span>
-                    }
-                    @if (row.to !== null) {
-                      <span class="row-value row-value--to"><span class="row-value-tag">now</span> {{ row.to }}</span>
-                    }
-                  </span>
-                }
+                  @if (row.from !== null || row.to !== null) {
+                    <span class="row-values">
+                      @if (row.from !== null) {
+                        <span class="row-value row-value--from"
+                          ><span class="row-value-tag">was</span> {{ row.from }}</span
+                        >
+                      }
+                      @if (row.to !== null) {
+                        <span class="row-value row-value--to"><span class="row-value-tag">now</span> {{ row.to }}</span>
+                      }
+                    </span>
+                  }
 
-                <!-- Stated separately from the kind, and never as a replacement: a line that was reworded and
+                  <!-- Stated separately from the kind, and never as a replacement: a line that was reworded and
                      dragged says both, and one that only moved says only this. -->
-                @if (row.movement !== null) {
-                  <span class="row-movement">
-                    <span class="row-glyph row-glyph--inline" aria-hidden="true">{{ glyphFor('moved') }}</span>
-                    {{ row.movement }}
-                  </span>
-                }
-              </div>
-            </li>
-          }
-        </ul>
-      }
-    </section>
+                  @if (row.movement !== null) {
+                    <span class="row-movement">
+                      <span class="row-glyph row-glyph--inline" aria-hidden="true">{{ glyphFor('moved') }}</span>
+                      {{ row.movement }}
+                    </span>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
     }
   }
 </section>

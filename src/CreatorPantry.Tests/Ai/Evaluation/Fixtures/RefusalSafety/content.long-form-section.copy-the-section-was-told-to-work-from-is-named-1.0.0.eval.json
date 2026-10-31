@@ -14,27 +14,14 @@
         "yieldText": "Makes 1 loaf",
         "prepTimeMinutes": 10,
         "cookTimeMinutes": 45,
-        "ingredients": [
-          "450g plain flour",
-          "400ml buttermilk",
-          "1 tsp bicarbonate of soda"
-        ],
-        "steps": [
-          "Mix the dry ingredients.",
-          "Stir in the buttermilk.",
-          "Bake for 45 minutes."
-        ]
+        "ingredients": ["450g plain flour", "400ml buttermilk", "1 tsp bicarbonate of soda"],
+        "steps": ["Mix the dry ingredients.", "Stir in the buttermilk.", "Bake for 45 minutes."]
       }
     ],
-    "carried": [
-      "tips"
-    ]
+    "carried": ["tips"]
   },
   "expect": {
     "outcome": "Accepted",
-    "flagged": [
-      "long_form.draws_on_accepted_copy",
-      "tips"
-    ]
+    "flagged": ["long_form.draws_on_accepted_copy", "tips"]
   }
 }

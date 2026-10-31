@@ -97,7 +97,10 @@ describe('BrandLogosComponent', () => {
               of<DamAssetSearchOutcome>({
                 status: 'found',
                 page: {
-                  items: [assetSummary({ id: 'a1', title: 'Wordmark' }), assetSummary({ id: 'a2', title: 'Mark only' })],
+                  items: [
+                    assetSummary({ id: 'a1', title: 'Wordmark' }),
+                    assetSummary({ id: 'a2', title: 'Mark only' }),
+                  ],
                   nextCursor: null,
                   totalCount: 2,
                 },
@@ -160,7 +163,9 @@ describe('BrandLogosComponent', () => {
     await choose('Add from library', 'Wordmark');
 
     expect(host.changes).toEqual([]);
-    expect(root().querySelector('.logos > cp-notice[role="status"]')?.textContent).toContain('Wordmark is already one of this brand’s logos.');
+    expect(root().querySelector('.logos > cp-notice[role="status"]')?.textContent).toContain(
+      'Wordmark is already one of this brand’s logos.',
+    );
   });
 
   it('unlinks without asking, since nothing is saved until the form is, and moves focus somewhere useful', async () => {
@@ -228,7 +233,9 @@ describe('BrandLogosComponent', () => {
 
     button('Choose from library').click();
     await settle();
-    root().querySelector('cp-dialog')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    root()
+      .querySelector('cp-dialog')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await settle();
 
     expect(root().querySelector('[role="dialog"]')).toBeNull();
@@ -238,8 +245,10 @@ describe('BrandLogosComponent', () => {
   it('names the two groups, the dialog by what it is choosing, and each Unlink by its logo', async () => {
     await create((h) => h.assets.set([PRIMARY, MARK]));
 
-    const groups = Array.from(root().querySelectorAll('[role="group"]')).map(
-      (group) => root().querySelector(`[id="${group.getAttribute('aria-labelledby')}"]`)?.textContent?.trim(),
+    const groups = Array.from(root().querySelectorAll('[role="group"]')).map((group) =>
+      root()
+        .querySelector(`[id="${group.getAttribute('aria-labelledby')}"]`)
+        ?.textContent?.trim(),
     );
     expect(groups).toEqual(['Primary logo', 'Other logos']);
     expect(button('Unlink the primary logo').textContent?.trim()).toBe('Unlink');

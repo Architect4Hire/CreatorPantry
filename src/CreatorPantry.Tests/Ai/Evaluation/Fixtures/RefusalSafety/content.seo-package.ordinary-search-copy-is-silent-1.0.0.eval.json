@@ -8,10 +8,7 @@
     "payload": "{\"schemaVersion\":\"content.seo-package.v1\",\"sections\":{\"metaDescription\":{\"text\":\"A dense, tangy loaf with a soft crumb that you can mix and bake in 25 minutes at home.\"}}}",
     "expectedSchemaVersion": "content.seo-package.v1",
     "source": {
-      "numbers": [
-        "220",
-        "25"
-      ],
+      "numbers": ["220", "25"],
       "prose": "A dense, tangy loaf. Bake at 220C for 25 minutes.",
       "storageNotes": null
     }
