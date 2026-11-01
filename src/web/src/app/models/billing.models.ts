@@ -14,14 +14,7 @@ const BILLING_CYCLE_VALUES: ReadonlySet<string> = new Set<BillingCycle>(['Monthl
 
 /** Mirrors `BillingSubscriptionStatus`, as the provider last reported it. */
 export type BillingSubscriptionStatus =
-  | 'Incomplete'
-  | 'IncompleteExpired'
-  | 'Trialing'
-  | 'Active'
-  | 'PastDue'
-  | 'Unpaid'
-  | 'Canceled'
-  | 'Paused';
+  'Incomplete' | 'IncompleteExpired' | 'Trialing' | 'Active' | 'PastDue' | 'Unpaid' | 'Canceled' | 'Paused';
 
 const SUBSCRIPTION_STATUS_VALUES: ReadonlySet<string> = new Set<BillingSubscriptionStatus>([
   'Incomplete',

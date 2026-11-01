@@ -32,7 +32,10 @@ import { PlanCatalogueService } from '../../services/plan-catalogue.service';
 import { formatAllowanceReset } from '../../shared/allowance-text';
 
 /** How the page has got on reading the account's billing. */
-type LoadState = { readonly kind: 'loading' } | { readonly kind: 'error' } | { readonly kind: 'ready'; readonly account: BillingAccount };
+type LoadState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'error' }
+  | { readonly kind: 'ready'; readonly account: BillingAccount };
 
 /** A sentence for the page's one fixed place under the head. */
 interface PageNews {
@@ -176,10 +179,14 @@ export class BillingComponent {
     if (subscription?.status === 'Incomplete') return { tone: 'progress', label: 'Payment pending' };
     if (subscription?.cancelAt) return { tone: 'warning', label: `Ends ${this.date(subscription.cancelAt)}` };
     if (subscription?.nextPlanName && subscription.nextChangeAt) {
-      return { tone: 'progress', label: `Moves to ${subscription.nextPlanName} on ${this.date(subscription.nextChangeAt)}` };
+      return {
+        tone: 'progress',
+        label: `Moves to ${subscription.nextPlanName} on ${this.date(subscription.nextChangeAt)}`,
+      };
     }
     if (plan.isTrial && plan.trialEnded) return { tone: 'error', label: 'Trial ended' };
-    if (plan.isTrial && plan.trialEndsAt) return { tone: 'neutral', label: `Trial ends ${this.date(plan.trialEndsAt)}` };
+    if (plan.isTrial && plan.trialEndsAt)
+      return { tone: 'neutral', label: `Trial ends ${this.date(plan.trialEndsAt)}` };
     return { tone: 'success', label: subscription ? 'Active' : 'On this plan' };
   });
 
@@ -190,12 +197,16 @@ export class BillingComponent {
     if (!account || !plan) return [];
 
     const facts = [
-      { label: 'Credits', value: `${this.number(plan.credits)} ${plan.period === 'Once' ? 'for the trial' : 'a month'}` },
+      {
+        label: 'Credits',
+        value: `${this.number(plan.credits)} ${plan.period === 'Once' ? 'for the trial' : 'a month'}`,
+      },
       { label: 'Pictures', value: `Up to ${this.number(plan.dailyImageCap)} a day` },
     ];
 
     const subscription = account.subscription;
-    if (subscription?.cycle) facts.push({ label: 'Billing', value: subscription.cycle === 'Annual' ? 'Yearly' : 'Monthly' });
+    if (subscription?.cycle)
+      facts.push({ label: 'Billing', value: subscription.cycle === 'Annual' ? 'Yearly' : 'Monthly' });
     if (subscription?.currentPeriodEnd && !subscription.cancelAt) {
       facts.push({ label: 'Renews', value: this.date(subscription.currentPeriodEnd) });
     }
@@ -288,7 +299,9 @@ export class BillingComponent {
     // An upgrade goes to the provider's page, which states the charge before anything is paid.
     if (change !== 'upgrade') {
       const current = this.currentPlan()?.name ?? 'your plan';
-      const when = account.subscription?.currentPeriodEnd ? this.date(account.subscription.currentPeriodEnd) : 'the end of this period';
+      const when = account.subscription?.currentPeriodEnd
+        ? this.date(account.subscription.currentPeriodEnd)
+        : 'the end of this period';
       const yearly = cycle === 'Annual' ? 'yearly' : 'monthly';
       const proceed = await this.confirm.confirm(
         change === 'switch-cycle'
@@ -425,7 +438,10 @@ export class BillingComponent {
       if (outcome.status !== 'unavailable') this.keys.delete(what);
 
       if (outcome.status === 'redirect' && outcome.redirect.scheduled) {
-        this.tell({ tone: 'success', text: 'Done. This takes effect when your current period ends — nothing is charged now.' });
+        this.tell({
+          tone: 'success',
+          text: 'Done. This takes effect when your current period ends — nothing is charged now.',
+        });
         await this.load();
         return;
       }
@@ -478,7 +494,10 @@ export class BillingComponent {
     }
 
     if (checkout === 'upgrade') {
-      this.tell({ tone: 'neutral', text: 'Your upgrade is being confirmed. It shows here once Stripe tells us — refresh in a moment.' });
+      this.tell({
+        tone: 'neutral',
+        text: 'Your upgrade is being confirmed. It shows here once Stripe tells us — refresh in a moment.',
+      });
       return;
     }
 
@@ -514,7 +533,10 @@ export class BillingComponent {
 
     this.polling = false;
     if (!this.stopped) {
-      this.tell({ tone: 'neutral', text: 'This is taking longer than usual. It can take a minute to show here — refresh in a moment.' });
+      this.tell({
+        tone: 'neutral',
+        text: 'This is taking longer than usual. It can take a minute to show here — refresh in a moment.',
+      });
     }
   }
 
@@ -542,7 +564,9 @@ export class BillingComponent {
   private money(amount: number): string {
     const currency = this.catalogue()?.currency ?? '';
     try {
-      return currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) : String(amount);
+      return currency
+        ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
+        : String(amount);
     } catch {
       return `${amount} ${currency}`;
     }

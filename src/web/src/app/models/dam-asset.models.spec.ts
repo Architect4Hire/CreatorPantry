@@ -138,7 +138,9 @@ describe('DAM asset models', () => {
     });
 
     it('fails the whole page on one unreadable row instead of quietly shortening it', () => {
-      expect(decodeDamAssetSearchPage({ items: [summaryBody(), { id: ID }], nextCursor: null, totalCount: 2 })).toBeNull();
+      expect(
+        decodeDamAssetSearchPage({ items: [summaryBody(), { id: ID }], nextCursor: null, totalCount: 2 }),
+      ).toBeNull();
     });
 
     it('refuses a body that is not a page', () => {
@@ -156,7 +158,13 @@ describe('DAM asset models', () => {
 
     it('sends each filter and the title ordering as the route names them', () => {
       expect(
-        encodeDamAssetSearchQuery({ search: '  bread ', channel: 'instagram', day: 'Sunday', sort: 'Title', cursor: null }),
+        encodeDamAssetSearchQuery({
+          search: '  bread ',
+          channel: 'instagram',
+          day: 'Sunday',
+          sort: 'Title',
+          cursor: null,
+        }),
       ).toEqual({ search: 'bread', channel: 'instagram', day: 'Sunday', sort: 'Title' });
     });
 

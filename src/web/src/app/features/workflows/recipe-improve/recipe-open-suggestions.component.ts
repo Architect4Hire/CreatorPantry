@@ -46,7 +46,9 @@ const KIND_NAMES: Partial<Record<AiTaskType, string>> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
-    <p class="cp-sr-only" role="status">{{ listed().status === 'loading' ? 'Looking for suggestions waiting for you…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      listed().status === 'loading' ? 'Looking for suggestions waiting for you…' : ''
+    }}</p>
     @switch (listed().status) {
       @case ('loading') {
         <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
@@ -69,15 +71,21 @@ const KIND_NAMES: Partial<Record<AiTaskType, string>> = {
               @for (item of shown(); track item.requestId) {
                 <li class="item">
                   <p class="plain">
-                    <strong>{{ nameOf(item) }}</strong>, asked for {{ askedOn(item.requestedAt) }}.
+                    <strong>{{ nameOf(item) }}</strong
+                    >, asked for {{ askedOn(item.requestedAt) }}.
                     @if (item.pendingChangeCount > 0) {
-                      {{ item.pendingChangeCount === 1 ? 'One change waits' : item.pendingChangeCount + ' changes wait' }} for your answer.
+                      {{
+                        item.pendingChangeCount === 1 ? 'One change waits' : item.pendingChangeCount + ' changes wait'
+                      }}
+                      for your answer.
                     } @else {
                       Still being written.
                     }
                   </p>
                   @if (item.hasSafetyCaution) {
-                    <cp-notice tone="warning" role="note">This one carries a safety note. Read it before you decide.</cp-notice>
+                    <cp-notice tone="warning" role="note"
+                      >This one carries a safety note. Read it before you decide.</cp-notice
+                    >
                   }
                   <cp-ai-proposal-panel
                     [workspaceSlug]="workspaceSlug()"

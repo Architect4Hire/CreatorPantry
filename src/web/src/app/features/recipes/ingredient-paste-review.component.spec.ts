@@ -5,7 +5,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RuntimeConfigService } from '../../core/runtime-config.service';
 import { IngredientPasteReviewComponent } from './ingredient-paste-review.component';
 
-async function createFixture(): Promise<{ fixture: ComponentFixture<IngredientPasteReviewComponent>; http: HttpTestingController }> {
+async function createFixture(): Promise<{
+  fixture: ComponentFixture<IngredientPasteReviewComponent>;
+  http: HttpTestingController;
+}> {
   await TestBed.configureTestingModule({
     imports: [IngredientPasteReviewComponent],
     providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -28,7 +31,12 @@ const MATCHED_LINE = {
   tokens: {
     originalText: '2 tsp kosher salt',
     isGroupMarker: false,
-    quantity: { span: { start: 0, length: 1, text: '2' }, value: { numerator: '2', denominator: '1' }, range: null, isInvalid: false },
+    quantity: {
+      span: { start: 0, length: 1, text: '2' },
+      value: { numerator: '2', denominator: '1' },
+      range: null,
+      isInvalid: false,
+    },
     packageQuantity: null,
     unitCandidate: { start: 2, length: 3, text: 'tsp' },
     ingredientText: { start: 6, length: 11, text: 'kosher salt' },
@@ -60,7 +68,9 @@ const AMBIGUOUS_LINE = {
     ingredientText: { start: 0, length: 8, text: 'cilantro' },
     preparationText: [],
     isOptional: false,
-    ambiguities: [{ kind: 'NoQuantityDetected', span: { start: 0, length: 8, text: 'cilantro' }, message: 'No quantity found.' }],
+    ambiguities: [
+      { kind: 'NoQuantityDetected', span: { start: 0, length: 8, text: 'cilantro' }, message: 'No quantity found.' },
+    ],
   },
   ingredientMatch: {
     inputText: 'cilantro',
@@ -94,7 +104,13 @@ const NO_QUANTITY_LINE = lineLike({
   tokens: {
     originalText: 'kosher salt, to taste',
     quantity: null,
-    ambiguities: [{ kind: 'NoQuantityDetected', span: { start: 0, length: 11, text: 'kosher salt' }, message: 'No quantity found.' }],
+    ambiguities: [
+      {
+        kind: 'NoQuantityDetected',
+        span: { start: 0, length: 11, text: 'kosher salt' },
+        message: 'No quantity found.',
+      },
+    ],
   },
 });
 
@@ -102,7 +118,9 @@ const INVALID_QUANTITY_LINE = lineLike({
   tokens: {
     originalText: '1/x cups flour',
     quantity: { span: { start: 0, length: 3, text: '1/x' }, value: null, range: null, isInvalid: true },
-    ambiguities: [{ kind: 'InvalidQuantity', span: { start: 0, length: 3, text: '1/x' }, message: 'Could not read that quantity.' }],
+    ambiguities: [
+      { kind: 'InvalidQuantity', span: { start: 0, length: 3, text: '1/x' }, message: 'Could not read that quantity.' },
+    ],
   },
 });
 
@@ -213,7 +231,11 @@ describe('IngredientPasteReviewComponent batch actions', () => {
       { name: 'a matched line with no quantity to find', line: NO_QUANTITY_LINE, eligible: true },
       { name: 'a section heading', line: GROUP_MARKER_LINE, eligible: false },
       { name: 'a quantity the tokenizer could not read', line: INVALID_QUANTITY_LINE, eligible: false },
-      { name: 'a match the matcher flagged ambiguous even though it resolved one', line: RESOLVED_BUT_AMBIGUOUS_LINE, eligible: false },
+      {
+        name: 'a match the matcher flagged ambiguous even though it resolved one',
+        line: RESOLVED_BUT_AMBIGUOUS_LINE,
+        eligible: false,
+      },
       { name: 'an unresolved ambiguous match', line: AMBIGUOUS_LINE, eligible: false },
       { name: 'a line the matcher never attempted', line: NO_MATCH_ATTEMPTED_LINE, eligible: false },
     ];
@@ -348,7 +370,9 @@ describe('IngredientPasteReviewComponent batch actions', () => {
     expect(accepted.length).toBe(1);
     expect(accepted[0].rows.length).toBe(12);
     // Nothing a heading contributed came through as an ingredient.
-    expect(accepted[0].rows.some((row) => (row as { displayText: string }).displayText === 'For the filling')).toBeFalse();
+    expect(
+      accepted[0].rows.some((row) => (row as { displayText: string }).displayText === 'For the filling'),
+    ).toBeFalse();
 
     // The four that need review are still offered, one at a time.
     expect(fixture.componentInstance.bulkAcceptableCount()).toBe(0);
@@ -364,7 +388,9 @@ describe('IngredientPasteReviewComponent', () => {
 
     fixture.componentInstance.pastedText.set('2 tsp kosher salt');
     const parseCall = fixture.componentInstance.parse();
-    http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse').flush({ lines: [MATCHED_LINE] });
+    http
+      .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse')
+      .flush({ lines: [MATCHED_LINE] });
     await parseCall;
     fixture.detectChanges();
 
@@ -379,7 +405,9 @@ describe('IngredientPasteReviewComponent', () => {
 
     fixture.componentInstance.pastedText.set('2 tsp kosher salt');
     const parseCall = fixture.componentInstance.parse();
-    http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse').flush({ lines: [MATCHED_LINE] });
+    http
+      .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse')
+      .flush({ lines: [MATCHED_LINE] });
     await parseCall;
     fixture.detectChanges();
 
@@ -390,7 +418,9 @@ describe('IngredientPasteReviewComponent', () => {
     expect(fixture.componentInstance.isAccepted(0)).toBeTrue();
 
     // The accept button for an already-accepted line is disabled, not just relabeled — a second click cannot add a duplicate.
-    const acceptButtons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.review-line button'));
+    const acceptButtons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('.review-line button'),
+    );
     expect(acceptButtons[0].disabled).toBeTrue();
     expect(acceptButtons[0].textContent).toContain('Added');
   });
@@ -399,7 +429,9 @@ describe('IngredientPasteReviewComponent', () => {
     const { fixture, http } = await createFixture();
     fixture.componentInstance.pastedText.set('cilantro');
     const parseCall = fixture.componentInstance.parse();
-    http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse').flush({ lines: [AMBIGUOUS_LINE] });
+    http
+      .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse')
+      .flush({ lines: [AMBIGUOUS_LINE] });
     await parseCall;
     fixture.detectChanges();
 
@@ -416,11 +448,13 @@ describe('IngredientPasteReviewComponent', () => {
     expect(accepted[0].rows[0].ingredientId).toBeNull();
   });
 
-  it('applies the creator\'s picked candidate when accepted', async () => {
+  it("applies the creator's picked candidate when accepted", async () => {
     const { fixture, http } = await createFixture();
     fixture.componentInstance.pastedText.set('cilantro');
     const parseCall = fixture.componentInstance.parse();
-    http.expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse').flush({ lines: [AMBIGUOUS_LINE] });
+    http
+      .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse')
+      .flush({ lines: [AMBIGUOUS_LINE] });
     await parseCall;
     fixture.detectChanges();
 
@@ -440,7 +474,10 @@ describe('IngredientPasteReviewComponent', () => {
     const parseCall = fixture.componentInstance.parse();
     http
       .expectOne('https://gateway.example/api/v1/workspaces/cozy-fall/ingredient-tools/parse')
-      .flush({ code: 'recipes.ingredient-lines.invalid_request', errors: { lines: ['Too long.'] } }, { status: 400, statusText: 'Bad Request' });
+      .flush(
+        { code: 'recipes.ingredient-lines.invalid_request', errors: { lines: ['Too long.'] } },
+        { status: 400, statusText: 'Bad Request' },
+      );
     await parseCall;
     fixture.detectChanges();
 

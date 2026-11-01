@@ -43,8 +43,8 @@
     @case ('read_only') {
       <cp-card>
         <cp-notice role="note">
-          You have view-only access to this workspace, so you can't run the pipeline. Ask an Owner or Editor to run
-          it for you.
+          You have view-only access to this workspace, so you can't run the pipeline. Ask an Owner or Editor to run it
+          for you.
         </cp-notice>
       </cp-card>
     }
@@ -67,8 +67,8 @@
     @case ('filing_failed') {
       <cp-card>
         <cp-notice tone="warning" role="alert">
-          Your unfinished run couldn't be saved to your workspace right now. It is still on this device, and
-          nothing has been lost.
+          Your unfinished run couldn't be saved to your workspace right now. It is still on this device, and nothing has
+          been lost.
           <button cpButton type="button" variant="secondary" size="sm" (click)="retryFiling()">Try again</button>
         </cp-notice>
       </cp-card>
@@ -77,7 +77,8 @@
       <!-- The page's one featured card: before the first step, it is the only thing on it (AU.5.4). -->
       <cp-topic-card heading="Pick up where you left off" headingId="resume-heading" featured>
         <p class="plain">
-          You were on <strong>{{ resumeStep().label }}</strong>. {{ keptText() }}
+          You were on <strong>{{ resumeStep().label }}</strong
+          >. {{ keptText() }}
         </p>
         <div cpTopicCardActions class="cp-actions">
           <button cpButton type="button" variant="primary" (click)="resume()">Continue</button>
@@ -112,7 +113,6 @@
           <!-- One card for the step, headed by its name. Wide: a step is a form, and its sections keep their
                own measure. The heading takes focus when the step changes. -->
           <cp-topic-card [heading]="step.label" headingId="cp-pipeline-step-heading" wide>
-
             <details class="help cp-disclosure">
               <summary>Need help with this step?</summary>
               <p class="cp-muted">{{ step.help }}</p>

@@ -313,7 +313,10 @@ describe('AiProposalPanelComponent', () => {
   // A refresh reduces to "constructed with an id", so landing on a finished operation must not start a poll loop.
   it('resumes onto a decided operation without polling again', fakeAsync(() => {
     service.statuses = [
-      { status: 'found', operation: operation({ status: 'Accepted', proposal: proposal([change({ disposition: 'Accepted' })]) }) },
+      {
+        status: 'found',
+        operation: operation({ status: 'Accepted', proposal: proposal([change({ disposition: 'Accepted' })]) }),
+      },
     ];
     const host = render();
 
@@ -438,9 +441,30 @@ describe('AiProposalPanelComponent', () => {
         status: 'Proposed',
         proposal: proposal([
           change({ changeId: 'c1', changeKind: 'Set' }),
-          change({ changeId: 'c2', changeKind: 'Add', fieldName: null, targetKind: 'Tag', beforeValue: null, afterValue: 'vegan', proposedPosition: 1 }),
-          change({ changeId: 'c3', changeKind: 'Remove', fieldName: null, targetKind: 'InstructionStep', afterValue: null }),
-          change({ changeId: 'c4', changeKind: 'Move', fieldName: null, targetKind: 'InstructionStep', afterValue: null, proposedPosition: 2 }),
+          change({
+            changeId: 'c2',
+            changeKind: 'Add',
+            fieldName: null,
+            targetKind: 'Tag',
+            beforeValue: null,
+            afterValue: 'vegan',
+            proposedPosition: 1,
+          }),
+          change({
+            changeId: 'c3',
+            changeKind: 'Remove',
+            fieldName: null,
+            targetKind: 'InstructionStep',
+            afterValue: null,
+          }),
+          change({
+            changeId: 'c4',
+            changeKind: 'Move',
+            fieldName: null,
+            targetKind: 'InstructionStep',
+            afterValue: null,
+            proposedPosition: 2,
+          }),
         ]),
       }),
     ];
@@ -473,7 +497,14 @@ describe('AiProposalPanelComponent', () => {
       found({
         status: 'Proposed',
         proposal: proposal([
-          change({ changeKind: 'Add', fieldName: null, targetKind: 'Tag', beforeValue: null, afterValue: 'vegan', proposedPosition: 2 }),
+          change({
+            changeKind: 'Add',
+            fieldName: null,
+            targetKind: 'Tag',
+            beforeValue: null,
+            afterValue: 'vegan',
+            proposedPosition: 2,
+          }),
         ]),
       }),
     ];
@@ -524,7 +555,13 @@ describe('AiProposalPanelComponent', () => {
       found({
         status: 'Proposed',
         proposal: proposal([
-          change({ changeKind: 'Move', fieldName: null, targetKind: 'InstructionStep', afterValue: null, proposedPosition: 0 }),
+          change({
+            changeKind: 'Move',
+            fieldName: null,
+            targetKind: 'InstructionStep',
+            afterValue: null,
+            proposedPosition: 0,
+          }),
         ]),
       }),
     ];
@@ -547,9 +584,10 @@ describe('AiProposalPanelComponent', () => {
     service.statuses = [
       found({
         status: 'Proposed',
-        proposal: proposal([change()], [
-          { kind: 'SafetyCaution', message: 'Check the internal temperature yourself.', changeId: 'c1' },
-        ]),
+        proposal: proposal(
+          [change()],
+          [{ kind: 'SafetyCaution', message: 'Check the internal temperature yourself.', changeId: 'c1' }],
+        ),
       }),
     ];
     const host = render();
@@ -563,10 +601,13 @@ describe('AiProposalPanelComponent', () => {
     service.statuses = [
       found({
         status: 'Proposed',
-        proposal: proposal([change()], [
-          { kind: 'Assumption', message: 'Assumed a 900g tin.', changeId: null },
-          { kind: 'SafetyCaution', message: 'Not a food-safety judgement.', changeId: null },
-        ]),
+        proposal: proposal(
+          [change()],
+          [
+            { kind: 'Assumption', message: 'Assumed a 900g tin.', changeId: null },
+            { kind: 'SafetyCaution', message: 'Not a food-safety judgement.', changeId: null },
+          ],
+        ),
       }),
     ];
     const host = render();
@@ -605,7 +646,9 @@ describe('AiProposalPanelComponent', () => {
     expect(label.textContent).toContain('phi-4');
     expect(label.textContent).not.toContain('sha256');
 
-    const terms = Array.from(host.querySelectorAll('details.provenance dl[cpFacts] dt')).map((dt) => dt.textContent?.trim());
+    const terms = Array.from(host.querySelectorAll('details.provenance dl[cpFacts] dt')).map((dt) =>
+      dt.textContent?.trim(),
+    );
     expect(terms).toEqual(['Made by', 'Instructions used', 'Read from recipe version', 'Reference']);
   }));
 
@@ -631,9 +674,7 @@ describe('AiProposalPanelComponent', () => {
   }));
 
   it('will not offer to accept a change it cannot describe', fakeAsync(() => {
-    service.statuses = [
-      found({ status: 'Proposed', proposal: proposal([change({ changeKind: 'Unspecified' })]) }),
-    ];
+    service.statuses = [found({ status: 'Proposed', proposal: proposal([change({ changeKind: 'Unspecified' })]) })];
     const host = render();
 
     expect(checkboxes().length).toBe(0);
@@ -775,7 +816,12 @@ describe('AiProposalPanelComponent', () => {
     service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
     service.dispositionOutcome = {
       status: 'decided',
-      result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0, rejectedChangeCount: 1, recipeVersionNumber: null }),
+      result: decisionResult({
+        status: 'Rejected',
+        acceptedChangeCount: 0,
+        rejectedChangeCount: 1,
+        recipeVersionNumber: null,
+      }),
     };
     render();
 
@@ -997,7 +1043,10 @@ describe('AiProposalPanelComponent', () => {
 
   it('opens on a proposal its host knows is stale with nothing to keep, a fresh ask, and a way to decline it', fakeAsync(() => {
     service.statuses = [found({ status: 'Proposed', proposal: proposal() })];
-    service.dispositionOutcome = { status: 'decided', result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }) };
+    service.dispositionOutcome = {
+      status: 'decided',
+      result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }),
+    };
     const host = render();
     fixture.componentRef.setInput('knownStale', true);
     settle();
@@ -1022,7 +1071,10 @@ describe('AiProposalPanelComponent', () => {
     settle();
     click('Keep selected');
 
-    service.dispositionOutcome = { status: 'decided', result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }) };
+    service.dispositionOutcome = {
+      status: 'decided',
+      result: decisionResult({ status: 'Rejected', acceptedChangeCount: 0 }),
+    };
     click('Decline these');
 
     expect(decided.map((result) => result.status)).toEqual(['Rejected']);

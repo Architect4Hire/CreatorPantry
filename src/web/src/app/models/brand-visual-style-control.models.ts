@@ -87,11 +87,17 @@ export function resolveBrandVisualUse(inputs: BrandVisualUseInputs): BrandVisual
  * where the server can only report it afterwards. None of these blocks a request.
  */
 export type BrandVisualConflict =
-  | { readonly kind: 'reference-unusable'; readonly documentId: string; readonly title: string; readonly reason: string }
+  | {
+      readonly kind: 'reference-unusable';
+      readonly documentId: string;
+      readonly title: string;
+      readonly reason: string;
+    }
   | { readonly kind: 'reference-missing'; readonly documentId: string }
   | { readonly kind: 'guide-not-active'; readonly name: string; readonly versionNumber: number };
 
-export const REFERENCE_UNUSABLE_FALLBACK = 'No text could be read from it, so it will not be used. Its image is never sent.';
+export const REFERENCE_UNUSABLE_FALLBACK =
+  'No text could be read from it, so it will not be used. Its image is never sent.';
 
 export interface BrandVisualConflictInputs {
   readonly use: BrandVisualUse;

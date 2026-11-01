@@ -13,7 +13,12 @@
   ></textarea>
 </cp-field>
 
-<button cpButton type="button" [disabled]="state().status === 'parsing' || pastedText().trim().length === 0" (click)="parse()">
+<button
+  cpButton
+  type="button"
+  [disabled]="state().status === 'parsing' || pastedText().trim().length === 0"
+  (click)="parse()"
+>
   @if (state().status === 'parsing') {
     Parsing…
   } @else {
@@ -45,12 +50,7 @@
     </cp-field>
 
     <div class="batch-actions-accept">
-      <button
-        cpButton
-        type="button"
-        [disabled]="bulkAcceptableCount() === 0"
-        (click)="acceptAllMatched()"
-      >
+      <button cpButton type="button" [disabled]="bulkAcceptableCount() === 0" (click)="acceptAllMatched()">
         Add all matched ({{ bulkAcceptableCount() }})
       </button>
 
@@ -89,7 +89,14 @@
           }
 
           <div class="match-row">
-            <cp-status-pill [tone]="toneFor(ingredientChoiceFor(index, line) !== null && ingredientChoiceFor(index, line) !== undefined, !!line.ingredientMatch?.isAmbiguous)">
+            <cp-status-pill
+              [tone]="
+                toneFor(
+                  ingredientChoiceFor(index, line) !== null && ingredientChoiceFor(index, line) !== undefined,
+                  !!line.ingredientMatch?.isAmbiguous
+                )
+              "
+            >
               @if (ingredientChoiceFor(index, line)) {
                 Ingredient: {{ ingredientChoiceFor(index, line)?.canonicalName }}
               } @else if (line.ingredientMatch) {
@@ -100,7 +107,10 @@
             </cp-status-pill>
 
             @if (line.ingredientMatch && !line.ingredientMatch.resolved) {
-              <cp-field [label]="'Ingredient for “' + line.ingredientMatch.inputText + '”'" [forId]="'ingredient-choice-' + index">
+              <cp-field
+                [label]="'Ingredient for “' + line.ingredientMatch.inputText + '”'"
+                [forId]="'ingredient-choice-' + index"
+              >
                 <select
                   [id]="'ingredient-choice-' + index"
                   [name]="'ingredientChoice' + index"
@@ -116,7 +126,14 @@
           </div>
 
           <div class="match-row">
-            <cp-status-pill [tone]="toneFor(unitChoiceFor(index, line) !== null && unitChoiceFor(index, line) !== undefined, !!line.unitMatch?.isAmbiguous)">
+            <cp-status-pill
+              [tone]="
+                toneFor(
+                  unitChoiceFor(index, line) !== null && unitChoiceFor(index, line) !== undefined,
+                  !!line.unitMatch?.isAmbiguous
+                )
+              "
+            >
               @if (unitChoiceFor(index, line)) {
                 Unit: {{ unitChoiceFor(index, line)?.displayName }}
               } @else if (line.unitMatch) {
@@ -142,7 +159,13 @@
             }
           </div>
 
-          <button cpButton variant="secondary" type="button" [disabled]="isAccepted(index)" (click)="accept(index, line)">
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [disabled]="isAccepted(index)"
+            (click)="accept(index, line)"
+          >
             @if (isAccepted(index)) {
               Added
             } @else {

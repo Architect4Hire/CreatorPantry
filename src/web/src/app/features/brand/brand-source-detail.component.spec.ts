@@ -62,7 +62,10 @@ function version(versionNumber: number, overrides: Partial<BrandSourceVersionRow
 }
 
 const VERSIONS: BrandSourceVersionPage = {
-  items: [version(2, { isCurrent: true, extraction: { state: 'Succeeded', origin: 'Extracted', at: 'x' } }), version(1)],
+  items: [
+    version(2, { isCurrent: true, extraction: { state: 'Succeeded', origin: 'Extracted', at: 'x' } }),
+    version(1),
+  ],
   nextCursor: null,
 };
 
@@ -85,7 +88,9 @@ const USAGE: BrandSourceUsage = {
 
 describe('BrandSourceDetailComponent', () => {
   let getSpy: jasmine.Spy<() => Promise<BrandSourceDetailOutcome>>;
-  let versionsSpy: jasmine.Spy<(slug: string, id: string, cursor?: string | null) => Promise<BrandSourceVersionsOutcome>>;
+  let versionsSpy: jasmine.Spy<
+    (slug: string, id: string, cursor?: string | null) => Promise<BrandSourceVersionsOutcome>
+  >;
   let usageSpy: jasmine.Spy<() => Promise<BrandSourceUsageOutcome>>;
   let archiveSpy: jasmine.Spy<(slug: string, id: string, token: string) => Promise<BrandSourceShelfOutcome>>;
   let unarchiveSpy: jasmine.Spy<(slug: string, id: string, token: string) => Promise<BrandSourceShelfOutcome>>;
@@ -123,7 +128,9 @@ describe('BrandSourceDetailComponent', () => {
    * another spec may have left something in.
    */
   function drawerPanel(): HTMLElement | null {
-    return (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null;
+    return (
+      (harness.fixture.debugElement.query(By.css('[role="dialog"]'))?.nativeElement as HTMLElement | undefined) ?? null
+    );
   }
 
   /** The topic card with this heading. Every topic is on the page at once: there is nothing to switch to. */
@@ -170,8 +177,12 @@ describe('BrandSourceDetailComponent', () => {
     usageSpy = pending.has('usage')
       ? jasmine.createSpy('usage').and.returnValue(never<BrandSourceUsageOutcome>())
       : jasmine.createSpy('usage').and.resolveTo(options.usage ?? { status: 'ok', usage: USAGE });
-    archiveSpy = jasmine.createSpy('archive').and.resolveTo(options.archive ?? { status: 'done', document: detail({ status: 'Archived' }) });
-    unarchiveSpy = jasmine.createSpy('unarchive').and.resolveTo(options.archive ?? { status: 'done', document: detail() });
+    archiveSpy = jasmine
+      .createSpy('archive')
+      .and.resolveTo(options.archive ?? { status: 'done', document: detail({ status: 'Archived' }) });
+    unarchiveSpy = jasmine
+      .createSpy('unarchive')
+      .and.resolveTo(options.archive ?? { status: 'done', document: detail() });
     confirmSpy = jasmine.createSpy('confirm').and.resolveTo(options.confirmed ?? true);
 
     TestBed.resetTestingModule();
@@ -199,7 +210,10 @@ describe('BrandSourceDetailComponent', () => {
             correct: jasmine.createSpy('correct'),
           },
         },
-        { provide: BrandProfileService, useValue: { listContentChannels: jasmine.createSpy().and.resolveTo({ status: 'unavailable' }) } },
+        {
+          provide: BrandProfileService,
+          useValue: { listContentChannels: jasmine.createSpy().and.resolveTo({ status: 'unavailable' }) },
+        },
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
       ],
     }).compileComponents();
@@ -243,7 +257,10 @@ describe('BrandSourceDetailComponent', () => {
   });
 
   it('reports a failed read and reads everything again when asked', async () => {
-    await create({ status: 'unavailable' }, { reads: [{ status: 'unavailable' }, { status: 'ok', document: detail() }] });
+    await create(
+      { status: 'unavailable' },
+      { reads: [{ status: 'unavailable' }, { status: 'ok', document: detail() }] },
+    );
 
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('couldn’t be loaded');
 
@@ -363,7 +380,9 @@ describe('BrandSourceDetailComponent', () => {
 
   it('follows the cursor when there are earlier versions to show', async () => {
     versionsSpy = jasmine.createSpy('listVersions');
-    await create(undefined, { versions: { status: 'ok', page: { items: [version(2, { isCurrent: true })], nextCursor: 'more==' } } });
+    await create(undefined, {
+      versions: { status: 'ok', page: { items: [version(2, { isCurrent: true })], nextCursor: 'more==' } },
+    });
     expect(topic('Versions')).toBeTruthy();
 
     button('Show earlier versions').click();
@@ -478,7 +497,9 @@ describe('BrandSourceDetailComponent', () => {
 
     for (const region of Array.from(root().querySelectorAll('cp-topic-card section'))) {
       const id = region.getAttribute('aria-labelledby') as string;
-      expect(root().querySelector(`[id="${id}"]`)?.textContent?.trim()).withContext(id).not.toBe('');
+      expect(root().querySelector(`[id="${id}"]`)?.textContent?.trim())
+        .withContext(id)
+        .not.toBe('');
     }
     expect(root().querySelectorAll('h1').length).toBe(1);
     expect(root().querySelector('h1')?.textContent).toContain('House Style');
@@ -537,7 +558,13 @@ describe('BrandSourceDetailComponent', () => {
 
     expect(root().querySelectorAll('[role="tab"]').length).toBe(0);
     const headings = Array.from(root().querySelectorAll('cp-topic-card h2')).map((each) => each.textContent?.trim());
-    expect(headings).toEqual(['About this example', 'Its text', 'Versions', 'Where it’s used', 'Put this example on the shelf']);
+    expect(headings).toEqual([
+      'About this example',
+      'Its text',
+      'Versions',
+      'Where it’s used',
+      'Put this example on the shelf',
+    ]);
   });
 
   it('puts each action at the bottom of the card it acts on', async () => {

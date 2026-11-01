@@ -10,7 +10,9 @@
   [open]="toolsOpen()"
   [heading]="toolsHeading()"
   [description]="
-    openToolId() === null ? 'Each works from the recipe as last saved. Nothing changes until you accept or apply it.' : ''
+    openToolId() === null
+      ? 'Each works from the recipe as last saved. Nothing changes until you accept or apply it.'
+      : ''
   "
   size="wide"
   closeLabel="Close tools"
@@ -20,7 +22,12 @@
     <ul class="tool-list" role="list">
       @for (item of tools; track item.id) {
         <li>
-          <button type="button" class="tool-choice" [id]="'recipe-tool-choice-' + item.id" (click)="chooseTool(item.id)">
+          <button
+            type="button"
+            class="tool-choice"
+            [id]="'recipe-tool-choice-' + item.id"
+            (click)="chooseTool(item.id)"
+          >
             <span class="tool-choice-name">{{ item.label }}</span>
             <span class="tool-choice-note">{{ item.note }}</span>
             @if (toolHasOpenRequest(item.id)) {

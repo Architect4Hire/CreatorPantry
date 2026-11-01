@@ -13,7 +13,9 @@
     @if (!canAdd()) {
       <p class="cp-muted">Choose what your example shows above, then add it here.</p>
     } @else {
-      <p class="cp-muted">Adding as: <strong>{{ selectedKind()?.label }}</strong></p>
+      <p class="cp-muted"
+        >Adding as: <strong>{{ selectedKind()?.label }}</strong></p
+      >
       <cp-uploader
         label="Drop a file here, or browse"
         hint="PDF, Word, text, web page or image. Up to 20 MB, or 5 MB for text files."
@@ -22,11 +24,27 @@
         (filesSelected)="onFiles($event)"
       />
       <div class="cp-actions">
-        <button cpButton type="button" variant="secondary" size="sm" [attr.aria-expanded]="pasteOpen()" aria-controls="cp-examples-paste" (click)="togglePaste()">
+        <button
+          cpButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          [attr.aria-expanded]="pasteOpen()"
+          aria-controls="cp-examples-paste"
+          (click)="togglePaste()"
+        >
           Paste text instead
         </button>
         @if (pickable().length > 0) {
-          <button cpButton type="button" variant="secondary" size="sm" [attr.aria-expanded]="pickerOpen()" aria-controls="cp-examples-picker" (click)="togglePicker()">
+          <button
+            cpButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            [attr.aria-expanded]="pickerOpen()"
+            aria-controls="cp-examples-picker"
+            (click)="togglePicker()"
+          >
             Pick one you've already added
           </button>
         }
@@ -35,7 +53,13 @@
       @if (pasteOpen()) {
         <div id="cp-examples-paste" class="panel">
           <cp-field label="Name this" forId="cp-examples-paste-title">
-            <input id="cp-examples-paste-title" type="text" [maxLength]="titleMax" [value]="pasteTitle()" (input)="setPasteTitle($event)" />
+            <input
+              id="cp-examples-paste-title"
+              type="text"
+              [maxLength]="titleMax"
+              [value]="pasteTitle()"
+              (input)="setPasteTitle($event)"
+            />
           </cp-field>
           <cp-field label="Paste your text" forId="cp-examples-paste-text" [error]="pasteProblem()">
             <textarea
@@ -63,7 +87,15 @@
             (valueChange)="setPicked($event)"
           />
           <div class="cp-actions">
-            <button cpButton type="button" variant="primary" size="sm" [disabled]="picked().size === 0" (click)="usePicked()">Use these</button>
+            <button
+              cpButton
+              type="button"
+              variant="primary"
+              size="sm"
+              [disabled]="picked().size === 0"
+              (click)="usePicked()"
+              >Use these</button
+            >
             <button cpButton type="button" variant="ghost" size="sm" (click)="togglePicker()">Cancel</button>
           </div>
         </div>
@@ -72,8 +104,18 @@
       <details class="cp-disclosure">
         <summary>More options</summary>
         <div class="more-body">
-          <cp-field label="Who is this written for?" forId="cp-examples-audience" hint="Applies to the examples you add next.">
-            <input id="cp-examples-audience" type="text" [maxLength]="audienceMax" [value]="audience()" (input)="setAudience($event)" />
+          <cp-field
+            label="Who is this written for?"
+            forId="cp-examples-audience"
+            hint="Applies to the examples you add next."
+          >
+            <input
+              id="cp-examples-audience"
+              type="text"
+              [maxLength]="audienceMax"
+              [value]="audience()"
+              (input)="setAudience($event)"
+            />
           </cp-field>
         </div>
       </details>
@@ -82,13 +124,17 @@
 
   <cp-form-section heading="Your examples">
     <!-- Always present, so its words change rather than arrive with it (AU.6.3). -->
-    <p class="cp-sr-only" role="status">{{ library() === 'loading' && entries().length === 0 ? 'Checking your examples…' : '' }}</p>
+    <p class="cp-sr-only" role="status">{{
+      library() === 'loading' && entries().length === 0 ? 'Checking your examples…' : ''
+    }}</p>
     @if (library() === 'loading' && entries().length === 0) {
       <!-- The examples arriving as rows. -->
       <div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
     }
     @if (library() === 'degraded') {
-      <cp-notice role="status">We couldn't check your earlier examples just now. They're still saved, and you can keep going.</cp-notice>
+      <cp-notice role="status"
+        >We couldn't check your earlier examples just now. They're still saved, and you can keep going.</cp-notice
+      >
     }
     @if (note()) {
       <cp-notice role="status">{{ note() }}</cp-notice>
@@ -108,16 +154,48 @@
           <ng-container exampleActions>
             @switch (entry.status) {
               @case ('adding') {
-                <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Stop adding ' + entry.name" (click)="cancel(entry.id)">Stop</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="'Stop adding ' + entry.name"
+                  (click)="cancel(entry.id)"
+                  >Stop</button
+                >
               }
               @case ('added') {
-                <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Remove ' + entry.name + ' from this step'" (click)="remove(entry.id)">Remove</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="'Remove ' + entry.name + ' from this step'"
+                  (click)="remove(entry.id)"
+                  >Remove</button
+                >
               }
               @case ('failed') {
                 @if (retryable(entry)) {
-                  <button cpButton type="button" variant="secondary" size="sm" [attr.aria-label]="'Try adding ' + entry.name + ' again'" (click)="retry(entry.id)">Try again</button>
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    [attr.aria-label]="'Try adding ' + entry.name + ' again'"
+                    (click)="retry(entry.id)"
+                    >Try again</button
+                  >
                 }
-                <button cpButton type="button" variant="ghost" size="sm" [attr.aria-label]="'Remove ' + entry.name + ' from this step'" (click)="remove(entry.id)">Remove</button>
+                <button
+                  cpButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="'Remove ' + entry.name + ' from this step'"
+                  (click)="remove(entry.id)"
+                  >Remove</button
+                >
               }
             }
           </ng-container>

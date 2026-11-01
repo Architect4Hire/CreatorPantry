@@ -75,7 +75,11 @@ describe('long-form draft models', () => {
       expect(bare?.unresolvedItems).toEqual([]);
 
       const issue = decodeLongFormDraft(
-        wireDraft({ kind: 'NewsletterIssue', framing: { subject: 'Three loaves', note: null }, unresolvedItems: ['s-2'] }),
+        wireDraft({
+          kind: 'NewsletterIssue',
+          framing: { subject: 'Three loaves', note: null },
+          unresolvedItems: ['s-2'],
+        }),
       );
       expect(issue?.framing).toEqual({ subject: 'Three loaves', note: null });
       expect(issue?.unresolvedItems).toEqual(['s-2']);
@@ -85,7 +89,15 @@ describe('long-form draft models', () => {
     });
 
     it('reads an item’s source state, and refuses one it does not know rather than calling it resolved', () => {
-      const item = { id: 's-1', role: 'Item', heading: 'h', intent: 'i', isWritten: false, settled: false, sourceReferenceId: 'ref-1' };
+      const item = {
+        id: 's-1',
+        role: 'Item',
+        heading: 'h',
+        intent: 'i',
+        isWritten: false,
+        settled: false,
+        sourceReferenceId: 'ref-1',
+      };
 
       expect(decodeLongFormPlannedSection({ ...item, sourceState: 'Unresolved' })?.sourceState).toBe('Unresolved');
       expect(decodeLongFormPlannedSection(item)?.sourceState).toBeNull();
@@ -119,7 +131,7 @@ describe('long-form draft models', () => {
 
   it('keeps a plan open until sections are being written', () => {
     const open = (status: LongFormDraft['status']): boolean =>
-      longFormPlanIsOpen({ ...(decodeLongFormDraft(wireDraft())!), status });
+      longFormPlanIsOpen({ ...decodeLongFormDraft(wireDraft())!, status });
 
     expect(open('Draft')).toBeTrue();
     expect(open('Outlined')).toBeTrue();

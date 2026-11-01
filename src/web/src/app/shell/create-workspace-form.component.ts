@@ -37,11 +37,26 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
       </button>
     </form>
   `,
-  styles: [`
-    .create-workspace-form { display: grid; gap: var(--cp-space-3); width: min(22rem, 100%); text-align: left; }
-    .banner { margin: 0; padding: var(--cp-space-2) var(--cp-space-3); border-radius: var(--cp-radius-md); font-size: var(--cp-font-size-sm); }
-    .banner--error { background: var(--cp-danger-soft); color: var(--cp-danger); }
-  `],
+  styles: [
+    `
+      .create-workspace-form {
+        display: grid;
+        gap: var(--cp-space-3);
+        width: min(22rem, 100%);
+        text-align: left;
+      }
+      .banner {
+        margin: 0;
+        padding: var(--cp-space-2) var(--cp-space-3);
+        border-radius: var(--cp-radius-md);
+        font-size: var(--cp-font-size-sm);
+      }
+      .banner--error {
+        background: var(--cp-danger-soft);
+        color: var(--cp-danger);
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CreateWorkspaceFormComponent {

@@ -153,9 +153,11 @@ describe('pollAiOperation', () => {
 
   it('asks nothing more once the caller unsubscribes', () => {
     const seen: AiWatchOperationOutcome[] = [];
-    const subscription = pollAiOperation(ask, () => (completed += 1), () => now).subscribe((outcome) =>
-      seen.push(outcome),
-    );
+    const subscription = pollAiOperation(
+      ask,
+      () => (completed += 1),
+      () => now,
+    ).subscribe((outcome) => seen.push(outcome));
 
     subscription.unsubscribe();
     asks[0].next({ status: 'found', operation: operation('Proposed') });

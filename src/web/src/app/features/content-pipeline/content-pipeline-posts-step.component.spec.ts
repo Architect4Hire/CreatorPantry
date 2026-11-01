@@ -8,10 +8,7 @@ import { ClipboardService } from '../../core/clipboard.service';
 import { decodeAiProposalStatus } from '../../models/ai-proposal.models';
 import { CreativeContextPicture } from '../../models/creative-context.models';
 import { BrandProfile, ContentChannel } from '../../models/brand-profile.models';
-import {
-  ContentPipelineDraft,
-  emptyContentPipelineDraft,
-} from '../../models/content-pipeline.models';
+import { ContentPipelineDraft, emptyContentPipelineDraft } from '../../models/content-pipeline.models';
 import { CreativeContext } from '../../models/creative-context.models';
 import { AiAllowanceState, AiUsageService } from '../../services/ai-usage.service';
 import { BrandProfileService } from '../../services/brand-profile.service';
@@ -140,9 +137,8 @@ async function settle(): Promise<void> {
 
 function button(label: string): HTMLButtonElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
-      (node) => node.textContent?.trim() === label,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((node) => node.textContent?.trim() === label) ??
+    null
   );
 }
 
@@ -233,7 +229,8 @@ describe('ContentPipelinePostsStepComponent', () => {
   // ---- The themed day's standing notes (AF.7.4) ----
 
   function run(): ChannelPostRunComponent {
-    return fixture.debugElement.query(By.directive(ChannelPostRunComponent)).componentInstance as ChannelPostRunComponent;
+    return fixture.debugElement.query(By.directive(ChannelPostRunComponent))
+      .componentInstance as ChannelPostRunComponent;
   }
 
   it('says nothing about notes for work with no themed day, and asks for posts as it always did', async () => {
@@ -367,9 +364,7 @@ describe('ContentPipelinePostsStepComponent', () => {
     const before = pictureReads;
     await click('Write to this picture');
 
-    expect(readingRequests).toEqual([
-      { picture: { source: 'GeneratedImage', generatedImageId: 'img-1' }, note: '' },
-    ]);
+    expect(readingRequests).toEqual([{ picture: { source: 'GeneratedImage', generatedImageId: 'img-1' }, note: '' }]);
 
     // Read again rather than patched here: the reading is kept with the picture by the server, and the
     // creator sees what it says before any post is written.
@@ -396,9 +391,7 @@ describe('ContentPipelinePostsStepComponent', () => {
     const posts = { requestId: 'r-1', requestedChannelKeys: ['instagram'], unsaved: {} };
 
     // The run is controlled: the step passes its state through to the draft the shell holds.
-    fixture.debugElement
-      .query((node) => node.name === 'cp-channel-post-run')
-      .triggerEventHandler('changed', posts);
+    fixture.debugElement.query((node) => node.name === 'cp-channel-post-run').triggerEventHandler('changed', posts);
     await settle();
 
     expect(host.drafts.length).toBe(1);

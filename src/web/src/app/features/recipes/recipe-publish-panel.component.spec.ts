@@ -116,7 +116,9 @@ describe('RecipePublishPanelComponent', () => {
       expect(el().querySelector('[role="alert"]')?.textContent).toContain("Couldn't check what can be exported");
       expect(links().length).toBe(0);
 
-      Array.from(el().querySelectorAll('button')).find((b) => b.textContent?.includes('Try again'))!.click();
+      Array.from(el().querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Try again'))!
+        .click();
       await fixture.whenStable();
       fixture.detectChanges();
 
@@ -145,7 +147,7 @@ describe('RecipePublishPanelComponent', () => {
       service.linksAvailable = false;
       await create();
 
-      expect(text()).toContain('Downloads aren\'t available right now');
+      expect(text()).toContain("Downloads aren't available right now");
       expect(links().length).toBe(0);
       expect(text()).toContain('Version 3');
     });

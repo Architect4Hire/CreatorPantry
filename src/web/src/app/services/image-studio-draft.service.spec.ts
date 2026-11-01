@@ -1,11 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
-import {
-  ImageStudioDraft,
-  emptyImageStudioDraft,
-  encodeImageStudioDraft,
-} from '../models/image-studio.models';
+import { ImageStudioDraft, emptyImageStudioDraft, encodeImageStudioDraft } from '../models/image-studio.models';
 import { AuthService, SessionState } from './auth.service';
 import { ImageStudioDraftOwner, ImageStudioDraftService } from './image-studio-draft.service';
 

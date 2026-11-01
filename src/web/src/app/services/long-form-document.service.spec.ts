@@ -116,8 +116,25 @@ describe('LongFormDocumentService', () => {
     expect(call.request.withCredentials).toBeTrue();
     call.flush({
       document: wireDocument({ needsConfirmation: [{ issue: 'OverCeiling', sectionIds: [] }] }),
-      warnings: [{ sectionId: 's-1', kind: 'UnverifiedClaim', code: 'editorial.unsupported_number', message: 'A figure.', fromModel: false }],
-      requests: [{ sectionId: 's-1', requestId: 'r-1', status: 'Proposed', failureCategory: null, outcome: 'Written', requestedAt: '2026-10-12T12:00:00Z' }],
+      warnings: [
+        {
+          sectionId: 's-1',
+          kind: 'UnverifiedClaim',
+          code: 'editorial.unsupported_number',
+          message: 'A figure.',
+          fromModel: false,
+        },
+      ],
+      requests: [
+        {
+          sectionId: 's-1',
+          requestId: 'r-1',
+          status: 'Proposed',
+          failureCategory: null,
+          outcome: 'Written',
+          requestedAt: '2026-10-12T12:00:00Z',
+        },
+      ],
     });
 
     const outcome = await pending;
@@ -132,7 +149,9 @@ describe('LongFormDocumentService', () => {
 
   it('gives one answer for a draft that is missing and one that is another workspace’s', async () => {
     const pending = service.read('cozy-fall', 'd-1');
-    http.expectOne(`${DRAFT}/document`).flush(problem('content.long_form.draft.not_found'), { status: 404, statusText: 'Not Found' });
+    http
+      .expectOne(`${DRAFT}/document`)
+      .flush(problem('content.long_form.draft.not_found'), { status: 404, statusText: 'Not Found' });
 
     expect(await pending).toEqual({ status: 'not_found' });
   });
@@ -145,7 +164,13 @@ describe('LongFormDocumentService', () => {
       return pending;
     };
 
-    const stale = await read(wireDocument({ status: 'NeedsReview', staleReasons: ['RecipeChanged', 'VoiceChanged'], staleSince: '2026-10-12T09:00:00Z' }));
+    const stale = await read(
+      wireDocument({
+        status: 'NeedsReview',
+        staleReasons: ['RecipeChanged', 'VoiceChanged'],
+        staleSince: '2026-10-12T09:00:00Z',
+      }),
+    );
     expect(stale.status).toBe('found');
     if (stale.status === 'found') {
       expect(stale.review.document.staleReasons).toEqual(['RecipeChanged', 'VoiceChanged']);
@@ -168,11 +193,40 @@ describe('LongFormDocumentService', () => {
 
   it('is unavailable rather than partly shown when a section, an issue or a warning cannot be read', async () => {
     const broken: Record<string, unknown>[] = [
-      { document: wireDocument({ sections: [wireSection(), wireSection({ id: 's-2', role: 'Sidebar' })] }), warnings: [], requests: [] },
-      { document: wireDocument({ needsConfirmation: [{ issue: 'Typos', sectionIds: [] }] }), warnings: [], requests: [] },
-      { document: wireDocument({ sections: [wireSection({ findings: [{ code: 'x', kind: 'Hunch', message: 'y' }] })] }), warnings: [], requests: [] },
-      { document: wireDocument(), warnings: [{ sectionId: 's-1', kind: 'Hunch', code: null, message: 'x', fromModel: false }], requests: [] },
-      { document: wireDocument(), warnings: [], requests: [{ sectionId: 's-1', requestId: 'r-1', status: 'Proposed', failureCategory: null, outcome: 'Lost', requestedAt: 'x' }] },
+      {
+        document: wireDocument({ sections: [wireSection(), wireSection({ id: 's-2', role: 'Sidebar' })] }),
+        warnings: [],
+        requests: [],
+      },
+      {
+        document: wireDocument({ needsConfirmation: [{ issue: 'Typos', sectionIds: [] }] }),
+        warnings: [],
+        requests: [],
+      },
+      {
+        document: wireDocument({ sections: [wireSection({ findings: [{ code: 'x', kind: 'Hunch', message: 'y' }] })] }),
+        warnings: [],
+        requests: [],
+      },
+      {
+        document: wireDocument(),
+        warnings: [{ sectionId: 's-1', kind: 'Hunch', code: null, message: 'x', fromModel: false }],
+        requests: [],
+      },
+      {
+        document: wireDocument(),
+        warnings: [],
+        requests: [
+          {
+            sectionId: 's-1',
+            requestId: 'r-1',
+            status: 'Proposed',
+            failureCategory: null,
+            outcome: 'Lost',
+            requestedAt: 'x',
+          },
+        ],
+      },
     ];
 
     for (const body of broken) {
@@ -186,14 +240,23 @@ describe('LongFormDocumentService', () => {
   // ---- asking for writing ------------------------------------------------------------------------------
 
   it('asks for one section with the revision, the key, and an instruction only when there is one', async () => {
-    const pending = service.requestSection('cozy-fall', 'd-1', 's-1', { revisionNumber: 4, instruction: '  Make it warmer.  ' }, 'key-1');
+    const pending = service.requestSection(
+      'cozy-fall',
+      'd-1',
+      's-1',
+      { revisionNumber: 4, instruction: '  Make it warmer.  ' },
+      'key-1',
+    );
 
     const call = http.expectOne(`${DRAFT}/sections/s-1/writing-requests`);
     expect(call.request.method).toBe('POST');
     expect(call.request.headers.get('Idempotency-Key')).toBe('key-1');
     expect(call.request.body).toEqual({ revisionNumber: 4, instruction: 'Make it warmer.' });
     expect(JSON.stringify(call.request.body).toLowerCase()).not.toContain('workspace');
-    call.flush({ draft: {}, request: { sectionId: 's-1', request: operation() } }, { status: 202, statusText: 'Accepted' });
+    call.flush(
+      { draft: {}, request: { sectionId: 's-1', request: operation() } },
+      { status: 202, statusText: 'Accepted' },
+    );
 
     const outcome = await pending;
     expect(outcome.status === 'accepted' && outcome.requests[0]!.sectionId).toBe('s-1');
@@ -209,7 +272,13 @@ describe('LongFormDocumentService', () => {
     expect(call.request.body).toEqual({ revisionNumber: 4 });
     expect(call.request.headers.get('Idempotency-Key')).toBe('rest-1');
     call.flush(
-      { draft: {}, requests: [{ sectionId: 's-2', request: operation() }, { sectionId: 's-3', request: operation() }] },
+      {
+        draft: {},
+        requests: [
+          { sectionId: 's-2', request: operation() },
+          { sectionId: 's-3', request: operation() },
+        ],
+      },
       { status: 202, statusText: 'Accepted', headers: { 'Idempotent-Replayed': 'true' } },
     );
 
@@ -257,7 +326,9 @@ describe('LongFormDocumentService', () => {
       const pending = service.requestSection('cozy-fall', 'd-1', 's-1', { revisionNumber: 4 }, 'key-1');
       http.expectOne(`${DRAFT}/sections/s-1/writing-requests`).flush(problem(code), { status, statusText: 'x' });
 
-      expect((await pending).status).withContext(code).toBe(expected);
+      expect((await pending).status)
+        .withContext(code)
+        .toBe(expected);
     }
   });
 
@@ -281,13 +352,18 @@ describe('LongFormDocumentService', () => {
 
   it('tells a moved draft from a refusal, and carries the refusal’s field errors', async () => {
     const stale = service.editSection('cozy-fall', 'd-1', 's-1', { expectedConcurrencyToken: 't', body: 'x' });
-    http.expectOne(`${DRAFT}/sections/s-1`).flush(problem('content.long_form.draft.stale.conflict'), { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne(`${DRAFT}/sections/s-1`)
+      .flush(problem('content.long_form.draft.stale.conflict'), { status: 409, statusText: 'Conflict' });
     expect(await stale).toEqual({ status: 'stale' });
 
     const refused = service.editSection('cozy-fall', 'd-1', 's-1', { expectedConcurrencyToken: 't', body: 'x' });
     http
       .expectOne(`${DRAFT}/sections/s-1`)
-      .flush(problem('content.long_form.section.invalid', { errors: { body: ['Too long.'] } }), { status: 400, statusText: 'Bad Request' });
+      .flush(problem('content.long_form.section.invalid', { errors: { body: ['Too long.'] } }), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
     expect(await refused).toEqual({
       status: 'refused',
       code: 'content.long_form.section.invalid',
@@ -311,7 +387,11 @@ describe('LongFormDocumentService', () => {
 
     const call = http.expectOne(`${DRAFT}/acceptance`);
     expect(call.request.method).toBe('POST');
-    expect(call.request.body).toEqual({ expectedConcurrencyToken: 't', revisionNumber: 4, confirmed: ['UnwrittenSections'] });
+    expect(call.request.body).toEqual({
+      expectedConcurrencyToken: 't',
+      revisionNumber: 4,
+      confirmed: ['UnwrittenSections'],
+    });
     call.flush(wireDocument({ status: 'Accepted', acceptedRevisionNumber: 4, acceptedAt: '2026-10-12T12:00:00Z' }));
 
     const outcome = await pending;
@@ -319,7 +399,11 @@ describe('LongFormDocumentService', () => {
   });
 
   it('reports what is wrong with the document when an acceptance did not confirm it', async () => {
-    const pending = service.accept('cozy-fall', 'd-1', { expectedConcurrencyToken: 't', revisionNumber: 4, confirmed: [] });
+    const pending = service.accept('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 't',
+      revisionNumber: 4,
+      confirmed: [],
+    });
     http.expectOne(`${DRAFT}/acceptance`).flush(
       problem('content.long_form.acceptance.confirmation_required.unprocessable', {
         issues: [{ issue: 'UnwrittenSections', sectionIds: ['s-2'] }],
@@ -334,17 +418,34 @@ describe('LongFormDocumentService', () => {
   });
 
   it('does not offer a confirmation it cannot name, and tells stale from refused', async () => {
-    const unnamed = service.accept('cozy-fall', 'd-1', { expectedConcurrencyToken: 't', revisionNumber: 4, confirmed: [] });
+    const unnamed = service.accept('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 't',
+      revisionNumber: 4,
+      confirmed: [],
+    });
     http
       .expectOne(`${DRAFT}/acceptance`)
-      .flush(problem('content.long_form.acceptance.confirmation_required.unprocessable', { issues: [{ issue: 'Mystery' }] }), { status: 422, statusText: 'x' });
+      .flush(
+        problem('content.long_form.acceptance.confirmation_required.unprocessable', { issues: [{ issue: 'Mystery' }] }),
+        { status: 422, statusText: 'x' },
+      );
     expect(await unnamed).toEqual({ status: 'unavailable' });
 
-    const stale = service.accept('cozy-fall', 'd-1', { expectedConcurrencyToken: 't', revisionNumber: 3, confirmed: [] });
-    http.expectOne(`${DRAFT}/acceptance`).flush(problem('content.long_form.draft.stale.conflict'), { status: 409, statusText: 'x' });
+    const stale = service.accept('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 't',
+      revisionNumber: 3,
+      confirmed: [],
+    });
+    http
+      .expectOne(`${DRAFT}/acceptance`)
+      .flush(problem('content.long_form.draft.stale.conflict'), { status: 409, statusText: 'x' });
     expect(await stale).toEqual({ status: 'stale' });
 
-    const empty = service.accept('cozy-fall', 'd-1', { expectedConcurrencyToken: 't', revisionNumber: 4, confirmed: [] });
+    const empty = service.accept('cozy-fall', 'd-1', {
+      expectedConcurrencyToken: 't',
+      revisionNumber: 4,
+      confirmed: [],
+    });
     http
       .expectOne(`${DRAFT}/acceptance`)
       .flush(problem('content.long_form.acceptance.nothing_written.unprocessable'), { status: 422, statusText: 'x' });
@@ -354,7 +455,10 @@ describe('LongFormDocumentService', () => {
 
 describe('long-form document models', () => {
   it('reads a document with no plan, and refuses one whose shape is wrong', () => {
-    expect(decodeLongFormAssembledDocument(wireDocument({ revisionNumber: null, sections: [], markdown: '' }))?.revisionNumber).toBeNull();
+    expect(
+      decodeLongFormAssembledDocument(wireDocument({ revisionNumber: null, sections: [], markdown: '' }))
+        ?.revisionNumber,
+    ).toBeNull();
     expect(decodeLongFormAssembledDocument(wireDocument({ wordTarget: 'Roughly' }))).toBeNull();
     expect(decodeLongFormAssembledDocument(wireDocument({ targetWords: { min: '900' } }))).toBeNull();
     expect(decodeLongFormAssembledDocument(wireDocument({ concurrencyToken: '' }))).toBeNull();
@@ -362,7 +466,8 @@ describe('long-form document models', () => {
   });
 
   it('keeps a document open until it is accepted or set aside', () => {
-    const open = (status: string): boolean => longFormDocumentIsOpen(decodeLongFormAssembledDocument(wireDocument({ status }))!);
+    const open = (status: string): boolean =>
+      longFormDocumentIsOpen(decodeLongFormAssembledDocument(wireDocument({ status }))!);
 
     expect(open('Outlined')).toBeTrue();
     expect(open('Writing')).toBeTrue();

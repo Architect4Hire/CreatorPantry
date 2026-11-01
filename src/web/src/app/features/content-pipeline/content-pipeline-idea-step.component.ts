@@ -159,10 +159,7 @@ interface RefusedPin {
 }
 
 /** The server's message for a refused pin, read back under our own name for it. */
-function errorFor(
-  fieldErrors: Record<string, readonly string[]>,
-  name: keyof typeof CONTENT_SEED_FIELD_NAMES,
-): string {
+function errorFor(fieldErrors: Record<string, readonly string[]>, name: keyof typeof CONTENT_SEED_FIELD_NAMES): string {
   return contentSeedFieldError(fieldErrors, CONTENT_SEED_FIELD_NAMES[name]);
 }
 
@@ -371,7 +368,11 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     const { seed, config } = this.draft();
 
     // The channel and the day are pins too; they only live on the setup step's answers rather than in `keep`.
-    return [...CONTENT_SEED_KEEP_NAMES.map((name) => seed.keep[name] ?? ''), config.channelKey ?? '', config.day ?? ''].join('|');
+    return [
+      ...CONTENT_SEED_KEEP_NAMES.map((name) => seed.keep[name] ?? ''),
+      config.channelKey ?? '',
+      config.day ?? '',
+    ].join('|');
   });
 
   private request: Subscription | null = null;
@@ -524,7 +525,9 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
   protected readonly recipeRefused = computed(() => {
     const state = this.state();
 
-    return state.status === 'refused' && contentSeedFieldError(state.fieldErrors, CONTENT_SEED_RECIPE_FIELD_NAME) !== '';
+    return (
+      state.status === 'refused' && contentSeedFieldError(state.fieldErrors, CONTENT_SEED_RECIPE_FIELD_NAME) !== ''
+    );
   });
 
   constructor() {
@@ -681,7 +684,9 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
 
   /** Read the lists the idea's own rows are changed from. Each lands, or does not, on its own. */
   private async loadRowCatalogues(): Promise<void> {
-    const active = (entries: readonly { key: string; displayName: string; isActive: boolean }[]): readonly FacetOption[] =>
+    const active = (
+      entries: readonly { key: string; displayName: string; isActive: boolean }[],
+    ): readonly FacetOption[] =>
       entries.filter((entry) => entry.isActive).map((entry) => ({ value: entry.key, label: entry.displayName }));
 
     const [styles, occasions, channels] = await Promise.all([
@@ -989,7 +994,6 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     this.tokenEntry.set(value.slice(0, CONTENT_SEED_TOKEN_MAX_LENGTH));
   }
 
-
   /** Pick this idea. From here on it is part of the run rather than a suggestion. */
   protected accept(): void {
     const state = this.state();
@@ -999,7 +1003,8 @@ export class ContentPipelineIdeaStepComponent implements OnInit {
     // With no description there is nothing to choose between: the idea is what the picture is planned from,
     // and that is recorded as the choice it is rather than left for a later step to assume. A brief already
     // on the run — one resumed from another device, say — is the creator's and is left alone.
-    const onlyIdea = draft.config.concept.trim() === '' && draft.config.briefSource === null && draft.config.brief === '';
+    const onlyIdea =
+      draft.config.concept.trim() === '' && draft.config.briefSource === null && draft.config.brief === '';
     this.changed.emit({
       ...draft,
       config: onlyIdea ? { ...draft.config, briefSource: 'Idea', brief: state.seed.description } : draft.config,

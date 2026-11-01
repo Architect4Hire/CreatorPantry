@@ -139,10 +139,30 @@ describe('ChannelPostService', () => {
     readonly expected: string;
     readonly extensions?: Record<string, unknown>;
   }[] = [
-    { name: 'a task switched off for the deployment', status: 400, code: 'ai.channelPosts.not_enabled', expected: 'task_not_enabled' },
-    { name: 'a piece of work this workspace does not have', status: 404, code: 'ai.channelPostsContext.not_found', expected: 'refused' },
-    { name: 'a retired channel with no post yet', status: 422, code: 'ai.channelPosts.channel.unprocessable', expected: 'refused' },
-    { name: 'a key reused for a different request', status: 422, code: 'idempotency.key_reused', expected: 'idempotency_key_conflict' },
+    {
+      name: 'a task switched off for the deployment',
+      status: 400,
+      code: 'ai.channelPosts.not_enabled',
+      expected: 'task_not_enabled',
+    },
+    {
+      name: 'a piece of work this workspace does not have',
+      status: 404,
+      code: 'ai.channelPostsContext.not_found',
+      expected: 'refused',
+    },
+    {
+      name: 'a retired channel with no post yet',
+      status: 422,
+      code: 'ai.channelPosts.channel.unprocessable',
+      expected: 'refused',
+    },
+    {
+      name: 'a key reused for a different request',
+      status: 422,
+      code: 'idempotency.key_reused',
+      expected: 'idempotency_key_conflict',
+    },
     {
       name: 'a spent allowance',
       status: 429,
@@ -158,10 +178,12 @@ describe('ChannelPostService', () => {
     it(`reports ${refusal.name} as ${refusal.expected}`, async () => {
       const pending = service.request('cozy-fall', { creativeContextId: 'ctx-1', channelKeys: ['x'] }, 'key-1');
 
-      http.expectOne(REQUESTS).flush(
-        { ...problem(refusal.code), ...(refusal.extensions ?? {}) },
-        { status: refusal.status, statusText: 'No' },
-      );
+      http
+        .expectOne(REQUESTS)
+        .flush(
+          { ...problem(refusal.code), ...(refusal.extensions ?? {}) },
+          { status: refusal.status, statusText: 'No' },
+        );
 
       expect((await pending).status).toBe(refusal.expected);
     });

@@ -231,7 +231,6 @@ async function settle(): Promise<void> {
   }
 }
 
-
 /** How the next hosted studio's host is set, as a guided step sets it before the studio is made. */
 let hostSetup: ((host: SocialStudioHost) => void) | null = null;
 let hostedFilings: string[] = [];
@@ -275,7 +274,11 @@ async function create(
   await TestBed.configureTestingModule({
     providers: [
       provideRouter([
-        { path: ':workspaceSlug/social-studio', component: SocialStudioComponent, canDeactivate: [socialStudioCanDeactivateGuard] },
+        {
+          path: ':workspaceSlug/social-studio',
+          component: SocialStudioComponent,
+          canDeactivate: [socialStudioCanDeactivateGuard],
+        },
         {
           path: ':workspaceSlug/social-studio/context/:contextId',
           component: SocialStudioComponent,
@@ -287,7 +290,11 @@ async function create(
       {
         provide: WorkflowRunService,
         useValue: {
-          get: () => Promise.resolve({ status: 'found' as const, run: { goal: 'Create social posts' } as unknown as WorkflowRun }),
+          get: () =>
+            Promise.resolve({
+              status: 'found' as const,
+              run: { goal: 'Create social posts' } as unknown as WorkflowRun,
+            }),
         },
       },
       { provide: CreativeContextService, useValue: server },
@@ -328,7 +335,8 @@ async function create(
       {
         provide: DamAssetService,
         useValue: {
-          search: () => of({ status: 'found' as const, page: { items: assets, nextCursor: null, totalCount: assets.length } }),
+          search: () =>
+            of({ status: 'found' as const, page: { items: assets, nextCursor: null, totalCount: assets.length } }),
           detail: () => of({ status: 'unavailable' as const }),
           content: () => of({ status: 'unavailable' as const }),
           versionContent: () => of({ status: 'unavailable' as const }),
@@ -622,7 +630,9 @@ describe('SocialStudioComponent', () => {
       expect(confirmCalls).withContext('a step is not a leave').toEqual([]);
       await next();
 
-      expect(root().querySelector<HTMLTextAreaElement>('textarea[id$="instagram-body"]')!.value).toBe('Mine, half done.');
+      expect(root().querySelector<HTMLTextAreaElement>('textarea[id$="instagram-body"]')!.value).toBe(
+        'Mine, half done.',
+      );
 
       confirmAnswer = false;
       await harness.navigateByUrl(`/${SLUG}/dashboard`);
@@ -634,7 +644,11 @@ describe('SocialStudioComponent', () => {
       await open();
 
       expect(text()).not.toContain('Accepted');
-      expect(Array.from(root().querySelectorAll('cp-status-pill')).some((pill) => pill.textContent?.includes('Waiting for you'))).toBeTrue();
+      expect(
+        Array.from(root().querySelectorAll('cp-status-pill')).some((pill) =>
+          pill.textContent?.includes('Waiting for you'),
+        ),
+      ).toBeTrue();
     });
 
     it('brings back the words of a post edited and not saved on this device', async () => {
@@ -642,7 +656,9 @@ describe('SocialStudioComponent', () => {
         kept[keptKey(OWNER, 'ctx-have')] = { ...emptyChannelPostRunState(), unsaved: { instagram: 'My own caption.' } };
       });
 
-      expect(root().querySelector<HTMLTextAreaElement>('textarea[id$="instagram-body"]')!.value).toBe('My own caption.');
+      expect(root().querySelector<HTMLTextAreaElement>('textarea[id$="instagram-body"]')!.value).toBe(
+        'My own caption.',
+      );
     });
 
     it('keeps an unsaved edit on this device as it is typed, under this member and this piece of work', async () => {
@@ -696,13 +712,17 @@ describe('SocialStudioComponent', () => {
     });
 
     it('says plainly that a saved prompt this work names is not what posts are written from', async () => {
-      await open('Editor', () => {
-        const context = server.seed(SLUG, 'ctx-have', { workingTitle: 'From a prompt' });
-        server.seed(SLUG, 'ctx-have', {
-          ...context,
-          references: [server.reference({ kind: 'PromptRecord', promptRecordId: 'pr-1' }, 0)],
-        });
-      }, '?step=about');
+      await open(
+        'Editor',
+        () => {
+          const context = server.seed(SLUG, 'ctx-have', { workingTitle: 'From a prompt' });
+          server.seed(SLUG, 'ctx-have', {
+            ...context,
+            references: [server.reference({ kind: 'PromptRecord', promptRecordId: 'pr-1' }, 0)],
+          });
+        },
+        '?step=about',
+      );
 
       expect(text()).toContain('Posts are not written from one');
     });
@@ -844,7 +864,9 @@ describe('SocialStudioComponent', () => {
 
       expect(button('Back')).withContext('nothing before the first step').toBeNull();
       expect(button('Continue')).not.toBeNull();
-      expect(root().querySelector('cp-social-studio-recent')).withContext('Recent posts sits under the flow').not.toBeNull();
+      expect(root().querySelector('cp-social-studio-recent'))
+        .withContext('Recent posts sits under the flow')
+        .not.toBeNull();
     });
 
     it('moves focus to the new step’s heading, says where it is, and keeps the step in the address', async () => {
@@ -889,7 +911,9 @@ describe('SocialStudioComponent', () => {
         url: `/${SLUG}/social-studio/context/ctx-have`,
         setup: () => {
           server.seed(SLUG, 'ctx-have', { workingTitle: 'Olive oil cake' });
-          posts.packages[`${SLUG}/ctx-have`] = pkg('ctx-have', [channel('instagram', { status: 'Accepted', accepted: revision(), isCurrent: true })]);
+          posts.packages[`${SLUG}/ctx-have`] = pkg('ctx-have', [
+            channel('instagram', { status: 'Accepted', accepted: revision(), isCurrent: true }),
+          ]);
         },
       });
 
@@ -906,7 +930,9 @@ describe('SocialStudioComponent', () => {
     expect(root().querySelectorAll('h1').length).toBe(1);
 
     for (const id of ['cp-social-title', 'cp-social-brief', 'cp-social-theme']) {
-      expect(root().querySelector(`label[for="${id}"]`)).withContext(id).not.toBeNull();
+      expect(root().querySelector(`label[for="${id}"]`))
+        .withContext(id)
+        .not.toBeNull();
     }
 
     const live = root().querySelector('.cp-sr-only[role="status"]');
@@ -1008,7 +1034,9 @@ describe('SocialStudioComponent', () => {
       await create({ url: `/${SLUG}/social-studio?workflowRun=0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f` });
 
       const notice = root().querySelector('cp-workflow-return-notice');
-      expect(notice?.querySelector('a')?.getAttribute('href')).toBe(`/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`);
+      expect(notice?.querySelector('a')?.getAttribute('href')).toBe(
+        `/${SLUG}/workflows/runs/0f6f2a54-7c1e-4d4b-9a51-2f1b3c4d5e6f`,
+      );
     });
   });
 });

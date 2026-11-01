@@ -38,10 +38,26 @@ import { RecipeOpenSuggestionsComponent } from './recipe-open-suggestions.compon
 type Way = 'revise' | 'adapt' | 'swap' | 'check' | 'edit';
 
 const WAYS: readonly CpChoiceOption[] = [
-  { value: 'revise', label: 'Change part of it', hint: 'Pick the parts and say what you want. Only those parts can change.' },
-  { value: 'adapt', label: 'Adapt it for a need', hint: 'One need at a time: a diet, the equipment you have, a different size, or a different skill level.' },
-  { value: 'swap', label: 'Swap an ingredient', hint: 'Get ideas for what could stand in for one ingredient. This changes nothing on its own.' },
-  { value: 'check', label: 'Check it over', hint: 'Get a read-through and what’s worth looking at again. This changes nothing on its own.' },
+  {
+    value: 'revise',
+    label: 'Change part of it',
+    hint: 'Pick the parts and say what you want. Only those parts can change.',
+  },
+  {
+    value: 'adapt',
+    label: 'Adapt it for a need',
+    hint: 'One need at a time: a diet, the equipment you have, a different size, or a different skill level.',
+  },
+  {
+    value: 'swap',
+    label: 'Swap an ingredient',
+    hint: 'Get ideas for what could stand in for one ingredient. This changes nothing on its own.',
+  },
+  {
+    value: 'check',
+    label: 'Check it over',
+    hint: 'Get a read-through and what’s worth looking at again. This changes nothing on its own.',
+  },
   { value: 'edit', label: 'Change it myself', hint: 'Edit any part of the recipe directly.' },
 ];
 
@@ -107,7 +123,8 @@ type Loaded =
           <div class="change">
             @if (changedThisRun()) {
               <cp-notice tone="success" role="status">
-                Your recipe has changes saved since you started. Make more, or carry on to check every suggestion is answered.
+                Your recipe has changes saved since you started. Make more, or carry on to check every suggestion is
+                answered.
               </cp-notice>
             }
 
@@ -125,7 +142,11 @@ type Loaded =
               />
             </details>
 
-            <cp-form-section sectionId="recipe-improve-way" heading="What do you want to do?" intro="Nothing changes until you say yes to it, or save it yourself.">
+            <cp-form-section
+              sectionId="recipe-improve-way"
+              heading="What do you want to do?"
+              intro="Nothing changes until you say yes to it, or save it yourself."
+            >
               <cp-choice-group
                 label="What do you want to do?"
                 idPrefix="recipe-improve-way-"
@@ -161,7 +182,11 @@ type Loaded =
                 />
               }
               @case ('check') {
-                <cp-recipe-review-request [workspaceSlug]="workspaceSlug()" [recipeId]="recipe.id" [currentVersionId]="versionId()" />
+                <cp-recipe-review-request
+                  [workspaceSlug]="workspaceSlug()"
+                  [recipeId]="recipe.id"
+                  [currentVersionId]="versionId()"
+                />
               }
               @case ('edit') {
                 <cp-recipe-editor />
@@ -229,7 +254,9 @@ export class RecipeImproveChangeStepComponent implements OnInit {
   });
 
   /** The request the tool on screen is showing, so the list of waiting suggestions does not show it a second time. */
-  protected readonly toolRequestId = computed(() => this.revision()?.requestId() ?? this.adaptation()?.requestId() ?? null);
+  protected readonly toolRequestId = computed(
+    () => this.revision()?.requestId() ?? this.adaptation()?.requestId() ?? null,
+  );
 
   constructor() {
     const unregister = this.port.register({
@@ -243,7 +270,9 @@ export class RecipeImproveChangeStepComponent implements OnInit {
         if (kept) void this.load();
         return kept;
       },
-      capabilityKey: computed(() => (this.way() === 'edit' ? 'recipes.edit' : this.way() ? 'recipes.suggest-changes' : null)),
+      capabilityKey: computed(() =>
+        this.way() === 'edit' ? 'recipes.edit' : this.way() ? 'recipes.suggest-changes' : null,
+      ),
       // Edits on screen count: Continue is what keeps them, so it is the step's primary action while they wait.
       ready: computed(() => this.changedThisRun() || (this.way() === 'edit' && (this.editor()?.isDirty() ?? false))),
     });
@@ -306,7 +335,9 @@ export class RecipeImproveChangeStepComponent implements OnInit {
     void this.openList()?.reload();
     if (result) {
       this.port.announce(
-        result.acceptedChangeCount > 0 ? 'Kept. Your recipe now has those changes.' : 'Declined. Your recipe wasn’t changed.',
+        result.acceptedChangeCount > 0
+          ? 'Kept. Your recipe now has those changes.'
+          : 'Declined. Your recipe wasn’t changed.',
       );
       // The panel that held focus is gone from the list: never leave focus on nothing.
       this.port.focusStep();

@@ -36,11 +36,7 @@ import {
 import { injectRouteTitle } from '../../core/route-title';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
-import {
-  CreateRecipeOutcome,
-  RecipeService,
-  UpdateRecipeOutcome,
-} from '../../services/recipe.service';
+import { CreateRecipeOutcome, RecipeService, UpdateRecipeOutcome } from '../../services/recipe.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { RecipeMediaStep } from '../../models/recipe-asset-link.models';
 
@@ -90,8 +86,7 @@ function describeLockedAreas(areas: readonly CpTabDefinition[]): string {
   const labels = areas.filter((area) => area.disabled).map((area) => area.label);
   if (labels.length === 0) return '';
 
-  const named =
-    labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+  const named = labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
   return `${named} ${labels.length === 1 ? 'opens' : 'open'} once you save this recipe.`;
 }
 
@@ -184,8 +179,18 @@ const FIELD_LOCATIONS: readonly FieldLocation[] = [
   // an index — one sentence about the ingredients, one about the method. There is no single control to blame,
   // so the target is the section itself, which carries `tabindex="-1"` for exactly this and is named by its own
   // heading. The sentence is rendered under that heading; see `sectionProblem`.
-  { field: 'ingredientGroups', controlId: 'section-ingredients', tabId: 'ingredients', sectionId: 'section-ingredients' },
-  { field: 'instructions', controlId: 'section-instructions', tabId: 'instructions', sectionId: 'section-instructions' },
+  {
+    field: 'ingredientGroups',
+    controlId: 'section-ingredients',
+    tabId: 'ingredients',
+    sectionId: 'section-ingredients',
+  },
+  {
+    field: 'instructions',
+    controlId: 'section-instructions',
+    tabId: 'instructions',
+    sectionId: 'section-instructions',
+  },
 ];
 
 /**
@@ -265,7 +270,8 @@ type RecipeEditorLoadState =
   | { readonly status: 'unavailable' }
   | { readonly status: 'ready' };
 
-type SaveFailureStatus = Exclude<CreateRecipeOutcome['status'], 'created'> | Exclude<UpdateRecipeOutcome['status'], 'updated'>;
+type SaveFailureStatus =
+  Exclude<CreateRecipeOutcome['status'], 'created'> | Exclude<UpdateRecipeOutcome['status'], 'updated'>;
 
 type RecipeEditorSaveState =
   | { readonly status: 'idle' }
@@ -435,7 +441,9 @@ export class RecipeEditorComponent {
   ];
   readonly selectedEditTabId = signal<string>('general');
 
-  private readonly loadStateSignal = signal<RecipeEditorLoadState>(this.isCreateMode ? { status: 'ready' } : { status: 'loading' });
+  private readonly loadStateSignal = signal<RecipeEditorLoadState>(
+    this.isCreateMode ? { status: 'ready' } : { status: 'loading' },
+  );
   readonly loadState = this.loadStateSignal.asReadonly();
 
   private readonly saveStateSignal = signal<RecipeEditorSaveState>({ status: 'idle' });
@@ -980,7 +988,10 @@ export class RecipeEditorComponent {
     // the shell's business rather than this editor's.
     document.addEventListener('scroll', onScroll, true);
     document.addEventListener('scrollend', onScrollEnd, true);
-    this.generalJumpTimer = setTimeout(() => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS), GENERAL_SCROLL_FALLBACK_MS);
+    this.generalJumpTimer = setTimeout(
+      () => this.releaseGeneralJump(GENERAL_SCROLL_SETTLE_MS),
+      GENERAL_SCROLL_FALLBACK_MS,
+    );
   }
 
   /**
@@ -1230,7 +1241,11 @@ export class RecipeEditorComponent {
 
     if (this.isCreateMode) {
       const request = this.form.buildCreateRequest();
-      const outcome = await this.recipeService.createRecipe(this.workspaceSlug, request, this.idempotencyKeyFor(request));
+      const outcome = await this.recipeService.createRecipe(
+        this.workspaceSlug,
+        request,
+        this.idempotencyKeyFor(request),
+      );
       if (outcome.status === 'created') {
         this.clearPendingIdempotencyKey();
         // Mark clean before navigating: this navigate() is router-driven, so it runs through the
@@ -1262,7 +1277,12 @@ export class RecipeEditorComponent {
       return;
     }
     const request = this.form.buildUpdateRequest(token);
-    const outcome = await this.recipeService.updateRecipe(this.workspaceSlug, this.recipeId!, request, this.idempotencyKeyFor(request));
+    const outcome = await this.recipeService.updateRecipe(
+      this.workspaceSlug,
+      this.recipeId!,
+      request,
+      this.idempotencyKeyFor(request),
+    );
     if (outcome.status === 'updated') {
       this.clearPendingIdempotencyKey();
       this.applyDetail(outcome.recipe);
@@ -1340,19 +1360,17 @@ export class RecipeEditorComponent {
           this.savedInstructionGroupsSignal().map((group) => ({
             id: group.id,
             title: group.title,
-            steps: group.steps.map(
-              (step): InstructionStepInput => ({
-                id: step.id,
-                text: step.text,
-                techniqueId: step.techniqueId,
-                durationMinutes: step.durationMinutes,
-                note: step.note,
-                // Only the named step moves; every other one is submitted exactly as the recipe holds it.
-                temperatureValue: step.id === application.stepId ? application.temperatureValue : step.temperatureValue,
-                temperatureUnitId:
-                  step.id === application.stepId ? application.temperatureUnitId : step.temperatureUnitId,
-              }),
-            ),
+            steps: group.steps.map((step): InstructionStepInput => ({
+              id: step.id,
+              text: step.text,
+              techniqueId: step.techniqueId,
+              durationMinutes: step.durationMinutes,
+              note: step.note,
+              // Only the named step moves; every other one is submitted exactly as the recipe holds it.
+              temperatureValue: step.id === application.stepId ? application.temperatureValue : step.temperatureValue,
+              temperatureUnitId:
+                step.id === application.stepId ? application.temperatureUnitId : step.temperatureUnitId,
+            })),
           })),
         ),
       }),

@@ -37,7 +37,21 @@ const pictureClasses = [
   { qualityClass: 'High' as const, perPicture: 87.5 },
 ];
 
-const trial = { ...creator, key: 'trial', name: 'Trial', monthlyPrice: 0, annualMonthlyPrice: 0, annualSaving: 0, recommended: false, trialDays: 14, trialImageCap: 10, dailyImageCap: 5, qualityClasses: ['Draft', 'Standard'], picturesAtDefaultQuality: 10, exampleCounts: { recipeDrafts: 20, socialPosts: 20, pictures: 10 } };
+const trial = {
+  ...creator,
+  key: 'trial',
+  name: 'Trial',
+  monthlyPrice: 0,
+  annualMonthlyPrice: 0,
+  annualSaving: 0,
+  recommended: false,
+  trialDays: 14,
+  trialImageCap: 10,
+  dailyImageCap: 5,
+  qualityClasses: ['Draft', 'Standard'],
+  picturesAtDefaultQuality: 10,
+  exampleCounts: { recipeDrafts: 20, socialPosts: 20, pictures: 10 },
+};
 
 describe('LandingPricingComponent', () => {
   let fixture: ComponentFixture<LandingPricingComponent>;
@@ -54,7 +68,14 @@ describe('LandingPricingComponent', () => {
     await fixture.whenStable();
   }
 
-  const published: PlanCatalogue = { currency: 'USD', plans: [trial, creator], packs: [], rates, pictureClasses, defaultPictureClass: 'Standard' as const };
+  const published: PlanCatalogue = {
+    currency: 'USD',
+    plans: [trial, creator],
+    packs: [],
+    rates,
+    pictureClasses,
+    defaultPictureClass: 'Standard' as const,
+  };
   const text = () => host.textContent ?? '';
   const prices = () => Array.from(host.querySelectorAll('.amount')).map((el) => el.textContent?.trim());
   const secondLines = () => Array.from(host.querySelectorAll('.second-line')).map((el) => el.textContent?.trim());
@@ -267,7 +288,9 @@ describe('LandingPricingComponent', () => {
   /** The trial's gate is a cap on the whole trial (B-52); a reader weighing it needs that beside the daily one. */
   it('says how many pictures a trial makes in all, and says it on the trial alone', async () => {
     await create(published);
-    const cards = Array.from(host.querySelectorAll('ul[cpCardGrid] > li > cp-card')).map((card) => card.textContent ?? '');
+    const cards = Array.from(host.querySelectorAll('ul[cpCardGrid] > li > cp-card')).map(
+      (card) => card.textContent ?? '',
+    );
 
     expect(cards[0]).toContain('Up to 5 pictures a day, 10 in all');
     expect(cards[1]).toContain('Up to 25 pictures a day');
@@ -365,7 +388,14 @@ describe('LandingPricingComponent', () => {
   it('does not count the price under reduced motion', async () => {
     const real = window.matchMedia.bind(window);
     spyOn(window, 'matchMedia').and.callFake((query: string) =>
-      query.includes('prefers-reduced-motion') ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList) : real(query),
+      query.includes('prefers-reduced-motion')
+        ? ({
+            matches: true,
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          } as unknown as MediaQueryList)
+        : real(query),
     );
     await create(published);
     const frames = spyOn(window, 'requestAnimationFrame').and.callThrough();
@@ -399,7 +429,14 @@ describe('LandingPricingComponent', () => {
   });
 
   it('carries no price of its own: every figure on screen came from the catalogue', async () => {
-    await create({ currency: 'USD', plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }], packs: [], rates, pictureClasses, defaultPictureClass: 'Standard' as const });
+    await create({
+      currency: 'USD',
+      plans: [{ ...creator, monthlyPrice: 123, annualMonthlyPrice: 99, annualPrice: 1188, annualSaving: 288 }],
+      packs: [],
+      rates,
+      pictureClasses,
+      defaultPictureClass: 'Standard' as const,
+    });
 
     expect(prices()).toEqual(['$99']);
     expect(secondLines()).toContain('Billed yearly at $1,188 — $288 saved');

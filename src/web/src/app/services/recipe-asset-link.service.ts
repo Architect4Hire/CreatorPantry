@@ -138,7 +138,8 @@ export class RecipeAssetLinkService {
       const status = statusCodeOf(error);
       const code = problemCodeOf(error);
 
-      if (status === 409) return code === ARCHIVED_CONFLICT_CODE ? { status: 'archived_conflict' } : { status: 'conflict' };
+      if (status === 409)
+        return code === ARCHIVED_CONFLICT_CODE ? { status: 'archived_conflict' } : { status: 'conflict' };
       if (status === 422) return { status: 'idempotency_key_conflict' };
       if (status === 403) return { status: 'forbidden' };
 

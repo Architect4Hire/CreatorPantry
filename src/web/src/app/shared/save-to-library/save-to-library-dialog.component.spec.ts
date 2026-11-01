@@ -126,7 +126,9 @@ describe('SaveToLibraryDialogComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim().startsWith(label));
+    const match = Array.from(root().querySelectorAll('button')).find((each) =>
+      each.textContent?.trim().startsWith(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -176,7 +178,9 @@ describe('SaveToLibraryDialogComponent', () => {
     keepSpy = jasmine.createSpy('keepGeneratedImage').and.resolveTo({ status: 'saved', asset: asset() });
     previewSpy = jasmine
       .createSpy('preview')
-      .and.returnValue(of<StagedImagePreviewOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/png' }) }));
+      .and.returnValue(
+        of<StagedImagePreviewOutcome>({ status: 'found', bytes: new Blob(['x'], { type: 'image/png' }) }),
+      );
     searchSpy = jasmine.createSpy('searchRecipes').and.callFake((_slug: string, query: RecipeSearchQuery) => {
       const items = [recipe('r1', 'Soda bread'), recipe('r2', 'Pumpkin soup')].filter((each) =>
         each.title.toLowerCase().includes(query.search.toLowerCase()),
@@ -242,7 +246,9 @@ describe('SaveToLibraryDialogComponent', () => {
 
     const dialog = root().querySelector('[role="dialog"]') as HTMLElement;
     expect(dialog.getAttribute('aria-modal')).toBe('true');
-    expect(root().querySelector(`#${dialog.getAttribute('aria-labelledby')}`)?.textContent).toContain('Save to library');
+    expect(root().querySelector(`#${dialog.getAttribute('aria-labelledby')}`)?.textContent).toContain(
+      'Save to library',
+    );
 
     expect(previewSpy).toHaveBeenCalledOnceWith('cozy-fall', 'g1');
     expect(root().querySelector('.preview img')?.getAttribute('src')).toMatch(/^blob:/);
@@ -664,7 +670,10 @@ describe('SaveToLibraryDialogComponent', () => {
 
     expect(host.progress).toEqual([
       { state: 'saving' },
-      { state: 'failed', problem: 'You need Contributor access in this workspace to save a picture. Nothing was saved.' },
+      {
+        state: 'failed',
+        problem: 'You need Contributor access in this workspace to save a picture. Nothing was saved.',
+      },
     ]);
   });
 

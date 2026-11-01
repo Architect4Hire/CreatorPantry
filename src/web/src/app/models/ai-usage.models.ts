@@ -216,14 +216,8 @@ export function decodeAccountAiUsage(value: unknown): AccountAiUsage | null {
  * A picture count — today's when `withReset`, a trial's otherwise — null when the server sends none, or undefined
  * when what arrived is not one. Absent reads as null: a server from before DL.9 sends neither.
  */
-function decodePictureCount(
-  value: unknown,
-  withReset: true,
-): AccountAiUsagePicturesToday | null | undefined;
-function decodePictureCount(
-  value: unknown,
-  withReset: false,
-): AccountAiUsageTrialPictures | null | undefined;
+function decodePictureCount(value: unknown, withReset: true): AccountAiUsagePicturesToday | null | undefined;
+function decodePictureCount(value: unknown, withReset: false): AccountAiUsageTrialPictures | null | undefined;
 function decodePictureCount(
   value: unknown,
   withReset: boolean,

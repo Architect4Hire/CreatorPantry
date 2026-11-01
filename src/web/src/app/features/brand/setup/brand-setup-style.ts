@@ -7,7 +7,8 @@ export interface StyleChoice {
   readonly example: string;
 }
 
-export type StyleQuestionKey = 'voice' | 'tones' | 'audience' | 'formality' | 'rhythm' | 'words' | 'viewpoint' | 'humor' | 'cta';
+export type StyleQuestionKey =
+  'voice' | 'tones' | 'audience' | 'formality' | 'rhythm' | 'words' | 'viewpoint' | 'humor' | 'cta';
 
 export interface StyleQuestion {
   readonly key: StyleQuestionKey;
@@ -109,7 +110,11 @@ export const STYLE_QUESTIONS: readonly StyleQuestion[] = [
     heading: 'How much humor do you use?',
     intro: 'Pick one.',
     multiple: false,
-    choices: [c('none', 'None, keep it straight'), c('light', 'A light touch now and then'), c('playful', 'Playful throughout')],
+    choices: [
+      c('none', 'None, keep it straight'),
+      c('light', 'A light touch now and then'),
+      c('playful', 'Playful throughout'),
+    ],
   },
   {
     key: 'cta',

@@ -210,7 +210,8 @@ export class DamLibraryComponent {
     if (this.phase() !== 'ready') return '';
 
     const shown = this.items().length;
-    if (shown === 0) return this.hasActiveFilters() ? 'No pictures match these filters.' : 'No pictures in the library yet.';
+    if (shown === 0)
+      return this.hasActiveFilters() ? 'No pictures match these filters.' : 'No pictures in the library yet.';
 
     const total = this.total();
     const counted = total === null ? `${shown} ${shown === 1 ? 'picture' : 'pictures'}` : `${shown} of ${total}`;

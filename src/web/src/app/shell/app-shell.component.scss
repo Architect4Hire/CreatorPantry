@@ -70,7 +70,9 @@ nav a {
   font-size: var(--cp-font-size-control);
   font-weight: 500;
   min-height: 2.5rem;
-  transition: background var(--cp-duration-fast), color var(--cp-duration-fast);
+  transition:
+    background var(--cp-duration-fast),
+    color var(--cp-duration-fast);
 }
 .nav-icon {
   display: inline-grid;

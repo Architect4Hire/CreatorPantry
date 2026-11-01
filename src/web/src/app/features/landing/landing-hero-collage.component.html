@@ -4,21 +4,39 @@
   <picture>
     <source type="image/avif" [srcset]="photos.backLeft.avif" [sizes]="BACK_SIZES" />
     <source type="image/webp" [srcset]="photos.backLeft.webp" [sizes]="BACK_SIZES" />
-    <img [src]="photos.backLeft.jpeg" [width]="photos.backLeft.width" [height]="photos.backLeft.height" alt="" decoding="async" />
+    <img
+      [src]="photos.backLeft.jpeg"
+      [width]="photos.backLeft.width"
+      [height]="photos.backLeft.height"
+      alt=""
+      decoding="async"
+    />
   </picture>
 </figure>
 <figure class="photo back-right">
   <picture>
     <source type="image/avif" [srcset]="photos.backRight.avif" [sizes]="BACK_SIZES" />
     <source type="image/webp" [srcset]="photos.backRight.webp" [sizes]="BACK_SIZES" />
-    <img [src]="photos.backRight.jpeg" [width]="photos.backRight.width" [height]="photos.backRight.height" alt="" decoding="async" />
+    <img
+      [src]="photos.backRight.jpeg"
+      [width]="photos.backRight.width"
+      [height]="photos.backRight.height"
+      alt=""
+      decoding="async"
+    />
   </picture>
 </figure>
 <figure class="photo front">
   <picture>
     <source type="image/avif" [srcset]="photos.front.avif" [sizes]="FRONT_SIZES" />
     <source type="image/webp" [srcset]="photos.front.webp" [sizes]="FRONT_SIZES" />
-    <img [src]="photos.front.jpeg" [width]="photos.front.width" [height]="photos.front.height" alt="" fetchpriority="high" />
+    <img
+      [src]="photos.front.jpeg"
+      [width]="photos.front.width"
+      [height]="photos.front.height"
+      alt=""
+      fetchpriority="high"
+    />
   </picture>
 </figure>
 <figure class="proposal">

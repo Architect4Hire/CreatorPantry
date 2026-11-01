@@ -49,7 +49,14 @@ export function mediaRecipe(overrides: Partial<RecipeDetail> = {}): RecipeDetail
     createdAt: '2026-10-01T00:00:00Z',
     updatedAt: '2026-10-08T00:00:00Z',
     concurrencyToken: 'AAAAAAAAB9I=',
-    currentVersion: { id: 'v2', versionNumber: 2, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-10-08T00:00:00Z' },
+    currentVersion: {
+      id: 'v2',
+      versionNumber: 2,
+      source: 'CreatorEdit',
+      readiness: 'Draft',
+      reason: null,
+      createdAt: '2026-10-08T00:00:00Z',
+    },
     ingredientGroups: [],
     instructionGroups: [
       {

@@ -97,17 +97,15 @@ async function open(): Promise<void> {
 
 function labelled(selector: string, name: string): HTMLElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLElement>(selector)).find(
-      (node) => node.getAttribute('aria-label') === name,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLElement>(selector)).find((node) => node.getAttribute('aria-label') === name) ??
+    null
   );
 }
 
 function buttonWith(label: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find(
-      (button) => (button.textContent ?? '').trim() === label,
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim() === label) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -266,11 +264,15 @@ describe('ContentPipelineImageLightboxComponent', () => {
 
     const last = focusable[focusable.length - 1];
     last.focus();
-    expect((await press('Tab')).defaultPrevented).withContext('wrapped forwards').toBeTrue();
+    expect((await press('Tab')).defaultPrevented)
+      .withContext('wrapped forwards')
+      .toBeTrue();
     expect(document.activeElement).toBe(focusable[0]);
 
     focusable[0].focus();
-    expect((await press('Tab', true)).defaultPrevented).withContext('wrapped backwards').toBeTrue();
+    expect((await press('Tab', true)).defaultPrevented)
+      .withContext('wrapped backwards')
+      .toBeTrue();
     expect(document.activeElement).toBe(last);
   });
 
@@ -315,7 +317,9 @@ describe('ContentPipelineImageLightboxComponent', () => {
     expect(link?.textContent).toContain('Download original (482 KB)');
 
     // No smaller copy has been made for this picture, so none is offered.
-    expect(Array.from(dialog()!.querySelectorAll('a')).some((each) => each.textContent?.includes('web size'))).toBeFalse();
+    expect(
+      Array.from(dialog()!.querySelectorAll('a')).some((each) => each.textContent?.includes('web size')),
+    ).toBeFalse();
     expect(dialog()?.textContent).toContain('482 KB');
   });
 

@@ -12,9 +12,11 @@ describe('CpCheckboxComponent', () => {
   }
 
   const host = (fixture: ComponentFixture<CpCheckboxComponent>) => fixture.nativeElement as HTMLElement;
-  const input = (fixture: ComponentFixture<CpCheckboxComponent>) => host(fixture).querySelector<HTMLInputElement>('input')!;
+  const input = (fixture: ComponentFixture<CpCheckboxComponent>) =>
+    host(fixture).querySelector<HTMLInputElement>('input')!;
   const box = (fixture: ComponentFixture<CpCheckboxComponent>) => host(fixture).querySelector<HTMLElement>('.box')!;
-  const label = (fixture: ComponentFixture<CpCheckboxComponent>) => host(fixture).querySelector<HTMLLabelElement>('label')!;
+  const label = (fixture: ComponentFixture<CpCheckboxComponent>) =>
+    host(fixture).querySelector<HTMLLabelElement>('label')!;
 
   afterEach(() => document.documentElement.removeAttribute('data-cp-theme'));
 
@@ -97,7 +99,9 @@ describe('CpCheckboxComponent', () => {
     // it, because a 1px offscreen input has nowhere to show one.
     // Asserted on outline-style, not width: `outline-width` computes to the initial `medium` even while
     // `outline-style` is `none`, so a width comparison would pass without any ring being painted.
-    expect(getComputedStyle(box(fixture)).outlineStyle).withContext('no ring before focus').toBe('none');
+    expect(getComputedStyle(box(fixture)).outlineStyle)
+      .withContext('no ring before focus')
+      .toBe('none');
 
     input(fixture).focus();
     fixture.detectChanges();
@@ -140,7 +144,10 @@ describe('CpCheckboxComponent', () => {
     expect(dark.background).not.toBe(light.background);
     // A drawn box: the border is the author's, so the unchecked state reads as an empty box in dark mode
     // instead of the dark-filled square the UA paints from `color-scheme: dark`.
-    for (const [theme, rendered] of [['light', light], ['dark', dark]] as const) {
+    for (const [theme, rendered] of [
+      ['light', light],
+      ['dark', dark],
+    ] as const) {
       expect(parseFloat(rendered.border)).withContext(`box border in ${theme}`).toBeGreaterThan(0);
       expect(rendered.appearance).withContext(`input appearance in ${theme}`).toBe('auto');
     }

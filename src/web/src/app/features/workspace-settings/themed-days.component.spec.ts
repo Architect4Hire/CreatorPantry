@@ -93,9 +93,7 @@ class StubThemes {
   getHistory(_slug: string, key: string, options: { cursor?: string | null } = {}): Promise<ThemedDayHistoryOutcome> {
     this.historyReads.push({ key, cursor: options.cursor ?? null });
     if (this.holdHistory) return new Promise(() => undefined);
-    return Promise.resolve(
-      this.historyOutcomes.shift() ?? { status: 'found', page: { items: [], nextCursor: null } },
-    );
+    return Promise.resolve(this.historyOutcomes.shift() ?? { status: 'found', page: { items: [], nextCursor: null } });
   }
 }
 
@@ -383,7 +381,9 @@ describe('ThemedDaysComponent', () => {
     const name = field(host, 'wednesday', 'displayName');
     expect(themes.replaces.length).toBe(0);
     expect(name.getAttribute('aria-invalid')).toBe('true');
-    expect(section(host, 'Wednesday').querySelector('[role="alert"]')?.textContent).toContain('Give Wednesday’s theme a name');
+    expect(section(host, 'Wednesday').querySelector('[role="alert"]')?.textContent).toContain(
+      'Give Wednesday’s theme a name',
+    );
     expect(document.activeElement).toBe(name);
     expect(host.querySelector('.result[aria-live="polite"]')?.textContent).toContain('needs another look');
 
@@ -434,7 +434,9 @@ describe('ThemedDaysComponent', () => {
     await type(field(host, 'monday', 'description'), 'Changed.');
     await press(saveButton(host));
 
-    expect(host.querySelector('.result[aria-live="polite"]')?.textContent).toContain('Delete a retired theme to make room');
+    expect(host.querySelector('.result[aria-live="polite"]')?.textContent).toContain(
+      'Delete a retired theme to make room',
+    );
   });
 
   // ---- Retiring and bringing back ----
@@ -528,7 +530,10 @@ describe('ThemedDaysComponent', () => {
 
   it('offers deleting to an Owner only', async () => {
     workspaces.role = 'Editor';
-    themes.week = [theme(), theme({ day: 'Friday', key: 'old', displayName: 'Old', retiredAt: '2026-10-01T08:00:00+00:00' })];
+    themes.week = [
+      theme(),
+      theme({ day: 'Friday', key: 'old', displayName: 'Old', retiredAt: '2026-10-01T08:00:00+00:00' }),
+    ];
 
     const host = await render();
 

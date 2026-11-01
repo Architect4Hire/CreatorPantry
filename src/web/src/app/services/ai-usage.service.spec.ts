@@ -50,7 +50,9 @@ function payload(
       spendable: overrides.lowCredit?.spendable ?? remaining + (overrides.packRemaining ?? 0),
     },
     byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }],
-    byWorkspace: [{ workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 }],
+    byWorkspace: [
+      { workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: 'Kitchen', amount: 240, requests: 12 },
+    ],
   };
 }
 
@@ -322,9 +324,9 @@ describe('AiUsageService', () => {
     await dismissing;
 
     const rolled = service.refresh();
-    http.expectOne(URL).flush(
-      payload({ remaining: 90, startsAt: '2026-04-01T00:00:00+01:00', lowCredit: { isNoticed: true } }),
-    );
+    http
+      .expectOne(URL)
+      .flush(payload({ remaining: 90, startsAt: '2026-04-01T00:00:00+01:00', lowCredit: { isNoticed: true } }));
     await rolled;
 
     expect(service.lowCredit()).not.toBeNull();

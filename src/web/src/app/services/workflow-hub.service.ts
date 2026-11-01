@@ -36,10 +36,14 @@ export class WorkflowHubService {
     if (!url) return { status: 'unavailable' };
 
     try {
-      const definitions = decodeWorkflowDefinitions(await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })));
+      const definitions = decodeWorkflowDefinitions(
+        await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true })),
+      );
       return definitions ? { status: 'found', definitions } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 
@@ -55,10 +59,14 @@ export class WorkflowHubService {
     if (query.cursor) params = params.set('cursor', query.cursor);
 
     try {
-      const page = decodeWorkflowRunSummaryPage(await firstValueFrom(this.http.get<unknown>(url, { params, withCredentials: true })));
+      const page = decodeWorkflowRunSummaryPage(
+        await firstValueFrom(this.http.get<unknown>(url, { params, withCredentials: true })),
+      );
       return page ? { status: 'found', page } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 }

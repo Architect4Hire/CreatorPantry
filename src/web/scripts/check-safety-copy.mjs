@@ -19,7 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -163,7 +163,8 @@ export function check(readFile = (path) => readFileSync(resolve(root, path), 'ut
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not `file://${argv[1]}`: on Windows the latter never matches, and the check silently passed.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { offenders, stale } = check();
   const problems = [...offenders, ...stale];
 

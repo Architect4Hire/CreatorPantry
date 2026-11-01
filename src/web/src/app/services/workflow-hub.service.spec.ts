@@ -3,7 +3,11 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { ApiBaseService } from '../core/api-base.service';
-import { attentionReasonText, decodeWorkflowDefinitions, decodeWorkflowRunSummaryPage } from '../models/workflow-hub.models';
+import {
+  attentionReasonText,
+  decodeWorkflowDefinitions,
+  decodeWorkflowRunSummaryPage,
+} from '../models/workflow-hub.models';
 import { WorkflowHubService } from './workflow-hub.service';
 
 const BASE = 'https://gateway.test';

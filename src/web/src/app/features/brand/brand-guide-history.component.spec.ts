@@ -19,10 +19,7 @@ import {
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { BrandGuideHistoryComponent } from './brand-guide-history.component';
 
-function row(
-  versionNumber: number,
-  overrides: Partial<BrandStyleGuideVersionRow> = {},
-): BrandStyleGuideVersionRow {
+function row(versionNumber: number, overrides: Partial<BrandStyleGuideVersionRow> = {}): BrandStyleGuideVersionRow {
   return {
     id: `v${versionNumber}`,
     versionNumber,
@@ -53,9 +50,7 @@ function comparison(): BrandStyleGuideVersionComparison {
   return {
     from: { versionId: 'v2', versionNumber: 2, status: 'Approved', createdAt: '2026-09-01T00:00:00Z' },
     to: { versionId: 'v3', versionNumber: 3, status: 'Draft', createdAt: '2026-09-20T00:00:00Z' },
-    sections: [
-      { sectionKey: 'Voice', channelKey: null, state: 'Changed', fromBody: 'Plain.', toBody: 'Warm.' },
-    ],
+    sections: [{ sectionKey: 'Voice', channelKey: null, state: 'Changed', fromBody: 'Plain.', toBody: 'Warm.' }],
     rules: [],
     sources: [],
     hasChanges: true,
@@ -171,9 +166,7 @@ describe('BrandGuideHistoryComponent', () => {
   }
 
   function maybeButton(label: string): HTMLButtonElement | null {
-    return (
-      Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null
-    );
+    return Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.includes(label)) ?? null;
   }
 
   function button(label: string): HTMLButtonElement {
@@ -194,9 +187,7 @@ describe('BrandGuideHistoryComponent', () => {
     const dialog = root().querySelector('cp-brand-guide-activate');
     if (!dialog) throw new Error('the activation dialog is not open');
 
-    const match = Array.from(dialog.querySelectorAll('button')).find((each) =>
-      each.textContent?.includes(label),
-    );
+    const match = Array.from(dialog.querySelectorAll('button')).find((each) => each.textContent?.includes(label));
     if (!match) throw new Error(`no dialog button labelled "${label}"`);
 
     return match;
@@ -326,7 +317,9 @@ describe('BrandGuideHistoryComponent', () => {
     service.pages = [{ status: 'ok', page: { items: [row(3), row(2)], nextCursor: 'c1' } }];
     await create();
     const status = () =>
-      Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) => each.textContent?.includes('older versions…'));
+      Array.from(root().querySelectorAll('p.cp-sr-only[role="status"]')).find((each) =>
+        each.textContent?.includes('older versions…'),
+      );
     expect(status()).toBeUndefined();
 
     service.holdOlder = true;
@@ -339,7 +332,9 @@ describe('BrandGuideHistoryComponent', () => {
     expect(status()?.textContent).toBe('Loading older versions…');
     const arriving = root().querySelector('.older-loading[aria-busy="true"]')!;
     expect(arriving.querySelector('cp-skeleton')).not.toBeNull();
-    expect(root().querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      root().querySelector('ul.versions')!.compareDocumentPosition(arriving) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(versionRows()).toHaveSize(2);
   });
 
@@ -587,7 +582,10 @@ describe('BrandGuideHistoryComponent', () => {
     service.read = { status: 'ok', guide: guide({ activeVersionId: 'v1', activeVersionNumber: 1 }) };
     service.versions = {
       status: 'ok',
-      page: { items: [row(2, { status: 'Approved' }), row(1, { status: 'Approved', isActive: true })], nextCursor: null },
+      page: {
+        items: [row(2, { status: 'Approved' }), row(1, { status: 'Approved', isActive: true })],
+        nextCursor: null,
+      },
     };
     await create();
 
@@ -659,7 +657,9 @@ describe('BrandGuideHistoryComponent', () => {
     await create();
 
     expect(root().querySelector('cp-list-shell cp-skeleton')).not.toBeNull();
-    const loading = Array.from(root().querySelectorAll('[role="status"]')).filter((each) => each.textContent?.includes('Loading'));
+    const loading = Array.from(root().querySelectorAll('[role="status"]')).filter((each) =>
+      each.textContent?.includes('Loading'),
+    );
     expect(loading.length).toBe(1);
     expect(root().querySelector('p.status[role="status"]')!.textContent).toBe('');
   });

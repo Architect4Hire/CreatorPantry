@@ -128,8 +128,8 @@ describe('RecipeRevisionRequestComponent', () => {
   it('offers only the sections the server can revise', fakeAsync(() => {
     render();
 
-    const labels = Array.from(element().querySelectorAll('.revision-section-label')).map(
-      (span) => span.textContent?.trim(),
+    const labels = Array.from(element().querySelectorAll('.revision-section-label')).map((span) =>
+      span.textContent?.trim(),
     );
 
     expect(labels).toEqual(RECIPE_REVISION_SECTIONS.map((section) => section.label));
@@ -307,7 +307,9 @@ describe('RecipeRevisionRequestComponent', () => {
     render('Viewer');
 
     expect(fixture.componentInstance.state()).toBe('forbidden');
-    expect(element().querySelector('.revision-blocked[role="status"]')?.textContent).toContain('cannot ask for a revision');
+    expect(element().querySelector('.revision-blocked[role="status"]')?.textContent).toContain(
+      'cannot ask for a revision',
+    );
     expect(service.calls.length).toBe(0);
   }));
 

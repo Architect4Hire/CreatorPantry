@@ -32,8 +32,8 @@ import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice
   template: `
     @if (channels.state().status === 'unavailable') {
       <cp-notice tone="warning" role="status">
-        The list of channels couldn't be loaded, so new channels can't be offered right now. Posts already
-        written are still here, and still yours to edit.
+        The list of channels couldn't be loaded, so new channels can't be offered right now. Posts already written are
+        still here, and still yours to edit.
       </cp-notice>
     }
 

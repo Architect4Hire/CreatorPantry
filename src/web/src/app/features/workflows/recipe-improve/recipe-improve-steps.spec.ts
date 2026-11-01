@@ -52,7 +52,14 @@ function detail(overrides: Partial<RecipeDetail> = {}): RecipeDetail {
     createdAt: '2026-10-01T09:00:00Z',
     updatedAt: '2026-10-01T09:00:00Z',
     concurrencyToken: 'AAAAAAAAB9E=',
-    currentVersion: { id: 'v3', versionNumber: 3, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-10-01T09:00:00Z' },
+    currentVersion: {
+      id: 'v3',
+      versionNumber: 3,
+      source: 'CreatorEdit',
+      readiness: 'Draft',
+      reason: null,
+      createdAt: '2026-10-01T09:00:00Z',
+    },
     ingredientGroups: [],
     instructionGroups: [],
     equipment: [],
@@ -109,11 +116,13 @@ function version(number: number, createdAt: string): RecipeVersionHistoryEntry {
 
 /** An "Improve a recipe" run, started at {@link STARTED}, holding `recipe-1` unless it holds nothing. */
 function improveRun(options: { recipe?: boolean } = {}): WorkflowRun {
-  return decodeWorkflowRun(wireRun({
-    definitionKey: 'recipe.improve',
-    startedAt: STARTED,
-    links: options.recipe === false ? [] : [{ kind: 'Recipe', resourceId: 'recipe-1', stepKey: null }],
-  }))!;
+  return decodeWorkflowRun(
+    wireRun({
+      definitionKey: 'recipe.improve',
+      startedAt: STARTED,
+      links: options.recipe === false ? [] : [{ kind: 'Recipe', resourceId: 'recipe-1', stepKey: null }],
+    }),
+  )!;
 }
 
 let port: WorkflowStepPort;
@@ -136,7 +145,14 @@ function configure(): void {
     getRecipeDetail: jasmine.createSpy('getRecipeDetail').and.resolveTo({ status: 'found', recipe: detail() }),
     updateRecipe: jasmine.createSpy('updateRecipe').and.resolveTo({ status: 'unavailable' }),
     searchRecipes: jasmine.createSpy('searchRecipes').and.returnValue(
-      of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread'), summary('recipe-2', 'Rye loaf')], nextCursor: null, totalCount: 2 } }),
+      of<RecipeSearchOutcome>({
+        status: 'found',
+        page: {
+          items: [summary('recipe-1', 'Soda bread'), summary('recipe-2', 'Rye loaf')],
+          nextCursor: null,
+          totalCount: 2,
+        },
+      }),
     ),
     getVersionHistory: jasmine.createSpy('getVersionHistory'),
     compareVersions: jasmine.createSpy('compareVersions'),
@@ -162,7 +178,10 @@ function configure(): void {
         },
       },
       { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(true) } },
-      { provide: WorkspaceMembershipService, useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() } },
+      {
+        provide: WorkspaceMembershipService,
+        useValue: { state: signal({ status: 'loading' }), ensureLoaded: () => Promise.resolve() },
+      },
     ],
   });
 }
@@ -210,7 +229,9 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     const never = <T>() => new Promise<T>(() => undefined);
     /** The busy lines drawn beside a status: the step's own, not a child panel's. */
     const busyBeside = (status: Element) =>
-      Array.from(status.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'));
+      Array.from(status.parentElement!.children).find(
+        (each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'),
+      );
 
     function expectLoading(scope: Element, sentence: string): void {
       const status = statuses(scope).find((p) => p.textContent === sentence);
@@ -218,7 +239,9 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       const busy = busyBeside(status!)!;
       expect(busy).toBeTruthy();
       expect(busy.textContent!.trim()).toBe('');
-      expect(Array.from(scope.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+      expect(
+        Array.from(scope.querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence)),
+      ).toBeFalse();
     }
 
     function expectRead(scope: Element, sentence: string): void {
@@ -231,13 +254,19 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
     it('Choose the recipe: draws the rows arriving while it finds the recipes, then keeps its status emptied', async () => {
       recipes.searchRecipes.and.returnValue(NEVER);
-      const fixture = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
+      const fixture = await render(RecipeChooseStepComponent, {
+        run: improveRun({ recipe: false }),
+        workspaceSlug: SLUG,
+      });
       await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
       expectLoading(root(fixture), 'Finding your recipes…');
 
       recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: null, totalCount: 1 } }),
+        of<RecipeSearchOutcome>({
+          status: 'found',
+          page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: null, totalCount: 1 },
+        }),
       );
       const read = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
       await new Promise((resolve) => setTimeout(resolve, 350));
@@ -247,14 +276,21 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
     it('Choose the recipe: its pager says "Loading more…" while it reads the next page', async () => {
       recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 } }),
+        of<RecipeSearchOutcome>({
+          status: 'found',
+          page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 },
+        }),
       );
-      const fixture = await render(RecipeChooseStepComponent, { run: improveRun({ recipe: false }), workspaceSlug: SLUG });
+      const fixture = await render(RecipeChooseStepComponent, {
+        run: improveRun({ recipe: false }),
+        workspaceSlug: SLUG,
+      });
       await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
 
       recipes.searchRecipes.and.returnValue(NEVER);
-      const more = () => Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('more'))!;
+      const more = () =>
+        Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('more'))!;
       more().click();
       await settle(fixture);
 
@@ -274,7 +310,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     it('Decide on every suggestion: draws lines while it looks for what is waiting, then keeps its status emptied', async () => {
       listOpen.and.returnValue(never());
       const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
-      expectLoading(root(fixture).querySelector('cp-recipe-open-suggestions')!, 'Looking for suggestions waiting for you…');
+      expectLoading(
+        root(fixture).querySelector('cp-recipe-open-suggestions')!,
+        'Looking for suggestions waiting for you…',
+      );
 
       listOpen.and.callFake(() => Promise.resolve(open));
       const read = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
@@ -286,7 +325,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       const fixture = await render(RecipeImproveCompareStepComponent, { run: improveRun(), workspaceSlug: SLUG });
       expectLoading(root(fixture), 'Comparing your recipe with how it was…');
 
-      recipes.getVersionHistory.and.resolveTo({ status: 'found', page: { items: [version(3, '2026-10-01T09:00:00Z')], nextCursor: null } });
+      recipes.getVersionHistory.and.resolveTo({
+        status: 'found',
+        page: { items: [version(3, '2026-10-01T09:00:00Z')], nextCursor: null },
+      });
       const read = await render(RecipeImproveCompareStepComponent, { run: improveRun(), workspaceSlug: SLUG });
       expectRead(root(read), 'Comparing your recipe with how it was…');
     });
@@ -303,15 +345,23 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
     it('keeps the pick on show when a later search would leave it out, and lists more on asking', async () => {
       recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 } }),
+        of<RecipeSearchOutcome>({
+          status: 'found',
+          page: { items: [summary('recipe-1', 'Soda bread')], nextCursor: 'next' as string | null, totalCount: 2 },
+        }),
       );
       const fixture = await choose();
       await pick(fixture, 'recipe-choose-recipe-1');
 
       recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-2', 'Rye loaf')], nextCursor: null, totalCount: 1 } }),
+        of<RecipeSearchOutcome>({
+          status: 'found',
+          page: { items: [summary('recipe-2', 'Rye loaf')], nextCursor: null, totalCount: 1 },
+        }),
       );
-      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Show more recipes'))!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Show more recipes'))!
+        .click();
       await settle(fixture);
       expect(text(fixture)).toContain('Rye loaf');
 
@@ -340,7 +390,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
     it('shows the recipe the run holds as picked even when no page of the list names it', async () => {
       recipes.searchRecipes.and.returnValue(
-        of<RecipeSearchOutcome>({ status: 'found', page: { items: [summary('recipe-2', 'Rye loaf')], nextCursor: 'more', totalCount: 60 } }),
+        of<RecipeSearchOutcome>({
+          status: 'found',
+          page: { items: [summary('recipe-2', 'Rye loaf')], nextCursor: 'more', totalCount: 60 },
+        }),
       );
       const fixture = await choose(improveRun());
 
@@ -361,8 +414,12 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
       expect(text(fixture)).toContain('couldn’t be read just now');
 
-      recipes.searchRecipes.and.returnValue(of({ status: 'found', page: { items: [], nextCursor: null, totalCount: 0 } }));
-      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Try again'))!.click();
+      recipes.searchRecipes.and.returnValue(
+        of({ status: 'found', page: { items: [], nextCursor: null, totalCount: 0 } }),
+      );
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Try again'))!
+        .click();
       await new Promise((resolve) => setTimeout(resolve, 350));
       await settle(fixture);
 
@@ -378,7 +435,13 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     it('offers each way in plain words, with no unscoped "make it better", and asks for nothing until one is chosen', async () => {
       const fixture = await change();
 
-      for (const label of ['Change part of it', 'Adapt it for a need', 'Swap an ingredient', 'Check it over', 'Change it myself']) {
+      for (const label of [
+        'Change part of it',
+        'Adapt it for a need',
+        'Swap an ingredient',
+        'Check it over',
+        'Change it myself',
+      ]) {
         expect(text(fixture)).toContain(label);
       }
       expect(text(fixture)).not.toMatch(/make it better|prompt|model/i);
@@ -413,7 +476,12 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       expect(panel.knownStale()).toBeTrue();
       expect(panel.headingLevel()).toBe(4);
 
-      panel.restartRequested.emit({ taskType: 'RecipeAdaptation', task: null, scope: 'WholeRecipe', staleSourceVersionId: null });
+      panel.restartRequested.emit({
+        taskType: 'RecipeAdaptation',
+        task: null,
+        scope: 'WholeRecipe',
+        staleSourceVersionId: null,
+      });
       await settle(fixture);
 
       expect(root(fixture).querySelector('cp-recipe-adaptation-request')).not.toBeNull();
@@ -453,7 +521,11 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     });
 
     it('edits the whole recipe in the hosted editor, and saves it rather than discarding it on moving to another way', async () => {
-      recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: detail({ notes: 'More salt.' }), replayed: false });
+      recipes.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: detail({ notes: 'More salt.' }),
+        replayed: false,
+      });
       const fixture = await change();
       await pick(fixture, 'recipe-improve-way-edit');
 
@@ -476,7 +548,16 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
       recipes.getRecipeDetail.and.resolveTo({
         status: 'found',
-        recipe: detail({ currentVersion: { id: 'v4', versionNumber: 4, source: 'AiProposalAccepted', readiness: 'Draft', reason: null, createdAt: '2026-10-15T09:30:00Z' } }),
+        recipe: detail({
+          currentVersion: {
+            id: 'v4',
+            versionNumber: 4,
+            source: 'AiProposalAccepted',
+            readiness: 'Draft',
+            reason: null,
+            createdAt: '2026-10-15T09:30:00Z',
+          },
+        }),
       });
       await fixture.componentInstance.load();
       await settle(fixture);
@@ -497,7 +578,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     it('lists everything still waiting, a safety note first, and is not ready while any waits', async () => {
       open = {
         status: 'found',
-        open: [openItem({ requestId: 'plain' }), openItem({ requestId: 'careful', hasSafetyCaution: true, taskType: 'RecipeAdaptation' })],
+        open: [
+          openItem({ requestId: 'plain' }),
+          openItem({ requestId: 'careful', hasSafetyCaution: true, taskType: 'RecipeAdaptation' }),
+        ],
       };
       const fixture = await render(RecipeImproveDecideStepComponent, { run: improveRun(), workspaceSlug: SLUG });
 
@@ -514,7 +598,9 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
       expect(text(fixture)).toContain('couldn’t be read just now');
       open = { status: 'found', open: [] };
-      Array.from(root(fixture).querySelectorAll('button')).find((b) => b.textContent?.includes('Try again'))!.click();
+      Array.from(root(fixture).querySelectorAll('button'))
+        .find((b) => b.textContent?.includes('Try again'))!
+        .click();
       await settle(fixture);
 
       expect(text(fixture)).toContain('Nothing is waiting for your answer.');
@@ -523,15 +609,34 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
 
   describe('Compare with before', () => {
     const COMPARISON: RecipeVersionComparison = {
-      from: { versionId: 'v3', versionNumber: 3, source: 'CreatorEdit', readiness: 'Draft', createdAt: '2026-10-01T09:00:00Z' },
-      to: { versionId: 'v5', versionNumber: 5, source: 'AiProposalAccepted', readiness: 'Draft', createdAt: '2026-10-15T09:40:00Z' },
+      from: {
+        versionId: 'v3',
+        versionNumber: 3,
+        source: 'CreatorEdit',
+        readiness: 'Draft',
+        createdAt: '2026-10-01T09:00:00Z',
+      },
+      to: {
+        versionId: 'v5',
+        versionNumber: 5,
+        source: 'AiProposalAccepted',
+        readiness: 'Draft',
+        createdAt: '2026-10-15T09:40:00Z',
+      },
       comparison: { sections: [], hasChanges: false },
     };
 
     it('compares the version the run began on with the recipe as it is now', async () => {
       recipes.getVersionHistory.and.resolveTo({
         status: 'found',
-        page: { items: [version(5, '2026-10-15T09:40:00Z'), version(4, '2026-10-15T09:20:00Z'), version(3, '2026-10-01T09:00:00Z')], nextCursor: null },
+        page: {
+          items: [
+            version(5, '2026-10-15T09:40:00Z'),
+            version(4, '2026-10-15T09:20:00Z'),
+            version(3, '2026-10-01T09:00:00Z'),
+          ],
+          nextCursor: null,
+        },
       });
       recipes.compareVersions.and.resolveTo({ status: 'found', comparison: COMPARISON });
 
@@ -543,7 +648,10 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
     });
 
     it('says nothing changed when no version was saved during the run', async () => {
-      recipes.getVersionHistory.and.resolveTo({ status: 'found', page: { items: [version(3, '2026-10-01T09:00:00Z')], nextCursor: null } });
+      recipes.getVersionHistory.and.resolveTo({
+        status: 'found',
+        page: { items: [version(3, '2026-10-01T09:00:00Z')], nextCursor: null },
+      });
 
       const fixture = await render(RecipeImproveCompareStepComponent, { run: improveRun(), workspaceSlug: SLUG });
 

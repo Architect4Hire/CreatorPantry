@@ -147,7 +147,12 @@ export class RecipePublishPanelComponent {
     if (!summary) return [];
 
     return [
-      { key: 'editorial', label: 'Editorial copy', copy: summary.editorial, usedBy: 'Markdown and PDF, standard layout' },
+      {
+        key: 'editorial',
+        label: 'Editorial copy',
+        copy: summary.editorial,
+        usedBy: 'Markdown and PDF, standard layout',
+      },
       { key: 'seo', label: 'SEO copy', copy: summary.seo, usedBy: 'structured data' },
     ];
   });

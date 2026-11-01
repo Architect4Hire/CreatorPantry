@@ -23,8 +23,8 @@ import { workflowRunLink } from './workflow-return';
       <a cpButton variant="primary" [routerLink]="link()">Go to {{ goal() ?? 'your guided journey' }}</a>
     } @else {
       <cp-notice role="note">
-        You came here from “{{ goal() ?? 'your guided journey' }}”.
-        <a [routerLink]="link()">Carry on with it</a> when you’re done here.
+        You came here from “{{ goal() ?? 'your guided journey' }}”. <a [routerLink]="link()">Carry on with it</a> when
+        you’re done here.
       </cp-notice>
     }
   `,

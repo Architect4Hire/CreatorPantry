@@ -28,7 +28,14 @@ const OTHER_SLUG = 'other-kitchen';
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function member(workspaceId: string, slug: string, role: WorkspaceRole) {
-  return { workspaceId, workspaceSlug: slug, workspaceName: slug, membershipId: `m-${workspaceId}`, role, status: 'Active' as const };
+  return {
+    workspaceId,
+    workspaceSlug: slug,
+    workspaceName: slug,
+    membershipId: `m-${workspaceId}`,
+    role,
+    status: 'Active' as const,
+  };
 }
 
 function row(overrides: Partial<AiProposedChange>): AiProposedChange {
@@ -85,23 +92,59 @@ const DRAFT = proposal(
     row({ changeId: 'd-yield', fieldName: 'yieldText', afterValue: 'Serves 4' }),
     row({ changeId: 'd-group', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1' }),
     row({ changeId: 'd-line', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'i1', afterValue: '4 ears corn' }),
-    row({ changeId: 'd-line-name', targetKind: 'Ingredient', targetId: 'i1', fieldName: 'ingredientNameText', afterValue: 'corn' }),
-    row({ changeId: 'd-line-2', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'i2', afterValue: '2 tbsp white miso' }),
+    row({
+      changeId: 'd-line-name',
+      targetKind: 'Ingredient',
+      targetId: 'i1',
+      fieldName: 'ingredientNameText',
+      afterValue: 'corn',
+    }),
+    row({
+      changeId: 'd-line-2',
+      changeKind: 'Add',
+      targetKind: 'Ingredient',
+      targetId: 'i2',
+      afterValue: '2 tbsp white miso',
+    }),
     row({ changeId: 'd-method', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'g2' }),
-    row({ changeId: 'd-step', changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Char the corn.' }),
+    row({
+      changeId: 'd-step',
+      changeKind: 'Add',
+      targetKind: 'InstructionStep',
+      targetId: 's1',
+      afterValue: 'Char the corn.',
+    }),
   ],
   [{ kind: 'SafetyCaution', message: 'Hot butter spits.', changeId: null }],
 );
 const DRAFT_CHANGE_IDS = DRAFT.changes.map((change) => change.changeId);
 
 const LOOKS = proposal([
-  row({ changeId: 'a1', changeKind: 'Add', targetKind: 'PhotographyConcept', targetId: 'look-1', afterValue: 'Warm', proposedPosition: 0 }),
-  row({ targetKind: 'PhotographyConcept', targetId: 'look-1', fieldName: 'shot.DetailShot.framing', afterValue: 'Macro' }),
+  row({
+    changeId: 'a1',
+    changeKind: 'Add',
+    targetKind: 'PhotographyConcept',
+    targetId: 'look-1',
+    afterValue: 'Warm',
+    proposedPosition: 0,
+  }),
+  row({
+    targetKind: 'PhotographyConcept',
+    targetId: 'look-1',
+    fieldName: 'shot.DetailShot.framing',
+    afterValue: 'Macro',
+  }),
   row({ targetKind: 'PhotographyConcept', targetId: 'look-1', fieldName: 'shot.Hero.framing', afterValue: 'Overhead' }),
 ]);
 
 const PROMPT = proposal([
-  row({ changeId: 'p-add', changeKind: 'Add', targetKind: 'ImagePrompt', targetId: 'ip', afterValue: 'Charred corn, overhead.' }),
+  row({
+    changeId: 'p-add',
+    changeKind: 'Add',
+    targetKind: 'ImagePrompt',
+    targetId: 'ip',
+    afterValue: 'Charred corn, overhead.',
+  }),
   row({ targetKind: 'ImagePrompt', targetId: 'ip', fieldName: 'avoid', afterValue: 'hands; text' }),
 ]);
 
@@ -188,7 +231,11 @@ async function create(scenario: Scenario = {}): Promise<void> {
         },
       },
       provideRouter([
-        { path: ':workspaceSlug/workflows/quick-recipe', component: QuickRecipeComponent, data: { title: 'Quick Recipe' } },
+        {
+          path: ':workspaceSlug/workflows/quick-recipe',
+          component: QuickRecipeComponent,
+          data: { title: 'Quick Recipe' },
+        },
         { path: ':workspaceSlug/recipes/:recipeId', component: ElsewhereComponent },
         { path: '**', component: ElsewhereComponent },
       ]),
@@ -222,7 +269,10 @@ async function create(scenario: Scenario = {}): Promise<void> {
           },
           watchStatus: (slug: string, id: string) => {
             note('draft.watch', slug, id);
-            return scenario.draftWatch?.() ?? of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, DRAFT) });
+            return (
+              scenario.draftWatch?.() ??
+              of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, DRAFT) })
+            );
           },
           acceptDraft: (slug: string, id: string, body: unknown) => {
             note('accept', slug, id, body);
@@ -237,7 +287,8 @@ async function create(scenario: Scenario = {}): Promise<void> {
             note('looks', slug, body, key);
             return Promise.resolve(scenario.looksOutcome ?? accepted(operation('r-looks', LOOKS)));
           },
-          watch: (_slug: string, id: string) => of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, LOOKS) }),
+          watch: (_slug: string, id: string) =>
+            of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, LOOKS) }),
         },
       },
       {
@@ -247,7 +298,8 @@ async function create(scenario: Scenario = {}): Promise<void> {
             note('prompt', slug, body, key);
             return Promise.resolve(accepted(operation('r-prompt', PROMPT)));
           },
-          watch: (_slug: string, id: string) => of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, PROMPT) }),
+          watch: (_slug: string, id: string) =>
+            of<AiWatchOperationOutcome>({ status: 'found', operation: operation(id, PROMPT) }),
         },
       },
       {
@@ -472,7 +524,8 @@ describe('QuickRecipeComponent', () => {
     it('asks for no picture for a draft that is already a recipe', async () => {
       await create({
         url: `/${SLUG}/workflows/quick-recipe?name=Miso%20butter%20corn&draft=r-draft`,
-        draftWatch: () => of<AiWatchOperationOutcome>({ status: 'found', operation: operation('r-draft', DRAFT, 'Accepted') }),
+        draftWatch: () =>
+          of<AiWatchOperationOutcome>({ status: 'found', operation: operation('r-draft', DRAFT, 'Accepted') }),
       });
 
       expect(calls).toEqual(['draft.watch']);

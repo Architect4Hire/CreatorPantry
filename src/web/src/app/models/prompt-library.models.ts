@@ -11,14 +11,7 @@ import { decodeEnum, isNumberOrNull, isRecord, isStringOrNull } from './recipe.m
 
 /** `PromptImageKind`, as the API publishes it: the declared names, never the numbers. */
 export type PromptImageKind =
-  | 'Hero'
-  | 'ProcessStep'
-  | 'IngredientLayout'
-  | 'StyledScene'
-  | 'SocialTile'
-  | 'PinGraphic'
-  | 'DetailShot'
-  | 'Other';
+  'Hero' | 'ProcessStep' | 'IngredientLayout' | 'StyledScene' | 'SocialTile' | 'PinGraphic' | 'DetailShot' | 'Other';
 
 /** `PromptRecordSource`. */
 export type PromptRecordSource = 'Manual' | 'PhotographyConcept' | 'ImagePromptComposition' | 'ReferenceImageAnalysis';

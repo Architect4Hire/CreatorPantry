@@ -43,16 +43,18 @@ describe('work task models', () => {
   it('reads a task as the server sends it', () => {
     const task = decodeWorkTask(WIRE);
 
-    expect(task).toEqual(jasmine.objectContaining({
-      id: 't-1',
-      title: 'Shoot the galette',
-      status: 'Backlog',
-      priority: 'High',
-      scheduledDate: '2038-10-14',
-      planningWeekStart: '2038-10-11',
-      estimateMinutes: 45,
-      labels: [{ id: 'tag-1', name: 'Weeknight' }],
-    }));
+    expect(task).toEqual(
+      jasmine.objectContaining({
+        id: 't-1',
+        title: 'Shoot the galette',
+        status: 'Backlog',
+        priority: 'High',
+        scheduledDate: '2038-10-14',
+        planningWeekStart: '2038-10-11',
+        estimateMinutes: 45,
+        labels: [{ id: 'tag-1', name: 'Weeknight' }],
+      }),
+    );
     expect(task!.links.recipeId).toBe('r-1');
     expect(task!.owner.displayName).toBe('Sam');
   });
@@ -81,7 +83,9 @@ describe('work task models', () => {
 
   it('sends a title alone as exactly that, and only the details chosen', () => {
     expect(encodeCaptureWorkTaskRequest({ title: 'Shoot the galette' })).toEqual({ title: 'Shoot the galette' });
-    expect(encodeCaptureWorkTaskRequest({ title: 'Shoot it', estimateMinutes: 30, labelIds: [], recipeId: undefined })).toEqual({
+    expect(
+      encodeCaptureWorkTaskRequest({ title: 'Shoot it', estimateMinutes: 30, labelIds: [], recipeId: undefined }),
+    ).toEqual({
       title: 'Shoot it',
       estimateMinutes: 30,
     });

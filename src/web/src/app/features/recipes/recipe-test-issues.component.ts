@@ -188,8 +188,8 @@ export class RecipeTestIssuesComponent {
     const state = this.membershipService.state();
     if (state.status !== 'ready') return false;
 
-    const role = state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug())?.role
-      ?? null;
+    const role =
+      state.memberships.find((membership) => membership.workspaceSlug === this.workspaceSlug())?.role ?? null;
 
     return roleAllows(role, 'Editor');
   });

@@ -93,7 +93,10 @@ describe('LongFormDraftService', () => {
     expect(request.request.body).toEqual({ creativeContextId: 'ctx-1', kind: 'NewsletterIssue' });
     expect(JSON.stringify(request.request.body)).not.toContain('workspace');
 
-    request.flush({ draft: wireDraft({ latest: null, planCheck: null }), request: operation() }, { status: 202, statusText: 'Accepted' });
+    request.flush(
+      { draft: wireDraft({ latest: null, planCheck: null }), request: operation() },
+      { status: 202, statusText: 'Accepted' },
+    );
 
     const outcome = await pending;
     expect(outcome.status).toBe('accepted');
@@ -125,10 +128,12 @@ describe('LongFormDraftService', () => {
   it('reports a replayed start as replayed', async () => {
     const pending = service.start('cozy-fall', { creativeContextId: 'ctx-1', kind: 'BlogArticle' }, 'key-1');
 
-    http.expectOne(DRAFTS).flush(
-      { draft: wireDraft(), request: operation() },
-      { status: 202, statusText: 'Accepted', headers: { 'Idempotent-Replayed': 'true' } },
-    );
+    http
+      .expectOne(DRAFTS)
+      .flush(
+        { draft: wireDraft(), request: operation() },
+        { status: 202, statusText: 'Accepted', headers: { 'Idempotent-Replayed': 'true' } },
+      );
 
     const outcome = await pending;
     expect(outcome.status === 'accepted' && outcome.replayed).toBeTrue();
@@ -224,9 +229,7 @@ describe('LongFormDraftService', () => {
     expect(outcome.status).toBe('found');
     if (outcome.status !== 'found') return;
     expect(outcome.draft.latest?.sections[0]?.heading).toBe('Why this cake');
-    expect(outcome.draft.planCheck?.findings).toEqual([
-      { code: 'content.long_form.heading.blank', sectionId: 's-1' },
-    ]);
+    expect(outcome.draft.planCheck?.findings).toEqual([{ code: 'content.long_form.heading.blank', sectionId: 's-1' }]);
   });
 
   it('gives one answer for a draft that is missing and one that is another workspace’s', async () => {
@@ -342,7 +345,10 @@ describe('LongFormDraftService', () => {
     const request = http.expectOne(`${DRAFT}/items/order`);
     expect(request.request.method).toBe('PUT');
     expect(request.request.withCredentials).toBeTrue();
-    expect(request.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', sourceReferenceIds: ['ref-2', 'ref-1'] });
+    expect(request.request.body).toEqual({
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      sourceReferenceIds: ['ref-2', 'ref-1'],
+    });
     request.flush(wireDraft({ kind: 'NewsletterIssue' }));
 
     expect((await pending).status).toBe('saved');
@@ -357,7 +363,11 @@ describe('LongFormDraftService', () => {
 
     const request = http.expectOne(`${DRAFT}/framing`);
     expect(request.request.method).toBe('PUT');
-    expect(request.request.body).toEqual({ expectedConcurrencyToken: 'AAAAAAAAB9E=', subject: 'Three loaves', note: null });
+    expect(request.request.body).toEqual({
+      expectedConcurrencyToken: 'AAAAAAAAB9E=',
+      subject: 'Three loaves',
+      note: null,
+    });
     request.flush(wireDraft({ kind: 'NewsletterIssue', framing: { subject: 'Three loaves', note: null } }));
 
     const outcome = await pending;

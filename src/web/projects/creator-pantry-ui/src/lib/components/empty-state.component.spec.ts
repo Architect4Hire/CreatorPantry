@@ -10,7 +10,13 @@ const FOOD_EMOJI = ['🍲', '🍳', '🥘', '🍽️', '🍕', '🥗', '🍰', '
   standalone: true,
   imports: [CpEmptyStateComponent],
   template: `
-    <cp-empty-state [title]="title" [description]="description" [icon]="icon" [illustration]="illustration" [variant]="variant">
+    <cp-empty-state
+      [title]="title"
+      [description]="description"
+      [icon]="icon"
+      [illustration]="illustration"
+      [variant]="variant"
+    >
       <button cpEmptyStateActions type="button">Primary action</button>
       <button cpEmptyStateActions type="button">Secondary action</button>
     </cp-empty-state>

@@ -36,11 +36,17 @@ describe('plan catalogue models', () => {
     expect(exampleCounts).not.toBeNull();
     expect(decodePlan(olderServer)?.exampleCounts).toBeNull();
     expect(decodePlan({ ...plan, exampleCounts: null })?.exampleCounts).toBeNull();
-    expect(decodePlan({ ...plan, exampleCounts: { recipeDrafts: '50', socialPosts: 100, pictures: 80 } })?.key).toBe('creator');
+    expect(decodePlan({ ...plan, exampleCounts: { recipeDrafts: '50', socialPosts: 100, pictures: 80 } })?.key).toBe(
+      'creator',
+    );
   });
 
   it('refuses example counts that are not three whole, non-negative numbers', () => {
-    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 0, pictures: 80 })).toEqual({ recipeDrafts: 50, socialPosts: 0, pictures: 80 });
+    expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 0, pictures: 80 })).toEqual({
+      recipeDrafts: 50,
+      socialPosts: 0,
+      pictures: 80,
+    });
     expect(decodePlanExampleCounts({ recipeDrafts: 50, pictures: 80 })).toBeNull();
     expect(decodePlanExampleCounts({ recipeDrafts: 50, socialPosts: 100, pictures: -1 })).toBeNull();
     expect(decodePlanExampleCounts({ recipeDrafts: 50.5, socialPosts: 100, pictures: 80 })).toBeNull();
@@ -88,7 +94,7 @@ describe('plan catalogue models', () => {
       packs: [{ key: 'small', credits: 2500, price: 10 }],
       rates,
       pictureClasses: [],
-  defaultPictureClass: null,
+      defaultPictureClass: null,
     });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator', 'pro']);
@@ -98,13 +104,27 @@ describe('plan catalogue models', () => {
 
   /** One plan the browser cannot read is not a reason to show a visitor no pricing at all. */
   it('drops a plan it cannot read and keeps the rest', () => {
-    const catalogue = decodePlanCatalogue({ currency: 'USD', plans: [plan, { key: 'broken' }], packs: [], rates, pictureClasses: [], defaultPictureClass: null });
+    const catalogue = decodePlanCatalogue({
+      currency: 'USD',
+      plans: [plan, { key: 'broken' }],
+      packs: [],
+      rates,
+      pictureClasses: [],
+      defaultPictureClass: null,
+    });
 
     expect(catalogue?.plans.map((entry) => entry.key)).toEqual(['creator']);
   });
 
   it('reads an unpublished catalogue as one with nothing in it', () => {
-    const empty = { currency: 'USD', plans: [], packs: [], rates: { ...rates, textDraft: 0 }, pictureClasses: [], defaultPictureClass: null };
+    const empty = {
+      currency: 'USD',
+      plans: [],
+      packs: [],
+      rates: { ...rates, textDraft: 0 },
+      pictureClasses: [],
+      defaultPictureClass: null,
+    };
 
     expect(decodePlanCatalogue(empty)).toEqual(empty);
   });

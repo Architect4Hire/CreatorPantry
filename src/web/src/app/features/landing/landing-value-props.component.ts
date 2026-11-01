@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { CpBadgeComponent, CpCardComponent, CpCardGridComponent, CpTone } from '@creator-pantry/ui';
 
 /** The product tour's panels (LP.5). A card names the one that shows it; the tour gives each panel this id. */
-export type LandingTourPanel = 'ai-recipe-studio' | 'image-studio' | 'content-pipeline' | 'long-form' | 'brand-guide' | 'publishing';
+export type LandingTourPanel =
+  'ai-recipe-studio' | 'image-studio' | 'content-pipeline' | 'long-form' | 'brand-guide' | 'publishing';
 
 export interface LandingValueProp {
   readonly badgeLabel: string;
@@ -98,7 +99,9 @@ export const DEFAULT_VALUE_PROPS: readonly LandingValueProp[] = [
 export class LandingValuePropsComponent {
   // Not LP.2's "Everything here works today": the scheduling card is not yet for every account, so it would not.
   readonly heading = input('What’s in CreatorPantry today');
-  readonly intro = input('No roadmap slides. Each of these is in the product now, and scheduling is on its way to every account.');
+  readonly intro = input(
+    'No roadmap slides. Each of these is in the product now, and scheduling is on its way to every account.',
+  );
   readonly items = input<readonly LandingValueProp[]>(DEFAULT_VALUE_PROPS);
   /**
    * The tour's panels, which is to say the ones that have been photographed. A card links to its panel only when

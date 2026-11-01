@@ -33,7 +33,14 @@
               <picture class="shot" [class.current]="isCurrent(picture.panel)">
                 <source type="image/avif" [srcset]="picture.avif" />
                 <source type="image/webp" [srcset]="picture.webp" />
-                <img [src]="picture.src" [width]="picture.width" [height]="picture.height" alt="" loading="lazy" decoding="async" />
+                <img
+                  [src]="picture.src"
+                  [width]="picture.width"
+                  [height]="picture.height"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
               </picture>
             }
           </span>

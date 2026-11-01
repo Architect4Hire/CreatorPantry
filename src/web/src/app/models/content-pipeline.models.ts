@@ -77,7 +77,8 @@ export const CONTENT_PIPELINE_STEPS = [
     slug: 'finish',
     label: 'Posts and library',
     help: 'The words that go out with the pictures, one post per place you publish, each written to that channel’s own length — then the pictures you kept, filed in your library so you can find them again. Nothing is accepted for you, and nothing goes out from here.',
-    legend: 'Nothing is accepted until you say so. Accept the posts you want, and save the pictures you want to keep — one you do not save is not kept.',
+    legend:
+      'Nothing is accepted until you say so. Accept the posts you want, and save the pictures you want to keep — one you do not save is not kept.',
     comingSoon: null,
   },
 ] as const satisfies readonly ContentPipelineStepDefinition[];
@@ -261,7 +262,10 @@ export function linkedRecipeKey(recipe: LinkedRecipe | null): string {
  * answers would eventually disagree. The name is still *kept* on the work, because it is the creator's own and
  * unlinking the recipe brings it back as the subject.
  */
-export function contentSubjectOf(config: Pick<ContentPipelineConfig, 'subject'>, recipe: LinkedRecipe | null): string | null {
+export function contentSubjectOf(
+  config: Pick<ContentPipelineConfig, 'subject'>,
+  recipe: LinkedRecipe | null,
+): string | null {
   const typed = config.subject.trim();
 
   return recipe !== null || typed === '' ? null : typed;
@@ -270,7 +274,11 @@ export function contentSubjectOf(config: Pick<ContentPipelineConfig, 'subject'>,
 /** `CreativeContextBriefSource`, under the name the pipeline's own types use. */
 export type ContentPipelineBriefSource = CreativeContextBriefSource;
 
-const BRIEF_SOURCE_VALUES: ReadonlySet<string> = new Set<ContentPipelineBriefSource>(['Description', 'Idea', 'Combined']);
+const BRIEF_SOURCE_VALUES: ReadonlySet<string> = new Set<ContentPipelineBriefSource>([
+  'Description',
+  'Idea',
+  'Combined',
+]);
 
 /** How each choice is said to the creator, wherever it is named. */
 export const CONTENT_PIPELINE_BRIEF_SOURCE_LABELS: Readonly<Record<ContentPipelineBriefSource, string>> = {
@@ -776,7 +784,9 @@ export function decodeContentPipelineConfig(value: unknown): ContentPipelineConf
   // An unrecognised source is dropped with its brief kept: the words are the creator's, and the choice is one
   // answer they can give again.
   const briefSource =
-    typeof rawSource === 'string' && BRIEF_SOURCE_VALUES.has(rawSource) ? (rawSource as ContentPipelineBriefSource) : null;
+    typeof rawSource === 'string' && BRIEF_SOURCE_VALUES.has(rawSource)
+      ? (rawSource as ContentPipelineBriefSource)
+      : null;
 
   // An unrecognised day is dropped rather than failing the whole draft: the day is one answer among several, and
   // losing the rest of a creator's setup over it would cost more than re-picking it.

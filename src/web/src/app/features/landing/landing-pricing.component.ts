@@ -68,7 +68,8 @@ export class LandingPricingComponent {
   });
 
   protected readonly heading = 'Plans that grow with what you make';
-  protected readonly intro = 'Every plan includes the whole workspace. What changes is how much AI work a month includes.';
+  protected readonly intro =
+    'Every plan includes the whole workspace. What changes is how much AI work a month includes.';
   protected readonly periods = BILLING_PERIODS;
   protected readonly recommendedLabel = RECOMMENDED_LABEL;
 
@@ -196,7 +197,8 @@ export class LandingPricingComponent {
 
   /** What the table is and what its prices mean, said once, above it and as its caption. */
   protected readonly comparisonNote = computed(
-    () => `Every plan, one to a row. Prices are ${this.period() === 'annual' ? 'per month, billed yearly' : 'per month'}.`,
+    () =>
+      `Every plan, one to a row. Prices are ${this.period() === 'annual' ? 'per month, billed yearly' : 'per month'}.`,
   );
 
   protected priceOf(plan: Plan): number {
@@ -314,5 +316,4 @@ export class LandingPricingComponent {
   protected planParams(plan: Plan): Record<string, string> {
     return { plan: plan.key };
   }
-
 }

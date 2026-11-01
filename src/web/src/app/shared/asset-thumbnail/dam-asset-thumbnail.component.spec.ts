@@ -235,7 +235,9 @@ describe('DamAssetThumbnailComponent', () => {
 
   it("drops one workspace's picture and asks the other workspace for its own", async () => {
     const other = new Subject<DamAssetContentOutcome>();
-    contentSpy = jasmine.createSpy('content').and.callFake((slug: string) => (slug === 'cozy-fall' ? picture() : other));
+    contentSpy = jasmine
+      .createSpy('content')
+      .and.callFake((slug: string) => (slug === 'cozy-fall' ? picture() : other));
     await create();
     expect(img()).toBeTruthy();
 
@@ -250,7 +252,9 @@ describe('DamAssetThumbnailComponent', () => {
 
   it('ignores an answer for a picture it has moved on from', async () => {
     const slow = new Subject<DamAssetContentOutcome>();
-    contentSpy = jasmine.createSpy('content').and.callFake((_slug: string, id: string) => (id === 'a1' ? slow : picture()));
+    contentSpy = jasmine
+      .createSpy('content')
+      .and.callFake((_slug: string, id: string) => (id === 'a1' ? slow : picture()));
     await create();
 
     fixture.componentInstance.asset.set(asset('a2'));
@@ -285,7 +289,9 @@ class KeptVersionHostComponent {
 describe('DamAssetThumbnailComponent showing one kept version', () => {
   let fixture: ComponentFixture<KeptVersionHostComponent>;
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<
+    (slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>
+  >;
 
   async function settle(): Promise<void> {
     for (let i = 0; i < 3; i += 1) {

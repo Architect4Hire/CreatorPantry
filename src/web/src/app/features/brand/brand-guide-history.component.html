@@ -14,8 +14,8 @@
 
 @if (guide()?.isArchived) {
   <cp-notice tone="warning">
-    This guide is archived. Its history still reads and its versions still compare; what it cannot do is take
-    a new version or become the workspace default.
+    This guide is archived. Its history still reads and its versions still compare; what it cannot do is take a new
+    version or become the workspace default.
   </cp-notice>
 }
 
@@ -28,13 +28,7 @@
 
       <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
 
-      <button
-        cpButton
-        type="button"
-        [disabled]="!canCompare() || comparing()"
-        [busy]="comparing()"
-        (click)="compare()"
-      >
+      <button cpButton type="button" [disabled]="!canCompare() || comparing()" [busy]="comparing()" (click)="compare()">
         {{ comparing() ? 'Comparing…' : 'Compare' }}
       </button>
     }

@@ -102,7 +102,9 @@ describe('CpSearchFieldComponent and CpSelectFieldComponent', () => {
   it('draw the select as a form field draws one: its own caret, not the browser arrow', () => {
     mount();
     expect(getComputedStyle(select()).appearance).toBe('none');
-    expect(parseFloat(getComputedStyle(select()).paddingInlineEnd)).withContext('room for the caret').toBeGreaterThanOrEqual(40);
+    expect(parseFloat(getComputedStyle(select()).paddingInlineEnd))
+      .withContext('room for the caret')
+      .toBeGreaterThanOrEqual(40);
   });
 
   it('do not let a long option or the search box hold the toolbar wider than a 320px page', () => {

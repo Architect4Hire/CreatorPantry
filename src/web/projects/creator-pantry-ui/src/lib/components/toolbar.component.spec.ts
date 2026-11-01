@@ -9,7 +9,9 @@ import { CpToolbarComponent } from './toolbar.component';
   template: `
     <cp-toolbar [ariaLabel]="ariaLabel" [loading]="loading" [disabled]="disabled">
       <input id="search-input" cpToolbarSearch type="search" placeholder="Search recipes" />
-      <select id="filter-select" cpToolbarFilters><option>All</option></select>
+      <select id="filter-select" cpToolbarFilters
+        ><option>All</option></select
+      >
       <button id="action-one" cpToolbarActions type="button">Add recipe</button>
       <button id="action-two" cpToolbarActions type="button">Duplicate</button>
       <button id="overflow-action" cpToolbarOverflow type="button">Archive</button>

@@ -112,7 +112,9 @@ export class SocialStudioStepComponent implements OnInit {
   protected readonly configured = signal(false);
   protected readonly contextId = signal<string | null>(null);
   protected readonly keepFailed = signal(false);
-  protected readonly guide = signal<BrandStyleGuideActiveReadOutcome | { readonly status: 'loading' }>({ status: 'loading' });
+  protected readonly guide = signal<BrandStyleGuideActiveReadOutcome | { readonly status: 'loading' }>({
+    status: 'loading',
+  });
 
   protected readonly missingWork = computed(() => this.part() !== 'about' && this.contextId() === null);
   /** The way back to this run, and the studio's step that is this one: the parts share their names. */

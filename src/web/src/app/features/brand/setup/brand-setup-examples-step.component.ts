@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpChoiceGroupComponent,
@@ -11,7 +22,13 @@ import {
   CpUploaderComponent,
 } from '@creator-pantry/ui';
 
-import { BrandSourceDocumentSummary, BRAND_SOURCE_ACCEPT, BRAND_SOURCE_AUDIENCE_MAX, BRAND_SOURCE_TEXT_MAX_BYTES, BRAND_SOURCE_TITLE_MAX } from '../../../models/brand-source-document.models';
+import {
+  BrandSourceDocumentSummary,
+  BRAND_SOURCE_ACCEPT,
+  BRAND_SOURCE_AUDIENCE_MAX,
+  BRAND_SOURCE_TEXT_MAX_BYTES,
+  BRAND_SOURCE_TITLE_MAX,
+} from '../../../models/brand-source-document.models';
 import { BrandSetupStepDefinition, BrandSetupStepReport } from '../../../models/brand-setup.models';
 import {
   BrandSourceAddFailure,
@@ -179,7 +196,11 @@ export class BrandSetupExamplesStepComponent implements OnInit {
       ...current.filter((e) => e.documentId === null || !saved.some((s) => s.documentId === e.documentId)),
     ]);
     if (lost > 0) {
-      this.note.set(lost === 1 ? 'An example you added earlier is no longer available, so it was left off.' : 'Some examples you added earlier are no longer available, so they were left off.');
+      this.note.set(
+        lost === 1
+          ? 'An example you added earlier is no longer available, so it was left off.'
+          : 'Some examples you added earlier are no longer available, so they were left off.',
+      );
     }
   }
 
@@ -211,13 +232,28 @@ export class BrandSetupExamplesStepComponent implements OnInit {
   private startFile(file: File, kind: ExampleKind): void {
     const id = this.nextId();
     const failure = precheckFile(file);
-    const entry: Entry = { id, documentId: null, name: file.name, detail: formatSize(file.size), kind, status: failure ? 'failed' : 'adding', failure };
+    const entry: Entry = {
+      id,
+      documentId: null,
+      name: file.name,
+      detail: formatSize(file.size),
+      kind,
+      status: failure ? 'failed' : 'adding',
+      failure,
+    };
     this.entries.update((all) => [...all, entry]);
     if (failure) {
       this.announce(`${file.name} was not added. ${FAILURE_COPY[failure]}`);
       return;
     }
-    this.jobs.set(id, { kind, audience: this.audience().trim(), key: crypto.randomUUID(), file, title: file.name, abort: new AbortController() });
+    this.jobs.set(id, {
+      kind,
+      audience: this.audience().trim(),
+      key: crypto.randomUUID(),
+      file,
+      title: file.name,
+      abort: new AbortController(),
+    });
     void this.run(id);
   }
 
@@ -251,8 +287,18 @@ export class BrandSetupExamplesStepComponent implements OnInit {
     }
     const title = this.pasteTitle().trim() || pastedTitle(new Date());
     const id = this.nextId();
-    this.entries.update((all) => [...all, { id, documentId: null, name: title, detail: 'Pasted text', kind, status: 'adding', failure: null }]);
-    this.jobs.set(id, { kind, audience: this.audience().trim(), key: crypto.randomUUID(), text, title, abort: new AbortController() });
+    this.entries.update((all) => [
+      ...all,
+      { id, documentId: null, name: title, detail: 'Pasted text', kind, status: 'adding', failure: null },
+    ]);
+    this.jobs.set(id, {
+      kind,
+      audience: this.audience().trim(),
+      key: crypto.randomUUID(),
+      text,
+      title,
+      abort: new AbortController(),
+    });
     this.pasteText.set('');
     this.pasteTitle.set(pastedTitle(new Date()));
     this.pasteOpen.set(false);
@@ -274,7 +320,12 @@ export class BrandSetupExamplesStepComponent implements OnInit {
     };
     const outcome: BrandSourceAddOutcome = job.file
       ? await this.documents.upload(this.workspaceSlug(), job.file, description, job.key, job.abort.signal)
-      : await this.documents.pasteText(this.workspaceSlug(), { ...description, text: job.text ?? '' }, job.key, job.abort.signal);
+      : await this.documents.pasteText(
+          this.workspaceSlug(),
+          { ...description, text: job.text ?? '' },
+          job.key,
+          job.abort.signal,
+        );
 
     // Removed while it was in flight: nothing more to show.
     if (!this.entries().some((e) => e.id === id)) return;
@@ -282,13 +333,17 @@ export class BrandSetupExamplesStepComponent implements OnInit {
     if (outcome.status === 'added') {
       this.jobs.delete(id);
       this.patch(id, { status: 'added', documentId: outcome.document.id, name: outcome.document.title, failure: null });
-      this.libraryDocs.update((docs) => (docs.some((d) => d.id === outcome.document.id) ? docs : [outcome.document, ...docs]));
+      this.libraryDocs.update((docs) =>
+        docs.some((d) => d.id === outcome.document.id) ? docs : [outcome.document, ...docs],
+      );
       this.announce(`${outcome.document.title} added.`);
     } else if (outcome.reason === 'cancelled') {
       this.removeEntry(id);
     } else {
       this.patch(id, { status: 'failed', failure: outcome.reason });
-      this.announce(`${this.entries().find((e) => e.id === id)?.name ?? 'That example'} was not added. ${FAILURE_COPY[outcome.reason]}`);
+      this.announce(
+        `${this.entries().find((e) => e.id === id)?.name ?? 'That example'} was not added. ${FAILURE_COPY[outcome.reason]}`,
+      );
     }
   }
 
@@ -371,11 +426,27 @@ export class BrandSetupExamplesStepComponent implements OnInit {
   // ---- Internals ----
 
   private entryForSaved(saved: SavedExample): Entry {
-    return { id: this.nextId(), documentId: saved.documentId, name: 'Saved example', detail: '', kind: saved.kind, status: 'added', failure: null };
+    return {
+      id: this.nextId(),
+      documentId: saved.documentId,
+      name: 'Saved example',
+      detail: '',
+      kind: saved.kind,
+      status: 'added',
+      failure: null,
+    };
   }
 
   private entryForDocument(doc: BrandSourceDocumentSummary, kind: ExampleKind): Entry {
-    return { id: this.nextId(), documentId: doc.id, name: doc.title, detail: `${doc.fileName}, ${formatSize(doc.sizeBytes)}`, kind, status: 'added', failure: null };
+    return {
+      id: this.nextId(),
+      documentId: doc.id,
+      name: doc.title,
+      detail: `${doc.fileName}, ${formatSize(doc.sizeBytes)}`,
+      kind,
+      status: 'added',
+      failure: null,
+    };
   }
 
   private patch(id: string, change: Partial<Entry>): void {

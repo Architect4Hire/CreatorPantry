@@ -11,7 +11,14 @@ describe('decodeRuntimeConfig', () => {
   });
 
   it('rejects missing, relative, and non-http values', () => {
-    for (const value of [null, 'x', {}, { gatewayUrl: 42 }, { gatewayUrl: '/relative' }, { gatewayUrl: 'javascript:alert(1)' }]) {
+    for (const value of [
+      null,
+      'x',
+      {},
+      { gatewayUrl: 42 },
+      { gatewayUrl: '/relative' },
+      { gatewayUrl: 'javascript:alert(1)' },
+    ]) {
       expect(decodeRuntimeConfig(value)).withContext(JSON.stringify(value)).toBeNull();
     }
   });

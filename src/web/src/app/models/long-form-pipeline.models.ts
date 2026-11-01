@@ -49,7 +49,9 @@ export const LONG_FORM_PIPELINE_STEPS: readonly LongFormPipelineStepDefinition[]
 
 export const LONG_FORM_PIPELINE_STEP_COUNT = LONG_FORM_PIPELINE_STEPS.length;
 
-export const LONG_FORM_PIPELINE_STEP_SLUGS: readonly LongFormPipelineStepSlug[] = LONG_FORM_PIPELINE_STEPS.map((step) => step.slug);
+export const LONG_FORM_PIPELINE_STEP_SLUGS: readonly LongFormPipelineStepSlug[] = LONG_FORM_PIPELINE_STEPS.map(
+  (step) => step.slug,
+);
 
 export function isLongFormPipelineStepSlug(value: unknown): value is LongFormPipelineStepSlug {
   return typeof value === 'string' && (LONG_FORM_PIPELINE_STEP_SLUGS as readonly string[]).includes(value);
@@ -82,7 +84,10 @@ export function furthestLongFormPipelineStep(status: LongFormDraftStatus | null)
 }
 
 /** Whether a step may be opened for a piece that has reached `furthest`. Every earlier step may. */
-export function canOpenLongFormPipelineStep(slug: LongFormPipelineStepSlug, furthest: LongFormPipelineStepSlug): boolean {
+export function canOpenLongFormPipelineStep(
+  slug: LongFormPipelineStepSlug,
+  furthest: LongFormPipelineStepSlug,
+): boolean {
   return longFormPipelineStepIndex(slug) <= longFormPipelineStepIndex(furthest);
 }
 
@@ -144,7 +149,9 @@ export function decodeLongFormPipelinePlace(raw: string | null): LongFormPipelin
 export const LONG_FORM_TARGET_WORDS_LIMITS = { min: 150, max: 3000 } as const;
 
 /** The range a kind is planned to, in words, when the creator asks for nothing else (mirrors `LongFormPolicy`). */
-export const LONG_FORM_TARGET_WORDS: Readonly<Record<'BlogArticle' | 'NewsletterIssue', { readonly min: number; readonly max: number }>> = {
+export const LONG_FORM_TARGET_WORDS: Readonly<
+  Record<'BlogArticle' | 'NewsletterIssue', { readonly min: number; readonly max: number }>
+> = {
   BlogArticle: { min: 900, max: 1600 },
   NewsletterIssue: { min: 300, max: 700 },
 };

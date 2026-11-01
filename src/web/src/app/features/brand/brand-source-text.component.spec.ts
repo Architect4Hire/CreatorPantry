@@ -79,7 +79,12 @@ describe('BrandSourceTextComponent', () => {
 
   async function create(
     read: BrandSourceExtractionReadOutcome,
-    options: { isCurrentVersion?: boolean; isArchived?: boolean; write?: BrandSourceExtractionWriteOutcome[]; pending?: boolean } = {},
+    options: {
+      isCurrentVersion?: boolean;
+      isArchived?: boolean;
+      write?: BrandSourceExtractionWriteOutcome[];
+      pending?: boolean;
+    } = {},
   ): Promise<void> {
     getSpy = options.pending
       ? jasmine.createSpy('get').and.returnValue(new Promise<BrandSourceExtractionReadOutcome>(() => undefined))
@@ -159,7 +164,11 @@ describe('BrandSourceTextComponent', () => {
   it('says plainly when a version holds no text, rather than showing an empty box', async () => {
     await create({
       status: 'ok',
-      extraction: extraction({ state: 'Unsupported', text: null, reason: 'This file is a scan, so it has no text to read.' }),
+      extraction: extraction({
+        state: 'Unsupported',
+        text: null,
+        reason: 'This file is a scan, so it has no text to read.',
+      }),
     });
 
     expect(text()).toContain('No text to read');
@@ -170,16 +179,21 @@ describe('BrandSourceTextComponent', () => {
   });
 
   it('reports a failed read and reads again when asked', async () => {
-    getSpy = jasmine.createSpy('get').and.returnValues(
-      Promise.resolve<BrandSourceExtractionReadOutcome>({ status: 'unavailable' }),
-      Promise.resolve<BrandSourceExtractionReadOutcome>({ status: 'ok', extraction: extraction() }),
-    );
+    getSpy = jasmine
+      .createSpy('get')
+      .and.returnValues(
+        Promise.resolve<BrandSourceExtractionReadOutcome>({ status: 'unavailable' }),
+        Promise.resolve<BrandSourceExtractionReadOutcome>({ status: 'ok', extraction: extraction() }),
+      );
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       providers: [
         { provide: ConfirmService, useValue: { confirm: confirmSpy } },
-        { provide: BrandSourceExtractionService, useValue: { get: getSpy, retry: jasmine.createSpy(), correct: jasmine.createSpy() } },
+        {
+          provide: BrandSourceExtractionService,
+          useValue: { get: getSpy, retry: jasmine.createSpy(), correct: jasmine.createSpy() },
+        },
       ],
     }).compileComponents();
 
@@ -234,7 +248,10 @@ describe('BrandSourceTextComponent', () => {
   });
 
   it('waits for the first read before offering a correction, because one needs an artifact to name', async () => {
-    await create({ status: 'ok', extraction: extraction({ state: 'NotExtracted', id: null, text: null, origin: null }) });
+    await create({
+      status: 'ok',
+      extraction: extraction({ state: 'NotExtracted', id: null, text: null, origin: null }),
+    });
 
     // A reread is still on offer — nothing has read this version yet — but a correction has no artifact to
     // name, and the absent control is explained rather than simply missing.
@@ -262,12 +279,16 @@ describe('BrandSourceTextComponent', () => {
     expect(slug).toBe('sams-kitchen');
     expect(documentId).toBe('d1');
     expect(versionNumber).toBe(2);
-    expect(body).toEqual({ expectedExtractionId: 'x1', text: 'What it really says.', reason: 'The scan missed a column.' });
+    expect(body).toEqual({
+      expectedExtractionId: 'x1',
+      text: 'What it really says.',
+      reason: 'The scan missed a column.',
+    });
     expect(key.length).toBeGreaterThan(0);
   });
 
   it('asks for the text and a reason before saving anything', async () => {
-    await create({ status: 'ok', extraction: extraction({ text: '' , state: 'Failed'}) });
+    await create({ status: 'ok', extraction: extraction({ text: '', state: 'Failed' }) });
 
     button('Correct the text').click();
     fixture.detectChanges();
@@ -313,7 +334,12 @@ describe('BrandSourceTextComponent', () => {
   it('starts a new key after a conflict, because the save it named can no longer happen', async () => {
     await create(
       { status: 'ok', extraction: extraction() },
-      { write: [{ status: 'failed', reason: 'conflict' }, { status: 'failed', reason: 'conflict' }] },
+      {
+        write: [
+          { status: 'failed', reason: 'conflict' },
+          { status: 'failed', reason: 'conflict' },
+        ],
+      },
     );
 
     button('Correct the text').click();
@@ -329,7 +355,12 @@ describe('BrandSourceTextComponent', () => {
   it('retries a merely failed save under the key it started with, so no second artifact is written', async () => {
     await create(
       { status: 'ok', extraction: extraction() },
-      { write: [{ status: 'failed', reason: 'unavailable' }, { status: 'failed', reason: 'unavailable' }] },
+      {
+        write: [
+          { status: 'failed', reason: 'unavailable' },
+          { status: 'failed', reason: 'unavailable' },
+        ],
+      },
     );
 
     button('Correct the text').click();

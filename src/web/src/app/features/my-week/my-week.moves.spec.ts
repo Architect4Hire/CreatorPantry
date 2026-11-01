@@ -1,4 +1,13 @@
-import { acceptsFromElsewhere, applyPlace, commandFor, destinationsFor, listOf, placeOf, placesIn, tasksIn } from './my-week.moves';
+import {
+  acceptsFromElsewhere,
+  applyPlace,
+  commandFor,
+  destinationsFor,
+  listOf,
+  placeOf,
+  placesIn,
+  tasksIn,
+} from './my-week.moves';
 import { fullWeek, task } from './my-week.fixtures';
 
 const ids = (tasks: readonly { id: string }[]) => tasks.map((each) => each.id);
@@ -49,7 +58,10 @@ describe('My Week commands', () => {
   const thursday = tasksIn(week, 'day-2038-10-14')[0];
 
   it('reorders within the list a task is already in — a move there is refused by the server', () => {
-    expect(commandFor(week, thursday, { list: 'day-2038-10-14', beforeTaskId: null })).toEqual({ kind: 'reorder', beforeTaskId: null });
+    expect(commandFor(week, thursday, { list: 'day-2038-10-14', beforeTaskId: null })).toEqual({
+      kind: 'reorder',
+      beforeTaskId: null,
+    });
   });
 
   it('asks for nothing when the place is the one it already has', () => {
@@ -77,7 +89,9 @@ describe('My Week commands', () => {
 
   it('completes a task sent to Done, and asks nothing of a finished one', () => {
     expect(commandFor(week, thursday, { list: 'done', beforeTaskId: null })).toEqual({ kind: 'complete' });
-    expect(commandFor(week, tasksIn(week, 'done')[0], { list: 'backlog', beforeTaskId: null })).toEqual({ kind: 'none' });
+    expect(commandFor(week, tasksIn(week, 'done')[0], { list: 'backlog', beforeTaskId: null })).toEqual({
+      kind: 'none',
+    });
   });
 
   it('sends a task back to the earlier week it came from, which is what Undo needs, and never out of every week', () => {
@@ -106,7 +120,10 @@ describe('My Week placement on screen', () => {
   });
 
   it('puts a task at the bottom when no place is named, and a finished one at the top of Done', () => {
-    expect(ids(tasksIn(applyPlace(week, thursday, { list: 'waiting', beforeTaskId: null }), 'waiting'))).toEqual(['held', 'thu-1']);
+    expect(ids(tasksIn(applyPlace(week, thursday, { list: 'waiting', beforeTaskId: null }), 'waiting'))).toEqual([
+      'held',
+      'thu-1',
+    ]);
 
     const done = applyPlace(week, thursday, { list: 'done', beforeTaskId: null });
     expect(ids(tasksIn(done, 'done'))).toEqual(['thu-1', 'done']);
@@ -114,10 +131,9 @@ describe('My Week placement on screen', () => {
   });
 
   it('reorders within one list, and takes a task sent to next week off this one', () => {
-    expect(ids(tasksIn(applyPlace(week, thursday, { list: 'day-2038-10-14', beforeTaskId: null }), 'day-2038-10-14'))).toEqual([
-      'thu-2',
-      'thu-1',
-    ]);
+    expect(
+      ids(tasksIn(applyPlace(week, thursday, { list: 'day-2038-10-14', beforeTaskId: null }), 'day-2038-10-14')),
+    ).toEqual(['thu-2', 'thu-1']);
     expect(listOf(applyPlace(week, thursday, { list: 'next-week', beforeTaskId: null }), 'thu-1')).toBeNull();
   });
 

@@ -79,7 +79,9 @@ describe('PromptPreviewComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from((dialog() ?? root()).querySelectorAll('button')).find((each) => each.textContent?.includes(label));
+    const match = Array.from((dialog() ?? root()).querySelectorAll('button')).find((each) =>
+      each.textContent?.includes(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -219,7 +221,9 @@ describe('PromptPreviewComponent', () => {
     await create();
     await open(summary('p1', 'Chili hero'));
 
-    const link = Array.from((dialog() as HTMLElement).querySelectorAll('a')).find((each) => each.textContent?.includes('Open full details'));
+    const link = Array.from((dialog() as HTMLElement).querySelectorAll('a')).find((each) =>
+      each.textContent?.includes('Open full details'),
+    );
     expect(link?.getAttribute('href')).toBe('/cozy-fall/prompt-library/p1');
   });
 
@@ -228,7 +232,9 @@ describe('PromptPreviewComponent', () => {
     await create();
     await open(summary('p1', 'Chili hero'));
 
-    (dialog() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    (dialog() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
     expect(fixture.componentInstance.closes).toBe(1);
 
     ((dialog() as HTMLElement).querySelector('button[aria-label="Close preview"]') as HTMLButtonElement).click();
@@ -258,9 +264,9 @@ describe('PromptPreviewComponent', () => {
 
   it("never shows one prompt's words under another: a slow read is dropped when the row changes", async () => {
     const slow = new Subject<PromptDetailOutcome>();
-    getSpy = jasmine.createSpy('get').and.callFake((_slug: string, id: string) =>
-      id === 'p1' ? slow : foundPrompt('p2', 'Second prompt.'),
-    );
+    getSpy = jasmine
+      .createSpy('get')
+      .and.callFake((_slug: string, id: string) => (id === 'p1' ? slow : foundPrompt('p2', 'Second prompt.')));
     await create();
     await open(summary('p1', 'First'));
     await open(summary('p2', 'Second'));
@@ -273,9 +279,11 @@ describe('PromptPreviewComponent', () => {
   });
 
   it('reads again, for the new workspace, when the workspace changes under an open preview', async () => {
-    getSpy = jasmine.createSpy('get').and.callFake((slug: string) =>
-      slug === 'cozy-fall' ? foundPrompt('p1', 'Workspace A words.') : new Subject<PromptDetailOutcome>(),
-    );
+    getSpy = jasmine
+      .createSpy('get')
+      .and.callFake((slug: string) =>
+        slug === 'cozy-fall' ? foundPrompt('p1', 'Workspace A words.') : new Subject<PromptDetailOutcome>(),
+      );
     await create();
     await open(summary('p1', 'First'));
     expect(dialog()?.textContent).toContain('Workspace A words.');

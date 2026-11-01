@@ -46,7 +46,12 @@ import {
   stepIndexOf,
   stepStatusOf,
 } from '../../../models/brand-setup.models';
-import { WORKFLOW_RUN_PARAM, workflowRunFrom, workflowRunLink, workflowRunQuery } from '../../../shared/workflow-shell/workflow-return';
+import {
+  WORKFLOW_RUN_PARAM,
+  workflowRunFrom,
+  workflowRunLink,
+  workflowRunQuery,
+} from '../../../shared/workflow-shell/workflow-return';
 import { WorkflowReturnNoticeComponent } from '../../../shared/workflow-shell/workflow-return-notice.component';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
@@ -121,7 +126,8 @@ function isOffline(): boolean {
 
 const TOTAL = BRAND_SETUP_STEPS.length;
 const NARROW_QUERY = '(max-width: 40rem)';
-const SAVE_FAILED_NOTE = "We couldn't save your progress, so you're still on this step. Your answers are still here. Try again.";
+const SAVE_FAILED_NOTE =
+  "We couldn't save your progress, so you're still on this step. Your answers are still here. Try again.";
 
 /**
  * "Create my voice" (11A.22): the resumable wizard *shell* — step routing, progress, autosave, Back, Continue,
@@ -307,7 +313,8 @@ export class BrandSetupShellComponent {
   readonly saveProblem = computed(() => {
     const state = this.indicator();
     if (state.kind === 'failed') return `Not saved. ${state.reason}`;
-    if (state.kind === 'offline') return "Not saved. You're offline. Your changes stay on this screen and save when you're back online.";
+    if (state.kind === 'offline')
+      return "Not saved. You're offline. Your changes stay on this screen and save when you're back online.";
     return '';
   });
 
@@ -483,7 +490,9 @@ export class BrandSetupShellComponent {
 
   /** Where leaving goes: the run that sent the creator here, or brand settings. */
   private exitLink(): string[] {
-    return this.workflowRun ? workflowRunLink(this.workspaceSlug(), this.workflowRun) : ['/', this.workspaceSlug(), 'brand'];
+    return this.workflowRun
+      ? workflowRunLink(this.workspaceSlug(), this.workflowRun)
+      : ['/', this.workspaceSlug(), 'brand'];
   }
 
   private progressTextFor(index: number): string {
@@ -577,7 +586,10 @@ export class BrandSetupShellComponent {
       const body = this.buildBody();
 
       if (body.draftJson.length > BRAND_SETUP_DRAFT_MAX_CHARS) {
-        this.indicator.set({ kind: 'failed', reason: 'Your answers are too long to save. Shorten them and try again.' });
+        this.indicator.set({
+          kind: 'failed',
+          reason: 'Your answers are too long to save. Shorten them and try again.',
+        });
         return false;
       }
       if (isOffline()) {
@@ -602,16 +614,20 @@ export class BrandSetupShellComponent {
           this.indicator.set({ kind: 'conflict', finished: true });
           return false;
         case 'validation_failed':
-          this.indicator.set({ kind: 'failed', reason: "Something in your answers couldn't be saved. Check them and try again." });
+          this.indicator.set({
+            kind: 'failed',
+            reason: "Something in your answers couldn't be saved. Check them and try again.",
+          });
           return false;
         case 'forbidden':
-          this.indicator.set({ kind: 'failed', reason: "You don't have permission to save voice setup in this workspace." });
+          this.indicator.set({
+            kind: 'failed',
+            reason: "You don't have permission to save voice setup in this workspace.",
+          });
           return false;
         default:
           this.indicator.set(
-            isOffline()
-              ? { kind: 'offline' }
-              : { kind: 'failed', reason: "We couldn't reach the server. Try again." },
+            isOffline() ? { kind: 'offline' } : { kind: 'failed', reason: "We couldn't reach the server. Try again." },
           );
           return false;
       }
@@ -732,7 +748,7 @@ export class BrandSetupShellComponent {
     const agreed = await this.confirmService.confirm({
       title: 'Start again?',
       message:
-        "This deletes your voice-setup draft: your answers and how far you got. Your brand settings, any style guide already in use, your examples and your content are not touched.",
+        'This deletes your voice-setup draft: your answers and how far you got. Your brand settings, any style guide already in use, your examples and your content are not touched.',
       confirmLabel: 'Delete my draft and start again',
       cancelLabel: 'Keep my draft',
       tone: 'danger',
@@ -883,7 +899,9 @@ export class BrandSetupShellComponent {
       return;
     }
     if (outcome.status !== 'found' && outcome.status !== 'none') {
-      this.actionError.set("We couldn't check the latest version, so nothing was saved. Your edits are still here. Try again.");
+      this.actionError.set(
+        "We couldn't check the latest version, so nothing was saved. Your edits are still here. Try again.",
+      );
       return;
     }
 
@@ -946,6 +964,9 @@ export class BrandSetupShellComponent {
 }
 
 /** One row as `cp-stepper` takes it. */
-function asStep(row: { readonly step: { readonly slug: string; readonly label: string }; readonly status: BrandSetupStepStatus }): CpStep {
+function asStep(row: {
+  readonly step: { readonly slug: string; readonly label: string };
+  readonly status: BrandSetupStepStatus;
+}): CpStep {
   return { id: row.step.slug, label: row.step.label, status: row.status };
 }

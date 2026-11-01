@@ -93,7 +93,9 @@ describe('AiFeaturesService', () => {
     ] as const) {
       const saving = service.replace('sams-kitchen', []);
       http.expectOne(URL).flush(null, { status, statusText: 'x' });
-      expect((await saving).status).withContext(String(status)).toBe(expected);
+      expect((await saving).status)
+        .withContext(String(status))
+        .toBe(expected);
     }
   });
 });

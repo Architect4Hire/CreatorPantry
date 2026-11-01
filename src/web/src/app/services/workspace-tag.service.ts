@@ -6,8 +6,7 @@ import { ApiBaseService } from '../core/api-base.service';
 import { WorkspaceTag, decodeWorkspaceTags } from '../models/workspace-tag.models';
 
 export type WorkspaceTagsOutcome =
-  | { readonly status: 'found'; readonly tags: readonly WorkspaceTag[] }
-  | { readonly status: 'unavailable' };
+  { readonly status: 'found'; readonly tags: readonly WorkspaceTag[] } | { readonly status: 'unavailable' };
 
 /**
  * The typed client for the workspace's tag vocabulary: the tags that may be offered as new choices.

@@ -68,10 +68,12 @@ describe('ImagePromptService', () => {
   it('reads a concept that cannot be composed from as a refusal, in the server’s own words', async () => {
     const pending = service.request('cozy-fall', REQUEST, 'key-1');
 
-    http.expectOne(BASE).flush(
-      { code: 'ai.imagePromptConcept.not_found', title: 'That look is no longer there.' },
-      { status: 404, statusText: 'Not Found' },
-    );
+    http
+      .expectOne(BASE)
+      .flush(
+        { code: 'ai.imagePromptConcept.not_found', title: 'That look is no longer there.' },
+        { status: 404, statusText: 'Not Found' },
+      );
 
     const outcome = await pending;
     expect(outcome.status).toBe('refused');

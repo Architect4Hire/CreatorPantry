@@ -180,7 +180,9 @@ export class BrandSourceDocumentService {
       const page = decodeBrandSourceDocumentPage(body);
       return page ? { status: 'ok', page } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 
@@ -209,7 +211,9 @@ export class BrandSourceDocumentService {
       }),
       catchError((error: unknown) => {
         if (error instanceof HttpErrorResponse && error.status === 400) {
-          return of<BrandLibraryOutcome>(namesCursor(error) ? { status: 'cursor_expired' } : { status: 'invalid_request' });
+          return of<BrandLibraryOutcome>(
+            namesCursor(error) ? { status: 'cursor_expired' } : { status: 'invalid_request' },
+          );
         }
 
         // A 404 here is the workspace, not a document: an empty library is an empty page. Reported as
@@ -228,7 +232,9 @@ export class BrandSourceDocumentService {
       const document = decodeBrandSourceDocumentDetail(body);
       return document ? { status: 'ok', document } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 
@@ -238,7 +244,12 @@ export class BrandSourceDocumentService {
    * A cursor is bound to the document it was issued for, so `cursor_expired` means start the history again
    * rather than that anything is wrong with the document.
    */
-  async listVersions(workspaceSlug: string, documentId: string, cursor: string | null = null, limit = 25): Promise<BrandSourceVersionsOutcome> {
+  async listVersions(
+    workspaceSlug: string,
+    documentId: string,
+    cursor: string | null = null,
+    limit = 25,
+  ): Promise<BrandSourceVersionsOutcome> {
     const url = this.url(workspaceSlug, `/${encodeURIComponent(documentId)}/versions`);
     if (!url) return { status: 'unavailable' };
 
@@ -268,7 +279,9 @@ export class BrandSourceDocumentService {
       const usage = decodeBrandSourceUsage(body);
       return usage ? { status: 'ok', usage } : { status: 'unavailable' };
     } catch (error) {
-      return error instanceof HttpErrorResponse && error.status === 404 ? { status: 'not_found' } : { status: 'unavailable' };
+      return error instanceof HttpErrorResponse && error.status === 404
+        ? { status: 'not_found' }
+        : { status: 'unavailable' };
     }
   }
 
@@ -380,13 +393,22 @@ export class BrandSourceDocumentService {
     return this.send(this.http.post(url, form, this.options(idempotencyKey)), signal);
   }
 
-  pasteText(workspaceSlug: string, body: BrandSourcePasteBody, idempotencyKey: string, signal?: AbortSignal): Promise<BrandSourceAddOutcome> {
+  pasteText(
+    workspaceSlug: string,
+    body: BrandSourcePasteBody,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<BrandSourceAddOutcome> {
     const url = this.url(workspaceSlug, '/text');
     if (!url) return Promise.resolve({ status: 'failed', reason: 'unavailable' });
     return this.send(this.http.post(url, body, this.options(idempotencyKey)), signal);
   }
 
-  private options(idempotencyKey: string): { withCredentials: true; observe: 'response'; headers: Record<string, string> } {
+  private options(idempotencyKey: string): {
+    withCredentials: true;
+    observe: 'response';
+    headers: Record<string, string>;
+  } {
     return { withCredentials: true, observe: 'response', headers: { 'Idempotency-Key': idempotencyKey } };
   }
 
@@ -404,7 +426,9 @@ export class BrandSourceDocumentService {
       : null;
 
     try {
-      const response = await firstValueFrom(aborted ? request.pipe(takeUntil(aborted)) : request, { defaultValue: null });
+      const response = await firstValueFrom(aborted ? request.pipe(takeUntil(aborted)) : request, {
+        defaultValue: null,
+      });
       if (response === null) return { status: 'failed', reason: 'cancelled' };
       const document = decodeBrandSourceDocument(response.body);
       if (!document) return { status: 'failed', reason: 'unavailable' };

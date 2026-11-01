@@ -235,7 +235,9 @@ export class PromptDetailComponent {
           this.copyFailed.set(false);
           this.reuseProblem.set('');
         }),
-        switchMap(([target]) => (target.slug === '' || target.id === '' ? of(null) : this.prompts.get(target.slug, target.id))),
+        switchMap(([target]) =>
+          target.slug === '' || target.id === '' ? of(null) : this.prompts.get(target.slug, target.id),
+        ),
         takeUntilDestroyed(),
       )
       .subscribe((outcome) => {
@@ -348,7 +350,9 @@ export class PromptDetailComponent {
         if (!written) {
           // A refused write means the session has lapsed. Going to the studio now would open it without the
           // prompt, which would look like it had been lost.
-          this.reuseProblem.set("This couldn't be started because you are no longer signed in. Sign in again, then try once more.");
+          this.reuseProblem.set(
+            "This couldn't be started because you are no longer signed in. Sign in again, then try once more.",
+          );
           return;
         }
       }

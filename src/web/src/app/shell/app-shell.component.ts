@@ -1,8 +1,24 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, isDevMode, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  inject,
+  isDevMode,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { CpButtonComponent, CpLoadingBarComponent, CpStatusPillComponent, CpStatusPillTone, CpThemeService } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpLoadingBarComponent,
+  CpStatusPillComponent,
+  CpStatusPillTone,
+  CpThemeService,
+} from '@creator-pantry/ui';
 
 import { LowCreditNoticeComponent } from '../shared/low-credit-notice/low-credit-notice.component';
 import { PACK_PURCHASE_LINK } from '../shared/pack-purchase-link';

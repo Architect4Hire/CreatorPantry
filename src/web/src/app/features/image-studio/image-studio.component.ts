@@ -255,7 +255,9 @@ export class ImageStudioComponent {
   protected readonly hosted = inject(ImageStudioHost, { optional: true });
 
   /** The guided run that sent the creator here, from `?workflowRun=` (13A.19); never on a hosted part. */
-  protected readonly workflowRun = this.hosted ? null : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
+  protected readonly workflowRun = this.hosted
+    ? null
+    : workflowRunFrom(this.route.snapshot.queryParamMap.get(WORKFLOW_RUN_PARAM));
   protected readonly runWording = STEP_RUN_WORDING;
 
   /** The step on screen on the studio's own page, from `?step=`; a guided step names its part instead. */
@@ -332,7 +334,9 @@ export class ImageStudioComponent {
       : 'Everything on this step is optional. Only the prompt is needed to make pictures.',
   );
 
-  protected readonly extrasHeading = computed(() => (this.currentPart() === 'about' ? 'A brief' : 'A reference picture'));
+  protected readonly extrasHeading = computed(() =>
+    this.currentPart() === 'about' ? 'A brief' : 'A reference picture',
+  );
 
   protected readonly extrasIntro = computed(() =>
     this.currentPart() === 'about'
@@ -401,9 +405,7 @@ export class ImageStudioComponent {
   readonly owner = computed<ImageStudioDraftOwner | null>(() => {
     const membership = this.membership();
 
-    return membership === null
-      ? null
-      : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
+    return membership === null ? null : { workspaceId: membership.workspaceId, membershipId: membership.membershipId };
   });
 
   private readonly ownerKey = computed(() => {
@@ -482,7 +484,7 @@ export class ImageStudioComponent {
     const working = context?.workingTitle?.trim() ?? '';
 
     return {
-      defaultTitle: working !== '' ? working : recipe?.title ?? '',
+      defaultTitle: working !== '' ? working : (recipe?.title ?? ''),
       defaultRecipe: recipe,
       references: context?.references ?? [],
       creativeContextId: context?.id ?? null,
@@ -521,7 +523,9 @@ export class ImageStudioComponent {
   protected readonly avoidText = computed(() => avoidTextFor(this.prompt().generated?.avoid ?? []));
 
   /** A linked recipe is something to throw away too, even with nothing else filled in. */
-  protected readonly canStartOver = computed(() => !isImageStudioDraftEmpty(this.draft()) || this.linkedRecipe() !== null);
+  protected readonly canStartOver = computed(
+    () => !isImageStudioDraftEmpty(this.draft()) || this.linkedRecipe() !== null,
+  );
 
   /**
    * Where the creator's answers are, said plainly.
@@ -563,7 +567,10 @@ export class ImageStudioComponent {
             }
             return null;
           };
-          return { slug: read('workspaceSlug'), contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM) };
+          return {
+            slug: read('workspaceSlug'),
+            contextId: this.hosted ? this.hosted.contextId : read(CONTEXT_ROUTE_PARAM),
+          };
         }),
         takeUntilDestroyed(),
       )
@@ -1004,5 +1011,8 @@ export class ImageStudioComponent {
 }
 
 function stepIndexOf(part: ImageStudioPart): number {
-  return Math.max(0, STUDIO_STEPS.findIndex((step) => step.part === part));
+  return Math.max(
+    0,
+    STUDIO_STEPS.findIndex((step) => step.part === part),
+  );
 }

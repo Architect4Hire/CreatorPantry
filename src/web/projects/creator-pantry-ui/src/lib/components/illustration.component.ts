@@ -2,7 +2,16 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /** The drawn set (AU.2.4, D5). Each names what it shows, not where it is used. One list, so the type cannot drift. */
 export const CP_ILLUSTRATION_NAMES = [
-  'recipe', 'picture', 'post', 'article', 'calendar', 'board', 'prompt', 'brand', 'search', 'sparkle',
+  'recipe',
+  'picture',
+  'post',
+  'article',
+  'calendar',
+  'board',
+  'prompt',
+  'brand',
+  'search',
+  'sparkle',
 ] as const;
 
 export type CpIllustrationName = (typeof CP_ILLUSTRATION_NAMES)[number];
@@ -25,7 +34,15 @@ export type CpIllustrationName = (typeof CP_ILLUSTRATION_NAMES)[number];
   standalone: true,
   host: { 'aria-hidden': 'true', '[attr.data-name]': 'name()' },
   template: `
-    <svg viewBox="0 0 120 120" focusable="false" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      viewBox="0 0 120 120"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <circle class="wash" cx="60" cy="60" r="54" />
       @switch (name()) {
         @case ('recipe') {
@@ -47,7 +64,10 @@ export type CpIllustrationName = (typeof CP_ILLUSTRATION_NAMES)[number];
           <rect x="62" y="16" width="38" height="84" rx="8" />
           <path d="M76 25h10" />
           <path d="M70 46h22M70 55h16M70 64h20M70 73h12" />
-          <path class="fill" d="M14 30a10 10 0 0 1 10-10h22a10 10 0 0 1 10 10v20a10 10 0 0 1-10 10H34l-10 10v-10a10 10 0 0 1-10-10z" />
+          <path
+            class="fill"
+            d="M14 30a10 10 0 0 1 10-10h22a10 10 0 0 1 10 10v20a10 10 0 0 1-10 10H34l-10 10v-10a10 10 0 0 1-10-10z"
+          />
           <path d="M35 49c-6-4-9-7-9-11a4.5 4.5 0 0 1 9-2a4.5 4.5 0 0 1 9 2c0 4-3 7-9 11z" />
         }
         @case ('article') {

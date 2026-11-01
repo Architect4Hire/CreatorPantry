@@ -83,7 +83,10 @@ describe('CpLoadingBarComponent', () => {
     mount();
     const reduced = Array.from(document.styleSheets)
       .flatMap((sheet) => Array.from(sheet.cssRules))
-      .filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule && rule.conditionText.includes('prefers-reduced-motion'))
+      .filter(
+        (rule): rule is CSSMediaRule =>
+          rule instanceof CSSMediaRule && rule.conditionText.includes('prefers-reduced-motion'),
+      )
       .flatMap((rule) => Array.from(rule.cssRules) as CSSStyleRule[])
       .filter((rule) => rule.selectorText?.includes('.bar'));
     expect(reduced.length).toBe(1);

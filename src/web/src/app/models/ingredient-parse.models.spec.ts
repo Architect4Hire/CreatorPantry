@@ -145,7 +145,15 @@ describe('ingredient-parse.models', () => {
 
   it('rejects an unknown ambiguity kind', () => {
     const malformed = {
-      lines: [{ ...VALID_LINE, tokens: { ...VALID_TOKENS, ambiguities: [{ kind: 'NotARealKind', span: VALID_TOKENS.quantity!.span, message: 'x' }] } }],
+      lines: [
+        {
+          ...VALID_LINE,
+          tokens: {
+            ...VALID_TOKENS,
+            ambiguities: [{ kind: 'NotARealKind', span: VALID_TOKENS.quantity!.span, message: 'x' }],
+          },
+        },
+      ],
     };
 
     expect(decodeParseIngredientLinesResponse(malformed)).toBeNull();
@@ -153,7 +161,15 @@ describe('ingredient-parse.models', () => {
 
   it('rejects an unknown ingredient match kind', () => {
     const malformed = {
-      lines: [{ ...VALID_LINE, ingredientMatch: { ...VALID_LINE.ingredientMatch, resolved: { ingredientId: 'x', canonicalName: 'x', kind: 'NotReal' } } }],
+      lines: [
+        {
+          ...VALID_LINE,
+          ingredientMatch: {
+            ...VALID_LINE.ingredientMatch,
+            resolved: { ingredientId: 'x', canonicalName: 'x', kind: 'NotReal' },
+          },
+        },
+      ],
     };
 
     expect(decodeParseIngredientLinesResponse(malformed)).toBeNull();
@@ -161,14 +177,24 @@ describe('ingredient-parse.models', () => {
 
   it('rejects an unknown unit match kind', () => {
     const malformed = {
-      lines: [{ ...VALID_LINE, unitMatch: { ...VALID_LINE.unitMatch, resolved: { measurementUnitId: 'x', displayName: 'x', kind: 'NotReal' } } }],
+      lines: [
+        {
+          ...VALID_LINE,
+          unitMatch: {
+            ...VALID_LINE.unitMatch,
+            resolved: { measurementUnitId: 'x', displayName: 'x', kind: 'NotReal' },
+          },
+        },
+      ],
     };
 
     expect(decodeParseIngredientLinesResponse(malformed)).toBeNull();
   });
 
   it('rejects a quantity token missing its span', () => {
-    const malformed = { lines: [{ ...VALID_LINE, tokens: { ...VALID_TOKENS, quantity: { value: null, range: null, isInvalid: false } } }] };
+    const malformed = {
+      lines: [{ ...VALID_LINE, tokens: { ...VALID_TOKENS, quantity: { value: null, range: null, isInvalid: false } } }],
+    };
 
     expect(decodeParseIngredientLinesResponse(malformed)).toBeNull();
   });

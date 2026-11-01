@@ -49,7 +49,9 @@ describe('brand setup models', () => {
   });
 
   it('drops unknown step slugs from the progress lists instead of failing', () => {
-    expect(decodeBrandSetupSession({ ...WIRE, completedSteps: ['goals', 'future-step'] })?.completedSteps).toEqual(['goals']);
+    expect(decodeBrandSetupSession({ ...WIRE, completedSteps: ['goals', 'future-step'] })?.completedSteps).toEqual([
+      'goals',
+    ]);
   });
 
   it('reads a draft as per-step slices and treats junk as empty', () => {
@@ -76,7 +78,8 @@ describe('brand setup models', () => {
   });
 
   it('derives upcoming, current, done and skipped', () => {
-    const status = (slug: (typeof BRAND_SETUP_STEP_SLUGS)[number]) => stepStatusOf(slug, 'examples', ['goals'], ['style']);
+    const status = (slug: (typeof BRAND_SETUP_STEP_SLUGS)[number]) =>
+      stepStatusOf(slug, 'examples', ['goals'], ['style']);
     expect(status('goals')).toBe('done');
     expect(status('style')).toBe('skipped');
     expect(status('examples')).toBe('current');

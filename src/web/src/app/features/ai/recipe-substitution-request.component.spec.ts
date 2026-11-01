@@ -39,7 +39,10 @@ const INGREDIENT_GROUPS: readonly RecipeIngredientGroup[] = [
   },
 ];
 
-function operation(proposal: AiProposalStatus['proposal'] = null, status: AiProposalStatus['status'] = 'Requested'): AiProposalStatus {
+function operation(
+  proposal: AiProposalStatus['proposal'] = null,
+  status: AiProposalStatus['status'] = 'Requested',
+): AiProposalStatus {
   return {
     aiProposalRequestId: REQUEST_ID,
     status,
@@ -216,7 +219,17 @@ describe('RecipeSubstitutionRequestComponent', () => {
           modelName: 'test-model',
           createdAt: '2026-09-28T14:02:00Z',
           changes: [
-            { changeId: 'a1', changeKind: 'Add', targetKind: 'IngredientSubstitution', targetId: 't1', fieldName: null, beforeValue: null, afterValue: 'soured milk', proposedPosition: 0, disposition: 'Pending' },
+            {
+              changeId: 'a1',
+              changeKind: 'Add',
+              targetKind: 'IngredientSubstitution',
+              targetId: 't1',
+              fieldName: null,
+              beforeValue: null,
+              afterValue: 'soured milk',
+              proposedPosition: 0,
+              disposition: 'Pending',
+            },
           ],
           warnings: [],
         },
@@ -290,7 +303,9 @@ describe('RecipeSubstitutionRequestComponent', () => {
     render('Viewer');
 
     expect(fixture.componentInstance.state()).toBe('forbidden');
-    expect(element().querySelector('.substitution-blocked[role="status"]')?.textContent).toContain('cannot ask for substitution advice');
+    expect(element().querySelector('.substitution-blocked[role="status"]')?.textContent).toContain(
+      'cannot ask for substitution advice',
+    );
     expect(service.calls.length).toBe(0);
   }));
 

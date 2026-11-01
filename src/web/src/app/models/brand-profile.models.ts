@@ -125,7 +125,8 @@ export function decodeBrandProfile(value: unknown): BrandProfile | null {
 
   // Absent reads as null: a profile written before the field existed has no answer, which is what null says.
   const rawCount = value['defaultPictureCount'];
-  if (rawCount !== undefined && rawCount !== null && (typeof rawCount !== 'number' || !Number.isInteger(rawCount))) return null;
+  if (rawCount !== undefined && rawCount !== null && (typeof rawCount !== 'number' || !Number.isInteger(rawCount)))
+    return null;
 
   const channels = decodeList(value['channelDefaults'], (item) =>
     isRecord(item) && typeof item['channelKey'] === 'string' ? item['channelKey'] : null,
@@ -216,7 +217,12 @@ export function draftFromProfile(profile: BrandProfile): BrandDraft {
     timeZoneId: profile.timeZoneId ?? '',
     defaultPictureCount: profile.defaultPictureCount,
     channelKeys: profile.channelDefaults,
-    links: profile.links.map((link) => ({ id: newLinkDraftId(), kind: link.kind, url: link.url, label: link.label ?? '' })),
+    links: profile.links.map((link) => ({
+      id: newLinkDraftId(),
+      kind: link.kind,
+      url: link.url,
+      label: link.label ?? '',
+    })),
     assets: profile.assets,
   };
 }
@@ -238,11 +244,16 @@ function wireLinks(links: readonly BrandLinkDraft[]): WireLink[] {
 }
 
 function sameLinks(a: readonly WireLink[], b: readonly WireLink[]): boolean {
-  return a.length === b.length && a.every((link, i) => link.kind === b[i].kind && link.url === b[i].url && link.label === b[i].label);
+  return (
+    a.length === b.length &&
+    a.every((link, i) => link.kind === b[i].kind && link.url === b[i].url && link.label === b[i].label)
+  );
 }
 
 function sameAssets(a: readonly BrandAsset[], b: readonly BrandAsset[]): boolean {
-  return a.length === b.length && a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role);
+  return (
+    a.length === b.length && a.every((asset, i) => asset.mediaAssetId === b[i].mediaAssetId && asset.role === b[i].role)
+  );
 }
 
 function wireAssets(assets: readonly BrandAsset[]): BrandAsset[] {
@@ -345,7 +356,12 @@ export function buildUpdateRequest(
   }
 
   const nextLinks = wireLinks(draft.links);
-  if (!sameLinks(base.links.map((link) => ({ kind: link.kind, url: link.url, label: link.label })), nextLinks)) {
+  if (
+    !sameLinks(
+      base.links.map((link) => ({ kind: link.kind, url: link.url, label: link.label })),
+      nextLinks,
+    )
+  ) {
     patch['links'] = nextLinks;
   }
 

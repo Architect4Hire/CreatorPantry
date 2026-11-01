@@ -70,7 +70,13 @@ describe('AiAdvisoryResultsComponent', () => {
     const root = render(
       operation([
         change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' }),
-        change({ changeId: 's1', changeKind: 'Set', targetId: 't1', fieldName: 'functionalRole', afterValue: 'the acid' }),
+        change({
+          changeId: 's1',
+          changeKind: 'Set',
+          targetId: 't1',
+          fieldName: 'functionalRole',
+          afterValue: 'the acid',
+        }),
         change({ changeId: 's2', changeKind: 'Set', targetId: 't1', fieldName: 'confidence', afterValue: 'Moderate' }),
       ]),
     );
@@ -86,7 +92,9 @@ describe('AiAdvisoryResultsComponent', () => {
   });
 
   it('marks its items as drafted by AI, once round the list, naming the model and never the prompt', () => {
-    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]));
+    const root = render(
+      operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]),
+    );
 
     const generated = root.querySelector('cp-list-shell cp-generated')!;
     expect(generated.querySelector('.advisory-items')).not.toBeNull();
@@ -98,7 +106,9 @@ describe('AiAdvisoryResultsComponent', () => {
   });
 
   it('discloses how it was generated as a list of facts', () => {
-    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]));
+    const root = render(
+      operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'soured milk' })]),
+    );
 
     const facts = root.querySelector('details.advisory-provenance dl[cpFacts]')!;
     const terms = Array.from(facts.querySelectorAll('dt')).map((dt) => dt.textContent?.trim());
@@ -221,7 +231,9 @@ describe('AiAdvisoryResultsComponent', () => {
   // ---- the results frame -----------------------------------------------------------------------------
 
   it('reads its results through the shared list frame, which owns the heading', () => {
-    const root = render(operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'oat milk' })]));
+    const root = render(
+      operation([change({ changeId: 'a1', changeKind: 'Add', targetId: 't1', afterValue: 'oat milk' })]),
+    );
 
     const shell = root.querySelector('cp-list-shell');
     expect(shell).not.toBeNull();

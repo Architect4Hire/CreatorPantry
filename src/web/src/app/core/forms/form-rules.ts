@@ -74,7 +74,9 @@ export function range(bounds: { readonly min?: number; readonly max?: number }, 
 /** The entered text must match `expression`. A blank value passes. */
 export function pattern(expression: RegExp, message: string): FormRule {
   return (value) =>
-    typeof value === 'string' && !isBlank(value) && !new RegExp(expression.source, expression.flags.replace('g', '')).test(value)
+    typeof value === 'string' &&
+    !isBlank(value) &&
+    !new RegExp(expression.source, expression.flags.replace('g', '')).test(value)
       ? { code: 'pattern', message }
       : null;
 }
@@ -95,7 +97,8 @@ export function isWebAddress(value: string): boolean {
 
 /** The entered text must be a web address — see {@link isWebAddress}. A blank value passes. */
 export function webAddress(message: string): FormRule {
-  return (value) => (typeof value === 'string' && !isBlank(value) && !isWebAddress(value) ? { code: 'webAddress', message } : null);
+  return (value) =>
+    typeof value === 'string' && !isBlank(value) && !isWebAddress(value) ? { code: 'webAddress', message } : null;
 }
 
 /** A rule of the form's own — typically one that compares fields. Return a message to fail, null to pass. */

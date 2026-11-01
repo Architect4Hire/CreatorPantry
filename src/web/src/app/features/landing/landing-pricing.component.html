@@ -52,10 +52,17 @@
               <div class="pitch">
                 <p class="pitch-lead">{{ pitchLeadOf(plan) }}</p>
                 <ul class="pitch-rows">
-                  <li><strong class="count">{{ counts.recipeDrafts.toLocaleString() }}</strong> recipes drafted</li>
-                  <li><strong class="count">{{ counts.pictures.toLocaleString() }}</strong> {{ pitchPicturesLabel() }}</li>
+                  <li
+                    ><strong class="count">{{ counts.recipeDrafts.toLocaleString() }}</strong> recipes drafted</li
+                  >
+                  <li
+                    ><strong class="count">{{ counts.pictures.toLocaleString() }}</strong>
+                    {{ pitchPicturesLabel() }}</li
+                  >
                   @if (counts.socialPosts > 0) {
-                    <li><strong class="count">{{ counts.socialPosts.toLocaleString() }}</strong> social posts</li>
+                    <li
+                      ><strong class="count">{{ counts.socialPosts.toLocaleString() }}</strong> social posts</li
+                    >
                   }
                 </ul>
               </div>

@@ -108,11 +108,14 @@ describe('DAM keep models', () => {
     });
 
     it("carries a generated prompt's lineage and drops what it does not have", () => {
-      const sent = encodeDamKeep(
-        'g1',
-        draft({ keepPrompt: true }),
-        { ...PROMPT, source: 'ImagePromptComposition', aiProposalId: 'p9', generatedText: 'Draft.', label: null, recipeId: '' },
-      )['prompt'] as Record<string, unknown>;
+      const sent = encodeDamKeep('g1', draft({ keepPrompt: true }), {
+        ...PROMPT,
+        source: 'ImagePromptComposition',
+        aiProposalId: 'p9',
+        generatedText: 'Draft.',
+        label: null,
+        recipeId: '',
+      })['prompt'] as Record<string, unknown>;
 
       expect(sent['aiProposalId']).toBe('p9');
       expect(sent['generatedText']).toBe('Draft.');

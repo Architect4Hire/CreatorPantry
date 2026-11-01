@@ -63,9 +63,7 @@ const ATTENTION_REASONS: Readonly<Record<string, string>> = {
  * and the creator has no way on. The workflow hub answers the same way for an unrecognised reason.
  */
 export function attentionWords(reasons: readonly string[]): readonly string[] {
-  const words = reasons
-    .map((reason) => ATTENTION_REASONS[reason])
-    .filter((text): text is string => text !== undefined);
+  const words = reasons.map((reason) => ATTENTION_REASONS[reason]).filter((text): text is string => text !== undefined);
 
   return words.length > 0 ? words : ['We could not say why. Open it to see where it stopped.'];
 }

@@ -4,17 +4,15 @@
   <!-- Said once, plainly, and never only implied by the word "preview" in a heading: a creator looking at a
        table of new numbers has every reason to assume something changed. Nothing did. -->
   <p class="scaling-intro">
-    A reference calculation — nothing here is saved, and your recipe is unchanged by having been scaled. A
-    scaled recipe is a proposal until you keep it as one: to keep this, duplicate the recipe and edit its
-    amounts. Its lines are the wording you wrote, so nothing here rewrites them for you.
+    A reference calculation — nothing here is saved, and your recipe is unchanged by having been scaled. A scaled recipe
+    is a proposal until you keep it as one: to keep this, duplicate the recipe and edit its amounts. Its lines are the
+    wording you wrote, so nothing here rewrites them for you.
   </p>
 
   @if (editorIsDirty()) {
     <p class="scaling-caveat">
       <cp-status-pill tone="warning" role="status">Unsaved edits aren't included</cp-status-pill>
-      <span>
-        These amounts come from the recipe as last saved. Save your edits and scale again to see them here.
-      </span>
+      <span> These amounts come from the recipe as last saved. Save your edits and scale again to see them here. </span>
     </p>
   }
 
@@ -62,14 +60,19 @@
       <!-- Stated rather than left to a disabled control with no explanation. The remedy is a field on the
            Timing & yield tab, so the sentence names it. -->
       <p class="mode-note">
-        This recipe has no yield quantity, so it can only be scaled by a factor. Add one on the Timing &amp;
-        yield tab to scale to a yield instead.
+        This recipe has no yield quantity, so it can only be scaled by a factor. Add one on the Timing &amp; yield tab
+        to scale to a yield instead.
       </p>
     }
 
     @if (mode() === 'factor') {
       <div class="input-row">
-        <cp-field label="Factor" [forId]="factorFieldId" [error]="factorError() ?? ''" hint="For example, 2 to double it.">
+        <cp-field
+          label="Factor"
+          [forId]="factorFieldId"
+          [error]="factorError() ?? ''"
+          hint="For example, 2 to double it."
+        >
           <input
             type="number"
             inputmode="decimal"
@@ -87,13 +90,34 @@
              still what works the amounts out. Each carries its own words, because "×½" is not something a
              screen reader can be relied on to read as "one half". -->
         <div class="presets" role="group" aria-label="Common factors">
-          <button type="button" cpButton variant="ghost" size="sm" aria-label="Set the factor to one half" (click)="setFactor(0.5)">
+          <button
+            type="button"
+            cpButton
+            variant="ghost"
+            size="sm"
+            aria-label="Set the factor to one half"
+            (click)="setFactor(0.5)"
+          >
             ×½
           </button>
-          <button type="button" cpButton variant="ghost" size="sm" aria-label="Set the factor to two" (click)="setFactor(2)">
+          <button
+            type="button"
+            cpButton
+            variant="ghost"
+            size="sm"
+            aria-label="Set the factor to two"
+            (click)="setFactor(2)"
+          >
             ×2
           </button>
-          <button type="button" cpButton variant="ghost" size="sm" aria-label="Set the factor to three" (click)="setFactor(3)">
+          <button
+            type="button"
+            cpButton
+            variant="ghost"
+            size="sm"
+            aria-label="Set the factor to three"
+            (click)="setFactor(3)"
+          >
             ×3
           </button>
         </div>
@@ -140,106 +164,106 @@
            preview arriving is information, not a place to be taken to. The region is marked busy while a
            re-scale is in flight, so the numbers below are not read as the answer to it. -->
       <div class="scaling-result" [attr.aria-busy]="isWorking() ? true : null">
-      <p class="scaling-summary" role="status" aria-live="polite">
-        {{ isWorking() ? 'Working out the new amounts…' : summary() }}
-      </p>
-
-      @if (isStale()) {
-        <p class="scaling-stale">
-          <cp-status-pill tone="stale">Out of date</cp-status-pill>
-          <span>
-            These amounts are for version {{ result.sourceVersionNumber }}; this recipe is now at version
-            {{ sourceVersionNumber() }}. Scale again to see the current version.
-          </span>
+        <p class="scaling-summary" role="status" aria-live="polite">
+          {{ isWorking() ? 'Working out the new amounts…' : summary() }}
         </p>
-      }
 
-      <!-- Said rather than left as an absent button. A scaled recipe is accepted whole or not at all
+        @if (isStale()) {
+          <p class="scaling-stale">
+            <cp-status-pill tone="stale">Out of date</cp-status-pill>
+            <span>
+              These amounts are for version {{ result.sourceVersionNumber }}; this recipe is now at version
+              {{ sourceVersionNumber() }}. Scale again to see the current version.
+            </span>
+          </p>
+        }
+
+        <!-- Said rather than left as an absent button. A scaled recipe is accepted whole or not at all
            (recipes.md): writing back only the yield would leave a recipe stating a yield its own ingredients
            do not make. -->
-      <p class="apply-unavailable">
-        Applying a scaled recipe needs ingredient saving, which isn't built yet — so this stays a proposal.
-        Saving only the scaled yield would leave the ingredient amounts disagreeing with it.
-      </p>
+        <p class="apply-unavailable">
+          Applying a scaled recipe needs ingredient saving, which isn't built yet — so this stays a proposal. Saving
+          only the scaled yield would leave the ingredient amounts disagreeing with it.
+        </p>
 
-      @if (recipeWarnings().length > 0) {
-        <ul class="recipe-warnings" role="list">
-          @for (warning of recipeWarnings(); track warning) {
-            <li class="recipe-warning">
-              <span class="warning-glyph" aria-hidden="true">⚠</span>
-              <span>{{ warning }}</span>
-            </li>
-          }
-        </ul>
-      }
-
-      @if (rows().length === 0) {
-        <p class="scaling-empty">This version has no ingredient lines to scale.</p>
-      } @else {
-        <table class="scaled-lines">
-          <caption class="cp-sr-only">Ingredient amounts before and after scaling. {{ summary() }}</caption>
-          <thead>
-            <tr>
-              <th scope="col">Ingredient</th>
-              <th scope="col">Before</th>
-              <th scope="col">After</th>
-              <th scope="col">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of rows(); track row.key) {
-              <tr [attr.data-scaled]="row.wasScaled">
-                <th scope="row" class="line-name">{{ row.displayText }}</th>
-
-                <td class="line-amount">
-                  @if (row.before !== null) {
-                    {{ row.before }}
-                  } @else {
-                    <span class="cp-sr-only">No saved amount</span>
-                    <span aria-hidden="true">—</span>
-                  }
-                </td>
-
-                <td class="line-amount">
-                  @if (row.after !== null) {
-                    {{ row.after }}
-                  } @else {
-                    <span class="cp-sr-only">No amount</span>
-                    <span aria-hidden="true">—</span>
-                  }
-
-                  <!-- The rounded value reads first because it is what a creator will measure; the exact
-                       one is kept beside it because it, not the rounding, is the canonical result. -->
-                  @if (row.exact !== null) {
-                    <small class="line-exact">exact {{ row.exact }}</small>
-                  }
-
-                  <!-- The tone is a second signal, never the only one: the word beside it says the same
-                       thing, so this does not depend on seeing a colour (WCAG 2.2 AA, 1.4.1). -->
-                  @if (!row.wasScaled) {
-                    <cp-status-pill tone="warning">Kept as written</cp-status-pill>
-                  }
-                </td>
-
-                <td class="line-notes">
-                  @if (row.notes.length === 0) {
-                    <span class="cp-sr-only">No notes</span>
-                  } @else {
-                    <ul role="list">
-                      @for (note of row.notes; track note) {
-                        <li>
-                          <span class="warning-glyph" aria-hidden="true">⚠</span>
-                          <span>{{ note }}</span>
-                        </li>
-                      }
-                    </ul>
-                  }
-                </td>
-              </tr>
+        @if (recipeWarnings().length > 0) {
+          <ul class="recipe-warnings" role="list">
+            @for (warning of recipeWarnings(); track warning) {
+              <li class="recipe-warning">
+                <span class="warning-glyph" aria-hidden="true">⚠</span>
+                <span>{{ warning }}</span>
+              </li>
             }
-          </tbody>
-        </table>
-      }
+          </ul>
+        }
+
+        @if (rows().length === 0) {
+          <p class="scaling-empty">This version has no ingredient lines to scale.</p>
+        } @else {
+          <table class="scaled-lines">
+            <caption class="cp-sr-only">Ingredient amounts before and after scaling. {{ summary() }}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Ingredient</th>
+                <th scope="col">Before</th>
+                <th scope="col">After</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rows(); track row.key) {
+                <tr [attr.data-scaled]="row.wasScaled">
+                  <th scope="row" class="line-name">{{ row.displayText }}</th>
+
+                  <td class="line-amount">
+                    @if (row.before !== null) {
+                      {{ row.before }}
+                    } @else {
+                      <span class="cp-sr-only">No saved amount</span>
+                      <span aria-hidden="true">—</span>
+                    }
+                  </td>
+
+                  <td class="line-amount">
+                    @if (row.after !== null) {
+                      {{ row.after }}
+                    } @else {
+                      <span class="cp-sr-only">No amount</span>
+                      <span aria-hidden="true">—</span>
+                    }
+
+                    <!-- The rounded value reads first because it is what a creator will measure; the exact
+                       one is kept beside it because it, not the rounding, is the canonical result. -->
+                    @if (row.exact !== null) {
+                      <small class="line-exact">exact {{ row.exact }}</small>
+                    }
+
+                    <!-- The tone is a second signal, never the only one: the word beside it says the same
+                       thing, so this does not depend on seeing a colour (WCAG 2.2 AA, 1.4.1). -->
+                    @if (!row.wasScaled) {
+                      <cp-status-pill tone="warning">Kept as written</cp-status-pill>
+                    }
+                  </td>
+
+                  <td class="line-notes">
+                    @if (row.notes.length === 0) {
+                      <span class="cp-sr-only">No notes</span>
+                    } @else {
+                      <ul role="list">
+                        @for (note of row.notes; track note) {
+                          <li>
+                            <span class="warning-glyph" aria-hidden="true">⚠</span>
+                            <span>{{ note }}</span>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
       </div>
     }
   </cp-list-shell>

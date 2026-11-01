@@ -10,7 +10,10 @@ describe('authGuard', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: AuthService, useValue: authServiceStub },
-        { provide: Router, useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) } },
+        {
+          provide: Router,
+          useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) },
+        },
       ],
     });
   }
@@ -48,8 +51,14 @@ describe('authGuard', () => {
   it('redirects to /sign-in with a degraded reason instead of failing the navigation if ensureChecked() rejects', async () => {
     TestBed.configureTestingModule({
       providers: [
-        { provide: AuthService, useValue: { ensureChecked: () => Promise.reject(new Error('boom')), session: () => ({ status: 'checking' }) } },
-        { provide: Router, useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) } },
+        {
+          provide: AuthService,
+          useValue: { ensureChecked: () => Promise.reject(new Error('boom')), session: () => ({ status: 'checking' }) },
+        },
+        {
+          provide: Router,
+          useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) },
+        },
       ],
     });
 

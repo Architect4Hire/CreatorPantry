@@ -1,8 +1,4 @@
-<cp-form-section
-  heading="A recipe"
-  [intro]="intro()"
-  [sectionId]="idPrefix()"
->
+<cp-form-section heading="A recipe" [intro]="intro()" [sectionId]="idPrefix()">
   @if (action(); as state) {
     @if (state.status === 'working') {
       <p class="cp-muted" role="status">{{ state.sentence }}</p>
@@ -18,7 +14,13 @@
   @if (!reference() && suggestion(); as offered) {
     <p class="cp-muted">You came here from a recipe. Use it for this piece, or find another below.</p>
     <div class="cp-actions">
-      <button cpButton type="button" variant="secondary" [attr.aria-disabled]="busy() || null" (click)="useSuggestion()">
+      <button
+        cpButton
+        type="button"
+        variant="secondary"
+        [attr.aria-disabled]="busy() || null"
+        (click)="useSuggestion()"
+      >
         Use “{{ offered.title }}”
       </button>
     </div>
@@ -67,8 +69,8 @@
 
           @if (state.newer; as newer) {
             <cp-notice tone="warning" role="status">
-              This recipe has changed since you linked it — it is now at version {{ newer.number }}. The version
-              you linked is still the one being used.
+              This recipe has changed since you linked it — it is now at version {{ newer.number }}. The version you
+              linked is still the one being used.
               <button
                 cpButton
                 type="button"
@@ -91,7 +93,9 @@
             variant="text"
             size="sm"
             [disabled]="busy()"
-            [attr.aria-label]="state.status === 'ready' ? 'Remove the link to ' + state.title : 'Remove the linked recipe'"
+            [attr.aria-label]="
+              state.status === 'ready' ? 'Remove the link to ' + state.title : 'Remove the linked recipe'
+            "
             (click)="remove()"
           >
             Remove

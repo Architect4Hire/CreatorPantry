@@ -34,14 +34,7 @@ export const TEST_RUN_OUTCOME_VALUES: ReadonlySet<string> = new Set<TestRunOutco
 
 /** Mirrors TestObservationKind. `Unspecified` is a legitimate answer; `Other` says the tester looked and none fitted. */
 export type TestObservationKind =
-  | 'Unspecified'
-  | 'Texture'
-  | 'Flavour'
-  | 'Appearance'
-  | 'Aroma'
-  | 'Timing'
-  | 'Difficulty'
-  | 'Other';
+  'Unspecified' | 'Texture' | 'Flavour' | 'Appearance' | 'Aroma' | 'Timing' | 'Difficulty' | 'Other';
 
 export const TEST_OBSERVATION_KIND_VALUES: ReadonlySet<string> = new Set<TestObservationKind>([
   'Unspecified',

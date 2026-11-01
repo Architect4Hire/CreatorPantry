@@ -199,7 +199,9 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
    * Reachable honestly — a full description with an idea below it — so it is said and the ask is held, never
    * cut to fit: the words are the creator's, and which of them to lose is their decision.
    */
-  protected readonly briefTooLong = computed(() => this.brief().trim().length > CONTENT_PIPELINE_LIMITS.conceptMaxLength);
+  protected readonly briefTooLong = computed(
+    () => this.brief().trim().length > CONTENT_PIPELINE_LIMITS.conceptMaxLength,
+  );
   protected readonly briefMaxLength = CONTENT_PIPELINE_LIMITS.conceptMaxLength;
 
   /**
@@ -364,8 +366,7 @@ export class ContentPipelineConceptPanelComponent implements OnInit {
       shotKind: shot.kind,
     };
     const current = this.prompt().chosen;
-    const sameShot =
-      current !== null && current.conceptId === chosen.conceptId && current.shotKind === chosen.shotKind;
+    const sameShot = current !== null && current.conceptId === chosen.conceptId && current.shotKind === chosen.shotKind;
 
     this.changed.emit({ ...(sameShot ? this.prompt() : this.clearedForNewPick()), chosen });
     this.announced.emit(`Picked ${concept.label}, ${PHOTOGRAPHY_SHOT_KIND_LABELS[shot.kind]}.`);

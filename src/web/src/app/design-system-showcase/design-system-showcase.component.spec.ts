@@ -246,7 +246,12 @@ describe('DesignSystemShowcaseComponent', () => {
   it('renders both empty-state variants, drawn and as the older glyph, with a projected action', async () => {
     const fixture = await createFixture();
     const emptyStates = [...fixture.nativeElement.querySelectorAll('cp-empty-state')] as HTMLElement[];
-    expect(emptyStates.map((state) => state.getAttribute('data-variant'))).toEqual(['first-use', 'first-use', 'no-results', 'first-use']);
+    expect(emptyStates.map((state) => state.getAttribute('data-variant'))).toEqual([
+      'first-use',
+      'first-use',
+      'no-results',
+      'first-use',
+    ]);
     expect(emptyStates.filter((state) => state.querySelector('cp-illustration')).length).toBe(3);
     expect(emptyStates[3].querySelector('.icon')).toBeTruthy();
     expect(emptyStates[0].querySelector('[cpEmptyStateActions] button')).toBeTruthy();
@@ -265,14 +270,18 @@ describe('DesignSystemShowcaseComponent', () => {
 
   it('compares three concepts as option cards, one chosen at a time', async () => {
     const fixture = await createFixture();
-    const section = fixture.nativeElement.querySelector('section[aria-labelledby="option-card-heading"]') as HTMLElement;
+    const section = fixture.nativeElement.querySelector(
+      'section[aria-labelledby="option-card-heading"]',
+    ) as HTMLElement;
     const cards = () => [...section.querySelectorAll('cp-option-card')] as HTMLElement[];
     expect(cards().length).toBe(3);
 
     // The salad is not on offer: its button says why, and choosing it does nothing (AP.6.5).
     const disabled = cards()[1].querySelector('button') as HTMLButtonElement;
     expect(disabled.getAttribute('aria-disabled')).toBe('true');
-    expect(document.getElementById(disabled.getAttribute('aria-describedby')!)?.textContent).toContain('not approved yet');
+    expect(document.getElementById(disabled.getAttribute('aria-describedby')!)?.textContent).toContain(
+      'not approved yet',
+    );
     disabled.click();
     fixture.detectChanges();
     expect(cards()[1].querySelector('.chosen')).toBeNull();
@@ -312,7 +321,9 @@ describe('DesignSystemShowcaseComponent', () => {
     const [untoned, toned] = [...section.querySelectorAll('ul[cpCardGrid]')] as HTMLElement[];
     const drawings = (grid: HTMLElement) =>
       [...grid.querySelectorAll('cp-media-card')].map((card) =>
-        card.querySelector('[cpMediaCardPicture]:not([data-cp-picture-pending])') ? 'photo' : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'),
+        card.querySelector('[cpMediaCardPicture]:not([data-cp-picture-pending])')
+          ? 'photo'
+          : card.querySelector('.panel cp-illustration')?.getAttribute('data-name'),
       );
 
     // A picture still on its way shows the panel (AU.6.1).
@@ -365,7 +376,13 @@ describe('DesignSystemShowcaseComponent', () => {
     const chips = Array.from(group.querySelectorAll<HTMLButtonElement>('button[cpChip]'));
 
     expect(group.getAttribute('aria-label')).toBe('Filter by status');
-    expect(chips.map((chip) => chip.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false', 'false', 'false']);
+    expect(chips.map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+      'false',
+      'true',
+      'false',
+      'false',
+      'false',
+    ]);
 
     chips[0].click();
     fixture.detectChanges();
@@ -376,7 +393,8 @@ describe('DesignSystemShowcaseComponent', () => {
   it('shows a stepper that says each state in a word and follows Back and Continue', async () => {
     const fixture = await createFixture();
     const stepper = fixture.nativeElement.querySelector('cp-stepper') as HTMLElement;
-    const words = (): (string | null)[] => Array.from(stepper.querySelectorAll('.word')).map((word) => word.textContent);
+    const words = (): (string | null)[] =>
+      Array.from(stepper.querySelectorAll('.word')).map((word) => word.textContent);
 
     expect(stepper.querySelector('ol')?.getAttribute('aria-label')).toBe('Example steps');
     expect(words()).toEqual(['Done', 'Skipped', 'You are here', 'Not started']);
@@ -459,9 +477,13 @@ describe('DesignSystemShowcaseComponent', () => {
 
       expect(demo.querySelector('cp-list-shell .scroll')!.hasAttribute('data-cp-enter')).toBeTrue();
       expect(demo.querySelector('cp-generated')!.hasAttribute('data-cp-enter')).toBeTrue();
-      expect(Array.from(demo.querySelectorAll('cp-option-card')).every((card) => card.hasAttribute('data-cp-enter'))).toBeTrue();
+      expect(
+        Array.from(demo.querySelectorAll('cp-option-card')).every((card) => card.hasAttribute('data-cp-enter')),
+      ).toBeTrue();
       // Each card lands behind the one before it: three cards, three different waits.
-      const delays = Array.from(demo.querySelectorAll<HTMLElement>('cp-option-card')).map((card) => card.style.animationDelay);
+      const delays = Array.from(demo.querySelectorAll<HTMLElement>('cp-option-card')).map(
+        (card) => card.style.animationDelay,
+      );
       expect(new Set(delays).size).toBe(delays.length);
     });
 
@@ -471,8 +493,8 @@ describe('DesignSystemShowcaseComponent', () => {
       expect(before.length).toBeGreaterThan(0);
 
       for (const element of before) element.removeAttribute('data-cp-enter');
-      const replay = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
-        (button) => button.textContent?.includes('Replay the entrance'),
+      const replay = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((button) =>
+        button.textContent?.includes('Replay the entrance'),
       ) as HTMLButtonElement;
       replay.click();
       fixture.detectChanges();

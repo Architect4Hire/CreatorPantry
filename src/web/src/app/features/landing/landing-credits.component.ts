@@ -184,7 +184,10 @@ export class LandingCreditsComponent {
         if (to === undefined) return;
 
         if (this.settled !== null && this.settled !== to) {
-          this.count.run(new Map([['estimate', this.count.shownOr('estimate', this.settled)]]), new Map([['estimate', to]]));
+          this.count.run(
+            new Map([['estimate', this.count.shownOr('estimate', this.settled)]]),
+            new Map([['estimate', to]]),
+          );
         }
 
         this.settled = to;
@@ -219,7 +222,8 @@ export class LandingCreditsComponent {
    */
   protected readonly verdict = computed<string>(() => {
     const answer = this.answer();
-    if (answer === null) return this.picturesAMonth() + this.writingAMonth() === 0 ? this.nothingChosen : 'Working it out…';
+    if (answer === null)
+      return this.picturesAMonth() + this.writingAMonth() === 0 ? this.nothingChosen : 'Working it out…';
     if (answer.credits === 0) return this.nothingChosen;
 
     if (answer.fitsPlanName === null || answer.creditsToSpare === null) {
@@ -247,8 +251,8 @@ export class LandingCreditsComponent {
 
     return started === null
       ? 'Each picture is charged its quality’s own rate.'
-      : `Priced at ${pictureQualityLabel(started)} quality, which is what a picture is unless you choose `
-          + 'another. Each quality is charged its own rate.';
+      : `Priced at ${pictureQualityLabel(started)} quality, which is what a picture is unless you choose ` +
+          'another. Each quality is charged its own rate.';
   });
 
   /** The label the menu and the quality choice both use, so the two never word a class differently. */

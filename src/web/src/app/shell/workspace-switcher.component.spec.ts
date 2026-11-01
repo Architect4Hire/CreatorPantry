@@ -2,7 +2,11 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { CreateWorkspaceOutcome, MyMembershipsState, WorkspaceMembershipService } from '../services/workspace-membership.service';
+import {
+  CreateWorkspaceOutcome,
+  MyMembershipsState,
+  WorkspaceMembershipService,
+} from '../services/workspace-membership.service';
 import { WorkspaceSwitcherComponent } from './workspace-switcher.component';
 
 describe('WorkspaceSwitcherComponent', () => {
@@ -13,7 +17,9 @@ describe('WorkspaceSwitcherComponent', () => {
   async function createFixture(initialState: MyMembershipsState, currentSlug = 'cozy-fall') {
     stateSignal = signal(initialState);
     navigateSpy = jasmine.createSpy('navigate').and.resolveTo(true);
-    createSpy = jasmine.createSpy('create').and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
+    createSpy = jasmine
+      .createSpy('create')
+      .and.resolveTo({ status: 'success', workspaceSlug: 'new-workspace' } satisfies CreateWorkspaceOutcome);
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceSwitcherComponent],
@@ -53,8 +59,22 @@ describe('WorkspaceSwitcherComponent', () => {
     const fixture = await createFixture({
       status: 'ready',
       memberships: [
-        { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' },
-        { workspaceId: 'w2', workspaceSlug: 'weeknight', workspaceName: 'Weeknight', membershipId: 'm2', role: 'Viewer', status: 'Active' },
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+        {
+          workspaceId: 'w2',
+          workspaceSlug: 'weeknight',
+          workspaceName: 'Weeknight',
+          membershipId: 'm2',
+          role: 'Viewer',
+          status: 'Active',
+        },
       ],
     });
 
@@ -67,8 +87,22 @@ describe('WorkspaceSwitcherComponent', () => {
     const fixture = await createFixture({
       status: 'ready',
       memberships: [
-        { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' },
-        { workspaceId: 'w2', workspaceSlug: 'weeknight', workspaceName: 'Weeknight', membershipId: 'm2', role: 'Viewer', status: 'Active' },
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+        {
+          workspaceId: 'w2',
+          workspaceSlug: 'weeknight',
+          workspaceName: 'Weeknight',
+          membershipId: 'm2',
+          role: 'Viewer',
+          status: 'Active',
+        },
       ],
     });
 
@@ -88,7 +122,16 @@ describe('WorkspaceSwitcherComponent', () => {
   it('does not navigate when re-selecting the already-current workspace', async () => {
     const fixture = await createFixture({
       status: 'ready',
-      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     });
 
     const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
@@ -101,7 +144,16 @@ describe('WorkspaceSwitcherComponent', () => {
   describe('create workspace', () => {
     const oneMembership: MyMembershipsState = {
       status: 'ready',
-      memberships: [{ workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role: 'Owner', status: 'Active' }],
+      memberships: [
+        {
+          workspaceId: 'w1',
+          workspaceSlug: 'cozy-fall',
+          workspaceName: 'Cozy Fall',
+          membershipId: 'm1',
+          role: 'Owner',
+          status: 'Active',
+        },
+      ],
     };
 
     it('does not navigate when the create option is selected, and resets the select back to the current workspace', async () => {

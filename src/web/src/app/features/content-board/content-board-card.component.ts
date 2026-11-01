@@ -45,7 +45,9 @@ import { channelNameOf, publishingStatusOf } from './content-board-presentation'
   template: `<cp-card>
     <article [attr.aria-busy]="saving() ? 'true' : null">
       <!-- One below the column that holds it, which is an h3 under the list's h2. -->
-      <h4 class="title"><a [routerLink]="link()">{{ card().title }}</a></h4>
+      <h4 class="title"
+        ><a [routerLink]="link()">{{ card().title }}</a></h4
+      >
 
       @if (card().descriptionPreview; as preview) {
         <p class="cp-muted preview">{{ preview }}</p>

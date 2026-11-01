@@ -11,13 +11,7 @@
 
       <button cpButton variant="ghost" type="button" aria-label="Swap the two versions" (click)="swap()">⇄</button>
 
-      <button
-        cpButton
-        type="button"
-        [disabled]="!canCompare() || comparing()"
-        [busy]="comparing()"
-        (click)="compare()"
-      >
+      <button cpButton type="button" [disabled]="!canCompare() || comparing()" [busy]="comparing()" (click)="compare()">
         {{ comparing() ? 'Comparing…' : 'Compare' }}
       </button>
     }

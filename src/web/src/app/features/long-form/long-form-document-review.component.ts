@@ -258,7 +258,9 @@ export class LongFormDocumentReviewComponent {
     if (!this.needsReview()) return [];
 
     const reasons = this.document()?.staleReasons ?? [];
-    const sentences = reasons.map((reason) => STALE_SOURCES[reason] ?? 'Something this piece was written from has changed.');
+    const sentences = reasons.map(
+      (reason) => STALE_SOURCES[reason] ?? 'Something this piece was written from has changed.',
+    );
 
     return sentences.length > 0 ? [...new Set(sentences)] : ['Something this piece was written from has changed.'];
   });
@@ -267,7 +269,9 @@ export class LongFormDocumentReviewComponent {
    * The accepted revision an SEO package may be written about (LF.5.3), or null when there is none: the piece
    * is not accepted, or was and its sources have since moved.
    */
-  protected readonly seoRevision = computed(() => (this.isAccepted() ? (this.document()?.acceptedRevisionNumber ?? null) : null));
+  protected readonly seoRevision = computed(() =>
+    this.isAccepted() ? (this.document()?.acceptedRevisionNumber ?? null) : null,
+  );
 
   /**
    * The downloads of the accepted piece (LF.5.2): plain links the browser follows, offered only once there is
@@ -355,21 +359,23 @@ export class LongFormDocumentReviewComponent {
         // What the scanner found in the text first, then what the writer said about its own work: the same
         // order the server keeps, so a caution found by code is never below one a model offered.
         warnings: [
-          ...section.findings.map(
-            (finding): LongFormSectionWarning => ({
-              sectionId: section.id,
-              kind: finding.kind,
-              code: finding.code,
-              message: finding.message,
-              fromModel: false,
-            }),
-          ),
+          ...section.findings.map((finding): LongFormSectionWarning => ({
+            sectionId: section.id,
+            kind: finding.kind,
+            code: finding.code,
+            message: finding.message,
+            fromModel: false,
+          })),
           ...review.warnings.filter((warning) => warning.sectionId === section.id),
         ],
         attribution: attributionOf(section),
         item:
           section.role === 'Item'
-            ? { position: items.indexOf(section) + 1, of: items.length, unresolved: section.sourceState === 'Unresolved' }
+            ? {
+                position: items.indexOf(section) + 1,
+                of: items.length,
+                unresolved: section.sourceState === 'Unresolved',
+              }
             : null,
       };
     });
@@ -384,7 +390,11 @@ export class LongFormDocumentReviewComponent {
   );
 
   /** How long the piece is, said in words against what a piece of its kind usually runs to. */
-  protected readonly length = computed<{ readonly tone: CpStatusPillTone; readonly word: string; readonly text: string } | null>(() => {
+  protected readonly length = computed<{
+    readonly tone: CpStatusPillTone;
+    readonly word: string;
+    readonly text: string;
+  } | null>(() => {
     const document = this.document();
     if (document === null) return null;
 
@@ -414,7 +424,9 @@ export class LongFormDocumentReviewComponent {
     const review = this.review();
     if (review === null) return 0;
 
-    const waiting = new Set(review.requests.filter((request) => request.outcome === 'Waiting').map((request) => request.sectionId));
+    const waiting = new Set(
+      review.requests.filter((request) => request.outcome === 'Waiting').map((request) => request.sectionId),
+    );
 
     // An item whose recipe is gone is not something the writer can be asked for, so it is not counted as left.
     return review.document.sections.filter(
@@ -439,7 +451,8 @@ export class LongFormDocumentReviewComponent {
     if (!this.open() || this.accepting()) return '';
     if (this.hasUnsavedWork()) return 'Save or discard your changes before accepting.';
     if (this.anyWaiting()) return 'A section is still being written.';
-    if (!(this.document()?.sections.some((section) => section.isWritten) ?? false)) return 'Nothing has been written yet.';
+    if (!(this.document()?.sections.some((section) => section.isWritten) ?? false))
+      return 'Nothing has been written yet.';
 
     return '';
   });
@@ -733,7 +746,8 @@ export class LongFormDocumentReviewComponent {
   protected async write(card: SectionCard): Promise<void> {
     const id = card.section.id;
     const document = this.document();
-    if (document === null || document.revisionNumber === null || this.busy()[id] !== undefined || this.blocked()) return;
+    if (document === null || document.revisionNumber === null || this.busy()[id] !== undefined || this.blocked())
+      return;
 
     // Writing over text the creator is in the middle of changing would lose it. They are asked first.
     if (card.dirty) {
@@ -835,7 +849,11 @@ export class LongFormDocumentReviewComponent {
 
     if (outcome.status === 'saved') {
       await this.refresh();
-      this.announce(settled ? `Marked “${card.section.heading}” as settled.` : `“${card.section.heading}” is no longer marked as settled.`);
+      this.announce(
+        settled
+          ? `Marked “${card.section.heading}” as settled.`
+          : `“${card.section.heading}” is no longer marked as settled.`,
+      );
       this.focusAfterRender(this.fieldId(card, 'settle'));
       return;
     }
@@ -1059,15 +1077,22 @@ function describeIssue(issue: LongFormAcceptanceIssueDetail, document: LongFormA
     .map((id) => document.sections.find((section) => section.id === id)?.heading)
     .filter((heading): heading is string => heading !== undefined)
     .map((heading) => `“${heading}”`);
-  const named = headings.length <= 1 ? (headings[0] ?? '') : `${headings.slice(0, -1).join(', ')} and ${headings[headings.length - 1]}`;
+  const named =
+    headings.length <= 1
+      ? (headings[0] ?? '')
+      : `${headings.slice(0, -1).join(', ')} and ${headings[headings.length - 1]}`;
 
   if (issue.issue === 'UnwrittenSections') {
-    return headings.length === 1 ? `${named} has not been written.` : `${headings.length} sections have not been written: ${named}.`;
+    return headings.length === 1
+      ? `${named} has not been written.`
+      : `${headings.length} sections have not been written: ${named}.`;
   }
 
   if (headings.length === 0) return 'The piece as a whole is longer than it may be.';
 
-  return headings.length === 1 ? `${named} is longer than a section may be.` : `${headings.length} sections are longer than a section may be: ${named}.`;
+  return headings.length === 1
+    ? `${named} is longer than a section may be.`
+    : `${headings.length} sections are longer than a section may be: ${named}.`;
 }
 
 function writeProblem(outcome: Exclude<LongFormSectionWriteOutcome, { readonly status: 'saved' }>): string {

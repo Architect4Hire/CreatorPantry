@@ -71,7 +71,10 @@ async function settle(): Promise<void> {
   fixture.detectChanges();
 }
 
-async function mount(kind: PipelineDocumentKind = 'reference', selected: ContentPipelineDocumentRef | null = null): Promise<void> {
+async function mount(
+  kind: PipelineDocumentKind = 'reference',
+  selected: ContentPipelineDocumentRef | null = null,
+): Promise<void> {
   fixture = TestBed.createComponent(HostComponent);
   host = fixture.componentInstance;
   host.kind.set(kind);
@@ -82,9 +85,8 @@ async function mount(kind: PipelineDocumentKind = 'reference', selected: Content
 
 function buttonWith(text: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find((button) =>
-      (button.textContent ?? '').trim().startsWith(text),
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim().startsWith(text)) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 

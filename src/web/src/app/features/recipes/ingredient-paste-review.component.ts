@@ -3,7 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { CpButtonComponent, CpFieldComponent, CpStatusPillComponent, CpStatusPillTone } from '@creator-pantry/ui';
 
 import { IngredientParseService } from '../../services/ingredient-parse.service';
-import { IngredientMatchCandidate, ParsedIngredientLine, UnitMatchCandidate } from '../../models/ingredient-parse.models';
+import {
+  IngredientMatchCandidate,
+  ParsedIngredientLine,
+  UnitMatchCandidate,
+} from '../../models/ingredient-parse.models';
 import { EditableIngredientRow, rowFromParsedLine } from './recipe-ingredient-editor.component';
 
 /** One group a pasted batch can be sent to. The label is the host's, which is what numbers groups. */
@@ -80,7 +84,9 @@ export class IngredientPasteReviewComponent {
   private readonly unitChoices = signal<ReadonlyMap<number, UnitMatchCandidate | null>>(new Map());
   private readonly acceptedIndexes = signal<ReadonlySet<number>>(new Set());
 
-  readonly lines = computed(() => (this.state().status === 'parsed' ? (this.state() as { lines: readonly ParsedIngredientLine[] }).lines : []));
+  readonly lines = computed(() =>
+    this.state().status === 'parsed' ? (this.state() as { lines: readonly ParsedIngredientLine[] }).lines : [],
+  );
 
   private readonly parseService = inject(IngredientParseService);
 
@@ -107,7 +113,8 @@ export class IngredientPasteReviewComponent {
   readonly unresolvedUnitLabel = UNRESOLVED_UNIT_LABEL;
 
   onIngredientChoiceChange(index: number, line: ParsedIngredientLine, ingredientId: string): void {
-    const candidate = (line.ingredientMatch?.alternates ?? []).find((option) => option.ingredientId === ingredientId) ?? null;
+    const candidate =
+      (line.ingredientMatch?.alternates ?? []).find((option) => option.ingredientId === ingredientId) ?? null;
     this.ingredientChoices.update((choices) => new Map(choices).set(index, candidate));
   }
 
@@ -181,8 +188,9 @@ export class IngredientPasteReviewComponent {
   readonly needsReviewCount = computed(() => {
     const accepted = this.acceptedIndexes();
     const eligible = new Set(this.bulkAcceptableIndexes());
-    return this.lines().filter((line, index) => !line.tokens.isGroupMarker && !accepted.has(index) && !eligible.has(index))
-      .length;
+    return this.lines().filter(
+      (line, index) => !line.tokens.isGroupMarker && !accepted.has(index) && !eligible.has(index),
+    ).length;
   });
 
   readonly groupMarkerCount = computed(() => this.lines().filter((line) => line.tokens.isGroupMarker).length);
@@ -200,7 +208,9 @@ export class IngredientPasteReviewComponent {
     // their choice — rather than after — would make a hand-resolved line permanently ineligible, which is
     // the opposite of the rule: a choice *is* review, and the point of the growing count is that working
     // through the pickers moves lines into the batch.
-    if (!this.isMatchSettled(ingredientMatch, this.ingredientChoices().has(index), this.ingredientChoiceFor(index, line))) {
+    if (
+      !this.isMatchSettled(ingredientMatch, this.ingredientChoices().has(index), this.ingredientChoiceFor(index, line))
+    ) {
       return false;
     }
     if (!this.isMatchSettled(unitMatch, this.unitChoices().has(index), this.unitChoiceFor(index, line))) {

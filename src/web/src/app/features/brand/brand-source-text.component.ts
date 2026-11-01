@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import {
   CpButtonComponent,
   CpDrawerComponent,
@@ -17,7 +27,10 @@ import {
   BrandSourceExtractionState,
 } from '../../models/brand-source-extraction.models';
 import { ConfirmService } from '../../core/confirm.service';
-import { BrandSourceExtractionFailure, BrandSourceExtractionService } from '../../services/brand-source-extraction.service';
+import {
+  BrandSourceExtractionFailure,
+  BrandSourceExtractionService,
+} from '../../services/brand-source-extraction.service';
 import { EXTRACTION_STATE_LABELS } from './brand-library-labels';
 
 type ReadState =
@@ -39,7 +52,8 @@ const STATE_TONE: Record<BrandSourceExtractionState, CpStatusPillTone> = {
  * service learns to report has to be given words rather than reaching a creator as a blank.
  */
 const FAILURE_MESSAGE: Record<BrandSourceExtractionFailure, string> = {
-  conflict: 'The text changed while you were working on it, so nothing was saved. Your words are still here — reread the latest, then save again.',
+  conflict:
+    'The text changed while you were working on it, so nothing was saved. Your words are still here — reread the latest, then save again.',
   not_retryable: 'Reading this again could not change the answer.',
   archived: 'This example is on the shelf. Bring it back before changing its text.',
   superseded: 'A newer file has replaced this one, so only the current version’s text can be changed.',
@@ -189,7 +203,9 @@ export class BrandSourceTextComponent {
 
     // Bytes of UTF-8, which is how the server counts it: a 4 MB limit in characters would accept text the
     // server refuses the moment it carries anything outside ASCII.
-    return this.draftBytes() > BRAND_SOURCE_CORRECTION_MAX_BYTES ? 'That text is longer than the four megabytes the library keeps.' : '';
+    return this.draftBytes() > BRAND_SOURCE_CORRECTION_MAX_BYTES
+      ? 'That text is longer than the four megabytes the library keeps.'
+      : '';
   });
 
   protected readonly reasonError = computed(() => {

@@ -36,7 +36,12 @@ const plan = (key: string, name: string, credits: number, trialDays: number | nu
 /** The trial first, as the catalogue publishes it cheapest-first, so the specs prove it is skipped. */
 const published: PlanCatalogue = {
   currency: 'USD',
-  plans: [plan('trial', 'Trial', 1000, 14), plan('creator', 'Creator', 6000), plan('pro', 'Pro', 18000), plan('studio', 'Studio', 40000)],
+  plans: [
+    plan('trial', 'Trial', 1000, 14),
+    plan('creator', 'Creator', 6000),
+    plan('pro', 'Pro', 18000),
+    plan('studio', 'Studio', 40000),
+  ],
   packs: [],
   rates,
   pictureClasses,
@@ -312,7 +317,9 @@ describe('LandingCreditsComponent', () => {
     await create(published);
 
     expect(host.querySelector('#landing-credits-pictures')?.getAttribute('aria-valuetext')).toBe('60 pictures a month');
-    expect(host.querySelector('#landing-credits-writing')?.getAttribute('aria-valuetext')).toBe('20 writing actions a month');
+    expect(host.querySelector('#landing-credits-writing')?.getAttribute('aria-valuetext')).toBe(
+      '20 writing actions a month',
+    );
   });
 
   /**

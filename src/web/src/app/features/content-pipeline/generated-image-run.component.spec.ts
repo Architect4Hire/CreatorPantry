@@ -609,7 +609,13 @@ describe('GeneratedImageRunComponent', () => {
 
       watches[watches.length - 1].next({
         status: 'found',
-        operation: { ...operation(images), status: 'Running', variantCount: asked, stagedCount: images.length, completedAt: null },
+        operation: {
+          ...operation(images),
+          status: 'Running',
+          variantCount: asked,
+          stagedCount: images.length,
+          completedAt: null,
+        },
       });
       await settle();
     }
@@ -669,7 +675,11 @@ describe('GeneratedImageRunComponent', () => {
       await running([picture(0)], 3);
       expect(el.querySelectorAll('.sheet > li.pending').length).toBe(2);
 
-      (Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Stop checking') as HTMLButtonElement).click();
+      (
+        Array.from(el.querySelectorAll('button')).find(
+          (b) => b.textContent?.trim() === 'Stop checking',
+        ) as HTMLButtonElement
+      ).click();
       await settle();
 
       expect(el.querySelectorAll('.sheet > li.pending').length).toBe(0);
@@ -681,7 +691,9 @@ describe('GeneratedImageRunComponent', () => {
 
       const pending = Array.from(el.querySelectorAll<HTMLElement>('.sheet > li.pending'));
       expect(pending.length).toBe(2);
-      expect(pending[0].querySelector<HTMLElement>('cp-skeleton')!.style.getPropertyValue('--cp-skeleton-picture-aspect')).toBe('1 / 1');
+      expect(
+        pending[0].querySelector<HTMLElement>('cp-skeleton')!.style.getPropertyValue('--cp-skeleton-picture-aspect'),
+      ).toBe('1 / 1');
       // No mark round skeletons alone: there is no output yet to say a model made.
       expect(el.querySelector('cp-generated')).toBeNull();
       expect(el.querySelector('[cpGeneratedActions]')).toBeNull();
@@ -760,9 +772,7 @@ describe('GeneratedImageRunComponent', () => {
 
       expect(host.saves).toEqual([createdAsset()]);
       expect(tiles()[0].textContent).toContain('In your library as “Soda bread hero”.');
-      expect(
-        labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href'),
-      ).toBe('/cozy-fall/dam/a1');
+      expect(labelled('a', 'Open it: picture 1 of 2 in your library')?.getAttribute('href')).toBe('/cozy-fall/dam/a1');
       expect(host.announcements).toContain('Saved to your library as “Soda bread hero”.');
       expect(el.textContent).toContain('One picture is in your library.');
     });
@@ -1017,16 +1027,38 @@ describe('GeneratedImageRunComponent', () => {
 
     it('stops a request from an account whose AI help is switched off, and says so', async () => {
       await answerWith((variants) =>
-        quote(variants, { outcome: 'Suspended', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+        quote(variants, {
+          outcome: 'Suspended',
+          perPicture: null,
+          total: null,
+          allowance: null,
+          remaining: null,
+          remainingAfter: null,
+          affordableVariants: 0,
+          resetsAt: null,
+          timeZoneId: null,
+        }),
       );
 
-      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('AI assistance is switched off');
+      expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain(
+        'AI assistance is switched off',
+      );
       expect(makeButton().disabled).toBeTrue();
     });
 
     it('stops a request from an account whose free trial has ended, and says what to do', async () => {
       await answerWith((variants) =>
-        quote(variants, { outcome: 'TrialEnded', perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+        quote(variants, {
+          outcome: 'TrialEnded',
+          perPicture: null,
+          total: null,
+          allowance: null,
+          remaining: null,
+          remainingAfter: null,
+          affordableVariants: 0,
+          resetsAt: null,
+          timeZoneId: null,
+        }),
       );
 
       expect(el.querySelector('#cp-studio-images-quote-refusal')?.textContent).toContain('Your free trial has ended');
@@ -1038,7 +1070,13 @@ describe('GeneratedImageRunComponent', () => {
     // figures, and offering the count that would fit.
     it('stops a request that would pass the trial’s pictures, and says how many are left', async () => {
       await answerWith((variants) =>
-        quote(variants, { outcome: 'TrialImageCap', pictureCap: 10, picturesLeft: 2, affordableVariants: 2, remainingAfter: null }),
+        quote(variants, {
+          outcome: 'TrialImageCap',
+          pictureCap: 10,
+          picturesLeft: 2,
+          affordableVariants: 2,
+          remainingAfter: null,
+        }),
       );
 
       const refusal = el.querySelector('#cp-studio-images-quote-refusal')?.textContent ?? '';
@@ -1074,7 +1112,18 @@ describe('GeneratedImageRunComponent', () => {
 
     it('says nothing about a price on a host with no image provider, and stops nothing', async () => {
       await answerWith((variants) =>
-        quote(variants, { outcome: 'Unavailable', unit: null, perPicture: null, total: null, allowance: null, remaining: null, remainingAfter: null, affordableVariants: 0, resetsAt: null, timeZoneId: null }),
+        quote(variants, {
+          outcome: 'Unavailable',
+          unit: null,
+          perPicture: null,
+          total: null,
+          allowance: null,
+          remaining: null,
+          remainingAfter: null,
+          affordableVariants: 0,
+          resetsAt: null,
+          timeZoneId: null,
+        }),
       );
 
       expect(quoteLine()).toBe('');
@@ -1118,7 +1167,10 @@ describe('GeneratedImageRunComponent', () => {
     });
 
     it('asks the price again once a request is accepted, because what is left has moved', async () => {
-      requestOutcome = { status: 'accepted', operation: { id: 'op-9', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      requestOutcome = {
+        status: 'accepted',
+        operation: { id: 'op-9', status: 'Requested', variantCount: 2, stagedCount: 0 },
+      } as GeneratedImageRequestOutcome;
       await priced();
 
       makeButton().click();
@@ -1142,7 +1194,9 @@ describe('GeneratedImageRunComponent', () => {
 
   describe('the quality', () => {
     function countLine(): HTMLElement | undefined {
-      return Array.from(el.querySelectorAll<HTMLElement>('p')).find((p) => (p.textContent ?? '').includes('Asking for'));
+      return Array.from(el.querySelectorAll<HTMLElement>('p')).find((p) =>
+        (p.textContent ?? '').includes('Asking for'),
+      );
     }
 
     it('offers each class with its own price, the default picked, before the count', async () => {
@@ -1238,7 +1292,14 @@ describe('GeneratedImageRunComponent', () => {
     it('names what fits at an unaffordable class and leaves the choice open', async () => {
       quoteAnswer = (variants, qualityClass) =>
         qualityClass === 'High'
-          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: 175, remaining: 100, remainingAfter: null, affordableVariants: 1 })
+          ? quote(variants, {
+              outcome: 'Exhausted',
+              perPicture: 87.5,
+              total: 175,
+              remaining: 100,
+              remainingAfter: null,
+              affordableVariants: 1,
+            })
           : quote(variants, { remaining: 100, remainingAfter: 0 });
       await priced();
 
@@ -1265,7 +1326,14 @@ describe('GeneratedImageRunComponent', () => {
 
     it('suggests no lower quality when the lowest is the one that does not fit', async () => {
       quoteAnswer = (variants) =>
-        quote(variants, { outcome: 'Exhausted', perPicture: 25, total: 50, remaining: 10, remainingAfter: null, affordableVariants: 0 });
+        quote(variants, {
+          outcome: 'Exhausted',
+          perPicture: 25,
+          total: 50,
+          remaining: 10,
+          remainingAfter: null,
+          affordableVariants: 0,
+        });
       await priced();
 
       qualityRadio('Draft').click();
@@ -1308,7 +1376,9 @@ describe('GeneratedImageRunComponent', () => {
       expect(loading?.querySelector('cp-skeleton')).not.toBeNull();
 
       // Said once from a region that was in the page before it had words, outside the busy body.
-      const said = Array.from(el.querySelectorAll('.cp-sr-only[role="status"]')).map((node) => node.textContent?.trim());
+      const said = Array.from(el.querySelectorAll('.cp-sr-only[role="status"]')).map((node) =>
+        node.textContent?.trim(),
+      );
       expect(said).toContain('Finding the picture qualities…');
       expect(qualityGroup()).toBeNull();
 
@@ -1395,7 +1465,13 @@ describe('GeneratedImageRunComponent', () => {
       await rebuild(
         () =>
           (classesAnswer = () =>
-            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+            Promise.resolve(
+              classes([
+                ['Draft', 25],
+                ['Standard', 50],
+                ['High', 87.5, 'Creator'],
+              ]),
+            )),
       );
       await priced();
 
@@ -1420,7 +1496,14 @@ describe('GeneratedImageRunComponent', () => {
 
     it('says a class no plan allows is not on one yet, rather than leaving "Locked" as a dead end', async () => {
       await rebuild(
-        () => (classesAnswer = () => Promise.resolve(classes([['Standard', 50], ['High', 87.5, null]]))),
+        () =>
+          (classesAnswer = () =>
+            Promise.resolve(
+              classes([
+                ['Standard', 50],
+                ['High', 87.5, null],
+              ]),
+            )),
       );
       await priced();
 
@@ -1440,7 +1523,12 @@ describe('GeneratedImageRunComponent', () => {
         () =>
           (classesAnswer = () =>
             Promise.resolve(
-              classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator'], ['High2K', 187.5, null]]),
+              classes([
+                ['Draft', 25],
+                ['Standard', 50],
+                ['High', 87.5, 'Creator'],
+                ['High2K', 187.5, null],
+              ]),
             )),
       );
       await priced();
@@ -1466,7 +1554,13 @@ describe('GeneratedImageRunComponent', () => {
       await rebuild(
         () =>
           (classesAnswer = () =>
-            Promise.resolve(classes([['Draft', 25], ['Standard', 50], ['High', 87.5, 'Creator']]))),
+            Promise.resolve(
+              classes([
+                ['Draft', 25],
+                ['Standard', 50],
+                ['High', 87.5, 'Creator'],
+              ]),
+            )),
       );
       await priced();
 
@@ -1496,12 +1590,26 @@ describe('GeneratedImageRunComponent', () => {
     it('offers no lower quality in a refusal when every lower one is locked', async () => {
       quoteAnswer = (variants, qualityClass) =>
         qualityClass === 'High'
-          ? quote(variants, { outcome: 'Exhausted', perPicture: 87.5, total: variants * 87.5, remaining: 10, affordableVariants: 0 })
+          ? quote(variants, {
+              outcome: 'Exhausted',
+              perPicture: 87.5,
+              total: variants * 87.5,
+              remaining: 10,
+              affordableVariants: 0,
+            })
           : quote(variants);
       await rebuild(
         () =>
           (classesAnswer = () =>
-            Promise.resolve(classes([['Draft', 25, 'Creator'], ['High', 87.5]], 'High'))),
+            Promise.resolve(
+              classes(
+                [
+                  ['Draft', 25, 'Creator'],
+                  ['High', 87.5],
+                ],
+                'High',
+              ),
+            )),
       );
       await priced();
 
@@ -1513,7 +1621,9 @@ describe('GeneratedImageRunComponent', () => {
 
   describe("today's pictures (DL.9)", () => {
     /** Refuses the next request as one of the three limits, in the server's words. */
-    function refuseWith(limit: NonNullable<Extract<GeneratedImageRequestOutcome, { status: 'refused' }>['limit']>): void {
+    function refuseWith(
+      limit: NonNullable<Extract<GeneratedImageRequestOutcome, { status: 'refused' }>['limit']>,
+    ): void {
       requestOutcome = {
         status: 'refused',
         message: 'Your AI allowance for this period and your pack credits don’t cover this.',
@@ -1609,7 +1719,9 @@ describe('GeneratedImageRunComponent', () => {
 
       // Not a dead end: the line offers to ask again, and a good answer replaces it.
       usageAfterRefresh = { status: 'ready', usage: usage({ picturesToday: today(3) }) };
-      Array.from(dayLine()!.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Check again')!.click();
+      Array.from(dayLine()!.querySelectorAll('button'))
+        .find((b) => b.textContent?.trim() === 'Check again')!
+        .click();
       await settle();
 
       expect(usageRefreshes).toBe(1);
@@ -1633,7 +1745,10 @@ describe('GeneratedImageRunComponent', () => {
 
     it('reads the count again once a request is accepted, and says it once when the pictures are ready', async () => {
       usageState.set({ status: 'ready', usage: usage({ picturesToday: today(3) }) });
-      requestOutcome = { status: 'accepted', operation: { id: 'op-1', status: 'Requested', variantCount: 2, stagedCount: 0 } } as GeneratedImageRequestOutcome;
+      requestOutcome = {
+        status: 'accepted',
+        operation: { id: 'op-1', status: 'Requested', variantCount: 2, stagedCount: 0 },
+      } as GeneratedImageRequestOutcome;
       await priced();
 
       makeButton().click();

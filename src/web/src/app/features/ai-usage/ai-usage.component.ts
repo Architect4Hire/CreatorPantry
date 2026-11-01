@@ -25,7 +25,12 @@ import { injectRouteTitle } from '../../core/route-title';
 
 import { AiTaskType } from '../../models/ai-proposal.models';
 import { AiUsageService } from '../../services/ai-usage.service';
-import { allowanceFigure, allowanceIsCountable, formatAllowanceAmount, formatAllowanceReset } from '../../shared/allowance-text';
+import {
+  allowanceFigure,
+  allowanceIsCountable,
+  formatAllowanceAmount,
+  formatAllowanceReset,
+} from '../../shared/allowance-text';
 
 /**
  * What each capability is called, in the creator's language.
@@ -234,7 +239,12 @@ export class AiUsageComponent {
     const tiles = [
       { id: 'left', value: left.value, label: `${left.noun} left`, context: this.leftContext() },
       { id: 'used', value: used.value, label: `${used.noun} used ${this.periodWord()}`, context: this.usedContext() },
-      { id: 'allowance', value: whole.value, label: `${whole.noun} in your allowance ${this.periodWord()}`, context: this.carriedOverLine() },
+      {
+        id: 'allowance',
+        value: whole.value,
+        label: `${whole.noun} in your allowance ${this.periodWord()}`,
+        context: this.carriedOverLine(),
+      },
     ];
 
     // The packs as a figure of their own, beside the allowance and never added to it (AP.5.3). None until there
@@ -292,7 +302,10 @@ export class AiUsageComponent {
       const when = formatAllowanceReset(today.resetsAt, 'Etc/UTC');
       // The run's phrase, so the page and the picture step say when in the same words (DL.9).
       const more = when === null ? 'more come back at midnight UTC' : `more come back on ${when} (UTC)`;
-      facts.push({ label: 'Pictures today', value: `${today.used} of ${today.cap} used · ${today.left} left · ${more}` });
+      facts.push({
+        label: 'Pictures today',
+        value: `${today.used} of ${today.cap} used · ${today.left} left · ${more}`,
+      });
     }
 
     if (trial !== null) {
@@ -419,7 +432,10 @@ export class AiUsageComponent {
     const reset = this.resetInFacts() ? '' : this.resetLine();
 
     if (this.onPacks()) {
-      return sentences(`Your allowance is used up ${this.periodWord()}, so AI help now comes from ${this.packsPhrase()}.`, reset);
+      return sentences(
+        `Your allowance is used up ${this.periodWord()}, so AI help now comes from ${this.packsPhrase()}.`,
+        reset,
+      );
     }
 
     switch (this.allowance().kind) {
@@ -431,7 +447,10 @@ export class AiUsageComponent {
         // The server's line is about the allowance alone, as a picture quote's is (AP.2.6); the packs are why
         // "not much more" would be untrue, so they are said rather than folded into the warning.
         return this.figures()!.packRemaining > 0
-          ? sentences(`Your allowance is nearly spent ${this.periodWord()}. After that, AI help comes from ${this.packsPhrase()}.`, reset)
+          ? sentences(
+              `Your allowance is nearly spent ${this.periodWord()}. After that, AI help comes from ${this.packsPhrase()}.`,
+              reset,
+            )
           : sentences(`You can still ask for AI help, but not much more ${this.periodWord()}.`, reset);
       case 'degraded':
         return 'We couldn’t check just now, so these are the last figures we had.';

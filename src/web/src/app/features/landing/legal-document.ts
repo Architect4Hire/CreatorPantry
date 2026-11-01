@@ -123,10 +123,19 @@ export function parseLegalDocument(markdown: string): LegalDocument {
         index++;
       }
       const [head = [], ...body] = rows;
-      blocks.push({ kind: 'table', label: section || title, head: head.map(parseInline), rows: body.map((row) => row.map(parseInline)) });
+      blocks.push({
+        kind: 'table',
+        label: section || title,
+        head: head.map(parseInline),
+        rows: body.map((row) => row.map(parseInline)),
+      });
     } else if (line.startsWith('- ')) {
       const items: { text: string; children: string[] }[] = [];
-      while (index < lines.length && !isBlank(lines[index]) && (lines[index].startsWith('- ') || lines[index].startsWith(' '))) {
+      while (
+        index < lines.length &&
+        !isBlank(lines[index]) &&
+        (lines[index].startsWith('- ') || lines[index].startsWith(' '))
+      ) {
         const current = lines[index];
         const nested = current.match(/^\s+- (.*)$/);
         const last = items.at(-1);

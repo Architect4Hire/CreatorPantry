@@ -24,7 +24,13 @@ type Loaded =
 @Component({
   selector: 'cp-recipe-sizes-step',
   standalone: true,
-  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, RecipeDisplayNormalizationComponent, RecipeScalingPreviewComponent],
+  imports: [
+    CpButtonComponent,
+    CpNoticeComponent,
+    CpSkeletonComponent,
+    RecipeDisplayNormalizationComponent,
+    RecipeScalingPreviewComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->

@@ -102,7 +102,12 @@ describe('BrandSourceDocumentService', () => {
     const result = service.pasteText('w', { ...describe_, text: 'Trust me.' }, 'key-2');
     const req = http.expectOne(`${BASE}/text`);
     expect(req.request.headers.get('Idempotency-Key')).toBe('key-2');
-    expect(req.request.body).toEqual({ title: 'Lasagna post', documentType: 'WritingSample', purpose: 'Voice', text: 'Trust me.' });
+    expect(req.request.body).toEqual({
+      title: 'Lasagna post',
+      documentType: 'WritingSample',
+      purpose: 'Voice',
+      text: 'Trust me.',
+    });
     req.flush(DOC, { status: 201, statusText: 'Created' });
     expect((await result).status).toBe('added');
   });
@@ -136,7 +141,9 @@ describe('BrandSourceDocumentService', () => {
     expect(req.request.withCredentials).toBeTrue();
     req.flush(DOC);
     const outcome = await result;
-    expect(outcome.status === 'ok' && outcome.document.versionNumber === 1 && outcome.document.concurrencyToken === 't').toBeTrue();
+    expect(
+      outcome.status === 'ok' && outcome.document.versionNumber === 1 && outcome.document.concurrencyToken === 't',
+    ).toBeTrue();
   });
 
   it('answers not_found or unavailable when a document cannot be read', async () => {
@@ -154,7 +161,11 @@ describe('BrandSourceDocumentService', () => {
     expect(req.request.body).toEqual({ expectedConcurrencyToken: 't' });
     req.flush({ ...DOC, status: 'Archived', concurrencyToken: 't2' });
     const archived = await result;
-    expect(archived.status === 'done' && archived.document.status === 'Archived' && archived.document.concurrencyToken === 't2').toBeTrue();
+    expect(
+      archived.status === 'done' &&
+        archived.document.status === 'Archived' &&
+        archived.document.concurrencyToken === 't2',
+    ).toBeTrue();
 
     result = service.unarchive('w', DOC.id, 't2');
     req = http.expectOne(`${BASE}/${DOC.id}/unarchive`);
@@ -163,7 +174,12 @@ describe('BrandSourceDocumentService', () => {
     expect((await result).status).toBe('done');
   });
 
-  for (const [status, expected] of [[409, 'conflict'], [403, 'forbidden'], [404, 'not_found'], [500, 'unavailable']] as const) {
+  for (const [status, expected] of [
+    [409, 'conflict'],
+    [403, 'forbidden'],
+    [404, 'not_found'],
+    [500, 'unavailable'],
+  ] as const) {
     it(`maps a ${status} from the shelf to ${expected}`, async () => {
       const result = service.archive('w', DOC.id, 't');
       http.expectOne(`${BASE}/${DOC.id}/archive`).flush({}, { status, statusText: 'x' });
@@ -180,7 +196,10 @@ describe('BrandSourceDocumentService', () => {
   it('answers cancelled when aborted, before or during the request', async () => {
     const before = new AbortController();
     before.abort();
-    expect(await service.upload('w', new File(['x'], 'a.txt'), describe_, 'k', before.signal)).toEqual({ status: 'failed', reason: 'cancelled' });
+    expect(await service.upload('w', new File(['x'], 'a.txt'), describe_, 'k', before.signal)).toEqual({
+      status: 'failed',
+      reason: 'cancelled',
+    });
 
     const during = new AbortController();
     const result = service.upload('w', new File(['x'], 'a.txt'), describe_, 'k', during.signal);

@@ -8,7 +8,13 @@ import { CpEmptyStateComponent, CpPageHeadComponent } from '@creator-pantry/ui';
   standalone: true,
   imports: [CpEmptyStateComponent, CpPageHeadComponent],
   template: `<cp-page-head [heading]="title" /><cp-empty-state [title]="title" [description]="description" icon="✦" />`,
-  styles: [`:host{display:block}`],
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PlaceholderSectionComponent {

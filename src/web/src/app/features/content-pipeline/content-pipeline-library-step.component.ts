@@ -12,12 +12,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import {
-  CpButtonComponent,
-  CpNoticeComponent,
-  CpSkeletonComponent,
-  CpStatusPillComponent,
-} from '@creator-pantry/ui';
+import { CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
 import { ContentPipelineDraft } from '../../models/content-pipeline.models';
 import { CreativeContextReference, keeperReferencesOf, linkedRecipeOf } from '../../models/creative-context.models';
@@ -141,7 +136,9 @@ export class ContentPipelineLibraryStepComponent {
    * Null while the session is still pointed at another workspace: a picture of this workspace's must never be
    * saved against the work the previous one left behind.
    */
-  protected readonly contextId = computed(() => (this.holdsThisWorkspace() ? this.session().context()?.id ?? null : null));
+  protected readonly contextId = computed(() =>
+    this.holdsThisWorkspace() ? (this.session().context()?.id ?? null) : null,
+  );
 
   /**
    * Where the step stands.
@@ -177,7 +174,9 @@ export class ContentPipelineLibraryStepComponent {
       const operationId = this.draft().images.operationId;
       if (this.session().workspace() !== slug) return;
 
-      const names = this.keeperReferences().map((reference) => reference.id).join(',');
+      const names = this.keeperReferences()
+        .map((reference) => reference.id)
+        .join(',');
       const key = `${slug}|${operationId ?? ''}|${names}`;
       if (key === this.readKey) return;
 

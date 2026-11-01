@@ -437,7 +437,11 @@ export class DamAssetService {
    * after the creator has answered the confirmation. The token is the one from the read they were shown, so a
    * removal composed against an asset that has since changed is refused rather than carried out.
    */
-  async remove(workspaceSlug: string, assetId: string, expectedConcurrencyToken: string): Promise<DamAssetRemovalOutcome> {
+  async remove(
+    workspaceSlug: string,
+    assetId: string,
+    expectedConcurrencyToken: string,
+  ): Promise<DamAssetRemovalOutcome> {
     const url = this.url(workspaceSlug, `/${encodeURIComponent(assetId)}`);
     if (!url) return { status: 'unavailable' };
 
@@ -567,7 +571,9 @@ export class DamAssetService {
 
           return {
             kind: 'done',
-            outcome: asset ? { status: 'created', asset } : { status: 'failed', reason: 'unavailable', fieldErrors: {} },
+            outcome: asset
+              ? { status: 'created', asset }
+              : { status: 'failed', reason: 'unavailable', fieldErrors: {} },
           };
         }),
         filter((event): event is DamAssetUploadEvent => event !== null),

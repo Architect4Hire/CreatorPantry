@@ -27,9 +27,13 @@ describe('LandingHeroComponent', () => {
     const fixture = await createFixture();
     const el: HTMLElement = fixture.nativeElement;
 
-    expect(el.querySelector('h1')?.textContent?.trim()).toBe('The workspace where your recipes become everything else.');
+    expect(el.querySelector('h1')?.textContent?.trim()).toBe(
+      'The workspace where your recipes become everything else.',
+    );
     expect(el.querySelector('.subheadline')?.textContent).toContain('Write and version your recipes');
-    expect(el.querySelector('.note')?.textContent).toContain('Your workspace’s Owner switches on the features you use.');
+    expect(el.querySelector('.note')?.textContent).toContain(
+      'Your workspace’s Owner switches on the features you use.',
+    );
   });
 
   it('keeps the AI-as-proposal wording and claims no self-serve publishing', async () => {
@@ -48,7 +52,9 @@ describe('LandingHeroComponent', () => {
     expect(marks.length).toBe(1);
     expect(marks[0].textContent).toBe('everything else.');
     expect(marks[0].getAttribute('aria-hidden')).toBeNull();
-    expect(heading.textContent?.replace(/\s+/g, ' ').trim()).toBe('The workspace where your recipes become everything else.');
+    expect(heading.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'The workspace where your recipes become everything else.',
+    );
   });
 
   it('marks nothing when the headline does not contain the highlighted phrase', async () => {

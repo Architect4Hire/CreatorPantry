@@ -36,8 +36,9 @@ export function platformName(platform: string): string {
 export function zoneName(timeZoneId: string, at?: string | Date): string {
   try {
     const moment = at === undefined ? new Date() : new Date(at);
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timeZoneId, timeZoneName: 'long' })
-      .formatToParts(Number.isNaN(moment.valueOf()) ? new Date() : moment);
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timeZoneId, timeZoneName: 'long' }).formatToParts(
+      Number.isNaN(moment.valueOf()) ? new Date() : moment,
+    );
 
     return parts.find((part) => part.type === 'timeZoneName')?.value ?? timeZoneId;
   } catch {

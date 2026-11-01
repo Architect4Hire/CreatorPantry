@@ -135,7 +135,10 @@ describe('decodeAccountAiUsage', () => {
   it('folds an unknown capability into Unspecified rather than dropping its spend', () => {
     const usage = decodeAccountAiUsage({
       ...PAYLOAD,
-      byTask: [{ taskType: 'RecipeConcepts', amount: 240, requests: 12 }, { taskType: 'NotATask', amount: 1, requests: 1 }],
+      byTask: [
+        { taskType: 'RecipeConcepts', amount: 240, requests: 12 },
+        { taskType: 'NotATask', amount: 1, requests: 1 },
+      ],
     });
 
     expect(usage?.byTask.length).toBe(2);
