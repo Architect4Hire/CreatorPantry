@@ -11,7 +11,12 @@ import { DamAssetDetailOutcome, DamAssetSearchOutcome, DamAssetService } from '.
 import { assetDetail, assetSummary } from '../recipes/recipe-media.testing';
 import { WorkspaceRole } from '../../models/auth.models';
 import { BrandProfile, ContentChannel, decodeBrandProfile } from '../../models/brand-profile.models';
-import { BrandProfileOutcome, BrandProfileService, ContentChannelsOutcome, SaveBrandProfileOutcome } from '../../services/brand-profile.service';
+import {
+  BrandProfileOutcome,
+  BrandProfileService,
+  ContentChannelsOutcome,
+  SaveBrandProfileOutcome,
+} from '../../services/brand-profile.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { BrandSettingsComponent } from './brand-settings.component';
 import { brandSettingsCanDeactivateGuard } from './brand-settings.guard';
@@ -49,7 +54,14 @@ function membershipStub(role: WorkspaceRole | null) {
       : {
           status: 'ready',
           memberships: [
-            { workspaceId: 'w1', workspaceSlug: 'sams-kitchen', workspaceName: 'Sams', membershipId: 'm1', role, status: 'Active' },
+            {
+              workspaceId: 'w1',
+              workspaceSlug: 'sams-kitchen',
+              workspaceName: 'Sams',
+              membershipId: 'm1',
+              role,
+              status: 'Active',
+            },
           ],
         },
   );
@@ -58,8 +70,12 @@ function membershipStub(role: WorkspaceRole | null) {
 
 interface Harness {
   readonly get: jasmine.Spy<(slug: string) => Promise<BrandProfileOutcome>>;
-  readonly create: jasmine.Spy<(slug: string, body: Record<string, unknown>, key?: string) => Promise<SaveBrandProfileOutcome>>;
-  readonly update: jasmine.Spy<(slug: string, body: Record<string, unknown>, key?: string) => Promise<SaveBrandProfileOutcome>>;
+  readonly create: jasmine.Spy<
+    (slug: string, body: Record<string, unknown>, key?: string) => Promise<SaveBrandProfileOutcome>
+  >;
+  readonly update: jasmine.Spy<
+    (slug: string, body: Record<string, unknown>, key?: string) => Promise<SaveBrandProfileOutcome>
+  >;
   readonly channels: jasmine.Spy<() => Promise<ContentChannelsOutcome>>;
   readonly confirm: jasmine.Spy;
   readonly assetDetail: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
@@ -72,31 +88,43 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function create(options: {
-  read?: BrandProfileOutcome;
-  channels?: ContentChannelsOutcome;
-  role?: WorkspaceRole | null;
-  hold?: boolean;
-} = {}): Promise<void> {
+async function create(
+  options: {
+    read?: BrandProfileOutcome;
+    channels?: ContentChannelsOutcome;
+    role?: WorkspaceRole | null;
+    hold?: boolean;
+  } = {},
+): Promise<void> {
   const read = options.read ?? { status: 'found', profile: profile() };
   spies = {
-    get: jasmine.createSpy('get').and.callFake(() =>
-      options.hold ? new Promise<BrandProfileOutcome>(() => undefined) : Promise.resolve(read),
-    ),
+    get: jasmine
+      .createSpy('get')
+      .and.callFake(() => (options.hold ? new Promise<BrandProfileOutcome>(() => undefined) : Promise.resolve(read))),
     create: jasmine.createSpy('create').and.resolveTo({ status: 'saved', profile: profile(), replayed: false }),
-    update: jasmine.createSpy('update').and.resolveTo({ status: 'saved', profile: profile({ revision: 2, concurrencyToken: 'tok-2' }), replayed: false }),
+    update: jasmine.createSpy('update').and.resolveTo({
+      status: 'saved',
+      profile: profile({ revision: 2, concurrencyToken: 'tok-2' }),
+      replayed: false,
+    }),
     channels: jasmine.createSpy('channels').and.resolveTo(options.channels ?? { status: 'found', channels: CHANNELS }),
     confirm: jasmine.createSpy('confirm').and.resolveTo(true),
     assetDetail: jasmine
       .createSpy('assetDetail')
-      .and.callFake((_slug, id) => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id, title: `Logo ${id}` }) })),
+      .and.callFake((_slug, id) =>
+        of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id, title: `Logo ${id}` }) }),
+      ),
   };
 
   TestBed.resetTestingModule();
   await TestBed.configureTestingModule({
     providers: [
       provideRouter([
-        { path: ':workspaceSlug/brand', component: BrandSettingsComponent, canDeactivate: [brandSettingsCanDeactivateGuard] },
+        {
+          path: ':workspaceSlug/brand',
+          component: BrandSettingsComponent,
+          canDeactivate: [brandSettingsCanDeactivateGuard],
+        },
         { path: ':workspaceSlug/elsewhere', component: BrandSettingsComponent },
       ]),
       {
@@ -108,7 +136,10 @@ async function create(options: {
           listContentChannels: spies.channels,
         },
       },
-      { provide: WorkspaceMembershipService, useValue: membershipStub(options.role === undefined ? 'Editor' : options.role) },
+      {
+        provide: WorkspaceMembershipService,
+        useValue: membershipStub(options.role === undefined ? 'Editor' : options.role),
+      },
       { provide: ConfirmService, useValue: { confirm: spies.confirm } },
       {
         provide: DamAssetService,
@@ -515,7 +546,9 @@ describe('BrandSettingsComponent', () => {
   });
 
   it('names a stored link the rules refuse, so Save is never disabled with nothing on screen to say why', async () => {
-    await create({ read: { status: 'found', profile: profile({ links: [{ kind: 'Website', url: 'example.com', label: null }] }) } });
+    await create({
+      read: { status: 'found', profile: profile({ links: [{ kind: 'Website', url: 'example.com', label: null }] }) },
+    });
 
     expect(button('Save changes').disabled).toBeTrue();
     const summary = root().querySelector('cp-validation-summary')!;
@@ -570,7 +603,10 @@ describe('BrandSettingsComponent', () => {
         }),
       },
     });
-    spies.update.and.resolveTo({ status: 'validation_failed', fieldErrors: { 'links[1].url': ['Each link can be listed once.'] } });
+    spies.update.and.resolveTo({
+      status: 'validation_failed',
+      fieldErrors: { 'links[1].url': ['Each link can be listed once.'] },
+    });
     await type('brand-default-audience', 'X');
     await save();
     expect(root().querySelectorAll('li.row')[1].textContent).toContain('Each link can be listed once.');
@@ -586,7 +622,10 @@ describe('BrandSettingsComponent', () => {
     await create();
     spies.update.and.resolveTo({
       status: 'validation_failed',
-      fieldErrors: { timeZoneId: ['That is not a time zone we recognise.'], locale: ['Use a language tag such as en-US.'] },
+      fieldErrors: {
+        timeZoneId: ['That is not a time zone we recognise.'],
+        locale: ['Use a language tag such as en-US.'],
+      },
     });
 
     await type('brand-default-audience', 'X');
@@ -614,7 +653,7 @@ describe('BrandSettingsComponent', () => {
     expect(row.textContent).toContain('Use an http or https address');
   });
 
-  it('keeps the creator\'s edits on a conflict and refreshes the fields they did not touch', async () => {
+  it("keeps the creator's edits on a conflict and refreshes the fields they did not touch", async () => {
     await create();
     spies.update.and.resolveTo({ status: 'conflict' });
     spies.get.and.resolveTo({
@@ -630,7 +669,11 @@ describe('BrandSettingsComponent', () => {
     expect(input('brand-short-description').value).toBe('Changed by someone else.');
 
     // Saving again quotes the latest token.
-    spies.update.and.resolveTo({ status: 'saved', profile: profile({ revision: 3, concurrencyToken: 'tok-10' }), replayed: false });
+    spies.update.and.resolveTo({
+      status: 'saved',
+      profile: profile({ revision: 3, concurrencyToken: 'tok-10' }),
+      replayed: false,
+    });
     await save();
     expect(spies.update.calls.mostRecent().args[1]['expectedConcurrencyToken']).toBe('tok-9');
   });
@@ -769,7 +812,10 @@ describe('BrandSettingsComponent', () => {
     it('shows the linked logos by name, each linking to its picture in the library', async () => {
       await create({ read: { status: 'found', profile: profile({ assets: LOGOS }) } });
 
-      const links = Array.from(logoSection().querySelectorAll('a')).map((each) => [each.textContent?.trim(), each.getAttribute('href')]);
+      const links = Array.from(logoSection().querySelectorAll('a')).map((each) => [
+        each.textContent?.trim(),
+        each.getAttribute('href'),
+      ]);
 
       expect(links).toEqual([
         ['Logo a1', '/sams-kitchen/dam/a1'],
@@ -811,7 +857,9 @@ describe('BrandSettingsComponent', () => {
     });
 
     it('replaces the primary logo rather than keeping the old one as an alternate', async () => {
-      await create({ read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a9', role: 'PrimaryLogo' }] }) } });
+      await create({
+        read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a9', role: 'PrimaryLogo' }] }) },
+      });
 
       await chooseFromLibrary('Change', 'Wordmark');
       await save();
@@ -847,7 +895,9 @@ describe('BrandSettingsComponent', () => {
     });
 
     it('marks the logo the server refused on its own row, and clears the mark when the logos change', async () => {
-      await create({ read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a1', role: 'PrimaryLogo' }] }) } });
+      await create({
+        read: { status: 'found', profile: profile({ assets: [{ mediaAssetId: 'a1', role: 'PrimaryLogo' }] }) },
+      });
       spies.update.and.resolveTo({
         status: 'assets_refused',
         positions: [1],
@@ -858,7 +908,9 @@ describe('BrandSettingsComponent', () => {
       await save();
 
       const refused = logoSection().querySelector('[data-logo-id="a2"] [role="alert"]');
-      expect(refused?.textContent).toContain("That picture is not in this workspace's library. Unlink it or choose another.");
+      expect(refused?.textContent).toContain(
+        "That picture is not in this workspace's library. Unlink it or choose another.",
+      );
       expect(logoSection().querySelector('[data-logo-id="a1"] [role="alert"]')).toBeNull();
 
       // The logo itself is still in the form, for the creator to act on.
@@ -901,7 +953,10 @@ describe('BrandSettingsComponent', () => {
       await chooseFromLibrary('Choose from library', 'Wordmark');
 
       spies.update.and.resolveTo({ status: 'conflict' });
-      spies.get.and.resolveTo({ status: 'found', profile: profile({ locale: 'fr-FR', revision: 2, concurrencyToken: 'tok-2' }) });
+      spies.get.and.resolveTo({
+        status: 'found',
+        profile: profile({ locale: 'fr-FR', revision: 2, concurrencyToken: 'tok-2' }),
+      });
       await save();
 
       expect(logoSection().textContent).toContain('Logo a1');
@@ -983,7 +1038,9 @@ describe('BrandSettingsComponent', () => {
     expect(root().querySelector('cp-page-head .lede')?.textContent).toContain('The facts about your brand');
     expect(root().querySelector('cp-page-head a[cpBackLink]')).toBeNull();
 
-    const actions = Array.from(root().querySelectorAll('cp-page-head .actions a')).map((each) => each.textContent?.trim());
+    const actions = Array.from(root().querySelectorAll('cp-page-head .actions a')).map((each) =>
+      each.textContent?.trim(),
+    );
     expect(actions).toEqual(['Create my voice', 'Brand library']);
   });
 });

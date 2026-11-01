@@ -380,7 +380,9 @@ export class DamAssetEditComponent {
         }
 
         this.fieldErrors.set(mapped);
-        this.problem.set(Object.keys(mapped).length > 0 ? 'Some of these changes could not be saved.' : outcome.message);
+        this.problem.set(
+          Object.keys(mapped).length > 0 ? 'Some of these changes could not be saved.' : outcome.message,
+        );
 
         const first = DAM_METADATA_FIELDS.find((field) => mapped[field]);
         if (first) this.focusField(first);

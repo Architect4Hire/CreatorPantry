@@ -6,11 +6,7 @@
 // route — the creator looks at one to three concepts and picks one. Every field is descriptive; a concept has
 // nowhere to put a quantity, a time or a temperature, which is why none appears below.
 
-import {
-  AiProposalDetail,
-  AiProposalWarning,
-  AiProposedChange,
-} from './ai-proposal.models';
+import { AiProposalDetail, AiProposalWarning, AiProposedChange } from './ai-proposal.models';
 import { decodeEnum } from './recipe.models';
 
 /** Mirrors AiPhotographyShotKind. What one planned frame of a concept is for. */
@@ -24,9 +20,7 @@ export const PHOTOGRAPHY_SHOT_KINDS: readonly PhotographyShotKind[] = [
   'DetailShot',
 ];
 
-export const PHOTOGRAPHY_SHOT_KIND_VALUES: ReadonlySet<string> = new Set<PhotographyShotKind>(
-  PHOTOGRAPHY_SHOT_KINDS,
-);
+export const PHOTOGRAPHY_SHOT_KIND_VALUES: ReadonlySet<string> = new Set<PhotographyShotKind>(PHOTOGRAPHY_SHOT_KINDS);
 
 /** How each shot role reads to a creator. Spelled out, because "IngredientLayout" names nothing to anyone. */
 export const PHOTOGRAPHY_SHOT_KIND_LABELS: Readonly<Record<PhotographyShotKind, string>> = {
@@ -106,9 +100,7 @@ export function decodePhotographyConcepts(detail: AiProposalDetail | null): read
 function buildConcept(addRow: AiProposedChange, detail: AiProposalDetail): PhotographyConcept {
   const setRows = detail.changes.filter(
     (change) =>
-      change.changeKind === 'Set' &&
-      change.targetKind === 'PhotographyConcept' &&
-      change.targetId === addRow.targetId,
+      change.changeKind === 'Set' && change.targetKind === 'PhotographyConcept' && change.targetId === addRow.targetId,
   );
 
   const field = (name: string): string | null => setRows.find((row) => row.fieldName === name)?.afterValue ?? null;
@@ -123,8 +115,7 @@ function buildConcept(addRow: AiProposedChange, detail: AiProposalDetail): Photo
     const styling = property('styling');
     const props = splitList(property('props'));
 
-    const planned =
-      framing !== null || lighting !== null || surface !== null || styling !== null || props.length > 0;
+    const planned = framing !== null || lighting !== null || surface !== null || styling !== null || props.length > 0;
 
     return planned ? { kind, framing, lighting, surface, styling, props } : null;
   }).filter((shot): shot is PhotographyShot => shot !== null);
@@ -185,9 +176,7 @@ export const PHOTOGRAPHY_CREATOR_CONCEPT_MAX_LENGTH = 1000;
  * Absent and empty mean the same thing to the server (`PhotographyConceptInputs` drops blanks on the way in), so
  * sending an empty list would only make a request that says it asked for something it did not.
  */
-export function encodeRequestPhotographyConcepts(
-  request: RequestPhotographyConceptsRequest,
-): Record<string, unknown> {
+export function encodeRequestPhotographyConcepts(request: RequestPhotographyConceptsRequest): Record<string, unknown> {
   const body: Record<string, unknown> = {};
   if (request.channelKey) body['channelKey'] = request.channelKey;
   if (request.recipeId) {

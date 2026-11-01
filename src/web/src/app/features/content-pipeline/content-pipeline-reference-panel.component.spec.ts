@@ -108,9 +108,8 @@ async function mount(prompt?: Partial<ContentPipelinePromptState>): Promise<void
 
 function buttonWith(text: string): HTMLButtonElement | null {
   return (
-    (Array.from(el.querySelectorAll('button')).find((button) =>
-      (button.textContent ?? '').trim().startsWith(text),
-    ) as HTMLButtonElement | undefined) ?? null
+    (Array.from(el.querySelectorAll('button')).find((button) => (button.textContent ?? '').trim().startsWith(text)) as
+      HTMLButtonElement | undefined) ?? null
   );
 }
 
@@ -119,7 +118,10 @@ async function click(text: string): Promise<void> {
   await settle();
 }
 
-async function answerWatch(detail: AiProposalDetail | null, status: AiProposalStatus['status'] = 'Proposed'): Promise<void> {
+async function answerWatch(
+  detail: AiProposalDetail | null,
+  status: AiProposalStatus['status'] = 'Proposed',
+): Promise<void> {
   watches[watches.length - 1].next({ status: 'found', operation: operation(detail, status) });
   await settle();
 }

@@ -53,9 +53,7 @@ export class LowCreditNoticeComponent {
     const left = formatAllowanceAmount(notice.spendable, notice.unit);
 
     return [
-      left === null
-        ? 'There is not much left to spend.'
-        : `${left} left — your allowance and your packs together.`,
+      left === null ? 'There is not much left to spend.' : `${left} left — your allowance and your packs together.`,
       resetSentence(notice),
       'A credit pack tops you up now, and pack credits don’t expire.',
     ].join(' ');

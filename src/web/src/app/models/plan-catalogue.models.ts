@@ -8,10 +8,7 @@
 // No figure in here has a counterpart in this bundle: prices, credits and caps are the server's, read at
 // runtime, so a price can change without a release and the browser can never disagree with the catalogue.
 
-import {
-  GENERATED_IMAGE_QUALITY_CLASS_VALUES,
-  GeneratedImageQualityClass,
-} from './generated-image.models';
+import { GENERATED_IMAGE_QUALITY_CLASS_VALUES, GeneratedImageQualityClass } from './generated-image.models';
 import { decodeEnum, isRecord } from './recipe.models';
 
 /** One plan on offer. Money is a number in the catalogue's currency, formatted for the reader at the edge. */

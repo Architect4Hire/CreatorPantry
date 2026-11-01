@@ -14,7 +14,11 @@ export interface QuickCaptureLink {
  * The route parameter each linkable page names its record by, and how the offer to link it reads. Only these:
  * a link is a pointer to a record the page already shows, never a search for one.
  */
-const PAGE_RECORDS: readonly { readonly param: string; readonly field: QuickCaptureLinkField; readonly label: string }[] = [
+const PAGE_RECORDS: readonly {
+  readonly param: string;
+  readonly field: QuickCaptureLinkField;
+  readonly label: string;
+}[] = [
   { param: 'recipeId', field: 'recipeId', label: 'Link it to the recipe you’re viewing' },
   { param: 'cardId', field: 'contentCardId', label: 'Link it to the card you’re viewing' },
   { param: 'assetId', field: 'mediaAssetId', label: 'Link it to the picture you’re viewing' },

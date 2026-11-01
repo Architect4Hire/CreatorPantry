@@ -43,11 +43,7 @@ import { WorkspaceMembershipService } from '../../services/workspace-membership.
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { CreativeContextService } from '../../services/creative-context.service';
 import { DayNotesNoticeComponent } from '../../shared/day-notes/day-notes-notice.component';
-import {
-  CONTEXT_ROUTE_PARAM,
-  HANDOFF_ROUTES,
-  HandoffDestination,
-} from '../../shared/use-this-in/handoff-destinations';
+import { CONTEXT_ROUTE_PARAM, HANDOFF_ROUTES, HandoffDestination } from '../../shared/use-this-in/handoff-destinations';
 import { HandoffSeed, UseThisInComponent } from '../../shared/use-this-in/use-this-in.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { ShellNavIconComponent } from '../../shared/nav-icon/shell-nav-icon.component';
@@ -67,15 +63,7 @@ const SHORT_FIELD_MAX_LENGTH = 200;
 const LIST_FIELD_MAX_LENGTH = 500;
 
 export type ConceptStudioState =
-  | 'idle'
-  | 'loading'
-  | 'submitting'
-  | 'watching'
-  | 'proposed'
-  | 'failed'
-  | 'expired'
-  | 'gone'
-  | 'forbidden';
+  'idle' | 'loading' | 'submitting' | 'watching' | 'proposed' | 'failed' | 'expired' | 'gone' | 'forbidden';
 
 /** One concept as its option card shows it. */
 interface ConceptView {
@@ -189,7 +177,9 @@ export class RecipeConceptStudioComponent {
   private readonly creativeContexts = inject(CreativeContextService);
 
   /** The work named in the address (`ai-recipe-studio/context/:contextId`), or null for ideas that are for none. */
-  private readonly routeContextId = this.host ? this.host.contextId : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
+  private readonly routeContextId = this.host
+    ? this.host.contextId
+    : this.route.snapshot.paramMap.get(CONTEXT_ROUTE_PARAM);
 
   /**
    * What is known about that work: nothing asked for, still being read, read, or not this workspace's to read.
@@ -220,7 +210,6 @@ export class RecipeConceptStudioComponent {
 
   readonly shortFieldMaxLength = SHORT_FIELD_MAX_LENGTH;
   readonly listFieldMaxLength = LIST_FIELD_MAX_LENGTH;
-
 
   // ---- Brief fields ----
 
@@ -621,9 +610,7 @@ export class RecipeConceptStudioComponent {
     const work = this.work();
     if (work.status !== 'found') return {};
 
-    return this.applyDayNotes()
-      ? { creativeContextId: work.id }
-      : { creativeContextId: work.id, applyDayNotes: false };
+    return this.applyDayNotes() ? { creativeContextId: work.id } : { creativeContextId: work.id, applyDayNotes: false };
   }
 
   async submit(): Promise<void> {
@@ -637,7 +624,11 @@ export class RecipeConceptStudioComponent {
     // One key per attempt, reused only if this same attempt has to be re-sent after a transport failure.
     this.pendingRequestKey ??= crypto.randomUUID();
 
-    const outcome = await this.concepts.requestConcepts(this.workspaceSlug, this.currentBrief(), this.pendingRequestKey);
+    const outcome = await this.concepts.requestConcepts(
+      this.workspaceSlug,
+      this.currentBrief(),
+      this.pendingRequestKey,
+    );
 
     this.submitting.set(false);
 

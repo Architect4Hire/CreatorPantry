@@ -24,7 +24,9 @@ export class CpThemeService {
     this.apply(theme);
   }
 
-  toggle(): void { this.set(this.resolved() === 'dark' ? 'light' : 'dark'); }
+  toggle(): void {
+    this.set(this.resolved() === 'dark' ? 'light' : 'dark');
+  }
 
   private apply(theme: CpTheme): void {
     const resolved: ResolvedTheme = theme === 'system' ? (this.media?.matches ? 'dark' : 'light') : theme;

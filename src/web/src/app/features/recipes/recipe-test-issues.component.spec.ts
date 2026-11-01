@@ -222,10 +222,7 @@ describe('RecipeTestIssuesComponent', () => {
   it('counts what is still open', async () => {
     const element = await render(
       testRun({
-        issues: [
-          issue({ id: 'a', sortOrder: 0 }),
-          issue({ id: 'b', sortOrder: 1, resolution: resolution() }),
-        ],
+        issues: [issue({ id: 'a', sortOrder: 0 }), issue({ id: 'b', sortOrder: 1, resolution: resolution() })],
       }),
     );
 
@@ -241,10 +238,7 @@ describe('RecipeTestIssuesComponent', () => {
   it('orders problems as the test recorded them', async () => {
     const element = await render(
       testRun({
-        issues: [
-          issue({ id: 'b', title: 'Second', sortOrder: 1 }),
-          issue({ id: 'a', title: 'First', sortOrder: 0 }),
-        ],
+        issues: [issue({ id: 'b', title: 'Second', sortOrder: 1 }), issue({ id: 'a', title: 'First', sortOrder: 0 })],
       }),
     );
 

@@ -292,6 +292,8 @@ export class RecipeMediaComponent {
    * exists and what is enabled. A timer would race the render it is waiting for.
    */
   private focusAfterRender(selector: string): void {
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), { injector: this.injector });
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), {
+      injector: this.injector,
+    });
   }
 }

@@ -69,10 +69,7 @@ async function createFixture(
     'sourceVersionNumber',
     options.sourceVersionNumber === undefined ? 3 : options.sourceVersionNumber,
   );
-  fixture.componentRef.setInput(
-    'yieldUnitId',
-    options.yieldUnitId === undefined ? 'unit-cup' : options.yieldUnitId,
-  );
+  fixture.componentRef.setInput('yieldUnitId', options.yieldUnitId === undefined ? 'unit-cup' : options.yieldUnitId);
   fixture.detectChanges();
 
   http.expectOne((request) => request.url === UNITS_URL).flush({ items: CATALOGUE, nextCursor: null });
@@ -97,8 +94,8 @@ function text(fixture: ComponentFixture<RecipeYieldReconciliationComponent>): st
 }
 
 function detailPairs(fixture: ComponentFixture<RecipeYieldReconciliationComponent>): string[] {
-  return Array.from(fixture.nativeElement.querySelectorAll('.result-detail dt, .result-detail dd')).map(
-    (node) => ((node as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim(),
+  return Array.from(fixture.nativeElement.querySelectorAll('.result-detail dt, .result-detail dd')).map((node) =>
+    ((node as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim(),
   );
 }
 
@@ -238,9 +235,7 @@ describe('RecipeYieldReconciliationComponent', () => {
     harness.fixture.componentInstance.panVolume.set(9);
 
     await reconcile(harness, (req) =>
-      req.flush(
-        payload({ panVolume: 9, panComparable: true, panFillRatio: { numerator: '4', denominator: '3' } }),
-      ),
+      req.flush(payload({ panVolume: 9, panComparable: true, panFillRatio: { numerator: '4', denominator: '3' } })),
     );
 
     const card = text(harness.fixture);
@@ -483,9 +478,7 @@ describe('RecipeYieldReconciliationComponent', () => {
     harness.fixture.componentInstance.servingSize.set(2);
     await reconcile(harness, (req) => req.flush(payload()));
 
-    const terms: HTMLElement[] = Array.from(
-      harness.fixture.nativeElement.querySelectorAll('.result-detail dt'),
-    );
+    const terms: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.result-detail dt'));
     expect(terms.map((term) => term.textContent?.trim())).toEqual([
       'Batch yield',
       'Servings',

@@ -39,7 +39,9 @@ const CREATE_OPTION_VALUE = '__create__';
         -->
         <select (change)="onSelect($event)">
           @for (membership of memberships(); track membership.workspaceId) {
-            <option [value]="membership.workspaceSlug" [selected]="membership.workspaceSlug === currentSlug()">{{ membership.workspaceName }}</option>
+            <option [value]="membership.workspaceSlug" [selected]="membership.workspaceSlug === currentSlug()">{{
+              membership.workspaceName
+            }}</option>
           }
           <option [value]="createOptionValue">+ Create workspace…</option>
         </select>
@@ -52,14 +54,38 @@ const CREATE_OPTION_VALUE = '__create__';
       <cp-create-workspace-form (created)="onWorkspaceCreated($event)" />
     </cp-dialog>
   `,
-  styles: [`
-    :host{display:block}
-    .status{color:var(--cp-text-muted);font-size:var(--cp-font-size-sm)}
-    .status--error{color:var(--cp-danger)}
-    .loading{display:flex;align-items:center;min-height:2.5rem;max-width:12rem}
-    .loading cp-skeleton{flex:1}
-    .switcher select{min-height:2.5rem;padding:0 var(--cp-space-3);border:1px solid var(--cp-border);border-radius:var(--cp-radius-md);background:var(--cp-surface);color:var(--cp-text);font:600 var(--cp-font-size-sm)/1.2 var(--cp-font-sans)}
-  `],
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      .status {
+        color: var(--cp-text-muted);
+        font-size: var(--cp-font-size-sm);
+      }
+      .status--error {
+        color: var(--cp-danger);
+      }
+      .loading {
+        display: flex;
+        align-items: center;
+        min-height: 2.5rem;
+        max-width: 12rem;
+      }
+      .loading cp-skeleton {
+        flex: 1;
+      }
+      .switcher select {
+        min-height: 2.5rem;
+        padding: 0 var(--cp-space-3);
+        border: 1px solid var(--cp-border);
+        border-radius: var(--cp-radius-md);
+        background: var(--cp-surface);
+        color: var(--cp-text);
+        font: 600 var(--cp-font-size-sm)/1.2 var(--cp-font-sans);
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceSwitcherComponent {

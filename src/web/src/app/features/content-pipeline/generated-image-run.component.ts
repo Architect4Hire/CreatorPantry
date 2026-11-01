@@ -165,8 +165,7 @@ export const PIPELINE_IMAGE_RUN_WORDING: GeneratedImageRunWording = {
   forbidden: 'You do not have permission to make pictures in this workspace. Ask an Owner or Editor to run this step.',
   chooseHeading: 'Choose the keepers',
   chooseIntro: 'Keep the ones worth using. Downloading gives you a copy you keep yourself.',
-  keepNote:
-    'Keeping a picture here marks it for the steps that follow. Nothing is filed in your library on this step.',
+  keepNote: 'Keeping a picture here marks it for the steps that follow. Nothing is filed in your library on this step.',
   expiryRemedy: 'so download anything you want to keep for longer.',
 };
 
@@ -505,9 +504,7 @@ export class GeneratedImageRunComponent {
 
   protected readonly count = computed(() => clampVariantCount(this.variantCount()));
 
-  protected readonly promptTooLong = computed(
-    () => this.sendText().length > CONTENT_PIPELINE_LIMITS.promptMaxLength,
-  );
+  protected readonly promptTooLong = computed(() => this.sendText().length > CONTENT_PIPELINE_LIMITS.promptMaxLength);
 
   protected readonly promptLengthText = computed(
     () => `${this.sendText().length} of ${CONTENT_PIPELINE_LIMITS.promptMaxLength} characters`,
@@ -648,11 +645,7 @@ export class GeneratedImageRunComponent {
   /** Refused here rather than by the server, so the creator is told what to fix and where. */
   protected readonly canGenerate = computed(
     () =>
-      this.sendText() !== '' &&
-      !this.promptTooLong() &&
-      !this.quoteBlocks() &&
-      !this.tracker.busy() &&
-      !this.working(),
+      this.sendText() !== '' && !this.promptTooLong() && !this.quoteBlocks() && !this.tracker.busy() && !this.working(),
   );
 
   /**
@@ -789,8 +782,7 @@ export class GeneratedImageRunComponent {
     const state = this.quoteState();
 
     return (
-      state.status === 'ready' &&
-      (state.quote.outcome === 'DailyImageCap' || state.quote.outcome === 'TrialImageCap')
+      state.status === 'ready' && (state.quote.outcome === 'DailyImageCap' || state.quote.outcome === 'TrialImageCap')
     );
   });
 
@@ -1092,9 +1084,9 @@ export class GeneratedImageRunComponent {
           status === 'error'
             ? root.querySelector<HTMLElement>(`#${prefix}-quality-problem button`)
             : status === 'ready' && this.offersChoice()
-              // Never a locked tile: its input is disabled, so focusing it would put focus nowhere (AP.4.3).
-              ? root.querySelector<HTMLElement>('.quality input:checked') ??
-                root.querySelector<HTMLElement>('.quality input:not(:disabled)')
+              ? // Never a locked tile: its input is disabled, so focusing it would put focus nowhere (AP.4.3).
+                (root.querySelector<HTMLElement>('.quality input:checked') ??
+                root.querySelector<HTMLElement>('.quality input:not(:disabled)'))
               : root.querySelector<HTMLElement>('.cp-actions button');
 
         target?.focus();
@@ -1132,16 +1124,20 @@ export class GeneratedImageRunComponent {
     if (quote.outcome === 'TrialImageCap') {
       const cap = quote.pictureCap === null ? 'a set number of' : String(quote.pictureCap);
 
-      return `Your free trial includes ${cap} pictures and has ${picturesInSentence(left)} left${fits}` +
-        (left > 0 ? '' : ' Choose a plan to make more.');
+      return (
+        `Your free trial includes ${cap} pictures and has ${picturesInSentence(left)} left${fits}` +
+        (left > 0 ? '' : ' Choose a plan to make more.')
+      );
     }
 
-    const when =
-      quote.pictureCapResetsAt === null ? null : formatAllowanceReset(quote.pictureCapResetsAt, 'Etc/UTC');
-    const day = quote.pictureCap === null ? 'Your plan’s pictures for today' : `Your plan’s ${quote.pictureCap} pictures a day`;
+    const when = quote.pictureCapResetsAt === null ? null : formatAllowanceReset(quote.pictureCapResetsAt, 'Etc/UTC');
+    const day =
+      quote.pictureCap === null ? 'Your plan’s pictures for today' : `Your plan’s ${quote.pictureCap} pictures a day`;
 
-    return `${day} would be passed: ${picturesInSentence(left)} left today${fits}` +
-      (when === null ? ' More come back tomorrow (UTC).' : ` More come back on ${when} (UTC).`);
+    return (
+      `${day} would be passed: ${picturesInSentence(left)} left today${fits}` +
+      (when === null ? ' More come back tomorrow (UTC).' : ` More come back on ${when} (UTC).`)
+    );
   }
 
   /**
@@ -1216,7 +1212,9 @@ export class GeneratedImageRunComponent {
   private resetSentence(quote: GeneratedImageQuote): string {
     const when = quote.resetsAt === null ? null : formatAllowanceReset(quote.resetsAt, quote.timeZoneId);
 
-    return when === null ? 'Your allowance comes back when the period resets.' : `Your allowance comes back on ${when}.`;
+    return when === null
+      ? 'Your allowance comes back when the period resets.'
+      : `Your allowance comes back on ${when}.`;
   }
 
   /** Ask for the pictures — or ask again for the same ones, after an answer that never arrived. */

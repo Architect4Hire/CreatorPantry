@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CpButtonComponent, CpCardComponent, CpEmptyStateComponent, CpPageHeadComponent, CpSkeletonComponent } from '@creator-pantry/ui';
+import {
+  CpButtonComponent,
+  CpCardComponent,
+  CpEmptyStateComponent,
+  CpPageHeadComponent,
+  CpSkeletonComponent,
+} from '@creator-pantry/ui';
 
 import { injectRouteTitle } from '../core/route-title';
 import { CreateWorkspaceFormComponent } from './create-workspace-form.component';
@@ -15,7 +21,14 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
 @Component({
   selector: 'cp-workspace-gate',
   standalone: true,
-  imports: [CpPageHeadComponent, CpCardComponent, CpEmptyStateComponent, CpButtonComponent, CpSkeletonComponent, CreateWorkspaceFormComponent],
+  imports: [
+    CpPageHeadComponent,
+    CpCardComponent,
+    CpEmptyStateComponent,
+    CpButtonComponent,
+    CpSkeletonComponent,
+    CreateWorkspaceFormComponent,
+  ],
   template: `
     <cp-page-head [heading]="pageTitle" />
     @let state = memberships.state();
@@ -24,10 +37,16 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
     @switch (state.status) {
       @case ('loading') {
         <!-- The page as it will arrive: a card. -->
-        <cp-card><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div></cp-card>
+        <cp-card
+          ><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div
+        ></cp-card>
       }
       @case ('error') {
-        <cp-empty-state title="Couldn't load your workspaces" description="Check your connection and try again." icon="⚠">
+        <cp-empty-state
+          title="Couldn't load your workspaces"
+          description="Check your connection and try again."
+          icon="⚠"
+        >
           <div cpEmptyStateActions>
             <button cpButton (click)="retry()">Try again</button>
           </div>
@@ -45,14 +64,20 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
           </cp-empty-state>
         } @else {
           <!-- On the way to the dashboard: the same card, until the route changes. -->
-          <cp-card><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div></cp-card>
+          <cp-card
+            ><div aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div
+          ></cp-card>
         }
       }
     }
   `,
-  styles: [`
-    :host { display: block; }
-  `],
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+    `,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WorkspaceGateComponent {

@@ -6,7 +6,8 @@ import { MoveWorkTaskRequest, WeekWorkTasks, WorkTask, WorkTaskGroup, addDays } 
 import { shortDay } from '../../shared/work-tasks/work-task-presentation';
 
 /** One list on the board — one of the server's groups. The ids are the sections' own. */
-export type MyWeekListId = 'backlog' | 'carried-over' | 'unplanned' | 'in-progress' | 'waiting' | 'done' | `day-${string}`;
+export type MyWeekListId =
+  'backlog' | 'carried-over' | 'unplanned' | 'in-progress' | 'waiting' | 'done' | `day-${string}`;
 
 /** Where a task can be sent: a list on the board, or next week's backlog, which is not on it. */
 export type MyWeekDestination = MyWeekListId | 'next-week';
@@ -47,7 +48,9 @@ export function tasksIn(week: WeekWorkTasks, list: MyWeekListId): readonly WorkT
 }
 
 /** Every place a task can be sent from the keyboard, named as a creator would say it. */
-export function destinationsFor(week: WeekWorkTasks): readonly { readonly value: MyWeekDestination; readonly label: string }[] {
+export function destinationsFor(
+  week: WeekWorkTasks,
+): readonly { readonly value: MyWeekDestination; readonly label: string }[] {
   return [
     { value: 'backlog', label: 'Backlog — this week, without a day' },
     ...week.days.map((day) => ({
@@ -65,13 +68,20 @@ export function destinationsFor(week: WeekWorkTasks): readonly { readonly value:
  * The places in one list a task can take: before each task already there, or at the bottom. Done and next week
  * have no places to offer — finished work is newest first, and next week is not on the board.
  */
-export function placesIn(week: WeekWorkTasks, list: MyWeekDestination, movingId: string): readonly { readonly value: string; readonly label: string }[] {
+export function placesIn(
+  week: WeekWorkTasks,
+  list: MyWeekDestination,
+  movingId: string,
+): readonly { readonly value: string; readonly label: string }[] {
   if (list === 'done' || list === 'next-week') return [];
 
   const others = tasksIn(week, list).filter((task) => task.id !== movingId);
 
   return [
-    ...others.map((task, index) => ({ value: task.id, label: index === 0 ? `At the top, before “${task.title}”` : `Before “${task.title}”` })),
+    ...others.map((task, index) => ({
+      value: task.id,
+      label: index === 0 ? `At the top, before “${task.title}”` : `Before “${task.title}”`,
+    })),
     { value: '', label: others.length === 0 ? 'The only one there' : 'At the bottom' },
   ];
 }
@@ -92,14 +102,21 @@ export function placeOf(week: WeekWorkTasks, taskId: string): MyWeekPlace | null
  * Undo to send it back to the week it came from. The same list is a reorder — the server refuses a "move" to
  * the list a task is already in — a different one is a move, and Done is a completion.
  */
-export function commandFor(week: WeekWorkTasks, task: WorkTask, place: MyWeekPlace, original: WorkTask = task): MyWeekCommand {
+export function commandFor(
+  week: WeekWorkTasks,
+  task: WorkTask,
+  place: MyWeekPlace,
+  original: WorkTask = task,
+): MyWeekCommand {
   const from = listOf(week, task.id);
   if (task.status === 'Done') return { kind: 'none' };
   if (place.list === 'done') return { kind: 'complete' };
 
   if (place.list === from) {
     const current = placeOf(week, task.id);
-    return current && current.beforeTaskId === place.beforeTaskId ? { kind: 'none' } : { kind: 'reorder', beforeTaskId: place.beforeTaskId };
+    return current && current.beforeTaskId === place.beforeTaskId
+      ? { kind: 'none' }
+      : { kind: 'reorder', beforeTaskId: place.beforeTaskId };
   }
 
   const before = place.beforeTaskId ? { beforeTaskId: place.beforeTaskId } : {};
@@ -122,7 +139,10 @@ export function commandFor(week: WeekWorkTasks, task: WorkTask, place: MyWeekPla
       // A move cannot take a task out of every week, so this is not offered and not undone.
       return { kind: 'none' };
     default:
-      return { kind: 'move', request: { status: 'Backlog', scheduledDate: place.list.slice('day-'.length), ...before } };
+      return {
+        kind: 'move',
+        request: { status: 'Backlog', scheduledDate: place.list.slice('day-'.length), ...before },
+      };
   }
 }
 
@@ -130,9 +150,17 @@ export function commandFor(week: WeekWorkTasks, task: WorkTask, place: MyWeekPla
  * The week as it will look if the server agrees: the task out of the list it was in and into the place asked for,
  * saying what it now is. Only the cards move — every total stays the server's until the week is read again.
  */
-export function applyPlace(week: WeekWorkTasks, task: WorkTask, place: MyWeekPlace, original: WorkTask = task): WeekWorkTasks {
+export function applyPlace(
+  week: WeekWorkTasks,
+  task: WorkTask,
+  place: MyWeekPlace,
+  original: WorkTask = task,
+): WeekWorkTasks {
   const moved = movedTask(week, task, place, original);
-  const without = (group: WorkTaskGroup): WorkTaskGroup => ({ ...group, tasks: group.tasks.filter((each) => each.id !== task.id) });
+  const without = (group: WorkTaskGroup): WorkTaskGroup => ({
+    ...group,
+    tasks: group.tasks.filter((each) => each.id !== task.id),
+  });
 
   const into = (list: MyWeekListId, group: WorkTaskGroup): WorkTaskGroup => {
     const rest = without(group);

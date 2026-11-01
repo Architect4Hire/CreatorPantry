@@ -122,7 +122,9 @@ function decodeFieldErrors(error: unknown): Record<string, readonly string[]> {
   return result;
 }
 
-function idempotencyHeaders(idempotencyKey: string | undefined): { headers: Record<string, string> } | Record<string, never> {
+function idempotencyHeaders(
+  idempotencyKey: string | undefined,
+): { headers: Record<string, string> } | Record<string, never> {
   return idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {};
 }
 
@@ -207,11 +209,7 @@ export class RecipeTestRunService {
    * A Promise rather than an Observable, like the writes and unlike the list: this is one read of one chosen
    * record, with no filter racing behind it that a later response could arrive out of order with.
    */
-  async getTestRun(
-    workspaceSlug: string,
-    recipeId: string,
-    testRunId: string,
-  ): Promise<GetTestRunOutcome> {
+  async getTestRun(workspaceSlug: string, recipeId: string, testRunId: string): Promise<GetTestRunOutcome> {
     const url = this.testRunsUrl(workspaceSlug, recipeId);
     if (!url) return { status: 'unavailable' };
 
@@ -293,40 +291,34 @@ export class RecipeTestRunService {
    * It never errors. Every outcome is a value, so a failed page cannot kill the subscription and leave the
    * screen unable to search again without being rebuilt.
    */
-  listTestRuns(
-    workspaceSlug: string,
-    recipeId: string,
-    query: TestRunHistoryQuery,
-  ): Observable<TestRunHistoryOutcome> {
+  listTestRuns(workspaceSlug: string, recipeId: string, query: TestRunHistoryQuery): Observable<TestRunHistoryOutcome> {
     const url = this.testRunsUrl(workspaceSlug, recipeId);
     if (!url) return of<TestRunHistoryOutcome>({ status: 'unavailable' });
 
-    return this.http
-      .get<unknown>(url, { withCredentials: true, params: encodeTestRunHistoryQuery(query) })
-      .pipe(
-        map((raw): TestRunHistoryOutcome => {
-          const page = decodeTestRunHistoryPage(raw);
-          return page ? { status: 'found', page } : { status: 'unavailable' };
-        }),
-        catchError((error: unknown) => {
-          const code = statusCodeOf(error);
+    return this.http.get<unknown>(url, { withCredentials: true, params: encodeTestRunHistoryQuery(query) }).pipe(
+      map((raw): TestRunHistoryOutcome => {
+        const page = decodeTestRunHistoryPage(raw);
+        return page ? { status: 'found', page } : { status: 'unavailable' };
+      }),
+      catchError((error: unknown) => {
+        const code = statusCodeOf(error);
 
-          if (code === 400) {
-            // Two different 400s with two different remedies: a stale cursor means start again from the first
-            // page, while a rejected filter means the request itself has to change. Telling them apart is why
-            // the API gives them separate codes.
-            return of<TestRunHistoryOutcome>(
-              problemCodeOf(error) === CURSOR_INVALID_CODE
-                ? { status: 'cursor_expired' }
-                : { status: 'invalid_request', fieldErrors: decodeFieldErrors(error) },
-            );
-          }
+        if (code === 400) {
+          // Two different 400s with two different remedies: a stale cursor means start again from the first
+          // page, while a rejected filter means the request itself has to change. Telling them apart is why
+          // the API gives them separate codes.
+          return of<TestRunHistoryOutcome>(
+            problemCodeOf(error) === CURSOR_INVALID_CODE
+              ? { status: 'cursor_expired' }
+              : { status: 'invalid_request', fieldErrors: decodeFieldErrors(error) },
+          );
+        }
 
-          // Unlike the recipe search, a 404 here is real: it is the recipe. A recipe nobody has tested answers
-          // an empty page instead.
-          return of<TestRunHistoryOutcome>(code === 404 ? { status: 'not_found' } : { status: 'unavailable' });
-        }),
-      );
+        // Unlike the recipe search, a 404 here is real: it is the recipe. A recipe nobody has tested answers
+        // an empty page instead.
+        return of<TestRunHistoryOutcome>(code === 404 ? { status: 'not_found' } : { status: 'unavailable' });
+      }),
+    );
   }
 
   /**
@@ -347,8 +339,7 @@ export class RecipeTestRunService {
     const url = this.testRunsUrl(workspaceSlug, recipeId);
     if (!url) return { status: 'unavailable' };
 
-    const path =
-      `${url}/${encodeURIComponent(testRunId)}/issues/${encodeURIComponent(issueId)}/resolution`;
+    const path = `${url}/${encodeURIComponent(testRunId)}/issues/${encodeURIComponent(issueId)}/resolution`;
 
     try {
       const response = await firstValueFrom(

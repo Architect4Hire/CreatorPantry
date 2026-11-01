@@ -61,7 +61,10 @@ class StubLinked {
   readonly assetId = input<string>();
 }
 
-@Component({ selector: 'cp-save-to-library-dialog', template: `<p class="stub-save">{{ generatedImageId() }} {{ creativeContextId() }}</p>` })
+@Component({
+  selector: 'cp-save-to-library-dialog',
+  template: `<p class="stub-save">{{ generatedImageId() }} {{ creativeContextId() }}</p>`,
+})
 class StubSave {
   readonly open = input(false);
   readonly workspaceSlug = input<string>();
@@ -173,7 +176,11 @@ function keeper(generatedImageId: string, overrides: Partial<CreativeContextRefe
   };
 }
 
-function context(id: string, workingTitle: string | null, references: readonly CreativeContextReference[]): CreativeContext {
+function context(
+  id: string,
+  workingTitle: string | null,
+  references: readonly CreativeContextReference[],
+): CreativeContext {
   return {
     id,
     workingTitle,
@@ -208,8 +215,12 @@ function configure(): void {
   port = new WorkflowStepPort();
   keepDraft = jasmine.createSpy('keepDraft').and.resolveTo(true);
   port.connect(keepDraft);
-  detail = jasmine.createSpy('detail').and.callFake((_slug: string, id: string) => of({ status: 'found', asset: asset({ id }) }));
-  list = jasmine.createSpy('list').and.returnValue(of({ status: 'found', page: { items: [{ id: 'ctx-1' }, { id: 'ctx-2' }], nextCursor: null } }));
+  detail = jasmine
+    .createSpy('detail')
+    .and.callFake((_slug: string, id: string) => of({ status: 'found', asset: asset({ id }) }));
+  list = jasmine
+    .createSpy('list')
+    .and.returnValue(of({ status: 'found', page: { items: [{ id: 'ctx-1' }, { id: 'ctx-2' }], nextCursor: null } }));
   getContext = jasmine.createSpy('get').and.callFake((_slug: string, id: string) =>
     of({
       status: 'found',
@@ -223,7 +234,9 @@ function configure(): void {
           : context('ctx-2', null, [keeper('img-2')]),
     }),
   );
-  preview = jasmine.createSpy('preview').and.returnValue(of({ status: 'found', bytes: new Blob(['x'], { type: 'image/png' }) }));
+  preview = jasmine
+    .createSpy('preview')
+    .and.returnValue(of({ status: 'found', bytes: new Blob(['x'], { type: 'image/png' }) }));
 
   TestBed.configureTestingModule({
     providers: [
@@ -232,11 +245,22 @@ function configure(): void {
       { provide: DamAssetService, useValue: { detail } },
       { provide: CreativeContextService, useValue: { list, get: getContext } },
       { provide: GeneratedImageService, useValue: { preview } },
-      { provide: BrandProfileService, useValue: { listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }) } },
+      {
+        provide: BrandProfileService,
+        useValue: { listContentChannels: () => Promise.resolve({ status: 'found', channels: [] }) },
+      },
     ],
   });
   TestBed.overrideComponent(AssetsAddStepComponent, {
-    remove: { imports: [DamAssetUploadComponent, DamAssetPickerComponent, DamAssetVersionUploadComponent, DamLinkedAssetComponent, SaveToLibraryDialogComponent] },
+    remove: {
+      imports: [
+        DamAssetUploadComponent,
+        DamAssetPickerComponent,
+        DamAssetVersionUploadComponent,
+        DamLinkedAssetComponent,
+        SaveToLibraryDialogComponent,
+      ],
+    },
     add: { imports: [StubUpload, StubPicker, StubVersionUpload, StubLinked, StubSave] },
   });
   TestBed.overrideComponent(AssetsDetailStepComponent, {
@@ -303,12 +327,23 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
     });
 
     it('opens on the picture the step kept as its draft, and does not keep it a second time', async () => {
-      const run = decodeWorkflowRun(wireRun({
-        id: 'run-1',
-        definitionKey: 'assets.organize',
-        links: [],
-        steps: [{ key: 'add', title: 'Add', requirement: 'Required', status: 'InProgress', draftKind: 'MediaAsset', draftResourceId: 'asset-3' }],
-      }))!;
+      const run = decodeWorkflowRun(
+        wireRun({
+          id: 'run-1',
+          definitionKey: 'assets.organize',
+          links: [],
+          steps: [
+            {
+              key: 'add',
+              title: 'Add',
+              requirement: 'Required',
+              status: 'InProgress',
+              draftKind: 'MediaAsset',
+              draftResourceId: 'asset-3',
+            },
+          ],
+        }),
+      )!;
       const fixture = await render(AssetsAddStepComponent, { run, workspaceSlug: SLUG });
 
       expect((fixture.nativeElement as HTMLElement).querySelector('.stub-linked')?.textContent).toBe('asset-3');
@@ -361,7 +396,9 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       expect(text(fixture)).toContain('From your 10 most recent pieces of work.');
       expect(text(fixture)).toContain('From “Plum galette week”');
       expect(text(fixture)).toContain('From “Untitled work”');
-      const saves = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).filter((each) => each.textContent?.trim() === 'Save this one');
+      const saves = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).filter(
+        (each) => each.textContent?.trim() === 'Save this one',
+      );
       expect(saves.length).withContext('a source picture and a saved one are not waiting').toBe(2);
     });
 
@@ -369,7 +406,9 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       const fixture = await render(AssetsAddStepComponent, { run: organizeRun([]), workspaceSlug: SLUG });
       await chooseWay(fixture, 'waiting');
 
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[aria-label="Save this one: picture 1 from Plum galette week"]')!.click();
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('button[aria-label="Save this one: picture 1 from Plum galette week"]')!
+        .click();
       await settle(fixture);
       expect((fixture.nativeElement as HTMLElement).querySelector('.stub-save')?.textContent).toBe('img-1 ctx-1');
 
@@ -413,7 +452,9 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       await settle(fixture);
       expect(stub(fixture, StubVersionUpload).open()).toBeTrue();
 
-      detail.and.returnValue(of({ status: 'found', asset: asset({ currentVersion: { versionNumber: 3 } as DamAssetVersion }) }));
+      detail.and.returnValue(
+        of({ status: 'found', asset: asset({ currentVersion: { versionNumber: 3 } as DamAssetVersion }) }),
+      );
       stub(fixture, StubVersionUpload).added.emit({ versionNumber: 3 } as DamAssetVersion);
       await settle(fixture);
       expect(text(fixture)).toContain('Version 3 is the one in use.');
@@ -423,7 +464,9 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       const reads = detail.calls.count();
       stub(fixture, StubVersionUpload).cancelled.emit();
       await settle(fixture);
-      expect(detail.calls.count()).withContext('a cancelled upload may have landed').toBe(reads + 1);
+      expect(detail.calls.count())
+        .withContext('a cancelled upload may have landed')
+        .toBe(reads + 1);
     });
 
     it('says the picture the run held is gone, and offers the ways in again', async () => {
@@ -450,7 +493,11 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
 
   describe('describing and tagging', () => {
     it('describes on one step with where it came from, and tags on another', async () => {
-      let fixture = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+      let fixture = await render(AssetsDetailStepComponent, {
+        mode: 'describe',
+        run: withPicture(),
+        workspaceSlug: SLUG,
+      });
       expect(stub(fixture, StubEdit).sections()).toBe('describe');
       expect(stub(fixture, StubEdit).inline()).toBeTrue();
       expect(text(fixture)).toContain('Where it came from');
@@ -464,7 +511,11 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
     });
 
     it('saves on Continue, and stays when the save is refused', async () => {
-      const fixture = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+      const fixture = await render(AssetsDetailStepComponent, {
+        mode: 'describe',
+        run: withPicture(),
+        workspaceSlug: SLUG,
+      });
       const form = stub(fixture, StubEdit);
       form.dirty.set(true);
       fixture.detectChanges();
@@ -477,7 +528,11 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
     });
 
     it('says the picture is not there yet, or not any more, or could not be read', async () => {
-      let fixture = await render(AssetsDetailStepComponent, { mode: 'describe', run: organizeRun([]), workspaceSlug: SLUG });
+      let fixture = await render(AssetsDetailStepComponent, {
+        mode: 'describe',
+        run: organizeRun([]),
+        workspaceSlug: SLUG,
+      });
       expect(text(fixture)).toContain('Go back to the first step to add or choose one.');
       fixture.destroy();
 
@@ -522,7 +577,9 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
     const statuses = (fixture: ComponentFixture<unknown>) =>
       Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
     const shown = (fixture: ComponentFixture<unknown>, sentence: string) =>
-      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes(sentence));
+      Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((each) =>
+        each.textContent?.includes(sentence),
+      );
 
     it('draws the picture arriving, in its own shape, while the add step reads it', async () => {
       detail.and.returnValue(NEVER);
@@ -558,7 +615,11 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
 
     it('draws the picture arriving while the describing step reads it, and empties the status once it is', async () => {
       detail.and.returnValue(NEVER);
-      const fixture = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+      const fixture = await render(AssetsDetailStepComponent, {
+        mode: 'describe',
+        run: withPicture(),
+        workspaceSlug: SLUG,
+      });
 
       expect(statuses(fixture)).toEqual(['Reading your picture…']);
       expect(root(fixture).querySelector('[aria-busy="true"] cp-skeleton[data-shape="block"]')).not.toBeNull();
@@ -566,7 +627,11 @@ describe('"Organize your pictures" step screens (13A.21)', () => {
       fixture.destroy();
 
       detail.and.callFake((_slug: string, id: string) => of({ status: 'found', asset: asset({ id }) }));
-      const read = await render(AssetsDetailStepComponent, { mode: 'describe', run: withPicture(), workspaceSlug: SLUG });
+      const read = await render(AssetsDetailStepComponent, {
+        mode: 'describe',
+        run: withPicture(),
+        workspaceSlug: SLUG,
+      });
       expect(statuses(read)).toEqual(['']);
     });
   });

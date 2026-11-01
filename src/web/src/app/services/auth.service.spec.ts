@@ -61,7 +61,9 @@ describe('AuthService', () => {
 
     it('becomes degraded when the gateway cannot be reached', async () => {
       const checking = service.checkSession();
-      http.expectOne('https://gateway.example/bff/session').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/bff/session')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
       await checking;
 
       expect(service.session()).toEqual({ status: 'degraded' });
@@ -99,7 +101,9 @@ describe('AuthService', () => {
 
     it('retries on the next call after landing in degraded, instead of caching the failure forever', async () => {
       const first = service.ensureChecked();
-      http.expectOne('https://gateway.example/bff/session').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/bff/session')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
       await first;
       expect(service.session()).toEqual({ status: 'degraded' });
 
@@ -112,7 +116,7 @@ describe('AuthService', () => {
   });
 
   describe('overlapping checkSession calls', () => {
-    it('lets the most recently started call win, even if its response resolves before an earlier, now-stale call\'s', async () => {
+    it("lets the most recently started call win, even if its response resolves before an earlier, now-stale call's", async () => {
       const firstCall = service.checkSession();
       const firstReq = http.expectOne('https://gateway.example/bff/session');
 
@@ -148,14 +152,18 @@ describe('AuthService', () => {
 
     it('reports invalid_credentials on a 400 with the generic auth.signin.failed code', async () => {
       const login = service.login('robert@example.com', 'wrong-password');
-      http.expectOne('https://gateway.example/bff/login').flush({ code: 'auth.signin.failed' }, { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne('https://gateway.example/bff/login')
+        .flush({ code: 'auth.signin.failed' }, { status: 400, statusText: 'Bad Request' });
 
       expect(await login).toEqual({ status: 'invalid_credentials' });
     });
 
     it('reports the distinct email_unconfirmed outcome on a 400 with that specific code', async () => {
       const login = service.login('robert@example.com', 'correct-password');
-      http.expectOne('https://gateway.example/bff/login').flush({ code: 'auth.signin.email_unconfirmed' }, { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne('https://gateway.example/bff/login')
+        .flush({ code: 'auth.signin.email_unconfirmed' }, { status: 400, statusText: 'Bad Request' });
 
       expect(await login).toEqual({ status: 'email_unconfirmed' });
     });
@@ -170,14 +178,18 @@ describe('AuthService', () => {
 
     it('reports rate_limited on a 429', async () => {
       const login = service.login('robert@example.com', 'x');
-      http.expectOne('https://gateway.example/bff/login').flush('slow down', { status: 429, statusText: 'Too Many Requests' });
+      http
+        .expectOne('https://gateway.example/bff/login')
+        .flush('slow down', { status: 429, statusText: 'Too Many Requests' });
 
       expect(await login).toEqual({ status: 'rate_limited' });
     });
 
     it('reports unavailable when the API is unreachable (503)', async () => {
       const login = service.login('robert@example.com', 'x');
-      http.expectOne('https://gateway.example/bff/login').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/bff/login')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
 
       expect(await login).toEqual({ status: 'unavailable' });
     });
@@ -205,7 +217,9 @@ describe('AuthService', () => {
 
     it('still clears local session state even if the logout request fails', async () => {
       const logout = service.logout();
-      http.expectOne('https://gateway.example/bff/logout').flush('down', { status: 503, statusText: 'Service Unavailable' });
+      http
+        .expectOne('https://gateway.example/bff/logout')
+        .flush('down', { status: 503, statusText: 'Service Unavailable' });
       await logout;
 
       expect(service.session()).toEqual({ status: 'anonymous' });

@@ -107,7 +107,10 @@ export class BrandSetupGoalsStepComponent implements OnInit {
     this.answers.update((a) => ({ ...a, audience: picked[0] }));
   }
 
-  protected setText(field: 'purposeNote' | 'audienceNote' | 'channelNote' | 'different' | 'avoid' | 'website', event: Event): void {
+  protected setText(
+    field: 'purposeNote' | 'audienceNote' | 'channelNote' | 'different' | 'avoid' | 'website',
+    event: Event,
+  ): void {
     this.touched.set(true);
     const value = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
     this.answers.update((a) => ({ ...a, [field]: value }));

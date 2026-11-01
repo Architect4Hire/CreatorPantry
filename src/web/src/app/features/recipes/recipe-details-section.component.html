@@ -62,9 +62,7 @@
       @for (tag of form.tags(); track tag) {
         <span class="tag-chip">
           {{ tag }}
-          <button type="button" [attr.aria-label]="'Remove tag ' + tag" (click)="form.removeTag(tag)">
-            ×
-          </button>
+          <button type="button" [attr.aria-label]="'Remove tag ' + tag" (click)="form.removeTag(tag)"> × </button>
         </span>
       }
     </div>

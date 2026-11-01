@@ -23,7 +23,8 @@ describe('LandingHeroCollageComponent', () => {
               return motion.matches;
             },
             media: query,
-            addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => motion.listeners.push(listener),
+            addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) =>
+              motion.listeners.push(listener),
             removeEventListener: () => undefined,
           } as unknown as MediaQueryList)
         : real(query),

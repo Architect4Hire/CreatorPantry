@@ -263,16 +263,18 @@ export class BrandStyleGuideService {
     if (!url) return { status: 'unavailable' };
 
     try {
-      const response = await firstValueFrom(this.http.get<unknown>(url, { withCredentials: true, observe: 'response' }));
+      const response = await firstValueFrom(
+        this.http.get<unknown>(url, { withCredentials: true, observe: 'response' }),
+      );
       if (response.status === 204 || response.body === null) return { status: 'none' };
 
       const body = response.body as Record<string, unknown>;
       const version = body['version'] as Record<string, unknown> | null | undefined;
       if (
-        typeof body['guideId'] !== 'string'
-        || typeof body['displayName'] !== 'string'
-        || typeof version?.['id'] !== 'string'
-        || typeof version?.['versionNumber'] !== 'number'
+        typeof body['guideId'] !== 'string' ||
+        typeof body['displayName'] !== 'string' ||
+        typeof version?.['id'] !== 'string' ||
+        typeof version?.['versionNumber'] !== 'number'
       ) {
         return { status: 'unavailable' };
       }
@@ -507,10 +509,7 @@ export class BrandStyleGuideService {
   }
 
   /** Discards the caller's own unsaved edit. Discarding what is not there is a success. */
-  async discardEditSession(
-    workspaceSlug: string,
-    guideId: string,
-  ): Promise<BrandStyleGuideEditSessionDiscardOutcome> {
+  async discardEditSession(workspaceSlug: string, guideId: string): Promise<BrandStyleGuideEditSessionDiscardOutcome> {
     const url = this.editSessionUrl(workspaceSlug, guideId);
     if (!url) return { status: 'unavailable' };
 

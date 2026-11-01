@@ -62,7 +62,8 @@ export function encodeLinkRecipeAssetRequest(request: LinkRecipeAssetRequest): R
     expectedConcurrencyToken: request.expectedConcurrencyToken,
   };
 
-  if (request.role === 'Step' && request.instructionStepId !== null) body['instructionStepId'] = request.instructionStepId;
+  if (request.role === 'Step' && request.instructionStepId !== null)
+    body['instructionStepId'] = request.instructionStepId;
   if (request.versionNumber !== null) body['versionNumber'] = request.versionNumber;
 
   const caption = request.caption?.trim() ?? '';

@@ -44,7 +44,8 @@ let nextId = 0;
   standalone: true,
   template: `<span class="mark"
       ><span class="glyph" aria-hidden="true">✦</span><span class="words" [id]="labelId()">{{ label() }}</span></span
-    >@if (provenance()) {
+    >
+    @if (provenance()) {
       <!-- Heard as "Made by AI, Venice, flux-dev": the pill's edge is the pause a sighted reader sees. -->
       <span class="cp-sr-only">, </span><span class="provenance">{{ provenance() }}</span>
     }`,

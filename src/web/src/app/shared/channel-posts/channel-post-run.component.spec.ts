@@ -133,7 +133,12 @@ class FakeChannelPostService {
     return of(this.watchOutcome);
   }
 
-  edit(_slug: string, _contextId: string, channelKey: string, request: EditChannelPostRequest): Promise<ChannelPostWriteOutcome> {
+  edit(
+    _slug: string,
+    _contextId: string,
+    channelKey: string,
+    request: EditChannelPostRequest,
+  ): Promise<ChannelPostWriteOutcome> {
     this.edits.push({ channelKey, request });
     return Promise.resolve(this.writeOutcome);
   }
@@ -252,9 +257,8 @@ function text(): string {
 
 function button(label: string): HTMLButtonElement | null {
   return (
-    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find(
-      (node) => node.textContent?.trim() === label,
-    ) ?? null
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((node) => node.textContent?.trim() === label) ??
+    null
   );
 }
 
@@ -373,9 +377,7 @@ describe('ChannelPostRunComponent', () => {
 
     await clickWriting('Write the posts');
 
-    expect(service.requests).toEqual([
-      { creativeContextId: 'ctx-1', channelKeys: ['instagram', 'pinterest'] },
-    ]);
+    expect(service.requests).toEqual([{ creativeContextId: 'ctx-1', channelKeys: ['instagram', 'pinterest'] }]);
     expect(host.state().requestId).toBe('r-1');
     expect(host.state().requestedChannelKeys).toEqual(['instagram', 'pinterest']);
   });
@@ -519,9 +521,7 @@ describe('ChannelPostRunComponent', () => {
     it('reaffirms without naming a revision, because it is not about particular words', async () => {
       service.packageOutcome = {
         status: 'found',
-        package: pkg([
-          channel('instagram', { status: 'NeedsReview', accepted: revision(), isCurrent: false }),
-        ]),
+        package: pkg([channel('instagram', { status: 'NeedsReview', accepted: revision(), isCurrent: false })]),
       };
       host.contextId.set('ctx-3');
       await settle();
@@ -575,9 +575,7 @@ describe('ChannelPostRunComponent', () => {
 
       // The neighbour's unsaved words survived a request that was not about them.
       expect(host.state().unsaved['pinterest']).toBe('Pinterest words I am still writing.');
-      expect(el.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe(
-        'Pinterest words I am still writing.',
-      );
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe('Pinterest words I am still writing.');
     });
 
     it('says which channel is being written again, on that card and not on its neighbour', async () => {
@@ -813,7 +811,14 @@ describe('ChannelPostRunComponent', () => {
       expect(text()).toContain('do not have permission to write posts');
       expect(el.querySelector('input[type="checkbox"]')).toBeNull();
 
-      for (const label of ['Write the posts', 'Write another channel', 'Accept', 'Edit', 'Not this one', 'Write it again']) {
+      for (const label of [
+        'Write the posts',
+        'Write another channel',
+        'Accept',
+        'Edit',
+        'Not this one',
+        'Write it again',
+      ]) {
         expect(button(label)).withContext(label).toBeNull();
       }
     });

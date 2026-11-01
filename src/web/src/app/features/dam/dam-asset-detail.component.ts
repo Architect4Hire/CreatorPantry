@@ -1,13 +1,5 @@
 import { DatePipe } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  computed,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap, tap } from 'rxjs';
@@ -577,7 +569,8 @@ export class DamAssetDetailComponent {
               }
             : {
                 title: 'Discard your changes?',
-                message: "Your changes to this picture's details haven't been saved yet. If you leave now, they'll be lost.",
+                message:
+                  "Your changes to this picture's details haven't been saved yet. If you leave now, they'll be lost.",
                 confirmLabel: 'Discard changes',
                 cancelLabel: 'Keep editing',
               },
@@ -650,7 +643,9 @@ export class DamAssetDetailComponent {
   protected versionDownloadUrl(version: DamAssetVersion): string | null {
     const asset = this.asset();
 
-    return asset === null ? null : this.assets.versionDownloadUrl(this.workspaceSlug(), asset.id, version.versionNumber);
+    return asset === null
+      ? null
+      : this.assets.versionDownloadUrl(this.workspaceSlug(), asset.id, version.versionNumber);
   }
 
   // ---- Internals ----

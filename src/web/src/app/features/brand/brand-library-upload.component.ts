@@ -47,7 +47,8 @@ const FAILURE_MESSAGE: Record<BrandSourceAddFailure, string> = {
   // the vocabulary is shared with the replacement, and an unworded case would reach a creator as a blank.
   conflict: 'This example changed while you were adding it. Open it again to see where it stands.',
   archived_conflict: 'This example is on the shelf. Bring it back before changing it.',
-  unavailable: 'The example could not be saved just now, and nothing was stored. Your details are still here, so try again.',
+  unavailable:
+    'The example could not be saved just now, and nothing was stored. Your details are still here, so try again.',
 };
 
 /**
@@ -143,7 +144,8 @@ export class BrandLibraryUploadComponent {
 
     const state = this.state();
     if (state.status === 'uploading') return [{ id: 'file', name: file.name, status: 'uploading' }];
-    if (state.status === 'failed') return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
+    if (state.status === 'failed')
+      return [{ id: 'file', name: file.name, status: 'error', errorMessage: state.message }];
 
     return [{ id: 'file', name: file.name, status: 'queued' }];
   });

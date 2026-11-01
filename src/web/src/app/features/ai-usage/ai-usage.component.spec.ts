@@ -59,7 +59,12 @@ function payload(
       { taskType: 'IngredientSubstitution', amount: 120, requests: 4 },
     ],
     byWorkspace: overrides.byWorkspace ?? [
-      { workspaceId: '11111111-1111-1111-1111-111111111111', workspaceName: "Sam's Kitchen", amount: 240, requests: 12 },
+      {
+        workspaceId: '11111111-1111-1111-1111-111111111111',
+        workspaceName: "Sam's Kitchen",
+        amount: 240,
+        requests: 12,
+      },
       { workspaceId: '22222222-2222-2222-2222-222222222222', workspaceName: null, amount: 120, requests: 4 },
     ],
   };
@@ -129,7 +134,10 @@ describe('AiUsageComponent', () => {
     Array.from(host.querySelectorAll('cp-stat-tile')).map((tile) => tile.textContent!.replace(/\s+/g, ' ').trim());
 
   it('reads the allowance as three figures, each the server’s own number', async () => {
-    const host = await render({ ...payload(), period: { ...payload().period, allowance: 1000, consumed: 300, reserved: 60, remaining: 640 } });
+    const host = await render({
+      ...payload(),
+      period: { ...payload().period, allowance: 1000, consumed: 300, reserved: 60, remaining: 640 },
+    });
 
     const tiles = tileTexts(host);
     expect(tiles.length).toBe(3);
@@ -166,7 +174,10 @@ describe('AiUsageComponent', () => {
   });
 
   it('says one credit in the singular', async () => {
-    const host = await render({ ...payload(), period: { ...payload().period, allowance: 1000, consumed: 999, remaining: 1 } });
+    const host = await render({
+      ...payload(),
+      period: { ...payload().period, allowance: 1000, consumed: 999, remaining: 1 },
+    });
 
     expect(tileTexts(host)[0]).toContain('1 AI credit left');
     expect(tileTexts(host)[0]).not.toContain('credits left');
@@ -479,7 +490,9 @@ describe('AiUsageComponent', () => {
     expect(healthy.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
 
     const spent = await render(payload({ plan: CREATOR, remaining: 0 }));
-    expect(spent.querySelector('.explanation')?.textContent?.trim()).toBe('You can keep writing and editing recipes as usual.');
+    expect(spent.querySelector('.explanation')?.textContent?.trim()).toBe(
+      'You can keep writing and editing recipes as usual.',
+    );
     expect(spent.querySelector('[role="status"]')?.textContent).toContain('Comes back on');
   });
 

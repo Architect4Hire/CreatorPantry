@@ -137,7 +137,9 @@ export class AuthService {
           // credentials"; auth.signin.email_unconfirmed is a distinct, actionable case the backend
           // already distinguishes by code, so the SPA shouldn't flatten it into generic bad-credentials.
           const code = (error.error as Record<string, unknown> | null)?.['code'];
-          return code === 'auth.signin.email_unconfirmed' ? { status: 'email_unconfirmed' } : { status: 'invalid_credentials' };
+          return code === 'auth.signin.email_unconfirmed'
+            ? { status: 'email_unconfirmed' }
+            : { status: 'invalid_credentials' };
         }
       }
       return { status: 'unavailable' };

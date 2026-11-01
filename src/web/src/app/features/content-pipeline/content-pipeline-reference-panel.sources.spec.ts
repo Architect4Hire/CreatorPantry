@@ -183,9 +183,14 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
   }
 
   async function mount(
-    options: { references?: Parameters<FakeCreativeContextService['reference']>[0][]; runOperationId?: string | null } = {},
+    options: {
+      references?: Parameters<FakeCreativeContextService['reference']>[0][];
+      runOperationId?: string | null;
+    } = {},
   ): Promise<void> {
-    server.seed(SLUG, CTX, { references: (options.references ?? []).map((source, index) => server.reference(source, index)) });
+    server.seed(SLUG, CTX, {
+      references: (options.references ?? []).map((source, index) => server.reference(source, index)),
+    });
 
     fixture = TestBed.createComponent(HostComponent);
     host = fixture.componentInstance;
@@ -218,7 +223,10 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
     return server.stored(SLUG, CTX)!.references;
   }
 
-  async function answerReading(detail: AiProposalDetail | null, status: AiProposalStatus['status'] = 'Proposed'): Promise<void> {
+  async function answerReading(
+    detail: AiProposalDetail | null,
+    status: AiProposalStatus['status'] = 'Proposed',
+  ): Promise<void> {
     readings[readings.length - 1].next({ status: 'found', operation: operation(detail, status) });
     await settle();
   }
@@ -230,7 +238,10 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
     runWatches = [];
     confirmAnswer = true;
     requestOutcome = { status: 'accepted', operation: operation(null, 'Requested'), replayed: false };
-    runOutcome = { status: 'found', operation: run([staged(1), staged(2, 'Rejected'), staged(3, 'Kept'), staged(4, 'Expired')]) };
+    runOutcome = {
+      status: 'found',
+      operation: run([staged(1), staged(2, 'Rejected'), staged(3, 'Kept'), staged(4, 'Expired')]),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -268,7 +279,8 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
         {
           provide: BrandSourceDocumentService,
           useValue: {
-            searchLibrary: (): Observable<BrandLibraryOutcome> => of({ status: 'ok', page: { items: [], nextCursor: null } }),
+            searchLibrary: (): Observable<BrandLibraryOutcome> =>
+              of({ status: 'ok', page: { items: [], nextCursor: null } }),
             upload: () => Promise.resolve({ status: 'failed' as const, reason: 'unavailable' as const }),
           },
         },
@@ -286,7 +298,9 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
 
       const tabs = Array.from(el.querySelectorAll('[role="tab"]')).map((tab) => tab.textContent?.trim());
       expect(tabs).toEqual(['My library', "This run's pictures", 'Brand Library']);
-      expect(el.querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe('Where to choose a reference picture from');
+      expect(el.querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe(
+        'Where to choose a reference picture from',
+      );
       expect(el.querySelector('[role="tab"][aria-selected="true"]')?.textContent?.trim()).toBe('My library');
       expect(buttonWith('Choose A loaf I like')).not.toBeNull();
     });
@@ -374,7 +388,7 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
     });
   });
 
-  describe("a picture from this run", () => {
+  describe('a picture from this run', () => {
     it('says there are none to choose yet when the run has made no pictures', async () => {
       await mount();
       await openTab("This run's pictures");
@@ -396,7 +410,9 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       await mount({ runOperationId: 'op-1' });
       await openTab("This run's pictures");
 
-      const choices = Array.from(el.querySelectorAll('.run-pictures button')).map((button) => button.getAttribute('aria-label'));
+      const choices = Array.from(el.querySelectorAll('.run-pictures button')).map((button) =>
+        button.getAttribute('aria-label'),
+      );
       expect(choices).toEqual(['Choose picture 1 of 2 as the reference', 'Choose picture 2 of 2 as the reference']);
     });
 
@@ -404,7 +420,7 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       await mount({ runOperationId: 'op-1' });
       await openTab("This run's pictures");
 
-      (el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[1]).click();
+      el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[1].click();
       await settle();
 
       expect(references().map((each) => [each.kind, each.generatedImageId])).toEqual([['GeneratedImage', 'img-3']]);
@@ -413,7 +429,10 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
 
       await click('Read this picture');
 
-      expect(requests[0].request).toEqual({ picture: { source: 'GeneratedImage', generatedImageId: 'img-3' }, note: '' });
+      expect(requests[0].request).toEqual({
+        picture: { source: 'GeneratedImage', generatedImageId: 'img-3' },
+        note: '',
+      });
     });
 
     it('says the run’s pictures are no longer available when none are left', async () => {
@@ -444,7 +463,7 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       await click('Choose A loaf I like');
       await click('Remove');
       await openTab("This run's pictures");
-      (el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0]).click();
+      el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0].click();
       await settle();
 
       expect(references().map((each) => each.kind)).toEqual(['GeneratedImage']);
@@ -529,7 +548,9 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       await click('Read this picture');
       await answerReading(READING);
 
-      const levels = Array.from(el.querySelectorAll('[role="heading"]')).map((heading) => heading.getAttribute('aria-level'));
+      const levels = Array.from(el.querySelectorAll('[role="heading"]')).map((heading) =>
+        heading.getAttribute('aria-level'),
+      );
       expect(levels).toEqual(['5', '5']);
       expect(el.querySelector('h4')).withContext('no heading that repeats the host’s level').toBeNull();
     });
@@ -580,9 +601,13 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
     it('says a picture the server will not read cannot be read, and what to do instead', async () => {
       await mount({ runOperationId: 'op-1' });
       await openTab("This run's pictures");
-      (el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0]).click();
+      el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0].click();
       await settle();
-      requestOutcome = { status: 'refused', code: 'ai.referenceImage.not_found', message: 'This workspace has no image with that id.' };
+      requestOutcome = {
+        status: 'refused',
+        code: 'ai.referenceImage.not_found',
+        message: 'This workspace has no image with that id.',
+      };
 
       await click('Read this picture');
 
@@ -643,7 +668,7 @@ describe('ContentPipelineReferencePanelComponent — choosing a picture from thr
       await openTab("This run's pictures");
       server.refuseAddWith = 'source_unavailable';
 
-      (el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0]).click();
+      el.querySelectorAll<HTMLButtonElement>('.run-pictures button')[0].click();
       await settle();
 
       expect(el.querySelector('[role="alert"]')?.textContent).toContain('can no longer be chosen');

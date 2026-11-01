@@ -40,7 +40,9 @@
             </p>
           }
           @case ('saving') {
-            <p class="cp-muted" role="status">Saving picture {{ tile.position }} of {{ tile.total }} to your library…</p>
+            <p class="cp-muted" role="status"
+              >Saving picture {{ tile.position }} of {{ tile.total }} to your library…</p
+            >
           }
           @case ('failed') {
             <cp-notice tone="error" role="alert">

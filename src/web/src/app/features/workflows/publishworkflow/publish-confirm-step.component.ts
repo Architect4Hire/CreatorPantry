@@ -83,7 +83,11 @@ type Read =
             <cp-notice [tone]="shown.tone === 'error' ? 'error' : 'warning'" role="status">{{ advice }}</cp-notice>
           }
           <dl cpFacts>
-            <div cpFact label="Booked for">{{ shown.record.scheduledLocal }} ({{ zoneName(shown.record.scheduleTimeZoneId, shown.record.scheduledAt) }})</div>
+            <div cpFact label="Booked for"
+              >{{ shown.record.scheduledLocal }} ({{
+                zoneName(shown.record.scheduleTimeZoneId, shown.record.scheduledAt)
+              }})</div
+            >
             @if (shown.record.completedAt; as at) {
               <div cpFact label="Finished">{{ at }}</div>
             }

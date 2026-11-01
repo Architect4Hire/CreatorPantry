@@ -52,8 +52,8 @@
                 <li>{{ source }}</li>
               }
             </ul>
-            This happened after you accepted the piece. Nothing in it has been changed, and a download is the
-            piece as you accepted it.
+            This happened after you accepted the piece. Nothing in it has been changed, and a download is the piece as
+            you accepted it.
           </cp-notice>
         }
 
@@ -148,7 +148,8 @@
           @if (open() && showsWriting()) {
             <div class="cp-actions">
               <button
-                cpButton [busy]="framingBusy()"
+                cpButton
+                [busy]="framingBusy()"
                 type="button"
                 [attr.aria-disabled]="!framingDirty() || framingBusy() ? 'true' : null"
                 (click)="saveFraming()"
@@ -208,8 +209,8 @@
 
           @if (card.item?.unresolved) {
             <cp-notice tone="warning" role="note" data-testid="unresolved">
-              The recipe this item covers is no longer part of this piece, so it cannot be written for you.
-              What is here is kept, and you can still write or change it yourself.
+              The recipe this item covers is no longer part of this piece, so it cannot be written for you. What is here
+              is kept, and you can still write or change it yourself.
             </cp-notice>
           }
 
@@ -238,9 +239,7 @@
                 <cp-status-pill tone="warning">Too long</cp-status-pill>
               }
               <!-- Not a live region: a count read out on every keystroke would talk over the typing. -->
-              <span class="count">
-                {{ card.draftCharacters }} of {{ doc.sectionMaxCharacters }} characters
-              </span>
+              <span class="count"> {{ card.draftCharacters }} of {{ doc.sectionMaxCharacters }} characters </span>
               @if (card.dirty) {
                 <cp-status-pill tone="warning">Unsaved changes</cp-status-pill>
               }
@@ -304,7 +303,8 @@
             <div class="cp-actions">
               @if (card.draft !== null) {
                 <button
-                  cpButton [busy]="card.busy === 'saving'"
+                  cpButton
+                  [busy]="card.busy === 'saving'"
                   type="button"
                   [attr.aria-disabled]="card.busy !== null ? 'true' : null"
                   (click)="save(card)"
@@ -316,7 +316,8 @@
                 </button>
               } @else if (card.asking) {
                 <button
-                  cpButton [busy]="card.busy === 'asking'"
+                  cpButton
+                  [busy]="card.busy === 'asking'"
                   type="button"
                   [attr.aria-disabled]="card.busy !== null || blocked() ? 'true' : null"
                   (click)="write(card)"
@@ -330,7 +331,11 @@
                   type="button"
                   variant="secondary"
                   [id]="fieldId(card, 'edit')"
-                  [attr.aria-label]="(card.section.isWritten ? 'Edit ' : 'Write ') + card.section.heading + (card.section.isWritten ? '' : ' yourself')"
+                  [attr.aria-label]="
+                    (card.section.isWritten ? 'Edit ' : 'Write ') +
+                    card.section.heading +
+                    (card.section.isWritten ? '' : ' yourself')
+                  "
                   (click)="edit(card)"
                 >
                   {{ card.section.isWritten ? 'Edit' : 'Write it yourself' }}
@@ -351,7 +356,8 @@
                     </button>
                   } @else {
                     <button
-                      cpButton [busy]="card.busy === 'asking'"
+                      cpButton
+                      [busy]="card.busy === 'asking'"
                       type="button"
                       variant="secondary"
                       [id]="fieldId(card, 'again')"
@@ -371,7 +377,9 @@
                     variant="text"
                     [id]="fieldId(card, 'settle')"
                     [attr.aria-disabled]="card.busy !== null ? 'true' : null"
-                    [attr.aria-label]="(card.section.settled ? 'Stop marking ' : 'Mark ') + card.section.heading + ' as settled'"
+                    [attr.aria-label]="
+                      (card.section.settled ? 'Stop marking ' : 'Mark ') + card.section.heading + ' as settled'
+                    "
                     (click)="settle(card, !card.section.settled)"
                   >
                     {{ card.section.settled ? 'Not settled after all' : 'Mark as settled' }}
@@ -434,7 +442,8 @@
 
           <div class="cp-actions" data-testid="accept-actions">
             <button
-              cpButton [busy]="accepting()"
+              cpButton
+              [busy]="accepting()"
               type="button"
               [attr.aria-disabled]="!canAccept() ? 'true' : null"
               [attr.aria-describedby]="acceptHint() ? idPrefix() + '-accept-hint' : null"

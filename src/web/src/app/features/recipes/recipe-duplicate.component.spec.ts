@@ -270,7 +270,10 @@ describe('RecipeDuplicateComponent', () => {
   it('puts a refused title’s message beside the box it came from, and offers another attempt', async () => {
     const element = await render();
     titled('x'.repeat(201));
-    service.outcome = { status: 'validation_failed', fieldErrors: { title: ['A title can be at most 200 characters.'] } };
+    service.outcome = {
+      status: 'validation_failed',
+      fieldErrors: { title: ['A title can be at most 200 characters.'] },
+    };
 
     await submit(element);
 

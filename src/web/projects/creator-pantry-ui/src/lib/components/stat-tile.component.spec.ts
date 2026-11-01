@@ -6,7 +6,9 @@ import { CpTopicCardComponent } from './topic-card.component';
 
 @Component({
   imports: [CpStatTileComponent, CpTopicCardComponent],
-  template: `<ul style="display: grid; grid-template-columns: repeat(2, 240px); gap: 16px; list-style: none; padding: 0">
+  template: `<ul
+      style="display: grid; grid-template-columns: repeat(2, 240px); gap: 16px; list-style: none; padding: 0"
+    >
       <li>
         <cp-stat-tile [value]="value()" label="recipes waiting for review" [context]="context()">
           @if (unreadable()) {
@@ -95,7 +97,9 @@ describe('CpStatTileComponent', () => {
     const probe = document.createElement('span');
     probe.style.fontSize = 'var(--cp-font-size-2xl)';
     el.appendChild(probe);
-    expect(parseFloat(getComputedStyle(value).fontSize)).toBeLessThanOrEqual(parseFloat(getComputedStyle(probe).fontSize));
+    expect(parseFloat(getComputedStyle(value).fontSize)).toBeLessThanOrEqual(
+      parseFloat(getComputedStyle(probe).fontSize),
+    );
   });
 
   it('shows a sentence of context only when it has one', () => {

@@ -99,5 +99,6 @@ The Angular 22 workspace lives at `src/web/`. Its reusable package is `@creator-
 ## Verification
 
 From `src/web/`, run `npm ci`, `npm run build`, and `npm test`. `npm test` runs the page-contract check before
-the specs; `npm run check:page-contract` runs it alone. Public UI changes also update the showcase, `README.md`, `DESIGN-SYSTEM.md`, and `projects/creator-pantry-ui/src/public-api.ts` as appropriate.
+the specs; `npm run check:page-contract` runs it alone. `npm run format:check` fails on any `.ts`, `.html` or
+`.scss` file Prettier would change; `npm run format` fixes it. Public UI changes also update the showcase, `README.md`, `DESIGN-SYSTEM.md`, and `projects/creator-pantry-ui/src/public-api.ts` as appropriate.
 

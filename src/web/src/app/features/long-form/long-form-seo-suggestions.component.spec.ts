@@ -1,7 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 
-import { AiOperationStatus, AiProposalDetail, AiProposalStatus, AiProposedChange } from '../../models/ai-proposal.models';
+import {
+  AiOperationStatus,
+  AiProposalDetail,
+  AiProposalStatus,
+  AiProposedChange,
+} from '../../models/ai-proposal.models';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { isEmptyLongFormSeoPackage, readLongFormSeoPackage } from '../../models/long-form-seo.models';
 import { AiRequestOutcome, AiWatchOperationOutcome } from '../../services/ai-request';
@@ -76,14 +81,34 @@ function packageOf(): AiProposalDetail {
       set('t-new', 'section', 'openGraphTitle'),
     ],
     warnings: [
-      { kind: 'Limitation', message: '[seo.unsupported_metric] "top ranking" is a claim with no search data behind it.', changeId: meta.changeId },
-      { kind: 'Limitation', message: '[seo.slug_uniqueness_not_checked] Whether it is unique has not been checked.', changeId: slug.changeId },
-      { kind: 'Limitation', message: '[seo.key_phrases_not_from_search_data] These are not from search data.', changeId: first.changeId },
-      { kind: 'Limitation', message: '[seo.key_phrases_not_from_search_data] These are not from search data.', changeId: second.changeId },
+      {
+        kind: 'Limitation',
+        message: '[seo.unsupported_metric] "top ranking" is a claim with no search data behind it.',
+        changeId: meta.changeId,
+      },
+      {
+        kind: 'Limitation',
+        message: '[seo.slug_uniqueness_not_checked] Whether it is unique has not been checked.',
+        changeId: slug.changeId,
+      },
+      {
+        kind: 'Limitation',
+        message: '[seo.key_phrases_not_from_search_data] These are not from search data.',
+        changeId: first.changeId,
+      },
+      {
+        kind: 'Limitation',
+        message: '[seo.key_phrases_not_from_search_data] These are not from search data.',
+        changeId: second.changeId,
+      },
       { kind: 'Limitation', message: '[model] the piece says little about storage.', changeId: null },
 
       // A model note on one suggestion: it must never read like the server's finding beside it.
-      { kind: 'Limitation', message: '[model] this title may be long for some results pages.', changeId: title.changeId },
+      {
+        kind: 'Limitation',
+        message: '[model] this title may be long for some results pages.',
+        changeId: title.changeId,
+      },
     ],
   };
 }
@@ -267,7 +292,10 @@ describe('LongFormSeoSuggestionsComponent', () => {
   }));
 
   it('keeps the key when the reply was lost, so the retry is the same request', fakeAsync(() => {
-    service.requestOutcomes = [{ status: 'unavailable' }, { status: 'accepted', operation: operation('Requested'), replayed: true }];
+    service.requestOutcomes = [
+      { status: 'unavailable' },
+      { status: 'accepted', operation: operation('Requested'), replayed: true },
+    ];
 
     ask();
     expect(el.querySelector('[data-testid="seo-problem"]')?.textContent).toContain('Try again');
@@ -295,7 +323,9 @@ describe('LongFormSeoSuggestionsComponent', () => {
   }));
 
   it('says a package with nothing in it is nothing, rather than showing an empty list', fakeAsync(() => {
-    service.watchOutcomes = [{ status: 'found', operation: operation('Proposed', { ...packageOf(), changes: [], warnings: [] }) }];
+    service.watchOutcomes = [
+      { status: 'found', operation: operation('Proposed', { ...packageOf(), changes: [], warnings: [] }) },
+    ];
 
     ask();
 
@@ -305,7 +335,11 @@ describe('LongFormSeoSuggestionsComponent', () => {
 
   it('gives the server’s own reason when the piece cannot be written about', fakeAsync(() => {
     service.requestOutcomes = [
-      { status: 'refused', code: 'ai.seoPackage.longFormDraft.not_accepted.conflict', message: 'Something this piece was written from has changed since it was accepted. Review it first.' },
+      {
+        status: 'refused',
+        code: 'ai.seoPackage.longFormDraft.not_accepted.conflict',
+        message: 'Something this piece was written from has changed since it was accepted. Review it first.',
+      },
     ];
 
     ask();

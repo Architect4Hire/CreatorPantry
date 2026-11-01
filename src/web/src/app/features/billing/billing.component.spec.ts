@@ -157,9 +157,14 @@ describe('BillingComponent', () => {
 
   const text = () => host.textContent?.replace(/\s+/g, ' ') ?? '';
   const buttonNamed = (name: string) =>
-    Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === name);
+    Array.from(host.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === name,
+    );
   const alert = () => host.querySelector('[role="alert"]')?.textContent?.trim() ?? '';
-  const status = () => Array.from(host.querySelectorAll('cp-notice[role="status"]')).map((node) => node.textContent?.trim()).join(' ');
+  const status = () =>
+    Array.from(host.querySelectorAll('cp-notice[role="status"]'))
+      .map((node) => node.textContent?.trim())
+      .join(' ');
 
   async function press(name: string): Promise<void> {
     const button = buttonNamed(name);
@@ -168,7 +173,10 @@ describe('BillingComponent', () => {
     await settle();
   }
 
-  const redirect = (url: string): BillingCommandOutcome => ({ status: 'redirect', redirect: { url, scheduled: false } });
+  const redirect = (url: string): BillingCommandOutcome => ({
+    status: 'redirect',
+    redirect: { url, scheduled: false },
+  });
 
   it('shows a trial, the paid plans to choose from with the tax line, and no portal for an account that has never paid', async () => {
     await create(account());
@@ -235,7 +243,9 @@ describe('BillingComponent', () => {
   });
 
   it('offers to keep the current plan when a change is scheduled, and withdraws it', async () => {
-    await create(subscribed('pro', { nextPlanKey: 'creator', nextPlanName: 'Creator', nextChangeAt: '2026-12-01T00:00:00+00:00' }));
+    await create(
+      subscribed('pro', { nextPlanKey: 'creator', nextPlanName: 'Creator', nextChangeAt: '2026-12-01T00:00:00+00:00' }),
+    );
     billing.withdrawPlanChange.and.resolveTo({ status: 'done' });
 
     expect(text()).toContain('Moves to Creator on');
@@ -345,7 +355,9 @@ describe('BillingComponent', () => {
   });
 
   it('keeps the cycle the creator picked through a re-read of the account', async () => {
-    await create(subscribed('pro', { nextPlanKey: 'creator', nextPlanName: 'Creator', nextChangeAt: '2026-12-01T00:00:00+00:00' }));
+    await create(
+      subscribed('pro', { nextPlanKey: 'creator', nextPlanName: 'Creator', nextChangeAt: '2026-12-01T00:00:00+00:00' }),
+    );
     billing.withdrawPlanChange.and.resolveTo({ status: 'done' });
 
     await press('Yearly');

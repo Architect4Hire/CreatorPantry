@@ -48,7 +48,12 @@ describe('ContentBoardComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: ':workspaceSlug/content-board', pathMatch: 'full', component: ContentBoardComponent, data: { title: 'Content Board' } },
+          {
+            path: ':workspaceSlug/content-board',
+            pathMatch: 'full',
+            component: ContentBoardComponent,
+            data: { title: 'Content Board' },
+          },
           { path: ':workspaceSlug/content-board/:cardId', component: DetailStubComponent },
         ]),
         { provide: ContentBoardService, useValue: server },
@@ -73,7 +78,12 @@ describe('ContentBoardComponent', () => {
 
   function seed(): void {
     server.seed(SLUG, [
-      boardCard('a', 'ToDo', { title: 'Soda bread', channelKey: 'instagram', plannedDate: '2026-10-16', plannedDay: 'Friday' }),
+      boardCard('a', 'ToDo', {
+        title: 'Soda bread',
+        channelKey: 'instagram',
+        plannedDate: '2026-10-16',
+        plannedDay: 'Friday',
+      }),
       boardCard('b', 'ToDo', { title: 'Ramen', descriptionPreview: 'Weeknight version.' }),
       boardCard('c', 'InProcess', { title: 'Cookies', moveCount: 1, hasPackage: true }),
       boardCard('d', 'Approved', {
@@ -102,7 +112,12 @@ describe('ContentBoardComponent', () => {
   }
 
   /** Drop a card as the drag library reports it: the list it left, the list it landed in, and where. */
-  async function drop(card: ContentCard, to: ContentBoardColumn, currentIndex: number, previousIndex = 0): Promise<void> {
+  async function drop(
+    card: ContentCard,
+    to: ContentBoardColumn,
+    currentIndex: number,
+    previousIndex = 0,
+  ): Promise<void> {
     const lists = { from: { data: card.column }, to: { data: to } };
     const event = {
       item: { data: card },
@@ -272,7 +287,9 @@ describe('ContentBoardComponent', () => {
       );
       await mount();
 
-      expect(column('To do').querySelector('.count [aria-hidden="true"]')!.textContent).toBe(String(BOARD_PAGE_SIZE + 2));
+      expect(column('To do').querySelector('.count [aria-hidden="true"]')!.textContent).toBe(
+        String(BOARD_PAGE_SIZE + 2),
+      );
       expect(titles('To do').length).toBe(BOARD_PAGE_SIZE);
 
       server.offline = true;
@@ -296,7 +313,9 @@ describe('ContentBoardComponent', () => {
       await mount(`/${SLUG}/content-board?channel=instagram&day=Friday&date=2026-10-16`);
 
       expect(server.lists.every((read) => read.filters.channel === 'instagram')).toBe(true);
-      expect(server.lists.every((read) => read.filters.day === 'Friday' && read.filters.date === '2026-10-16')).toBe(true);
+      expect(server.lists.every((read) => read.filters.day === 'Friday' && read.filters.date === '2026-10-16')).toBe(
+        true,
+      );
       expect(titles('To do')).toEqual(['Soda bread']);
       expect(text()).toContain('1 card match these filters.');
       expect(column('In process').textContent).toContain('No cards here match these filters.');
@@ -322,7 +341,9 @@ describe('ContentBoardComponent', () => {
     it('offer every channel the catalogue lists, by name', async () => {
       await mount();
 
-      const options = Array.from(root().querySelectorAll('select[name="channel"] option')).map((each) => each.textContent);
+      const options = Array.from(root().querySelectorAll('select[name="channel"] option')).map(
+        (each) => each.textContent,
+      );
       expect(options).toEqual(['All channels', 'Instagram', 'Blog', 'Vine']);
     });
 
@@ -360,7 +381,12 @@ describe('ContentBoardComponent', () => {
     it('is on every card, named for the card it moves', async () => {
       await mount();
 
-      for (const [id, title] of [['a', 'Soda bread'], ['b', 'Ramen'], ['c', 'Cookies'], ['d', 'Granola']]) {
+      for (const [id, title] of [
+        ['a', 'Soda bread'],
+        ['b', 'Ramen'],
+        ['c', 'Cookies'],
+        ['d', 'Granola'],
+      ]) {
         expect(button(`Move ${title}`, cardEl(id))).toBeTruthy();
       }
     });
@@ -411,7 +437,12 @@ describe('ContentBoardComponent', () => {
       await settle();
 
       expect(server.moves).toEqual([
-        { slug: SLUG, cardId: 'a', place: { column: 'InProcess', beforeCardId: 'c', note: 'Shoot booked' }, token: 'a-t1' },
+        {
+          slug: SLUG,
+          cardId: 'a',
+          place: { column: 'InProcess', beforeCardId: 'c', note: 'Shoot booked' },
+          token: 'a-t1',
+        },
       ]);
       expect(titles('In process')).toEqual(['Soda bread', 'Cookies']);
       expect(titles('To do')).toEqual(['Ramen']);

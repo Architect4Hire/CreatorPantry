@@ -162,11 +162,21 @@ export class RecipeMediaLinkDialogComponent {
 
     return RECIPE_ASSET_ROLES.map((role): CpChoiceOption => {
       if (role === 'Hero' && heroTaken) {
-        return { value: role, label: RECIPE_ASSET_ROLE_LABELS[role], hint: 'This recipe already has a lead picture.', disabled: true };
+        return {
+          value: role,
+          label: RECIPE_ASSET_ROLE_LABELS[role],
+          hint: 'This recipe already has a lead picture.',
+          disabled: true,
+        };
       }
 
       if (role === 'Step' && noSteps) {
-        return { value: role, label: RECIPE_ASSET_ROLE_LABELS[role], hint: 'This recipe has no saved steps yet.', disabled: true };
+        return {
+          value: role,
+          label: RECIPE_ASSET_ROLE_LABELS[role],
+          hint: 'This recipe has no saved steps yet.',
+          disabled: true,
+        };
       }
 
       return { value: role, label: RECIPE_ASSET_ROLE_LABELS[role], hint: RECIPE_ASSET_ROLE_HINTS[role] };
@@ -190,7 +200,9 @@ export class RecipeMediaLinkDialogComponent {
     this.steps().map((step) => ({ id: step.id, label: recipeMediaStepLabel(step) })),
   );
 
-  protected readonly selectedRole = computed<RecipeAssetRole | null>(() => (this.role()[0] as RecipeAssetRole | undefined) ?? null);
+  protected readonly selectedRole = computed<RecipeAssetRole | null>(
+    () => (this.role()[0] as RecipeAssetRole | undefined) ?? null,
+  );
 
   protected readonly keepsVersion = computed(() => (this.pinMode()[0] as PinMode | undefined) === 'keep');
 
@@ -219,7 +231,9 @@ export class RecipeMediaLinkDialogComponent {
   /** The version the preview shows: the one being kept, or null for the current one. */
   protected readonly previewVersion = computed<number | null>(() => (this.keepsVersion() ? this.pinVersion() : null));
 
-  protected readonly dialogTitle = computed(() => (this.stage() === 'browse' ? 'Add a picture from the library' : 'How is this picture used?'));
+  protected readonly dialogTitle = computed(() =>
+    this.stage() === 'browse' ? 'Add a picture from the library' : 'How is this picture used?',
+  );
 
   protected readonly dialogDescription = computed(() =>
     this.stage() === 'browse'
@@ -470,7 +484,10 @@ export class RecipeMediaLinkDialogComponent {
 
       case 'conflict':
         this.dropKey();
-        this.problem.set({ text: 'This recipe has changed since you opened it, so nothing was linked.', offersReload: true });
+        this.problem.set({
+          text: 'This recipe has changed since you opened it, so nothing was linked.',
+          offersReload: true,
+        });
         this.focusAfterRender('[data-problem]');
         return;
 
@@ -547,6 +564,8 @@ export class RecipeMediaLinkDialogComponent {
    * exists and what is enabled. A timer would race the render it is waiting for.
    */
   private focusAfterRender(selector: string): void {
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), { injector: this.injector });
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus(), {
+      injector: this.injector,
+    });
   }
 }

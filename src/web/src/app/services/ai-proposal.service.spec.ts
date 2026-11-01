@@ -362,10 +362,12 @@ describe('AiProposalService', () => {
         comment: null,
       });
 
-      http.expectOne(DISPOSITION_URL).flush(
-        { ...problem('ai.disposition.invalid_request'), errors: { comment: ['Keep the comment shorter.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne(DISPOSITION_URL)
+        .flush(
+          { ...problem('ai.disposition.invalid_request'), errors: { comment: ['Keep the comment shorter.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       const outcome = await pending;
       expect(outcome.status).toBe('validation_failed');

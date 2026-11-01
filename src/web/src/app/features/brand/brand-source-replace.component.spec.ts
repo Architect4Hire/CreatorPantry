@@ -231,10 +231,11 @@ describe('BrandSourceReplaceComponent', () => {
   // ---- Cancellation ----
 
   it('aborts the request when the upload is cancelled, and says the file on record is unchanged', async () => {
-    replaceSpy = jasmine.createSpy('replace').and.callFake((...args: ReplaceArgs) =>
-      new Promise<BrandSourceReplaceOutcome>((resolve) => {
-        args[5]?.addEventListener('abort', () => resolve({ status: 'failed', reason: 'cancelled' }), { once: true });
-      }),
+    replaceSpy = jasmine.createSpy('replace').and.callFake(
+      (...args: ReplaceArgs) =>
+        new Promise<BrandSourceReplaceOutcome>((resolve) => {
+          args[5]?.addEventListener('abort', () => resolve({ status: 'failed', reason: 'cancelled' }), { once: true });
+        }),
     );
 
     TestBed.resetTestingModule();

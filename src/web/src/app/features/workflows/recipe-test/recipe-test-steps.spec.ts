@@ -51,7 +51,14 @@ function detail(overrides: Partial<RecipeDetail> = {}): RecipeDetail {
     createdAt: '2026-10-01T09:00:00Z',
     updatedAt: '2026-10-01T09:00:00Z',
     concurrencyToken: 'AAAAAAAAB9E=',
-    currentVersion: { id: 'v3', versionNumber: 3, source: 'CreatorEdit', readiness: 'Draft', reason: null, createdAt: '2026-10-01T09:00:00Z' },
+    currentVersion: {
+      id: 'v3',
+      versionNumber: 3,
+      source: 'CreatorEdit',
+      readiness: 'Draft',
+      reason: null,
+      createdAt: '2026-10-01T09:00:00Z',
+    },
     ingredientGroups: [],
     instructionGroups: [],
     equipment: [],
@@ -81,7 +88,12 @@ function readiness(findings: readonly RecipeReadinessFinding[] = []): RecipeRead
   };
 }
 
-const ALL_BASICS = ['recipe.ingredients.present', 'recipe.instructions.present', 'recipe.yield.stated', 'recipe.time.stated'];
+const ALL_BASICS = [
+  'recipe.ingredients.present',
+  'recipe.instructions.present',
+  'recipe.yield.stated',
+  'recipe.time.stated',
+];
 
 function basics(missing: readonly string[]): RecipeReadiness {
   return readiness(ALL_BASICS.map((ruleId) => finding(ruleId, missing.includes(ruleId) ? 'Blocker' : 'Satisfied')));
@@ -98,7 +110,10 @@ let getReadiness: jasmine.Spy;
 
 function configure(): void {
   port = new WorkflowStepPort();
-  port.connect(() => Promise.resolve(true), () => undefined);
+  port.connect(
+    () => Promise.resolve(true),
+    () => undefined,
+  );
   role = 'Owner';
   recipes = {
     getRecipeDetail: jasmine.createSpy('getRecipeDetail').and.resolveTo({ status: 'found', recipe: detail() }),
@@ -120,7 +135,18 @@ function configure(): void {
         useValue: {
           state: signal({
             status: 'ready',
-            memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+            memberships: [
+              {
+                workspaceId: 'w1',
+                workspaceSlug: SLUG,
+                workspaceName: 'Sam',
+                membershipId: 'm1',
+                get role() {
+                  return role;
+                },
+                status: 'Active',
+              },
+            ],
           }),
           ensureLoaded: () => Promise.resolve(),
         },
@@ -159,7 +185,8 @@ function editorOf<T>(fixture: ComponentFixture<T>): RecipeEditorComponent | null
 }
 
 function kitchenOf<T>(fixture: ComponentFixture<T>): RecipeTestKitchenComponent {
-  return fixture.debugElement.query((node) => node.componentInstance instanceof RecipeTestKitchenComponent).componentInstance as RecipeTestKitchenComponent;
+  return fixture.debugElement.query((node) => node.componentInstance instanceof RecipeTestKitchenComponent)
+    .componentInstance as RecipeTestKitchenComponent;
 }
 
 function buttons<T>(fixture: ComponentFixture<T>): string[] {
@@ -175,13 +202,20 @@ describe('"Test and approve" step screens (13A.16)', () => {
       ['Fill in the basics', RecipeTestBasicsStepComponent, 'Checking your recipe…', {}],
       ['Cook it and note what happened', RecipeTestCookStepComponent, 'Reading your recipe…', {}],
       ['Sort out what went wrong', RecipeTestFixStepComponent, 'Reading your recipe…', {}],
-      ['Send it for review, and approve it', RecipeTestReadinessStepComponent, 'Reading your recipe…', { mode: 'approve' }],
+      [
+        'Send it for review, and approve it',
+        RecipeTestReadinessStepComponent,
+        'Reading your recipe…',
+        { mode: 'approve' },
+      ],
     ];
     // The step's own status is the first thing in its template; a panel it opens comes after it.
     const status = (host: HTMLElement) => host.querySelector('p.cp-sr-only[role="status"]')!;
     /** The busy lines drawn beside the status: the step's own, not a child panel's. */
     const busyBeside = (own: Element) =>
-      Array.from(own.parentElement!.children).find((each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton')) ?? null;
+      Array.from(own.parentElement!.children).find(
+        (each) => each.matches('[aria-busy="true"]') && each.querySelector('cp-skeleton'),
+      ) ?? null;
 
     for (const [name, type, sentence, extra] of steps) {
       it(`${name}: draws lines while it reads, and says "${sentence}" offscreen`, async () => {
@@ -194,7 +228,11 @@ describe('"Test and approve" step screens (13A.16)', () => {
         expect(busy).toBeTruthy();
         expect(busy.textContent!.trim()).toBe('');
         // Not a visible sentence beside the lines.
-        expect(Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((p) => p.textContent?.includes(sentence))).toBeFalse();
+        expect(
+          Array.from(root(fixture).querySelectorAll('p:not(.cp-sr-only)')).some((p) =>
+            p.textContent?.includes(sentence),
+          ),
+        ).toBeFalse();
       });
 
       it(`${name}: keeps that status, emptied, once it has read`, async () => {
@@ -227,7 +265,10 @@ describe('"Test and approve" step screens (13A.16)', () => {
     });
 
     it('opens every part when several are missing, saves on a move, and checks the recipe again', async () => {
-      getReadiness.and.resolveTo({ status: 'found', readiness: basics(['recipe.ingredients.present', 'recipe.time.stated']) });
+      getReadiness.and.resolveTo({
+        status: 'found',
+        readiness: basics(['recipe.ingredients.present', 'recipe.time.stated']),
+      });
       recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: detail({ notes: 'x' }), replayed: false });
       const fixture = await render(RecipeTestBasicsStepComponent, { run: testRun(), workspaceSlug: SLUG });
 
@@ -247,13 +288,19 @@ describe('"Test and approve" step screens (13A.16)', () => {
     it('takes a rule the check did not report as met only when this workspace switched it off', async () => {
       getReadiness.and.resolveTo({
         status: 'found',
-        readiness: { ...readiness(ALL_BASICS.slice(0, 2).map((ruleId) => finding(ruleId, 'Satisfied'))), disabledRuleIds: ['recipe.yield.stated'] },
+        readiness: {
+          ...readiness(ALL_BASICS.slice(0, 2).map((ruleId) => finding(ruleId, 'Satisfied'))),
+          disabledRuleIds: ['recipe.yield.stated'],
+        },
       });
       const fixture = await render(RecipeTestBasicsStepComponent, { run: testRun(), workspaceSlug: SLUG });
 
       // Yield is switched off and so met; time was not reported and is not switched off, so it is still needed.
-      expect(Array.from(root(fixture).querySelectorAll('cp-status-pill')).map((pill) => pill.textContent?.replace(/^\W+/, '').trim()))
-        .toEqual(['Done', 'Done', 'Done', 'Still needed']);
+      expect(
+        Array.from(root(fixture).querySelectorAll('cp-status-pill')).map((pill) =>
+          pill.textContent?.replace(/^\W+/, '').trim(),
+        ),
+      ).toEqual(['Done', 'Done', 'Done', 'Still needed']);
       expect(root(fixture).querySelector('#section-timing')).not.toBeNull();
       expect(port.registration()!.ready!()).toBeFalse();
     });
@@ -278,11 +325,17 @@ describe('"Test and approve" step screens (13A.16)', () => {
 
   describe('Cook it and note what happened', () => {
     it('steps Continue forward only once the server finds the current version tested, read again after a test is recorded', async () => {
-      getReadiness.and.resolveTo({ status: 'found', readiness: readiness([finding('recipe.testing.currentVersionUntested', 'Blocker')]) });
+      getReadiness.and.resolveTo({
+        status: 'found',
+        readiness: readiness([finding('recipe.testing.currentVersionUntested', 'Blocker')]),
+      });
       const fixture = await render(RecipeTestCookStepComponent, { run: testRun(), workspaceSlug: SLUG });
       expect(port.registration()!.ready!()).toBeFalse();
 
-      getReadiness.and.resolveTo({ status: 'found', readiness: readiness([finding('recipe.testing.currentVersionUntested', 'Satisfied')]) });
+      getReadiness.and.resolveTo({
+        status: 'found',
+        readiness: readiness([finding('recipe.testing.currentVersionUntested', 'Satisfied')]),
+      });
       kitchenOf(fixture).changed.emit();
       await settle(fixture);
 
@@ -303,14 +356,20 @@ describe('"Test and approve" step screens (13A.16)', () => {
     it('is ready only when the server finds no failed last test and no blocking problem, read again after one is answered', async () => {
       getReadiness.and.resolveTo({
         status: 'found',
-        readiness: readiness([finding('recipe.testing.lastOutcomeFailed', 'Satisfied'), finding('recipe.testing.blockingIssueOutstanding', 'Blocker')]),
+        readiness: readiness([
+          finding('recipe.testing.lastOutcomeFailed', 'Satisfied'),
+          finding('recipe.testing.blockingIssueOutstanding', 'Blocker'),
+        ]),
       });
       const fixture = await render(RecipeTestFixStepComponent, { run: testRun(), workspaceSlug: SLUG });
       expect(port.registration()!.ready!()).toBeFalse();
 
       getReadiness.and.resolveTo({
         status: 'found',
-        readiness: readiness([finding('recipe.testing.lastOutcomeFailed', 'Satisfied'), finding('recipe.testing.blockingIssueOutstanding', 'Satisfied')]),
+        readiness: readiness([
+          finding('recipe.testing.lastOutcomeFailed', 'Satisfied'),
+          finding('recipe.testing.blockingIssueOutstanding', 'Satisfied'),
+        ]),
       });
       kitchenOf(fixture).changed.emit();
       await settle(fixture);
@@ -326,7 +385,11 @@ describe('"Test and approve" step screens (13A.16)', () => {
     });
 
     it('changes the recipe in the editor and saves it before turning to anything else', async () => {
-      recipes.updateRecipe.and.resolveTo({ status: 'updated', recipe: detail({ notes: 'Less soda.' }), replayed: false });
+      recipes.updateRecipe.and.resolveTo({
+        status: 'updated',
+        recipe: detail({ notes: 'Less soda.' }),
+        replayed: false,
+      });
       const fixture = await render(RecipeTestFixStepComponent, { run: testRun(), workspaceSlug: SLUG });
 
       root(fixture).querySelector<HTMLInputElement>('#recipe-test-fix-change')!.click();
@@ -344,7 +407,8 @@ describe('"Test and approve" step screens (13A.16)', () => {
 
   describe('Send it for review, and approve it', () => {
     function panel(fixture: ComponentFixture<RecipeTestReadinessStepComponent>): RecipeReadinessComponent {
-      return fixture.debugElement.query((node) => node.componentInstance instanceof RecipeReadinessComponent).componentInstance as RecipeReadinessComponent;
+      return fixture.debugElement.query((node) => node.componentInstance instanceof RecipeReadinessComponent)
+        .componentInstance as RecipeReadinessComponent;
     }
 
     async function at(status: RecipeStatus, mode: 'send-for-review' | 'approve') {
@@ -356,7 +420,11 @@ describe('"Test and approve" step screens (13A.16)', () => {
       const fixture = await at('Draft', 'send-for-review');
 
       expect(text(fixture)).toContain('3 moves, one at a time');
-      expect(panel(fixture).availableMoves().map((move) => move.to)).toEqual(['InDevelopment']);
+      expect(
+        panel(fixture)
+          .availableMoves()
+          .map((move) => move.to),
+      ).toEqual(['InDevelopment']);
       expect(port.registration()!.ready!()).toBeFalse();
     });
 
@@ -377,7 +445,9 @@ describe('"Test and approve" step screens (13A.16)', () => {
         TestBed.resetTestingModule();
         configure();
         const fixture = await at(status, 'send-for-review');
-        const offered = panel(fixture).availableMoves().map((move) => `${move.from}->${move.to}`);
+        const offered = panel(fixture)
+          .availableMoves()
+          .map((move) => `${move.from}->${move.to}`);
         expect(offered).toEqual(status === 'Testing' ? ['Testing->ReadyForReview'] : []);
       }
     });
@@ -399,7 +469,11 @@ describe('"Test and approve" step screens (13A.16)', () => {
     it('offers an Editor only the approval', async () => {
       const fixture = await at('ReadyForReview', 'approve');
 
-      expect(panel(fixture).availableMoves().map((move) => move.to)).toEqual(['Approved']);
+      expect(
+        panel(fixture)
+          .availableMoves()
+          .map((move) => move.to),
+      ).toEqual(['Approved']);
       expect(text(fixture)).not.toContain('Someone with the Editor role');
     });
 
@@ -417,7 +491,9 @@ describe('"Test and approve" step screens (13A.16)', () => {
       panel(fixture).evidenceActivated.emit({ kind: 'RecipeAssetLink', recordId: null, fieldName: null, label: null });
       await settle(fixture);
 
-      const link = Array.from(root(fixture).querySelectorAll('a')).find((anchor) => anchor.textContent?.includes('Open the recipe'));
+      const link = Array.from(root(fixture).querySelectorAll('a')).find((anchor) =>
+        anchor.textContent?.includes('Open the recipe'),
+      );
       expect(link?.getAttribute('href')).toBe(`/${SLUG}/recipes/recipe-1`);
     });
   });

@@ -1,9 +1,5 @@
 import { AiProposalDetail, AiProposedChange } from './ai-proposal.models';
-import {
-  composedPromptWarnings,
-  decodeComposedImagePrompt,
-  encodeRequestImagePrompt,
-} from './image-prompt.models';
+import { composedPromptWarnings, decodeComposedImagePrompt, encodeRequestImagePrompt } from './image-prompt.models';
 
 function detail(changes: readonly AiProposedChange[]): AiProposalDetail {
   return {
@@ -62,9 +58,7 @@ describe('image-prompt.models', () => {
     const onlyAvoid = detail([change({ fieldName: 'avoid', afterValue: 'hands' })]);
 
     expect(decodeComposedImagePrompt(onlyAvoid)).toBeNull();
-    expect(composedPromptWarnings(onlyAvoid).map((warning) => warning.message)).toEqual([
-      'No brief was readable.',
-    ]);
+    expect(composedPromptWarnings(onlyAvoid).map((warning) => warning.message)).toEqual(['No brief was readable.']);
   });
 
   it('has no warnings when there is no proposal at all', () => {

@@ -72,7 +72,9 @@ describe('AppShellComponent', () => {
     logoutSpy = jasmine.createSpy('logout').and.resolveTo(undefined);
     ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.resolveTo(undefined);
     resolvedTheme = signal<'light' | 'dark'>('light');
-    toggleThemeSpy = jasmine.createSpy('toggle').and.callFake(() => resolvedTheme.set(resolvedTheme() === 'dark' ? 'light' : 'dark'));
+    toggleThemeSpy = jasmine
+      .createSpy('toggle')
+      .and.callFake(() => resolvedTheme.set(resolvedTheme() === 'dark' ? 'light' : 'dark'));
     currentNavigation = signal<unknown>(null);
 
     await TestBed.configureTestingModule({
@@ -82,7 +84,12 @@ describe('AppShellComponent', () => {
         { provide: WorkspaceMembershipService, useValue: { state: () => memberships, ensureLoaded: ensureLoadedSpy } },
         {
           provide: Router,
-          useValue: { events, currentNavigation, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy },
+          useValue: {
+            events,
+            currentNavigation,
+            navigate: jasmine.createSpy('navigate'),
+            navigateByUrl: navigateByUrlSpy,
+          },
         },
         { provide: ActivatedRoute, useValue: route },
         { provide: CpThemeService, useValue: { resolved: resolvedTheme, toggle: toggleThemeSpy } },
@@ -105,7 +112,8 @@ describe('AppShellComponent', () => {
 
   it('lights the loading bar while the router is navigating, and only then', async () => {
     const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
-    const bar = fixture.debugElement.query(By.directive(CpLoadingBarComponent)).componentInstance as CpLoadingBarComponent;
+    const bar = fixture.debugElement.query(By.directive(CpLoadingBarComponent))
+      .componentInstance as CpLoadingBarComponent;
     expect(bar.active()).toBeFalse();
 
     currentNavigation.set({ id: 2 });
@@ -162,17 +170,32 @@ describe('AppShellComponent', () => {
       return {
         status: 'ready',
         memberships: [
-          { workspaceId: 'w1', workspaceSlug: 'cozy-fall', workspaceName: 'Cozy Fall', membershipId: 'm1', role, status: 'Active' },
+          {
+            workspaceId: 'w1',
+            workspaceSlug: 'cozy-fall',
+            workspaceName: 'Cozy Fall',
+            membershipId: 'm1',
+            role,
+            status: 'Active',
+          },
         ],
       };
     }
 
-    function quickCapture(fixture: ComponentFixture<AppShellComponent>): { componentInstance: QuickCaptureComponent } | null {
+    function quickCapture(
+      fixture: ComponentFixture<AppShellComponent>,
+    ): { componentInstance: QuickCaptureComponent } | null {
       return fixture.debugElement.query(By.directive(QuickCaptureComponent));
     }
 
     it('offers "+ Task" on a workspace page to anyone who can keep work there', async () => {
-      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Contributor'));
+      const fixture = await createFixture(
+        SESSION,
+        'cozy-fall',
+        'recipes',
+        fakeRouteTree('cozy-fall', 'recipes'),
+        membershipsAs('Contributor'),
+      );
 
       expect(quickCapture(fixture)).not.toBeNull();
       const button = (fixture.nativeElement as HTMLElement).querySelector('header button[aria-label="Add a task"]');
@@ -181,7 +204,13 @@ describe('AppShellComponent', () => {
     });
 
     it('renders the dialog after the bar, never inside it, so its scrim covers the page', async () => {
-      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Owner'));
+      const fixture = await createFixture(
+        SESSION,
+        'cozy-fall',
+        'recipes',
+        fakeRouteTree('cozy-fall', 'recipes'),
+        membershipsAs('Owner'),
+      );
       const root = fixture.nativeElement as HTMLElement;
 
       (root.querySelector('header button[aria-label="Add a task"]') as HTMLButtonElement).click();
@@ -196,7 +225,13 @@ describe('AppShellComponent', () => {
     });
 
     it('lets a page open the same dialog through QuickCaptureService, and stops when the shell goes (13A.32)', async () => {
-      const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Owner'));
+      const fixture = await createFixture(
+        SESSION,
+        'cozy-fall',
+        'recipes',
+        fakeRouteTree('cozy-fall', 'recipes'),
+        membershipsAs('Owner'),
+      );
       const root = fixture.nativeElement as HTMLElement;
       const service = TestBed.inject(QuickCaptureService);
 
@@ -215,15 +250,33 @@ describe('AppShellComponent', () => {
     });
 
     it('offers nothing to a Viewer, while memberships load, or where no workspace is in the URL', async () => {
-      expect(quickCapture(await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Viewer')))).toBeNull();
+      expect(
+        quickCapture(
+          await createFixture(
+            SESSION,
+            'cozy-fall',
+            'recipes',
+            fakeRouteTree('cozy-fall', 'recipes'),
+            membershipsAs('Viewer'),
+          ),
+        ),
+      ).toBeNull();
       TestBed.resetTestingModule();
       expect(quickCapture(await createFixture(SESSION, 'cozy-fall'))).toBeNull();
       TestBed.resetTestingModule();
-      expect(quickCapture(await createFixture(SESSION, null, 'dashboard', fakeRouteTree(null, 'dashboard'), membershipsAs('Owner')))).toBeNull();
+      expect(
+        quickCapture(
+          await createFixture(SESSION, null, 'dashboard', fakeRouteTree(null, 'dashboard'), membershipsAs('Owner')),
+        ),
+      ).toBeNull();
     });
 
     it('offers to link the record on the page behind, and nothing on a page about no one record', async () => {
-      const onRecipe = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes' }, { params: { recipeId: RECIPE } }]);
+      const onRecipe = buildRouteChain([
+        { slug: 'cozy-fall' },
+        { section: 'recipes', title: 'Recipes' },
+        { params: { recipeId: RECIPE } },
+      ]);
       const fixture = await createFixture(SESSION, 'cozy-fall', 'recipes', onRecipe, membershipsAs('Editor'));
 
       expect(quickCapture(fixture)!.componentInstance.link()).toEqual(
@@ -231,7 +284,13 @@ describe('AppShellComponent', () => {
       );
 
       TestBed.resetTestingModule();
-      const onLibrary = await createFixture(SESSION, 'cozy-fall', 'recipes', fakeRouteTree('cozy-fall', 'recipes'), membershipsAs('Editor'));
+      const onLibrary = await createFixture(
+        SESSION,
+        'cozy-fall',
+        'recipes',
+        fakeRouteTree('cozy-fall', 'recipes'),
+        membershipsAs('Editor'),
+      );
       expect(quickCapture(onLibrary)!.componentInstance.link()).toBeNull();
     });
   });
@@ -258,7 +317,12 @@ describe('AppShellComponent', () => {
 
     async function createFrame(pageWidth?: string) {
       const route = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes', pageWidth }]);
-      const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall', 'recipes', route);
+      const fixture = await createFixture(
+        { status: 'authenticated', displayName: 'Robert' },
+        'cozy-fall',
+        'recipes',
+        route,
+      );
       // Attached, because a detached element has no computed layout to read.
       document.body.appendChild(fixture.nativeElement);
       const frame = fixture.nativeElement.querySelector('main > .page-frame') as HTMLElement;
@@ -319,7 +383,7 @@ describe('AppShellComponent', () => {
       expect(frameOf(fixture).hasAttribute('data-cp-tone')).toBeFalse();
     });
 
-    it("sets the tone a parent route names on the frame, for the page below it", async () => {
+    it('sets the tone a parent route names on the frame, for the page below it', async () => {
       const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', studio('pink'));
       expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('pink');
     });
@@ -338,7 +402,14 @@ describe('AppShellComponent', () => {
     it('clears it when the creator navigates to an untoned page, and sets it again on the way back', async () => {
       const events = new Subject<unknown>();
       const route = studio('pink');
-      const fixture = await createFixture(authenticated, 'cozy-fall', 'image-studio', route, { status: 'loading' }, events);
+      const fixture = await createFixture(
+        authenticated,
+        'cozy-fall',
+        'image-studio',
+        route,
+        { status: 'loading' },
+        events,
+      );
       expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('pink');
 
       route.firstChild = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'recipes', title: 'Recipes' }]).firstChild;
@@ -353,7 +424,11 @@ describe('AppShellComponent', () => {
     });
 
     it('lets a deeper route name its own tone over its parent', async () => {
-      const route = buildRouteChain([{ slug: 'cozy-fall' }, { section: 'workflows', tone: 'blue' }, { title: 'Long-form', tone: 'orange' }]);
+      const route = buildRouteChain([
+        { slug: 'cozy-fall' },
+        { section: 'workflows', tone: 'blue' },
+        { title: 'Long-form', tone: 'orange' },
+      ]);
       const fixture = await createFixture(authenticated, 'cozy-fall', 'workflows', route);
       expect(frameOf(fixture).getAttribute('data-cp-tone')).toBe('orange');
     });

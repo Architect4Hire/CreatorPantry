@@ -10,7 +10,10 @@ describe('anonymousOnlyGuard', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: AuthService, useValue: authServiceStub },
-        { provide: Router, useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) } },
+        {
+          provide: Router,
+          useValue: { createUrlTree: jasmine.createSpy('createUrlTree').and.returnValue(new UrlTree()) },
+        },
       ],
     });
   }

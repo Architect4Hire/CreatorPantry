@@ -92,7 +92,12 @@ let leaveAnswer = true;
 let leaveAsked = 0;
 let confirmAnswer = true;
 
-function draftOf(id: string, contextId: string, status: LongFormDraftStatus, overrides: Partial<LongFormDraft> = {}): LongFormDraft {
+function draftOf(
+  id: string,
+  contextId: string,
+  status: LongFormDraftStatus,
+  overrides: Partial<LongFormDraft> = {},
+): LongFormDraft {
   return {
     id,
     creativeContextId: contextId,
@@ -151,7 +156,9 @@ class FakeLongFormDraftService {
 
     const held = this.drafts.get(draftId);
 
-    return Promise.resolve(held !== undefined && held.slug === slug ? { status: 'found', draft: held.draft } : { status: 'not_found' });
+    return Promise.resolve(
+      held !== undefined && held.slug === slug ? { status: 'found', draft: held.draft } : { status: 'not_found' },
+    );
   }
 
   list(slug: string, query: { creativeContextId?: string | null }): Promise<LongFormDraftPageOutcome> {
@@ -187,8 +194,22 @@ function memberships(role: WorkspaceRole | null, status: 'ready' | 'loading' | '
       role === null
         ? []
         : [
-            { workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Cozy Fall', membershipId: 'm1', role, status: 'Active' as const },
-            { workspaceId: 'w2', workspaceSlug: OTHER_SLUG, workspaceName: 'Other Kitchen', membershipId: 'm2', role, status: 'Active' as const },
+            {
+              workspaceId: 'w1',
+              workspaceSlug: SLUG,
+              workspaceName: 'Cozy Fall',
+              membershipId: 'm1',
+              role,
+              status: 'Active' as const,
+            },
+            {
+              workspaceId: 'w2',
+              workspaceSlug: OTHER_SLUG,
+              workspaceName: 'Other Kitchen',
+              membershipId: 'm2',
+              role,
+              status: 'Active' as const,
+            },
           ],
   });
 }
@@ -209,7 +230,12 @@ async function create(
     const real = window.matchMedia.bind(window);
     spyOn(window, 'matchMedia').and.callFake((query: string) =>
       query === WORKFLOW_SHELL_NARROW_QUERY
-        ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList)
+        ? ({
+            matches: true,
+            media: query,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          } as unknown as MediaQueryList)
         : real(query),
     );
   }
@@ -232,7 +258,10 @@ async function create(
       ]),
       // The real device store over the real localStorage: what is kept on the device is what several of these
       // specs are about.
-      { provide: AuthService, useValue: { session: signal<SessionState>({ status: 'authenticated', displayName: 'Rae' }).asReadonly() } },
+      {
+        provide: AuthService,
+        useValue: { session: signal<SessionState>({ status: 'authenticated', displayName: 'Rae' }).asReadonly() },
+      },
       { provide: CreativeContextService, useValue: server },
       { provide: RecipeService, useValue: library },
       { provide: LongFormDraftService, useValue: drafts },
@@ -248,7 +277,10 @@ async function create(
         provide: BrandProfileService,
         useValue: {
           listContentChannels: () =>
-            Promise.resolve({ status: 'found', channels: [{ key: 'instagram', displayName: 'Instagram', isActive: true }] }),
+            Promise.resolve({
+              status: 'found',
+              channels: [{ key: 'instagram', displayName: 'Instagram', isActive: true }],
+            }),
           getBrandProfile: () => Promise.resolve(options.brand ?? { status: 'first_use' }),
         },
       },
@@ -263,7 +295,10 @@ async function create(
             ),
         },
       },
-      { provide: ChannelPostService, useValue: { readPackage: () => Promise.resolve({ status: 'found', package: posts }) } },
+      {
+        provide: ChannelPostService,
+        useValue: { readPackage: () => Promise.resolve({ status: 'found', package: posts }) },
+      },
       { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(confirmAnswer) } },
       { provide: AiUsageService, useValue: { allowance, ensureLoaded: () => Promise.resolve() } },
     ],
@@ -291,12 +326,20 @@ function text(node: ParentNode = root()): string {
 }
 
 function button(label: string): HTMLButtonElement | null {
-  return Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find((candidate) => text(candidate) === label) ?? null;
+  return (
+    Array.from(root().querySelectorAll<HTMLButtonElement>('button')).find((candidate) => text(candidate) === label) ??
+    null
+  );
 }
 
 async function click(label: string): Promise<void> {
   const target = button(label);
-  if (target === null) throw new Error(`No button "${label}". There are: ${Array.from(root().querySelectorAll('button')).map((b) => text(b)).join(' | ')}`);
+  if (target === null)
+    throw new Error(
+      `No button "${label}". There are: ${Array.from(root().querySelectorAll('button'))
+        .map((b) => text(b))
+        .join(' | ')}`,
+    );
 
   target.click();
   await settle();
@@ -346,7 +389,9 @@ describe('longFormPipelineMatcher', () => {
     const segments = path === '' ? [] : path.split('/').map((part) => ({ path: part }) as never);
     const result = longFormPipelineMatcher(segments);
 
-    return result === null ? null : Object.fromEntries(Object.entries(result.posParams ?? {}).map(([key, value]) => [key, value.path]));
+    return result === null
+      ? null
+      : Object.fromEntries(Object.entries(result.posParams ?? {}).map(([key, value]) => [key, value.path]));
   };
 
   it('reads every address of the journey as one route, and refuses any other shape', () => {
@@ -392,8 +437,12 @@ describe('LongFormPipelineShellComponent', () => {
 
     expect(root().querySelectorAll('cp-topic-card').length).toBe(1);
     expect(text(root().querySelector(`#${LONG_FORM_PIPELINE_HEADING_ID}`)!)).toBe('What it is about');
-    expect(text(root().querySelector('[data-testid="legend"]')!)).toBe('Say what this piece is about. A recipe, a few words of your own, or both.');
-    expect(text(root().querySelector('details.help')!)).toContain('An article and a newsletter issue are planned differently');
+    expect(text(root().querySelector('[data-testid="legend"]')!)).toBe(
+      'Say what this piece is about. A recipe, a few words of your own, or both.',
+    );
+    expect(text(root().querySelector('details.help')!)).toContain(
+      'An article and a newsletter issue are planned differently',
+    );
     expect(text(root().querySelector('cp-progress')!)).toContain('Step 1 of 4');
 
     // A live region that exists before it has anything to say.
@@ -407,7 +456,9 @@ describe('LongFormPipelineShellComponent', () => {
 
     const footer = root().querySelector('cp-topic-card .footer') as HTMLElement;
     const rowOf = (label: string): string | undefined =>
-      Array.from(footer.querySelectorAll('button')).find((each) => text(each) === label)?.closest('.cp-actions')?.className;
+      Array.from(footer.querySelectorAll('button'))
+        .find((each) => text(each) === label)
+        ?.closest('.cp-actions')?.className;
 
     expect(rowOf('Back')).toContain('primary-row');
     expect(rowOf('Continue')).toContain('primary-row');
@@ -480,8 +531,12 @@ describe('LongFormPipelineShellComponent', () => {
 
   it('says so, and stops nothing, when the brand has no guide and no audience or cannot be read', async () => {
     await create();
-    expect(text(root().querySelector('[data-testid="brand-read"]')!)).toContain('No style guide is active, so no brand voice is applied.');
-    expect(text(root().querySelector('[data-testid="brand-read"]')!)).toContain('No audience is set in your brand profile.');
+    expect(text(root().querySelector('[data-testid="brand-read"]')!)).toContain(
+      'No style guide is active, so no brand voice is applied.',
+    );
+    expect(text(root().querySelector('[data-testid="brand-read"]')!)).toContain(
+      'No audience is set in your brand profile.',
+    );
 
     await create({ guide: 'unavailable', brand: { status: 'unavailable' } });
     expect(text(root().querySelector('[data-testid="brand-read"]')!)).toContain('could not be read just now');
@@ -499,11 +554,15 @@ describe('LongFormPipelineShellComponent', () => {
 
     // Nothing to plan from yet, and the step says what it needs.
     expect(button('Plan the outline')?.getAttribute('aria-disabled')).toBe('true');
-    expect(text(root().querySelector('[data-testid="needed"]')!)).toContain('Link a recipe, or say what the piece is called');
+    expect(text(root().querySelector('[data-testid="needed"]')!)).toContain(
+      'Link a recipe, or say what the piece is called',
+    );
 
     // The one action that uses the allowance says that it does.
     const cost = button('Plan the outline')!.getAttribute('aria-describedby')!;
-    expect(text(root().querySelector(`#${cost}`)!)).toBe('This uses some of your AI allowance. Nothing is written yet.');
+    expect(text(root().querySelector(`#${cost}`)!)).toBe(
+      'This uses some of your AI allowance. Nothing is written yet.',
+    );
   });
 
   it('plans a piece that has no recipe from the creator’s own words, and moves to the outline', async () => {
@@ -547,7 +606,11 @@ describe('LongFormPipelineShellComponent', () => {
     await type('cp-long-form-about-length', '450');
     await click('Plan the outline');
 
-    expect(drafts.starts[0]!.request).toEqual({ creativeContextId: 'ctx-1', kind: 'NewsletterIssue', targetWords: 450 });
+    expect(drafts.starts[0]!.request).toEqual({
+      creativeContextId: 'ctx-1',
+      kind: 'NewsletterIssue',
+      targetWords: 450,
+    });
 
     // For this piece only: no write went to the brand, which this page has no way to change.
     expect(server.patches.every((patch) => !('kind' in patch.patch))).toBeTrue();
@@ -565,7 +628,9 @@ describe('LongFormPipelineShellComponent', () => {
 
     drafts.startOutcomes = [{ status: 'refused', code: 'x', message: 'That piece of work cannot be planned from.' }];
     await click('Plan the outline');
-    expect(text(root().querySelector('[data-testid="step-problem"]')!)).toContain('That piece of work cannot be planned from.');
+    expect(text(root().querySelector('[data-testid="step-problem"]')!)).toContain(
+      'That piece of work cannot be planned from.',
+    );
 
     drafts.startOutcomes = [{ status: 'unavailable' }];
     await click('Plan the outline');
@@ -611,7 +676,9 @@ describe('LongFormPipelineShellComponent', () => {
 
     expect(text(root().querySelector('cp-progress')!)).toContain('Accepted');
     expect(root().querySelector('cp-progress [role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
-    expect(text(root().querySelector('[role="status"][aria-live="polite"]')!)).toBe('This piece is accepted. Nothing has been published.');
+    expect(text(root().querySelector('[role="status"][aria-live="polite"]')!)).toBe(
+      'This piece is accepted. Nothing has been published.',
+    );
   });
 
   it('opens a piece of work named with no draft where its draft on the server stands', async () => {
@@ -641,7 +708,9 @@ describe('LongFormPipelineShellComponent', () => {
 
     expect(documentSurface().show()).toBe('write');
     expect(button('Continue')?.getAttribute('aria-disabled')).toBe('true');
-    expect(text(root().querySelector('[data-testid="needed"]')!)).toBe('Write at least one section to read the piece whole.');
+    expect(text(root().querySelector('[data-testid="needed"]')!)).toBe(
+      'Write at least one section to read the piece whole.',
+    );
 
     // The surface reads the piece as the creator writes; the shell learns from that, not from a second read.
     documentSurface().documentRead.emit(documentAt('Writing'));
@@ -668,9 +737,15 @@ describe('LongFormPipelineShellComponent', () => {
     await settle();
     await click('Plan the outline');
 
-    expect(decodeLongFormPipelinePlace(localStorage.getItem(PLACE_KEY))).toEqual({ contextId: 'ctx-1', draftId: 'd-new', step: 'outline' });
+    expect(decodeLongFormPipelinePlace(localStorage.getItem(PLACE_KEY))).toEqual({
+      contextId: 'ctx-1',
+      draftId: 'd-new',
+      step: 'outline',
+    });
 
-    const everything = Object.keys(localStorage).map((key) => `${key}=${localStorage.getItem(key)}`).join('\n');
+    const everything = Object.keys(localStorage)
+      .map((key) => `${key}=${localStorage.getItem(key)}`)
+      .join('\n');
     expect(everything).not.toContain('secret');
     expect(everything).not.toContain('really think');
     expect(Object.keys(localStorage)).toEqual([PLACE_KEY]);
@@ -682,7 +757,10 @@ describe('LongFormPipelineShellComponent', () => {
         piece('Draft');
 
         // The device remembers the last step; the piece on the server has only an unapproved plan.
-        localStorage.setItem(PLACE_KEY, encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'review' }));
+        localStorage.setItem(
+          PLACE_KEY,
+          encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'review' }),
+        );
       },
     });
 
@@ -701,7 +779,10 @@ describe('LongFormPipelineShellComponent', () => {
     await create({
       setup: () => {
         piece('Draft');
-        localStorage.setItem(PLACE_KEY, encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }));
+        localStorage.setItem(
+          PLACE_KEY,
+          encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }),
+        );
       },
     });
 
@@ -783,7 +864,10 @@ describe('LongFormPipelineShellComponent', () => {
       url: `${BASE}?from=brief`,
       setup: () => {
         piece('Draft');
-        localStorage.setItem(PLACE_KEY, encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }));
+        localStorage.setItem(
+          PLACE_KEY,
+          encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }),
+        );
       },
     });
 
@@ -799,7 +883,10 @@ describe('LongFormPipelineShellComponent', () => {
       url: `${BASE}?from=elsewhere`,
       setup: () => {
         piece('Draft');
-        localStorage.setItem(PLACE_KEY, encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }));
+        localStorage.setItem(
+          PLACE_KEY,
+          encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }),
+        );
       },
     });
 
@@ -870,9 +957,30 @@ describe('LongFormPipelineShellComponent', () => {
       creativeContextId: 'ctx-piece',
       updatedAt: '2026-10-12T09:00:00Z',
       channels: [
-        { channelKey: 'instagram', status: 'Accepted', isCurrent: true, updatedAt: 'x', latest: { body: 'Later wording.' }, accepted: { body: 'Soda bread, no kneading.' } },
-        { channelKey: 'facebook', status: 'Proposed', isCurrent: null, updatedAt: 'x', latest: { body: 'A draft post.' }, accepted: null },
-        { channelKey: 'pinterest', status: 'NeedsReview', isCurrent: false, updatedAt: 'x', latest: { body: 'Stale.' }, accepted: { body: 'An old pin.' } },
+        {
+          channelKey: 'instagram',
+          status: 'Accepted',
+          isCurrent: true,
+          updatedAt: 'x',
+          latest: { body: 'Later wording.' },
+          accepted: { body: 'Soda bread, no kneading.' },
+        },
+        {
+          channelKey: 'facebook',
+          status: 'Proposed',
+          isCurrent: null,
+          updatedAt: 'x',
+          latest: { body: 'A draft post.' },
+          accepted: null,
+        },
+        {
+          channelKey: 'pinterest',
+          status: 'NeedsReview',
+          isCurrent: false,
+          updatedAt: 'x',
+          latest: { body: 'Stale.' },
+          accepted: { body: 'An old pin.' },
+        },
       ],
     } as unknown as ChannelPostPackage;
 
@@ -911,7 +1019,7 @@ describe('LongFormPipelineShellComponent', () => {
     expect(root().querySelector('[data-testid="document-surface"]')).toBeNull();
 
     await create({ role: null });
-    expect(text()).toContain('We couldn\'t find this workspace.');
+    expect(text()).toContain("We couldn't find this workspace.");
     expect(drafts.starts).toEqual([]);
   });
 
@@ -919,12 +1027,12 @@ describe('LongFormPipelineShellComponent', () => {
     // The same ids, in the workspace next door. This creator is a member of both.
     await create({ url: `${PIECE}/write`, setup: () => piece('Writing', OTHER_SLUG) });
 
-    expect(text()).toContain('We couldn\'t find this piece.');
+    expect(text()).toContain("We couldn't find this piece.");
     expect(root().querySelector('[data-testid="document-surface"]')).toBeNull();
     expect(text()).not.toContain('Soda bread, start to finish');
 
     await create({ url: `${BASE}/context/ctx-none/draft/d-none/write` });
-    expect(text()).toContain('We couldn\'t find this piece.');
+    expect(text()).toContain("We couldn't find this piece.");
   });
 
   it('re-reads the piece when the workspace changes under a page still open, even where the ids are the same', async () => {
@@ -939,7 +1047,7 @@ describe('LongFormPipelineShellComponent', () => {
     await settle();
 
     expect(shell()).toBe(before);
-    expect(text()).toContain('We couldn\'t find this piece.');
+    expect(text()).toContain("We couldn't find this piece.");
     expect(title()).toBeNull();
     expect(text()).not.toContain('Soda bread, start to finish');
 
@@ -1006,7 +1114,7 @@ describe('LongFormPipelineShellComponent', () => {
       },
     });
 
-    expect(text()).toContain('We couldn\'t find this piece.');
+    expect(text()).toContain("We couldn't find this piece.");
     expect(root().querySelector('[data-testid="document-surface"]')).toBeNull();
   });
 
@@ -1017,7 +1125,10 @@ describe('LongFormPipelineShellComponent', () => {
         piece('Draft');
 
         // Remembered for the first workspace. The second has its own key, and nothing under it.
-        localStorage.setItem(PLACE_KEY, encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }));
+        localStorage.setItem(
+          PLACE_KEY,
+          encodeLongFormPipelinePlace({ contextId: 'ctx-piece', draftId: 'd-piece', step: 'outline' }),
+        );
       },
     });
 
@@ -1035,7 +1146,7 @@ describe('LongFormPipelineShellComponent', () => {
       },
     });
 
-    expect(text()).toContain('This piece couldn\'t be loaded right now.');
+    expect(text()).toContain("This piece couldn't be loaded right now.");
 
     drafts.unavailable = false;
     await click('Try again');

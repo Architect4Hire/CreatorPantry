@@ -124,7 +124,15 @@ function onPhoto(): WorkflowRun {
       title: 'Add a photo',
       help: 'A picture helps.',
       requirement: 'Optional',
-      actions: [{ capabilityKey: 'images.new', name: 'Make a picture', route: 'image-studio', available: true, youCanDoIt: true }],
+      actions: [
+        {
+          capabilityKey: 'images.new',
+          name: 'Make a picture',
+          route: 'image-studio',
+          available: true,
+          youCanDoIt: true,
+        },
+      ],
       waitingFor: [],
     },
   });
@@ -188,9 +196,11 @@ function text(): string {
 }
 
 function button(label: string): HTMLButtonElement | null {
-  return Array.from(el().querySelectorAll<HTMLButtonElement>('button, a')).find(
-    (candidate) => candidate.textContent?.trim() === label,
-  ) ?? null;
+  return (
+    Array.from(el().querySelectorAll<HTMLButtonElement>('button, a')).find(
+      (candidate) => candidate.textContent?.trim() === label,
+    ) ?? null
+  );
 }
 
 async function click(label: string): Promise<void> {
@@ -227,15 +237,27 @@ describe('WorkflowShellComponent', () => {
     role = 'Owner';
     mediaMatches = {};
 
-    spyOn(window, 'matchMedia').and.callFake((query: string) => ({
-      matches: mediaMatches[query] ?? false,
-      media: query,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-    }) as unknown as MediaQueryList);
+    spyOn(window, 'matchMedia').and.callFake(
+      (query: string) =>
+        ({
+          matches: mediaMatches[query] ?? false,
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        }) as unknown as MediaQueryList,
+    );
 
     service = jasmine.createSpyObj<WorkflowRunService>('WorkflowRunService', [
-      'get', 'completeStep', 'back', 'skip', 'completeRun', 'saveAndExit', 'abandon', 'restart', 'start', 'saveDraft',
+      'get',
+      'completeStep',
+      'back',
+      'skip',
+      'completeRun',
+      'saveAndExit',
+      'abandon',
+      'restart',
+      'start',
+      'saveDraft',
     ]);
     confirm = jasmine.createSpy('confirm').and.resolveTo(true);
 
@@ -250,7 +272,18 @@ describe('WorkflowShellComponent', () => {
           useValue: {
             state: signal({
               status: 'ready',
-              memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+              memberships: [
+                {
+                  workspaceId: 'w1',
+                  workspaceSlug: SLUG,
+                  workspaceName: 'Sam',
+                  membershipId: 'm1',
+                  get role() {
+                    return role;
+                  },
+                  status: 'Active',
+                },
+              ],
             }),
             ensureLoaded: () => Promise.resolve(),
           },
@@ -284,7 +317,11 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Start your recipe');
     expect(el().querySelector('p.loading-status[role="status"]')!.textContent).toBe('');
     expect(el().querySelector('.layout[aria-busy="true"]')).toBeNull();
-    expect(fixture.componentInstance.described).toEqual({ definitionKey: 'recipe.create', goal: 'Create a recipe', expectedOutcome: 'A saved recipe you can keep improving.' });
+    expect(fixture.componentInstance.described).toEqual({
+      definitionKey: 'recipe.create',
+      goal: 'Create a recipe',
+      expectedOutcome: 'A saved recipe you can keep improving.',
+    });
   });
 
   it('offers Try again when the run cannot be loaded, and loads it on asking', async () => {
@@ -344,7 +381,7 @@ describe('WorkflowShellComponent', () => {
     return component;
   }
 
-  it('keeps the step\'s work before Continue, then asks the server and shows the step it moved to', async () => {
+  it("keeps the step's work before Continue, then asks the server and shows the step it moved to", async () => {
     await onIngredients();
     screen.results.set([{ kind: 'Recipe', id: 'recipe-1' }]);
     service.completeStep.and.returnValue(done(onPhoto()));
@@ -352,20 +389,22 @@ describe('WorkflowShellComponent', () => {
     await click('Continue');
 
     expect(screen.flushes).toBe(1);
-    expect(service.completeStep).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', [{ kind: 'Recipe', id: 'recipe-1' }]);
+    expect(service.completeStep).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', [
+      { kind: 'Recipe', id: 'recipe-1' },
+    ]);
     expect(text()).toContain('Add a photo');
     expect(focusedId()).toBe('cp-workflow-step-heading');
     expect(liveRegion()!.textContent).toContain('Step 3 of 3: Add a photo');
   });
 
-  it('does not move when the step\'s work cannot be kept', async () => {
+  it("does not move when the step's work cannot be kept", async () => {
     await onIngredients();
     screen.flushResult = false;
 
     await click('Continue');
 
     expect(service.completeStep).not.toHaveBeenCalled();
-    expect(text()).toContain("Your work on this step isn’t saved yet, so the run hasn’t moved.");
+    expect(text()).toContain('Your work on this step isn’t saved yet, so the run hasn’t moved.');
   });
 
   it('says what the step still needs above the buttons when the server finds it not done', async () => {
@@ -419,7 +458,9 @@ describe('WorkflowShellComponent', () => {
   it('finishes a run with every step done, and focuses the summary', async () => {
     await create(allDone());
     await click('Continue');
-    service.completeRun.and.returnValue(done(run({ status: 'Completed', completedAt: '2026-10-15T10:00:00Z', nextAction: null })));
+    service.completeRun.and.returnValue(
+      done(run({ status: 'Completed', completedAt: '2026-10-15T10:00:00Z', nextAction: null })),
+    );
 
     await click('Finish');
 
@@ -433,7 +474,13 @@ describe('WorkflowShellComponent', () => {
     await click('Continue');
     service.completeRun.and.resolveTo({
       status: 'run_incomplete',
-      incompleteSteps: [{ stepKey: 'ingredients', title: 'Ingredients', missing: ['The recipe this step made can’t be found any more.'] }],
+      incompleteSteps: [
+        {
+          stepKey: 'ingredients',
+          title: 'Ingredients',
+          missing: ['The recipe this step made can’t be found any more.'],
+        },
+      ],
     });
 
     await click('Finish');
@@ -441,7 +488,7 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Ingredients: The recipe this step made can’t be found any more.');
   });
 
-  it('saves and exits with the step\'s draft and place, then leaves for Workflows', async () => {
+  it("saves and exits with the step's draft and place, then leaves for Workflows", async () => {
     await onIngredients();
     screen.draft.set({ kind: 'Recipe', id: 'draft-1' });
     screen.capabilityKey.set('recipes.edit');
@@ -466,7 +513,10 @@ describe('WorkflowShellComponent', () => {
     await expectAsync(screenPort!.keepDraft({ kind: 'Recipe', id: 'recipe-9' })).toBeResolvedTo(true);
     await settle();
 
-    expect(service.saveDraft).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', { kind: 'Recipe', id: 'recipe-9' });
+    expect(service.saveDraft).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', {
+      kind: 'Recipe',
+      id: 'recipe-9',
+    });
     expect(shell().run()?.concurrencyToken).toBe('AAAAAAAAB9I=');
     expect(text()).toContain('Screen for Ingredients');
   });
@@ -561,7 +611,9 @@ describe('WorkflowShellComponent', () => {
     await create(finished());
 
     expect(text()).toContain('What next?');
-    expect(text()).toContain('Test and approve a recipe. Cook it, note what happened, and approve it when it is right.');
+    expect(text()).toContain(
+      'Test and approve a recipe. Cook it, note what happened, and approve it when it is right.',
+    );
     const start = el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!;
     expect(start.classList).toContain('cp-button--primary');
     expect(button('Open')).not.toBeNull();
@@ -578,7 +630,10 @@ describe('WorkflowShellComponent', () => {
 
   it('offers no Start for a journey the reader could not start', async () => {
     const run = finished();
-    await create({ ...run, nextSuggestions: run.nextSuggestions.map((suggestion) => ({ ...suggestion, youCanDoIt: false })) });
+    await create({
+      ...run,
+      nextSuggestions: run.nextSuggestions.map((suggestion) => ({ ...suggestion, youCanDoIt: false })),
+    });
 
     expect(text()).toContain('Test and approve a recipe.');
     expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
@@ -591,7 +646,10 @@ describe('WorkflowShellComponent', () => {
     el().querySelector<HTMLButtonElement>('button[aria-label="Start: Test and approve a recipe"]')!.click();
     await settle();
 
-    expect(service.start).toHaveBeenCalledOnceWith(SLUG, 'recipe.test-and-approve', jasmine.any(String), { kind: 'Recipe', id: 'recipe-1' });
+    expect(service.start).toHaveBeenCalledOnceWith(SLUG, 'recipe.test-and-approve', jasmine.any(String), {
+      kind: 'Recipe',
+      id: 'recipe-1',
+    });
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
   });
 
@@ -620,10 +678,14 @@ describe('WorkflowShellComponent', () => {
     };
     await create(finished({ nextSuggestions: [blog] }));
 
-    const open = el().querySelector<HTMLAnchorElement>('a[aria-label="Open the writer: Write a blog post and SEO package"]')!;
+    const open = el().querySelector<HTMLAnchorElement>(
+      'a[aria-label="Open the writer: Write a blog post and SEO package"]',
+    )!;
     expect(open.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form?from=recipe&recipe=recipe-1`);
     expect(open.classList).toContain('cp-button--primary');
-    expect(el().querySelector('button[aria-label^="Start:"]')).withContext('the writer is a page, not a run').toBeNull();
+    expect(el().querySelector('button[aria-label^="Start:"]'))
+      .withContext('the writer is a page, not a run')
+      .toBeNull();
     expect(service.start).not.toHaveBeenCalled();
   });
 
@@ -658,7 +720,9 @@ describe('WorkflowShellComponent', () => {
       youCanDoIt: true,
     };
     await create(finished({ nextSuggestions: [blog] }));
-    expect(el().querySelector('a[aria-label^="Open the writer"]')?.getAttribute('href')).toBe(`/${SLUG}/workflows/long-form`);
+    expect(el().querySelector('a[aria-label^="Open the writer"]')?.getAttribute('href')).toBe(
+      `/${SLUG}/workflows/long-form`,
+    );
 
     role = 'Viewer';
     await create(finished({ nextSuggestions: [blog] }));
@@ -705,14 +769,18 @@ describe('WorkflowShellComponent', () => {
 
   it('stops a run with the reason given, and shows it stopped', async () => {
     await onIngredients();
-    service.abandon.and.returnValue(done(run({ status: 'Abandoned', abandonedAt: '2026-10-15T10:00:00Z', abandonReason: 'Not this week' })));
+    service.abandon.and.returnValue(
+      done(run({ status: 'Abandoned', abandonedAt: '2026-10-15T10:00:00Z', abandonReason: 'Not this week' })),
+    );
 
     await click('Stop this run');
     const reason = el().querySelector<HTMLTextAreaElement>('#cp-workflow-stop-reason')!;
     reason.value = '  Not this week ';
     reason.dispatchEvent(new Event('input'));
     await settle();
-    const confirmStop = Array.from(el().querySelectorAll<HTMLButtonElement>('cp-dialog button')).find((b) => b.textContent?.trim() === 'Stop this run')!;
+    const confirmStop = Array.from(el().querySelectorAll<HTMLButtonElement>('cp-dialog button')).find(
+      (b) => b.textContent?.trim() === 'Stop this run',
+    )!;
     confirmStop.click();
     await settle();
 
@@ -736,7 +804,9 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Add a photo');
     expect(focusedId()).toBe('cp-workflow-step-heading');
     // Said once, together: what happened and where the run is now.
-    expect(liveRegion()!.textContent).toContain('This run changed somewhere else, maybe in another tab. Step 3 of 3: Add a photo');
+    expect(liveRegion()!.textContent).toContain(
+      'This run changed somewhere else, maybe in another tab. Step 3 of 3: Add a photo',
+    );
   });
 
   it('offers Retry to read the run again when reading it after a conflict fails', async () => {
@@ -761,14 +831,19 @@ describe('WorkflowShellComponent', () => {
 
     await click('Continue');
 
-    expect(el().querySelector('.footer cp-notice[role="alert"]')?.textContent).toContain('Add at least one ingredient.');
+    expect(el().querySelector('.footer cp-notice[role="alert"]')?.textContent).toContain(
+      'Add at least one ingredient.',
+    );
     expect(liveRegion()!.textContent).toBe(before);
   });
 
   it('shows a run finished elsewhere as finished', async () => {
     await onIngredients();
     service.back.and.resolveTo({ status: 'not_in_progress' });
-    service.get.and.resolveTo({ status: 'found', run: run({ status: 'Completed', completedAt: '2026-10-15T10:00:00Z', nextAction: null }) });
+    service.get.and.resolveTo({
+      status: 'found',
+      run: run({ status: 'Completed', completedAt: '2026-10-15T10:00:00Z', nextAction: null }),
+    });
 
     await click('Back');
 
@@ -833,7 +908,7 @@ describe('WorkflowShellComponent', () => {
     }
   });
 
-  it('turns read-only when the server refuses a move as not this reader\'s', async () => {
+  it("turns read-only when the server refuses a move as not this reader's", async () => {
     await onIngredients();
     service.completeStep.and.resolveTo({ status: 'forbidden' });
 
@@ -857,7 +932,7 @@ describe('WorkflowShellComponent', () => {
     expect(el().querySelector('.save-status')!.textContent).toContain('Saving…');
   });
 
-  it('lets a leave through when the step\'s work can be kept, and asks only when it cannot', async () => {
+  it("lets a leave through when the step's work can be kept, and asks only when it cannot", async () => {
     const component = await onIngredients();
 
     expect(await component.confirmLeaveIfUnsaved()).toBeTrue();
@@ -870,7 +945,9 @@ describe('WorkflowShellComponent', () => {
     screen.flushResult = false;
     confirm.and.resolveTo(false);
     expect(await component.confirmLeaveIfUnsaved()).toBeFalse();
-    expect(confirm).toHaveBeenCalledOnceWith(jasmine.objectContaining({ title: 'Leave without saving?', tone: 'danger' }));
+    expect(confirm).toHaveBeenCalledOnceWith(
+      jasmine.objectContaining({ title: 'Leave without saving?', tone: 'danger' }),
+    );
   });
 
   describe('autosave', () => {
@@ -1041,8 +1118,12 @@ describe('WorkflowShellComponent', () => {
   it('offers one primary action per step', async () => {
     await onIngredients();
 
-    expect(el().querySelectorAll('.footer [variant="primary"], .footer .cp-button--primary').length).toBeLessThanOrEqual(1);
-    const primaries = Array.from(el().querySelectorAll('.footer button')).filter((b) => b.classList.contains('cp-button--primary'));
+    expect(
+      el().querySelectorAll('.footer [variant="primary"], .footer .cp-button--primary').length,
+    ).toBeLessThanOrEqual(1);
+    const primaries = Array.from(el().querySelectorAll('.footer button')).filter((b) =>
+      b.classList.contains('cp-button--primary'),
+    );
     expect(primaries.map((b) => b.textContent?.trim())).toEqual(['Continue']);
   });
 
@@ -1074,7 +1155,9 @@ describe('WorkflowShellComponent', () => {
 
     // Focus is already on the new step: nothing waits on an animation to finish.
     expect(focusedId()).toBe('cp-workflow-step-heading');
-    for (const node of Array.from(el().querySelectorAll<HTMLElement>('.shell, .layout, .progress, .footer, .more-actions'))) {
+    for (const node of Array.from(
+      el().querySelectorAll<HTMLElement>('.shell, .layout, .progress, .footer, .more-actions'),
+    )) {
       const style = getComputedStyle(node);
       expect(style.transitionDuration).withContext(node.className).toBe('0s');
       expect(style.animationName).withContext(node.className).toBe('none');

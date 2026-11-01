@@ -10,12 +10,7 @@ import {
   RequestReferenceImageRequest,
   encodeRequestReferenceImage,
 } from '../models/reference-image.models';
-import {
-  AiRequestOutcome,
-  AiWatchOperationOutcome,
-  mapAiRequestError,
-  mapAiWatchError,
-} from './ai-request';
+import { AiRequestOutcome, AiWatchOperationOutcome, mapAiRequestError, mapAiWatchError } from './ai-request';
 
 /**
  * The typed client for IMG-004: ask for a reading of a reference photograph, and read where that request has

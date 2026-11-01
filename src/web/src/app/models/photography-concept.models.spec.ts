@@ -128,11 +128,15 @@ describe('photography-concept.models', () => {
       expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: null, applyDayNotes: false })).toEqual({
         creatorConcept: 'A tight crop.',
       });
-      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: true })).toEqual({
-        creatorConcept: 'A tight crop.',
-        creativeContextId: 'ctx-1',
-      });
-      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: false })).toEqual({
+      expect(encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: true })).toEqual(
+        {
+          creatorConcept: 'A tight crop.',
+          creativeContextId: 'ctx-1',
+        },
+      );
+      expect(
+        encodeRequestPhotographyConcepts({ ...request, creativeContextId: 'ctx-1', applyDayNotes: false }),
+      ).toEqual({
         creatorConcept: 'A tight crop.',
         creativeContextId: 'ctx-1',
         applyDayNotes: false,

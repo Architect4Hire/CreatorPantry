@@ -281,12 +281,7 @@ export class AiProposalService {
     requestId: string,
     request: AiProposalDispositionRequest,
   ): Promise<AiProposalDispositionOutcome> {
-    const url = proposalsUrl(
-      this.apiBase,
-      workspaceSlug,
-      recipeId,
-      `/${encodeURIComponent(requestId)}/disposition`,
-    );
+    const url = proposalsUrl(this.apiBase, workspaceSlug, recipeId, `/${encodeURIComponent(requestId)}/disposition`);
     if (!url) return { status: 'unavailable' };
 
     try {

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  effect,
+  inject,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 
 import { cpCaptureFocus, cpInertOthers, cpLockBodyScroll, cpTrapTab } from './modal-surface';
 
@@ -61,7 +71,12 @@ let nextId = 0;
             <p [id]="descriptionId">{{ description() }}</p>
           }
         </div>
-        <button type="button" class="close" [attr.aria-label]="closeLabel()" (click)="closeRequested.emit('close-button')">
+        <button
+          type="button"
+          class="close"
+          [attr.aria-label]="closeLabel()"
+          (click)="closeRequested.emit('close-button')"
+        >
           <span aria-hidden="true">×</span>
         </button>
       </header>

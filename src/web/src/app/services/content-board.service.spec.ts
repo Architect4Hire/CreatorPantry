@@ -165,7 +165,13 @@ describe('ContentBoardService', () => {
       lineage: [{ kind: 'MediaAsset', id: 'asset-1', versionId: null, versionNumber: 1, label: null, available: true }],
       history: [
         { sequence: 1, fromColumn: null, toColumn: 'ToDo', note: null, occurredAt: '2026-10-13T09:00:00+00:00' },
-        { sequence: 2, fromColumn: 'ToDo', toColumn: 'InProcess', note: 'Shoot booked', occurredAt: '2026-10-13T10:00:00+00:00' },
+        {
+          sequence: 2,
+          fromColumn: 'ToDo',
+          toColumn: 'InProcess',
+          note: 'Shoot booked',
+          occurredAt: '2026-10-13T10:00:00+00:00',
+        },
       ],
       historyTruncated: false,
       package: null,
@@ -220,7 +226,9 @@ describe('ContentBoardService', () => {
     });
 
     it('reads a refused cursor as one to start again from, and anything else as unavailable', async () => {
-      const expired = firstValueFrom(service.list('cozy-fall', { channel: null, day: null, date: null }, 'ToDo', 'old'));
+      const expired = firstValueFrom(
+        service.list('cozy-fall', { channel: null, day: null, date: null }, 'ToDo', 'old'),
+      );
       http
         .expectOne((each) => each.url === CARDS)
         .flush(problem('content.card.cursor.invalid'), { status: 400, statusText: 'Bad Request' });
@@ -255,7 +263,9 @@ describe('ContentBoardService', () => {
 
     it('gives one answer for a card that is unknown, deleted or another workspace’s', async () => {
       const pending = firstValueFrom(service.detail('cozy-fall', 'card-1'));
-      http.expectOne(`${CARDS}/card-1`).flush(problem('content.card.not_found'), { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne(`${CARDS}/card-1`)
+        .flush(problem('content.card.not_found'), { status: 404, statusText: 'Not Found' });
 
       expect(await pending).toEqual({ status: 'not_found' });
     });
@@ -264,7 +274,12 @@ describe('ContentBoardService', () => {
   describe('create', () => {
     it('posts only what was filled in, to the column chosen, under the caller’s key', async () => {
       const pending = firstValueFrom(
-        service.create('cozy-fall', { title: 'Soda bread', description: null, channelKey: null, plannedDate: null }, 'InProcess', 'key-1'),
+        service.create(
+          'cozy-fall',
+          { title: 'Soda bread', description: null, channelKey: null, plannedDate: null },
+          'InProcess',
+          'key-1',
+        ),
       );
 
       const request = http.expectOne(CARDS);
@@ -278,14 +293,20 @@ describe('ContentBoardService', () => {
 
     it('names the records a card links when it is made for some, and leaves out what it does not link (13A.20)', async () => {
       const pending = firstValueFrom(
-        service.create('cozy-fall', { title: 'Soda bread', description: null, channelKey: null, plannedDate: null }, 'ToDo', 'key-2', {
-          creativeContextId: 'ctx-1',
-          recipeId: 'recipe-1',
-          recipeVersionId: null,
-          mediaAssetId: 'asset-1',
-          mediaAssetVersionNumber: 2,
-          socialPackageId: 'pkg-1',
-        }),
+        service.create(
+          'cozy-fall',
+          { title: 'Soda bread', description: null, channelKey: null, plannedDate: null },
+          'ToDo',
+          'key-2',
+          {
+            creativeContextId: 'ctx-1',
+            recipeId: 'recipe-1',
+            recipeVersionId: null,
+            mediaAssetId: 'asset-1',
+            mediaAssetVersionNumber: 2,
+            socialPackageId: 'pkg-1',
+          },
+        ),
       );
 
       const request = http.expectOne(CARDS);
@@ -307,7 +328,10 @@ describe('ContentBoardService', () => {
       const pending = firstValueFrom(service.create('cozy-fall', FIELDS, 'ToDo', 'key-1'));
       http
         .expectOne(CARDS)
-        .flush({ ...problem('content.card.invalid'), errors: { title: ['A card needs a title.'] } }, { status: 400, statusText: 'Bad Request' });
+        .flush(
+          { ...problem('content.card.invalid'), errors: { title: ['A card needs a title.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       expect(await pending).toEqual({ status: 'invalid', errors: { title: ['A card needs a title.'] } });
     });
@@ -323,12 +347,22 @@ describe('ContentBoardService', () => {
   describe('update', () => {
     it('sends only the fields that changed, and null for one that was emptied', async () => {
       const pending = firstValueFrom(
-        service.update('cozy-fall', 'card-1', FIELDS, { ...FIELDS, title: 'Soda bread, Friday', description: null }, TOKEN),
+        service.update(
+          'cozy-fall',
+          'card-1',
+          FIELDS,
+          { ...FIELDS, title: 'Soda bread, Friday', description: null },
+          TOKEN,
+        ),
       );
 
       const request = http.expectOne(`${CARDS}/card-1`);
       expect(request.request.method).toBe('PATCH');
-      expect(request.request.body).toEqual({ expectedConcurrencyToken: TOKEN, title: 'Soda bread, Friday', description: null });
+      expect(request.request.body).toEqual({
+        expectedConcurrencyToken: TOKEN,
+        title: 'Soda bread, Friday',
+        description: null,
+      });
       request.flush(full());
 
       expect((await pending).status).toBe('saved');
@@ -336,11 +370,15 @@ describe('ContentBoardService', () => {
 
     it('reads a stale card as stale only when the server says so by name', async () => {
       const stale = firstValueFrom(service.update('cozy-fall', 'card-1', FIELDS, { ...FIELDS, title: 'x' }, TOKEN));
-      http.expectOne(`${CARDS}/card-1`).flush(problem('content.card.stale.conflict'), { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne(`${CARDS}/card-1`)
+        .flush(problem('content.card.stale.conflict'), { status: 409, statusText: 'Conflict' });
       expect(await stale).toEqual({ status: 'stale' });
 
       const other = firstValueFrom(service.update('cozy-fall', 'card-1', FIELDS, { ...FIELDS, title: 'x' }, TOKEN));
-      http.expectOne(`${CARDS}/card-1`).flush(problem('content.card.conflict'), { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne(`${CARDS}/card-1`)
+        .flush(problem('content.card.conflict'), { status: 409, statusText: 'Conflict' });
       expect(await other).toEqual({ status: 'unavailable' });
     });
   });
@@ -348,7 +386,12 @@ describe('ContentBoardService', () => {
   describe('move', () => {
     it('names the column and the card to go before, with the token and the note', async () => {
       const pending = firstValueFrom(
-        service.move('cozy-fall', 'card-1', { column: 'InProcess', beforeCardId: 'card-2', note: 'Shoot booked' }, TOKEN),
+        service.move(
+          'cozy-fall',
+          'card-1',
+          { column: 'InProcess', beforeCardId: 'card-2', note: 'Shoot booked' },
+          TOKEN,
+        ),
       );
 
       const request = http.expectOne(`${CARDS}/card-1/move`);
@@ -365,7 +408,9 @@ describe('ContentBoardService', () => {
     });
 
     it('leaves out the neighbour for the bottom of a column, and the note when there is none', async () => {
-      const pending = firstValueFrom(service.move('cozy-fall', 'card-1', { column: 'Approved', beforeCardId: null }, TOKEN));
+      const pending = firstValueFrom(
+        service.move('cozy-fall', 'card-1', { column: 'Approved', beforeCardId: null }, TOKEN),
+      );
 
       const request = http.expectOne(`${CARDS}/card-1/move`);
       expect(request.request.body).toEqual({ expectedConcurrencyToken: TOKEN, column: 'Approved' });
@@ -384,7 +429,9 @@ describe('ContentBoardService', () => {
 
     for (const [status, code, expected] of refusals) {
       it(`reads ${status} ${code} as ${expected}`, async () => {
-        const pending = firstValueFrom(service.move('cozy-fall', 'card-1', { column: 'Approved', beforeCardId: null }, TOKEN));
+        const pending = firstValueFrom(
+          service.move('cozy-fall', 'card-1', { column: 'Approved', beforeCardId: null }, TOKEN),
+        );
         http.expectOne(`${CARDS}/card-1/move`).flush(problem(code), { status, statusText: 'Refused' });
 
         expect((await pending).status).toBe(expected);

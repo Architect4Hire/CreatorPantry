@@ -18,7 +18,9 @@ function decodeRole(value: unknown): WorkspaceRole | null {
 }
 
 function decodeStatus(value: unknown): WorkspaceMembershipStatus | null {
-  return typeof value === 'string' && (STATUSES as readonly string[]).includes(value) ? (value as WorkspaceMembershipStatus) : null;
+  return typeof value === 'string' && (STATUSES as readonly string[]).includes(value)
+    ? (value as WorkspaceMembershipStatus)
+    : null;
 }
 
 /**

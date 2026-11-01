@@ -1,4 +1,12 @@
-import { booleanAttribute, ChangeDetectionStrategy, Component, ElementRef, computed, input, viewChild } from '@angular/core';
+import {
+  booleanAttribute,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  input,
+  viewChild,
+} from '@angular/core';
 
 import { CpCardComponent } from './card.component';
 

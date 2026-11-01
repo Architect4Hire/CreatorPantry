@@ -89,7 +89,11 @@ describe('CpValidationSummaryComponent', () => {
     view.set([YIELD, TITLE, NOTE]);
 
     const items = Array.from(view.root.querySelectorAll('li'));
-    expect(items.map((item) => item.querySelector('.message')!.textContent)).toEqual([TITLE.message, YIELD.message, NOTE.message]);
+    expect(items.map((item) => item.querySelector('.message')!.textContent)).toEqual([
+      TITLE.message,
+      YIELD.message,
+      NOTE.message,
+    ]);
     expect(items.map((item) => item.classList.contains('advice'))).toEqual([false, true, true]);
     expect(items[0].querySelector('.kind')).toBeNull();
     expect(items[1].querySelector('.kind')!.textContent).toBe('Heads up:');

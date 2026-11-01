@@ -279,9 +279,7 @@ describe('RecipeScalingPreviewComponent', () => {
   it('shows no before amount for a line the saved recipe does not carry', async () => {
     const harness = await createFixture();
     harness.fixture.componentInstance.factorValue.set(2);
-    await scale(harness, (req) =>
-      req.flush(scalingPayload({ lines: [scaledLine({ id: 'line-unknown' })] })),
-    );
+    await scale(harness, (req) => req.flush(scalingPayload({ lines: [scaledLine({ id: 'line-unknown' })] })));
 
     expect(rowCells(harness.fixture, 0)[1]).toContain('No saved amount');
   });
@@ -375,7 +373,7 @@ describe('RecipeScalingPreviewComponent', () => {
       ),
     );
 
-    expect(text(harness.fixture)).toContain("no numeric yield");
+    expect(text(harness.fixture)).toContain('no numeric yield');
   });
 
   // A caution added to the server after this build shipped is still a caution.
@@ -514,16 +512,9 @@ describe('RecipeScalingPreviewComponent', () => {
     harness.fixture.componentInstance.factorValue.set(2);
     await scale(harness, (req) => req.flush(scalingPayload()));
 
-    const headers: HTMLElement[] = Array.from(
-      harness.fixture.nativeElement.querySelectorAll('.scaled-lines thead th'),
-    );
+    const headers: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.scaled-lines thead th'));
     expect(headers.map((header) => header.getAttribute('scope'))).toEqual(['col', 'col', 'col', 'col']);
-    expect(headers.map((header) => header.textContent?.trim())).toEqual([
-      'Ingredient',
-      'Before',
-      'After',
-      'Notes',
-    ]);
+    expect(headers.map((header) => header.textContent?.trim())).toEqual(['Ingredient', 'Before', 'After', 'Notes']);
 
     const rowHeader: HTMLElement = harness.fixture.nativeElement.querySelector('.scaled-lines tbody th');
     expect(rowHeader.getAttribute('scope')).toBe('row');
@@ -585,9 +576,7 @@ describe('RecipeScalingPreviewComponent', () => {
 
   it('gives each preset button words a screen reader can read', async () => {
     const { fixture } = await createFixture();
-    const presets: HTMLButtonElement[] = Array.from(
-      fixture.nativeElement.querySelectorAll('.presets button'),
-    );
+    const presets: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('.presets button'));
 
     expect(presets.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Set the factor to one half',

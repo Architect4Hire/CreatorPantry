@@ -53,7 +53,9 @@ describe('RecipeMediaComponent', () => {
   let host: HostComponent;
   let detailSpy: jasmine.Spy<(slug: string, id: string) => Observable<DamAssetDetailOutcome>>;
   let contentSpy: jasmine.Spy<(slug: string, id: string, rendition?: string) => Observable<DamAssetContentOutcome>>;
-  let versionContentSpy: jasmine.Spy<(slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>>;
+  let versionContentSpy: jasmine.Spy<
+    (slug: string, id: string, version: number, rendition?: string) => Observable<DamAssetContentOutcome>
+  >;
   let unlinkSpy: jasmine.Spy<
     (slug: string, recipeId: string, linkId: string, token: string, key: string) => Promise<UnlinkRecipeAssetOutcome>
   >;
@@ -105,7 +107,9 @@ describe('RecipeMediaComponent', () => {
       .createSpy('detail')
       .and.callFake((_slug, id) => of<DamAssetDetailOutcome>({ status: 'found', asset: assetDetail({ id }, 3) }));
     contentSpy = jasmine.createSpy('content').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
-    versionContentSpy = jasmine.createSpy('versionContent').and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
+    versionContentSpy = jasmine
+      .createSpy('versionContent')
+      .and.returnValue(of<DamAssetContentOutcome>({ status: 'gone' }));
     unlinkSpy = jasmine
       .createSpy('unlink')
       .and.resolveTo({ status: 'unlinked', recipe: mediaRecipe({ assetLinks: [] }), replayed: false });
@@ -123,7 +127,10 @@ describe('RecipeMediaComponent', () => {
             content: contentSpy,
             versionContent: versionContentSpy,
             search: () =>
-              of<DamAssetSearchOutcome>({ status: 'found', page: { items: [assetSummary()], nextCursor: null, totalCount: 1 } }),
+              of<DamAssetSearchOutcome>({
+                status: 'found',
+                page: { items: [assetSummary()], nextCursor: null, totalCount: 1 },
+              }),
           },
         },
         { provide: RecipeAssetLinkService, useValue: { unlink: unlinkSpy, link: linkSpy } },
@@ -166,13 +173,19 @@ describe('RecipeMediaComponent', () => {
 
     it('reads the picture for each row once, and only the new row when a link is added', async () => {
       await create((h) =>
-        h.links.set([mediaLink({ id: 'l1', role: 'Hero' }), mediaLink({ id: 'l2', role: 'Social', sortOrder: 1, mediaAssetId: 'a2' })]),
+        h.links.set([
+          mediaLink({ id: 'l1', role: 'Hero' }),
+          mediaLink({ id: 'l2', role: 'Social', sortOrder: 1, mediaAssetId: 'a2' }),
+        ]),
       );
 
       expect(detailSpy.calls.allArgs().map((args) => args[1])).toEqual(['a1', 'a2']);
 
       // The rows already drawn are kept; a link added later asks only about its own picture.
-      host.links.update((links) => [...links, mediaLink({ id: 'l3', role: 'Gallery', sortOrder: 2, mediaAssetId: 'a9' })]);
+      host.links.update((links) => [
+        ...links,
+        mediaLink({ id: 'l3', role: 'Gallery', sortOrder: 2, mediaAssetId: 'a9' }),
+      ]);
       await settle();
 
       expect(detailSpy.calls.allArgs().map((args) => args[1])).toEqual(['a1', 'a2', 'a9']);
@@ -358,7 +371,9 @@ describe('RecipeMediaComponent', () => {
     it('holds every action while one unlink is being decided', async () => {
       let answer: (value: boolean) => void = () => undefined;
       confirmSpy.and.returnValue(new Promise<boolean>((resolve) => (answer = resolve)));
-      await create((h) => h.links.set([mediaLink({ id: 'l1', role: 'Hero' }), mediaLink({ id: 'l2', sortOrder: 1, mediaAssetId: 'a2' })]));
+      await create((h) =>
+        h.links.set([mediaLink({ id: 'l1', role: 'Hero' }), mediaLink({ id: 'l2', sortOrder: 1, mediaAssetId: 'a2' })]),
+      );
 
       buttons('Unlink')[0].click();
       await settle();
@@ -431,11 +446,16 @@ describe('RecipeMediaComponent', () => {
   describe('accessibility', () => {
     it('is a named region with a heading per group, and names every Unlink by its picture', async () => {
       await create((h) =>
-        h.links.set([mediaLink({ id: 'l1', role: 'Hero' }), mediaLink({ id: 'l2', role: 'Gallery', sortOrder: 1, mediaAssetId: 'a2' })]),
+        h.links.set([
+          mediaLink({ id: 'l1', role: 'Hero' }),
+          mediaLink({ id: 'l2', role: 'Gallery', sortOrder: 1, mediaAssetId: 'a2' }),
+        ]),
       );
 
       const region = root().querySelector('section.media')!;
-      expect(root().querySelector(`[id="${region.getAttribute('aria-labelledby')}"]`)?.textContent).toContain('Pictures');
+      expect(root().querySelector(`[id="${region.getAttribute('aria-labelledby')}"]`)?.textContent).toContain(
+        'Pictures',
+      );
 
       for (const group of Array.from(root().querySelectorAll('section.group'))) {
         expect(root().querySelector(`[id="${group.getAttribute('aria-labelledby')}"]`)).not.toBeNull();

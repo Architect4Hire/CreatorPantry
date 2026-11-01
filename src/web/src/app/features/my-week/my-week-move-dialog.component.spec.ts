@@ -18,9 +18,20 @@ describe('MyWeekMoveDialogComponent', () => {
     fixture.componentInstance.moved.subscribe((place) => moved.push(place));
     fixture.componentInstance.closed.subscribe(() => closed++);
 
-    const all = [week.backlog, week.carriedOver, week.unplanned, week.inProgress, week.waiting, week.completed, ...week.days].flatMap((g) => g.tasks);
+    const all = [
+      week.backlog,
+      week.carriedOver,
+      week.unplanned,
+      week.inProgress,
+      week.waiting,
+      week.completed,
+      ...week.days,
+    ].flatMap((g) => g.tasks);
     fixture.componentRef.setInput('week', week);
-    fixture.componentRef.setInput('task', all.find((each) => each.id === taskId)!);
+    fixture.componentRef.setInput(
+      'task',
+      all.find((each) => each.id === taskId)!,
+    );
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -29,7 +40,8 @@ describe('MyWeekMoveDialogComponent', () => {
   const root = () => fixture.nativeElement as HTMLElement;
   const where = () => root().querySelector<HTMLSelectElement>('#my-week-move-where')!;
   const place = () => root().querySelector<HTMLSelectElement>('#my-week-move-place');
-  const button = (text: string) => [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
+  const button = (text: string) =>
+    [...root().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text)!;
 
   function choose(select: HTMLSelectElement, value: string): void {
     select.value = value;
@@ -110,7 +122,9 @@ describe('MyWeekMoveDialogComponent', () => {
     await open('thu-1');
 
     button('Cancel').click();
-    root().querySelector('[role="dialog"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    root()
+      .querySelector('[role="dialog"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
 
     expect(closed).toBe(2);
     expect(moved).toEqual([]);

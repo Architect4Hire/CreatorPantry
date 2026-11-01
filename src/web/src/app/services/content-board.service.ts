@@ -238,7 +238,8 @@ export class ContentBoardService {
 
           if (status === 404) return of<ContentCardDeleteOutcome>({ status: 'not_found' });
           if (status === 403) return of<ContentCardDeleteOutcome>({ status: 'forbidden' });
-          if (status === 409 && problemCodeOf(error) === CODES.stale) return of<ContentCardDeleteOutcome>({ status: 'stale' });
+          if (status === 409 && problemCodeOf(error) === CODES.stale)
+            return of<ContentCardDeleteOutcome>({ status: 'stale' });
 
           return of<ContentCardDeleteOutcome>({ status: 'unavailable' });
         }),
@@ -307,7 +308,9 @@ export class ContentBoardService {
         if (status === 409 && code === CODES.stale) return of<ContentCardWriteOutcome>({ status: 'stale' });
         if (status === 422) {
           return of<ContentCardWriteOutcome>(
-            code === CODES.keyReused ? { status: 'key_reused' } : { status: 'refused', errors: decodeFieldErrors(error) },
+            code === CODES.keyReused
+              ? { status: 'key_reused' }
+              : { status: 'refused', errors: decodeFieldErrors(error) },
           );
         }
 

@@ -1,5 +1,7 @@
 <!-- Always present (APP-003, AU.7): the picker's one status while the library is read. -->
-<p class="cp-sr-only" role="status">{{ !selected() && library().status === 'loading' ? 'Looking in your library…' : '' }}</p>
+<p class="cp-sr-only" role="status">{{
+  !selected() && library().status === 'loading' ? 'Looking in your library…' : ''
+}}</p>
 
 @if (selected(); as chosen) {
   <div class="chosen">

@@ -73,10 +73,7 @@ export function seedFromVersion(version: BrandStyleGuideVersionContent): BrandGu
  * somebody else wrote, and what the server does when the change is finally saved. Because all three apply the
  * same named parts, what a creator sees on screen is what a save will produce.
  */
-export function applyChange(
-  version: BrandStyleGuideVersionContent,
-  change: BrandGuideChange,
-): BrandGuideEditState {
+export function applyChange(version: BrandStyleGuideVersionContent, change: BrandGuideChange): BrandGuideEditState {
   const seeded = seedFromVersion(version);
   const sections = new Map(seeded.sections.map((section) => [keyOf(section), section]));
 
@@ -114,10 +111,7 @@ export function applyChange(
  * exactly that way. Blank rules are dropped: an empty row a creator added and left is not a rule, and the
  * server refuses one.
  */
-export function composeChange(
-  state: BrandGuideEditState,
-  baseline: BrandGuideEditState,
-): BrandGuideChange {
+export function composeChange(state: BrandGuideEditState, baseline: BrandGuideEditState): BrandGuideChange {
   const sections: BrandStyleGuideSectionEditRequest[] = [];
   const held = new Map(baseline.sections.map((section) => [keyOf(section), section]));
 
@@ -156,12 +150,7 @@ export function composeChange(
 
 /** Whether a change says anything at all about the guide's content. */
 export function changesContent(change: BrandGuideChange): boolean {
-  return (
-    change.sections.length > 0 ||
-    change.rules !== null ||
-    change.cite.length > 0 ||
-    change.uncite.length > 0
-  );
+  return change.sections.length > 0 || change.rules !== null || change.cite.length > 0 || change.uncite.length > 0;
 }
 
 /**
@@ -256,10 +245,7 @@ function keyOf(section: BrandStyleGuideSectionContent): string {
   return `${section.sectionKey}:${section.channelKey ?? ''}`;
 }
 
-function request(
-  section: BrandStyleGuideSectionContent,
-  body: string | null,
-): BrandStyleGuideSectionEditRequest {
+function request(section: BrandStyleGuideSectionContent, body: string | null): BrandStyleGuideSectionEditRequest {
   return {
     sectionKey: section.sectionKey,
     // Sent only where the key has one: the server refuses a channel on any other key.
@@ -268,19 +254,13 @@ function request(
   };
 }
 
-function includes(
-  citations: readonly BrandStyleGuideCitation[],
-  citation: BrandStyleGuideCitation,
-): boolean {
+function includes(citations: readonly BrandStyleGuideCitation[], citation: BrandStyleGuideCitation): boolean {
   return citations.some(
     (each) => each.documentId === citation.documentId && each.versionNumber === citation.versionNumber,
   );
 }
 
-function sameRules(
-  left: readonly BrandStyleGuideRuleContent[],
-  right: readonly BrandStyleGuideRuleContent[],
-): boolean {
+function sameRules(left: readonly BrandStyleGuideRuleContent[], right: readonly BrandStyleGuideRuleContent[]): boolean {
   return (
     left.length === right.length &&
     left.every((rule, index) => rule.kind === right[index].kind && rule.text === right[index].text)

@@ -1,4 +1,16 @@
-import { custom, FormRules, inform, isWebAddress, maxLength, minLength, pattern, range, required, warn, webAddress } from './form-rules';
+import {
+  custom,
+  FormRules,
+  inform,
+  isWebAddress,
+  maxLength,
+  minLength,
+  pattern,
+  range,
+  required,
+  warn,
+  webAddress,
+} from './form-rules';
 import { validateModel } from './validate-model';
 
 interface Line {
@@ -39,7 +51,10 @@ describe('validateModel', () => {
       { quantity: ' ', note: '' },
     ];
 
-    expect(validateModel(model({ lines }), rules).map((issue) => issue.path)).toEqual(['lines[1].quantity', 'lines[2].quantity']);
+    expect(validateModel(model({ lines }), rules).map((issue) => issue.path)).toEqual([
+      'lines[1].quantity',
+      'lines[2].quantity',
+    ]);
   });
 
   it('finds no rows to check when the list is empty or is not a list', () => {
@@ -58,7 +73,11 @@ describe('validateModel', () => {
   it('lets a rule compare a field with another through the model', () => {
     const rules: FormRules<Model> = {
       note: [],
-      servings: [custom<Model>('tooMany', (value, { model: whole }) => (Number(value) > whole.lines.length * 10 ? 'More than the lines suggest.' : null))],
+      servings: [
+        custom<Model>('tooMany', (value, { model: whole }) =>
+          Number(value) > whole.lines.length * 10 ? 'More than the lines suggest.' : null,
+        ),
+      ],
     };
 
     expect(validateModel(model({ servings: 50 }), rules).map((issue) => issue.code)).toEqual(['tooMany']);
@@ -112,7 +131,14 @@ describe('rule helpers', () => {
     for (const address of ['https://example.com', 'http://example.com/a?b=c', '  https://example.com/about  ']) {
       expect(isWebAddress(address)).withContext(address).toBeTrue();
     }
-    for (const address of ['example.com', '/about', 'ftp://example.com', 'mailto:sam@example.com', 'https://sam:secret@example.com', 'https://sam@example.com']) {
+    for (const address of [
+      'example.com',
+      '/about',
+      'ftp://example.com',
+      'mailto:sam@example.com',
+      'https://sam:secret@example.com',
+      'https://sam@example.com',
+    ]) {
       expect(isWebAddress(address)).withContext(address).toBeFalse();
     }
   });

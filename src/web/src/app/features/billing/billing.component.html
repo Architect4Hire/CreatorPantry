@@ -1,7 +1,13 @@
 <cp-page-head [heading]="pageTitle" lede="Your plan, your credits, and what you can buy.">
   @if (account()?.subscription) {
-    <button cpPageHeadActions cpButton variant="secondary" type="button"
-      [attr.aria-busy]="busy() === 'portal' ? 'true' : null" (click)="openPortal()">
+    <button
+      cpPageHeadActions
+      cpButton
+      variant="secondary"
+      type="button"
+      [attr.aria-busy]="busy() === 'portal' ? 'true' : null"
+      (click)="openPortal()"
+    >
       {{ busy() === 'portal' ? 'Opening…' : 'Manage payment and invoices' }}
     </button>
   }
@@ -43,9 +49,14 @@
           <p>{{ couldNotLoad }}</p>
           <!-- aria-disabled rather than disabled, and the card kept while it tries: the person who pressed it keeps
                focus and hears what happens next (as the allowance page does). -->
-          <button cpButton variant="secondary" type="button"
-            [attr.aria-disabled]="retrying() ? 'true' : null" [attr.aria-busy]="retrying() ? 'true' : null"
-            (click)="retry()">
+          <button
+            cpButton
+            variant="secondary"
+            type="button"
+            [attr.aria-disabled]="retrying() ? 'true' : null"
+            [attr.aria-busy]="retrying() ? 'true' : null"
+            (click)="retry()"
+          >
             {{ retrying() ? 'Trying…' : 'Try again' }}
           </button>
         </div>
@@ -55,7 +66,10 @@
     @default {
       @if (account(); as billing) {
         @if (!billing.paymentsAvailable) {
-          <cp-notice tone="neutral">Payments aren’t available right now. You can see the plans and packs, but nothing can be bought here.</cp-notice>
+          <cp-notice tone="neutral"
+            >Payments aren’t available right now. You can see the plans and packs, but nothing can be bought
+            here.</cp-notice
+          >
         } @else if (billing.isTestMode) {
           <cp-notice tone="neutral">Payments are in test mode: no real money moves.</cp-notice>
         }
@@ -89,7 +103,10 @@
                 }
               </dl>
               @if (plan.trialEnded && !billing.subscription) {
-                <p class="cp-muted">Your free trial has ended. Choose a plan below to keep using AI help — everything you made is still here.</p>
+                <p class="cp-muted"
+                  >Your free trial has ended. Choose a plan below to keep using AI help — everything you made is still
+                  here.</p
+                >
               }
             } @else {
               <p class="cp-muted">No plans are set up here yet, so there is nothing to show.</p>
@@ -97,8 +114,13 @@
 
             @if (billing.subscription?.nextPlanName) {
               <div cpTopicCardActions>
-                <button cpButton variant="secondary" type="button"
-                  [attr.aria-busy]="busy() === 'withdraw' ? 'true' : null" (click)="withdrawChange()">
+                <button
+                  cpButton
+                  variant="secondary"
+                  type="button"
+                  [attr.aria-busy]="busy() === 'withdraw' ? 'true' : null"
+                  (click)="withdrawChange()"
+                >
                   {{ busy() === 'withdraw' ? 'Withdrawing…' : 'Keep my current plan' }}
                 </button>
               </div>
@@ -121,8 +143,12 @@
                   <p class="cp-muted">No plans are on offer right now.</p>
                 } @else {
                   <div cpChipGroup label="How often you pay">
-                    <button cpChip type="button" [pressed]="cycle() === 'Monthly'" (click)="setCycle('Monthly')">Monthly</button>
-                    <button cpChip type="button" [pressed]="cycle() === 'Annual'" (click)="setCycle('Annual')">Yearly</button>
+                    <button cpChip type="button" [pressed]="cycle() === 'Monthly'" (click)="setCycle('Monthly')"
+                      >Monthly</button
+                    >
+                    <button cpChip type="button" [pressed]="cycle() === 'Annual'" (click)="setCycle('Annual')"
+                      >Yearly</button
+                    >
                   </div>
 
                   <ul cpCardGrid minColumn="15rem">
@@ -144,8 +170,8 @@
                   </ul>
                   @if (billing.subscription) {
                     <p class="cp-muted">
-                      An upgrade starts now: Stripe shows what it charges for the rest of this period before you pay. A move to
-                      a smaller plan, or to the other billing, waits for the end of the period.
+                      An upgrade starts now: Stripe shows what it charges for the rest of this period before you pay. A
+                      move to a smaller plan, or to the other billing, waits for the end of the period.
                     </p>
                   }
                   <p class="tax cp-muted">{{ taxLine }}</p>

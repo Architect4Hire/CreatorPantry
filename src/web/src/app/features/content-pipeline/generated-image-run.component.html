@@ -1,8 +1,4 @@
-<cp-form-section
-  heading="Make the pictures"
-  [intro]="wording().makeIntro"
-  [sectionId]="sectionIdPrefix() + '-make'"
->
+<cp-form-section heading="Make the pictures" [intro]="wording().makeIntro" [sectionId]="sectionIdPrefix() + '-make'">
   <!-- Always in the page, so the words are announced when they change: a live region created already holding its
        text may never be read. What is coming is drawn below, in the grid the pictures will land in. -->
   <p class="cp-sr-only" role="status">{{ tracker.phase().kind === 'submitting' ? 'Asking for your pictures…' : '' }}</p>
@@ -28,7 +24,9 @@
        even before there is a prompt. Nothing here blocks Make: while the list is loading or could not be read the
        request names no class, and the host's default — which the quote prices meanwhile — is what is made. -->
   <!-- Both regions are always in the page, so each is announced when it has something to say. -->
-  <p class="cp-sr-only" role="status">{{ classesState().status === 'loading' ? 'Finding the picture qualities…' : '' }}</p>
+  <p class="cp-sr-only" role="status">{{
+    classesState().status === 'loading' ? 'Finding the picture qualities…' : ''
+  }}</p>
   <cp-notice
     tone="warning"
     role="status"
@@ -83,7 +81,6 @@
     </p>
   }
 
-
   @switch (tracker.phase().kind) {
     @case ('forbidden') {
       <cp-notice tone="error" role="alert">{{ wording().forbidden }}</cp-notice>
@@ -97,7 +94,9 @@
       <!-- Each of the three limits says which it is (DL.9). The request above is left exactly as it was. -->
       <!-- Focusable, and focused after a limit refusal: the price is asked again, and when it blocks the button the
            creator just pressed is disabled under them, which would leave focus nowhere (DESIGN-SYSTEM.md). -->
-      <cp-notice tone="error" role="alert" tabindex="-1" [id]="sectionIdPrefix() + '-refusal'">{{ refusalMessage() }}</cp-notice>
+      <cp-notice tone="error" role="alert" tabindex="-1" [id]="sectionIdPrefix() + '-refusal'">{{
+        refusalMessage()
+      }}</cp-notice>
     }
     @case ('rate_limited') {
       <cp-notice tone="warning" role="status">
@@ -211,8 +210,8 @@
 
   @if (tracker.stopped() && isWatching()) {
     <p class="cp-muted">
-      We have stopped checking for now. Your pictures are still being made — "Check again" picks the run back
-      up. Nothing here cancels it.
+      We have stopped checking for now. Your pictures are still being made — "Check again" picks the run back up.
+      Nothing here cancels it.
     </p>
   }
 </cp-form-section>

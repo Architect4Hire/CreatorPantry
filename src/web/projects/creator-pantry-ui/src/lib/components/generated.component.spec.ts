@@ -1,7 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { CP_GENERATED_LABELS, CpGeneratedComponent, CpGeneratedKind, CpGeneratedLabelComponent } from './generated.component';
+import {
+  CP_GENERATED_LABELS,
+  CpGeneratedComponent,
+  CpGeneratedKind,
+  CpGeneratedLabelComponent,
+} from './generated.component';
 
 @Component({
   imports: [CpGeneratedComponent, CpGeneratedLabelComponent],
@@ -119,7 +124,9 @@ describe('CpGeneratedComponent', () => {
       h.provenance.set('gpt-4o · 25 Oct, 08:30');
       h.actions.set(true);
     });
-    const order = Array.from(surface().querySelectorAll('.words, .provenance, .output, .accept, .discard')).map((n) => n.className);
+    const order = Array.from(surface().querySelectorAll('.words, .provenance, .output, .accept, .discard')).map(
+      (n) => n.className,
+    );
     expect(order).toEqual(['words', 'provenance', 'output', 'accept', 'discard']);
   });
 

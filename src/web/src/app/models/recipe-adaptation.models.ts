@@ -21,9 +21,7 @@ export interface RequestRecipeAdaptationRequest {
   readonly targetYieldQuantity: number | null;
 }
 
-export function encodeRequestRecipeAdaptationRequest(
-  request: RequestRecipeAdaptationRequest,
-): Record<string, unknown> {
+export function encodeRequestRecipeAdaptationRequest(request: RequestRecipeAdaptationRequest): Record<string, unknown> {
   const goalDetail = request.goalDetail.trim();
 
   return {

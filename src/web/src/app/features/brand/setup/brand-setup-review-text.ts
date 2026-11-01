@@ -1,5 +1,8 @@
 import { BrandSourceDocumentDetail } from '../../../models/brand-source-document.models';
-import { BRAND_SOURCE_CORRECTION_MAX_BYTES, BrandSourceExtraction } from '../../../models/brand-source-extraction.models';
+import {
+  BRAND_SOURCE_CORRECTION_MAX_BYTES,
+  BrandSourceExtraction,
+} from '../../../models/brand-source-extraction.models';
 import { BrandSourceExtractionFailure } from '../../../services/brand-source-extraction.service';
 import { ExampleKind, decodeExamples } from './brand-setup-examples';
 
@@ -61,7 +64,8 @@ export function cardKindOf(card: ReviewCard, confirmed: readonly ConfirmedText[]
     case 'Succeeded': {
       // A creator's own correction is not generated text, and they have just read every word of it.
       if (extraction.origin === 'Corrected') return 'confirmed';
-      if (confirmed.some((c) => c.documentId === card.documentId && c.extractionId === extraction.id)) return 'confirmed';
+      if (confirmed.some((c) => c.documentId === card.documentId && c.extractionId === extraction.id))
+        return 'confirmed';
       return extraction.reason ? 'partial' : 'read';
     }
   }
@@ -72,7 +76,9 @@ export function isTextual(kind: ExampleKind): boolean {
   return kind !== 'visual';
 }
 
-export function sourcesOf(slice: Readonly<Record<string, unknown>> | null): readonly { documentId: string; kind: ExampleKind }[] {
+export function sourcesOf(
+  slice: Readonly<Record<string, unknown>> | null,
+): readonly { documentId: string; kind: ExampleKind }[] {
   return decodeExamples(slice).filter((s) => isTextual(s.kind));
 }
 

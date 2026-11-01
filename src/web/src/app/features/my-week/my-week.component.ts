@@ -1,6 +1,23 @@
-import { CdkDrag, CdkDragDrop, CdkDragPlaceholder, CdkDragPreview, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
+import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDragPlaceholder,
+  CdkDragPreview,
+  CdkDropList,
+  CdkDropListGroup,
+} from '@angular/cdk/drag-drop';
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { combineLatest, map } from 'rxjs';
@@ -162,7 +179,11 @@ export class MyWeekComponent {
   readonly workspaceSlug = signal('');
   protected readonly state = signal<State>({ status: 'loading' });
   protected readonly labelsState = signal<LabelsState>({ status: 'loading' });
-  protected readonly query = signal<Query>({ week: null, view: 'compact', filters: { query: '', highOnly: false, labelId: null } });
+  protected readonly query = signal<Query>({
+    week: null,
+    view: 'compact',
+    filters: { query: '', highOnly: false, labelId: null },
+  });
   protected readonly message = signal('');
   protected readonly messageTone = signal<'neutral' | 'warning' | 'success'>('neutral');
   /**
@@ -217,11 +238,19 @@ export class MyWeekComponent {
    * weekday alone, because the dates are the server's.
    */
   protected readonly loadingColumns = computed<readonly LoadingColumn[]>(() => {
-    const status: readonly LoadingColumn[] = ['In progress', 'Waiting', 'Done'].map((heading) => ({ heading, kind: 'cards', items: skeletons(1) }));
+    const status: readonly LoadingColumn[] = ['In progress', 'Waiting', 'Done'].map((heading) => ({
+      heading,
+      kind: 'cards',
+      items: skeletons(1),
+    }));
     const backlog: LoadingColumn = { heading: 'Backlog', kind: 'cards', items: skeletons(2) };
 
     return this.view() === 'days'
-      ? [backlog, ...WEEKDAYS.map((heading): LoadingColumn => ({ heading, kind: 'cards', items: skeletons(1) })), ...status]
+      ? [
+          backlog,
+          ...WEEKDAYS.map((heading): LoadingColumn => ({ heading, kind: 'cards', items: skeletons(1) })),
+          ...status,
+        ]
       : [backlog, { heading: 'This week', kind: 'days', items: skeletons(WEEKDAYS.length) }, ...status];
   });
 
@@ -303,7 +332,8 @@ export class MyWeekComponent {
    * Where a card may be dropped: every list but From earlier weeks and No week yet, which are where tasks are found and
    * not where they are sent — not even to reorder, which the Move form cannot offer there either.
    */
-  protected readonly canDrop = (_drag: CdkDrag<WorkTask>, drop: CdkDropList<MyWeekListId>): boolean => acceptsFromElsewhere(drop.data);
+  protected readonly canDrop = (_drag: CdkDrag<WorkTask>, drop: CdkDropList<MyWeekListId>): boolean =>
+    acceptsFromElsewhere(drop.data);
 
   /** Add a task, offered to someone who can plan, over a week the server has answered for. */
   protected readonly canAdd = computed(() => this.canAct() && this.week() !== null);
@@ -441,9 +471,11 @@ export class MyWeekComponent {
     const task = event.item.data;
     const list = event.container.data;
     // The index is among the cards the list shows without the one being dragged.
-    const shown = this.columns()
-      .flatMap((column) => column.sections)
-      .find((section) => section.id === list)?.tasks.filter((each) => each.id !== task.id) ?? [];
+    const shown =
+      this.columns()
+        .flatMap((column) => column.sections)
+        .find((section) => section.id === list)
+        ?.tasks.filter((each) => each.id !== task.id) ?? [];
 
     await this.place(task, { list, beforeTaskId: shown[event.currentIndex]?.id ?? null });
   }
@@ -505,7 +537,11 @@ export class MyWeekComponent {
    * the server's — or put the card back and say why. A task that changed elsewhere is not put back by guesswork: the
    * week is read again and shown as it now stands.
    */
-  private async place(task: WorkTask, place: MyWeekPlace, options: { quiet?: boolean; original?: WorkTask } = {}): Promise<boolean> {
+  private async place(
+    task: WorkTask,
+    place: MyWeekPlace,
+    options: { quiet?: boolean; original?: WorkTask } = {},
+  ): Promise<boolean> {
     if (!this.mayAct()) return false;
 
     const week = this.week();
@@ -562,7 +598,10 @@ export class MyWeekComponent {
     // Put back only what this move changed. If the page has moved on — another week read meanwhile — restoring the
     // old week would show it under the new address, and the next move would be written to the wrong week.
     const untouched = this.week() === applied;
-    const refused = outcome.status === 'forbidden' || outcome.status === 'invalid' || (outcome.status === 'unavailable' && outcome.offline);
+    const refused =
+      outcome.status === 'forbidden' ||
+      outcome.status === 'invalid' ||
+      (outcome.status === 'unavailable' && outcome.offline);
 
     if (refused && untouched) {
       this.state.set({ status: 'ready', week: before });
@@ -628,7 +667,15 @@ export class MyWeekComponent {
   }
 
   private findTask(week: WeekWorkTasks, taskId: string): WorkTask | null {
-    for (const group of [week.backlog, week.carriedOver, week.unplanned, week.inProgress, week.waiting, week.completed, ...week.days]) {
+    for (const group of [
+      week.backlog,
+      week.carriedOver,
+      week.unplanned,
+      week.inProgress,
+      week.waiting,
+      week.completed,
+      ...week.days,
+    ]) {
       const found = group.tasks.find((each) => each.id === taskId);
       if (found) return found;
     }
@@ -717,7 +764,12 @@ export class MyWeekComponent {
   }
 
   private navigate(change: Record<string, string | null>): void {
-    void this.router.navigate([], { relativeTo: this.route, queryParams: change, queryParamsHandling: 'merge', replaceUrl: true });
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: change,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private ancestors(): readonly ActivatedRoute[] {

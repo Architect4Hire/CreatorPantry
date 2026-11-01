@@ -71,7 +71,9 @@ describe('DamAssetUploadComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim().startsWith(label));
+    const match = Array.from(root().querySelectorAll('button')).find((each) =>
+      each.textContent?.trim().startsWith(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }

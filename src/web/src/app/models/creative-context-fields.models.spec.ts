@@ -46,11 +46,15 @@ describe('creative context fields', () => {
   it('names only the fields whose answer differs, and ignores space around the picture', () => {
     const saved = fields({ channelKey: 'instagram', pictureBrief: 'A tight crop.' });
 
-    expect(changedCreativeContextFields(saved, fields({ channelKey: 'instagram', pictureBrief: ' A tight crop. ' }))).toEqual([]);
-    expect(changedCreativeContextFields(saved, fields({ channelKey: 'instagram', pictureBrief: 'A wide shot.', day: 'Friday' }))).toEqual([
-      'day',
-      'pictureBrief',
-    ]);
+    expect(
+      changedCreativeContextFields(saved, fields({ channelKey: 'instagram', pictureBrief: ' A tight crop. ' })),
+    ).toEqual([]);
+    expect(
+      changedCreativeContextFields(
+        saved,
+        fields({ channelKey: 'instagram', pictureBrief: 'A wide shot.', day: 'Friday' }),
+      ),
+    ).toEqual(['day', 'pictureBrief']);
   });
 
   describe('the edit for a change', () => {
@@ -75,15 +79,19 @@ describe('creative context fields', () => {
     });
 
     it('clears with null rather than leaving a field out, because the server tells those apart', () => {
-      const patch = creativeContextPatchFor(['pictureBrief', 'weeklyThemeKey', 'day', 'channelKey'], fields({ pictureBrief: '  ' }), ['instagram']);
+      const patch = creativeContextPatchFor(
+        ['pictureBrief', 'weeklyThemeKey', 'day', 'channelKey'],
+        fields({ pictureBrief: '  ' }),
+        ['instagram'],
+      );
 
       expect(patch).toEqual({ pictureBrief: null, weeklyThemeKey: null, day: null, channelKeys: [] });
     });
 
-    it("sends the picture as the creator typed it, untrimmed — the words are theirs", () => {
-      expect(creativeContextPatchFor(['pictureBrief'], fields({ pictureBrief: 'A tight crop.\n' }), []).pictureBrief).toBe(
-        'A tight crop.\n',
-      );
+    it('sends the picture as the creator typed it, untrimmed — the words are theirs', () => {
+      expect(
+        creativeContextPatchFor(['pictureBrief'], fields({ pictureBrief: 'A tight crop.\n' }), []).pictureBrief,
+      ).toBe('A tight crop.\n');
     });
   });
 
@@ -136,8 +144,13 @@ describe('creative context fields', () => {
         briefSource: 'Idea',
         workingBrief: 'An idea.',
       });
-      expect(changedCreativeContextFields(fields({ pictureBrief: 'Mine.' }), chosen)).toEqual(['briefSource', 'workingBrief']);
-      expect(creativeContextDraftFor(chosen)).withContext('the create route takes no brief').toEqual({ pictureBrief: 'Mine.' });
+      expect(changedCreativeContextFields(fields({ pictureBrief: 'Mine.' }), chosen)).toEqual([
+        'briefSource',
+        'workingBrief',
+      ]);
+      expect(creativeContextDraftFor(chosen))
+        .withContext('the create route takes no brief')
+        .toEqual({ pictureBrief: 'Mine.' });
     });
   });
 });

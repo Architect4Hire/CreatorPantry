@@ -80,7 +80,9 @@ describe('DamAssetVersionUploadComponent', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const match = Array.from(root().querySelectorAll('button')).find((each) => each.textContent?.trim().startsWith(label));
+    const match = Array.from(root().querySelectorAll('button')).find((each) =>
+      each.textContent?.trim().startsWith(label),
+    );
     if (!match) throw new Error(`no button labelled "${label}"`);
     return match;
   }
@@ -219,12 +221,16 @@ describe('DamAssetVersionUploadComponent', () => {
 
     uploads[0].next({ kind: 'progress', percent: 85 });
     await settle();
-    expect((root().querySelector('cp-uploader [role="progressbar"]') as HTMLElement).getAttribute('aria-valuenow')).toBe('85');
+    expect(
+      (root().querySelector('cp-uploader [role="progressbar"]') as HTMLElement).getAttribute('aria-valuenow'),
+    ).toBe('85');
 
     button('Close').click();
     (root().querySelector('button[aria-label="Close"]') as HTMLButtonElement).click();
     // Escape and the scrim are refused too: every way out waits for the upload to end.
-    (panel() as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    (panel() as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
     (scrim() as HTMLElement).click();
     await settle();
     expect(host.closes).toBe(0);

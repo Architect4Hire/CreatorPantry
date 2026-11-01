@@ -6,7 +6,15 @@ import { isRecord } from './recipe.models';
 export type WeekDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
 /** A creator's week, Monday first — the order the server lists the live week in. */
-export const WEEK_DAYS: readonly WeekDay[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const WEEK_DAYS: readonly WeekDay[] = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 
 /** The server's caps, so a field can refuse what the route would (`WeeklyThemePolicy`). */
 export const WEEKLY_THEME_LIMITS = {

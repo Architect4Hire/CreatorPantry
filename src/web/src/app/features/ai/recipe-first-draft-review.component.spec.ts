@@ -4,7 +4,12 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable } from 'rxjs';
 
 import { ConfirmRequest, ConfirmService } from '../../core/confirm.service';
-import { AiProposalDetail, AiProposalStatus, AiProposalWarning, AiProposedChange } from '../../models/ai-proposal.models';
+import {
+  AiProposalDetail,
+  AiProposalStatus,
+  AiProposalWarning,
+  AiProposedChange,
+} from '../../models/ai-proposal.models';
 import {
   AcceptRecipeDraftOutcome,
   AcceptRecipeDraftRequest,
@@ -44,11 +49,35 @@ function fullDraftChanges(): AiProposedChange[] {
     recipeField('description', 'A quick version.'),
     recipeField('prepTimeMinutes', '10'),
     recipeField('yieldText', 'Serves 4'),
-    change({ changeId: 'g1-add', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: 'For the sauce' }),
-    change({ changeId: 'l1-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: '2 tbsp doubanjiang' }),
+    change({
+      changeId: 'g1-add',
+      changeKind: 'Add',
+      targetKind: 'IngredientGroup',
+      targetId: 'g1',
+      afterValue: 'For the sauce',
+    }),
+    change({
+      changeId: 'l1-add',
+      changeKind: 'Add',
+      targetKind: 'Ingredient',
+      targetId: 'l1',
+      afterValue: '2 tbsp doubanjiang',
+    }),
     change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'quantity', afterValue: '2' }),
-    change({ changeId: 'ig1-add', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'ig1', afterValue: null }),
-    change({ changeId: 's1-add', changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Fry the paste.' }),
+    change({
+      changeId: 'ig1-add',
+      changeKind: 'Add',
+      targetKind: 'InstructionGroup',
+      targetId: 'ig1',
+      afterValue: null,
+    }),
+    change({
+      changeId: 's1-add',
+      changeKind: 'Add',
+      targetKind: 'InstructionStep',
+      targetId: 's1',
+      afterValue: 'Fry the paste.',
+    }),
     change({ changeId: 'e1-add', changeKind: 'Add', targetKind: 'Equipment', targetId: 'e1', afterValue: 'Wok' }),
   ];
 }
@@ -172,7 +201,10 @@ describe('RecipeFirstDraftReviewComponent', () => {
             },
           },
         },
-        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) } },
+        {
+          provide: Router,
+          useValue: { navigate: jasmine.createSpy('navigate').and.returnValue(Promise.resolve(true)) },
+        },
         ...(host ? [{ provide: RecipeStudioHost, useValue: host }] : []),
       ],
     });
@@ -296,9 +328,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
   /** AIREC-002's restriction: an unresolved value stays explicit. */
   it('leads with the questions the model would not guess at', fakeAsync(() => {
     service.statuses = [
-      ready(fullDraftChanges(), [
-        { kind: 'UnresolvedQuestion', message: 'What chili oil brand?', changeId: null },
-      ]),
+      ready(fullDraftChanges(), [{ kind: 'UnresolvedQuestion', message: 'What chili oil brand?', changeId: null }]),
     ];
     render();
 
@@ -885,7 +915,9 @@ describe('RecipeFirstDraftReviewComponent', () => {
 
     for (const section of Array.from(element().querySelectorAll('section[aria-labelledby]'))) {
       const id = section.getAttribute('aria-labelledby')!;
-      expect(element().querySelector(`#${id}`)).withContext(`no heading #${id}`).not.toBeNull();
+      expect(element().querySelector(`#${id}`))
+        .withContext(`no heading #${id}`)
+        .not.toBeNull();
     }
   }));
 
@@ -973,9 +1005,7 @@ describe('RecipeFirstDraftReviewComponent', () => {
 
   /** The nav emits and this component scrolls and focuses — so every destination must be reachable. */
   it('lists every focusable destination it renders', fakeAsync(() => {
-    service.statuses = [
-      ready([...fullDraftChanges(), recipeField('somethingNew', 'an unplaceable value')]),
-    ];
+    service.statuses = [ready([...fullDraftChanges(), recipeField('somethingNew', 'an unplaceable value')])];
     render();
 
     const rendered = Array.from(element().querySelectorAll('h3[tabindex="-1"]')).map((h) => h.id);
@@ -1021,7 +1051,13 @@ describe('RecipeFirstDraftReviewComponent', () => {
     service.statuses = [
       ready([
         ...fullDraftChanges(),
-        change({ changeKind: 'Set', targetKind: 'Ingredient', targetId: 'l1', fieldName: 'isOptional', afterValue: 'true' }),
+        change({
+          changeKind: 'Set',
+          targetKind: 'Ingredient',
+          targetId: 'l1',
+          fieldName: 'isOptional',
+          afterValue: 'true',
+        }),
       ]),
     ];
     render();
@@ -1047,12 +1083,48 @@ describe('RecipeFirstDraftReviewComponent', () => {
   function amountlessChanges(): AiProposedChange[] {
     return [
       recipeField('title', 'Skillet Cornbread'),
-      change({ changeId: 'g1-add', changeKind: 'Add', targetKind: 'IngredientGroup', targetId: 'g1', afterValue: null }),
-      change({ changeId: 'l1-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l1', afterValue: 'stone-ground cornmeal' }),
-      change({ changeId: 'l2-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l2', afterValue: 'buttermilk, shaken' }),
-      change({ changeId: 'l3-add', changeKind: 'Add', targetKind: 'Ingredient', targetId: 'l3', afterValue: 'a pinch of cayenne' }),
-      change({ changeId: 'ig1-add', changeKind: 'Add', targetKind: 'InstructionGroup', targetId: 'ig1', afterValue: null }),
-      change({ changeId: 's1-add', changeKind: 'Add', targetKind: 'InstructionStep', targetId: 's1', afterValue: 'Bake until golden.' }),
+      change({
+        changeId: 'g1-add',
+        changeKind: 'Add',
+        targetKind: 'IngredientGroup',
+        targetId: 'g1',
+        afterValue: null,
+      }),
+      change({
+        changeId: 'l1-add',
+        changeKind: 'Add',
+        targetKind: 'Ingredient',
+        targetId: 'l1',
+        afterValue: 'stone-ground cornmeal',
+      }),
+      change({
+        changeId: 'l2-add',
+        changeKind: 'Add',
+        targetKind: 'Ingredient',
+        targetId: 'l2',
+        afterValue: 'buttermilk, shaken',
+      }),
+      change({
+        changeId: 'l3-add',
+        changeKind: 'Add',
+        targetKind: 'Ingredient',
+        targetId: 'l3',
+        afterValue: 'a pinch of cayenne',
+      }),
+      change({
+        changeId: 'ig1-add',
+        changeKind: 'Add',
+        targetKind: 'InstructionGroup',
+        targetId: 'ig1',
+        afterValue: null,
+      }),
+      change({
+        changeId: 's1-add',
+        changeKind: 'Add',
+        targetKind: 'InstructionStep',
+        targetId: 's1',
+        afterValue: 'Bake until golden.',
+      }),
     ];
   }
 
@@ -1113,7 +1185,9 @@ describe('RecipeFirstDraftReviewComponent', () => {
     function navigations(): unknown[][] {
       const navigate = TestBed.inject(Router).navigate as jasmine.Spy;
 
-      return navigate.calls.allArgs().filter((args) => Array.isArray(args[0]) && (args[0] as unknown[]).includes('recipes'));
+      return navigate.calls
+        .allArgs()
+        .filter((args) => Array.isArray(args[0]) && (args[0] as unknown[]).includes('recipes'));
     }
 
     /** Rewrites one field the way the creator would, through the component's own editor. */
@@ -1337,11 +1411,17 @@ describe('RecipeFirstDraftReviewComponent', () => {
 
     for (const status of ['Expired', 'Failed', 'Rejected', 'Accepted', 'PartiallyAccepted'] as const) {
       it(`offers no way to create a recipe from a draft that is ${status}`, fakeAsync(() => {
-        service.statuses = [found({ status, proposal: status === 'Expired' || status === 'Failed' ? null : proposal() })];
+        service.statuses = [
+          found({ status, proposal: status === 'Expired' || status === 'Failed' ? null : proposal() }),
+        ];
         render();
 
         expect(acceptButton()).toBeNull();
-        expect(Array.from(element().querySelectorAll('button')).some((button) => /create recipe/i.test(button.textContent ?? ''))).toBeFalse();
+        expect(
+          Array.from(element().querySelectorAll('button')).some((button) =>
+            /create recipe/i.test(button.textContent ?? ''),
+          ),
+        ).toBeFalse();
       }));
     }
 

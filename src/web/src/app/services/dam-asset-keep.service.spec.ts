@@ -115,9 +115,13 @@ describe('DamAssetService — keeping a generated picture', () => {
       ['content.prompt.conflict', 409],
     ] as const) {
       const pending = service.keepGeneratedImage('cozy-fall', BODY, 'key-1');
-      http.expectOne(ROUTE).flush(problem(code, { title: 'The prompt could not be saved.' }), { status, statusText: 'Refused' });
+      http
+        .expectOne(ROUTE)
+        .flush(problem(code, { title: 'The prompt could not be saved.' }), { status, statusText: 'Refused' });
 
-      expect(await pending).withContext(code).toEqual({ status: 'prompt_refused', message: 'The prompt could not be saved.' });
+      expect(await pending)
+        .withContext(code)
+        .toEqual({ status: 'prompt_refused', message: 'The prompt could not be saved.' });
     }
   });
 
@@ -138,7 +142,9 @@ describe('DamAssetService — keeping a generated picture', () => {
       const pending = service.keepGeneratedImage('cozy-fall', BODY, 'key-1');
       http.expectOne(ROUTE).flush(problem(code), { status, statusText: 'Refused' });
 
-      expect((await pending).status).withContext(code).toBe(expected);
+      expect((await pending).status)
+        .withContext(code)
+        .toBe(expected);
     }
   });
 });

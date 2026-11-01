@@ -101,7 +101,11 @@ describe('GeneratedImageService', () => {
     });
 
     it('reads a replay as the accepted answer it is, because the pictures are already coming', async () => {
-      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+        'key-1',
+      );
 
       http
         .expectOne(BASE)
@@ -132,19 +136,19 @@ describe('GeneratedImageService', () => {
     it('tells a missing idempotency key apart from a refusal, because nothing a creator did caused it', async () => {
       const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, '');
 
-      http
-        .expectOne(BASE)
-        .flush(problem('idempotency.key_required'), { status: 400, statusText: 'Bad Request' });
+      http.expectOne(BASE).flush(problem('idempotency.key_required'), { status: 400, statusText: 'Bad Request' });
 
       expect((await pending).status).toBe('key_required');
     });
 
     it('reads a Viewer’s refusal as forbidden', async () => {
-      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+        'key-1',
+      );
 
-      http
-        .expectOne(BASE)
-        .flush(problem('media.generation.forbidden'), { status: 403, statusText: 'Forbidden' });
+      http.expectOne(BASE).flush(problem('media.generation.forbidden'), { status: 403, statusText: 'Forbidden' });
 
       expect((await pending).status).toBe('forbidden');
     });
@@ -189,7 +193,11 @@ describe('GeneratedImageService', () => {
       ['limits.budget.exhausted', 429],
     ] as const) {
       it(`reads ${status} ${code} as the server’s own sentence, not as a permission or a rate`, async () => {
-        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+        const pending = service.request(
+          'cozy-fall',
+          { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+          'key-1',
+        );
 
         http
           .expectOne(BASE)
@@ -212,7 +220,11 @@ describe('GeneratedImageService', () => {
       ['Workspace', 'workspace-day'],
     ] as const) {
       it(`reads a ${scope}-scoped day cap as the ${kind} limit, with its cap and reset`, async () => {
-        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+        const pending = service.request(
+          'cozy-fall',
+          { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+          'key-1',
+        );
 
         http.expectOne(BASE).flush(
           problem('limits.budget.exhausted', {
@@ -235,18 +247,27 @@ describe('GeneratedImageService', () => {
     }
 
     it('reads a day cap whose figures it cannot read without them, never with a guess', async () => {
-      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+        'key-1',
+      );
 
-      http
-        .expectOne(BASE)
-        .flush(problem('limits.budget.exhausted', { scope: 'User', limit: 'many' }), { status: 429, statusText: 'Refused' });
+      http.expectOne(BASE).flush(problem('limits.budget.exhausted', { scope: 'User', limit: 'many' }), {
+        status: 429,
+        statusText: 'Refused',
+      });
 
       const outcome = await pending;
       expect(outcome.status === 'refused' && outcome.limit).toEqual({ kind: 'plan-day', cap: null, resetsAt: null });
     });
 
     it('reads the edge’s rate limit as its own outcome, because waiting is the remedy', async () => {
-      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+        'key-1',
+      );
 
       http.expectOne(BASE).flush(null, { status: 429, statusText: 'Too Many Requests' });
 
@@ -255,7 +276,11 @@ describe('GeneratedImageService', () => {
 
     it('reads a 422 as a refusal in the server’s words, never as something waiting would fix', async () => {
       for (const code of ['idempotency.key_reused', 'media.generation.proposal.unprocessable']) {
-        const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+        const pending = service.request(
+          'cozy-fall',
+          { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+          'key-1',
+        );
 
         http.expectOne(BASE).flush(problem(code), { status: 422, statusText: 'Unprocessable Entity' });
 
@@ -265,13 +290,16 @@ describe('GeneratedImageService', () => {
     });
 
     it('reads anything else as unavailable, which is the one outcome a retry may replay', async () => {
-      const pending = service.request('cozy-fall', { promptText: 'A crop.', avoidText: null, variantCount: 1 }, 'key-1');
+      const pending = service.request(
+        'cozy-fall',
+        { promptText: 'A crop.', avoidText: null, variantCount: 1 },
+        'key-1',
+      );
 
       http.expectOne(BASE).error(new ProgressEvent('network'));
 
       expect((await pending).status).toBe('unavailable');
     });
-
   });
 
   describe('watch', () => {
@@ -416,7 +444,9 @@ describe('GeneratedImageService', () => {
     });
 
     it('names the copy a download or a preview asks for, and nothing else, in the address', async () => {
-      expect(service.downloadUrl('cozy-fall', IMAGE_ID, 'original')).toBe(`${BASE}/${IMAGE_ID}/content?rendition=original`);
+      expect(service.downloadUrl('cozy-fall', IMAGE_ID, 'original')).toBe(
+        `${BASE}/${IMAGE_ID}/content?rendition=original`,
+      );
       expect(service.downloadUrl('cozy-fall', IMAGE_ID, 'web')).toBe(`${BASE}/${IMAGE_ID}/content?rendition=web`);
 
       const pending = firstValueFrom(service.preview('cozy-fall', IMAGE_ID, 'thumbnail'));
@@ -431,7 +461,9 @@ describe('GeneratedImageService', () => {
       const urls = [service.downloadUrl('cozy-fall', IMAGE_ID)].filter((url): url is string => url !== null);
 
       for (const url of urls) {
-        expect(url.startsWith(`${GATEWAY}/api/v1/workspaces/`)).withContext(url).toBeTrue();
+        expect(url.startsWith(`${GATEWAY}/api/v1/workspaces/`))
+          .withContext(url)
+          .toBeTrue();
         // No provider host, no storage container, no object key, no signature of any kind.
         expect(url).not.toMatch(/blob\.core|amazonaws|openai|azure|sig=|\?/);
       }

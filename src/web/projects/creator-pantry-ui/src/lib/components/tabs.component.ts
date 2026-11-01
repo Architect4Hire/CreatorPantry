@@ -1,12 +1,82 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, model, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  model,
+  signal,
+} from '@angular/core';
 
-export interface CpTabDefinition { id: string; label: string; disabled?: boolean; }
+export interface CpTabDefinition {
+  id: string;
+  label: string;
+  disabled?: boolean;
+}
 
 @Component({
-  selector: 'cp-tabs', standalone: true,
-  template: `<div role="tablist" [attr.aria-label]="ariaLabel()" (keydown)="onKeydown($event)">@for(tab of tabs(); track tab.id){<button type="button" role="tab" [id]="'tab-'+tab.id" [attr.data-tab-id]="tab.id" [attr.aria-controls]="'panel-'+tab.id" [attr.aria-selected]="isSelected(tab.id)" [attr.aria-disabled]="tab.disabled || null" [attr.tabindex]="isSelected(tab.id) ? 0 : -1" [disabled]="tab.disabled || false" (click)="selectTab(tab.id)">{{tab.label}}</button>}</div><ng-content />`,
-  styles: [`:host{display:block}[role='tablist']{display:flex;flex-wrap:wrap;gap:var(--cp-space-1);border-bottom:1px solid var(--cp-border)}[role='tab']{appearance:none;border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;min-height:2.5rem;padding:var(--cp-space-2) var(--cp-space-4);font:600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans);color:var(--cp-text-muted);cursor:pointer;border-radius:var(--cp-radius-md) var(--cp-radius-md) 0 0;margin-bottom:-1px;border-bottom:2px solid transparent}[role='tab']:hover:not(:disabled){color:var(--cp-text)}[role='tab'][aria-selected='true']{color:var(--cp-primary-text);border-bottom-color:var(--cp-primary)}[role='tab']:disabled{color:var(--cp-text-faint);cursor:not-allowed}`],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  selector: 'cp-tabs',
+  standalone: true,
+  template: `<div role="tablist" [attr.aria-label]="ariaLabel()" (keydown)="onKeydown($event)">
+      @for (tab of tabs(); track tab.id) {
+        <button
+          type="button"
+          role="tab"
+          [id]="'tab-' + tab.id"
+          [attr.data-tab-id]="tab.id"
+          [attr.aria-controls]="'panel-' + tab.id"
+          [attr.aria-selected]="isSelected(tab.id)"
+          [attr.aria-disabled]="tab.disabled || null"
+          [attr.tabindex]="isSelected(tab.id) ? 0 : -1"
+          [disabled]="tab.disabled || false"
+          (click)="selectTab(tab.id)"
+          >{{ tab.label }}</button
+        >
+      }</div
+    ><ng-content />`,
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      [role='tablist'] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--cp-space-1);
+        border-bottom: 1px solid var(--cp-border);
+      }
+      [role='tab'] {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.5rem;
+        padding: var(--cp-space-2) var(--cp-space-4);
+        font: 600 var(--cp-font-size-sm)/var(--cp-leading-tight) var(--cp-font-sans);
+        color: var(--cp-text-muted);
+        cursor: pointer;
+        border-radius: var(--cp-radius-md) var(--cp-radius-md) 0 0;
+        margin-bottom: -1px;
+        border-bottom: 2px solid transparent;
+      }
+      [role='tab']:hover:not(:disabled) {
+        color: var(--cp-text);
+      }
+      [role='tab'][aria-selected='true'] {
+        color: var(--cp-primary-text);
+        border-bottom-color: var(--cp-primary);
+      }
+      [role='tab']:disabled {
+        color: var(--cp-text-faint);
+        cursor: not-allowed;
+      }
+    `,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpTabsComponent {
   readonly tabs = input.required<CpTabDefinition[]>();
@@ -14,14 +84,14 @@ export class CpTabsComponent {
   readonly selectedId = model<string>();
 
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
-  private readonly firstEnabledId = computed(() => this.tabs().find(tab => !tab.disabled)?.id);
+  private readonly firstEnabledId = computed(() => this.tabs().find((tab) => !tab.disabled)?.id);
 
   constructor() {
     effect(() => {
       const tabs = this.tabs();
       const current = this.selectedId();
-      if (current !== undefined && tabs.some(tab => tab.id === current && !tab.disabled)) return;
-      const fallback = tabs.find(tab => !tab.disabled)?.id;
+      if (current !== undefined && tabs.some((tab) => tab.id === current && !tab.disabled)) return;
+      const fallback = tabs.find((tab) => !tab.disabled)?.id;
       if (fallback !== undefined && fallback !== current) this.selectedId.set(fallback);
     });
   }
@@ -31,16 +101,16 @@ export class CpTabsComponent {
   }
 
   selectTab(id: string): void {
-    const tab = this.tabs().find(candidate => candidate.id === id);
+    const tab = this.tabs().find((candidate) => candidate.id === id);
     if (!tab || tab.disabled) return;
     this.selectedId.set(id);
   }
 
   onKeydown(event: KeyboardEvent): void {
-    const enabled = this.tabs().filter(tab => !tab.disabled);
+    const enabled = this.tabs().filter((tab) => !tab.disabled);
     if (enabled.length === 0) return;
     const currentId = this.selectedId() ?? this.firstEnabledId();
-    const currentIndex = enabled.findIndex(tab => tab.id === currentId);
+    const currentIndex = enabled.findIndex((tab) => tab.id === currentId);
     let targetIndex: number;
     switch (event.key) {
       case 'ArrowRight':
@@ -77,16 +147,28 @@ export class CpTabsComponent {
       ':scope > [role="tablist"] > button[role="tab"]',
     );
     for (const button of Array.from(buttons)) {
-      if (button.dataset['tabId'] === id) { button.focus(); return; }
+      if (button.dataset['tabId'] === id) {
+        button.focus();
+        return;
+      }
     }
   }
 }
 
 @Component({
-  selector: 'cp-tab-panel', standalone: true,
-  template: `@if(hasActivated()){<ng-content />}`,
-  host: { 'role': 'tabpanel', '[attr.id]': "'panel-'+id()", '[attr.aria-labelledby]': "'tab-'+id()", '[attr.hidden]': "isHidden() ? '' : null", 'tabindex': '0' },
-  changeDetection: ChangeDetectionStrategy.OnPush
+  selector: 'cp-tab-panel',
+  standalone: true,
+  template: `@if (hasActivated()) {
+    <ng-content />
+  }`,
+  host: {
+    role: 'tabpanel',
+    '[attr.id]': "'panel-'+id()",
+    '[attr.aria-labelledby]': "'tab-'+id()",
+    '[attr.hidden]': "isHidden() ? '' : null",
+    tabindex: '0',
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CpTabPanelComponent {
   readonly id = input.required<string>();

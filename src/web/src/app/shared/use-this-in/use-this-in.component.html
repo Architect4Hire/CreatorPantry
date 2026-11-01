@@ -1,12 +1,18 @@
 @if (destinations().length > 0) {
-  <div class="handoff" role="group" [attr.aria-labelledby]="headingId" [attr.aria-busy]="opening() !== null ? 'true' : null">
+  <div
+    class="handoff"
+    role="group"
+    [attr.aria-labelledby]="headingId"
+    [attr.aria-busy]="opening() !== null ? 'true' : null"
+  >
     <p class="heading" [id]="headingId">{{ heading() }}</p>
 
     <ul class="destinations">
       @for (destination of destinations(); track destination.key) {
         <li class="destination">
           <button
-            cpButton [busy]="opening() === destination"
+            cpButton
+            [busy]="opening() === destination"
             type="button"
             [variant]="destination.primary ? 'primary' : 'secondary'"
             [attr.data-destination]="destination.key"
@@ -30,8 +36,8 @@
     @switch (failure()) {
       @case ('source_unavailable') {
         <cp-notice tone="error" role="alert">
-          This could not be used to start new work. It, or a channel or themed day chosen with it, may have
-          been archived or removed. Nothing here has changed.
+          This could not be used to start new work. It, or a channel or themed day chosen with it, may have been
+          archived or removed. Nothing here has changed.
         </cp-notice>
       }
       @case ('forbidden') {

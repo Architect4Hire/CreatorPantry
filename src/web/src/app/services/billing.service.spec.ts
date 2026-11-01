@@ -64,7 +64,10 @@ describe('BillingService', () => {
     expect(request.request.body).toEqual({ packKey: 'small', returnOrigin: window.location.origin });
     request.flush({ url: 'https://checkout.stripe.test/c/1', scheduled: false });
 
-    expect(await pending).toEqual({ status: 'redirect', redirect: { url: 'https://checkout.stripe.test/c/1', scheduled: false } });
+    expect(await pending).toEqual({
+      status: 'redirect',
+      redirect: { url: 'https://checkout.stripe.test/c/1', scheduled: false },
+    });
   });
 
   it('reads a scheduled plan change as nothing to go to', async () => {
@@ -78,10 +81,12 @@ describe('BillingService', () => {
   it('says a refusal in the server’s words, and asks for a re-read on a conflict', async () => {
     const pending = service.startPlanCheckout('creator', 'Monthly', 'key-1');
 
-    http.expectOne(`${BASE}/checkout/subscription`).flush(
-      { code: 'billing.checkout.subscribed.conflict', title: 'You already have a plan.' },
-      { status: 409, statusText: 'Conflict' },
-    );
+    http
+      .expectOne(`${BASE}/checkout/subscription`)
+      .flush(
+        { code: 'billing.checkout.subscribed.conflict', title: 'You already have a plan.' },
+        { status: 409, statusText: 'Conflict' },
+      );
 
     expect(await pending).toEqual({
       status: 'refused',
@@ -94,10 +99,12 @@ describe('BillingService', () => {
   it('reads a 503 as payments unavailable', async () => {
     const pending = service.openPortal();
 
-    http.expectOne(`${BASE}/portal`).flush(
-      { code: 'billing.payments.unavailable', title: 'Payments aren’t available.' },
-      { status: 503, statusText: 'Unavailable' },
-    );
+    http
+      .expectOne(`${BASE}/portal`)
+      .flush(
+        { code: 'billing.payments.unavailable', title: 'Payments aren’t available.' },
+        { status: 503, statusText: 'Unavailable' },
+      );
 
     expect(await pending).toEqual({ status: 'unavailable' });
   });

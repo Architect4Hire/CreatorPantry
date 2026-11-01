@@ -47,7 +47,11 @@ export interface EditableInstructionGroup {
 }
 
 /** Swaps the item named by `key` with its neighbour in `direction`; a no-op at either end of the list. */
-export function moveByKey<T extends { readonly key: string }>(items: readonly T[], key: string, direction: -1 | 1): T[] {
+export function moveByKey<T extends { readonly key: string }>(
+  items: readonly T[],
+  key: string,
+  direction: -1 | 1,
+): T[] {
   const index = items.findIndex((item) => item.key === key);
   const target = index + direction;
   if (index === -1 || target < 0 || target >= items.length) return [...items];

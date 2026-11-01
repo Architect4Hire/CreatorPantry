@@ -25,14 +25,20 @@ case "$file" in
     # Format just this file against the solution.
     dotnet format --include "$file" >/dev/null 2>&1 || true
     ;;
-  *.ts|*.html|*.scss|*.css|*.json)
+  *.ts|*.html|*.scss)
+    # The same three extensions `npm run format` covers. Anything else — JSON, scripts, Markdown — is left as
+    # written, so an edit there never brings formatting changes into a PR.
+    #
     # prettier is a devDependency of the Angular app, not of the repo root. A bare `npx prettier`
     # here finds no node_modules at the root and silently downloads a floating version from the
     # registry — so the hook would format with a different prettier than the app pins, and would need
     # the network to run at all. Invoke the app's own pinned binary instead.
-    prettier="$(git rev-parse --show-toplevel)/src/web/node_modules/.bin/prettier"
+    root="$(git rev-parse --show-toplevel)"
+    prettier="$root/src/web/node_modules/.bin/prettier"
     if [ -x "$prettier" ]; then
-      "$prettier" --write "$file" >/dev/null 2>&1 || true
+      # From the root, whatever the session's cwd: prettier reads .prettierignore and .gitignore only from
+      # the directory it runs in, and the root one is what keeps goldens and snapshots untouched.
+      (cd "$root" && "$prettier" --write "$file") >/dev/null 2>&1 || true
     else
       # Not silently: a missing formatter should be fixable, not invisible. Still exit 0 — a format
       # hook never blocks an edit.

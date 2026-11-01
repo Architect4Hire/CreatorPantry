@@ -86,7 +86,9 @@ describe('PromptLibraryService', () => {
     });
 
     it('sends search, channel and cursor as the route names them, and never a workspace or a sort', async () => {
-      const pending = firstValueFrom(service.search('cozy-fall', { search: 'chili', channel: 'instagram', cursor: 'c1' }));
+      const pending = firstValueFrom(
+        service.search('cozy-fall', { search: 'chili', channel: 'instagram', cursor: 'c1' }),
+      );
 
       const request = http.expectOne((candidate) => candidate.url === BASE);
       expect(request.request.params.get('search')).toBe('chili');
@@ -123,7 +125,9 @@ describe('PromptLibraryService', () => {
     it('encodes the slug into the path', async () => {
       const pending = firstValueFrom(service.search('a/b', { search: '', channel: null, cursor: null }));
 
-      http.expectOne(`${GATEWAY}/api/v1/workspaces/a%2Fb/prompts`).flush({ items: [], nextCursor: null, totalCount: 0 });
+      http
+        .expectOne(`${GATEWAY}/api/v1/workspaces/a%2Fb/prompts`)
+        .flush({ items: [], nextCursor: null, totalCount: 0 });
 
       expect((await pending).status).toBe('found');
     });
@@ -145,7 +149,9 @@ describe('PromptLibraryService', () => {
 
     it("answers not_found for a 404, whichever code it carries — unknown and another workspace's are one case", async () => {
       const module = firstValueFrom(service.get('cozy-fall', ID));
-      http.expectOne(`${BASE}/${ID}`).flush(problem('content.prompt.not_found'), { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne(`${BASE}/${ID}`)
+        .flush(problem('content.prompt.not_found'), { status: 404, statusText: 'Not Found' });
       expect(await module).toEqual({ status: 'not_found' });
 
       const edge = firstValueFrom(service.get('cozy-fall', 'not-a-guid'));

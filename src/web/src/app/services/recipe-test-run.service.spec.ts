@@ -147,16 +147,19 @@ describe('RecipeTestRunService', () => {
 
       const outcome = await pending;
       expect(outcome.status).toBe('validation_failed');
-      if (outcome.status === 'validation_failed') expect(outcome.fieldErrors['testedAt']).toEqual(['Testers record the past.']);
+      if (outcome.status === 'validation_failed')
+        expect(outcome.fieldErrors['testedAt']).toEqual(['Testers record the past.']);
     });
 
     /** Both are 404s, and the stable code is the only thing that separates them. */
     it('tells a missing version apart from an unreadable recipe', async () => {
       const missingVersion = service.createTestRun('cozy-fall', 'r1', CREATE);
-      http.expectOne(BASE).flush(
-        { ...problem('recipes.version.not_found'), errors: { sourceVersionNumber: ['No such version.'] } },
-        { status: 404, statusText: 'Not Found' },
-      );
+      http
+        .expectOne(BASE)
+        .flush(
+          { ...problem('recipes.version.not_found'), errors: { sourceVersionNumber: ['No such version.'] } },
+          { status: 404, statusText: 'Not Found' },
+        );
       const versionOutcome = await missingVersion;
       expect(versionOutcome.status).toBe('version_not_found');
       if (versionOutcome.status === 'version_not_found') {
@@ -164,9 +167,7 @@ describe('RecipeTestRunService', () => {
       }
 
       const missingRecipe = service.createTestRun('cozy-fall', 'r1', CREATE);
-      http
-        .expectOne(BASE)
-        .flush(problem('recipes.recipe.not_found'), { status: 404, statusText: 'Not Found' });
+      http.expectOne(BASE).flush(problem('recipes.recipe.not_found'), { status: 404, statusText: 'Not Found' });
       expect((await missingRecipe).status).toBe('not_found');
     });
 
@@ -286,7 +287,9 @@ describe('RecipeTestRunService', () => {
      */
     it('separates a stale token, a removed resolved issue, and an archived recipe', async () => {
       const stale = service.updateTestRun('cozy-fall', 'r1', RUN_ID, update());
-      http.expectOne(`${BASE}/${RUN_ID}`).flush(problem('recipes.testRun.conflict'), { status: 409, statusText: 'Conflict' });
+      http
+        .expectOne(`${BASE}/${RUN_ID}`)
+        .flush(problem('recipes.testRun.conflict'), { status: 409, statusText: 'Conflict' });
       expect((await stale).status).toBe('conflict');
 
       const removal = service.updateTestRun('cozy-fall', 'r1', RUN_ID, update());
@@ -319,10 +322,12 @@ describe('RecipeTestRunService', () => {
 
     it('carries indexed field errors through untouched, so a row can be found again', async () => {
       const pending = service.updateTestRun('cozy-fall', 'r1', RUN_ID, update());
-      http.expectOne(`${BASE}/${RUN_ID}`).flush(
-        { errors: { 'issues[1].severity': ['Say how badly this affects the recipe.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne(`${BASE}/${RUN_ID}`)
+        .flush(
+          { errors: { 'issues[1].severity': ['Say how badly this affects the recipe.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       const outcome = await pending;
       expect(outcome.status).toBe('validation_failed');
@@ -377,10 +382,12 @@ describe('RecipeTestRunService', () => {
       expect((await cursor).status).toBe('cursor_expired');
 
       const filter = firstValueFrom(service.listTestRuns('cozy-fall', 'r1', { versions: 'nine' }));
-      http.expectOne((candidate) => candidate.url === BASE).flush(
-        { code: 'recipes.testRun.invalid_request', errors: { version: ['A version number starts at 1.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne((candidate) => candidate.url === BASE)
+        .flush(
+          { code: 'recipes.testRun.invalid_request', errors: { version: ['A version number starts at 1.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
       const filterOutcome = await filter;
       expect(filterOutcome.status).toBe('invalid_request');
       if (filterOutcome.status === 'invalid_request') {
@@ -399,9 +406,7 @@ describe('RecipeTestRunService', () => {
     /** Every outcome is a value, so a failed page cannot kill the subscription. */
     it('never errors the stream', async () => {
       const pending = firstValueFrom(service.listTestRuns('cozy-fall', 'r1', {}));
-      http
-        .expectOne((candidate) => candidate.url === BASE)
-        .flush({}, { status: 500, statusText: 'Server Error' });
+      http.expectOne((candidate) => candidate.url === BASE).flush({}, { status: 500, statusText: 'Server Error' });
 
       expect((await pending).status).toBe('unavailable');
     });
@@ -442,10 +447,12 @@ describe('RecipeTestRunService', () => {
 
     it('carries a 400 through as field errors', async () => {
       const pending = service.resolveIssue('cozy-fall', 'r1', RUN_ID, 'i1', { kind: 'WontFix' });
-      http.expectOne(RESOLUTION_URL).flush(
-        { errors: { resolutionVersionNumber: ['Only a fix names the version that corrected it.'] } },
-        { status: 400, statusText: 'Bad Request' },
-      );
+      http
+        .expectOne(RESOLUTION_URL)
+        .flush(
+          { errors: { resolutionVersionNumber: ['Only a fix names the version that corrected it.'] } },
+          { status: 400, statusText: 'Bad Request' },
+        );
 
       const outcome = await pending;
       expect(outcome.status).toBe('validation_failed');
@@ -453,10 +460,12 @@ describe('RecipeTestRunService', () => {
 
     it('tells a missing version apart from an unknown issue', async () => {
       const version = service.resolveIssue('cozy-fall', 'r1', RUN_ID, 'i1', { kind: 'Fixed' });
-      http.expectOne(RESOLUTION_URL).flush(
-        { code: 'recipes.version.not_found', errors: { resolutionVersionNumber: ['No such version.'] } },
-        { status: 404, statusText: 'Not Found' },
-      );
+      http
+        .expectOne(RESOLUTION_URL)
+        .flush(
+          { code: 'recipes.version.not_found', errors: { resolutionVersionNumber: ['No such version.'] } },
+          { status: 404, statusText: 'Not Found' },
+        );
       expect((await version).status).toBe('version_not_found');
 
       const issue = service.resolveIssue('cozy-fall', 'r1', RUN_ID, 'i1', { kind: 'Fixed' });

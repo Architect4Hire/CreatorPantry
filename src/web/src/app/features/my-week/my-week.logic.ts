@@ -55,7 +55,13 @@ export function columnsFor(week: WeekWorkTasks, view: MyWeekView, filters: MyWee
   const filtered = hasFilters(filters);
   const keep = (tasks: readonly WorkTask[]) => tasks.filter((task) => matches(task, filters));
 
-  const section = (id: string, heading: string | null, group: WorkTaskGroup, empty: string, marker: string | null = null): MyWeekSection => ({
+  const section = (
+    id: string,
+    heading: string | null,
+    group: WorkTaskGroup,
+    empty: string,
+    marker: string | null = null,
+  ): MyWeekSection => ({
     id,
     heading,
     marker,
@@ -100,7 +106,9 @@ export function columnsFor(week: WeekWorkTasks, view: MyWeekView, filters: MyWee
     return [
       backlog,
       ...daySections.map((day) =>
-        column(day.id, day.marker ? `${day.heading} · ${day.marker}` : day.heading!, [{ ...day, heading: null, marker: null }]),
+        column(day.id, day.marker ? `${day.heading} · ${day.marker}` : day.heading!, [
+          { ...day, heading: null, marker: null },
+        ]),
       ),
       ...status,
     ];
@@ -111,9 +119,15 @@ export function columnsFor(week: WeekWorkTasks, view: MyWeekView, filters: MyWee
 
 /** Whether the server sent nothing at all for this week: no task in any group. */
 export function weekIsEmpty(week: WeekWorkTasks): boolean {
-  return [week.backlog, week.unplanned, week.carriedOver, week.inProgress, week.waiting, week.completed, ...week.days].every(
-    (group) => group.totals.taskCount === 0,
-  );
+  return [
+    week.backlog,
+    week.unplanned,
+    week.carriedOver,
+    week.inProgress,
+    week.waiting,
+    week.completed,
+    ...week.days,
+  ].every((group) => group.totals.taskCount === 0);
 }
 
 /** Whether the filters left nothing on the board, though the week had tasks loaded. */

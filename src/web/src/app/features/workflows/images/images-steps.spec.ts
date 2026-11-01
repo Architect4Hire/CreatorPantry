@@ -98,13 +98,18 @@ function context(references: readonly CreativeContextReference[]): CreativeConte
 }
 
 /** A "Create food images" run, holding what it is told to. */
-function imagesRun(links: readonly { kind: string; resourceId: string; stepKey: string | null }[], steps?: unknown[]): WorkflowRun {
-  return decodeWorkflowRun(wireRun({
-    id: RUN_ID,
-    definitionKey: 'images.create',
-    links,
-    ...(steps ? { steps } : {}),
-  }))!;
+function imagesRun(
+  links: readonly { kind: string; resourceId: string; stepKey: string | null }[],
+  steps?: unknown[],
+): WorkflowRun {
+  return decodeWorkflowRun(
+    wireRun({
+      id: RUN_ID,
+      definitionKey: 'images.create',
+      links,
+      ...(steps ? { steps } : {}),
+    }),
+  )!;
 }
 
 function recipe(links: readonly Partial<RecipeAssetLink>[] = []): RecipeDetail {
@@ -145,9 +150,11 @@ function configure(): void {
   getRecipeDetail = jasmine.createSpy('getRecipeDetail').and.resolveTo({ status: 'found', recipe: recipe() });
   link = jasmine.createSpy('link');
   getContext = jasmine.createSpy('get').and.returnValue(of({ status: 'found', context: context([]) }));
-  assetDetail = jasmine.createSpy('detail').and.callFake((_slug: string, id: string) =>
-    of({ status: 'found', asset: { id, title: id === 'asset-1' ? 'Galette, first slice' : 'Galette, whole' } }),
-  );
+  assetDetail = jasmine
+    .createSpy('detail')
+    .and.callFake((_slug: string, id: string) =>
+      of({ status: 'found', asset: { id, title: id === 'asset-1' ? 'Galette, first slice' : 'Galette, whole' } }),
+    );
 
   TestBed.configureTestingModule({
     providers: [
@@ -163,7 +170,18 @@ function configure(): void {
         useValue: {
           state: signal({
             status: 'ready',
-            memberships: [{ workspaceId: 'w1', workspaceSlug: SLUG, workspaceName: 'Sam', membershipId: 'm1', get role() { return role; }, status: 'Active' }],
+            memberships: [
+              {
+                workspaceId: 'w1',
+                workspaceSlug: SLUG,
+                workspaceName: 'Sam',
+                membershipId: 'm1',
+                get role() {
+                  return role;
+                },
+                status: 'Active',
+              },
+            ],
           }),
           ensureLoaded: () => Promise.resolve(),
         },
@@ -233,7 +251,11 @@ describe('"Create food images" step screens (13A.19)', () => {
     });
 
     it('keeps new work on the run the moment it is filed, and names it as what the step made', async () => {
-      const fixture = await render(ImagesStudioStepComponent, { part: 'about', run: imagesRun([]), workspaceSlug: SLUG });
+      const fixture = await render(ImagesStudioStepComponent, {
+        part: 'about',
+        run: imagesRun([]),
+        workspaceSlug: SLUG,
+      });
 
       studio(fixture).host.filed('ctx-9');
       await settle(fixture);
@@ -249,7 +271,11 @@ describe('"Create food images" step screens (13A.19)', () => {
 
     it('says so when the run could not be pointed at the work, and still says the work is saved', async () => {
       keepDraft.and.resolveTo(false);
-      const fixture = await render(ImagesStudioStepComponent, { part: 'about', run: imagesRun([]), workspaceSlug: SLUG });
+      const fixture = await render(ImagesStudioStepComponent, {
+        part: 'about',
+        run: imagesRun([]),
+        workspaceSlug: SLUG,
+      });
 
       studio(fixture).host.filed('ctx-9');
       await settle(fixture);
@@ -265,22 +291,38 @@ describe('"Create food images" step screens (13A.19)', () => {
       });
       expect(studio(fixture).seenContextId).toBe('ctx-1');
       expect(studio(fixture).seenSuggestion).withContext('only the first part offers a recipe').toBeNull();
-      expect(port.registration()!.draft!()).withContext('a later part keeps no draft: its actions take none').toBeNull();
+      expect(port.registration()!.draft!())
+        .withContext('a later part keeps no draft: its actions take none')
+        .toBeNull();
       fixture.destroy();
 
       fixture = await render(ImagesStudioStepComponent, {
         part: 'plan',
-        run: imagesRun([], [
-          { key: 'about', title: 'Choose', requirement: 'Required', status: 'InProgress', draftKind: 'CreativeContext', draftResourceId: 'ctx-2' },
-          { key: 'plan', title: 'Plan', requirement: 'Optional', status: 'NotStarted' },
-        ]),
+        run: imagesRun(
+          [],
+          [
+            {
+              key: 'about',
+              title: 'Choose',
+              requirement: 'Required',
+              status: 'InProgress',
+              draftKind: 'CreativeContext',
+              draftResourceId: 'ctx-2',
+            },
+            { key: 'plan', title: 'Plan', requirement: 'Optional', status: 'NotStarted' },
+          ],
+        ),
         workspaceSlug: SLUG,
       });
       expect(studio(fixture).seenContextId).toBe('ctx-2');
     });
 
     it('says where the work is when a later part opens with none, and shows no studio', async () => {
-      const fixture = await render(ImagesStudioStepComponent, { part: 'make', run: imagesRun([]), workspaceSlug: SLUG });
+      const fixture = await render(ImagesStudioStepComponent, {
+        part: 'make',
+        run: imagesRun([]),
+        workspaceSlug: SLUG,
+      });
 
       expect(text(fixture)).toContain('Go back to the first step to choose what the picture is for.');
       expect((fixture.nativeElement as HTMLElement).querySelector('.stub-studio')).toBeNull();
@@ -294,11 +336,13 @@ describe('"Create food images" step screens (13A.19)', () => {
       });
       expect(port.registration()!.ready!()).withContext('nothing saved yet').toBeFalse();
 
-      studio(fixture).workContext.set(context([
-        reference({ id: 'ref-1', mediaAssetId: 'asset-1' }),
-        reference({ id: 'ref-2', purpose: 'Source', mediaAssetId: 'asset-reference' }),
-        reference({ id: 'ref-3', kind: 'Recipe', mediaAssetId: null, recipeId: 'recipe-1' }),
-      ]));
+      studio(fixture).workContext.set(
+        context([
+          reference({ id: 'ref-1', mediaAssetId: 'asset-1' }),
+          reference({ id: 'ref-2', purpose: 'Source', mediaAssetId: 'asset-reference' }),
+          reference({ id: 'ref-3', kind: 'Recipe', mediaAssetId: null, recipeId: 'recipe-1' }),
+        ]),
+      );
       fixture.detectChanges();
 
       expect(port.registration()!.results!()).toEqual([{ kind: 'MediaAsset', id: 'asset-1' }]);
@@ -308,11 +352,18 @@ describe('"Create food images" step screens (13A.19)', () => {
     it('sends what is waiting before a move, and waits for the run to be pointed at the work', async () => {
       let answer!: (kept: boolean) => void;
       keepDraft.and.returnValue(new Promise((resolve) => (answer = resolve)));
-      const fixture = await render(ImagesStudioStepComponent, { part: 'about', run: imagesRun([]), workspaceSlug: SLUG });
+      const fixture = await render(ImagesStudioStepComponent, {
+        part: 'about',
+        run: imagesRun([]),
+        workspaceSlug: SLUG,
+      });
       studio(fixture).host.filed('ctx-9');
 
       let moved: boolean | null = null;
-      void port.registration()!.flush().then((value) => (moved = value));
+      void port
+        .registration()!
+        .flush()
+        .then((value) => (moved = value));
       await settle(fixture);
       expect(studio(fixture).flushed).toBe(1);
       expect(moved).withContext('the pointer is still on its way').toBeNull();
@@ -324,7 +375,11 @@ describe('"Create food images" step screens (13A.19)', () => {
 
     it('moves on when the run could not be pointed at the work, since Continue names it, and says so', async () => {
       keepDraft.and.resolveTo(false);
-      const fixture = await render(ImagesStudioStepComponent, { part: 'about', run: imagesRun([]), workspaceSlug: SLUG });
+      const fixture = await render(ImagesStudioStepComponent, {
+        part: 'about',
+        run: imagesRun([]),
+        workspaceSlug: SLUG,
+      });
       studio(fixture).host.filed('ctx-9');
       await settle(fixture);
 
@@ -345,7 +400,10 @@ describe('"Create food images" step screens (13A.19)', () => {
     });
 
     it('hands the studio the brand’s look and picture count, and carries on without either', async () => {
-      getBrandProfile.and.resolveTo({ status: 'found', profile: { channelDefaults: ['instagram'], defaultPictureCount: 3 } });
+      getBrandProfile.and.resolveTo({
+        status: 'found',
+        profile: { channelDefaults: ['instagram'], defaultPictureCount: 3 },
+      });
       let fixture = await render(ImagesStudioStepComponent, { part: 'about', run: imagesRun([]), workspaceSlug: SLUG });
       expect(studio(fixture).host.brand()).toEqual({ status: 'ready', channelKeys: ['instagram'], pictureCount: 3 });
       fixture.destroy();
@@ -365,23 +423,36 @@ describe('"Create food images" step screens (13A.19)', () => {
       ]);
 
     beforeEach(() => {
-      getContext.and.returnValue(of({
-        status: 'found',
-        context: context([reference({ id: 'ref-1', mediaAssetId: 'asset-1' }), reference({ id: 'ref-2', mediaAssetId: 'asset-2' })]),
-      }));
+      getContext.and.returnValue(
+        of({
+          status: 'found',
+          context: context([
+            reference({ id: 'ref-1', mediaAssetId: 'asset-1' }),
+            reference({ id: 'ref-2', mediaAssetId: 'asset-2' }),
+          ]),
+        }),
+      );
     });
 
     it('offers each picture this run saved as the lead picture, by its own title', async () => {
       const fixture = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
 
-      expect(button(fixture, 'Use “Galette, first slice” as the lead picture')?.classList).toContain('cp-button--primary');
+      expect(button(fixture, 'Use “Galette, first slice” as the lead picture')?.classList).toContain(
+        'cp-button--primary',
+      );
       expect(button(fixture, 'Use “Galette, whole” as the lead picture')).not.toBeNull();
       expect(port.registration()!.ready!()).toBeFalse();
-      expect((fixture.nativeElement as HTMLElement).querySelector('.stub-media')).withContext('the recipe’s own panel, too').not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.stub-media'))
+        .withContext('the recipe’s own panel, too')
+        .not.toBeNull();
     });
 
     it('links the picture as the lead picture in one press, and is then done', async () => {
-      link.and.resolveTo({ status: 'linked', recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-1' }]), replayed: false });
+      link.and.resolveTo({
+        status: 'linked',
+        recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-1' }]),
+        replayed: false,
+      });
       const announced = spyOn(port, 'announce');
       const fixture = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
 
@@ -412,7 +483,11 @@ describe('"Create food images" step screens (13A.19)', () => {
       await settle(fixture);
       expect(text(fixture)).toContain('Trying again is safe.');
 
-      link.and.resolveTo({ status: 'linked', recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-1' }]), replayed: true });
+      link.and.resolveTo({
+        status: 'linked',
+        recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-1' }]),
+        replayed: true,
+      });
       button(fixture, 'Use “Galette, first slice” as the lead picture')!.click();
       await settle(fixture);
 
@@ -422,7 +497,10 @@ describe('"Create food images" step screens (13A.19)', () => {
     it('reads the recipe again when it moved on, so what it offers is true', async () => {
       link.and.resolveTo({ status: 'hero_exists' });
       const fixture = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
-      getRecipeDetail.and.resolveTo({ status: 'found', recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-other' }]) });
+      getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: recipe([{ role: 'Hero', mediaAssetId: 'asset-other' }]),
+      });
 
       button(fixture, 'Use “Galette, first slice” as the lead picture')!.click();
       await settle(fixture);
@@ -443,13 +521,22 @@ describe('"Create food images" step screens (13A.19)', () => {
     });
 
     it('offers no picture it could not read, nor one the recipe already uses', async () => {
-      getRecipeDetail.and.resolveTo({ status: 'found', recipe: recipe([{ role: 'Gallery', mediaAssetId: 'asset-2' }]) });
+      getRecipeDetail.and.resolveTo({
+        status: 'found',
+        recipe: recipe([{ role: 'Gallery', mediaAssetId: 'asset-2' }]),
+      });
       assetDetail.and.callFake((_slug: string, id: string) =>
-        id === 'asset-1' ? of({ status: 'not_found' }) : of({ status: 'found', asset: { id, title: 'Galette, whole' } }),
+        id === 'asset-1'
+          ? of({ status: 'not_found' })
+          : of({ status: 'found', asset: { id, title: 'Galette, whole' } }),
       );
       const fixture = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
 
-      expect(Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).some((each) => each.textContent?.includes('as the lead picture'))).toBeFalse();
+      expect(
+        Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).some((each) =>
+          each.textContent?.includes('as the lead picture'),
+        ),
+      ).toBeFalse();
     });
 
     it('offers no shortcut to a Viewer, and says why', async () => {
@@ -465,7 +552,9 @@ describe('"Create food images" step screens (13A.19)', () => {
       const fixture = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
 
       expect(text(fixture)).toContain('The pictures you saved in this workflow couldn’t be read just now');
-      expect((fixture.nativeElement as HTMLElement).querySelector('.stub-media')).withContext('the library is still there').not.toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.stub-media'))
+        .withContext('the library is still there')
+        .not.toBeNull();
     });
 
     it('says the recipe is gone, or could not be read, with a way to read it again', async () => {
@@ -490,11 +579,17 @@ describe('"Create food images" step screens (13A.19)', () => {
       const held = await render(ImagesLeadPictureStepComponent, { run: withWork(), workspaceSlug: SLUG });
       const root = (fixture: ComponentFixture<unknown>) => fixture.nativeElement as HTMLElement;
       const statuses = (fixture: ComponentFixture<unknown>) =>
-        Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) => each.textContent!.trim());
+        Array.from(root(fixture).querySelectorAll('p.cp-sr-only[role="status"]')).map((each) =>
+          each.textContent!.trim(),
+        );
 
       expect(statuses(held)).toEqual(['Reading your recipe…']);
       expect(root(held).querySelector('[aria-busy="true"] cp-skeleton')).not.toBeNull();
-      expect(Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) => each.textContent?.includes('Reading your recipe…'))).toBeFalse();
+      expect(
+        Array.from(root(held).querySelectorAll('p:not(.cp-sr-only)')).some((each) =>
+          each.textContent?.includes('Reading your recipe…'),
+        ),
+      ).toBeFalse();
       held.destroy();
 
       getRecipeDetail.and.resolveTo({ status: 'found', recipe: recipe() });

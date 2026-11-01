@@ -137,8 +137,8 @@ describe('RecipeAdaptationRequestComponent', () => {
   it('offers exactly the four adaptation goals', fakeAsync(() => {
     render();
 
-    const labels = Array.from(element().querySelectorAll('.adaptation-goal-label')).map(
-      (span) => span.textContent?.trim(),
+    const labels = Array.from(element().querySelectorAll('.adaptation-goal-label')).map((span) =>
+      span.textContent?.trim(),
     );
 
     expect(labels).toEqual(RECIPE_ADAPTATION_GOALS.map((option) => option.label));
@@ -284,7 +284,7 @@ describe('RecipeAdaptationRequestComponent', () => {
     buttonWith('Ask for an adaptation').click();
     settle();
 
-    expect(element().querySelector('[role="alert"]')?.textContent).toContain("could not be scaled to");
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain('could not be scaled to');
   }));
 
   it('explains a stale version in terms of what to do about it', fakeAsync(() => {
@@ -332,7 +332,9 @@ describe('RecipeAdaptationRequestComponent', () => {
     render('Viewer');
 
     expect(fixture.componentInstance.state()).toBe('forbidden');
-    expect(element().querySelector('.adaptation-blocked[role="status"]')?.textContent).toContain('cannot ask for an adaptation');
+    expect(element().querySelector('.adaptation-blocked[role="status"]')?.textContent).toContain(
+      'cannot ask for an adaptation',
+    );
     expect(service.calls.length).toBe(0);
   }));
 

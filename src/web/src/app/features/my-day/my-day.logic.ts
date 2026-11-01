@@ -123,8 +123,16 @@ export function movesFor(task: WorkTask, today: string): readonly MyDayMove[] {
       // On the last day of the week there is no "later" left in it.
       const later: MyDayMove =
         addDays(weekStart, 6) === today
-          ? { id: 'next-week', label: 'Next week', request: { status: 'Backlog', planningWeekStart: addDays(weekStart, 7) } }
-          : { id: 'later-this-week', label: 'Later this week', request: { status: 'Backlog', planningWeekStart: weekStart } };
+          ? {
+              id: 'next-week',
+              label: 'Next week',
+              request: { status: 'Backlog', planningWeekStart: addDays(weekStart, 7) },
+            }
+          : {
+              id: 'later-this-week',
+              label: 'Later this week',
+              request: { status: 'Backlog', planningWeekStart: weekStart },
+            };
 
       return [
         { id: 'in-progress', label: 'In progress', request: { status: 'InProgress' } },

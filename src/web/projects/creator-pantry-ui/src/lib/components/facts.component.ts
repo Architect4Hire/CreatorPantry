@@ -57,8 +57,7 @@ export class CpFactsComponent {
 @Component({
   selector: 'div[cpFact]',
   standalone: true,
-  template: `<dt>{{ label() }}</dt>
-    <dd><ng-content /></dd>`,
+  template: `<dt>{{ label() }}</dt> <dd><ng-content /></dd>`,
   host: { '[class.cp-fact--prose]': 'prose()' },
   styles: [
     `

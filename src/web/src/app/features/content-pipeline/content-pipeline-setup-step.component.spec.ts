@@ -2,10 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ContentChannel } from '../../models/brand-profile.models';
-import {
-  ContentPipelineConfig,
-  emptyContentPipelineConfig,
-} from '../../models/content-pipeline.models';
+import { ContentPipelineConfig, emptyContentPipelineConfig } from '../../models/content-pipeline.models';
 import { BrandProfileService, ContentChannelsOutcome } from '../../services/brand-profile.service';
 import { ContentPipelineSetupStepComponent } from './content-pipeline-setup-step.component';
 
@@ -79,9 +76,7 @@ describe('ContentPipelineSetupStepComponent', () => {
   beforeEach(() => {
     channels = { status: 'found', channels: CHANNELS };
     TestBed.configureTestingModule({
-      providers: [
-        { provide: BrandProfileService, useValue: { listContentChannels: () => Promise.resolve(channels) } },
-      ],
+      providers: [{ provide: BrandProfileService, useValue: { listContentChannels: () => Promise.resolve(channels) } }],
     });
   });
 

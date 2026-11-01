@@ -1,5 +1,21 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, NgZone, afterNextRender, computed, contentChildren, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  NgZone,
+  afterNextRender,
+  computed,
+  contentChildren,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -24,7 +40,11 @@ import {
   WorkflowSuggestion,
   stepperStatusOf,
 } from '../../models/workflow-run.models';
-import { WorkflowRunCommandOutcome, WorkflowRunRestartOutcome, WorkflowRunService } from '../../services/workflow-run.service';
+import {
+  WorkflowRunCommandOutcome,
+  WorkflowRunRestartOutcome,
+  WorkflowRunService,
+} from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { LONG_FORM_DEFINITION_KEY, longFormLink, longFormQuery } from './workflow-journeys';
 import { WorkflowStepFallbackComponent } from './workflow-step-fallback.component';
@@ -74,7 +94,8 @@ export type WorkflowShellPhase =
   | 'completed'
   | 'abandoned';
 
-type Command = 'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again' | 'start-next';
+type Command =
+  'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again' | 'start-next';
 
 interface ActionProblem {
   readonly message: string;
@@ -159,7 +180,10 @@ export class WorkflowShellComponent {
 
   /** The channel the step's screen registers on. Handed to its template, which is declared outside this component. */
   protected readonly port = inject(WorkflowStepPort);
-  protected readonly stepInjector = Injector.create({ providers: [{ provide: WorkflowStepPort, useValue: this.port }], parent: this.injector });
+  protected readonly stepInjector = Injector.create({
+    providers: [{ provide: WorkflowStepPort, useValue: this.port }],
+    parent: this.injector,
+  });
 
   private readonly stepTemplates = contentChildren(WorkflowStepDirective);
   private readonly stepCard = viewChild<CpTopicCardComponent>('stepCard');
@@ -218,7 +242,9 @@ export class WorkflowShellComponent {
   readonly stepperSteps = computed<readonly CpStep[]>(() => {
     const run = this.run();
     const key = this.run()?.nextAction?.stepKey ?? null;
-    return run ? run.steps.map((step) => ({ id: step.key, label: step.title, status: stepperStatusOf(step, key) })) : [];
+    return run
+      ? run.steps.map((step) => ({ id: step.key, label: step.title, status: stepperStatusOf(step, key) }))
+      : [];
   });
 
   readonly done = computed(() => {
@@ -235,7 +261,9 @@ export class WorkflowShellComponent {
     const run = this.run();
     if (!run) return '';
     const index = this.stepIndex();
-    return run.nextAction && index >= 0 ? `Step ${index + 1} of ${run.stepCount}` : `${this.done()} of ${run.stepCount} steps done`;
+    return run.nextAction && index >= 0
+      ? `Step ${index + 1} of ${run.stepCount}`
+      : `${this.done()} of ${run.stepCount} steps done`;
   });
 
   readonly legend = computed(() =>
@@ -282,7 +310,10 @@ export class WorkflowShellComponent {
       untracked(() => void this.load(slug, id, { arriving: true }));
     });
 
-    this.port.connect((draft) => this.keepDraft(draft), () => this.focusAfterRender(STEP_HEADING_ID));
+    this.port.connect(
+      (draft) => this.keepDraft(draft),
+      () => this.focusAfterRender(STEP_HEADING_ID),
+    );
 
     effect(() => {
       const said = this.port.announcement();
@@ -339,7 +370,8 @@ export class WorkflowShellComponent {
     // seconds for as long as the step is dirty, and leaves the app never quite settled — which a test waiting
     // for stability would wait out. The attempt itself goes back in, because it writes what the screen shows.
     this.autosaveTimer = this.zone.runOutsideAngular(() =>
-      setInterval(() => this.zone.run(() => void this.autosave()), WORKFLOW_AUTOSAVE_EVERY_MS));
+      setInterval(() => this.zone.run(() => void this.autosave()), WORKFLOW_AUTOSAVE_EVERY_MS),
+    );
   }
 
   private stopAutosave(): void {
@@ -380,7 +412,13 @@ export class WorkflowShellComponent {
     const step = this.step();
     if (!step || !this.run()) return Promise.resolve();
     return this.command('continue', async () =>
-      this.runs.completeStep(this.workspaceSlug(), this.run()!, step.stepKey, this.port.registration()?.results?.() ?? []));
+      this.runs.completeStep(
+        this.workspaceSlug(),
+        this.run()!,
+        step.stepKey,
+        this.port.registration()?.results?.() ?? [],
+      ),
+    );
   }
 
   back(): Promise<void> {
@@ -426,7 +464,9 @@ export class WorkflowShellComponent {
     if (!agreed) return;
 
     this.idempotencyKey = newKey();
-    await this.command('start-over', async () => this.runs.restart(this.workspaceSlug(), this.run() ?? run, this.idempotencyKey!));
+    await this.command('start-over', async () =>
+      this.runs.restart(this.workspaceSlug(), this.run() ?? run, this.idempotencyKey!),
+    );
   }
 
   /** Opens the stop dialog. Stopping is confirmed there, with an optional reason. */
@@ -453,7 +493,9 @@ export class WorkflowShellComponent {
     const run = this.run();
     if (!run) return;
     this.idempotencyKey = newKey();
-    await this.command('start-again', async () => this.runs.start(this.workspaceSlug(), run.definitionKey, this.idempotencyKey!));
+    await this.command('start-again', async () =>
+      this.runs.start(this.workspaceSlug(), run.definitionKey, this.idempotencyKey!),
+    );
   }
 
   /**
@@ -464,14 +506,18 @@ export class WorkflowShellComponent {
     if (suggestion.kind !== 'Workflow' || !suggestion.available || this.opensWriter(suggestion)) return;
     this.idempotencyKey = newKey();
     await this.command('start-next', async () =>
-      this.runs.start(this.workspaceSlug(), suggestion.key, this.idempotencyKey!, suggestion.startFrom));
+      this.runs.start(this.workspaceSlug(), suggestion.key, this.idempotencyKey!, suggestion.startFrom),
+    );
   }
 
   /**
    * A suggested screen's address as router commands and query: a route such as `recipes/42?area=media` is a path and
    * a query, and handed to the router whole its `?` would be escaped into the path.
    */
-  protected suggestionLink(route: string): { readonly commands: readonly string[]; readonly queryParams: Record<string, string> } {
+  protected suggestionLink(route: string): {
+    readonly commands: readonly string[];
+    readonly queryParams: Record<string, string>;
+  } {
     const [path, query = ''] = route.split('?', 2);
     return {
       commands: ['/', this.workspaceSlug(), ...path.split('/').filter((segment) => segment !== '')],
@@ -562,7 +608,10 @@ export class WorkflowShellComponent {
       if (options.arriving) this.phase.set('unavailable');
       else {
         this.problem.set({
-          message: offlineOr(outcome.offline, 'This run couldn’t be read again right now, so what’s shown may be out of date.'),
+          message: offlineOr(
+            outcome.offline,
+            'This run couldn’t be read again right now, so what’s shown may be out of date.',
+          ),
           retry: () => this.reload(),
         });
         if (options.saying) this.announce(options.saying);
@@ -602,7 +651,10 @@ export class WorkflowShellComponent {
 
       try {
         if (!(await this.port.flush())) {
-          this.problem.set({ message: 'Your work on this step isn’t saved yet, so the run hasn’t moved. Try again in a moment.', retry: attempt });
+          this.problem.set({
+            message: 'Your work on this step isn’t saved yet, so the run hasn’t moved. Try again in a moment.',
+            retry: attempt,
+          });
           return;
         }
 
@@ -692,14 +744,20 @@ export class WorkflowShellComponent {
 
       case 'unavailable':
         if (outcome.offline && RETRY_WHEN_ONLINE.has(name)) {
-          this.problem.set({ message: 'You’re offline. Nothing is lost — this will be tried again when you’re back online.', retry: again });
+          this.problem.set({
+            message: 'You’re offline. Nothing is lost — this will be tried again when you’re back online.',
+            retry: again,
+          });
           this.cancelOnlineRetry = this.network.whenOnline(() => {
             this.cancelOnlineRetry = null;
             // Only the move the creator asked for, on the run as it was then: anything since, and it waits for Retry.
             if (this.busy() === null && this.run()?.concurrencyToken === sentFor) void again();
           });
         } else if (outcome.offline) {
-          this.problem.set({ message: 'You’re offline. Nothing is lost — retry when you’re back online.', retry: again });
+          this.problem.set({
+            message: 'You’re offline. Nothing is lost — retry when you’re back online.',
+            retry: again,
+          });
         } else {
           this.problem.set({ message: 'That didn’t go through. Nothing is lost — try again.', retry: again });
         }
@@ -803,9 +861,10 @@ export class WorkflowShellComponent {
 function phaseOnArrival(run: WorkflowRun): WorkflowShellPhase {
   if (run.status === 'Completed') return 'completed';
   if (run.status === 'Abandoned') return 'abandoned';
-  const started = run.completedStepCount + run.skippedStepCount > 0
-    || run.steps.some((step) => step.draft !== null || step.status === 'InProgress')
-    || run.lastRoute !== null;
+  const started =
+    run.completedStepCount + run.skippedStepCount > 0 ||
+    run.steps.some((step) => step.draft !== null || step.status === 'InProgress') ||
+    run.lastRoute !== null;
   return started ? 'resumable' : 'step';
 }
 

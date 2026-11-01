@@ -114,12 +114,10 @@ describe('CreativeContextService', () => {
     it('carries the field errors of a 400', async () => {
       const pending = firstValueFrom(service.create('cozy-fall', {}, 'key-1'));
 
-      http
-        .expectOne(BASE)
-        .flush(problem('content.creative_context.invalid', { workingTitle: ['Too long.'] }), {
-          status: 400,
-          statusText: 'Bad Request',
-        });
+      http.expectOne(BASE).flush(problem('content.creative_context.invalid', { workingTitle: ['Too long.'] }), {
+        status: 400,
+        statusText: 'Bad Request',
+      });
 
       const outcome = await pending;
       expect(outcome.status).toBe('invalid');
@@ -311,9 +309,7 @@ describe('CreativeContextService', () => {
         it(`${name} answers '${expected}' to a ${status} ${code}`, async () => {
           const pending = firstValueFrom(call());
 
-          http
-            .expectOne((candidate) => candidate.url === url)
-            .flush(problem(code), { status, statusText: 'Refused' });
+          http.expectOne((candidate) => candidate.url === url).flush(problem(code), { status, statusText: 'Refused' });
 
           expect((await pending).status).toBe(expected);
         });

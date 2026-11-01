@@ -3,11 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
-import {
-  RecipeExportChoices,
-  RecipeExportSummary,
-  decodeRecipeExportSummary,
-} from '../models/recipe-export.models';
+import { RecipeExportChoices, RecipeExportSummary, decodeRecipeExportSummary } from '../models/recipe-export.models';
 
 export type RecipeExportSummaryOutcome =
   | { readonly status: 'found'; readonly summary: RecipeExportSummary }

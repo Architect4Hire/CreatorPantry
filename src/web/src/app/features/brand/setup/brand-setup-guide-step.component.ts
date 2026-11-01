@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   CpAnchorNavComponent,
   CpAnchorNavItem,
@@ -94,7 +104,13 @@ export class BrandSetupGuideStepComponent implements OnInit {
   protected readonly views = computed(() =>
     this.definitions().map((definition) => {
       const section = this.sections().find((each) => each.id === definition.id);
-      const held: GuideSection = section ?? { id: definition.id, body: '', origin: 'creator', edited: false, citedDocumentIds: [] };
+      const held: GuideSection = section ?? {
+        id: definition.id,
+        body: '',
+        origin: 'creator',
+        edited: false,
+        citedDocumentIds: [],
+      };
       const marker = markerOf(held);
       return {
         definition,
@@ -115,12 +131,17 @@ export class BrandSetupGuideStepComponent implements OnInit {
   protected readonly written = computed(() => this.views().filter((view) => view.written).length);
   protected readonly summary = computed(() => writtenSummary(this.written(), this.views().length));
   protected readonly anchors = computed<readonly CpAnchorNavItem[]>(() =>
-    this.views().map((view) => ({ targetId: view.anchorId, label: view.definition.label, detail: view.written ? 'Written' : 'Empty' })),
+    this.views().map((view) => ({
+      targetId: view.anchorId,
+      label: view.definition.label,
+      detail: view.written ? 'Written' : 'Empty',
+    })),
   );
 
   /** True when the creator asked for a draft and no part has been written for them. */
   protected readonly awaitingDraft = computed(
-    () => decodeCreateChoice(this.choice()).method === 'draft' && this.sections().every((each) => each.origin !== 'draft'),
+    () =>
+      decodeCreateChoice(this.choice()).method === 'draft' && this.sections().every((each) => each.origin !== 'draft'),
   );
 
   protected readonly unreachableCitations = computed(

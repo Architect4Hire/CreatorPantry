@@ -35,14 +35,18 @@ describe('resolveBrandGuideUse', () => {
   it('blocks a stale guide until acknowledged, for default and override alike', () => {
     const override = { kind: 'override', guideId: 'g2', versionNumber: 1 } as const;
 
-    expect(resolveBrandGuideUse({ ...base, selection: override })).toEqual(jasmine.objectContaining({ stale: true, blocked: true }));
-    expect(resolveBrandGuideUse({ ...base, selection: override, staleAcknowledged: true })).toEqual(jasmine.objectContaining({
-      stale: true,
-      blocked: false,
-    }));
-    expect(
-      resolveBrandGuideUse({ ...base, activeGuide: stale, selection: { kind: 'default' } }),
-    ).toEqual(jasmine.objectContaining({ blocked: true }));
+    expect(resolveBrandGuideUse({ ...base, selection: override })).toEqual(
+      jasmine.objectContaining({ stale: true, blocked: true }),
+    );
+    expect(resolveBrandGuideUse({ ...base, selection: override, staleAcknowledged: true })).toEqual(
+      jasmine.objectContaining({
+        stale: true,
+        blocked: false,
+      }),
+    );
+    expect(resolveBrandGuideUse({ ...base, activeGuide: stale, selection: { kind: 'default' } })).toEqual(
+      jasmine.objectContaining({ blocked: true }),
+    );
   });
 
   it('never falls back to the active guide when an override has disappeared', () => {

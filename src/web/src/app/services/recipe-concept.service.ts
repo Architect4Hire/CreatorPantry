@@ -4,10 +4,7 @@ import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { ApiBaseService } from '../core/api-base.service';
 import { AiQuotaRefusal, decodeAiQuotaRefusal } from '../models/ai-quota.models';
-import {
-  AiProposalStatus,
-  decodeAiProposalStatus,
-} from '../models/ai-proposal.models';
+import { AiProposalStatus, decodeAiProposalStatus } from '../models/ai-proposal.models';
 import { RequestRecipeConceptsRequest, encodeRequestRecipeConceptsRequest } from '../models/recipe-concept.models';
 
 export type RequestConceptsOutcome =

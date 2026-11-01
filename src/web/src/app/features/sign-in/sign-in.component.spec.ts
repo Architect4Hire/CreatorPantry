@@ -16,7 +16,10 @@ describe('SignInComponent', () => {
     await TestBed.configureTestingModule({
       imports: [SignInComponent],
       providers: [
-        { provide: AuthService, useValue: { login: loginSpy, session: () => options.session ?? { status: 'anonymous' } } },
+        {
+          provide: AuthService,
+          useValue: { login: loginSpy, session: () => options.session ?? { status: 'anonymous' } },
+        },
         { provide: Router, useValue: { navigateByUrl: navigateSpy } },
         {
           provide: ActivatedRoute,

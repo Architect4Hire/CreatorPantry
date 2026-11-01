@@ -144,7 +144,8 @@ export class AiAllowanceNoticeComponent {
 const TRIAL_ENDED = {
   kind: 'trial-ended',
   heading: 'Your free trial has ended',
-  detail: 'Choose a plan to keep using AI assistance. Everything you made is still here, and the rest of CreatorPantry works as usual.',
+  detail:
+    'Choose a plan to keep using AI assistance. Everything you made is still here, and the rest of CreatorPantry works as usual.',
 } as const satisfies Omit<Notice, 'refused'>;
 
 const SUSPENDED = {

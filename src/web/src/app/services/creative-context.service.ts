@@ -120,7 +120,8 @@ export class CreativeContextService {
         catchError((error: unknown) => {
           const status = statusCodeOf(error);
 
-          if (status === 400) return of<CreativeContextCreateOutcome>({ status: 'invalid', errors: decodeFieldErrors(error) });
+          if (status === 400)
+            return of<CreativeContextCreateOutcome>({ status: 'invalid', errors: decodeFieldErrors(error) });
           if (status === 403) return of<CreativeContextCreateOutcome>({ status: 'forbidden' });
           if (status === 422) {
             return of<CreativeContextCreateOutcome>(
@@ -145,7 +146,9 @@ export class CreativeContextService {
         return context ? { status: 'found', context } : { status: 'unavailable' };
       }),
       catchError((error: unknown) =>
-        of<CreativeContextReadOutcome>(statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' }),
+        of<CreativeContextReadOutcome>(
+          statusCodeOf(error) === 404 ? { status: 'not_found' } : { status: 'unavailable' },
+        ),
       ),
     );
   }
@@ -184,7 +187,11 @@ export class CreativeContextService {
   }
 
   /** One page of live contexts, most recently updated first. Follow `nextCursor` until it is null. */
-  list(workspaceSlug: string, cursor: string | null = null, limit: number | null = null): Observable<CreativeContextListOutcome> {
+  list(
+    workspaceSlug: string,
+    cursor: string | null = null,
+    limit: number | null = null,
+  ): Observable<CreativeContextListOutcome> {
     const url = this.url(workspaceSlug);
     if (!url) return of<CreativeContextListOutcome>({ status: 'unavailable' });
 
@@ -219,7 +226,9 @@ export class CreativeContextService {
     if (!url) return of<CreativeContextWriteOutcome>({ status: 'unavailable' });
 
     return this.written(
-      this.http.patch<unknown>(url, encodeCreativeContextPatch(patch, expectedConcurrencyToken), { withCredentials: true }),
+      this.http.patch<unknown>(url, encodeCreativeContextPatch(patch, expectedConcurrencyToken), {
+        withCredentials: true,
+      }),
     );
   }
 
@@ -277,7 +286,8 @@ export class CreativeContextService {
         const status = statusCodeOf(error);
         const code = problemCodeOf(error);
 
-        if (status === 400) return of<CreativeContextWriteOutcome>({ status: 'invalid', errors: decodeFieldErrors(error) });
+        if (status === 400)
+          return of<CreativeContextWriteOutcome>({ status: 'invalid', errors: decodeFieldErrors(error) });
         if (status === 403) return of<CreativeContextWriteOutcome>({ status: 'forbidden' });
         if (status === 404) return of<CreativeContextWriteOutcome>({ status: 'not_found' });
         if (status === 409) {
@@ -287,7 +297,9 @@ export class CreativeContextService {
           if (code === CODES.duplicate) return of<CreativeContextWriteOutcome>({ status: 'duplicate' });
         }
         if (status === 422) {
-          return of<CreativeContextWriteOutcome>(code === CODES.limit ? { status: 'limit' } : { status: 'source_unavailable' });
+          return of<CreativeContextWriteOutcome>(
+            code === CODES.limit ? { status: 'limit' } : { status: 'source_unavailable' },
+          );
         }
 
         return of<CreativeContextWriteOutcome>({ status: 'unavailable' });

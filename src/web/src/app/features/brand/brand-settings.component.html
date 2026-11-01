@@ -13,7 +13,9 @@
 
 <div class="brand-settings">
   <!-- Always present, and outside the busy form (APP-003): one place the page says what is still loading, and a change of its words is what a screen reader announces. -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{ load().status === 'loading' ? 'Loading your brand settings…' : '' }}</p>
+  <p class="cp-sr-only" role="status" aria-live="polite">{{
+    load().status === 'loading' ? 'Loading your brand settings…' : ''
+  }}</p>
 
   @switch (load().status) {
     @case ('loading') {
@@ -59,13 +61,17 @@
           </cp-notice>
         }
         @case ('forbidden') {
-          <cp-notice tone="warning" role="alert">You don't have permission to change the brand settings in this workspace.</cp-notice>
+          <cp-notice tone="warning" role="alert"
+            >You don't have permission to change the brand settings in this workspace.</cp-notice
+          >
         }
         @case ('retry_key') {
           <cp-notice tone="warning" role="alert">That save couldn't be completed. Please press Save again.</cp-notice>
         }
         @case ('unavailable') {
-          <cp-notice tone="warning" role="alert">The brand settings couldn't be saved right now. Your edits are still here; try again.</cp-notice>
+          <cp-notice tone="warning" role="alert"
+            >The brand settings couldn't be saved right now. Your edits are still here; try again.</cp-notice
+          >
         }
         @case ('invalid') {
           @if (showInvalidBanner()) {
@@ -76,10 +82,21 @@
 
       <form (ngSubmit)="save()" novalidate aria-label="Brand settings">
         <cp-card>
-          <p class="required-legend">Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are required.</p>
+          <p class="required-legend"
+            >Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are
+            required.</p
+          >
 
-          <fieldset class="form-fields" [disabled]="!canEdit()" [attr.aria-describedby]="canEdit() ? null : 'brand-readonly-note'">
-            <cp-form-section sectionId="section-identity" heading="Identity" intro="What your brand is called and what it is about.">
+          <fieldset
+            class="form-fields"
+            [disabled]="!canEdit()"
+            [attr.aria-describedby]="canEdit() ? null : 'brand-readonly-note'"
+          >
+            <cp-form-section
+              sectionId="section-identity"
+              heading="Identity"
+              intro="What your brand is called and what it is about."
+            >
               <cp-field label="Brand name" forId="brand-name" [required]="true" [error]="fieldError('brandName')">
                 <input
                   id="brand-name"
@@ -94,7 +111,11 @@
                 />
               </cp-field>
 
-              <cp-field label="Short description" forId="brand-short-description" [error]="fieldError('shortDescription')">
+              <cp-field
+                label="Short description"
+                forId="brand-short-description"
+                [error]="fieldError('shortDescription')"
+              >
                 <textarea
                   id="brand-short-description"
                   name="shortDescription"
@@ -171,7 +192,11 @@
                 @for (link of draft().links; track link.id; let index = $index) {
                   <li class="row" role="group" [attr.aria-label]="'Link ' + (index + 1)">
                     <cp-field-row>
-                      <cp-field label="Type" [forId]="'brand-link-' + link.id + '-kind'" [error]="linkError(index, 'kind')">
+                      <cp-field
+                        label="Type"
+                        [forId]="'brand-link-' + link.id + '-kind'"
+                        [error]="linkError(index, 'kind')"
+                      >
                         <select
                           [id]="'brand-link-' + link.id + '-kind'"
                           [name]="'linkKind' + link.id"
@@ -184,7 +209,12 @@
                         </select>
                       </cp-field>
 
-                      <cp-field label="Address" [forId]="'brand-link-' + link.id + '-url'" [required]="true" [error]="linkError(index, 'url')">
+                      <cp-field
+                        label="Address"
+                        [forId]="'brand-link-' + link.id + '-url'"
+                        [required]="true"
+                        [error]="linkError(index, 'url')"
+                      >
                         <input
                           [id]="'brand-link-' + link.id + '-url'"
                           [name]="'linkUrl' + link.id"
@@ -199,7 +229,11 @@
                         />
                       </cp-field>
 
-                      <cp-field label="Label (optional)" [forId]="'brand-link-' + link.id + '-label'" [error]="linkError(index, 'label')">
+                      <cp-field
+                        label="Label (optional)"
+                        [forId]="'brand-link-' + link.id + '-label'"
+                        [error]="linkError(index, 'label')"
+                      >
                         <input
                           [id]="'brand-link-' + link.id + '-label'"
                           [name]="'linkLabel' + link.id"
@@ -301,8 +335,8 @@
                 (valueChange)="setPictureCount($event)"
               />
               <p class="hint">
-                Each picture is a separate charge. With no preference, a run tries two. Your default channels above
-                are where a run's posts are written for.
+                Each picture is a separate charge. With no preference, a run tries two. Your default channels above are
+                where a run's posts are written for.
               </p>
             </cp-form-section>
 
@@ -341,8 +375,20 @@
 
               <div class="cp-actions">
                 <!-- Held back while the form's own rules fail: the field and the list below say why. -->
-                <button cpButton [busy]="saveState().status === 'saving'" type="submit" variant="primary" [disabled]="saveState().status === 'saving' || !validator.canSubmit()">
-                  {{ saveState().status === 'saving' ? 'Saving…' : isFirstUse() ? 'Create brand settings' : 'Save changes' }}
+                <button
+                  cpButton
+                  [busy]="saveState().status === 'saving'"
+                  type="submit"
+                  variant="primary"
+                  [disabled]="saveState().status === 'saving' || !validator.canSubmit()"
+                >
+                  {{
+                    saveState().status === 'saving'
+                      ? 'Saving…'
+                      : isFirstUse()
+                        ? 'Create brand settings'
+                        : 'Save changes'
+                  }}
                 </button>
                 @if (isDirty()) {
                   <span class="dirty" role="status">You have unsaved changes.</span>

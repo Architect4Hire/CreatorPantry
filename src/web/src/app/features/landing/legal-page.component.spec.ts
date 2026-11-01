@@ -28,7 +28,9 @@ describe('LegalPageComponent', () => {
 
   it('draws tables as tables, each in a named region a keyboard can scroll', async () => {
     const fixture = await createFixture('privacy');
-    const regions = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.table[role="region"]'));
+    const regions = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.table[role="region"]'),
+    );
 
     expect(regions.length).toBe(2);
     expect(regions.map((region) => region.getAttribute('aria-label'))).toEqual([

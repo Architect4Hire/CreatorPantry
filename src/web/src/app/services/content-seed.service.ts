@@ -78,22 +78,20 @@ export class ContentSeedService {
     const url = this.apiBase.url(`/api/v1/workspaces/${encodeURIComponent(workspaceSlug)}/content-seeds`);
     if (!url) return of<GenerateContentSeedOutcome>({ status: 'unavailable' });
 
-    return this.http
-      .get<unknown>(url, { withCredentials: true, params: contentSeedQueryParams(query) })
-      .pipe(
-        map((raw): GenerateContentSeedOutcome => {
-          const seed = decodeContentSeed(raw);
-          return seed ? { status: 'found', seed } : { status: 'unavailable' };
-        }),
-        catchError((error: unknown) => {
-          // A 400 is the only refusal this route has. Any other status — including a 404 for a workspace the
-          // caller cannot see — leaves nothing to act on, and all of them have the same remedy: ask again.
-          if (statusCodeOf(error) === 400 && problemCodeOf(error) === CONTENT_SEED_INVALID_CODE) {
-            return of<GenerateContentSeedOutcome>({ status: 'refused', fieldErrors: decodeFieldErrors(error) });
-          }
+    return this.http.get<unknown>(url, { withCredentials: true, params: contentSeedQueryParams(query) }).pipe(
+      map((raw): GenerateContentSeedOutcome => {
+        const seed = decodeContentSeed(raw);
+        return seed ? { status: 'found', seed } : { status: 'unavailable' };
+      }),
+      catchError((error: unknown) => {
+        // A 400 is the only refusal this route has. Any other status — including a 404 for a workspace the
+        // caller cannot see — leaves nothing to act on, and all of them have the same remedy: ask again.
+        if (statusCodeOf(error) === 400 && problemCodeOf(error) === CONTENT_SEED_INVALID_CODE) {
+          return of<GenerateContentSeedOutcome>({ status: 'refused', fieldErrors: decodeFieldErrors(error) });
+        }
 
-          return of<GenerateContentSeedOutcome>({ status: 'unavailable' });
-        }),
-      );
+        return of<GenerateContentSeedOutcome>({ status: 'unavailable' });
+      }),
+    );
   }
 }

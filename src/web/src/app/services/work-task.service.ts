@@ -103,7 +103,11 @@ export class WorkTaskService {
   private readonly apiBase = inject(ApiBaseService);
 
   /** Captures a task for the caller in the workspace (13A.24, 13A.31). */
-  async capture(workspaceSlug: string, request: CaptureWorkTaskRequest, idempotencyKey: string): Promise<CaptureWorkTaskOutcome> {
+  async capture(
+    workspaceSlug: string,
+    request: CaptureWorkTaskRequest,
+    idempotencyKey: string,
+  ): Promise<CaptureWorkTaskOutcome> {
     const url = this.url(workspaceSlug, '/work-tasks');
     if (!url) return { status: 'unavailable', offline: isOffline() };
 

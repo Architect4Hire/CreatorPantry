@@ -24,7 +24,13 @@ const SEED: ContentSeed = {
   token: 'abc-123',
   cuisine: { key: 'thai', displayName: 'Thai', pinned: false, fromRecipe: false },
   dishType: null,
-  method: { key: 'pressure-canning', displayName: 'Pressure canning', pinned: false, fromRecipe: false, requiresSafetyCaution: true },
+  method: {
+    key: 'pressure-canning',
+    displayName: 'Pressure canning',
+    pinned: false,
+    fromRecipe: false,
+    requiresSafetyCaution: true,
+  },
   photographyStyle: null,
   channel: { key: 'instagram', displayName: 'Instagram', pinned: true, fromRecipe: false },
   day: { day: 'Friday', pinned: true, theme: null },
@@ -208,7 +214,9 @@ describe('content-pipeline.models', () => {
 
     it('is nothing to resume when every answer is still the default', () => {
       expect(isContentPipelineDraftEmpty(emptyContentPipelineDraft())).toBeTrue();
-      expect(isContentPipelineDraftEmpty(draftWith({ seed: { lastToken: 'abc', keep: {}, accepted: null } }))).toBeFalse();
+      expect(
+        isContentPipelineDraftEmpty(draftWith({ seed: { lastToken: 'abc', keep: {}, accepted: null } })),
+      ).toBeFalse();
     });
 
     it('is discarded, never migrated, when it was written by another version', () => {
@@ -301,13 +309,14 @@ describe('content-pipeline.models', () => {
     it('is not empty once a prompt has been written, so it is offered as a resume', () => {
       const base = draftWith();
 
-      expect(
-        isContentPipelineDraftEmpty({ ...base, prompt: { ...base.prompt, finalPrompt: 'A loaf.' } }),
-      ).toBeFalse();
+      expect(isContentPipelineDraftEmpty({ ...base, prompt: { ...base.prompt, finalPrompt: 'A loaf.' } })).toBeFalse();
     });
 
     it('starts at the first step when the stored one is not a step this build knows', () => {
-      const stored = encodeContentPipelineDraft(draftWith({ furthestStep: 'picture' })).replace('"picture"', '"nowhere"');
+      const stored = encodeContentPipelineDraft(draftWith({ furthestStep: 'picture' })).replace(
+        '"picture"',
+        '"nowhere"',
+      );
 
       expect(decodeContentPipelineDraft(stored)?.furthestStep).toBe('about');
     });
@@ -377,9 +386,7 @@ describe('content-pipeline.models', () => {
           unsaved: { instagram: 'My own words.' },
         };
 
-        expect(decodeContentPipelineDraft(encodeContentPipelineDraft(draftWith({ posts })))?.posts).toEqual(
-          posts,
-        );
+        expect(decodeContentPipelineDraft(encodeContentPipelineDraft(draftWith({ posts })))?.posts).toEqual(posts);
       });
 
       it('stores the request, the channels it named and the unsaved words — and nothing about a post', () => {

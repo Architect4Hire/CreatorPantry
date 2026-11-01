@@ -42,11 +42,15 @@ describe('runName', () => {
 
 describe('runLinkLabel', () => {
   it('offers to carry on with a step the reader may take', () => {
-    expect(runLinkLabel(run(), 'Oct 14')).toBe('Carry on with Create a recipe — Check your method, last touched Oct 14');
+    expect(runLinkLabel(run(), 'Oct 14')).toBe(
+      'Carry on with Create a recipe — Check your method, last touched Oct 14',
+    );
   });
 
   it('offers only to open one that is somebody else’s to carry on', () => {
-    expect(runLinkLabel(run({ youCanDoIt: false }), 'Oct 13')).toBe('Open Create a recipe — Check your method, last touched Oct 13');
+    expect(runLinkLabel(run({ youCanDoIt: false }), 'Oct 13')).toBe(
+      'Open Create a recipe — Check your method, last touched Oct 13',
+    );
   });
 
   it('contains the name the creator can see, so the two agree (SC 2.5.3)', () => {

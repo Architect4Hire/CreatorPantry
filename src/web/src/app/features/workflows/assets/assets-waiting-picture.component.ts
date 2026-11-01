@@ -52,10 +52,12 @@ export class AssetsWaitingPictureComponent implements OnInit {
   protected readonly url = signal<string | null>(null);
 
   ngOnInit(): void {
-    const subscription = this.images.preview(this.workspaceSlug(), this.generatedImageId(), 'thumbnail').subscribe((outcome) => {
-      if (outcome.status === 'found') this.url.set(URL.createObjectURL(outcome.bytes));
-      else if (outcome.status === 'gone') this.gone.emit();
-    });
+    const subscription = this.images
+      .preview(this.workspaceSlug(), this.generatedImageId(), 'thumbnail')
+      .subscribe((outcome) => {
+        if (outcome.status === 'found') this.url.set(URL.createObjectURL(outcome.bytes));
+        else if (outcome.status === 'gone') this.gone.emit();
+      });
 
     this.destroyRef.onDestroy(() => {
       subscription.unsubscribe();

@@ -7,16 +7,16 @@
   }
   @case ('unavailable') {
     <cp-notice tone="error" role="alert">
-      Your pictures couldn't be read just now, so this step cannot say which of them are already in your
-      library. Nothing has been lost.
+      Your pictures couldn't be read just now, so this step cannot say which of them are already in your library.
+      Nothing has been lost.
       <button cpButton type="button" variant="secondary" size="sm" (click)="retryRead()">Try again</button>
     </cp-notice>
   }
   @default {
     @if (rows().length === 0) {
       <cp-notice role="note">
-        You haven't kept any pictures from this run, so there is nothing to file. Go back to the pictures to
-        keep the ones worth using.
+        You haven't kept any pictures from this run, so there is nothing to file. Go back to the pictures to keep the
+        ones worth using.
         <a [routerLink]="imagesLink()">Back to the pictures</a>
       </cp-notice>
     } @else {
@@ -24,8 +24,8 @@
         <cp-notice tone="warning" role="note">{{ sentence }}</cp-notice>
       } @else if (keepPrompt() !== null) {
         <p class="cp-muted">
-          The prompt that made these pictures is kept with each one, so you can find it again in your prompt
-          library. Each save asks before it does.
+          The prompt that made these pictures is kept with each one, so you can find it again in your prompt library.
+          Each save asks before it does.
         </p>
       }
 

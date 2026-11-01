@@ -82,7 +82,12 @@ import { foodPhoto, randomFoodPhotoId } from '../food-photos';
         content: '';
         position: absolute;
         inset: 0;
-        background: linear-gradient(to top, var(--cp-scrim) 0%, color-mix(in srgb, var(--cp-scrim) 55%, transparent) 38%, transparent 70%);
+        background: linear-gradient(
+          to top,
+          var(--cp-scrim) 0%,
+          color-mix(in srgb, var(--cp-scrim) 55%, transparent) 38%,
+          transparent 70%
+        );
       }
       .story-copy {
         position: absolute;

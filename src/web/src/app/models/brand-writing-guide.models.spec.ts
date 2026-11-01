@@ -22,7 +22,9 @@ describe('decodeBrandWritingGuide', () => {
   });
 
   it('accepts a guide with no approval date', () => {
-    expect(decodeBrandWritingGuide({ activeGuide: { ...active, approvedAt: null }, rules: [] })?.activeGuide?.approvedAt).toBeNull();
+    expect(
+      decodeBrandWritingGuide({ activeGuide: { ...active, approvedAt: null }, rules: [] })?.activeGuide?.approvedAt,
+    ).toBeNull();
   });
 
   for (const [name, body] of [
@@ -44,7 +46,13 @@ describe('toBrandGuideControlData', () => {
     const data = toBrandGuideControlData({ activeGuide: active, rules: [{ label: 'Blog', summary: 'Chatty.' }] });
 
     expect(data.activeGuide).toEqual(
-      jasmine.objectContaining({ guideId: 'g1', name: 'Warm kitchen voice', versionNumber: 3, isStale: false, staleReason: null }),
+      jasmine.objectContaining({
+        guideId: 'g1',
+        name: 'Warm kitchen voice',
+        versionNumber: 3,
+        isStale: false,
+        staleReason: null,
+      }),
     );
     expect(data.rules).toEqual([{ channel: 'Blog', summary: 'Chatty.' }]);
   });

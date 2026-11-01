@@ -22,7 +22,10 @@ import { RecipeDisplayNormalizationComponent } from './recipe-display-normalizat
 import { RecipeFoodSafetyComponent } from './recipe-food-safety.component';
 import { RecipeNutritionComponent } from './recipe-nutrition.component';
 import { RecipeScalingPreviewComponent } from './recipe-scaling-preview.component';
-import { RecipeTemperatureConversionComponent, TemperatureApplication } from './recipe-temperature-conversion.component';
+import {
+  RecipeTemperatureConversionComponent,
+  TemperatureApplication,
+} from './recipe-temperature-conversion.component';
 import { RecipeUnitConversionComponent, UnitConversionApplication } from './recipe-unit-conversion.component';
 import { RecipeYieldReconciliationComponent, YieldApplication } from './recipe-yield-reconciliation.component';
 
@@ -118,7 +121,11 @@ export class RecipeToolsDrawerComponent {
   readonly tools: readonly RecipeTool[] = [
     { id: 'scaling', label: 'Scale', note: 'See every amount at a different yield.' },
     { id: 'converting', label: 'Convert', note: 'Change the units of an amount, or the scale of a temperature.' },
-    { id: 'yield-display', label: 'Yield & display', note: "Check the recipe's yield against its amounts, and see how amounts will read." },
+    {
+      id: 'yield-display',
+      label: 'Yield & display',
+      note: "Check the recipe's yield against its amounts, and see how amounts will read.",
+    },
     {
       id: 'dietary-allergen',
       label: 'Dietary & allergens',
@@ -140,8 +147,16 @@ export class RecipeToolsDrawerComponent {
       // own words against a fixed list, and nothing here carries the guidance that would settle one.
       note: 'See the flagged methods and claims in this recipe, and what each one still needs checked.',
     },
-    { id: 'ai-revision', label: 'Revise with AI', note: 'Ask for changes to one part of the recipe, to review before anything is kept.' },
-    { id: 'ai-adaptation', label: 'Adapt with AI', note: 'Ask for a version adapted to a need, to review before anything is kept.' },
+    {
+      id: 'ai-revision',
+      label: 'Revise with AI',
+      note: 'Ask for changes to one part of the recipe, to review before anything is kept.',
+    },
+    {
+      id: 'ai-adaptation',
+      label: 'Adapt with AI',
+      note: 'Ask for a version adapted to a need, to review before anything is kept.',
+    },
     { id: 'ai-substitution', label: 'Substitute an ingredient', note: 'Ask what could stand in for one ingredient.' },
     { id: 'ai-review', label: 'Review with AI', note: 'Ask for a read-through and what it would look at again.' },
   ];

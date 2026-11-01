@@ -97,7 +97,8 @@ export class WorkspaceMembershipService {
     } catch (error) {
       if (error instanceof HttpErrorResponse) {
         if (error.status === 400) {
-          const errors = (error.error as Record<string, unknown> | null)?.['errors'] as Record<string, string[]> | undefined;
+          const errors = (error.error as Record<string, unknown> | null)?.['errors'] as
+            Record<string, string[]> | undefined;
           return { status: 'invalid', message: errors?.['name']?.[0] ?? 'Enter a valid workspace name.' };
         }
         if (error.status === 409) {

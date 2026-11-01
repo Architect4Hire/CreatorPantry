@@ -11,7 +11,9 @@ const THREE: CpOptionFact[] = [
 
 @Component({
   imports: [CpOptionCardComponent],
-  template: `<ul style="display: grid; grid-template-columns: repeat(2, 260px); gap: 16px; list-style: none; padding: 0">
+  template: `<ul
+    style="display: grid; grid-template-columns: repeat(2, 260px); gap: 16px; list-style: none; padding: 0"
+  >
     <li>
       <cp-option-card
         heading="Smoky miso corn"
@@ -29,7 +31,9 @@ const THREE: CpOptionFact[] = [
           Grill outdoors.
         }
         @if (detail()) {
-          <ul cpOptionCardDetail class="assumed"><li>A charcoal grill</li></ul>
+          <ul cpOptionCardDetail class="assumed"
+            ><li>A charcoal grill</li></ul
+          >
         }
       </cp-option-card>
     </li>
@@ -69,7 +73,11 @@ const button = (card: HTMLElement): HTMLButtonElement => card.querySelector('but
 const shown = (node: Element | null): boolean => node !== null && getComputedStyle(node).display !== 'none';
 /** The accessible name aria-labelledby gives: each referenced element's text, in order. */
 const nameOf = (node: Element): string =>
-  node.getAttribute('aria-labelledby')!.split(' ').map((id) => document.getElementById(id)!.textContent!.trim()).join(' ');
+  node
+    .getAttribute('aria-labelledby')!
+    .split(' ')
+    .map((id) => document.getElementById(id)!.textContent!.trim())
+    .join(' ');
 
 describe('CpOptionCardComponent, disabled', () => {
   it('keeps the button focusable and aria-disabled, says why, and emits nothing', async () => {
@@ -86,7 +94,9 @@ describe('CpOptionCardComponent, disabled', () => {
     const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
     expect(button.disabled).toBeFalse();
     expect(button.getAttribute('aria-disabled')).toBe('true');
-    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toContain('Payments aren’t available');
+    expect(document.getElementById(button.getAttribute('aria-describedby')!)?.textContent).toContain(
+      'Payments aren’t available',
+    );
 
     button.click();
     expect(chosen).toBe(0);
@@ -119,7 +129,9 @@ describe('CpOptionCardComponent', () => {
   });
 
   it('moves a fact past the third into the disclosure rather than dropping it', () => {
-    mount((h) => h.facts.set([...THREE, { label: 'Dietary notes', value: 'Vegetarian as written — descriptive only.' }]));
+    mount((h) =>
+      h.facts.set([...THREE, { label: 'Dietary notes', value: 'Vegetarian as written — descriptive only.' }]),
+    );
     expect(first().querySelectorAll('dl.tags > .tag').length).toBe(3);
 
     const detail = first().querySelector('details')!;
@@ -218,7 +230,9 @@ describe('CpOptionCardComponent', () => {
     mount((h) => h.caution.set(true));
     const [a, b] = [first(), second()].map((card) => card.getBoundingClientRect());
     expect(a.height).toBe(b.height);
-    expect(Math.abs(button(first()).getBoundingClientRect().bottom - button(second()).getBoundingClientRect().bottom)).toBeLessThan(1);
+    expect(
+      Math.abs(button(first()).getBoundingClientRect().bottom - button(second()).getBoundingClientRect().bottom),
+    ).toBeLessThan(1);
   });
 
   it('is not a form control: no radio, no checkbox, one button', () => {
