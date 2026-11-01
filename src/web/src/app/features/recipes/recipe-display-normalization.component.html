@@ -150,7 +150,7 @@
         <p class="calculation-problem" role="alert">{{ problem }}</p>
       }
 
-      <button type="submit" cpButton variant="primary" [disabled]="!canSubmit()">
+      <button type="submit" cpButton [busy]="isWorking()" variant="primary" [disabled]="!canSubmit()">
         {{ isWorking() ? 'Working…' : 'Show how it reads' }}
       </button>
     </form>

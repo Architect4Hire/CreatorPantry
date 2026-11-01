@@ -104,7 +104,7 @@ function countSaid(shown: number, total: number | null): string {
             }
             @if (moreCursor()) {
               <div class="cp-actions">
-                <button cpButton type="button" variant="secondary" [attr.aria-disabled]="loadingMore() || null" (click)="loadMore()">
+                <button cpButton [busy]="loadingMore()" type="button" variant="secondary" [attr.aria-disabled]="loadingMore() || null" (click)="loadMore()">
                   {{ loadingMore() ? 'Loading more…' : 'Show more recipes' }}
                 </button>
               </div>

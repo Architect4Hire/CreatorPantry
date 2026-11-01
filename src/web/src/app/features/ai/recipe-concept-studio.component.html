@@ -266,7 +266,7 @@
             type="submit"
             variant="primary"
             [attr.aria-disabled]="!canSubmit() ? 'true' : null"
-            [attr.aria-busy]="state() === 'submitting' ? 'true' : null"
+            [busy]="state() === 'submitting'"
           >
             @if (state() === 'submitting') {
               Asking…
@@ -473,7 +473,7 @@
               the body the moment it is pressed, and whoever pressed it most needs to hear what happened next.
             -->
             <button
-              cpButton
+              cpButton [busy]="drafting()"
               type="button"
               variant="primary"
               class="studio-draft"

@@ -33,7 +33,7 @@
   <button cpDrawerActions cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="cancel()">
     Close
   </button>
-  <button cpDrawerActions cpButton type="button" [disabled]="isUploading()" (click)="replace()">
+  <button cpDrawerActions cpButton [busy]="isUploading()" type="button" [disabled]="isUploading()" (click)="replace()">
     {{ isUploading() ? 'Replacing…' : 'Add as version ' + nextVersionNumber() }}
   </button>
 </cp-drawer>

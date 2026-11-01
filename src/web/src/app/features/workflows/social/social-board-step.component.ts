@@ -114,7 +114,7 @@ const KEY_PREFIX = 'cp.workflow-board-key.';
           }
           @if (canAdd()) {
             <div class="cp-actions">
-              <button cpButton type="button" variant="primary" [attr.aria-disabled]="adding() || null" (click)="add()">
+              <button cpButton [busy]="adding()" type="button" variant="primary" [attr.aria-disabled]="adding() || null" (click)="add()">
                 {{ adding() ? 'Adding…' : 'Add to your board' }}
               </button>
             </div>

@@ -32,7 +32,7 @@ import { WorkspaceMembershipService } from '../services/workspace-membership.ser
         />
       </cp-field>
 
-      <button cpButton type="submit" [fullWidth]="true" [disabled]="creating()" [attr.aria-busy]="creating()">
+      <button cpButton type="submit" [fullWidth]="true" [disabled]="creating()" [busy]="creating()">
         {{ creating() ? 'Creating…' : 'Create workspace' }}
       </button>
     </form>

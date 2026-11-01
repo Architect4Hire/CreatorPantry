@@ -91,7 +91,7 @@
               @if (offersActions()) {
                 <div class="actions">
                   <button
-                    cpButton
+                    cpButton [busy]="unlinking() === link.id"
                     type="button"
                     variant="secondary"
                     size="sm"

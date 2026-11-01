@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { CpThemeService } from '@creator-pantry/ui';
+import { CpLoadingBarComponent, CpThemeService } from '@creator-pantry/ui';
 import { EMPTY, Observable, Subject } from 'rxjs';
 
 import { AppShellComponent } from './app-shell.component';
@@ -57,6 +57,8 @@ describe('AppShellComponent', () => {
   let ensureLoadedSpy: jasmine.Spy;
   let toggleThemeSpy: jasmine.Spy;
   let resolvedTheme: ReturnType<typeof signal<'light' | 'dark'>>;
+  /** The router's navigation in progress: null between navigations, as the real `currentNavigation` is. */
+  let currentNavigation: ReturnType<typeof signal<unknown>>;
 
   async function createFixture(
     session: SessionState,
@@ -71,13 +73,17 @@ describe('AppShellComponent', () => {
     ensureLoadedSpy = jasmine.createSpy('ensureLoaded').and.resolveTo(undefined);
     resolvedTheme = signal<'light' | 'dark'>('light');
     toggleThemeSpy = jasmine.createSpy('toggle').and.callFake(() => resolvedTheme.set(resolvedTheme() === 'dark' ? 'light' : 'dark'));
+    currentNavigation = signal<unknown>(null);
 
     await TestBed.configureTestingModule({
       imports: [AppShellComponent],
       providers: [
         { provide: AuthService, useValue: { session: () => session, logout: logoutSpy } },
         { provide: WorkspaceMembershipService, useValue: { state: () => memberships, ensureLoaded: ensureLoadedSpy } },
-        { provide: Router, useValue: { events, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy } },
+        {
+          provide: Router,
+          useValue: { events, currentNavigation, navigate: jasmine.createSpy('navigate'), navigateByUrl: navigateByUrlSpy },
+        },
         { provide: ActivatedRoute, useValue: route },
         { provide: CpThemeService, useValue: { resolved: resolvedTheme, toggle: toggleThemeSpy } },
       ],
@@ -95,6 +101,20 @@ describe('AppShellComponent', () => {
     expect(links.length).toBe(13);
     expect((links[0] as HTMLAnchorElement).textContent).toContain('Dashboard');
     expect((links[4] as HTMLAnchorElement).textContent).toContain('Recipes');
+  });
+
+  it('lights the loading bar while the router is navigating, and only then', async () => {
+    const fixture = await createFixture({ status: 'authenticated', displayName: 'Robert' }, 'cozy-fall');
+    const bar = fixture.debugElement.query(By.directive(CpLoadingBarComponent)).componentInstance as CpLoadingBarComponent;
+    expect(bar.active()).toBeFalse();
+
+    currentNavigation.set({ id: 2 });
+    fixture.detectChanges();
+    expect(bar.active()).toBeTrue();
+
+    currentNavigation.set(null);
+    fixture.detectChanges();
+    expect(bar.active()).toBeFalse();
   });
 
   it('renders no nav links yet when no workspace slug is resolved (index route)', async () => {

@@ -169,6 +169,16 @@ test('skeleton: a feature draws no placeholder or shimmer of its own', () => {
   assert.deepEqual(stylesheetViolations('.placeholder { background: var(--cp-surface-subtle); } .bone-in { margin: 0; }'), []);
 });
 
+test('spinner: a feature draws no spinner of its own', () => {
+  assert.deepEqual(rules(stylesheetViolations('.spinner { width: 1rem; } .loader { opacity: .5; } .spin { display: block; }')), ['spinner', 'spinner', 'spinner']);
+  assert.deepEqual(rules(stylesheetViolations('.loading-spinner { width: 1rem; } .loader-ring { width: 2rem; }')), ['spinner', 'spinner']);
+  assert.deepEqual(rules(stylesheetViolations('.spinner-dot { width: 1rem; }')), ['spinner']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes turn { to { rotate: 360deg; } }')), ['spinner']);
+  assert.deepEqual(rules(stylesheetViolations('@keyframes turn { from { transform: rotate(0); } to { transform: rotate(1turn); } }')), ['spinner', 'spinner']);
+  // A rotated element that does not turn, and words that merely contain the letters.
+  assert.deepEqual(stylesheetViolations('.chevron { rotate: 90deg; } .spine { margin: 0; } .spinach { color: green; }'), []);
+});
+
 test('loading: no visible sentence stands in for something on its way (AU.7)', () => {
   const visible = [
     '<p class="cp-muted" role="status">Loading your tags…</p>',
@@ -189,7 +199,7 @@ test('loading: no visible sentence stands in for something on its way (AU.7)', (
   for (const html of visible) assert.deepEqual(rules(templateViolations(html)), ['loading'], html);
 
   // A bare "Loading…" on a button, and "Loading more…" anywhere but its button.
-  assert.deepEqual(rules(templateViolations(`<button cpButton type="button">{{ busy() ? 'Loading…' : 'Load older versions' }}</button>`)), ['loading']);
+  assert.deepEqual(rules(templateViolations(`<button cpButton type="button" [busy]="busy()">{{ busy() ? 'Loading…' : 'Load older versions' }}</button>`)), ['loading']);
   assert.deepEqual(rules(templateViolations('<p class="cp-muted">Loading more…</p>')), ['loading']);
   assert.equal(templateViolations('<div>\n  <p>Reading your board…</p>\n</div>')[0].line, 2);
 });
@@ -198,9 +208,9 @@ test('loading: the one hidden status, a pager saying "Loading more…" and a but
   const fine = [
     `<p class="cp-sr-only" role="status" aria-live="polite">{{ loading() ? 'Loading your week…' : '' }}</p>`,
     '<span class="cp-sr-only loading-status" role="status">Reading the text…</span>',
-    `<button cpButton type="button">{{ loadingMore() ? 'Loading more…' : 'Load more' }}</button>`,
-    `<a cpButton variant="secondary">{{ reloading() ? 'Loading the latest…' : 'Load the latest' }}</a>`,
-    `<button cpButton type="button" [attr.aria-busy]="retrying()">{{ retrying() ? 'Checking…' : 'Check again' }}</button>`,
+    `<button cpButton type="button" [busy]="loadingMore()">{{ loadingMore() ? 'Loading more…' : 'Load more' }}</button>`,
+    `<a cpButton variant="secondary" [busy]="reloading()">{{ reloading() ? 'Loading the latest…' : 'Load the latest' }}</a>`,
+    `<button cpButton type="button" [busy]="retrying()">{{ retrying() ? 'Checking…' : 'Check again' }}</button>`,
     // What the creator has just done is not something on its way.
     '<p class="cp-muted" role="status">Saving your words…</p><p role="status">Asking for your posts…</p>',
     // A sentence that is not a stand-in, a sentence bound from code, and a comment.
@@ -214,6 +224,39 @@ test('loading: the one hidden status, a pager saying "Loading more…" and a but
     `<p class="loading-status cp-sr-only" role="status">{{ x ? "Loading what you've made…" : '' }}</p>`,
   ];
   for (const html of fine) assert.deepEqual(templateViolations(html), [], html);
+});
+
+test('button-busy: a cpButton says it is waiting through busy, never an aria-busy of its own', () => {
+  const handRolled = [
+    '<button cpButton type="button" [attr.aria-busy]="saving() ? \'true\' : null">Save</button>',
+    '<button cpButton type="submit" [disabled]="submitting()" [attr.aria-busy]="submitting()">Sign in</button>',
+    '<a cpButton aria-busy="true" href="#">Open</a>',
+    '<button\n  cpButton\n  [attr.aria-disabled]="count() > 0 ? \'true\' : null"\n  [attr.aria-busy]="count() > 0"\n>Ask</button>',
+  ];
+  for (const markup of handRolled) assert.deepEqual(rules(templateViolations(markup)), ['button-busy'], markup);
+  assert.equal(templateViolations('<p>One</p>\n<button\n  cpButton\n  [attr.aria-busy]="saving()"\n>Save</button>')[0].line, 2);
+
+  // The library's input; a region that is busy, which is not a button; and a button that is not the library's.
+  const fine = '<button cpButton type="button" [busy]="saving()" [attr.aria-disabled]="saving() ? \'true\' : null">Save</button>' +
+    '<section [attr.aria-busy]="loading()"><button cpButton>Refresh</button></section>' +
+    '<button class="link" [attr.aria-busy]="busy()">Undo</button>' +
+    '<!-- <button cpButton [attr.aria-busy]="x">Old</button> -->';
+  assert.deepEqual(templateViolations(fine), []);
+});
+
+test('button-busy: a cpButton whose words say it is busy draws the spinner too', () => {
+  const wordsOnly = [
+    `<button cpButton type="button" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save' }}</button>`,
+    `<button\n  cpButton\n  [disabled]="busy() === 'archive'"\n>\n  {{ busy() === 'archive' ? 'Working…' : 'Archive' }}\n</button>`,
+    `<a cpButton href="#">{{ opening() ? 'Opening…' : 'Open' }}</a>`,
+  ];
+  for (const markup of wordsOnly) assert.deepEqual(rules(templateViolations(markup)), ['button-busy'], markup);
+
+  // With the spinner; words that are not a wait; and a button that is not the library's.
+  const fine = `<button cpButton [busy]="saving()">{{ saving() ? 'Saving…' : 'Save' }}</button>` +
+    `<button cpButton>{{ open() ? 'Close' : 'More options' }}</button><button cpButton>Archive…</button>` +
+    `<button class="link">{{ saving() ? 'Saving…' : 'Save' }}</button>`;
+  assert.deepEqual(templateViolations(fine), []);
 });
 
 test('drawer: a feature positions nothing against the viewport', () => {

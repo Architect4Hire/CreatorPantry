@@ -113,7 +113,7 @@
       cpButton
       type="button"
       [disabled]="submitting() || !canRetry()"
-      [attr.aria-busy]="submitting()"
+      [busy]="submitting()"
       (click)="submit()"
     >
       {{ submitting() ? 'Restoring…' : 'Restore as a new version' }}

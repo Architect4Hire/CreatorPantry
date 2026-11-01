@@ -233,7 +233,7 @@
              moment it is pressed and its own action makes it unavailable. Each handler refuses for itself. -->
         <div class="cp-actions" data-testid="plan-actions">
           <button
-            cpButton
+            cpButton [busy]="busy() === 'approving'"
             type="button"
             [attr.aria-disabled]="!canApprove() ? 'true' : null"
             (click)="approve()"
@@ -241,7 +241,7 @@
             {{ busy() === 'approving' ? 'Approving…' : 'Approve plan' }}
           </button>
           <button
-            cpButton
+            cpButton [busy]="busy() === 'saving'"
             type="button"
             variant="secondary"
             [attr.aria-disabled]="!canSave() ? 'true' : null"

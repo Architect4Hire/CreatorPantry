@@ -56,11 +56,6 @@
      toned page, and like the rule, neutral rather than the primary's on an untoned one. */
   --cp-tone-panel: var(--cp-surface-subtle);
   --cp-tone-panel-ink: var(--cp-text-muted);
-  /* A skeleton's resting block and the band that sweeps across it. Decorative (the host is aria-hidden), so it
-     is held to being seen on --cp-bg and --cp-surface rather than to a text ratio. It is faint on
-     --cp-surface-subtle and -raised (about 1.1:1 in this theme), so a skeleton is drawn on the page or a sheet. */
-  --cp-skeleton-base: #ece4d6;
-  --cp-skeleton-shine: #f7f2ea;
   --cp-danger: #b3261e;
   /* The soft counterpart every other accent already has. Five places hand-rolled this same color-mix
      before it existed; a semantic intent that is missing belongs in both themes, not in each caller. */
@@ -127,8 +122,6 @@
   --cp-tone-rule-width: 1px;
   --cp-tone-panel: var(--cp-surface-subtle);
   --cp-tone-panel-ink: var(--cp-text-muted);
-  --cp-skeleton-base: #383838;
-  --cp-skeleton-shine: #444444;
   --cp-danger: #ff7a68;
   /* 12% here, not 14%: on charcoal the 14% tint put the danger text on it at 4.49:1 (AU.2.2). */
   --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 12%, var(--cp-surface));
@@ -186,8 +179,6 @@
     --cp-tone-rule-width: 1px;
     --cp-tone-panel: var(--cp-surface-subtle);
     --cp-tone-panel-ink: var(--cp-text-muted);
-    --cp-skeleton-base: #ece4d6;
-    --cp-skeleton-shine: #f7f2ea;
     --cp-danger: #b3261e;
     --cp-danger-soft: color-mix(in srgb, var(--cp-danger) 14%, var(--cp-surface));
     --cp-ink-on-accent: #ffffff;

@@ -116,7 +116,7 @@ const FAILURE_MESSAGE: Readonly<Record<DamAssetUploadFailure, string>> = {
       <div cpDialogActions>
         <!-- "Close", not "Cancel": the uploader's own per-file control is already labelled Cancel. -->
         <button cpButton variant="secondary" type="button" [disabled]="isUploading()" (click)="close()">Close</button>
-        <button cpButton type="button" [disabled]="isUploading()" (click)="upload()">
+        <button cpButton [busy]="isUploading()" type="button" [disabled]="isUploading()" (click)="upload()">
           {{ isUploading() ? 'Uploading…' : 'Add to the library' }}
         </button>
       </div>

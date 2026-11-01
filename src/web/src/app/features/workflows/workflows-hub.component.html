@@ -58,7 +58,7 @@
                 @if (continueDegraded()) {
                   <cp-notice tone="warning" role="status">
                     Some of your work in progress couldn’t be loaded right now.
-                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('continue') || null" (click)="retrySection('continue')">
+                    <button cpButton [busy]="retrying().has('continue')" type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('continue') || null" (click)="retrySection('continue')">
                       {{ retrying().has('continue') ? 'Trying again…' : 'Try again' }}
                     </button>
                   </cp-notice>
@@ -90,7 +90,7 @@
                 }
                 @if (continueHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
-                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('mine')">
+                    <button cpButton [busy]="loadingMore() === 'mine'" type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('mine')">
                       {{ loadingMore() === 'mine' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>
@@ -105,7 +105,7 @@
                 @if (attentionDegraded()) {
                   <cp-notice tone="warning" role="status">
                     What needs a look couldn’t all be loaded right now.
-                    <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('attention') || null" (click)="retrySection('attention')">
+                    <button cpButton [busy]="retrying().has('attention')" type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('attention') || null" (click)="retrySection('attention')">
                       {{ retrying().has('attention') ? 'Trying again…' : 'Try again' }}
                     </button>
                   </cp-notice>
@@ -146,7 +146,7 @@
                 }
                 @if (attentionHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
-                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('attention')">
+                    <button cpButton [busy]="loadingMore() === 'attention'" type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('attention')">
                       {{ loadingMore() === 'attention' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>
@@ -187,7 +187,7 @@
         @if (definitions().state === 'unavailable') {
           <cp-notice tone="warning" role="status">
             Some of what you can do couldn’t be loaded right now.
-            <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('definitions') || null" (click)="retrySection('definitions')">
+            <button cpButton [busy]="retrying().has('definitions')" type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('definitions') || null" (click)="retrySection('definitions')">
               {{ retrying().has('definitions') ? 'Trying again…' : 'Try again' }}
             </button>
           </cp-notice>
@@ -227,7 +227,7 @@
                     <div cpTopicCardActions class="cp-actions">
                       @if (card.start.kind === 'run') {
                         <button
-                          cpButton
+                          cpButton [busy]="starting() === card.id"
                           type="button"
                           variant="primary"
                           [attr.aria-disabled]="starting() !== null || null"
@@ -267,7 +267,7 @@
           @if (finished().state === 'unavailable') {
             <cp-notice tone="warning" role="status">
               What you finished recently couldn’t be loaded right now.
-              <button cpButton type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('outcomes') || null" (click)="retrySection('outcomes')">
+              <button cpButton [busy]="retrying().has('outcomes')" type="button" variant="secondary" size="sm" [attr.aria-disabled]="retrying().has('outcomes') || null" (click)="retrySection('outcomes')">
                 {{ retrying().has('outcomes') ? 'Trying again…' : 'Try again' }}
               </button>
             </cp-notice>
@@ -296,7 +296,7 @@
                 }
                 @if (outcomesHasMore()) {
                   <div cpTopicCardActions class="cp-actions">
-                    <button cpButton type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('completed')">
+                    <button cpButton [busy]="loadingMore() === 'completed'" type="button" variant="ghost" [attr.aria-disabled]="loadingMore() !== null || null" (click)="showMore('completed')">
                       {{ loadingMore() === 'completed' ? 'Loading more…' : 'Show more' }}
                     </button>
                   </div>

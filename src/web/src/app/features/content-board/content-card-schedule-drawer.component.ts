@@ -90,7 +90,7 @@ const PROBLEMS = {
         </button>
         <button
           cpDrawerActions
-          cpButton
+          cpButton [busy]="saving()"
           type="submit"
           form="content-card-schedule-form"
           variant="primary"
@@ -205,7 +205,7 @@ const PROBLEMS = {
       @if (inline()) {
         <div class="cp-actions inline-actions">
           <span class="cp-muted state" role="status">{{ stateText() }}</span>
-          <button cpButton type="submit" variant="primary" [disabled]="saving() || !canSubmit()">
+          <button cpButton [busy]="saving()" type="submit" variant="primary" [disabled]="saving() || !canSubmit()">
             {{ saving() ? 'Scheduling…' : 'Schedule' }}
           </button>
         </div>

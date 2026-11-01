@@ -148,7 +148,7 @@
                 <div class="cp-actions">
                   <a cpButton variant="primary" [routerLink]="recipeLink(recipeId)">Open the recipe</a>
                   @if (canSaveWithPicture()) {
-                    <button cpButton type="button" variant="secondary" [disabled]="saving()" (click)="save(true)">
+                    <button cpButton [busy]="saving()" type="button" variant="secondary" [disabled]="saving()" (click)="save(true)">
                       {{ saving() ? 'Adding the picture…' : 'Try adding the picture again' }}
                     </button>
                   }
@@ -297,7 +297,7 @@
                   } @else {
                     @if (canSaveWithPicture()) {
                       <button
-                        cpButton
+                        cpButton [busy]="saving()"
                         type="button"
                         variant="primary"
                         [disabled]="saving() || saveBlocker() !== null"

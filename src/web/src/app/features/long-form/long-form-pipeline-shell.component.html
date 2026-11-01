@@ -191,7 +191,7 @@
                 @if (isFirst() && draftId() === null) {
                   <!-- The first thing here that uses the creator's allowance, so it is a button that says so. -->
                   <button
-                    cpButton
+                    cpButton [busy]="planning()"
                     type="button"
                     variant="primary"
                     [attr.aria-disabled]="planning() || !hasSomethingToPlanFrom() ? 'true' : null"
