@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
+using Polly.Telemetry;
 using Polly.Timeout;
 
 namespace CreatorPantry.ServiceDefaults;
@@ -50,6 +51,8 @@ public static class AiResilience
     {
         ArgumentNullException.ThrowIfNull(isTransient);
 
+        builder.Services.Configure<TelemetryOptions>(RedactResults);
+
         builder.Services.AddResiliencePipeline(PipelineKey, pipeline => pipeline
             // Retry outside the timeout, so each attempt gets the full allowance rather than all of them
             // sharing one budget.
@@ -79,5 +82,22 @@ public static class AiResilience
             }));
 
         return builder;
+    }
+
+    /// <summary>
+    /// Keeps a pipeline's result out of its telemetry, except an HTTP response's status.
+    /// </summary>
+    /// <remarks>
+    /// Polly logs every execution attempt with its result, formatted as-is for anything that is not an HTTP
+    /// response. The model pipeline's result is a chat response whose text is the generated recipe content, so the
+    /// worker's log carried every answer in full — creator content, which ai.md says is never logged by default. The
+    /// type name says what came back without saying what it said. HTTP responses keep Polly's own formatting, which
+    /// is already only a status code.
+    /// </remarks>
+    internal static void RedactResults(TelemetryOptions options)
+    {
+        var original = options.ResultFormatter;
+        options.ResultFormatter = (context, result) =>
+            result is HttpResponseMessage ? original(context, result) : result?.GetType().Name;
     }
 }

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
@@ -28,8 +38,49 @@ import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-allowance-notice.component';
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
-import { AiAdvisoryResultsComponent } from './ai-advisory-results.component';
+import { REVISION_GOAL_MAX_LENGTH } from '../../models/recipe-revision.models';
+import { AiAdvisoryItem, AiAdvisoryResultsComponent } from './ai-advisory-results.component';
 import { AiStatusConnection } from './ai-operation-status.component';
+import { RecipeRevisionRequestComponent } from './recipe-revision-request.component';
+
+/** The alternative a creator chose, and the ingredient line it stands in for. */
+export interface ChosenSwap {
+  readonly line: string;
+  readonly alternative: string;
+  readonly goal: string;
+}
+
+/**
+ * One alternative as a revision goal: replace this line with that, in the amount the advice gave, and touch the
+ * method only where the swap needs it.
+ *
+ * The line and the alternative are always there — they are the swap — and cut short with an ellipsis only if one
+ * alone would overflow the goal. The amount and the technique note go in whole or not at all, in that order, so the
+ * goal never ends mid-sentence. Every word of it is either the creator's own line or advice they chose, and it reaches
+ * the model in the fenced preferences segment like any goal they type.
+ */
+export function goalFromSubstitution(
+  line: string,
+  item: Pick<AiAdvisoryItem, 'summary' | 'fields'>,
+  maxLength = REVISION_GOAL_MAX_LENGTH,
+): string {
+  const clip = (text: string, length: number) =>
+    text.length <= length ? text : `${text.slice(0, Math.max(0, length - 1)).trimEnd()}…`;
+
+  const swap = `Swap the ingredient "${clip(line.trim(), 120)}" for: ${clip(item.summary.trim(), 200)}.`;
+  const closing = ' Change the method only where this swap needs it, and change nothing else.';
+  let goal = swap;
+
+  const field = (key: string) => item.fields.find((entry) => entry.key === key)?.value.trim() ?? '';
+  for (const extra of [
+    field('quantityGuidance') && ` How much to use: ${field('quantityGuidance')}`,
+    field('techniqueImpact') && ` Effect on technique: ${field('techniqueImpact')}`,
+  ]) {
+    if (extra && goal.length + extra.length + closing.length <= maxLength) goal += extra;
+  }
+
+  return clip(goal + closing, maxLength);
+}
 
 /** Asking for a substitution writes an operation, so it carries the same bar as editing the recipe by hand. */
 const REQUEST_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Owner'];
@@ -66,6 +117,7 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
     AiAllowanceNoticeComponent,
     CpButtonComponent,
     CpComboboxComponent,
+    RecipeRevisionRequestComponent,
     CpFieldComponent,
     CpStatusPillComponent,
   ],
@@ -87,6 +139,38 @@ export class RecipeSubstitutionRequestComponent {
   readonly editorIsDirty = input(false);
 
   readonly decided = output<void>();
+
+  /**
+   * Let the creator pick an alternative and have it made (13A.15, "Improve a recipe").
+   *
+   * Off on the recipe page, where substitution stays advice. On, each alternative gets "Use this one", which asks
+   * for a whole-recipe revision that swaps the line and adjusts the method where the swap needs it. That revision is
+   * an ordinary one — every change shown, each kept or not by the creator — so choosing an alternative never changes
+   * the recipe by itself: only an accepted change does.
+   */
+  readonly offerSwap = input(false);
+
+  /** A swap's suggested changes were kept or declined. Carries the proposal panel's reply. */
+  readonly swapDecided = output<unknown>();
+
+  /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step. */
+  readonly headingLevel = input<2 | 3>(2);
+
+  private readonly swapRevision = viewChild(RecipeRevisionRequestComponent);
+
+  /** The swap request on screen, so a host listing waiting suggestions does not list it a second time. */
+  readonly swapRequestId = computed(() => this.swapRevision()?.requestId() ?? null);
+
+  /** The ingredient line the advice on screen is about, as it read when the creator asked. */
+  private readonly askedAboutSignal = signal<string | null>(null);
+
+  private readonly chosenSignal = signal<ChosenSwap | null>(null);
+  readonly chosen = this.chosenSignal.asReadonly();
+
+  /** Alternatives can be chosen once the advice has arrived, until one has been. */
+  readonly choosing = computed(
+    () => this.offerSwap() && this.operation()?.status === 'Proposed' && this.chosen() === null,
+  );
 
   private readonly substitutions = inject(RecipeSubstitutionService);
   private readonly memberships = inject(WorkspaceMembershipService);
@@ -186,6 +270,7 @@ export class RecipeSubstitutionRequestComponent {
     this.fieldErrorsSignal.set({});
 
     this.pendingRequestKey ??= crypto.randomUUID();
+    this.askedAboutSignal.set(ingredient.label);
 
     try {
       const outcome = await this.substitutions.requestSubstitution(
@@ -275,7 +360,24 @@ export class RecipeSubstitutionRequestComponent {
     this.fieldErrorsSignal.set({});
     this.pendingRequestKey = null;
     this.consecutiveFailures.set(0);
+    this.chosenSignal.set(null);
     this.decided.emit();
+  }
+
+  /** The creator's ask: make this alternative. The revision below sends it on arrival — this button was the ask. */
+  useAlternative(item: AiAdvisoryItem): void {
+    const line = this.askedAboutSignal() ?? this.selectedIngredient()?.label ?? '';
+    if (line.length === 0 || this.chosen() !== null) return;
+    this.chosenSignal.set({ line, alternative: item.summary, goal: goalFromSubstitution(line, item) });
+  }
+
+  /** Back to the alternatives. A swap already asked for stays waiting until it is answered. */
+  chooseAgain(): void {
+    this.chosenSignal.set(null);
+  }
+
+  onSwapDecided(result: unknown): void {
+    this.swapDecided.emit(result);
   }
 
   /** Mirrors `AiProposalPanelComponent.pollLoop` — see that file's own remarks for why `expand` over a fixed interval. */

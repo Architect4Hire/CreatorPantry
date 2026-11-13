@@ -68,7 +68,7 @@ describe('RecipeRevisionRequestComponent', () => {
     memberships = new StubMembershipService();
   });
 
-  function render(role: WorkspaceRole = 'Contributor'): HTMLElement {
+  function render(role: WorkspaceRole = 'Contributor', inputs: Record<string, unknown> = {}): HTMLElement {
     memberships.state.set({ status: 'ready', memberships: [membership(role)] });
 
     TestBed.configureTestingModule({
@@ -82,6 +82,7 @@ describe('RecipeRevisionRequestComponent', () => {
     fixture.componentRef.setInput('workspaceSlug', 'cozy-fall');
     fixture.componentRef.setInput('recipeId', 'r1');
     fixture.componentRef.setInput('currentVersionId', VERSION_ID);
+    for (const [name, value] of Object.entries(inputs)) fixture.componentRef.setInput(name, value);
     fixture.detectChanges();
     settle();
 
@@ -375,5 +376,42 @@ describe('RecipeRevisionRequestComponent', () => {
     expect(caveat).not.toBeNull();
     expect(caveat?.textContent).toContain("Unsaved edits aren't included");
     expect(caveat?.querySelector('cp-status-pill')).not.toBeNull();
+  }));
+
+  // ---- a host that knows the intent ---------------------------------------------------------------------
+
+  it('opens on the section and goal a host chose, and still asks for nothing until told', fakeAsync(() => {
+    render('Contributor', { initialScope: 'WholeRecipe', initialGoal: 'Make the method clearer.' });
+
+    expect(fixture.componentInstance.scope()).toBe('WholeRecipe');
+    expect(fixture.componentInstance.goal()).toBe('Make the method clearer.');
+    expect(isDisabled('Ask for suggestions')).toBeFalse();
+    expect(service.calls.length).toBe(0);
+  }));
+
+  it('asks once on arrival when the host’s own button was the ask', fakeAsync(() => {
+    render('Contributor', { initialScope: 'WholeRecipe', initialGoal: 'Fix the yield.', startImmediately: true });
+    settle();
+    settle();
+
+    expect(service.calls.length).toBe(1);
+    expect(service.calls[0].request.scope).toBe('WholeRecipe');
+    expect(service.calls[0].request.goal).toBe('Fix the yield.');
+    expect(fixture.componentInstance.state()).toBe('watching');
+  }));
+
+  it('does not ask on arrival for a role that may not ask', fakeAsync(() => {
+    render('Viewer', { initialScope: 'WholeRecipe', startImmediately: true });
+    settle();
+
+    expect(service.calls.length).toBe(0);
+    expect(fixture.componentInstance.state()).toBe('forbidden');
+  }));
+
+  it('draws its heading at the level and in the words the host asks for', fakeAsync(() => {
+    render('Contributor', { heading: 'Get suggestions', headingLevel: 3 });
+
+    expect(element().querySelector('h3#cp-revision-heading')?.textContent).toContain('Get suggestions');
+    expect(element().querySelector('h2')).toBeNull();
   }));
 });

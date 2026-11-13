@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CpButtonComponent, CpFieldComponent, CpStatusPillComponent } from '@creator-pantry/ui';
 
@@ -57,9 +68,32 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
   styleUrl: './recipe-revision-request.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class RecipeRevisionRequestComponent {
+export class RecipeRevisionRequestComponent implements OnInit {
   readonly workspaceSlug = input.required<string>();
   readonly recipeId = input.required<string>();
+
+  /**
+   * A section already chosen when the form opens, which the creator can still change.
+   *
+   * Null on the recipe page, where no section is the right guess. A host that knows the creator's intent passes
+   * one — "Improve a recipe" opens on the whole recipe, because that is what improving it means, and a creator who
+   * wants less can narrow it before asking.
+   */
+  readonly initialScope = input<AiOperationScope | null>(null);
+
+  /** Words already in the goal box when the form opens — a host's summary of what the creator picked elsewhere. */
+  readonly initialGoal = input('');
+
+  /**
+   * Ask as soon as the form can, once. For a host whose own button was the creator's ask — "Suggest changes for
+   * these findings" — so the creator does not press a second button to confirm the first. Asked once per
+   * component: a re-render never asks again, and the idempotency key covers a re-send.
+   */
+  readonly startImmediately = input(false);
+
+  /** The heading's words and level: an h2 on the recipe page, deeper inside a guided step or another tool. */
+  readonly heading = input('Revise this recipe');
+  readonly headingLevel = input<2 | 3 | 4>(2);
 
   /**
    * The recipe's current version, which is the only one a revision may be asked against.
@@ -102,9 +136,26 @@ export class RecipeRevisionRequestComponent {
   /** Reused only across a retried transport failure of one attempt; replaced for a fresh ask. */
   private pendingRequestKey: string | null = null;
 
+  private autoStarted = false;
+
   constructor() {
     // Asked for rather than assumed: until the memberships are known this cannot say what the creator may do.
     void this.memberships.ensureLoaded();
+
+    // The host's button was the ask; this sends it once the role and the allowance say it may be sent. If they
+    // never do, the form stays on screen with its reason, exactly as if the creator had opened it themselves.
+    effect(() => {
+      if (!this.startImmediately() || this.autoStarted || !this.canSubmit()) return;
+      this.autoStarted = true;
+      untracked(() => void this.submit());
+    });
+  }
+
+  ngOnInit(): void {
+    const scope = this.initialScope();
+    if (scope !== null && this.sections.some((section) => section.scope === scope)) this.scope.set(scope);
+    const goal = this.initialGoal().slice(0, this.goalMaxLength);
+    if (goal.length > 0) this.goal.set(goal);
   }
 
   readonly rolesKnown = computed(() => this.memberships.state().status === 'ready');

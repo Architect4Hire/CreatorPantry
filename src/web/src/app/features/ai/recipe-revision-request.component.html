@@ -1,6 +1,16 @@
 <section class="revision" aria-labelledby="cp-revision-heading">
   <header class="revision-header">
-    <h2 id="cp-revision-heading">Revise this recipe</h2>
+    @switch (headingLevel()) {
+      @case (4) {
+        <h4 id="cp-revision-heading">{{ heading() }}</h4>
+      }
+      @case (3) {
+        <h3 id="cp-revision-heading">{{ heading() }}</h3>
+      }
+      @default {
+        <h2 id="cp-revision-heading">{{ heading() }}</h2>
+      }
+    }
     <p class="revision-lede">
       Choose one part of the recipe and say what you want. Suggestions come back for you to review — nothing changes
       until you accept them.

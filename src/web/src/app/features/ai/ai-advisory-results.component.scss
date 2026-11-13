@@ -46,6 +46,22 @@
   border-color: var(--cp-danger);
 }
 
+/* A picked item says so with its edge as well as its tick, so the choice reads at a glance down a long list. A
+   caution's edge wins: being picked does not make a safety note less worth seeing. */
+.advisory-item.is-selected:not(.has-caution) {
+  border-color: var(--cp-primary);
+}
+
+.advisory-item-pick {
+  font-weight: 600;
+}
+
+.advisory-item-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
 .advisory-item-summary {
   margin: 0;
   font-size: var(--cp-font-size-md);

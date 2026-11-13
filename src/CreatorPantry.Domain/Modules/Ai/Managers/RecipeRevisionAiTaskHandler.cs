@@ -71,7 +71,7 @@ internal sealed class RecipeRevisionAiTaskHandler(
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(Bounds(context.Scope)))
-            .WithOutputSchema(AiOutputSchema.Json)
+            .WithOutputSchema(AiOutputSchema.Json, template.OutputSchemaVersion)
             .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source))
             .WithPreferences(context.WorkspaceId, RenderGoal(context.Inputs))
             .Build();
@@ -139,33 +139,13 @@ internal sealed class RecipeRevisionAiTaskHandler(
     /// validator does not apply. A creator who scoped a revision to one section is told about that section and
     /// no other — the model is never shown the wider vocabulary and asked to restrain itself.
     /// </remarks>
-    private static Dictionary<string, string> Bounds(AiOperationScope scope)
-    {
-        var targets = AiPolicy.AllowedTargets(scope)
-            .Where(target => AiChangeApplicability.For(target).Count > 0)
-            .OrderBy(target => target.ToString(), StringComparer.Ordinal)
-            .ToList();
-
-        var fields = targets
-            .SelectMany(target => AiPolicy.AllowedFields(scope, target).Select(field => $"{target}.{field}"))
-            .OrderBy(field => field, StringComparer.Ordinal)
-            .ToList();
-
-        var kinds = targets
-            .SelectMany(target => AiChangeApplicability.For(target).Select(kind => $"{kind} on {target}"))
-            .OrderBy(kind => kind, StringComparer.Ordinal)
-            .ToList();
-
-        return new Dictionary<string, string>(StringComparer.Ordinal)
+    private static Dictionary<string, string> Bounds(AiOperationScope scope) =>
+        new(StringComparer.Ordinal)
         {
             ["scope"] = Describe(scope),
-
-            // "none" rather than an empty line: a bound that reads as a blank invites a model to treat it as
-            // absent, which is the opposite of what an empty allow-list means.
-            ["allowedFields"] = fields.Count == 0 ? "none" : string.Join(", ", fields),
-            ["allowedChanges"] = kinds.Count == 0 ? "none" : string.Join(", ", kinds),
+            ["allowedFields"] = AiScopeBounds.AllowedFields(scope),
+            ["allowedChanges"] = AiScopeBounds.AllowedChanges(scope),
         };
-    }
 
     /// <summary>The scope in the creator's terms rather than the enum's.</summary>
     private static string Describe(AiOperationScope scope) => scope switch

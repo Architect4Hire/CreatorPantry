@@ -34,7 +34,65 @@
       [fieldLabels]="fieldLabels"
       [enumValueFields]="enumValueFields"
       [hiddenFields]="hiddenFields"
+      [selectable]="picking()"
+      [selectedIds]="picked()"
+      (toggled)="onFindingToggled($event)"
     />
+
+    @if (picking()) {
+      <!-- The bridge from advice to change: picking a finding changes nothing, it only says what to ask about. The
+           ask is an ordinary revision whose every change is reviewed below before anything is kept. -->
+      <div class="review-fix">
+        <div class="review-actions">
+          <button cpButton type="button" variant="text" size="sm" (click)="pickAll()">Pick all</button>
+          <button cpButton type="button" variant="text" size="sm" (click)="clearPicks()">Clear</button>
+          <span class="review-hint" role="status"
+            >{{ pickedFindings().length }} of {{ findings().length }} picked.</span
+          >
+        </div>
+        <div class="review-actions">
+          <button
+            cpButton
+            type="button"
+            variant="primary"
+            [attr.aria-disabled]="pickedFindings().length === 0 ? 'true' : null"
+            aria-describedby="cp-review-fix-hint"
+            (click)="askForFixes()"
+          >
+            {{ askFixLabel() }}
+          </button>
+          <span class="review-hint" id="cp-review-fix-hint">
+            You'll see each suggested change and choose which to keep. Nothing changes until you do.
+          </span>
+        </div>
+      </div>
+    }
+
+    @if (fixGoal(); as fix) {
+      @if (fix.leftOut > 0) {
+        <p class="review-caveat" role="status">
+          {{ fix.included }} of the findings you picked fit in one request. Ask again for the other {{ fix.leftOut }}
+          once you've decided on these.
+        </p>
+      }
+      <!-- Asked on arrival: the button above was the creator's ask. The goal stays visible and editable in the form if
+           the role or the allowance stops it being sent. -->
+      <cp-recipe-revision-request
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [currentVersionId]="currentVersionId()"
+        [editorIsDirty]="editorIsDirty()"
+        initialScope="WholeRecipe"
+        [initialGoal]="fix.goal"
+        [startImmediately]="true"
+        heading="Suggested changes for your findings"
+        [headingLevel]="headingLevel() === 2 ? 3 : 4"
+        (decided)="onFixDecided($event)"
+      />
+      <div class="review-actions">
+        <button cpButton type="button" variant="text" size="sm" (click)="pickAgain()">Pick different findings</button>
+      </div>
+    }
 
     <div class="review-actions">
       <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()"> Review again </button>

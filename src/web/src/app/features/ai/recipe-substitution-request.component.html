@@ -1,10 +1,21 @@
 <section class="substitution" aria-labelledby="cp-substitution-heading">
   <header class="substitution-header">
-    <h2 id="cp-substitution-heading">Find alternatives for an ingredient</h2>
-    <p class="substitution-lede">
-      Choose one ingredient line and say why if you like. This changes nothing in the recipe — you read the alternatives
-      and edit the recipe yourself.
-    </p>
+    @if (headingLevel() === 3) {
+      <h3 id="cp-substitution-heading">Find alternatives for an ingredient</h3>
+    } @else {
+      <h2 id="cp-substitution-heading">Find alternatives for an ingredient</h2>
+    }
+    @if (offerSwap()) {
+      <p class="substitution-lede">
+        Choose one ingredient line and say why if you like. Pick an alternative and you'll see exactly what would change
+        in your recipe — nothing changes until you keep it.
+      </p>
+    } @else {
+      <p class="substitution-lede">
+        Choose one ingredient line and say why if you like. This changes nothing in the recipe — you read the
+        alternatives and edit the recipe yourself.
+      </p>
+    }
   </header>
 
   <!-- The same fact the calculators in this tablist state, and for the same reason: the request is pinned to
@@ -29,7 +40,31 @@
       itemNounPlural="substitutions"
       [fieldLabels]="fieldLabels"
       [enumValueFields]="enumValueFields"
+      [itemActionLabel]="choosing() ? 'Use this one' : null"
+      (itemAction)="useAlternative($event)"
     />
+
+    @if (chosen(); as swap) {
+      <!-- Asked on arrival: "Use this one" was the creator's ask. What comes back is an ordinary set of suggested
+           changes, each kept or not, so the swap is never made by choosing it alone. -->
+      <cp-recipe-revision-request
+        [workspaceSlug]="workspaceSlug()"
+        [recipeId]="recipeId()"
+        [currentVersionId]="currentVersionId()"
+        [editorIsDirty]="editorIsDirty()"
+        initialScope="WholeRecipe"
+        [initialGoal]="swap.goal"
+        [startImmediately]="true"
+        [heading]="'Swap in: ' + swap.alternative"
+        [headingLevel]="headingLevel() === 2 ? 3 : 4"
+        (decided)="onSwapDecided($event)"
+      />
+      <div class="substitution-actions">
+        <button cpButton type="button" variant="text" size="sm" (click)="chooseAgain()">
+          Choose a different alternative
+        </button>
+      </div>
+    }
 
     <div class="substitution-actions">
       <button cpButton type="button" variant="secondary" size="sm" (click)="startAnother()">

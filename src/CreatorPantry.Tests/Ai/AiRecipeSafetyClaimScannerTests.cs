@@ -71,6 +71,52 @@ public sealed class AiRecipeSafetyClaimScannerTests
         Assert.Null(AiRecipeSafetyClaimScanner.FirstAssurance(text));
     }
 
+    [Theory]
+    // What to buy, named by the label on its packet: the manufacturer's claim, checkable by the reader, not one
+    // CreatorPantry makes about the dish. Live dietary adaptations were refused for wording like this.
+    [InlineData("use a mustard labelled gluten-free")]
+    [InlineData("use cider vinegar that is labeled gluten-free if needed")]
+    [InlineData("a certified gluten-free oat")]
+    [InlineData("buy one sold as dairy-free")]
+    [InlineData("gluten-free-labelled oats")]
+    [InlineData("check for a gluten-free certified brand")]
+    public void A_product_named_by_its_label_is_not_an_assurance(string text)
+    {
+        Assert.Null(AiRecipeSafetyClaimScanner.FirstAssurance(text));
+    }
+
+    [Theory]
+    // The same words used as a claim: about the product with no label, about the dish, or alongside a label
+    // that excuses only itself.
+    [InlineData("use gluten-free mustard", "gluten-free")]
+    [InlineData("this bread is certified gluten-free", "gluten-free")]
+    [InlineData("the loaf is gluten-free labelled", "gluten-free")]
+    [InlineData("it's labelled dairy-free", "dairy-free")]
+    [InlineData("use mustard labelled gluten-free, which makes the glaze dairy-free", "dairy-free")]
+    [InlineData("mustard labelled gluten-free is safe for coeliacs", "safe for")]
+    public void A_free_from_claim_is_still_found_when_no_label_excuses_it(string text, string expected)
+    {
+        Assert.Equal(expected, AiRecipeSafetyClaimScanner.FirstAssurance(text));
+    }
+
+    /// <summary>A title is what a recipe is published under: no label wording excuses a free-from name.</summary>
+    [Theory]
+    [InlineData("Certified Gluten-Free Soda Bread")]
+    [InlineData("Soda Bread with Flour Labelled Gluten-Free")]
+    public void A_title_gets_no_allowance_for_a_label(string title)
+    {
+        Assert.NotNull(AiRecipeSafetyClaimScanner.FirstTitleAssurance(title));
+    }
+
+    [Fact]
+    public void The_message_names_the_label_wording_that_would_be_accepted()
+    {
+        var message = AiRecipeSafetyClaimScanner.Message("gluten-free", "A proposed preparationNote value");
+
+        Assert.Contains("labelled gluten-free", message, StringComparison.Ordinal);
+        Assert.Contains("never in a title", message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Nothing_is_an_assurance()
     {

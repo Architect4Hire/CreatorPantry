@@ -100,7 +100,7 @@ internal sealed class RecipeAdaptationAiTaskHandler(
 
         var envelopeBuilder = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(Bounds(goal)))
-            .WithOutputSchema(AiOutputSchema.Json)
+            .WithOutputSchema(AiOutputSchema.Json, template.OutputSchemaVersion)
             .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source))
             .WithPreferences(context.WorkspaceId, RenderGoalDetail(goal, context.Inputs));
 
@@ -222,32 +222,14 @@ internal sealed class RecipeAdaptationAiTaskHandler(
     /// alongside the bound every AIREC-005 operation shares: the whole recipe, because a cross-field proposal
     /// cannot fit a narrower one.
     /// </summary>
-    private static Dictionary<string, string> Bounds(AiAdaptationGoal goal)
-    {
-        var targets = AiPolicy.AllowedTargets(AiOperationScope.WholeRecipe)
-            .Where(target => AiChangeApplicability.For(target).Count > 0)
-            .OrderBy(target => target.ToString(), StringComparer.Ordinal)
-            .ToList();
-
-        var fields = targets
-            .SelectMany(target => AiPolicy.AllowedFields(AiOperationScope.WholeRecipe, target)
-                .Select(field => $"{target}.{field}"))
-            .OrderBy(field => field, StringComparer.Ordinal)
-            .ToList();
-
-        var kinds = targets
-            .SelectMany(target => AiChangeApplicability.For(target).Select(kind => $"{kind} on {target}"))
-            .OrderBy(kind => kind, StringComparer.Ordinal)
-            .ToList();
-
-        return new Dictionary<string, string>(StringComparer.Ordinal)
+    private static Dictionary<string, string> Bounds(AiAdaptationGoal goal) =>
+        new(StringComparer.Ordinal)
         {
             ["goal"] = Describe(goal),
             ["goalInstructions"] = Instructions(goal),
-            ["allowedFields"] = string.Join(", ", fields),
-            ["allowedChanges"] = string.Join(", ", kinds),
+            ["allowedFields"] = AiScopeBounds.AllowedFields(AiOperationScope.WholeRecipe),
+            ["allowedChanges"] = AiScopeBounds.AllowedChanges(AiOperationScope.WholeRecipe),
         };
-    }
 
     private static string Describe(AiAdaptationGoal goal) => goal switch
     {

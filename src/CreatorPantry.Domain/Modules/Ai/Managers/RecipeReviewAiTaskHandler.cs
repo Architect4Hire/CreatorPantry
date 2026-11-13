@@ -71,7 +71,7 @@ internal sealed class RecipeReviewAiTaskHandler(
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(new Dictionary<string, string>(StringComparer.Ordinal)))
-            .WithOutputSchema(AiRecipeReviewOutputSchema.Json)
+            .WithOutputSchema(AiRecipeReviewOutputSchema.Json, template.OutputSchemaVersion)
             .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source))
             .Build();
 

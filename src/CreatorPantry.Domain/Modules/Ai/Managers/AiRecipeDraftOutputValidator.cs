@@ -343,9 +343,17 @@ public static class AiRecipeDraftOutputValidator
     private static AiOutputValidationOutcome<AiRecipeDraftOutputDocument>? NoSafetyAssurance(
         AiRecipeDraftOutputDocument document)
     {
+        // The title first and with no allowance for a product's label: it is the name version 1 is published under.
+        if (AiRecipeSafetyClaimScanner.FirstTitleAssurance(document.Title) is { } titleClaim)
+        {
+            return Reject(
+                AiOutputReason.UnsupportedSafetyAssurance,
+                AiRecipeSafetyClaimScanner.Message(titleClaim, "The draft"),
+                correctable: true);
+        }
+
         var texts = new List<string?>
         {
-            document.Title,
             document.Description,
             document.Notes,
             document.Yield?.YieldText,

@@ -62,6 +62,11 @@
   color: var(--cp-text);
 }
 
+.review-fix {
+  display: grid;
+  gap: var(--cp-space-3);
+}
+
 .review-actions {
   display: flex;
   flex-wrap: wrap;

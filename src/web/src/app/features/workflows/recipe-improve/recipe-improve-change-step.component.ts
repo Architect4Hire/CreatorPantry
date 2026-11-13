@@ -37,11 +37,20 @@ import { RecipeOpenSuggestionsComponent } from './recipe-open-suggestions.compon
 /** The ways to change a recipe, each an existing capability. */
 type Way = 'revise' | 'adapt' | 'swap' | 'check' | 'edit';
 
+/**
+ * Most-used first. "Get suggestions" opens already chosen, on the whole recipe: improving a recipe is what the
+ * creator came here to do, so the first screen is the ask rather than a menu in front of it.
+ */
 const WAYS: readonly CpChoiceOption[] = [
   {
     value: 'revise',
-    label: 'Change part of it',
-    hint: 'Pick the parts and say what you want. Only those parts can change.',
+    label: 'Get suggestions',
+    hint: 'Say what you want, or leave it blank for ideas. You see every suggested change and choose which to keep.',
+  },
+  {
+    value: 'check',
+    label: 'Check it over',
+    hint: 'Get a read-through, then pick the findings you want fixed. You choose which changes to keep.',
   },
   {
     value: 'adapt',
@@ -51,12 +60,7 @@ const WAYS: readonly CpChoiceOption[] = [
   {
     value: 'swap',
     label: 'Swap an ingredient',
-    hint: 'Get ideas for what could stand in for one ingredient. This changes nothing on its own.',
-  },
-  {
-    value: 'check',
-    label: 'Check it over',
-    hint: 'Get a read-through and what’s worth looking at again. This changes nothing on its own.',
+    hint: 'Get alternatives for one ingredient and pick one. You see every change the swap makes and choose which to keep.',
   },
   { value: 'edit', label: 'Change it myself', hint: 'Edit any part of the recipe directly.' },
 ];
@@ -162,6 +166,9 @@ type Loaded =
                   [workspaceSlug]="workspaceSlug()"
                   [recipeId]="recipe.id"
                   [currentVersionId]="versionId()"
+                  initialScope="WholeRecipe"
+                  heading="Get suggestions"
+                  [headingLevel]="3"
                   (decided)="afterDecision()"
                 />
               }
@@ -179,6 +186,9 @@ type Loaded =
                   [recipeId]="recipe.id"
                   [currentVersionId]="versionId()"
                   [ingredientGroups]="recipe.ingredientGroups"
+                  [headingLevel]="3"
+                  [offerSwap]="true"
+                  (swapDecided)="afterDecision()"
                 />
               }
               @case ('check') {
@@ -186,6 +196,9 @@ type Loaded =
                   [workspaceSlug]="workspaceSlug()"
                   [recipeId]="recipe.id"
                   [currentVersionId]="versionId()"
+                  [headingLevel]="3"
+                  [offerFixes]="true"
+                  (fixDecided)="afterDecision()"
                 />
               }
               @case ('edit') {
@@ -225,11 +238,13 @@ export class RecipeImproveChangeStepComponent implements OnInit {
   private readonly editor = viewChild(RecipeEditorComponent);
   private readonly revision = viewChild(RecipeRevisionRequestComponent);
   private readonly adaptation = viewChild(RecipeAdaptationRequestComponent);
+  private readonly review = viewChild(RecipeReviewRequestComponent);
+  private readonly substitution = viewChild(RecipeSubstitutionRequestComponent);
   private readonly openList = viewChild(RecipeOpenSuggestionsComponent);
 
   protected readonly ways = WAYS;
   protected readonly loaded = signal<Loaded>({ status: 'loading' });
-  protected readonly way = signal<Way | null>(null);
+  protected readonly way = signal<Way | null>('revise');
 
   /** Bumped when a switch is refused, so the choice tiles are put back to the way still showing. */
   private readonly reasserted = signal(0);
@@ -255,7 +270,12 @@ export class RecipeImproveChangeStepComponent implements OnInit {
 
   /** The request the tool on screen is showing, so the list of waiting suggestions does not show it a second time. */
   protected readonly toolRequestId = computed(
-    () => this.revision()?.requestId() ?? this.adaptation()?.requestId() ?? null,
+    () =>
+      this.revision()?.requestId() ??
+      this.adaptation()?.requestId() ??
+      this.review()?.fixRequestId() ??
+      this.substitution()?.swapRequestId() ??
+      null,
   );
 
   constructor() {

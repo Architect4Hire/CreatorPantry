@@ -2,8 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CreatorPantry.Domain.Managers.Persistence;
+using CreatorPantry.Domain.Managers.Reference;
 using CreatorPantry.Domain.Modules.Ai.Data.Entities;
 using CreatorPantry.Domain.Modules.Ai.Managers;
+using CreatorPantry.Domain.Modules.Measurement.Data.Entities;
+using CreatorPantry.Domain.Modules.Measurement.Managers;
 using CreatorPantry.Domain.Modules.Recipes.Managers;
 using CreatorPantry.Domain.Modules.Tenancy.Data.Entities;
 using CreatorPantry.Domain.Modules.Tenancy.Managers;
@@ -790,6 +793,81 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
         Assert.Equal("200ml mild olive oil", line.GetProperty("displayText").GetString());
     }
 
+    /// <summary>
+    /// Accepting a change to one line keeps every measured line's unit intact — and is not a 500.
+    /// </summary>
+    /// <remarks>
+    /// Touching any ingredient resubmits the whole list, units included, and the merge derives each line's unit
+    /// dimension from a map the accept path supplied empty. Every measured line was then written with a unit and no
+    /// dimension, which <c>CK_RecipeIngredients_Unit_Dimension</c> refuses: "Keep all" on a live revision failed
+    /// with a 500. The test above passed throughout because its only line had no structured unit.
+    /// </remarks>
+    [Fact]
+    public async Task An_accepted_ingredient_change_keeps_the_units_of_measured_lines()
+    {
+        using var client = await SignInAsync();
+        var millilitre = await AddUnitAsync(MeasurementDimension.Volume);
+
+        var seeded = await SeedAsync(
+            client,
+            changes: detail =>
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    ChangeKind = AiChangeKind.Set,
+                    TargetKind = AiChangeTargetKind.Ingredient,
+                    TargetId = FirstIngredientId(detail),
+                    FieldName = "preparationNote",
+                    BeforeValue = null,
+                    AfterValue = "the mildest you can find",
+                },
+            ],
+            ingredients:
+            [
+                new { displayText = "200 ml olive oil", quantity = 200m, measurementUnitId = millilitre },
+                new { displayText = "100 ml milk", quantity = 100m, measurementUnitId = millilitre },
+            ]);
+
+        var response = await AcceptSelectedAsync(client, seeded, seeded.ChangeIds);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var lines = (await BodyOf(await client.GetAsync(
+                $"{Recipes()}/{seeded.RecipeId}", TestContext.Current.CancellationToken)))
+            .GetProperty("ingredientGroups").EnumerateArray().First()
+            .GetProperty("ingredients").EnumerateArray().ToList();
+
+        Assert.Equal("the mildest you can find", lines[0].GetProperty("preparationNote").GetString());
+        Assert.All(lines, line => Assert.Equal(millilitre, line.GetProperty("measurementUnitId").GetGuid()));
+    }
+
+    private async Task<Guid> AddUnitAsync(MeasurementDimension dimension)
+    {
+        var id = Guid.NewGuid();
+        var code = $"ml-{id:N}"[..12];
+
+        await using var scope = _fixture.Api.Factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CreatorPantryDbContext>();
+
+        db.MeasurementUnits.Add(new MeasurementUnit
+        {
+            Id = id,
+            Code = code,
+            DisplayName = "milliliter",
+            PluralName = "milliliters",
+            Abbreviation = "ml",
+            Dimension = dimension,
+            System = MeasurementSystem.Metric,
+            BaseUnitFactor = 1m,
+            DisplayPrecision = 0,
+        });
+
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        return id;
+    }
+
     private static Guid FirstIngredientId(JsonElement detail) =>
         detail.GetProperty("ingredientGroups").EnumerateArray().First()
             .GetProperty("ingredients").EnumerateArray().First()
@@ -1215,7 +1293,8 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
         AiOperationStatus status = AiOperationStatus.Proposed,
         bool withProposal = true,
         Func<JsonElement, AiStructuredChange[]>? changes = null,
-        AiOperationScope operationScope = AiOperationScope.WholeRecipe)
+        AiOperationScope operationScope = AiOperationScope.WholeRecipe,
+        object[]? ingredients = null)
     {
         var cancellation = TestContext.Current.CancellationToken;
 
@@ -1237,7 +1316,7 @@ public sealed class AiProposalDispositionEndpointTests : IAsyncLifetime
                     new
                     {
                         title = "Batter",
-                        ingredients = new object[] { new { displayText = "200ml olive oil" } },
+                        ingredients = ingredients ?? new object[] { new { displayText = "200ml olive oil" } },
                     },
                 },
             },

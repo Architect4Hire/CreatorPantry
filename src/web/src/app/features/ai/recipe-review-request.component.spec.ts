@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Observable, of } from 'rxjs';
@@ -8,7 +10,9 @@ import { RequestRecipeReviewRequest } from '../../models/recipe-review.models';
 import { RecipeReviewService, RequestReviewOutcome, WatchReviewOutcome } from '../../services/recipe-review.service';
 import { AiAllowanceState, AiUsageService, AllowanceFigures } from '../../services/ai-usage.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
-import { RecipeReviewRequestComponent } from './recipe-review-request.component';
+import { RequestRecipeRevisionRequest } from '../../models/recipe-revision.models';
+import { RecipeRevisionService, RequestRevisionOutcome } from '../../services/recipe-revision.service';
+import { RecipeReviewRequestComponent, goalFromFindings } from './recipe-review-request.component';
 
 const REQUEST_ID = 'op-review-1';
 const VERSION_ID = 'v-1';
@@ -68,6 +72,53 @@ class StubReviewService {
   }
 }
 
+class StubRevisionService {
+  outcome: RequestRevisionOutcome = { status: 'task_not_enabled' };
+  calls: { request: RequestRecipeRevisionRequest; key: string }[] = [];
+
+  requestRevision(
+    _slug: string,
+    _recipeId: string,
+    request: RequestRecipeRevisionRequest,
+    key: string,
+  ): Promise<RequestRevisionOutcome> {
+    this.calls.push({ request, key });
+    return Promise.resolve(this.outcome);
+  }
+}
+
+function finding(id: string, summary: string): NonNullable<AiProposalStatus['proposal']>['changes'][number] {
+  return {
+    changeId: 'c-' + id,
+    changeKind: 'Add',
+    targetKind: 'RecipeReviewFinding',
+    targetId: id,
+    fieldName: null,
+    beforeValue: null,
+    afterValue: summary,
+    proposedPosition: 0,
+    disposition: 'Pending',
+  };
+}
+
+function reviewed(...changes: NonNullable<AiProposalStatus['proposal']>['changes']): AiProposalStatus {
+  return operation(
+    {
+      proposalId: 'p1',
+      outputSchemaVersion: 'recipe.review.v1',
+      promptTemplateId: 'recipe.review',
+      promptTemplateVersion: '1.1.0',
+      promptTemplateBodyChecksum: 'sha256:abc',
+      providerName: 'test-provider',
+      modelName: 'test-model',
+      createdAt: '2026-09-28T14:02:00Z',
+      changes,
+      warnings: [],
+    },
+    'Proposed',
+  );
+}
+
 /** Stands in for the real allowance read so a screen's at-limit behaviour is driven, not mocked out. */
 class StubUsageService {
   readonly allowance = signal<AiAllowanceState>({ kind: 'unknown' });
@@ -102,15 +153,17 @@ describe('RecipeReviewRequestComponent', () => {
   let service: StubReviewService;
   let memberships: StubMembershipService;
   let usage: StubUsageService;
+  let revisions: StubRevisionService;
   let fixture: ComponentFixture<RecipeReviewRequestComponent>;
 
   beforeEach(() => {
     service = new StubReviewService();
     memberships = new StubMembershipService();
     usage = new StubUsageService();
+    revisions = new StubRevisionService();
   });
 
-  function render(role: WorkspaceRole = 'Contributor'): HTMLElement {
+  function render(role: WorkspaceRole = 'Contributor', inputs: Record<string, unknown> = {}): HTMLElement {
     memberships.state.set({ status: 'ready', memberships: [membership(role)] });
 
     TestBed.configureTestingModule({
@@ -118,6 +171,9 @@ describe('RecipeReviewRequestComponent', () => {
         { provide: RecipeReviewService, useValue: service },
         { provide: WorkspaceMembershipService, useValue: memberships },
         { provide: AiUsageService, useValue: usage },
+        { provide: RecipeRevisionService, useValue: revisions },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
 
@@ -125,6 +181,7 @@ describe('RecipeReviewRequestComponent', () => {
     fixture.componentRef.setInput('workspaceSlug', 'cozy-fall');
     fixture.componentRef.setInput('recipeId', 'r1');
     fixture.componentRef.setInput('currentVersionId', VERSION_ID);
+    for (const [name, value] of Object.entries(inputs)) fixture.componentRef.setInput(name, value);
     fixture.detectChanges();
     settle();
 
@@ -396,4 +453,90 @@ describe('RecipeReviewRequestComponent', () => {
     expect(service.calls.length).toBe(1);
     expect(service.calls[0].request.sourceVersionId).toBe(VERSION_ID);
   }));
+
+  // ---- from findings to suggested changes (13A.15) --------------------------------------------------------
+
+  it('offers no picking on the recipe page, where a review stays advice', fakeAsync(() => {
+    service.watchOutcome = { status: 'found', operation: reviewed(finding('t1', 'No yield is stated.')) };
+    render();
+    buttonWith('Review this recipe').click();
+    settle();
+
+    expect(element().querySelector('cp-checkbox')).toBeNull();
+    expect(element().textContent).not.toContain('Suggest changes for');
+  }));
+
+  it('lets findings be picked, and asks for one whole-recipe revision naming only those', fakeAsync(() => {
+    service.watchOutcome = {
+      status: 'found',
+      operation: reviewed(finding('t1', 'No yield is stated.'), finding('t2', 'Step 2 has no cue for doneness.')),
+    };
+    render('Contributor', { offerFixes: true });
+    buttonWith('Review this recipe').click();
+    settle();
+
+    const boxes = element().querySelectorAll<HTMLInputElement>('cp-checkbox input[type="checkbox"]');
+    expect(boxes.length).toBe(2);
+    expect(buttonWith('Suggest changes for').getAttribute('aria-disabled')).toBe('true');
+
+    boxes[1].click();
+    settle();
+    expect(element().textContent).toContain('1 of 2 picked.');
+
+    buttonWith('Suggest changes for this finding').click();
+    settle();
+    settle();
+
+    expect(revisions.calls.length).toBe(1);
+    expect(revisions.calls[0].request.scope).toBe('WholeRecipe');
+    expect(revisions.calls[0].request.sourceVersionId).toBe(VERSION_ID);
+    expect(revisions.calls[0].request.goal).toContain('Step 2 has no cue for doneness.');
+    expect(revisions.calls[0].request.goal).not.toContain('No yield is stated.');
+    expect(element().querySelector('cp-recipe-revision-request')).not.toBeNull();
+    expect(element().querySelector('cp-checkbox')).toBeNull();
+  }));
+
+  it('goes back to picking without asking again', fakeAsync(() => {
+    service.watchOutcome = { status: 'found', operation: reviewed(finding('t1', 'No yield is stated.')) };
+    render('Contributor', { offerFixes: true });
+    buttonWith('Review this recipe').click();
+    settle();
+    buttonWith('Pick all').click();
+    settle();
+    buttonWith('Suggest changes for this finding').click();
+    settle();
+
+    buttonWith('Pick different findings').click();
+    settle();
+
+    expect(element().querySelector('cp-recipe-revision-request')).toBeNull();
+    expect(element().querySelectorAll('cp-checkbox').length).toBe(1);
+    expect(revisions.calls.length).toBe(1);
+  }));
+});
+
+describe('goalFromFindings', () => {
+  it('lists each picked finding on its own line under one instruction', () => {
+    const made = goalFromFindings([
+      { targetId: 'a', summary: 'No yield is stated.' },
+      { targetId: 'b', summary: ' Step 2 is vague. ' },
+    ]);
+
+    expect(made.goal).toContain('\n- No yield is stated.\n- Step 2 is vague.');
+    expect(made.included).toBe(2);
+    expect(made.leftOut).toBe(0);
+  });
+
+  it('leaves out whole findings that would not fit, and counts them, rather than cutting one short', () => {
+    const long = 'x'.repeat(120);
+    const made = goalFromFindings(
+      [1, 2, 3, 4, 5].map((n) => ({ targetId: String(n), summary: long })),
+      400,
+    );
+
+    expect(made.goal.length).toBeLessThanOrEqual(400);
+    expect(made.included).toBe(2);
+    expect(made.leftOut).toBe(3);
+    expect(made.goal.endsWith(long)).toBeTrue();
+  });
 });

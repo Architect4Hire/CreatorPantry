@@ -1,5 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Type, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -16,6 +16,8 @@ import { RecipeSearchOutcome, RecipeService } from '../../../services/recipe.ser
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { AiProposalPanelComponent } from '../../ai/ai-proposal-panel.component';
+import { RecipeReviewRequestComponent } from '../../ai/recipe-review-request.component';
+import { RecipeRevisionRequestComponent } from '../../ai/recipe-revision-request.component';
 import { RecipeEditorComponent } from '../../recipes/recipe-editor.component';
 import { RecipeImproveChangeStepComponent } from './recipe-improve-change-step.component';
 import { RecipeChooseStepComponent } from '../recipe-steps/recipe-choose-step.component';
@@ -432,29 +434,48 @@ describe('"Improve a recipe" step screens (13A.15)', () => {
       return render(RecipeImproveChangeStepComponent, { run: improveRun(), workspaceSlug: SLUG });
     }
 
-    it('offers each way in plain words, with no unscoped "make it better", and asks for nothing until one is chosen', async () => {
+    it('opens on getting suggestions for the whole recipe, offers every other way in plain words, and asks for nothing yet', async () => {
       const fixture = await change();
 
       for (const label of [
-        'Change part of it',
+        'Get suggestions',
+        'Check it over',
         'Adapt it for a need',
         'Swap an ingredient',
-        'Check it over',
         'Change it myself',
       ]) {
         expect(text(fixture)).toContain(label);
       }
       expect(text(fixture)).not.toMatch(/make it better|prompt|model/i);
-      expect(root(fixture).querySelector('cp-recipe-revision-request')).toBeNull();
+      expect(root(fixture).querySelector<HTMLInputElement>('#recipe-improve-way-revise')!.checked).toBeTrue();
+
+      const revision = fixture.debugElement.query(
+        (node) => node.componentInstance instanceof RecipeRevisionRequestComponent,
+      ).componentInstance as RecipeRevisionRequestComponent;
+      expect(revision.scope()).toBe('WholeRecipe');
+      expect(revision.requestId()).toBeNull();
+      expect(
+        TestBed.inject(HttpTestingController).match((request) => request.url.includes('revision-requests')),
+      ).toEqual([]);
       expect(editorOf(fixture)).toBeNull();
     });
 
-    it('opens the scoped revision on the recipe’s current version', async () => {
+    it('opens the revision on the recipe’s current version', async () => {
       const fixture = await change();
-      await pick(fixture, 'recipe-improve-way-revise');
 
       expect(root(fixture).querySelector('cp-recipe-revision-request')).not.toBeNull();
       expect(port.registration()!.capabilityKey!()).toBe('recipes.suggest-changes');
+    });
+
+    it('lets the findings of a check be picked and asked about', async () => {
+      const fixture = await change();
+      await pick(fixture, 'recipe-improve-way-check');
+
+      const review = fixture.debugElement.query(
+        (node) => node.componentInstance instanceof RecipeReviewRequestComponent,
+      ).componentInstance as RecipeReviewRequestComponent;
+      expect(review.offerFixes()).toBeTrue();
+      expect(review.headingLevel()).toBe(3);
     });
 
     it('shows a suggestion a reload left waiting, in the proposal panel, before the ways', async () => {

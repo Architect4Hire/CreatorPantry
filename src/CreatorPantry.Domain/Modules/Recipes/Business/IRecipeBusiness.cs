@@ -1291,18 +1291,36 @@ internal sealed class RecipeBusiness(
                 new Dictionary<string, string[]>()));
         }
 
-        // No submitted yield unit and no resolved ingredient unit dimensions, because no proposal can name a
-        // unit at all: AiDiffFields lists no identifier field, on the grounds that a model choosing a Guid is a
-        // model inventing one. So the recipe's stored dimensions stand, and an empty map is the accurate input
-        // rather than a missing one.
+        // No submitted yield unit, because no proposal can name a unit at all: AiDiffFields lists no identifier
+        // field, on the grounds that a model choosing a Guid is a model inventing one. So every unit in the plan is
+        // one a line already has — but the plan still carries those units, because touching any ingredient resubmits
+        // the whole list, and the merge derives each line's dimension from this map. An empty map once wrote every
+        // unit with no dimension, which CK_RecipeIngredients_Unit_Dimension refuses: accepting any ingredient
+        // change on a recipe with a measured line was a 500. The recipe's own stored dimensions are the answer.
         return await MergeAsync(
             loaded,
             plan.Patch!,
             null,
-            ReadOnlyDictionary<Guid, MeasurementDimension>.Empty,
+            StoredIngredientUnitDimensions(loaded.Recipe.Recipe),
             RecipeVersionSource.AiProposalAccepted,
             aiProposalId,
             cancellationToken);
+    }
+
+    /// <summary>The dimension each unit already on the recipe's ingredient lines was stored with.</summary>
+    private static IReadOnlyDictionary<Guid, MeasurementDimension> StoredIngredientUnitDimensions(Recipe recipe)
+    {
+        var dimensions = new Dictionary<Guid, MeasurementDimension>();
+
+        foreach (var line in recipe.IngredientGroups.SelectMany(group => group.Ingredients))
+        {
+            if (line.MeasurementUnitId is { } unitId && line.MeasurementUnitDimension is { } dimension)
+            {
+                dimensions[unitId] = dimension;
+            }
+        }
+
+        return dimensions;
     }
 
     /// <summary>

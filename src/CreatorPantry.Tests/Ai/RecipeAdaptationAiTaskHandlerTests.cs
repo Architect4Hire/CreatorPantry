@@ -128,6 +128,35 @@ public sealed class RecipeAdaptationAiTaskHandlerTests : IAsyncDisposable
         Assert.Contains("Gluten-Free", outcome.FailureSummary ?? string.Empty, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Naming what to buy by its label is the useful answer to a dietary goal, and is the manufacturer's claim, not
+    /// one the proposal makes about the dish. Live adaptations were refused for exactly this.
+    /// </summary>
+    [Fact]
+    public async Task A_note_naming_a_product_by_its_label_becomes_a_proposal()
+    {
+        var recipe = await SeedRecipeAsync();
+
+        var outcome = await Run(
+            FakeChatClient.Returning(LabelledProductNote(recipe.IngredientId)), recipe, AiAdaptationGoal.Dietary, "gluten-free");
+
+        Assert.True(outcome.Succeeded, outcome.FailureSummary);
+        Assert.Equal("preparationNote", Assert.Single(outcome.Proposal!.Changes).FieldName);
+    }
+
+    /// <summary>The label allowance stops at the title: the blocker case, in other words, is still refused.</summary>
+    [Fact]
+    public async Task A_certified_free_from_title_is_still_refused()
+    {
+        var recipe = await SeedRecipeAsync();
+
+        var outcome = await Run(
+            FakeChatClient.Returning(CertifiedTitleChange), recipe, AiAdaptationGoal.Dietary, "gluten-free");
+
+        Assert.False(outcome.Succeeded);
+        Assert.Contains("Gluten-Free", outcome.FailureSummary ?? string.Empty, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_dietary_change_with_no_safety_caution_is_refused()
     {
@@ -211,6 +240,36 @@ public sealed class RecipeAdaptationAiTaskHandlerTests : IAsyncDisposable
         var system = SystemMessage(client);
         Assert.Contains("equipment named", system, StringComparison.Ordinal);
         Assert.DoesNotContain("allergen and dietary consequence", system, StringComparison.Ordinal);
+    }
+
+    /// <summary>The schema the model is shown names the one <c>schemaVersion</c> the validator accepts.</summary>
+    [Fact]
+    public async Task The_output_schema_pins_the_schema_version_the_validator_requires()
+    {
+        var recipe = await SeedRecipeAsync();
+        var client = FakeChatClient.Returning(DietaryChange);
+
+        await Run(client, recipe);
+
+        Assert.Contains($"\"const\": \"{Template.OutputSchemaVersion}\"", SystemMessage(client), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The allowed fields are listed as the bare names <c>fieldName</c> carries. Listed as "Recipe.title", they were
+    /// copied into answers verbatim and refused as outside the scope.
+    /// </summary>
+    [Fact]
+    public async Task The_allowed_fields_are_rendered_as_bare_field_names()
+    {
+        var recipe = await SeedRecipeAsync();
+        var client = FakeChatClient.Returning(DietaryChange);
+
+        await Run(client, recipe);
+
+        var system = SystemMessage(client);
+        Assert.Contains("targetKind Recipe with fieldName", system, StringComparison.Ordinal);
+        Assert.Contains("\"title\"", system, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ingredient.displayText", system, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -369,6 +428,22 @@ public sealed class RecipeAdaptationAiTaskHandlerTests : IAsyncDisposable
          "changes":[{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"Gluten-Free Buttermilk Soda Bread"}],
          "warnings":[
            {"kind":"Rationale","message":"Retitled to flag the adaptation.","changeIndex":0},
+           {"kind":"SafetyCaution","message":"Check every label.","changeIndex":0}]}
+        """;
+
+    private static string LabelledProductNote(Guid ingredientId) => $$"""
+        {"schemaVersion":"recipe.adaptation.v1",
+         "changes":[{"changeKind":"Set","targetKind":"Ingredient","targetId":"{{ingredientId}}","fieldName":"preparationNote","afterValue":"use a buttermilk labelled gluten-free"}],
+         "warnings":[
+           {"kind":"Rationale","message":"Points the reader at a labelled product.","changeIndex":0},
+           {"kind":"SafetyCaution","message":"Labels and cross-contact vary by brand; whether it suits a reader is theirs to judge.","changeIndex":0}]}
+        """;
+
+    private const string CertifiedTitleChange = """
+        {"schemaVersion":"recipe.adaptation.v1",
+         "changes":[{"changeKind":"Set","targetKind":"Recipe","fieldName":"title","afterValue":"Certified Gluten-Free Buttermilk Soda Bread"}],
+         "warnings":[
+           {"kind":"Rationale","message":"Retitled.","changeIndex":0},
            {"kind":"SafetyCaution","message":"Check every label.","changeIndex":0}]}
         """;
 

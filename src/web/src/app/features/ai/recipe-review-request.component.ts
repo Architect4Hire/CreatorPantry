@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, defer, expand, switchMap, timer } from 'rxjs';
 import { CpButtonComponent, CpStatusPillComponent } from '@creator-pantry/ui';
@@ -7,6 +17,7 @@ import { WorkspaceRole } from '../../models/auth.models';
 import { AiProposalStatus, isTerminalAiStatus } from '../../models/ai-proposal.models';
 import { AiQuotaRefusal } from '../../models/ai-quota.models';
 import { REVIEW_ENUM_VALUE_FIELDS, REVIEW_FIELD_LABELS, REVIEW_HIDDEN_FIELDS } from '../../models/recipe-review.models';
+import { REVISION_GOAL_MAX_LENGTH } from '../../models/recipe-revision.models';
 import { RecipeReviewService, RequestReviewOutcome, WatchReviewOutcome } from '../../services/recipe-review.service';
 import { AiUsageService } from '../../services/ai-usage.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
@@ -14,6 +25,46 @@ import { AiAllowanceNoticeComponent } from '../../shared/ai-allowance-notice/ai-
 import { allowanceBlocksNewRequests } from '../../shared/allowance-gate';
 import { AiAdvisoryResultsComponent } from './ai-advisory-results.component';
 import { AiStatusConnection } from './ai-operation-status.component';
+import { RecipeRevisionRequestComponent } from './recipe-revision-request.component';
+
+/** One finding as the fix request quotes it. */
+interface PickableFinding {
+  readonly targetId: string;
+  readonly summary: string;
+}
+
+/** What a set of picked findings becomes: the goal a revision is asked for, and how many would not fit in it. */
+export interface FindingsGoal {
+  readonly goal: string;
+  readonly included: number;
+  readonly leftOut: number;
+}
+
+const FIX_GOAL_OPENING = 'Fix these points a review of this recipe raised, and change nothing else:';
+
+/**
+ * The picked findings as one revision goal, each on its own line, in the order the review gave them.
+ *
+ * Bounded by the goal's own limit rather than cut mid-sentence: a finding that would not fit whole is left out and
+ * counted, so the creator can be told to ask for the rest separately. The goal is still the creator's request —
+ * they chose every line of it — and it reaches the model in the fenced preferences segment like any goal they type.
+ */
+export function goalFromFindings(
+  findings: readonly PickableFinding[],
+  maxLength = REVISION_GOAL_MAX_LENGTH,
+): FindingsGoal {
+  let goal = FIX_GOAL_OPENING;
+  let included = 0;
+
+  for (const finding of findings) {
+    const line = `\n- ${finding.summary.trim()}`;
+    if (goal.length + line.length > maxLength) break;
+    goal += line;
+    included += 1;
+  }
+
+  return { goal, included, leftOut: findings.length - included };
+}
 
 /** Asking for a review writes an operation, so it carries the same bar as editing the recipe by hand. */
 const REQUEST_ROLES: readonly WorkspaceRole[] = ['Contributor', 'Editor', 'Owner'];
@@ -44,7 +95,13 @@ const POLL_CEILING_MS = 5 * 60 * 1000;
 @Component({
   selector: 'cp-recipe-review-request',
   standalone: true,
-  imports: [AiAdvisoryResultsComponent, AiAllowanceNoticeComponent, CpButtonComponent, CpStatusPillComponent],
+  imports: [
+    AiAdvisoryResultsComponent,
+    AiAllowanceNoticeComponent,
+    CpButtonComponent,
+    CpStatusPillComponent,
+    RecipeRevisionRequestComponent,
+  ],
   templateUrl: './recipe-review-request.component.html',
   styleUrl: './recipe-review-request.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -65,6 +122,53 @@ export class RecipeReviewRequestComponent {
 
   /** The level of the heading this draws: 2 on the recipe page, 3 inside a guided step under the step's own heading. */
   readonly headingLevel = input<2 | 3>(2);
+
+  /**
+   * Let the creator pick findings and ask for changes that address them (13A.15, "Improve a recipe").
+   *
+   * Off on the recipe page, where the review stays pure advice. On, each finding gets a checkbox, and "Suggest
+   * changes for these" asks for a whole-recipe revision whose goal lists the picked findings. That revision is an
+   * ordinary one — its own request, its own proposal panel, every change ticked or not by the creator — so a
+   * finding never changes the recipe by being picked: only an accepted change does.
+   */
+  readonly offerFixes = input(false);
+
+  /** A suggested fix was kept or declined. Carries the proposal panel's reply. */
+  readonly fixDecided = output<unknown>();
+
+  private readonly fixRevision = viewChild(RecipeRevisionRequestComponent);
+
+  /** The fix request on screen, so a host listing waiting suggestions does not list it a second time. */
+  readonly fixRequestId = computed(() => this.fixRevision()?.requestId() ?? null);
+
+  private readonly pickedIds = signal<ReadonlySet<string>>(new Set());
+  readonly picked = this.pickedIds.asReadonly();
+
+  /** The goal the picked findings were turned into, once the creator asked. Null while they are still picking. */
+  private readonly fixGoalSignal = signal<FindingsGoal | null>(null);
+  readonly fixGoal = this.fixGoalSignal.asReadonly();
+
+  /** Every finding the review returned, in its order — one per `Add` row, as `cp-ai-advisory-results` groups them. */
+  readonly findings = computed<readonly PickableFinding[]>(() =>
+    (this.operation()?.proposal?.changes ?? [])
+      .filter((change) => change.changeKind === 'Add')
+      .map((change) => ({ targetId: change.targetId ?? change.changeId, summary: change.afterValue ?? '' }))
+      .filter((finding) => finding.summary.trim().length > 0),
+  );
+
+  readonly pickedFindings = computed(() => this.findings().filter((finding) => this.pickedIds().has(finding.targetId)));
+
+  /** Findings can be picked once the review has answered, until a fix has been asked for. */
+  readonly picking = computed(
+    () => this.offerFixes() && this.operation()?.status === 'Proposed' && this.findings().length > 0 && !this.fixGoal(),
+  );
+
+  readonly askFixLabel = computed(() => {
+    const count = this.pickedFindings().length;
+    return count === 0
+      ? 'Suggest changes for the findings you pick'
+      : `Suggest changes for ${count === 1 ? 'this finding' : `these ${count} findings`}`;
+  });
 
   private readonly reviews = inject(RecipeReviewService);
   private readonly memberships = inject(WorkspaceMembershipService);
@@ -223,7 +327,45 @@ export class RecipeReviewRequestComponent {
     this.refusalSignal.set(null);
     this.pendingRequestKey = null;
     this.consecutiveFailures.set(0);
+    this.pickedIds.set(new Set());
+    this.fixGoalSignal.set(null);
     this.decided.emit();
+  }
+
+  onFindingToggled(change: { readonly targetId: string; readonly checked: boolean }): void {
+    this.pickedIds.update((picked) => {
+      const next = new Set(picked);
+      if (change.checked) next.add(change.targetId);
+      else next.delete(change.targetId);
+      return next;
+    });
+  }
+
+  pickAll(): void {
+    this.pickedIds.set(new Set(this.findings().map((finding) => finding.targetId)));
+  }
+
+  clearPicks(): void {
+    this.pickedIds.set(new Set());
+  }
+
+  /**
+   * The creator's ask: turn the picked findings into a revision goal. The revision below sends it on arrival —
+   * this button was the ask — and shows what comes back in the proposal panel, change by change.
+   */
+  askForFixes(): void {
+    const picked = this.pickedFindings();
+    if (picked.length === 0 || this.fixGoal() !== null) return;
+    this.fixGoalSignal.set(goalFromFindings(picked));
+  }
+
+  /** Back to the findings, to pick again. The suggestion already asked for stays waiting until it is answered. */
+  pickAgain(): void {
+    this.fixGoalSignal.set(null);
+  }
+
+  onFixDecided(result: unknown): void {
+    this.fixDecided.emit(result);
   }
 
   /** Mirrors `AiProposalPanelComponent.pollLoop` — see that file's own remarks for why `expand` over a fixed interval. */

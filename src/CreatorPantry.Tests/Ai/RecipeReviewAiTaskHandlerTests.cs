@@ -103,6 +103,22 @@ public sealed class RecipeReviewAiTaskHandlerTests : IAsyncDisposable
         Assert.Equal(recipe.VersionId, proposal.SourceRecipeVersionId);
     }
 
+    /// <summary>
+    /// The schema the model is shown names the one <c>schemaVersion</c> the validator accepts. Without it the model
+    /// guessed "1", every live run spent its only correction on that, and a correctable mistake in the second
+    /// answer was then final.
+    /// </summary>
+    [Fact]
+    public async Task The_output_schema_pins_the_schema_version_the_validator_requires()
+    {
+        var recipe = await SeedRecipeAsync();
+        var client = FakeChatClient.Returning(Answer(OrdinaryFinding(recipe)));
+
+        await Run(client, recipe);
+
+        Assert.Contains($"\"const\": \"{Template.OutputSchemaVersion}\"", SystemMessage(client), StringComparison.Ordinal);
+    }
+
     /// <summary>Nothing in an advisory proposal can reach the recipe, the same guarantee AIREC-004 carries.</summary>
     [Fact]
     public async Task No_row_in_the_proposal_can_be_applied_to_a_recipe()

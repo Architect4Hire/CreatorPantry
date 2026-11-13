@@ -345,7 +345,13 @@ public static class AiOutputValidator
     {
         foreach (var change in document.Changes)
         {
-            if (AiRecipeSafetyClaimScanner.FirstAssurance(change.AfterValue) is { } assurance)
+            // A title is the name a recipe is published under, so it gets no allowance for a product's label.
+            var isTitle = change.TargetKind is AiChangeTargetKind.Recipe && change.FieldName == "title";
+            var found = isTitle
+                ? AiRecipeSafetyClaimScanner.FirstTitleAssurance(change.AfterValue)
+                : AiRecipeSafetyClaimScanner.FirstAssurance(change.AfterValue);
+
+            if (found is { } assurance)
             {
                 return Reject(
                     AiOutputReason.UnsupportedSafetyAssurance,

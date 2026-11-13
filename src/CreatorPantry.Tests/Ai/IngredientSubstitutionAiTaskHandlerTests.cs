@@ -111,6 +111,19 @@ public sealed class IngredientSubstitutionAiTaskHandlerTests : IAsyncDisposable
         Assert.Equal(recipe.VersionId, proposal.SourceRecipeVersionId);
     }
 
+    /// <summary>The schema the model is shown names the one <c>schemaVersion</c> the validator accepts.</summary>
+    [Fact]
+    public async Task The_output_schema_pins_the_schema_version_the_validator_requires()
+    {
+        var recipe = await SeedRecipeAsync();
+        var client = FakeChatClient.Returning(TwoAlternatives);
+
+        await Run(client, recipe);
+
+        var system = client.LastMessages!.Single(message => message.Role == ChatRole.System).Text;
+        Assert.Contains($"\"const\": \"{Template.OutputSchemaVersion}\"", system, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Nothing in an advisory proposal can reach the recipe: every row's target is one the applicability
     /// table does not cover and the recipe module's vocabulary cannot express.

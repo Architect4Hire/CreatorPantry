@@ -101,7 +101,7 @@ internal sealed class IngredientSubstitutionAiTaskHandler(
 
         var envelope = new PromptEnvelopeBuilder(context.WorkspaceId)
             .WithTask(template.Render(Bounds(position)))
-            .WithOutputSchema(AiSubstitutionOutputSchema.Json)
+            .WithOutputSchema(AiSubstitutionOutputSchema.Json, template.OutputSchemaVersion)
             .WithSource(context.WorkspaceId, JsonSerializer.Serialize(source))
             .WithPreferences(context.WorkspaceId, RenderReason(context.Inputs))
             .Build();

@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import {
+  CpButtonComponent,
+  CpCheckboxComponent,
   CpEmptyStateComponent,
   CpFactComponent,
   CpFactsComponent,
@@ -66,6 +68,8 @@ export interface AiAdvisoryItem {
   standalone: true,
   imports: [
     AiOperationStatusComponent,
+    CpButtonComponent,
+    CpCheckboxComponent,
     CpEmptyStateComponent,
     CpFactComponent,
     CpFactsComponent,
@@ -95,6 +99,29 @@ export class AiAdvisoryResultsComponent {
 
   /** Fields never shown — an internal id with nothing here to resolve it against, say. */
   readonly hiddenFields = input<ReadonlySet<string>>(new Set());
+
+  /**
+   * Offer a checkbox per item, so the host can act on the ones picked — a review's findings, handed on as the goal
+   * of a revision. Picking is the host's state: this only says what was ticked. Still nothing here changes the
+   * recipe; whatever the host does with a pick is a request of its own, reviewed in its own panel.
+   */
+  readonly selectable = input(false);
+
+  /** The items picked so far, by `targetId`. Read only while {@link selectable}. */
+  readonly selectedIds = input<ReadonlySet<string>>(new Set());
+
+  /** An item was ticked or unticked. */
+  readonly toggled = output<{ readonly targetId: string; readonly checked: boolean }>();
+
+  /**
+   * A button on each item, with these words — "Use this one" on a substitution's alternatives — or null for none.
+   * Pressing it only tells the host which item; whatever the host does is a request of its own, reviewed in its
+   * own panel before anything changes.
+   */
+  readonly itemActionLabel = input<string | null>(null);
+
+  /** The item whose button was pressed. */
+  readonly itemAction = output<AiAdvisoryItem>();
 
   readonly items = computed<readonly AiAdvisoryItem[]>(() => {
     const changes = this.operation()?.proposal?.changes ?? [];

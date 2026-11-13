@@ -68,16 +68,58 @@ public static partial class AiRecipeSafetyClaimScanner
         matchTimeoutMilliseconds: 250)]
     private static partial Regex HardAssurance();
 
+    /// <summary>A label word, ending right where a free-from term begins: "mustard labelled gluten-free".</summary>
+    [GeneratedRegex(
+        @"\b(?:labell?ed|certified|marked|sold|marketed|packaged)(?:\s+as)?\s+$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 250)]
+    private static partial Regex LabelBefore();
+
+    /// <summary>A label word straight after a free-from term: "gluten-free-labelled oats", "dairy-free certified".</summary>
+    [GeneratedRegex(
+        @"^[- ](?:labell?ed|certified)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 250)]
+    private static partial Regex LabelAfter();
+
+    /// <summary>
+    /// A statement about something being labelled, rather than a choice of what to buy: "this bread is certified" —
+    /// unless it is a relative clause about a product, "a mustard that is labelled".
+    /// </summary>
+    [GeneratedRegex(
+        @"(?<!\b(?:that|which)\s+)\b(?:is|are|was|were|be|been|being|it's|they're)\s+(?:(?:labell?ed|certified|marked|sold|marketed|packaged)(?:\s+as)?\s+)?$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 250)]
+    private static partial Regex StatedOfTheDish();
+
     /// <summary>
     /// The first claim in <paramref name="text"/> that may not appear in creator-facing content, or null.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Both tiers: an absence claim and an assurance. For a value that becomes part of a recipe, or prose a
     /// creator reads as a finding, an absence claim with nothing behind it is exactly the thing that must not
     /// arrive — "Gluten-Free Buttermilk Soda Bread" as a proposed title is the audit's blocker case.
+    /// </para>
+    /// <para>
+    /// <strong>One allowance: a product's label.</strong> "Use a mustard labelled gluten-free" tells the creator
+    /// what to buy, and the claim it repeats is the manufacturer's, on the packet, where a reader can check it — not
+    /// an assurance CreatorPantry makes about the dish. Without it a dietary adaptation could not say the one useful
+    /// thing it has to say, and live answers were refused for exactly this. The allowance is narrow: a label word
+    /// must qualify the term ("labelled", "certified", "sold as", or "gluten-free-labelled"), and it never covers
+    /// the dish itself ("this bread is certified gluten-free") or a title, which <see cref="FirstTitleAssurance"/>
+    /// reads with no allowance at all. A hard assurance is refused whatever surrounds it.
+    /// </para>
     /// </remarks>
     public static string? FirstAssurance(string? text) =>
-        FirstMatch(text, absenceCounts: true);
+        FirstMatch(text, absenceCounts: true, labelsAllowed: true);
+
+    /// <summary>
+    /// <see cref="FirstAssurance(string?)"/> with no allowance for a label: for a recipe's title, the name it is
+    /// published under, where "Certified Gluten-Free Soda Bread" is the audit's blocker in different words.
+    /// </summary>
+    public static string? FirstTitleAssurance(string? text) =>
+        FirstMatch(text, absenceCounts: true, labelsAllowed: false);
 
     /// <summary>The first claim across several pieces of text, in the order given.</summary>
     public static string? FirstAssurance(params string?[] texts)
@@ -103,28 +145,47 @@ public static partial class AiRecipeSafetyClaimScanner
     /// claim. "It cannot be made nut-free" passes; "safe for people with a nut allergy" does not.
     /// </remarks>
     public static string? FirstHardAssurance(string? text) =>
-        FirstMatch(text, absenceCounts: false);
+        FirstMatch(text, absenceCounts: false, labelsAllowed: false);
 
-    private static string? FirstMatch(string? text, bool absenceCounts)
+    private static string? FirstMatch(string? text, bool absenceCounts, bool labelsAllowed)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
             return null;
         }
 
-        if (absenceCounts && AbsenceClaim().Match(text) is { Success: true } absence)
+        if (absenceCounts)
         {
-            return absence.Value;
+            foreach (Match absence in AbsenceClaim().Matches(text))
+            {
+                if (labelsAllowed && NamesAProductLabel(text, absence))
+                {
+                    continue;
+                }
+
+                return absence.Value;
+            }
         }
 
         return HardAssurance().Match(text) is { Success: true } hard ? hard.Value : null;
+    }
+
+    /// <summary>Whether this free-from term is a label on something to buy, not a statement about the dish.</summary>
+    private static bool NamesAProductLabel(string text, Match absence)
+    {
+        var before = text[..absence.Index];
+        var after = text[(absence.Index + absence.Length)..];
+
+        var labelled = LabelBefore().IsMatch(before) || LabelAfter().IsMatch(after);
+        return labelled && !StatedOfTheDish().IsMatch(before);
     }
 
     /// <summary>The message a refusal carries, quoting the phrase so the audit record says which words.</summary>
     public static string Message(string assurance, string where) =>
         $"{where} carries \"{Excerpt(assurance)}\", which assures safety, absence or suitability. Nothing in "
             + "CreatorPantry can verify that, so it may not be proposed; state the consequence as an allergen "
-            + "or dietary effect with a safety caution instead.";
+            + "or dietary effect with a safety caution instead. To tell the creator what to buy, name the "
+            + "product's label rather than claiming it, as in \"mustard labelled gluten-free\" — never in a title.";
 
     private static string Excerpt(string phrase) =>
         phrase.Length <= 60 ? phrase : string.Concat(phrase.AsSpan(0, 57), "...");
