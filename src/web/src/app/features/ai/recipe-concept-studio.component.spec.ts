@@ -532,23 +532,13 @@ describe('RecipeConceptStudioComponent', () => {
 
   // ---- Cancellation ----
 
-  it('stops polling on "Stop checking" and resumes on "Check again"', fakeAsync(() => {
+  it('offers nothing to stop while it is asking: there is no route that cancels a request', fakeAsync(() => {
     render();
     service.statuses = [found({ status: 'Running' })];
     click('Get concepts');
 
-    const callsBeforeStop = service.watchCalls;
-    expect(element().textContent).toContain('keeps running');
-    click('Stop checking');
-
-    tick(10000);
-    fixture.detectChanges();
-    expect(service.watchCalls).toBe(callsBeforeStop);
-    expect(buttonWith('Check again')).toBeTruthy();
-
-    click('Check again');
-
-    expect(service.watchCalls).toBeGreaterThan(callsBeforeStop);
+    expect(element().textContent).not.toContain('Stop checking');
+    expect(element().querySelector('.studio-watch')).toBeNull();
     discardPeriodicTasks();
   }));
 

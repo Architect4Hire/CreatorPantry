@@ -317,16 +317,13 @@
         [connection]="connection()"
       />
 
-      <div class="studio-watch">
-        @if (isWatching() && state() === 'watching') {
-          <!-- "Stop checking", not "Cancel": there is no route that cancels generation. -->
-          <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
-          <span class="studio-watch-note">Your request keeps running; this page just stops asking about it.</span>
-        } @else if (canCheckAgain()) {
+      <!-- Only once the page has stopped asking on its own: while it asks, stopping would cancel nothing. -->
+      @if (!(isWatching() && state() === 'watching') && canCheckAgain()) {
+        <div class="studio-watch">
           <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
           <span class="studio-watch-note">This page has stopped checking on its own.</span>
-        }
-      </div>
+        </div>
+      }
 
       @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
         <div class="studio-recovery">

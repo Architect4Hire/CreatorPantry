@@ -169,6 +169,7 @@
                    titled after its goal, so the step it is on is what tells it from its siblings. -->
               <a
                 [routerLink]="link('workflows', 'runs', run.id)"
+                [state]="continueRunState(run.id)"
                 [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))"
                 >{{ runName(run) }}</a
               >
@@ -213,6 +214,7 @@
             <li>
               <a
                 [routerLink]="link('workflows', 'runs', run.id)"
+                [state]="continueRunState(run.id)"
                 [attr.aria-label]="runLinkLabel(run, when(run.updatedAt, 'day'))"
                 >{{ runName(run) }}</a
               >

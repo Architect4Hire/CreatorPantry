@@ -1302,6 +1302,18 @@ export class RecipeEditorComponent {
    * there is nothing to keep. A form that cannot be saved as it stands — no name yet, or archived — answers false
    * with the reason on screen, as a refused save does.
    */
+  /**
+   * Shows what the form still needs, as a save would — the field's own error beside it — and takes the creator to
+   * the first of it. For a host whose Continue found nothing to keep yet: an untouched new recipe has no save to
+   * attempt, so nothing else would say that it needs a name.
+   */
+  showWhatIsMissing(): void {
+    if (this.form.validator.canSubmit()) return;
+    this.form.validator.attempt();
+    this.saveStateSignal.set({ status: 'validation_failed' });
+    this.revealFirstFieldError();
+  }
+
   async flush(): Promise<boolean> {
     if (!this.isDirty()) return true;
     if (this.saveStateSignal().status === 'saving') return false;

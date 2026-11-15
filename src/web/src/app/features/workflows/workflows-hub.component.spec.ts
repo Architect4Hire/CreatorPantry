@@ -20,8 +20,15 @@ import {
 } from '../../services/content-pipeline-draft.service';
 import { LongFormDraftPageOutcome, LongFormDraftService } from '../../services/long-form-draft.service';
 import { WorkflowHubService, WorkflowRunListOutcome, WorkflowRunListView } from '../../services/workflow-hub.service';
-import { WorkflowRunRestartOutcome, WorkflowRunService } from '../../services/workflow-run.service';
+import {
+  WorkflowRunCommandOutcome,
+  WorkflowRunReadOutcome,
+  WorkflowRunRestartOutcome,
+  WorkflowRunService,
+} from '../../services/workflow-run.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { MyMembershipsState, WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { continueRunState } from '../../shared/workflow-shell/workflow-continue';
 import { LONG_FORM_DEFINITION_KEY, WorkflowsHubComponent } from './workflows-hub.component';
 
 @Component({ selector: 'cp-test-elsewhere', template: '<p>elsewhere</p>' })
@@ -110,6 +117,9 @@ let stored: Record<string, ContentPipelineDraft | null>;
 let unreadable: Set<string>;
 let start: jasmine.Spy<(slug: string, key: string, idempotencyKey: string) => Promise<WorkflowRunRestartOutcome>>;
 let loads: number;
+let getRun: jasmine.Spy<(slug: string, runId: string) => Promise<WorkflowRunReadOutcome>>;
+let abandon: jasmine.Spy<(slug: string, run: unknown, reason: string | null) => Promise<WorkflowRunCommandOutcome>>;
+let confirm: jasmine.Spy;
 let harness: RouterTestingHarness;
 let memberships: ReturnType<typeof signal<MyMembershipsState>>;
 
@@ -198,6 +208,15 @@ async function create(
     .createSpy('start')
     .and.resolveTo({ status: 'started', run: decodeWorkflowRun(wireRun({ id: 'run-new' }))! });
 
+  getRun = jasmine.createSpy('get').and.callFake(async (_slug: string, runId: string) => ({
+    status: 'found' as const,
+    run: decodeWorkflowRun(wireRun({ id: runId }))!,
+  }));
+  abandon = jasmine
+    .createSpy('abandon')
+    .and.resolveTo({ status: 'done', run: decodeWorkflowRun(wireRun({ status: 'Abandoned' }))! });
+  confirm = jasmine.createSpy('confirm').and.resolveTo(true);
+
   const role = options.role ?? 'Editor';
   memberships = signal<MyMembershipsState>(
     options.state ?? {
@@ -214,7 +233,8 @@ async function create(
         { path: '**', component: ElsewhereComponent },
       ]),
       { provide: WorkflowHubService, useValue: hubStore },
-      { provide: WorkflowRunService, useValue: { start } },
+      { provide: WorkflowRunService, useValue: { start, get: getRun, abandon } },
+      { provide: ConfirmService, useValue: { confirm } },
       { provide: ContentPipelineDraftService, useValue: draftStore },
       { provide: LongFormDraftService, useValue: longFormStore },
       {
@@ -672,6 +692,92 @@ describe('WorkflowsHubComponent', () => {
       control(root().querySelector('section.goals'), 'Clear search')!.click();
       await settle();
       expect(goals().length).toBe(6);
+    });
+  });
+
+  // ---- Stopping a run left behind, from its row ----
+
+  describe('stopping a run from its row', () => {
+    const TWO_RUNS = {
+      mine: {
+        items: [
+          summary('run-a', { nextStepTitle: 'Start your recipe', updatedAt: '2026-10-15T07:15:00Z' }),
+          summary('run-b', { nextStepTitle: 'Start your recipe', updatedAt: '2026-10-15T06:44:00Z' }),
+        ],
+        nextCursor: null,
+      },
+    };
+    const stopButtons = (): HTMLButtonElement[] =>
+      Array.from(card('Continue where you left off')?.querySelectorAll<HTMLButtonElement>('button') ?? []).filter(
+        (each) => each.textContent?.trim() === 'Stop',
+      );
+
+    it('continues a run with the Continue already answered, so its page opens on the step', async () => {
+      await create({ runs: TWO_RUNS });
+
+      control(card('Continue where you left off'), 'Continue')!.click();
+      await settle();
+
+      expect(TestBed.inject(Router).lastSuccessfulNavigation()?.extras.state).toEqual(continueRunState('run-a'));
+    });
+
+    it('offers Stop on each run, named for the run it stops', async () => {
+      await create({ runs: TWO_RUNS });
+
+      const names = stopButtons().map((each) => each.getAttribute('aria-label')!);
+      expect(names.length).toBe(2);
+      expect(new Set(names).size).toBe(2);
+      expect(names[0]).toMatch(/^Stop Create a recipe — Start your recipe, last saved /);
+    });
+
+    it('stops the run once confirmed, reading it first, and takes its row away', async () => {
+      await create({ runs: TWO_RUNS });
+
+      stopButtons()[0].click();
+      await settle();
+
+      expect(confirm).toHaveBeenCalledOnceWith(jasmine.objectContaining({ title: 'Stop this run?' }));
+      expect(getRun).toHaveBeenCalledOnceWith(SLUG, 'run-a');
+      expect(abandon).toHaveBeenCalledOnceWith(SLUG, jasmine.objectContaining({ id: 'run-a' }), null);
+      expect(rows('Continue where you left off').length).toBe(1);
+      expect(root().querySelector('.stopped-status')!.textContent).toContain('Stopped “Create a recipe”.');
+    });
+
+    it('changes nothing when the creator keeps it', async () => {
+      await create({ runs: TWO_RUNS });
+      confirm.and.resolveTo(false);
+
+      stopButtons()[0].click();
+      await settle();
+
+      expect(getRun).not.toHaveBeenCalled();
+      expect(abandon).not.toHaveBeenCalled();
+      expect(rows('Continue where you left off').length).toBe(2);
+    });
+
+    it('keeps the row and says why when the stop is refused', async () => {
+      await create({ runs: TWO_RUNS });
+      abandon.and.resolveTo({ status: 'forbidden' });
+
+      stopButtons()[0].click();
+      await settle();
+
+      expect(rows('Continue where you left off').length).toBe(2);
+      expect(card('Continue where you left off')!.querySelector('cp-notice[role="alert"]')?.textContent).toContain(
+        'or an Editor can stop this run',
+      );
+    });
+
+    it('offers no Stop to a Viewer, nor on work kept somewhere other than a run', async () => {
+      await create({
+        role: 'Viewer',
+        runs: TWO_RUNS,
+      });
+      expect(stopButtons().length).toBe(0);
+
+      await create({ longForm: [piece('lf-1', 'Writing', '2026-10-15T08:00:00Z')] });
+      expect(rows('Continue where you left off').length).toBe(1);
+      expect(stopButtons().length).toBe(0);
     });
   });
 

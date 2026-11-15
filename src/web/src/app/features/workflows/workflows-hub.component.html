@@ -6,6 +6,8 @@
 <div class="hub">
   <!-- Always present, and outside every busy region, so each part still on its way is said once (APP-003). -->
   <p class="cp-sr-only" role="status" aria-live="polite">{{ loadingWords() }}</p>
+  <!-- After a row's run is stopped its row is gone, so this says it once. Outside every section, which may go too. -->
+  <p class="cp-sr-only stopped-status" role="status">{{ stoppedWords() }}</p>
 
   @switch (phase()) {
     @case ('loading') {
@@ -91,17 +93,38 @@
                             <span class="cp-muted">Last saved {{ row.when }}</span>
                           }
                         </span>
-                        <a
-                          cpButton
-                          variant="secondary"
-                          size="sm"
-                          [routerLink]="row.link"
-                          [attr.aria-label]="row.actionLabel"
-                          >{{ row.action }}</a
-                        >
+                        <span class="cp-actions">
+                          <a
+                            cpButton
+                            variant="secondary"
+                            size="sm"
+                            [routerLink]="row.link"
+                            [state]="row.state"
+                            [attr.aria-label]="row.actionLabel"
+                            >{{ row.action }}</a
+                          >
+                          <!-- A run left behind can be stopped here, without opening it. Quiet, after Continue. -->
+                          @if (row.runId && !viewOnly()) {
+                            <button
+                              cpButton
+                              [busy]="stoppingRun() === row.runId"
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              [attr.aria-label]="row.stopLabel"
+                              [attr.aria-disabled]="stoppingRun() !== null || null"
+                              (click)="stopRun(row)"
+                            >
+                              {{ stoppingRun() === row.runId ? 'Stopping…' : 'Stop' }}
+                            </button>
+                          }
+                        </span>
                       </li>
                     }
                   </ul>
+                }
+                @if (stopProblem(); as problem) {
+                  <cp-notice tone="error" role="alert">{{ problem }}</cp-notice>
                 }
                 @if (moreProblem() === 'mine') {
                   <cp-notice tone="warning" role="status">
@@ -182,6 +205,7 @@
                           variant="secondary"
                           size="sm"
                           [routerLink]="row.link"
+                          [state]="row.state"
                           [attr.aria-label]="row.actionLabel"
                           >{{ row.action }}</a
                         >
@@ -384,6 +408,7 @@
                     variant="secondary"
                     size="sm"
                     [routerLink]="row.link"
+                    [state]="row.state"
                     [attr.aria-label]="row.actionLabel"
                     >{{ row.action }}</a
                   >

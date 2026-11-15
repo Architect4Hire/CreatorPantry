@@ -288,6 +288,24 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).toBeNull();
     });
 
+    it('says what Continue still needs at each stage, in the words on screen, and shows where', async () => {
+      const fixture = await start(startRun());
+      const need = () => port.registration()!.needs!();
+      expect(need()?.message).toBe('Pick how you want to start: write it yourself, or get help drafting it.');
+
+      await pick(fixture, 'write');
+      expect(need()?.message).toBe('Give your recipe a name, so it can be kept.');
+
+      // Nothing typed yet, so no save has said it: revealing marks the name field and takes the creator to it.
+      need()!.reveal!();
+      await settle(fixture);
+      expect(root(fixture).textContent).toContain('Give the recipe a name, so it can be kept.');
+      expect(root(fixture).querySelector('[aria-invalid="true"]')).not.toBeNull();
+
+      await pick(fixture, 'help');
+      expect(need()?.message).toBe('Get concepts, choose one, then select “Draft this recipe”.');
+    });
+
     it('writes a new recipe in the editor, points the run at it once made, and names it as the step’s result', async () => {
       recipes.createRecipe.and.resolveTo({
         status: 'created',
@@ -448,6 +466,8 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(port.registration()!.ready!()).toBeTrue();
       // Nothing left to choose: the step's own name and help head the card again.
       expect(port.registration()!.lead!()).toBeNull();
+      // And nothing left for Continue to ask for: there is a recipe.
+      expect(port.registration()!.needs!()).toBeNull();
     });
 
     it('is not ready to move on until there is a recipe, so its own screen holds the primary action', async () => {

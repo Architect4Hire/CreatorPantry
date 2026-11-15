@@ -404,33 +404,32 @@
               >
                 {{ busy() === 'save-exit' ? 'Saving…' : 'Save and exit' }}
               </button>
-            </div>
 
-            <!-- Collapsed until asked for: neither is part of doing the step. And only once something has happened,
-                 since there is nothing yet to start over or stop. -->
-            @if (hasProgress()) {
-              <details class="more cp-disclosure">
-                <summary>More options</summary>
-                <div class="cp-actions more-actions">
+              <!-- In the same row, not folded away behind another click — but at its far end, apart from the moves
+                   through the step, and quiet: each asks before it does anything. Start over only once something
+                   has happened, since until then it lands where the creator already is; Stop always, because a run
+                   exists from the moment it was started and is otherwise left in "Continue where you left off". -->
+              <span class="run-controls">
+                @if (hasProgress()) {
                   <button
                     cpButton
                     type="button"
-                    variant="text"
+                    variant="ghost"
                     [attr.aria-disabled]="busy() !== null || null"
                     (click)="startOver()"
                     >Start over</button
                   >
-                  <button
-                    cpButton
-                    type="button"
-                    variant="secondary"
-                    [attr.aria-disabled]="busy() !== null || null"
-                    (click)="askToStop()"
-                    >Stop this run</button
-                  >
-                </div>
-              </details>
-            }
+                }
+                <button
+                  cpButton
+                  type="button"
+                  variant="ghost"
+                  [attr.aria-disabled]="busy() !== null || null"
+                  (click)="askToStop()"
+                  >Stop this run</button
+                >
+              </span>
+            </div>
           }
         </div>
       </cp-topic-card>

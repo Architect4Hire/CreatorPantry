@@ -52,6 +52,7 @@ import {
   workflowRunLink,
   workflowRunQuery,
 } from '../../../shared/workflow-shell/workflow-return';
+import { continueRunState } from '../../../shared/workflow-shell/workflow-continue';
 import { WorkflowReturnNoticeComponent } from '../../../shared/workflow-shell/workflow-return-notice.component';
 import { BrandSetupSessionService } from '../../../services/brand-setup-session.service';
 import { WorkspaceMembershipService } from '../../../services/workspace-membership.service';
@@ -495,6 +496,11 @@ export class BrandSetupShellComponent {
       : ['/', this.workspaceSlug(), 'brand'];
   }
 
+  /** Going back to the run that sent the creator here carries on with it: it opens on its step. */
+  private exitExtras(): { state?: Record<string, string> } {
+    return this.workflowRun ? { state: continueRunState(this.workflowRun) } : {};
+  }
+
   private progressTextFor(index: number): string {
     return `Step ${index + 1} of ${TOTAL}`;
   }
@@ -733,13 +739,13 @@ export class BrandSetupShellComponent {
       return;
     }
     this.leaving = true;
-    const navigated = await this.router.navigate(this.exitLink());
+    const navigated = await this.router.navigate(this.exitLink(), this.exitExtras());
     if (!navigated) this.leaving = false;
   }
 
   /** Leaves and keeps whatever was saved. The route guard asks first when there are unsaved edits. */
   async cancel(): Promise<void> {
-    const navigated = await this.router.navigate(this.exitLink());
+    const navigated = await this.router.navigate(this.exitLink(), this.exitExtras());
     if (navigated) this.phase.set('cancelled');
   }
 

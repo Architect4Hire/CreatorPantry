@@ -877,14 +877,6 @@ export class RecipeFirstDraftReviewComponent {
     this.resumeToken.update((token) => token + 1);
   }
 
-  /**
-   * Stops this page from checking. It does **not** cancel the request — the API offers asking and reading and
-   * nothing else, so a button claiming to cancel generation would promise what the server cannot honour.
-   */
-  stopChecking(): void {
-    this.watching.set(false);
-  }
-
   onSectionActivated(item: CpAnchorNavItem): void {
     this.activeSection.set(item.targetId);
 

@@ -61,12 +61,12 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.more summary {
-  color: var(--cp-text-muted);
-}
-
-.more-actions {
-  margin-top: var(--cp-space-3);
+/* Start over and Stop: at the far end of the buttons' row, wrapping beneath them together when it is narrow. */
+.run-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+  margin-inline-start: auto;
 }
 
 /* What a finished run suggests next: one row per suggestion, its action after what it is and why. */

@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { CpButtonComponent, CpNoticeComponent } from '@creator-pantry/ui';
 
 import { WorkflowRunService } from '../../services/workflow-run.service';
+import { continueRunState } from './workflow-continue';
 import { workflowRunLink } from './workflow-return';
 
 /**
@@ -20,11 +21,13 @@ import { workflowRunLink } from './workflow-return';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (mode() === 'action') {
-      <a cpButton variant="primary" [routerLink]="link()">Go to {{ goal() ?? 'your guided journey' }}</a>
+      <a cpButton variant="primary" [routerLink]="link()" [state]="state()"
+        >Go to {{ goal() ?? 'your guided journey' }}</a
+      >
     } @else {
       <cp-notice role="note">
-        You came here from “{{ goal() ?? 'your guided journey' }}”. <a [routerLink]="link()">Carry on with it</a> when
-        you’re done here.
+        You came here from “{{ goal() ?? 'your guided journey' }}”.
+        <a [routerLink]="link()" [state]="state()">Carry on with it</a> when you’re done here.
       </cp-notice>
     }
   `,
@@ -39,6 +42,8 @@ export class WorkflowReturnNoticeComponent {
 
   protected readonly goal = signal<string | null>(null);
   protected readonly link = computed(() => workflowRunLink(this.workspaceSlug(), this.runId()));
+  /** Going back is carrying on: the run opens on its step, not on "Pick up where you left off". */
+  protected readonly state = computed(() => continueRunState(this.runId()));
 
   constructor() {
     effect(() => {

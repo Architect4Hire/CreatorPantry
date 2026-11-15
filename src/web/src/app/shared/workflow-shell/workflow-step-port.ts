@@ -11,6 +11,13 @@ export interface WorkflowStepLead {
   readonly hint: string | null;
 }
 
+/** What a step still needs before Continue can finish it, in the creator's words, and how to show them where. */
+export interface WorkflowStepNeed {
+  readonly message: string;
+  /** Takes the creator to what is missing — focuses it, and marks it where it can be marked. */
+  readonly reveal?: () => void;
+}
+
 /**
  * What a step's screen tells the shell about the work it holds. The screen owns that work — its form, its
  * validation, its own autosave into its own module's record — and the shell only asks the questions it needs to
@@ -58,6 +65,12 @@ export interface WorkflowStepRegistration {
    * the same. Null, or left out, keeps the step's name and help; the stepper always shows the step's name.
    */
   readonly lead?: Signal<WorkflowStepLead | null>;
+  /**
+   * What the step still plainly needs before it can be finished, read after the screen's work is kept. While it is
+   * set, Continue says it — and reveals it — instead of asking the server, whose answer would name the missing
+   * record rather than the thing to do. Null, or left out, means nothing the screen knows of.
+   */
+  readonly needs?: Signal<WorkflowStepNeed | null>;
 }
 
 /** What a step's template is handed: the run as it stands, the step it is for, and the workspace. */

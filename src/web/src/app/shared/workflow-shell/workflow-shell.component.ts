@@ -46,6 +46,7 @@ import {
   WorkflowRunService,
 } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { CONTINUE_RUN_STATE } from './workflow-continue';
 import { LONG_FORM_DEFINITION_KEY, longFormLink, longFormQuery } from './workflow-journeys';
 import { WorkflowStepFallbackComponent } from './workflow-step-fallback.component';
 import { WorkflowStepContext, WorkflowStepPort } from './workflow-step-port';
@@ -195,6 +196,23 @@ export class WorkflowShellComponent {
   readonly busy = signal<Command | null>(null);
   /** What still stands in the way of the move just asked for, said above the buttons it is about. */
   readonly blocked = signal<readonly string[]>([]);
+
+  /** The screen's need that {@link blocked} is saying, so it goes once the screen no longer has it. */
+  private shownNeed: string | null = null;
+
+  /**
+   * A need Continue said is stale the moment the creator has done it — an idea drafted, a name typed and kept —
+   * so it is taken down then, rather than left standing over a screen that has moved on until the next move.
+   */
+  private readonly clearMetNeed = effect(() => {
+    const message = this.port.registration()?.needs?.()?.message ?? null;
+    untracked(() => {
+      if (this.shownNeed !== null && message !== this.shownNeed) {
+        this.shownNeed = null;
+        this.blocked.set([]);
+      }
+    });
+  });
   readonly problem = signal<ActionProblem | null>(null);
   /** Said once, after a run was found changed elsewhere and read again. */
   readonly changedElsewhere = signal(false);
@@ -240,9 +258,9 @@ export class WorkflowShellComponent {
   readonly isFirst = computed(() => this.stepIndex() === 0);
 
   /**
-   * Whether there is anything to start over or stop: progress on the run, or work the step on screen holds. On a
-   * run nothing has happened on yet, Start over would land where the creator already is and Stop would end
-   * nothing, so "More options" is not offered.
+   * Whether there is anything to start over: progress on the run, or work the step on screen holds. On a run
+   * nothing has happened on yet, Start over would land where the creator already is, so it is not offered. Stop
+   * always is: the run exists from the moment it was started.
    */
   readonly hasProgress = computed(() => {
     const run = this.run();
@@ -605,18 +623,27 @@ export class WorkflowShellComponent {
 
   // ---- Internals ----
 
+  /** Whether the navigation that opened this run came from a Continue on it ({@link continueRunState}). */
+  private continueChosen(runId: string): boolean {
+    const navigation = this.router.currentNavigation() ?? this.router.lastSuccessfulNavigation();
+    return navigation?.extras.state?.[CONTINUE_RUN_STATE] === runId;
+  }
+
   private async load(
     slug: string,
     runId: string,
     options: { readonly arriving: boolean; readonly saying?: string },
   ): Promise<void> {
     const ticket = ++this.loadTicket;
+    // Read before the await: the navigation that brought the creator here, and whether it was a Continue.
+    const continueChosen = options.arriving && this.continueChosen(runId);
     if (options.arriving) {
       this.phase.set('loading');
       this.run.set(null);
       this.leaving = false;
       this.problem.set(null);
       this.blocked.set([]);
+      this.shownNeed = null;
       this.changedElsewhere.set(false);
       this.refusedAsReadOnly.set(false);
       // The page's head is the run's: never the last run's goal over this one while it loads.
@@ -649,7 +676,9 @@ export class WorkflowShellComponent {
     this.show(outcome.run);
 
     if (options.arriving) {
-      this.phase.set(phaseOnArrival(outcome.run));
+      // A creator who pressed Continue on this run has already answered "Pick up where you left off".
+      const phase = phaseOnArrival(outcome.run);
+      this.phase.set(phase === 'resumable' && continueChosen ? 'step' : phase);
       return;
     }
 
@@ -673,6 +702,7 @@ export class WorkflowShellComponent {
       this.busy.set(name);
       this.problem.set(null);
       this.blocked.set([]);
+      this.shownNeed = null;
       this.changedElsewhere.set(false);
 
       try {
@@ -681,6 +711,15 @@ export class WorkflowShellComponent {
             message: 'Your work on this step isn’t saved yet, so the run hasn’t moved. Try again in a moment.',
             retry: attempt,
           });
+          return;
+        }
+
+        // What the screen knows the step still needs is said in its words and shown where, not sent to be refused.
+        const need = name === 'continue' ? (this.port.registration()?.needs?.() ?? null) : null;
+        if (need) {
+          this.blocked.set([need.message]);
+          this.shownNeed = need.message;
+          need.reveal?.();
           return;
         }
 

@@ -20,7 +20,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeDraftService } from '../../../services/recipe-draft.service';
-import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
+import { WorkflowStepNeed, WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { RecipeConceptStudioComponent } from '../../ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from '../../ai/recipe-first-draft-review.component';
 import { RecipeStudioHost } from '../../ai/recipe-studio-host';
@@ -157,6 +157,39 @@ export class RecipeCreateStartStepComponent implements OnInit {
       : null,
   );
 
+  /**
+   * What Continue still needs on this step, by where it is, until there is a recipe — said in the words on screen
+   * and shown where, rather than left to the server, whose refusal names a missing record, not a thing to do.
+   */
+  private readonly needs = computed<WorkflowStepNeed | null>(() => {
+    if (this.recipeId() !== null) return null;
+    switch (this.stage().kind) {
+      case 'choose':
+        return this.ways().length > 1
+          ? {
+              message: 'Pick how you want to start: write it yourself, or get help drafting it.',
+              reveal: () => document.getElementById('recipe-start-write')?.focus(),
+            }
+          : null;
+      case 'write':
+        return {
+          message: 'Give your recipe a name, so it can be kept.',
+          reveal: () => this.editor()?.showWhatIsMissing(),
+        };
+      case 'ideas':
+        return {
+          message: 'Get concepts, choose one, then select “Draft this recipe”.',
+        };
+      case 'draft':
+        return {
+          message: 'Select “Create recipe from this draft” to make it your recipe.',
+          reveal: () => document.querySelector<HTMLElement>('.draft-accept')?.focus(),
+        };
+      default:
+        return null;
+    }
+  });
+
   protected readonly chosen = computed<readonly string[]>(() => {
     const kind = this.stage().kind;
     return kind === 'write' ? ['write'] : kind === 'ideas' ? ['help'] : [];
@@ -200,6 +233,7 @@ export class RecipeCreateStartStepComponent implements OnInit {
       // Nothing to move on with until there is a recipe: until then the screen's own action is the primary one.
       ready: computed(() => this.recipeId() !== null),
       lead: this.lead,
+      needs: this.needs,
     });
     inject(DestroyRef).onDestroy(unregister);
 

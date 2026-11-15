@@ -245,7 +245,7 @@ export class RecipeConceptStudioComponent {
   private readonly consecutiveFailures = signal(0);
   private readonly pollStopped = signal(false);
 
-  /** False once the creator stops checking. There is no cancel route — see {@link stopChecking}. */
+  /** Whether this page is asking after the request. Nothing offers to stop it: there is no cancel route. */
   private readonly watching = signal(true);
 
   /** Bumped to start a fresh poll loop over the same request. */
@@ -723,14 +723,6 @@ export class RecipeConceptStudioComponent {
     this.consecutiveFailures.set(0);
     this.watching.set(true);
     this.resumeToken.update((token) => token + 1);
-  }
-
-  /**
-   * Stops this page from checking. It does **not** cancel the request — the API offers asking and reading and
-   * nothing else, so a button claiming to cancel generation would promise what the server cannot honour.
-   */
-  stopChecking(): void {
-    this.watching.set(false);
   }
 
   // -------------------------------------------------------------------------
