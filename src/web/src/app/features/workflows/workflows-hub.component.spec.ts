@@ -299,6 +299,22 @@ describe('WorkflowsHubComponent', () => {
       ]);
     });
 
+    it('packs the goals in columns, so a card with a notice in it does not stretch its neighbours', async () => {
+      await create();
+
+      const list = root().querySelector('section.goals ul[aria-labelledby="hub-goals-heading"]')!;
+      expect(list.getAttribute('data-flow')).toBe('masonry');
+    });
+
+    it('gives the search the field measure, wide enough to show its whole placeholder', async () => {
+      await create();
+
+      const search = root().querySelector<HTMLElement>('section.goals .search')!;
+      const input = search.querySelector<HTMLInputElement>('input[type="search"]')!;
+      expect(input.getBoundingClientRect().width).toBeCloseTo(search.getBoundingClientRect().width, 0);
+      expect(input.scrollWidth).toBeLessThanOrEqual(input.clientWidth);
+    });
+
     it('never shows a workflow that is not built, or any word of how one is built', async () => {
       await create();
 
@@ -671,6 +687,10 @@ describe('WorkflowsHubComponent', () => {
       const busy = root().querySelector('.loading[aria-busy="true"]')!;
       expect(busy.querySelectorAll('cp-card cp-skeleton').length).toBe(4);
       expect(busy.textContent!.trim()).toBe('');
+      // Laid out as the goals will arrive, so nothing jumps when they land; work in progress stays a grid.
+      const [workPlace, goalPlace] = Array.from(busy.querySelectorAll('ul[cpCardGrid]'));
+      expect(workPlace.getAttribute('data-flow')).toBeNull();
+      expect(goalPlace.getAttribute('data-flow')).toBe('masonry');
       expect(root().querySelector('section.goals')).toBeNull();
     });
 

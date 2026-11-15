@@ -5,16 +5,9 @@
   >
     <cp-shell-nav-icon cpPageHeadIcon name="ai" />
   </cp-page-head>
-} @else {
-  @if (showsHostedIntro()) {
-    <!-- Hosted in the workflow, the step's card is the head: the sentence the page rests on is said here instead.
-         The studio's own flow says it in its page lede. -->
-    <p class="cp-muted"
-      >Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the
-      start of a draft.</p
-    >
-  }
 }
+<!-- Hosted in a workflow, the studio says nothing of its own above the brief: the choice that opened it ("Help me
+     draft it") has just said what it does. -->
 
 <!-- Always in the page, so the words are announced when they change: a live region created already holding its
      text may never be read. The skeletons below are aria-hidden, so this is the one thing said while they show. -->
@@ -65,29 +58,25 @@
     -->
     <cp-card class="brief-card">
       <form class="brief" (submit)="$event.preventDefault(); submit()">
-        <!-- Said once, at the top, rather than marking eleven fields "optional" one by one. -->
-        <p class="brief-legend">
-          Every field is optional — fill in as much or as little as you like.
-          @if (work().status === 'found') {
+        <!-- No legend: no field is marked, none is required, and the choice that opened the studio has already
+             said what it does. Said only when more than these fields goes with them: work the creator made. -->
+        @if (work().status === 'found') {
+          <p class="brief-legend">
             These fields are sent to the model, together with this work's themed day: its name, what you say it is
             about, its standing notes, and the titles of what you have already made for it.
-          } @else {
-            Nothing beyond these fields is sent to the model.
-          }
-        </p>
+          </p>
+        }
 
         <div class="brief-sections">
-          <cp-form-section heading="The dish" intro="What kind of recipe you're after.">
-            <cp-field
-              label="Recipe name"
-              forId="concept-dish-name"
-              hint="If you already know what it is. Every concept will be a different take on it, not a different dish."
-              [error]="fieldError('dishName')"
-            >
+          <!-- No section intros and, but for one, no field hints: each heading and label says it, and a placeholder
+               shows the kind of answer. Dietary goals keeps its hint, which is a caution, not an example. -->
+          <cp-form-section heading="The dish">
+            <cp-field label="Recipe name" forId="concept-dish-name" [error]="fieldError('dishName')">
               <input
                 id="concept-dish-name"
                 type="text"
                 name="dishName"
+                placeholder="e.g. Banana bread, or leave it open"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="dishName()"
                 (ngModelChange)="dishName.set($event)"
@@ -100,6 +89,7 @@
                 id="concept-course"
                 type="text"
                 name="course"
+                placeholder="e.g. Dessert"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="course()"
                 (ngModelChange)="course.set($event)"
@@ -112,6 +102,7 @@
                 id="concept-cuisine"
                 type="text"
                 name="cuisine"
+                placeholder="e.g. Mexican"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="cuisine()"
                 (ngModelChange)="cuisine.set($event)"
@@ -124,6 +115,7 @@
                 id="concept-season"
                 type="text"
                 name="season"
+                placeholder="e.g. Autumn"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="season()"
                 (ngModelChange)="season.set($event)"
@@ -132,12 +124,13 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section heading="Who it's for" intro="Who's cooking it, and what they have to work with.">
+          <cp-form-section heading="Who it's for">
             <cp-field label="Audience" forId="concept-audience" [error]="fieldError('audience')">
               <input
                 id="concept-audience"
                 type="text"
                 name="audience"
+                placeholder="e.g. Busy parents"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="audience()"
                 (ngModelChange)="audience.set($event)"
@@ -150,6 +143,7 @@
                 id="concept-skill"
                 type="text"
                 name="skill"
+                placeholder="e.g. Beginner"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="skill()"
                 (ngModelChange)="skill.set($event)"
@@ -162,6 +156,7 @@
                 id="concept-time-budget"
                 type="text"
                 name="timeBudget"
+                placeholder="e.g. Under 30 minutes"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="timeBudget()"
                 (ngModelChange)="timeBudget.set($event)"
@@ -170,10 +165,8 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section
-            heading="Ingredients and limits"
-            intro="What's on hand, and what to leave out. Separate items with commas."
-          >
+          <!-- The comma-separated placeholders show the format the old intro spelled out. -->
+          <cp-form-section heading="Ingredients and limits">
             <cp-field
               label="Available ingredients"
               forId="concept-available-ingredients"
@@ -182,6 +175,7 @@
               <textarea
                 id="concept-available-ingredients"
                 name="availableIngredients"
+                placeholder="e.g. Chickpeas, spinach, lemons"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="availableIngredients()"
@@ -194,6 +188,7 @@
               <textarea
                 id="concept-exclusions"
                 name="exclusions"
+                placeholder="e.g. Pork, coriander"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="exclusions()"
@@ -211,6 +206,7 @@
               <textarea
                 id="concept-dietary-goals"
                 name="dietaryGoals"
+                placeholder="e.g. Vegetarian, high protein"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="dietaryGoals()"
@@ -223,6 +219,7 @@
               <textarea
                 id="concept-equipment"
                 name="equipment"
+                placeholder="e.g. Air fryer, one sheet pan"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="equipment()"
@@ -232,17 +229,13 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section heading="Your voice" intro="How the pitches should read once they come back.">
-            <cp-field
-              label="Creator style"
-              forId="concept-creator-style"
-              hint="How this should sound in your voice."
-              [error]="fieldError('creatorStyle')"
-            >
+          <cp-form-section heading="Your voice">
+            <cp-field label="Creator style" forId="concept-creator-style" [error]="fieldError('creatorStyle')">
               <input
                 id="concept-creator-style"
                 type="text"
                 name="creatorStyle"
+                placeholder="e.g. Warm and chatty, with kitchen shortcuts"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="creatorStyle()"
                 (ngModelChange)="creatorStyle.set($event)"

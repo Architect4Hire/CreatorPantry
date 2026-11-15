@@ -129,7 +129,8 @@ topics that are each as long as they need to be, where it strands a short card i
 list out in as many columns as fit and lets each card end where it ends. It is columns, so the eye reads down
 one before it reads across, while the DOM order — which the Tab key and a screen reader follow — is unchanged.
 Use it where the cards are independent of one another and their order is a ranking rather than a sequence read
-in turn: the dashboard's topics are the one place today. A library of cards stays a grid, because a creator
+in turn: the dashboard's topics, and the Workflows hub's goals — a catalogue of things to start, where one card
+carrying a notice would otherwise stretch its whole row. A library of cards stays a grid, because a creator
 scanning a shelf of pictures reads along the rows.
 
 ### A board: a library in columns
@@ -303,17 +304,17 @@ A flow takes the creator through a piece of work in order, keeping what they ent
 2. A polite live region that is always in the DOM, for what a step change or a save just did.
 3. Beside each other where there is room, stacked where there is not: the progress, and the step.
    - **The progress** is the flow's own `cp-progress` (`tone="tool"`) over a `cp-stepper` in the flow's own `<nav>`. The stepper says where the creator is; it is not how they move. A flow may fold the stepper into a disclosure at a narrow width ("Step 2 of 4: all steps"), as Brand setup and a workflow run do; `injectFlowNarrow()` (`src/app/shared/workflow-shell/flow-narrow.ts`) is the run's width.
-   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. It holds the help disclosure, the legend, the step's `CpFormSectionComponent` sections, then a footer ruled off from them, as a workflow run's is: what the step still needs, the save status where the flow keeps one, Back and Continue in the first row, Save and exit (`ghost`) in the second, and anything that throws work away — Start over, Start a new piece — folded under "More options". When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
+   - **The step** is one `cp-topic-card`, `wide`, headed by the step's name. In a workflow run, a screen that opens on one question hands the shell that question as its `lead` (`WorkflowStepPort`), and while it asks, the question and its one line head the card in place of the step's name and help — said once, not under a heading that says the same; the stepper keeps the step's name. It holds the help (shown as a line under the heading in a workflow run; a disclosure in the other flows), the legend, the step's `CpFormSectionComponent` sections, then a footer ruled off from them, as a workflow run's is: what the step still needs, the save status where the flow keeps one, Back, Skip for now and Continue in one row with Save and exit (`ghost`) last in it (a workflow run; the Content Pipeline, Long-form and Brand setup still put Save and exit in a second row), and anything that throws work away — Start over, Start a new piece — folded under "More options". When the step changes, focus goes to the card's heading (`headingId`, or `focusHeading()`), so the new step is announced and reading starts at its top.
    - **Continue is never disabled** in a workflow run, the Content Pipeline or Long-form. It is `primary` when the step is ready and `secondary` with `aria-disabled="true"` when it is not; pressed early it stays put, keeps its focus and announces what the step still needs. A disabled button would drop focus and say nothing.
    - **Loading is drawn, not said.** The flow's own loading state is the frame in `cp-skeleton`s — a line and a block where the steps go, a card of lines and a block where the step goes — `aria-busy`, under one always-present status sentence. A step's own reads do the same, and where a step can start with nothing yet made (the looks, a plan) it is an illustrated first-use `cp-empty-state` with the one action that makes it.
-4. **The legend is the shell's.** One sentence per step about what is optional, printed by the shell above the step's sections from the step's own definition, so no step can forget it and none marks a field optional.
+4. **The legend is the shell's.** One sentence about what is optional, printed by the shell above the step's sections from the step's own definition, so no step can forget it and none marks a field optional. It states the exception, as any legend does: in the Workflows shell most steps are required, so only an optional step has one, and a required step says so only when the creator asks to skip it.
 5. **What stands in the way is said above the buttons it is about** — "Pick an idea to carry on" — not after them.
 6. Before the first step and after the last, a topic card of its own: "Pick up where you left off" with Continue and Start over, `featured` because it is the only thing on the page; "Setup finished." with the stepper as a summary. Each takes focus on its heading when it replaces the step.
 7. A flow keeps its steps, their order, what is saved as the creator goes and how it resumes. The shape changes what is drawn, never when something is written.
 
 **A guided workflow run is drawn by the shared shell, not by its journey.** `WorkflowShellComponent`
 (`src/app/shared/workflow-shell/`) is this shape for a server-side workflow run (13A): the progress and stepper, the
-step card with its help and legend, the save status, Back / Skip for now / Continue (or Finish), Save and exit, and
+step card with its help (or its screen's question) and legend, the save status, Back / Skip for now / Continue (or Finish), Save and exit, and
 Start over and Stop this run folded under "More options". It reads the run and moves it only by the run's own
 commands, so the server's current step is the one on screen and there is no step in the address. A journey gives it
 a screen per step as `<ng-template cpWorkflowStep="key">` and talks to it only through `WorkflowStepPort` —
@@ -746,7 +747,9 @@ there is that component's business and is left alone, which is why the measure r
 
 Optionality is stated once, in a legend above the sections, never field by field: marking one optional field
 among a dozen unmarked ones makes the rest read as required. Which way round the legend runs depends on the
-form — the recipe editor marks its three required fields, the AI brief says every field is optional.
+form — the recipe editor marks its three required fields. A form where nothing is required and nothing is marked
+needs no legend at all: the AI brief has none, because "every field is optional" only restated what the empty,
+unmarked fields already show.
 
 A form inside a multi-step flow puts that legend in the _shell_ rather than in each step, with its text on the
 step's own definition: one implementation, and no step can forget it. `BrandSetupShellComponent` does this —

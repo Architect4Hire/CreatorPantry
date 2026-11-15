@@ -249,21 +249,20 @@
 
       <!-- One card for the step, headed by its name. Wide: a step's screen keeps its own measure. Its heading
            takes focus when the step changes. With every step done, the same card finishes the run. -->
-      <cp-topic-card
-        #stepCard
-        [heading]="step()?.title ?? 'Every step is done'"
-        headingId="cp-workflow-step-heading"
-        wide
-      >
+      <cp-topic-card #stepCard [heading]="cardHeading()" headingId="cp-workflow-step-heading" wide>
         @if (step(); as here) {
-          <details class="help cp-disclosure">
-            <summary>Need help with this step?</summary>
-            <p class="cp-muted">{{ here.help }}</p>
-          </details>
+          <!-- What the step is for, shown under its name rather than folded away: every step's help is a sentence
+               or two, too short to be worth a click to read. While the screen asks a question, the question heads
+               the card and its own line stands here instead. -->
+          @if (hint(); as line) {
+            <p class="hint">{{ line }}</p>
+          }
 
           <!-- Said once, above the step's screen, from the step's own definition: no screen can forget it, and no
-               screen marks a field optional. -->
-          <p class="legend cp-muted">{{ legend() }}</p>
+               screen marks a field optional. Only an optional step has one; required is the default. -->
+          @if (legend(); as optional) {
+            <p class="legend cp-muted">{{ optional }}</p>
+          }
 
           @for (warning of current.warnings; track warning.code + warning.message) {
             <cp-notice tone="warning" role="note">{{ warning.message }}</cp-notice>
@@ -394,9 +393,7 @@
                   {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
                 </button>
               }
-            </div>
-
-            <div class="cp-actions secondary-row">
+              <!-- On the same row, last and quiet: leaving is an action beside moving on, not a second footer. -->
               <button
                 cpButton
                 [busy]="busy() === 'save-exit'"
@@ -409,28 +406,31 @@
               </button>
             </div>
 
-            <!-- Collapsed until asked for: neither is part of doing the step. -->
-            <details class="more cp-disclosure">
-              <summary>More options</summary>
-              <div class="cp-actions more-actions">
-                <button
-                  cpButton
-                  type="button"
-                  variant="text"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="startOver()"
-                  >Start over</button
-                >
-                <button
-                  cpButton
-                  type="button"
-                  variant="secondary"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="askToStop()"
-                  >Stop this run</button
-                >
-              </div>
-            </details>
+            <!-- Collapsed until asked for: neither is part of doing the step. And only once something has happened,
+                 since there is nothing yet to start over or stop. -->
+            @if (hasProgress()) {
+              <details class="more cp-disclosure">
+                <summary>More options</summary>
+                <div class="cp-actions more-actions">
+                  <button
+                    cpButton
+                    type="button"
+                    variant="text"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="startOver()"
+                    >Start over</button
+                  >
+                  <button
+                    cpButton
+                    type="button"
+                    variant="secondary"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="askToStop()"
+                    >Stop this run</button
+                  >
+                </div>
+              </details>
+            }
           }
         </div>
       </cp-topic-card>

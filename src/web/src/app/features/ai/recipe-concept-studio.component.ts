@@ -521,8 +521,6 @@ export class RecipeConceptStudioComponent {
     return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
   });
 
-  /** The workflow's sentence above the brief; the studio's own flow says it in its page lede instead. */
-  protected readonly showsHostedIntro = computed(() => this.host?.part() === 'both');
   /** Whether the brief shows: everywhere but the concepts step of the studio's own flow. */
   protected readonly showsBrief = computed(() => (this.host?.part() ?? 'both') !== 'concepts');
   /** Whether what came back shows: everywhere but the brief step of the studio's own flow. */

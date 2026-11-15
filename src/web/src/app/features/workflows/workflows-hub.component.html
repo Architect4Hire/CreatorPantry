@@ -16,7 +16,7 @@
             ><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card
           ></li>
         </ul>
-        <ul cpCardGrid minColumn="18rem">
+        <ul cpCardGrid flow="masonry" minColumn="18rem">
           @for (place of goalPlaces; track place) {
             <li
               ><cp-card><cp-skeleton shape="line" [count]="4" /></cp-card
@@ -279,7 +279,10 @@
             >
           </cp-empty-state>
         } @else {
-          <ul cpCardGrid minColumn="18rem" aria-labelledby="hub-goals-heading">
+          <!-- Masonry, not a grid: a card carrying a role note, a missing need or a start problem is far taller
+               than the rest, and a row as tall as it leaves its neighbours standing in a gap. The goals are a
+               catalogue rather than steps read in turn, and the DOM order the Tab key follows is unchanged. -->
+          <ul cpCardGrid flow="masonry" minColumn="18rem" aria-labelledby="hub-goals-heading">
             @for (card of shownGoals(); track card.id) {
               <li>
                 <cp-topic-card [heading]="card.goal" [headingLevel]="3" [headingId]="'hub-goal-' + card.id">

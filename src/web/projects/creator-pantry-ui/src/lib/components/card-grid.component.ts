@@ -20,7 +20,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
  * columns pack. It is columns, so the eye reads down a column and then across; the DOM order is unchanged,
  * which is what a screen reader and the Tab key follow, so the order of the list is still the order it was
  * written in. Use it where the cards are independent of one another and their order is a ranking rather than
- * a sequence to be read in turn — the dashboard's topics. A library of cards stays a grid.
+ * a sequence to be read in turn — the dashboard's topics, the Workflows hub's goals. A library of cards stays a
+ * grid.
  */
 @Component({
   selector: 'ul[cpCardGrid]',

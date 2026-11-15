@@ -5,6 +5,12 @@ import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun } from '../../
 /** How the shell keeps a step's draft pointer on the run: the shell's, because the run and its token are. */
 export type WorkflowDraftKeeper = (draft: WorkflowResourcePointer) => Promise<boolean>;
 
+/** What heads the step's card while its screen asks one question: the question, and a line under it. */
+export interface WorkflowStepLead {
+  readonly heading: string;
+  readonly hint: string | null;
+}
+
 /**
  * What a step's screen tells the shell about the work it holds. The screen owns that work — its form, its
  * validation, its own autosave into its own module's record — and the shell only asks the questions it needs to
@@ -46,6 +52,12 @@ export interface WorkflowStepRegistration {
    * the server still decides whether the step is done.
    */
   readonly ready?: Signal<boolean>;
+  /**
+   * The question the screen is asking, to head the step's card in place of the step's name and help while it
+   * asks — so a step that opens on one question says it once, rather than under a heading and a hint that say
+   * the same. Null, or left out, keeps the step's name and help; the stepper always shows the step's name.
+   */
+  readonly lead?: Signal<WorkflowStepLead | null>;
 }
 
 /** What a step's template is handed: the run as it stands, the step it is for, and the workspace. */

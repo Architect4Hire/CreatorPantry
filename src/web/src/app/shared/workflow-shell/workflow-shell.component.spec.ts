@@ -14,7 +14,7 @@ import {
   WorkflowShellComponent,
   WorkflowShellDescription,
 } from './workflow-shell.component';
-import { WorkflowStepPort } from './workflow-step-port';
+import { WorkflowStepLead, WorkflowStepPort } from './workflow-step-port';
 import { WorkflowStepDirective } from './workflow-step.directive';
 
 const SLUG = 'sams-kitchen';
@@ -28,6 +28,7 @@ const screen = {
   capabilityKey: signal<string | null>(null),
   results: signal<readonly WorkflowResourcePointer[]>([]),
   ready: signal(true),
+  lead: signal<WorkflowStepLead | null>(null),
   flushResult: true,
   flushes: 0,
   /** What the screen does on the shell's own timer, which must never ask the creator anything. */
@@ -62,6 +63,7 @@ class TestStepScreenComponent {
       capabilityKey: screen.capabilityKey,
       results: screen.results,
       ready: screen.ready,
+      lead: screen.lead,
       flush: async () => {
         screen.flushes++;
         await screen.onFlush?.(port);
@@ -233,6 +235,7 @@ describe('WorkflowShellComponent', () => {
     screen.offersAutosave = true;
     screen.onFlush = null;
     screen.ready.set(true);
+    screen.lead.set(null);
     screenPort = null;
     role = 'Owner';
     mediaMatches = {};
@@ -419,6 +422,15 @@ describe('WorkflowShellComponent', () => {
     expect(notice!.compareDocumentPosition(primary!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('keeps Back, Continue and Save and exit in one row, Save and exit last', async () => {
+    await onIngredients();
+
+    const row = el().querySelector('.footer .primary-row')!;
+    const labels = Array.from(row.querySelectorAll('button')).map((each) => each.textContent!.trim());
+    expect(labels).toEqual(['Back', 'Continue', 'Save and exit']);
+    expect(el().querySelector('.secondary-row')).toBeNull();
+  });
+
   it('goes Back, and offers no Back on the first step', async () => {
     await create(fresh());
     expect(button('Back')).toBeNull();
@@ -444,6 +456,54 @@ describe('WorkflowShellComponent', () => {
 
     expect(service.skip).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'photo');
     expect(text()).toContain('Every step is done');
+  });
+
+  it('says what the step is for as a hint under its name, not behind a disclosure', async () => {
+    await create(onPhoto());
+    await click('Continue');
+
+    const hint = el().querySelector('p.hint')!;
+    expect(hint.textContent!.trim()).toBe('A picture helps.');
+    expect(hint.nextElementSibling?.classList).toContain('legend');
+    expect(el().querySelector('details.help')).toBeNull();
+    expect(text()).not.toContain('Need help with this step?');
+  });
+
+  it('heads the card with the question the screen is asking, and goes back to the step when it stops', async () => {
+    await onIngredients();
+    const heading = () => el().querySelector('#cp-workflow-step-heading')!.textContent!.trim();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('List what goes in.');
+
+    screen.lead.set({ heading: 'What goes in first?', hint: 'You can change it later.' });
+    await settle();
+    expect(heading()).toBe('What goes in first?');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('You can change it later.');
+    expect(text()).not.toContain('List what goes in.');
+    // The stepper keeps the step's own name: it says where the creator is, not what is being asked.
+    expect(el().querySelector('cp-stepper')!.textContent).toContain('Ingredients');
+
+    screen.lead.set({ heading: 'What goes in first?', hint: null });
+    await settle();
+    expect(el().querySelector('p.hint')).toBeNull();
+
+    screen.lead.set(null);
+    await settle();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('List what goes in.');
+  });
+
+  it('says a step is optional', async () => {
+    await create(onPhoto());
+    await click('Continue');
+    expect(el().querySelector('.legend')!.textContent!.trim()).toBe('Optional. Skip it if you don’t need it.');
+  });
+
+  it('says nothing of a required step, which is the default', async () => {
+    await create(fresh());
+    expect(text()).toContain('Start your recipe');
+    expect(el().querySelector('.legend')).toBeNull();
+    expect(text()).not.toContain('needed to finish');
   });
 
   it('shows a step with no screen of its own as links to where it is done', async () => {
@@ -756,6 +816,31 @@ describe('WorkflowShellComponent', () => {
     service.restart.and.resolveTo({ status: 'started', run: run({ id: 'run-2' }) });
     await click('Retry');
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
+  });
+
+  it('offers no More options on a run nothing has happened on yet', async () => {
+    await create(fresh());
+
+    expect(text()).toContain('Start your recipe');
+    expect(el().querySelector('details.more')).toBeNull();
+    expect(button('Start over')).toBeNull();
+    expect(button('Stop this run')).toBeNull();
+  });
+
+  it('offers More options as soon as the step on screen holds work, before any step is done', async () => {
+    // Nothing done yet, on the step this host has a screen for.
+    await create(
+      run({
+        completedStepCount: 0,
+        steps: STEPS.map((step) => ({ ...step, status: 'NotStarted', completedAt: null })),
+      }),
+    );
+    expect(el().querySelector('.test-screen')).not.toBeNull();
+    expect(el().querySelector('details.more')).toBeNull();
+
+    screen.unsaved.set(true);
+    await settle();
+    expect(el().querySelector('details.more')).not.toBeNull();
   });
 
   it('keeps Start over and Stop behind More options, collapsed', async () => {

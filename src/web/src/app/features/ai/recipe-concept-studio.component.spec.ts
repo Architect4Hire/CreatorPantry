@@ -650,12 +650,28 @@ describe('RecipeConceptStudioComponent', () => {
     expect(fixture.componentInstance.conceptsListState()).toBe('error');
     expect(element().querySelector('cp-list-shell')?.textContent).toContain("didn't finish");
   }));
-  it('reads as a form: one card, a legend, and named sections of stacked fields', fakeAsync(() => {
+  it('reads as a form: one card and named sections of stacked fields, with no legend to repeat', fakeAsync(() => {
     render();
 
     const card = element().querySelector('cp-card')!;
     expect(card).not.toBeNull();
-    expect(card.querySelector('.brief-legend')?.textContent).toContain('Every field is optional');
+    // Nothing is marked and nothing is required, so there is no "Every field is optional" sentence to read first;
+    // and with no work opened, nothing but the fields is sent, so there is nothing else to say.
+    expect(card.querySelector('.brief-legend')).toBeNull();
+    expect(card.textContent).not.toContain('Every field is optional');
+
+    // Each field shows the kind of answer as an example, rather than a section intro and a hint saying it.
+    const controls = Array.from(card.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea'));
+    expect(controls.length).toBe(12);
+    for (const control of controls) {
+      expect(control.placeholder)
+        .withContext(control.name)
+        .toMatch(/^e\.g\. /);
+    }
+    expect(card.textContent).not.toContain('What kind of recipe you');
+    expect(card.textContent).not.toContain('different take on it');
+    // The one hint kept is a caution, not an example: nothing that comes back is a dietary guarantee.
+    expect(card.textContent).toContain('Nothing that comes back is a guarantee about a diet.');
 
     const sections = Array.from(card.querySelectorAll('cp-form-section'));
     expect(sections.length).toBe(4);

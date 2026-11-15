@@ -239,6 +239,18 @@ export class WorkflowShellComponent {
 
   readonly isFirst = computed(() => this.stepIndex() === 0);
 
+  /**
+   * Whether there is anything to start over or stop: progress on the run, or work the step on screen holds. On a
+   * run nothing has happened on yet, Start over would land where the creator already is and Stop would end
+   * nothing, so "More options" is not offered.
+   */
+  readonly hasProgress = computed(() => {
+    const run = this.run();
+    if (!run) return false;
+    const screen = this.port.registration();
+    return hasProgress(run) || (screen?.draft?.() ?? null) !== null || (screen?.unsaved() ?? false);
+  });
+
   readonly stepperSteps = computed<readonly CpStep[]>(() => {
     const run = this.run();
     const key = this.run()?.nextAction?.stepKey ?? null;
@@ -266,10 +278,24 @@ export class WorkflowShellComponent {
       : `${this.done()} of ${run.stepCount} steps done`;
   });
 
+  /** The screen's own question while it asks one, heading the card in place of the step's name and help. */
+  private readonly lead = computed(() => (this.step() ? (this.port.registration()?.lead?.() ?? null) : null));
+
+  /** What heads the step's card: the screen's question, the step's name, or the end of the run. */
+  readonly cardHeading = computed(() => this.lead()?.heading ?? this.step()?.title ?? 'Every step is done');
+
+  /** The line under the heading: the question's own line while there is one, otherwise the step's help. */
+  readonly hint = computed(() => {
+    const lead = this.lead();
+    return lead ? lead.hint : (this.step()?.help ?? null);
+  });
+
+  /**
+   * Said only of the exception. Most steps are required, so saying so on each one was noise; an optional step
+   * says so, and a required one offers no Skip — and says why if the creator asks to skip it anyway.
+   */
   readonly legend = computed(() =>
-    this.step()?.requirement === 'Optional'
-      ? 'This step is optional. Skip it if it isn’t useful to you.'
-      : 'This step is needed to finish.',
+    this.step()?.requirement === 'Optional' ? 'Optional. Skip it if you don’t need it.' : null,
   );
 
   /** The journey's screen for the current step, or null for the shell's own fallback. */
@@ -861,11 +887,16 @@ export class WorkflowShellComponent {
 function phaseOnArrival(run: WorkflowRun): WorkflowShellPhase {
   if (run.status === 'Completed') return 'completed';
   if (run.status === 'Abandoned') return 'abandoned';
-  const started =
+  return hasProgress(run) ? 'resumable' : 'step';
+}
+
+/** Whether anything has happened on the run yet: a step done or skipped, work kept on a step, or a saved exit. */
+function hasProgress(run: WorkflowRun): boolean {
+  return (
     run.completedStepCount + run.skippedStepCount > 0 ||
     run.steps.some((step) => step.draft !== null || step.status === 'InProgress') ||
-    run.lastRoute !== null;
-  return started ? 'resumable' : 'step';
+    run.lastRoute !== null
+  );
 }
 
 function matches(query: string): boolean {

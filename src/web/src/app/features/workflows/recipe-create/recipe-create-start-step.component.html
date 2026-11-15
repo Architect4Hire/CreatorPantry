@@ -1,19 +1,15 @@
 <div class="start">
   @if (choosing()) {
     @if (ways().length > 1) {
-      <cp-form-section
-        sectionId="recipe-start-way"
-        heading="How do you want to start?"
-        intro="You can change your mind until you’ve saved something."
-      >
-        <cp-choice-group
-          label="How do you want to start?"
-          idPrefix="recipe-start-"
-          [options]="ways()"
-          [value]="chosen()"
-          (valueChange)="choose($event)"
-        />
-      </cp-form-section>
+      <!-- The question heads the step's card (the screen's lead), so the choices follow it with no heading of
+           their own; the group is still named by it for a screen reader. -->
+      <cp-choice-group
+        [label]="question"
+        idPrefix="recipe-start-"
+        [options]="ways()"
+        [value]="chosen()"
+        (valueChange)="choose($event)"
+      />
     } @else if (ways().length === 0) {
       <p class="plain">
         @if (someoneElse()) {

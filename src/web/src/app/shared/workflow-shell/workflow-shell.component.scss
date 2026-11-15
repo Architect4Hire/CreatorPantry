@@ -28,16 +28,17 @@
 
 .plain,
 .legend,
-.help p {
+.hint {
   margin: 0;
+}
+
+/* The step's hint reads as its lede, in the ink of the step; the legend under it stays muted. */
+.hint {
+  max-width: var(--cp-measure-prose);
 }
 
 .steps-disclosure summary {
   font-weight: 700;
-}
-
-.help summary {
-  color: var(--cp-text-muted);
 }
 
 .waiting ul,
