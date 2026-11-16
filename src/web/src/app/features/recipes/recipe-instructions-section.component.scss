@@ -43,12 +43,16 @@
   }
 }
 
+/* No panel behind a group: a method with phases is told apart by each phase's heading, and steps in a box in a
+   box read as forms nested in forms. Phases after the first are ruled off from the one before. */
 .group {
   /* Jumped to from the group nav: clear of the topbar and the toolbar, so its heading is not hidden. */
   scroll-margin-top: var(--cp-sticky-below-bars);
-  padding: var(--cp-space-4);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface-subtle);
+}
+
+.group + .group {
+  padding-top: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
 }
 
 .group h3 {
@@ -104,16 +108,7 @@
   }
 }
 
-/* Move and remove, at the end of the line above a step's own fields. */
-.step-head {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--cp-space-2);
-}
-
-.group-actions,
-.step-actions {
+.group-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -121,19 +116,86 @@
   flex-shrink: 0;
 }
 
+/*
+ * The method as a numbered list: the number in a gutter, the step's words beside it, its controls at the end of
+ * the line. A hairline between steps and no box around each, so a dozen steps read as one method rather than a
+ * stack of forms. Its own container, so the controls can drop under the words when the space is narrow.
+ */
 .steps {
+  container: cp-steps / inline-size;
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: var(--cp-space-3);
 }
 
 .step {
   display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  grid-template-areas: 'number body controls';
+  align-items: start;
+  column-gap: var(--cp-space-3);
+  padding-block: var(--cp-space-4);
+  border-top: 1px solid var(--cp-border);
+}
+
+.step:first-child {
+  padding-top: var(--cp-space-2);
+  border-top: 0;
+}
+
+/* The tool's colour, quiet: the one place on a step the eye goes first, and the order at a glance. */
+.step-number {
+  grid-area: number;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--cp-tone-soft);
+  color: var(--cp-tone-text);
+  font: 400 var(--cp-font-size-lg) / 1 var(--cp-font-display);
+}
+
+.step-body {
+  grid-area: body;
+  display: grid;
   gap: var(--cp-space-2);
-  padding: var(--cp-space-3);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-  background: var(--cp-surface);
+  min-width: 0;
+}
+
+/* As tall as what is written in it, from two lines: most steps are a sentence or two, and a fixed box of blank
+   lines under every one is most of the height a method used to take. A browser without content sizing keeps the
+   two rows and its own resize handle. */
+.step-text {
+  field-sizing: content;
+  min-height: calc(2lh + var(--cp-space-4));
+}
+
+/* "+ Note" and "+ Duration": a line of quiet offers under the words, not fields. */
+.step-offers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1) var(--cp-space-3);
+}
+
+.step-controls {
+  grid-area: controls;
+  display: flex;
+  gap: var(--cp-space-1);
+}
+
+/* Narrow — a phone, or 200% zoom: the words take the width beside the number, and the controls go under them. */
+@container cp-steps (max-width: 34rem) {
+  .step {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    grid-template-areas:
+      'number body'
+      '. controls';
+    row-gap: var(--cp-space-2);
+  }
+
+  .step-controls {
+    justify-self: end;
+  }
 }

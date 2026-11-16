@@ -18,6 +18,7 @@ import {
   CpFormSectionComponent,
 } from '@creator-pantry/ui';
 
+import { ConfirmService } from '../../core/confirm.service';
 import { RecipeFormState } from './recipe-form-state';
 
 /**
@@ -53,6 +54,7 @@ export class RecipeInstructionsSectionComponent {
   protected readonly form = inject(RecipeFormState);
   private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly confirmer = inject(ConfirmService);
 
   /**
    * The instruction groups, named and counted for the nav down the side of the Instructions tab.
@@ -132,6 +134,43 @@ export class RecipeInstructionsSectionComponent {
       () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-duration-${stepKey}"]`)?.focus(),
       { injector: this.injector },
     );
+  }
+
+  /** Puts this step's note field on show and moves focus into it, on the terms of {@link revealStepDuration}. */
+  revealStepNote(groupKey: string, stepKey: string): void {
+    this.form.updateInstructionStep(groupKey, stepKey, { showNote: true });
+
+    afterNextRender(
+      () => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="step-note-${stepKey}"]`)?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * Removes a step. A step with words in it asks first: the control is a small ✕ beside its text now, not a
+   * labelled button of its own, and a slip of the pointer should not cost a written step. An empty one goes at
+   * once — there is nothing to lose, and asking would only be in the way.
+   */
+  async removeStep(groupKey: string, stepKey: string, stepIndex: number): Promise<void> {
+    const step = this.form
+      .instructionGroups()
+      .find((group) => group.key === groupKey)
+      ?.steps.find((candidate) => candidate.key === stepKey);
+    if (!step) return;
+
+    const written = step.text.trim() !== '' || step.note.trim() !== '';
+    if (written) {
+      const agreed = await this.confirmer.confirm({
+        title: `Remove step ${stepIndex + 1}?`,
+        message: 'Its text, and its note and duration if it has them, go with it.',
+        confirmLabel: 'Remove step',
+        cancelLabel: 'Keep it',
+        tone: 'danger',
+      });
+      if (!agreed) return;
+    }
+
+    this.form.removeInstructionStep(groupKey, stepKey);
   }
 
   /**

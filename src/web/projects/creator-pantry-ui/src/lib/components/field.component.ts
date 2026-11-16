@@ -31,6 +31,13 @@ export class CpFieldComponent {
   /** Advice about the value that does not stop anything: it shows beside the control and never marks it invalid. */
   readonly warning = input('');
   readonly required = input(false);
+  /**
+   * Names the control for assistive technology without showing the label, for a field whose place on the page
+   * already says what it is — a numbered step whose number stands beside it. The label stays the control's
+   * `<label for>`, so its accessible name, the required state and every message are wired exactly as when shown.
+   * Use sparingly: a visible label is the default because most fields need one.
+   */
+  readonly labelHidden = input(false);
 
   protected readonly hintId = computed(() => `${this.forId()}-hint`);
   protected readonly errorId = computed(() => `${this.forId()}-error`);

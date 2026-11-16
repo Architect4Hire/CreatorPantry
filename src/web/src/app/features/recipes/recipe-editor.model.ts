@@ -30,6 +30,13 @@ export interface EditableInstructionStep {
    */
   showDuration: boolean;
 
+  /**
+   * Whether the note field is showing, on the same terms as {@link showDuration}: offered rather than presented,
+   * because most steps have no note and an empty box on every one reads as something to fill in. A note the
+   * recipe already records is shown; once on, it stays on for the life of the form.
+   */
+  showNote: boolean;
+
   // Carried, never edited. `Instructions` is a full replace and the server applies a submitted step
   // wholesale, so a field this form omits is a field the next save sets to null — which silently destroyed
   // every step's technique and recorded temperature. These are round-tripped so that editing a step's prose

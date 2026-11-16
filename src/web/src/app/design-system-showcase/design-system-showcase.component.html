@@ -66,6 +66,11 @@
       <cp-field label="Servings" forId="showcase-warning" warning="That is a lot of servings — is it a batch?">
         <input id="showcase-warning" type="number" value="120" />
       </cp-field>
+      <!-- labelHidden: the label names the control for a screen reader and is not drawn — for a field whose place
+           already says what it is, as a numbered recipe step does. -->
+      <cp-field label="Step 1" forId="showcase-label-hidden" [labelHidden]="true" [required]="true">
+        <textarea id="showcase-label-hidden" placeholder="A field named by its place: 'Step 1', not shown"></textarea>
+      </cp-field>
       <cp-field label="Workspace slug" forId="showcase-disabled" hint="Set automatically, cannot be edited.">
         <input id="showcase-disabled" value="cozy-fall-soups" disabled />
       </cp-field>

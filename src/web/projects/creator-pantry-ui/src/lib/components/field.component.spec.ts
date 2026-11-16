@@ -132,6 +132,38 @@ describe('CpFieldComponent', () => {
     });
   });
 
+  describe('a hidden label', () => {
+    @Component({
+      standalone: true,
+      imports: [CpFieldComponent],
+      template: `<cp-field label="Step 1" forId="s1" [required]="true" [labelHidden]="true" error="Write the step.">
+        <textarea id="s1"></textarea>
+      </cp-field>`,
+    })
+    class HiddenLabelHostComponent {}
+
+    it('names the control without showing the label, and wires required and the error as when shown', async () => {
+      await TestBed.configureTestingModule({ imports: [HiddenLabelHostComponent] }).compileComponents();
+      const fixture = TestBed.createComponent(HiddenLabelHostComponent);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const label = host.querySelector('label')!;
+      const control = host.querySelector('#s1')!;
+
+      // Still the control's label: its accessible name, and clicking it still reaches it.
+      expect(label.getAttribute('for')).toBe('s1');
+      expect(label.textContent).toContain('Step 1');
+      // Out of sight and out of the layout: a pixel, taking no row of the field's grid.
+      expect(label.getBoundingClientRect().width).toBeLessThanOrEqual(1);
+      expect(getComputedStyle(label).position).toBe('absolute');
+      // Everything else exactly as with a visible label.
+      expect(control.getAttribute('aria-required')).toBe('true');
+      expect(control.getAttribute('aria-invalid')).toBe('true');
+      expect(control.getAttribute('aria-describedby')).toBe('s1-error');
+      expect(host.querySelector('.error')?.textContent).toContain('Write the step.');
+    });
+  });
+
   it('gives every projected control a touch target of at least 40px', async () => {
     const fixture = await createFixture();
     const host = fixture.nativeElement as HTMLElement;
