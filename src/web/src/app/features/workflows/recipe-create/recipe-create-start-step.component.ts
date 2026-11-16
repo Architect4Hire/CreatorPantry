@@ -20,7 +20,11 @@ import { firstValueFrom } from 'rxjs';
 
 import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeDraftService } from '../../../services/recipe-draft.service';
-import { WorkflowStepNeed, WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
+import {
+  WorkflowStepLead,
+  WorkflowStepNeed,
+  WorkflowStepPort,
+} from '../../../shared/workflow-shell/workflow-step-port';
 import { RecipeConceptStudioComponent } from '../../ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from '../../ai/recipe-first-draft-review.component';
 import { RecipeStudioHost } from '../../ai/recipe-studio-host';
@@ -151,11 +155,15 @@ export class RecipeCreateStartStepComponent implements OnInit {
    * While the choice is open, the question heads the card in place of "Start your recipe" and its help, which say
    * the same as the choices do; once there is a recipe, the step's own name and help come back.
    */
-  private readonly lead = computed(() =>
-    this.choosing() && this.ways().length > 1
-      ? { heading: this.question, hint: 'You can change your mind until you’ve saved something.' }
-      : null,
-  );
+  private readonly lead = computed<WorkflowStepLead | null>(() => {
+    if (this.choosing() && this.ways().length > 1) {
+      return { heading: this.question, hint: 'You can change your mind until you’ve saved something.' };
+    }
+    // Once the recipe exists, "nothing becomes your recipe until you keep it" is no longer true, and what is —
+    // it's in your library — is this screen's first line, so it stands directly under the step's name instead.
+    if (this.stage().kind === 'recipe') return { heading: null, hint: null };
+    return null;
+  });
 
   /**
    * What Continue still needs on this step, by where it is, until there is a recipe — said in the words on screen
@@ -255,6 +263,8 @@ export class RecipeCreateStartStepComponent implements OnInit {
       this.moved('Back to your ideas.');
     };
     this.studioHost.accepted = (recipeId) => this.recipeMade(recipeId, true);
+    // The brief and what came back share this step's card, so the concepts open beside it, in a drawer.
+    this.studioHost.conceptsInDrawer = true;
   }
 
   ngOnInit(): void {

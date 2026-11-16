@@ -546,6 +546,12 @@ describe('WorkflowShellComponent', () => {
     await settle();
     expect(el().querySelector('p.hint')).toBeNull();
 
+    // No heading of its own: the step's name stays, and only the line under it goes.
+    screen.lead.set({ heading: null, hint: null });
+    await settle();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')).toBeNull();
+
     screen.lead.set(null);
     await settle();
     expect(heading()).toBe('Ingredients');

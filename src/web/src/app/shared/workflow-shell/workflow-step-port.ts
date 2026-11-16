@@ -7,7 +7,9 @@ export type WorkflowDraftKeeper = (draft: WorkflowResourcePointer) => Promise<bo
 
 /** What heads the step's card while its screen asks one question: the question, and a line under it. */
 export interface WorkflowStepLead {
-  readonly heading: string;
+  /** The question, in place of the step's name; null keeps the step's name, changing only the line under it. */
+  readonly heading: string | null;
+  /** The line under the heading, in place of the step's help; null shows none, for a screen saying it itself. */
   readonly hint: string | null;
 }
 

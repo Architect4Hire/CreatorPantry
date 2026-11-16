@@ -435,6 +435,8 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       await pick(fixture, 'help');
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).not.toBeNull();
       const host = studioHost(fixture);
+      // The brief and what came back share this card, so the concepts open beside it, in a drawer.
+      expect(host.conceptsInDrawer).toBeTrue();
 
       host.conceptsRequested('ideas-1');
       expect(keepDraft).toHaveBeenCalledWith({ kind: 'AiRequest', id: 'ideas-1' });
@@ -464,8 +466,17 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).textContent).toContain('Your recipe is in your library.');
       expect(recipes.getRecipeDetail).toHaveBeenCalledWith(SLUG, 'recipe-7');
       expect(port.registration()!.ready!()).toBeTrue();
-      // Nothing left to choose: the step's own name and help head the card again.
-      expect(port.registration()!.lead!()).toBeNull();
+      // Nothing left to choose: the step's own name heads the card again, and its help — "nothing becomes your
+      // recipe until you keep it", untrue now — gives way to the screen's first line, that it is in the library.
+      expect(port.registration()!.lead!()).toEqual({ heading: null, hint: null });
+      const first = root(fixture).querySelector('.start > :not(.cp-sr-only)');
+      expect(first?.tagName.toLowerCase()).toBe('cp-notice');
+      expect(first?.textContent).toContain('Your recipe is in your library.');
+      // Then straight into the fields: no legend about asterisks and no intro under "Details". The one required
+      // field still says so, to the eye and to assistive technology.
+      expect(root(fixture).querySelector('.required-legend')).toBeNull();
+      expect(root(fixture).textContent).not.toContain('The essentials creators see first.');
+      expect(root(fixture).querySelector('#recipe-title')?.getAttribute('aria-required')).toBe('true');
       // And nothing left for Continue to ask for: there is a recipe.
       expect(port.registration()!.needs!()).toBeNull();
     });

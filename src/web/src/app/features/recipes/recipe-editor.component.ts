@@ -366,12 +366,6 @@ export class RecipeEditorComponent {
   readonly hostedSections: readonly FormSectionId[] = this.host ? FOCUS_SECTIONS[this.host.focus] : [];
 
   /**
-   * Whether a hosted editor says which fields are required. Not for timing and yield, which have none: a legend
-   * about asterisks over a form with no asterisks would only make the creator look for them.
-   */
-  readonly hostedShowsRequiredLegend = this.host !== null && this.host.focus !== 'yield-and-time';
-
-  /**
    * Six areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
    * save operation is no longer spread across five tablist clicks — which is what let the "Unsaved changes"
    * pill say only that *something* was dirty, and let a field error land on a panel nobody was looking at.

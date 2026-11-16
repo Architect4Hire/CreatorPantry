@@ -487,13 +487,9 @@
       </cp-notice>
     }
 
-    @if (hostedShowsRequiredLegend) {
-      <p class="required-legend"
-        >Fields marked with <span aria-hidden="true">*</span><span class="cp-sr-only">an asterisk</span> are
-        required.</p
-      >
-    }
-
+    <!-- No "Fields marked with * are required" here: a hosted step asks for one or two fields, and the one it
+         needs carries its own asterisk, announced as required. The full editor, three required fields across three
+         tabs, says it once. -->
     @for (section of hostedSections; track section) {
       @switch (section) {
         @case ('section-details') {
