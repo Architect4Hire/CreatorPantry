@@ -96,7 +96,18 @@ export type WorkflowShellPhase =
   | 'abandoned';
 
 type Command =
-  'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again' | 'start-next';
+  | 'continue'
+  | 'back'
+  | 'skip'
+  | 'finish'
+  | 'save-exit'
+  | 'start-over'
+  | 'stop'
+  | 'start-again'
+  | 'start-next'
+  /** A step chosen from the list: a run of Backs to an earlier one, or of completions to a later one. */
+  | 'jump-back'
+  | 'jump-forward';
 
 interface ActionProblem {
   readonly message: string;
@@ -277,6 +288,23 @@ export class WorkflowShellComponent {
       : [];
   });
 
+  /**
+   * The steps beside the step on screen, with the ones the creator can go to marked so: every earlier step, and
+   * every later one already reached — done, skipped, or reopened by a Back. A step never reached is not on offer:
+   * the way there is through the steps before it, with Continue. Nothing is on offer to someone who cannot move the
+   * run. The summary's stepper, once the run is over, stays a read-out.
+   */
+  readonly navigableSteps = computed<readonly CpStep[]>(() => {
+    const run = this.run();
+    const here = this.stepIndex();
+    if (!run || run.status !== 'InProgress' || here < 0 || this.readOnly()) return this.stepperSteps();
+
+    return this.stepperSteps().map((step, index) => ({
+      ...step,
+      selectable: index !== here && (index < here || run.steps[index].status !== 'NotStarted'),
+    }));
+  });
+
   readonly done = computed(() => {
     const run = this.run();
     return run ? run.completedStepCount + run.skippedStepCount : 0;
@@ -307,14 +335,6 @@ export class WorkflowShellComponent {
     const lead = this.lead();
     return lead ? lead.hint : (this.step()?.help ?? null);
   });
-
-  /**
-   * Said only of the exception. Most steps are required, so saying so on each one was noise; an optional step
-   * says so, and a required one offers no Skip — and says why if the creator asks to skip it anyway.
-   */
-  readonly legend = computed(() =>
-    this.step()?.requirement === 'Optional' ? 'Optional. Skip it if you don’t need it.' : null,
-  );
 
   /** The journey's screen for the current step, or null for the shell's own fallback. */
   readonly stepTemplate = computed(() => {
@@ -463,6 +483,54 @@ export class WorkflowShellComponent {
         this.port.registration()?.results?.() ?? [],
       ),
     );
+  }
+
+  /**
+   * Goes to a step chosen from the list, by the run's own commands — there is no "go to" on the server.
+   *
+   * Earlier: a Back at a time until the run is on it. Each Back reopens the step it lands on, so the steps between
+   * lose their tick until they are continued through again; nothing they hold is lost, and continuing re-checks
+   * each from what it already made.
+   *
+   * Later: a completion at a time — the step on screen first, kept and checked exactly as Continue would, the rest
+   * on what each made before. It stops at the first step that still needs something and says what, on that step.
+   * A completion can carry the run past a step already done, in which case a Back brings it to the one asked for.
+   */
+  goToStep(stepKey: string): Promise<void> {
+    const run = this.run();
+    const from = this.stepIndex();
+    const target = run?.steps.findIndex((step) => step.key === stepKey) ?? -1;
+    if (!run || from < 0 || target < 0 || target === from || this.readOnly()) return Promise.resolve();
+
+    const slug = this.workspaceSlug();
+    const firstKey = this.currentKey();
+
+    return this.command(target < from ? 'jump-back' : 'jump-forward', async () => {
+      let at = this.run() ?? run;
+      // Bounded: every hop moves the run one step, and a completion that overshoots is answered by Backs.
+      for (let hops = 0; hops < at.steps.length * 2; hops++) {
+        const key = currentKeyOf(at);
+        const here = key === null ? -1 : at.steps.findIndex((step) => step.key === key);
+        if (key === null || here === target || here < 0 || at.status !== 'InProgress') break;
+
+        const outcome =
+          here > target
+            ? await this.runs.back(slug, at, key)
+            : await this.runs.completeStep(
+                slug,
+                at,
+                key,
+                key === firstKey ? (this.port.registration()?.results?.() ?? []) : [],
+              );
+        if (outcome.status !== 'done') {
+          // Where it got to is kept and shown; the answer says why it went no further.
+          if (at !== this.run()) this.show(at);
+          return outcome;
+        }
+        at = outcome.run;
+      }
+      return { status: 'done', run: at } as const;
+    });
   }
 
   back(): Promise<void> {
@@ -715,7 +783,8 @@ export class WorkflowShellComponent {
         }
 
         // What the screen knows the step still needs is said in its words and shown where, not sent to be refused.
-        const need = name === 'continue' ? (this.port.registration()?.needs?.() ?? null) : null;
+        const need =
+          name === 'continue' || name === 'jump-forward' ? (this.port.registration()?.needs?.() ?? null) : null;
         if (need) {
           this.blocked.set([need.message]);
           this.shownNeed = need.message;
@@ -923,6 +992,11 @@ export class WorkflowShellComponent {
  * Where an arriving reader lands: a run with nothing done yet goes straight to its first step, and one with
  * progress says where it was first, so coming back is never a surprise.
  */
+/** The step a run is on: its next one, or with every step done, its last, where it waits to be finished. */
+function currentKeyOf(run: WorkflowRun): string | null {
+  return run.nextAction?.stepKey ?? run.steps[run.steps.length - 1]?.key ?? null;
+}
+
 function phaseOnArrival(run: WorkflowRun): WorkflowShellPhase {
   if (run.status === 'Completed') return 'completed';
   if (run.status === 'Abandoned') return 'abandoned';

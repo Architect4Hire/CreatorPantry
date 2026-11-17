@@ -28,33 +28,20 @@
     </p>
   }
 
-  <form class="scaling-form" (ngSubmit)="scale()">
-    <fieldset class="mode">
-      <legend [id]="modeLegendId">How do you want to scale?</legend>
-
-      <label class="mode-choice">
-        <input
-          type="radio"
-          name="scaling-mode"
-          value="factor"
-          [checked]="mode() === 'factor'"
-          (change)="setMode('factor')"
-        />
-        <span>By a factor</span>
-      </label>
-
-      <label class="mode-choice">
-        <input
-          type="radio"
-          name="scaling-mode"
-          value="yield"
-          [checked]="mode() === 'yield'"
-          [disabled]="!canScaleToYield()"
-          (change)="setMode('yield')"
-        />
-        <span>To a yield</span>
-      </label>
-    </fieldset>
+  <form class="scaling-form" (ngSubmit)="toggle()">
+    <!-- Two modes side by side, one picked: a segmented choice, not a switch — both answers stay named and in
+         view, and it is still a radio group to the keyboard and a screen reader. -->
+    <div class="mode">
+      <span class="mode-label" aria-hidden="true">Scale by</span>
+      <cp-choice-group
+        label="Scale by"
+        layout="segmented"
+        [idPrefix]="modeLegendId + '-'"
+        [options]="modeOptions()"
+        [value]="[mode()]"
+        (valueChange)="onModeChosen($event)"
+      />
+    </div>
 
     @if (!canScaleToYield()) {
       <!-- Stated rather than left to a disabled control with no explanation. The remedy is a field on the
@@ -67,68 +54,67 @@
 
     @if (mode() === 'factor') {
       <div class="input-row">
-        <cp-field
-          label="Factor"
-          [forId]="factorFieldId"
-          [error]="factorError() ?? ''"
-          hint="For example, 2 to double it."
-        >
-          <input
-            type="number"
-            inputmode="decimal"
-            step="any"
-            min="0"
-            [id]="factorFieldId"
-            [ngModel]="factorValue()"
-            (ngModelChange)="factorValue.set($event)"
-            [attr.aria-invalid]="factorError() ? 'true' : null"
-            name="factor"
-          />
+        <cp-field label="Factor" [forId]="factorFieldId" [error]="factorError() ?? ''">
+          <!-- The presets sit beside the box, inside the field, so they line up with the box itself and the hint
+               and any error read under both rather than pushing the presets down. -->
+          <div class="factor-control">
+            <input
+              type="number"
+              inputmode="decimal"
+              step="any"
+              min="0"
+              [id]="factorFieldId"
+              placeholder="e.g. 2 to double it"
+              [ngModel]="factorValue()"
+              (ngModelChange)="factorValue.set($event)"
+              [attr.aria-invalid]="factorError() ? 'true' : null"
+              name="factor"
+            />
+            <!-- Presets fill the box beside them and nothing else: no arithmetic happens here, and the server is
+               still what works the amounts out. Each carries its own words, because "×½" is not something a
+               screen reader can be relied on to read as "one half". -->
+            <div class="presets" role="group" aria-label="Common factors">
+              <button
+                type="button"
+                cpButton
+                variant="ghost"
+                size="sm"
+                aria-label="Set the factor to one half"
+                (click)="setFactor(0.5)"
+              >
+                ×½
+              </button>
+              <button
+                type="button"
+                cpButton
+                variant="ghost"
+                size="sm"
+                aria-label="Set the factor to two"
+                (click)="setFactor(2)"
+              >
+                ×2
+              </button>
+              <button
+                type="button"
+                cpButton
+                variant="ghost"
+                size="sm"
+                aria-label="Set the factor to three"
+                (click)="setFactor(3)"
+              >
+                ×3
+              </button>
+            </div>
+          </div>
         </cp-field>
-
-        <!-- Presets fill the box above and nothing else: no arithmetic happens here, and the server is
-             still what works the amounts out. Each carries its own words, because "×½" is not something a
-             screen reader can be relied on to read as "one half". -->
-        <div class="presets" role="group" aria-label="Common factors">
-          <button
-            type="button"
-            cpButton
-            variant="ghost"
-            size="sm"
-            aria-label="Set the factor to one half"
-            (click)="setFactor(0.5)"
-          >
-            ×½
-          </button>
-          <button
-            type="button"
-            cpButton
-            variant="ghost"
-            size="sm"
-            aria-label="Set the factor to two"
-            (click)="setFactor(2)"
-          >
-            ×2
-          </button>
-          <button
-            type="button"
-            cpButton
-            variant="ghost"
-            size="sm"
-            aria-label="Set the factor to three"
-            (click)="setFactor(3)"
-          >
-            ×3
-          </button>
-        </div>
       </div>
     } @else {
       <div class="input-row">
         <cp-field
+          class="yield-field"
           label="Target yield"
           [forId]="targetYieldFieldId"
           [error]="targetYieldError() ?? ''"
-          [hint]="targetYieldHint()"
         >
           <input
             type="number"
@@ -136,6 +122,7 @@
             step="any"
             min="0"
             [id]="targetYieldFieldId"
+            [placeholder]="targetYieldHint()"
             [ngModel]="targetYieldValue()"
             (ngModelChange)="targetYieldValue.set($event)"
             [attr.aria-invalid]="targetYieldError() ? 'true' : null"
@@ -145,8 +132,15 @@
       </div>
     }
 
-    <button type="submit" cpButton [busy]="isWorking()" variant="primary" [disabled]="!canSubmit()">
-      {{ isWorking() ? 'Working…' : 'Show scaled amounts' }}
+    <button
+      type="submit"
+      class="scaling-submit"
+      cpButton
+      [busy]="isWorking()"
+      variant="primary"
+      [disabled]="!canSubmit()"
+    >
+      {{ isWorking() ? 'Working…' : canHide() ? 'Hide scaled amounts' : 'Show scaled amounts' }}
     </button>
   </form>
 
@@ -154,7 +148,38 @@
     <p class="scaling-problem" role="alert">{{ problem }}</p>
   }
 
-  <cp-list-shell heading="Scaled amounts" [state]="listState()">
+  <!-- Put away by the button that showed it, and brought back by it unchanged. -->
+  <!-- Under the form, put away and brought back by its button — except in the workflow's step, where they open
+       beside it in a drawer (below). -->
+  @if (!resultsInDrawer() && !resultsHidden()) {
+    <ng-container *ngTemplateOutlet="results" />
+  }
+</section>
+
+<!--
+  The workflow's "Try it at another size": the amounts open beside the form, as the recipe concepts do, so the
+  step stays the form and the table has the width it needs. Not on the recipe page, where this tool already sits
+  in the Tools drawer and nothing opens on top of a drawer.
+-->
+@if (resultsInDrawer()) {
+  <cp-drawer
+    [open]="resultsOpen()"
+    heading="Scaled amounts"
+    description="Worked out from your saved recipe. Nothing in it changes."
+    size="wide"
+    closeLabel="Close scaled amounts"
+    (closeRequested)="closeResults()"
+  >
+    <ng-container *ngTemplateOutlet="results" />
+    <button cpDrawerActions cpButton type="button" variant="secondary" (click)="tryAnotherSize()">
+      Try another size
+    </button>
+  </cp-drawer>
+}
+
+<!-- The amounts, wherever they are shown. In the drawer, the drawer is "Scaled amounts". -->
+<ng-template #results>
+  <cp-list-shell [heading]="resultsInDrawer() ? 'Ingredient amounts' : 'Scaled amounts'" [state]="listState()">
     <div cpListShellEmpty>
       <p class="scaling-empty">Choose a factor or a target yield, then show the scaled amounts.</p>
     </div>
@@ -207,7 +232,10 @@
                 <th scope="col">Ingredient</th>
                 <th scope="col">Before</th>
                 <th scope="col">After</th>
-                <th scope="col">Notes</th>
+                <!-- Only when a line has something to say: an empty column of "No notes" is width for nothing. -->
+                @if (hasNotes()) {
+                  <th scope="col">Notes</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -215,50 +243,62 @@
                 <tr [attr.data-scaled]="row.wasScaled">
                   <th scope="row" class="line-name">{{ row.displayText }}</th>
 
-                  <td class="line-amount">
+                  <!-- What the recipe says now, quiet; what to measure, after the arrow, is the figure that stands out.
+                         The cells stay table cells: their contents are laid out inside them, never the cells themselves,
+                         which is what had pushed each "after" onto a row of its own. -->
+                  <td class="line-amount line-before">
                     @if (row.before !== null) {
-                      {{ row.before }}
+                      {{ row.beforeReading ?? row.before }}
                     } @else {
                       <span class="cp-sr-only">No saved amount</span>
                       <span aria-hidden="true">—</span>
                     }
                   </td>
 
-                  <td class="line-amount">
-                    @if (row.after !== null) {
-                      {{ row.after }}
-                    } @else {
-                      <span class="cp-sr-only">No amount</span>
-                      <span aria-hidden="true">—</span>
-                    }
-
-                    <!-- The rounded value reads first because it is what a creator will measure; the exact
-                       one is kept beside it because it, not the rounding, is the canonical result. -->
-                    @if (row.exact !== null) {
-                      <small class="line-exact">exact {{ row.exact }}</small>
-                    }
-
-                    <!-- The tone is a second signal, never the only one: the word beside it says the same
-                       thing, so this does not depend on seeing a colour (WCAG 2.2 AA, 1.4.1). -->
-                    @if (!row.wasScaled) {
-                      <cp-status-pill tone="warning">Kept as written</cp-status-pill>
-                    }
-                  </td>
-
-                  <td class="line-notes">
-                    @if (row.notes.length === 0) {
-                      <span class="cp-sr-only">No notes</span>
-                    } @else {
-                      <ul role="list">
-                        @for (note of row.notes; track note) {
-                          <li>
-                            <span class="warning-glyph" aria-hidden="true">⚠</span>
-                            <span>{{ note }}</span>
-                          </li>
+                  <td class="line-amount line-after">
+                    <span class="after-stack">
+                      <span class="after-value">
+                        @if (row.after !== null) {
+                          {{ row.afterReading?.text ?? row.after }}
+                        } @else {
+                          <span class="cp-sr-only">No amount</span>
+                          <span aria-hidden="true">—</span>
                         }
-                      </ul>
-                    }
+                      </span>
+
+                      <!-- The rounded value reads first because it is what a creator will measure; the exact
+                       one is kept beside it because it, not the rounding, is the canonical result. -->
+                      <!-- Said beside a decimal; a kitchen reading — "1½ cups" — already is the exact amount. -->
+                      @if (
+                        row.exact !== null && (row.afterReading === null || row.afterReading.presentation === 'Decimal')
+                      ) {
+                        <small class="line-exact">exact {{ row.exact }}</small>
+                      }
+
+                      <!-- The tone is a second signal, never the only one: the word beside it says the same
+                       thing, so this does not depend on seeing a colour (WCAG 2.2 AA, 1.4.1). -->
+                      @if (!row.wasScaled) {
+                        <cp-status-pill tone="warning">Kept as written</cp-status-pill>
+                      }
+                    </span>
                   </td>
+
+                  @if (hasNotes()) {
+                    <td class="line-notes">
+                      @if (row.notes.length === 0) {
+                        <span class="cp-sr-only">No notes</span>
+                      } @else {
+                        <ul role="list">
+                          @for (note of row.notes; track note) {
+                            <li>
+                              <span class="warning-glyph" aria-hidden="true">⚠</span>
+                              <span>{{ note }}</span>
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </td>
+                  }
                 </tr>
               }
             </tbody>
@@ -267,4 +307,4 @@
       </div>
     }
   </cp-list-shell>
-</section>
+</ng-template>

@@ -5,159 +5,94 @@
   display: block;
 }
 
-.calculation-heading {
-  margin: 0 0 var(--cp-space-2);
-  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
-  color: var(--cp-text);
-}
-
-.calculation-intro,
-.calculation-empty,
-.calculation-loading,
-.calculation-blocked {
-  margin: 0 0 var(--cp-space-3);
-  max-width: 72ch;
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text-muted);
-}
-
-.calculation-problem {
-  margin: 0 0 var(--cp-space-3);
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-danger);
-}
-
-.calculation-form {
+.display {
   display: grid;
-  gap: var(--cp-space-4);
-  justify-items: start;
-  margin-bottom: var(--cp-space-4);
-}
-
-/* min() on both, because minmax's and flex's first arguments are hard floors: an unclamped one keeps its track
-   at full width inside a container narrower than it and scrolls the page sideways (DESIGN-SYSTEM.md, SC 1.4.10).
-   Inside the editor card at a 320px viewport the room here is about 208px. */
-.calculation-form cp-field {
-  min-width: min(11rem, 100%);
-}
-
-/* The rounding labels are full sentences, so this one needs room the other fields do not. */
-.calculation-form cp-field:has(select[name='rounding']) {
-  min-width: min(24rem, 100%);
-  flex: 1 1 min(24rem, 100%);
-}
-
-.input-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
   gap: var(--cp-space-3);
-  width: 100%;
 }
 
-.result-card {
-  padding: var(--cp-space-4);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-lg);
-  background: var(--cp-surface-subtle);
-}
-
-/* The two halves of the distinction this section exists to make. Given their own block, above everything
-   else on the card, because neither reads correctly without the other beside it. */
-.canonical-pair {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--cp-space-2) var(--cp-space-4);
-  margin: 0 0 var(--cp-space-4);
-  padding-bottom: var(--cp-space-3);
-  border-bottom: 1px solid var(--cp-border);
-  font-size: var(--cp-font-size-sm);
-}
-
-.canonical-pair dt {
-  font-weight: 700;
-  color: var(--cp-text-muted);
-}
-
-.canonical-pair dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--cp-space-2);
+.display-heading {
   margin: 0;
+  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
   color: var(--cp-text);
 }
 
-.canonical-value,
-.display-value {
-  font: 400 var(--cp-font-size-xl) / var(--cp-leading-tight) var(--cp-font-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.canonical-note {
-  font-family: var(--cp-font-sans);
-  font-size: var(--cp-font-size-xs);
+.display-intro,
+.display-note {
+  margin: 0;
+  max-width: var(--cp-measure-prose);
+  font-size: var(--cp-font-size-sm);
   color: var(--cp-text-muted);
 }
 
-.result-subheading {
-  margin: 0 0 var(--cp-space-2);
+/* Short units, then the folded options, on one line where there is room. */
+.display-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-5);
+}
+
+/* The two folded fields side by side where they fit (cp-field-row), a little below their summary. */
+.display-more-fields {
+  margin-top: var(--cp-space-3);
+}
+
+.display-loading {
+  display: grid;
+}
+
+/* The same quiet table as the scaled amounts: the creator's line, then what is recorded, then how it reads. */
+.display-lines {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cp-font-size-sm);
+}
+
+.display-lines th,
+.display-lines td {
+  padding: var(--cp-space-3);
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--cp-border);
+}
+
+.display-lines tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.display-lines thead th {
+  padding-block: var(--cp-space-2);
   font-size: var(--cp-font-size-xs);
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cp-text-muted);
 }
 
-.result-detail {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--cp-space-2) var(--cp-space-4);
-  margin: 0 0 var(--cp-space-3);
-  font-size: var(--cp-font-size-sm);
+.line-name {
+  font-weight: 400;
+  color: var(--cp-text);
+  overflow-wrap: anywhere;
 }
 
-.result-detail dt {
+/* Only as wide as their amounts, so the line takes the rest. What is recorded is quiet; how it reads stands out. */
+.line-saved,
+.line-reading {
+  width: 1%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.line-saved {
+  color: var(--cp-text-muted);
+}
+
+.line-reading {
   font-weight: 700;
-  color: var(--cp-text-muted);
-}
-
-.result-detail dd {
-  display: grid;
-  gap: var(--cp-space-1);
-  margin: 0;
   color: var(--cp-text);
 }
 
-.result-plain {
-  color: var(--cp-text-muted);
-}
-
-.result-caution {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--cp-space-2);
-  margin: 0 0 var(--cp-space-3);
-  max-width: var(--cp-measure-prose);
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text);
-}
-
-/* The same orange the warning status pill uses, so one caution does not read as two different kinds. */
-.caution-glyph {
-  color: var(--cp-orange);
-}
-
-.result-provenance {
-  margin: 0;
-  font-size: var(--cp-font-size-xs);
-  color: var(--cp-text-muted);
-}
-
-/* The apply that is not offered, and why. Text rather than an absent control. */
-.apply-unavailable {
-  margin: var(--cp-space-3) 0 0;
-  max-width: var(--cp-measure-prose);
-  font-size: var(--cp-font-size-xs);
+.line-reason {
+  font-weight: 400;
   color: var(--cp-text-muted);
 }

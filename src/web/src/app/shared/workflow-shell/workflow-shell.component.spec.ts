@@ -523,7 +523,6 @@ describe('WorkflowShellComponent', () => {
 
     const hint = el().querySelector('p.hint')!;
     expect(hint.textContent!.trim()).toBe('A picture helps.');
-    expect(hint.nextElementSibling?.classList).toContain('legend');
     expect(el().querySelector('details.help')).toBeNull();
     expect(text()).not.toContain('Need help with this step?');
   });
@@ -558,17 +557,16 @@ describe('WorkflowShellComponent', () => {
     expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('List what goes in.');
   });
 
-  it('says a step is optional', async () => {
+  it('adds no sentence about whether a step is needed: an optional one offers Skip for now, and that is all', async () => {
     await create(onPhoto());
     await click('Continue');
-    expect(el().querySelector('.legend')!.textContent!.trim()).toBe('Optional. Skip it if you don’t need it.');
-  });
-
-  it('says nothing of a required step, which is the default', async () => {
-    await create(fresh());
-    expect(text()).toContain('Start your recipe');
     expect(el().querySelector('.legend')).toBeNull();
+    expect(text()).not.toContain('Skip it if you don’t need it');
+    expect(button('Skip for now')).not.toBeNull();
+
+    await create(fresh());
     expect(text()).not.toContain('needed to finish');
+    expect(button('Skip for now')).toBeNull();
   });
 
   it('shows a step with no screen of its own as links to where it is done', async () => {
@@ -1268,12 +1266,89 @@ describe('WorkflowShellComponent', () => {
     expect(primaries.map((b) => b.textContent?.trim())).toEqual(['Continue']);
   });
 
-  it('shows the stepper as a read-out, never something to tab to or click', async () => {
+  // ---- Going to a step from the list ----
+
+  /** The stepper's buttons, by the step they go to. */
+  const stepButtons = (): string[] =>
+    Array.from(el().querySelectorAll<HTMLButtonElement>('cp-stepper button')).map((b) =>
+      b.querySelector('.name')!.textContent!.replace('Go to ', '').trim(),
+    );
+  const stepButton = (title: string): HTMLButtonElement =>
+    Array.from(el().querySelectorAll<HTMLButtonElement>('cp-stepper button')).find((b) =>
+      b.textContent?.includes(title),
+    )!;
+
+  /** Back on the first step, with the second reopened by that Back: reached, so on offer going forward. */
+  function backOnStart(): WorkflowRun {
+    return run({
+      completedStepCount: 0,
+      steps: STEPS.map((step) =>
+        step['key'] === 'start'
+          ? { ...step, status: 'InProgress', completedAt: null }
+          : step['key'] === 'ingredients'
+            ? { ...step, status: 'InProgress' }
+            : step,
+      ),
+      nextAction: { ...(wireRun()['nextAction'] as object), stepKey: 'start', title: 'Start your recipe' },
+    });
+  }
+
+  it('offers every earlier step and every later one already reached, and never the step it is on', async () => {
     await onIngredients();
 
     const stepper = el().querySelector('cp-stepper')!;
     expect(stepper.closest('nav')?.getAttribute('aria-label')).toBe('Progress');
-    expect(stepper.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])').length).toBe(0);
+    // On Ingredients: Start is behind it; Add a photo has never been reached, so the way there is Continue.
+    expect(stepButtons()).toEqual(['Start your recipe']);
+  });
+
+  it('goes back to an earlier step by the run’s own Back, then shows it and takes focus to it', async () => {
+    await onIngredients();
+    service.back.and.returnValue(done(backOnStart()));
+
+    stepButton('Start your recipe').click();
+    await settle();
+
+    expect(service.back).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients');
+    expect(screen.flushes).withContext('the step on screen is kept first').toBeGreaterThan(0);
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Start your recipe');
+    expect(document.activeElement?.id).toBe('cp-workflow-step-heading');
+    // Ingredients was reopened by that Back, so it is on offer going forward again.
+    expect(stepButtons()).toEqual(['Ingredients']);
+  });
+
+  it('goes forward to a step already reached by completing the ones on the way, as Continue would', async () => {
+    await create(backOnStart());
+    await click('Continue');
+    service.completeStep.and.returnValue(done(run()));
+
+    stepButton('Ingredients').click();
+    await settle();
+
+    expect(service.completeStep).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'start', []);
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Ingredients');
+  });
+
+  it('stops going forward at a step that still needs something, and says what', async () => {
+    await create(backOnStart());
+    await click('Continue');
+    service.completeStep.and.resolveTo({ status: 'step_incomplete', missing: ['Say which recipe this step made.'] });
+
+    stepButton('Ingredients').click();
+    await settle();
+
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Start your recipe');
+    expect(el().querySelector('.footer cp-notice[tone="warning"]')?.textContent).toContain(
+      'Say which recipe this step made.',
+    );
+  });
+
+  it('offers no step to go to when the run cannot be changed by this reader', async () => {
+    role = 'Viewer';
+    await onIngredients();
+
+    expect(shell().readOnly()).toBeTrue();
+    expect(el().querySelectorAll('cp-stepper button').length).toBe(0);
   });
 
   it('folds the steps into a disclosure on a narrow screen', async () => {

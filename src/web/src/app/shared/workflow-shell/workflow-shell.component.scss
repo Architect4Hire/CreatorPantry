@@ -27,12 +27,11 @@
 }
 
 .plain,
-.legend,
 .hint {
   margin: 0;
 }
 
-/* The step's hint reads as its lede, in the ink of the step; the legend under it stays muted. */
+/* The step's hint reads as its lede, in the ink of the step. */
 .hint {
   max-width: var(--cp-measure-prose);
 }

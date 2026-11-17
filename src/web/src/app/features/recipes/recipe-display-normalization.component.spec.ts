@@ -94,13 +94,15 @@ function payload(overrides: Record<string, unknown> = {}): Record<string, unknow
 interface Harness {
   readonly fixture: ComponentFixture<RecipeDisplayNormalizationComponent>;
   readonly http: HttpTestingController;
-  /** The catalogue's read, when `holdCatalogue` left it unanswered. */
-  readonly catalogue?: ReturnType<HttpTestingController['expectOne']>;
 }
 
-async function createFixture(
-  options: { catalogueFails?: boolean; holdCatalogue?: boolean; sourceVersionNumber?: number | null } = {},
-): Promise<Harness> {
+/** Lets the reads already answered land, without waiting on any still in flight. */
+async function landed(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>): Promise<void> {
+  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  fixture.detectChanges();
+}
+
+async function createFixture(options: { sourceVersionNumber?: number | null } = {}): Promise<Harness> {
   await TestBed.configureTestingModule({
     imports: [RecipeDisplayNormalizationComponent],
     providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -122,446 +124,102 @@ async function createFixture(
   fixture.componentRef.setInput('savedIngredientGroups', SAVED_GROUPS);
   fixture.detectChanges();
 
-  const catalogue = http.expectOne((request) => request.url === UNITS_URL);
-  if (options.holdCatalogue) {
-    fixture.detectChanges();
-    return { fixture, http, catalogue };
-  }
-  if (options.catalogueFails) {
-    catalogue.flush({}, { status: 500, statusText: 'Server Error' });
-  } else {
-    catalogue.flush({ items: CATALOGUE, nextCursor: null });
-  }
-
-  await fixture.whenStable();
-  fixture.detectChanges();
-
+  http.expectOne((request) => request.url === UNITS_URL).flush({ items: CATALOGUE, nextCursor: null });
+  await landed(fixture);
   return { fixture, http };
 }
 
-async function render(
-  harness: Harness,
-  respond: (request: ReturnType<HttpTestingController['expectOne']>) => void,
-): Promise<void> {
-  const call = harness.fixture.componentInstance.render();
-  respond(harness.http.expectOne(DISPLAY_URL));
-  await call;
-  harness.fixture.detectChanges();
+function rowCells(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>, index: number): string[] {
+  const row = (fixture.nativeElement as HTMLElement).querySelectorAll('.display-lines tbody tr')[index];
+  return Array.from(row.querySelectorAll('th, td')).map((cell) => (cell.textContent ?? '').trim());
 }
 
 function text(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>): string {
-  return (fixture.nativeElement as HTMLElement).textContent ?? '';
-}
-
-function canonicalPairs(fixture: ComponentFixture<RecipeDisplayNormalizationComponent>): string[] {
-  return Array.from(fixture.nativeElement.querySelectorAll('.canonical-pair dt, .canonical-pair dd')).map((node) =>
-    ((node as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim(),
-  );
+  return ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
 }
 
 describe('RecipeDisplayNormalizationComponent', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('says up front that this changes nothing', async () => {
-    const { fixture } = await createFixture();
+  it('reads every line it can on its own — nothing to fill in — beside what the recipe records', async () => {
+    const { fixture, http } = await createFixture();
 
-    expect(text(fixture)).toContain('Presentation only');
-    expect(text(fixture)).toContain('A recipe records the number, never how it reads');
-    // And where the creator does the thing this panel cannot do for them.
-    expect(text(fixture)).toContain('type the amount you want on the line in Ingredients');
-  });
-
-  // ---- While the catalogue loads (AU.7) ----
-
-  it('draws the form arriving while the unit catalogue is read, and says so once from a region that is always there', async () => {
-    const { fixture, catalogue } = await createFixture({ holdCatalogue: true });
-    const host = fixture.nativeElement as HTMLElement;
-
-    const status = host.querySelector('p.cp-sr-only[role="status"]')!;
-    expect(status.textContent).toBe('Loading the unit catalogue…');
-    const busy = host.querySelector('[aria-busy="true"]')!;
-    expect(busy.querySelector('cp-skeleton')).not.toBeNull();
-    expect(busy.textContent!.trim()).toBe('');
-    expect(host.querySelector('form')).toBeNull();
-
-    catalogue!.flush({ items: CATALOGUE, nextCursor: null });
-    await fixture.whenStable();
-    await new Promise((resolve) => setTimeout(resolve));
-    fixture.detectChanges();
-
-    expect(host.querySelector('p.cp-sr-only[role="status"]')!.textContent).toBe('');
-    expect(host.querySelector('cp-skeleton')).toBeNull();
-    expect(host.querySelector('form')).not.toBeNull();
-  });
-
-  // ---- Canonical versus display ----
-
-  it('shows the canonical value and the rendered text side by side, each labelled', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    expect(canonicalPairs(harness.fixture)).toEqual([
-      'Canonical value',
-      '1.5 cup unchanged',
-      'How it reads',
-      '1½ cups',
-    ]);
-  });
-
-  it('shows a range canonically as both bounds', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1);
-    harness.fixture.componentInstance.upperValue.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) =>
-      req.flush(payload({ text: '1–1½ cups', presentation: 'Whole', upperPresentation: 'Fraction' })),
-    );
-
-    expect(canonicalPairs(harness.fixture)).toContain('1 to 1.5 cup unchanged');
-    expect(canonicalPairs(harness.fixture)).toContain('1–1½ cups');
-  });
-
-  // Worded as a permanent rule, not a missing feature: ING-006 keeps the canonical quantity unchanged, so
-  // there is nothing an apply could ever write here.
-  it('says there is nothing to apply, as a rule rather than as a gap', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    expect(text(harness.fixture)).toContain('There is nothing to apply');
-    expect(text(harness.fixture)).not.toContain("isn't built yet");
-    expect(harness.fixture.nativeElement.querySelector('.apply')).toBeNull();
-  });
-
-  it('repeats that the canonical quantity is unchanged on the card itself', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    expect(text(harness.fixture)).toContain('nothing here is saved or fed back into the recipe');
-  });
-
-  // The canonical half must come from what was sent, not be rebuilt from the rendering.
-  it('keeps the canonical value as sent even after the form is edited', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    harness.fixture.componentInstance.value.set(99);
-    harness.fixture.detectChanges();
-
-    expect(canonicalPairs(harness.fixture)).toContain('1.5 cup unchanged');
-  });
-
-  // ---- How it was rendered ----
-
-  const presentations: readonly { readonly kind: string; readonly label: string; readonly explanation: string }[] = [
-    { kind: 'Whole', label: 'Whole number', explanation: 'no fractional remainder' },
-    { kind: 'Fraction', label: 'Kitchen fraction', explanation: 'matched a common kitchen fraction' },
-    { kind: 'Decimal', label: 'Rounded decimal', explanation: 'No common kitchen fraction matched' },
-  ];
-
-  for (const each of presentations) {
-    it(`explains the ${each.kind} presentation in words`, async () => {
-      const harness = await createFixture();
-      harness.fixture.componentInstance.value.set(1.5);
-      harness.fixture.componentInstance.unitId.set('unit-cup');
-      await render(harness, (req) => req.flush(payload({ presentation: each.kind })));
-
-      expect(text(harness.fixture)).toContain(each.label);
-      expect(text(harness.fixture)).toContain(each.explanation);
-    });
-  }
-
-  it('names the upper bound presentation for a range', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1);
-    harness.fixture.componentInstance.upperValue.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) =>
-      req.flush(payload({ text: '1–1½ cups', presentation: 'Whole', upperPresentation: 'Fraction' })),
-    );
-
-    expect(text(harness.fixture)).toContain('Upper bound');
-  });
-
-  it('shows no upper bound row for a single value', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    expect(text(harness.fixture)).not.toContain('Upper bound');
-  });
-
-  it('shows the precision and the rounding mode in words', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.025);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload({ text: '1.02 cups', presentation: 'Decimal' })));
-
-    expect(text(harness.fixture)).toContain('2 decimal places');
-    expect(text(harness.fixture)).toContain('Half to even');
-  });
-
-  // ---- Inputs ----
-
-  it('sends the value, unit and presentation choices', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-
-    await render(harness, (req) => {
-      expect(req.request.body).toEqual({
+    // Only the line with an amount and a unit is asked about, with the defaults.
+    const read = http.expectOne(DISPLAY_URL);
+    expect(read.request.body).toEqual(
+      jasmine.objectContaining({
         sourceVersionNumber: 3,
         value: 1.5,
         unitId: 'unit-cup',
         precision: 2,
         useAbbreviation: false,
         rounding: 'ToEven',
-      });
-      req.flush(payload());
-    });
-  });
-
-  it('sends the abbreviation choice and the chosen rounding mode', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.025);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    harness.fixture.componentInstance.useAbbreviation.set(true);
-    harness.fixture.componentInstance.setRounding('AwayFromZero');
-
-    await render(harness, (req) => {
-      expect(req.request.body).toEqual(jasmine.objectContaining({ useAbbreviation: true, rounding: 'AwayFromZero' }));
-      req.flush(payload({ text: '1.03 c', presentation: 'Decimal', rounding: 'AwayFromZero' }));
-    });
-
-    expect(text(harness.fixture)).toContain('Half away from zero');
-  });
-
-  // Two, not the five MidpointRounding defines: the other three are meaningless for an exact rational and
-  // the server refuses them, so offering them meant three of the choices failed — intermittently, because a
-  // value matching a kitchen fraction never reaches the rounding step at all.
-  it('offers only the rounding modes the calculation supports', async () => {
-    const { fixture } = await createFixture();
-    const select: HTMLSelectElement = fixture.nativeElement.querySelector(
-      `#${fixture.componentInstance.roundingFieldId}`,
+      }),
     );
+    read.flush(payload());
+    await landed(fixture);
 
-    expect(Array.from(select.options).map((option) => option.value)).toEqual(['ToEven', 'AwayFromZero']);
+    expect(rowCells(fixture, 0)).toEqual(['1½ cups all-purpose flour', '1.5 cups', '1½ cups']);
+    // A line that cannot be read says why, in words, rather than vanishing.
+    expect(rowCells(fixture, 1)).toEqual(['salt, to taste', '—', 'No amount recorded']);
+    // No form: no value, unit or button to fill in and press.
+    expect(fixture.nativeElement.querySelector('input[type="number"]')).toBeNull();
+    expect(text(fixture)).not.toContain('Show how it reads');
   });
 
-  // The select offers full sentences, because "ToEven" documents nothing (CALC-002).
-  it('names each rounding mode in words rather than by enum name', async () => {
-    const { fixture } = await createFixture();
-    const select: HTMLSelectElement = fixture.nativeElement.querySelector(
-      `#${fixture.componentInstance.roundingFieldId}`,
-    );
-
-    expect(select.options[0].textContent).toContain('Half to even');
-    expect(select.options[0].textContent).not.toBe('ToEven');
-  });
-
-  it('ignores a rounding value the route does not accept', async () => {
-    const { fixture } = await createFixture();
-
-    fixture.componentInstance.setRounding('Stochastic');
-
-    expect(fixture.componentInstance.rounding()).toBe('ToEven');
-  });
-
-  // ---- Prefill ----
-
-  it('lists every saved line, disabling the ones that cannot fill the form and saying why', async () => {
-    const { fixture } = await createFixture();
-    const select: HTMLSelectElement = fixture.nativeElement.querySelector(
-      `#${fixture.componentInstance.prefillFieldId}`,
-    );
-    const options = Array.from(select.options);
-
-    expect(options.map((option) => option.textContent?.trim())).toEqual([
-      'Choose a line…',
-      '1½ cups all-purpose flour',
-      'salt, to taste — no amount recorded',
-    ]);
-    expect(options.map((option) => option.disabled)).toEqual([false, false, true]);
-  });
-
-  it('fills the value and unit from a resolved line', async () => {
-    const { fixture } = await createFixture();
-
-    fixture.componentInstance.prefillFrom('line-1');
-
-    expect(fixture.componentInstance.value()).toBe(1.5);
-    expect(fixture.componentInstance.unitId()).toBe('unit-cup');
-  });
-
-  it('fills nothing from an unresolved line', async () => {
-    const { fixture } = await createFixture();
-
-    fixture.componentInstance.prefillFrom('line-2');
-
-    expect(fixture.componentInstance.value()).toBeNull();
-  });
-
-  // ---- Refusals ----
-
-  it('degrades to a retry when the catalogue cannot be loaded', async () => {
-    const { fixture, http } = await createFixture({ catalogueFails: true });
-
-    expect(text(fixture)).toContain("unit catalogue couldn't be loaded");
-    expect(fixture.nativeElement.querySelector('form')).toBeNull();
-
-    const retry: HTMLButtonElement = fixture.nativeElement.querySelector('button');
-    retry.click();
-    http.expectOne((request) => request.url === UNITS_URL).flush({ items: CATALOGUE, nextCursor: null });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
-  });
-
-  it('refuses an empty value without calling the server', async () => {
+  it('reads the recipe again with short units when asked, the one option in view', async () => {
     const { fixture, http } = await createFixture();
-    fixture.componentInstance.unitId.set('unit-cup');
+    http.expectOne(DISPLAY_URL).flush(payload());
+    await landed(fixture);
 
-    await fixture.componentInstance.render();
+    const shortUnits = fixture.nativeElement.querySelector('cp-checkbox input') as HTMLInputElement;
+    shortUnits.click();
     fixture.detectChanges();
 
-    http.expectNone(DISPLAY_URL);
-    expect(text(fixture)).toContain('Enter a value.');
+    const again = http.expectOne(DISPLAY_URL);
+    expect(again.request.body).toEqual(jasmine.objectContaining({ useAbbreviation: true }));
+    again.flush(payload({ text: '1½ c' }));
+    await landed(fixture);
+    expect(rowCells(fixture, 0)[2]).toBe('1½ c');
   });
 
-  it('refuses an unchosen unit without calling the server', async () => {
+  it('keeps decimal places and rounding folded away, and reads again when one changes', async () => {
     const { fixture, http } = await createFixture();
-    fixture.componentInstance.value.set(1.5);
+    http.expectOne(DISPLAY_URL).flush(payload());
+    await landed(fixture);
 
-    await fixture.componentInstance.render();
+    const fold = fixture.nativeElement.querySelector('details.display-more') as HTMLDetailsElement;
+    expect(fold.open).toBeFalse();
+
+    fixture.componentInstance.setPrecision('1');
+    fixture.detectChanges();
+    const again = http.expectOne(DISPLAY_URL);
+    expect(again.request.body).toEqual(jasmine.objectContaining({ precision: 1 }));
+    again.flush(payload());
+    await landed(fixture);
+  });
+
+  it('says when nothing could be read, and reads again on asking', async () => {
+    const { fixture, http } = await createFixture();
+    http.expectOne(DISPLAY_URL).flush({}, { status: 503, statusText: 'Unavailable' });
+    await landed(fixture);
+
+    expect(text(fixture)).toContain('Your amounts couldn’t be read just now.');
+    const tryAgain = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).find(
+      (button) => button.textContent?.trim() === 'Try again',
+    )!;
+    tryAgain.click();
     fixture.detectChanges();
 
-    http.expectNone(DISPLAY_URL);
-    expect(text(fixture)).toContain('Choose a unit.');
+    http.expectOne(DISPLAY_URL).flush(payload());
+    await landed(fixture);
+    expect(rowCells(fixture, 0)[2]).toBe('1½ cups');
   });
 
-  it('shows an upper value that is not above the value against its field', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(2);
-    harness.fixture.componentInstance.upperValue.set(2);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-
-    await render(harness, (req) =>
-      req.flush(
-        {
-          code: 'recipes.display-normalization.invalid_request',
-          errors: { upperValue: ['The upper value must be greater than the value.'] },
-        },
-        { status: 400, statusText: 'Bad Request' },
-      ),
-    );
-
-    expect(text(harness.fixture)).toContain('The upper value must be greater than the value.');
-    const input: HTMLInputElement = harness.fixture.nativeElement.querySelector(
-      `#${harness.fixture.componentInstance.upperFieldId}`,
-    );
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-  });
-
-  it('clears a previous card when a later request is refused', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-    expect(harness.fixture.nativeElement.querySelector('.result-card')).not.toBeNull();
-
-    harness.fixture.componentInstance.upperValue.set(1);
-    await render(harness, (req) =>
-      req.flush(
-        {
-          code: 'recipes.display-normalization.invalid_request',
-          errors: { upperValue: ['The upper value must be greater than the value.'] },
-        },
-        { status: 400, statusText: 'Bad Request' },
-      ),
-    );
-
-    expect(harness.fixture.nativeElement.querySelector('.result-card')).toBeNull();
-  });
-
-  it('clears a card when the recipe moves past the version it was computed against', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    harness.fixture.componentRef.setInput('sourceVersionNumber', 4);
-    harness.fixture.detectChanges();
-
-    expect(harness.fixture.nativeElement.querySelector('.result-card')).toBeNull();
-  });
-
-  it('refuses to render for a recipe with no saved version, and says what to do', async () => {
+  it('asks nothing of a recipe with no saved version, and says to save it first', async () => {
     const { fixture, http } = await createFixture({ sourceVersionNumber: null });
 
-    expect(text(fixture)).toContain('no saved version yet');
-    const submit: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
-    expect(submit.disabled).toBeTrue();
-
-    fixture.componentInstance.value.set(1.5);
-    fixture.componentInstance.unitId.set('unit-cup');
-    await fixture.componentInstance.render();
     http.expectNone(DISPLAY_URL);
-  });
-
-  it('offers a retry when the rendering could not be reached', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush({}, { status: 500, statusText: 'Server Error' }));
-
-    expect(text(harness.fixture)).toContain('try again');
-  });
-
-  // ---- Accessibility ----
-
-  it('announces a landed card politely, without moving focus', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    // The announcement is a persistent region whose text changes, not the card itself: a live region
-    // inserted already holding its content is not reliably announced.
-    const region: HTMLElement = harness.fixture.nativeElement.querySelector(
-      '.calculation-announcement[role="status"][aria-live="polite"]',
-    );
-    expect(region.getAttribute('aria-live')).toBe('polite');
-    expect(region.textContent?.trim().length).toBeGreaterThan(0);
-    expect(harness.fixture.nativeElement.querySelector('.result-card').getAttribute('role')).toBeNull();
-  });
-
-  it('pairs the canonical and rendered values as terms and values', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    const terms: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.canonical-pair dt'));
-    expect(terms.map((term) => term.textContent?.trim())).toEqual(['Canonical value', 'How it reads']);
-  });
-
-  it('pairs the caution glyph with its own words', async () => {
-    const harness = await createFixture();
-    harness.fixture.componentInstance.value.set(1.5);
-    harness.fixture.componentInstance.unitId.set('unit-cup');
-    await render(harness, (req) => req.flush(payload()));
-
-    const glyph: HTMLElement = harness.fixture.nativeElement.querySelector('.caution-glyph');
-    expect(glyph.getAttribute('aria-hidden')).toBe('true');
-    expect((glyph.parentElement?.textContent ?? '').trim().length).toBeGreaterThan(20);
+    expect(text(fixture)).toContain('Save the recipe first');
   });
 });

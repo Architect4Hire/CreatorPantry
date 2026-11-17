@@ -238,11 +238,13 @@
         @if (narrow()) {
           <details class="steps-disclosure cp-disclosure">
             <summary>{{ progressText() }}: all steps</summary>
-            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+            <cp-stepper label="Steps" [steps]="navigableSteps()" (stepSelected)="goToStep($event)" />
           </details>
         } @else {
+          <!-- A step done, or reached before, can be gone to from here: the shell moves the run there by its own
+               commands, keeping and checking each step on the way. A step never reached is not on offer. -->
           <nav aria-label="Progress">
-            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+            <cp-stepper label="Steps" [steps]="navigableSteps()" (stepSelected)="goToStep($event)" />
           </nav>
         }
       </div>
@@ -258,11 +260,8 @@
             <p class="hint">{{ line }}</p>
           }
 
-          <!-- Said once, above the step's screen, from the step's own definition: no screen can forget it, and no
-               screen marks a field optional. Only an optional step has one; required is the default. -->
-          @if (legend(); as optional) {
-            <p class="legend cp-muted">{{ optional }}</p>
-          }
+          <!-- No sentence about whether the step is needed: an optional step offers "Skip for now" beside Continue,
+               which says it where it can be acted on; a required one offers none, and says why if asked to skip. -->
 
           @for (warning of current.warnings; track warning.code + warning.message) {
             <cp-notice tone="warning" role="note">{{ warning.message }}</cp-notice>

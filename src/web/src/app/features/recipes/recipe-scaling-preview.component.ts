@@ -1,7 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   CpButtonComponent,
+  CpChoiceGroupComponent,
+  CpChoiceOption,
+  CpDrawerComponent,
   CpFieldComponent,
   CpListShellComponent,
   CpListShellState,
@@ -18,6 +32,7 @@ import {
 } from '../../models/recipe-scaling.models';
 import { RecipeIngredientGroup } from '../../models/recipe.models';
 import { RecipeCalculationService } from '../../services/recipe-calculation.service';
+import { QuantityReading, QuantityToRead, readQuantities } from './recipe-quantity-reading';
 
 /** Which of the two mutually exclusive inputs the creator is scaling by. Mirrors the server's own exclusive-or. */
 export type ScalingMode = 'factor' | 'yield';
@@ -50,6 +65,10 @@ interface ScalingRow {
    * canonical value; the decimal above it is only how it reads.
    */
   readonly exact: string | null;
+  /** How the saved amount reads, "½ cup", once the server has said; null until then, or for a line with no unit. */
+  readonly beforeReading: string | null;
+  /** How the scaled amount reads, "1½ cups" — what a creator will measure. Null as above. */
+  readonly afterReading: QuantityReading | null;
   readonly wasScaled: boolean;
   readonly notes: readonly string[];
 }
@@ -87,13 +106,26 @@ function formatQuantity(quantity: Quantity): string {
  * lower bound of 3 and an upper of 10/3: testing only the lower one dropped the exact column for the whole
  * row, hiding precisely the value it exists to show.
  */
-function formatExact(lower: Quantity | null, upper: Quantity | null): string | null {
+function formatExact(
+  lower: Quantity | null,
+  upper: Quantity | null,
+  lowerShown: number | null,
+  upperShown: number | null,
+): string | null {
   if (lower === null) return null;
-
-  const isExactlyRepresentable = lower.denominator === '1' && (upper === null || upper.denominator === '1');
-  if (isExactlyRepresentable) return null;
+  if (statesExactly(lower, lowerShown) && (upper === null || statesExactly(upper, upperShown))) return null;
 
   return upper === null ? formatQuantity(lower) : `${formatQuantity(lower)} to ${formatQuantity(upper)}`;
+}
+
+/**
+ * Whether the decimal shown already says the server's exact amount — 0.5 for 1/2, 1.5 for 3/2 — so that writing
+ * "exact 1/2" beside it would repeat it. A test of the server's two forms of one amount against each other, to
+ * decide whether a label is worth showing; no amount is worked out from it, and both figures stay the server's.
+ */
+function statesExactly(exact: Quantity, shown: number | null): boolean {
+  if (exact.denominator === '1') return true;
+  return shown !== null && shown * Number(exact.denominator) === Number(exact.numerator);
 }
 
 /** A pair of decimals as one cell. "to" rather than a dash, which a screen reader reads as a subtraction. */
@@ -121,13 +153,34 @@ let nextInstance = 0;
 @Component({
   selector: 'cp-recipe-scaling-preview',
   standalone: true,
-  imports: [FormsModule, CpButtonComponent, CpFieldComponent, CpListShellComponent, CpStatusPillComponent],
+  imports: [
+    FormsModule,
+    NgTemplateOutlet,
+    CpButtonComponent,
+    CpChoiceGroupComponent,
+    CpDrawerComponent,
+    CpFieldComponent,
+    CpListShellComponent,
+    CpStatusPillComponent,
+  ],
   templateUrl: './recipe-scaling-preview.component.html',
   styleUrl: './recipe-scaling-preview.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecipeScalingPreviewComponent {
   private readonly calculationService = inject(RecipeCalculationService);
+  private readonly elementRef: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly injector = inject(Injector);
+
+  /**
+   * Whether the amounts open in a drawer beside the form rather than under it — the workflow's "Try it at another
+   * size", where the form is the step. Off on the recipe page, where this tool already sits in the Tools drawer and
+   * nothing opens on top of a drawer.
+   */
+  readonly resultsInDrawer = input(false);
+
+  /** Whether that drawer is showing. It holds nothing unsaved, so it closes the moment it is asked to. */
+  readonly resultsOpen = signal(false);
 
   readonly workspaceSlug = input.required<string>();
   readonly recipeId = input.required<string>();
@@ -178,6 +231,13 @@ export class RecipeScalingPreviewComponent {
   /** A recipe with no numeric yield has nothing to scale toward, so that mode is offered but not usable. */
   readonly canScaleToYield = computed(() => this.recipeYieldQuantity() !== null);
 
+  /** The two modes, by what the number in the box is: a factor, or the yield wanted. Yield is offered but off for a
+   *  recipe that records no yield quantity, with the reason said under it. */
+  readonly modeOptions = computed<readonly CpChoiceOption[]>(() => [
+    { value: 'factor', label: 'Factor' },
+    { value: 'yield', label: 'Yield', disabled: !this.canScaleToYield() },
+  ]);
+
   /**
    * What the recipe currently makes, in its own words where it has them. The saved yield, never the form's:
    * a target entered against an unsaved yield edit would be a target for a recipe that does not exist.
@@ -191,6 +251,27 @@ export class RecipeScalingPreviewComponent {
   });
 
   readonly canSubmit = computed(() => !this.isWorking() && this.sourceVersionNumber() !== null);
+
+  /** The scaled amounts were put away by the creator; they come back without being asked for again. */
+  readonly resultsHidden = signal(false);
+
+  /** What the amounts on screen were worked out for — the mode and the number — and what the boxes say now. */
+  private readonly shownFor = signal<string | null>(null);
+  private readonly askingFor = computed(
+    () => `${this.mode()}:${this.mode() === 'factor' ? this.factorValue() : this.targetYieldValue()}`,
+  );
+
+  /**
+   * Whether the button would hide the amounts: they are showing under the form, and they answer what the boxes say.
+   * Never in the drawer's case, where the amounts are put away by closing it.
+   */
+  readonly canHide = computed(
+    () =>
+      !this.resultsInDrawer() &&
+      this.previewSignal() !== null &&
+      !this.resultsHidden() &&
+      this.shownFor() === this.askingFor(),
+  );
 
   /**
    * Whether the recipe has moved past the version this preview was computed from — a save or a restore while
@@ -290,6 +371,11 @@ export class RecipeScalingPreviewComponent {
    * is never submitted this phase, so it is not what the server scaled and showing it as "before" would
    * describe a calculation that did not happen.
    */
+  /** How each amount reads, by `before:<line>` and `after:<line>`, for the preview on screen. */
+  private readonly readings = signal<ReadonlyMap<string, QuantityReading>>(new Map());
+  /** Which preview the readings in flight are for, so a late answer for an earlier one is dropped. */
+  private readingTicket = 0;
+
   private readonly savedAmounts = computed<ReadonlyMap<string, string | null>>(() => {
     const amounts = new Map<string, string | null>();
     for (const group of this.savedIngredientGroups()) {
@@ -300,15 +386,64 @@ export class RecipeScalingPreviewComponent {
     return amounts;
   });
 
+  /** Whether any line has a note, so the Notes column is drawn only when it has something in it. */
+  readonly hasNotes = computed(() => this.rows().some((row) => row.notes.length > 0));
+
   readonly rows = computed<readonly ScalingRow[]>(() => {
     const result = this.previewSignal();
     if (result === null) return [];
 
     const saved = this.savedAmounts();
-    return result.preview.lines.map((line) => this.toRow(line, saved));
+    const readings = this.readings();
+    return result.preview.lines.map((line) => this.toRow(line, saved, readings));
   });
 
-  private toRow(line: RecipeScalingPreviewLine, saved: ReadonlyMap<string, string | null>): ScalingRow {
+  /**
+   * Asks how each amount reads, before and after, once a preview has landed — "½ cup → 1 cup" rather than
+   * "0.5 → 1". Only a line with a saved unit can be read; the rest keep their numbers. The numbers show meanwhile,
+   * and stay wherever a reading could not be had: this is presentation only, and never the amount itself.
+   */
+  private async readAmounts(result: RecipeScalingResult, sourceVersionNumber: number): Promise<void> {
+    const ticket = ++this.readingTicket;
+    this.readings.set(new Map());
+
+    const saved = new Map(
+      this.savedIngredientGroups().flatMap((group) => group.ingredients.map((line) => [line.id, line] as const)),
+    );
+    const quantities: QuantityToRead[] = [];
+    for (const line of result.preview.lines) {
+      const source = saved.get(line.id);
+      const unitId = source?.measurementUnitId ?? null;
+      if (source === undefined || unitId === null) continue;
+      if (source.quantity !== null) {
+        quantities.push({ key: `before:${line.id}`, value: source.quantity, upperValue: source.quantityUpper, unitId });
+      }
+      if (line.scaledDisplayQuantity !== null) {
+        quantities.push({
+          key: `after:${line.id}`,
+          value: line.scaledDisplayQuantity,
+          upperValue: line.scaledDisplayQuantityUpper,
+          unitId,
+        });
+      }
+    }
+    if (quantities.length === 0) return;
+
+    const { readings } = await readQuantities(
+      this.calculationService,
+      this.workspaceSlug(),
+      this.recipeId(),
+      sourceVersionNumber,
+      quantities,
+    );
+    if (ticket === this.readingTicket) this.readings.set(readings);
+  }
+
+  private toRow(
+    line: RecipeScalingPreviewLine,
+    saved: ReadonlyMap<string, string | null>,
+    readings: ReadonlyMap<string, QuantityReading>,
+  ): ScalingRow {
     return {
       key: line.id,
       displayText: line.displayText,
@@ -316,10 +451,23 @@ export class RecipeScalingPreviewComponent {
       // else: it means this preview is of content the page is not showing, which is worth noticing.
       before: saved.get(line.id) ?? null,
       after: formatRange(line.scaledDisplayQuantity, line.scaledDisplayQuantityUpper),
-      exact: formatExact(line.scaledQuantity, line.scaledQuantityUpper),
+      exact: formatExact(
+        line.scaledQuantity,
+        line.scaledQuantityUpper,
+        line.scaledDisplayQuantity,
+        line.scaledDisplayQuantityUpper,
+      ),
+      beforeReading: readings.get(`before:${line.id}`)?.text ?? null,
+      afterReading: readings.get(`after:${line.id}`) ?? null,
       wasScaled: line.wasScaled,
       notes: line.warnings.map((warning) => WARNING_TEXT[warning]),
     };
+  }
+
+  /** From the segmented choice, which reports what is picked as a list of one. */
+  onModeChosen(value: readonly string[]): void {
+    const mode = value[0];
+    if (mode === 'factor' || mode === 'yield') this.setMode(mode);
   }
 
   setMode(mode: ScalingMode): void {
@@ -344,6 +492,48 @@ export class RecipeScalingPreviewComponent {
     this.factorValue.set(value);
     this.targetYieldValue.set(null);
     this.localErrorSignal.set(null);
+  }
+
+  /**
+   * The one button, as a toggle. Showing the amounts for what is in the box, it hides them; hidden, it shows them
+   * again without asking a second time; and once the box says something else, it works the new amounts out — so a
+   * changed factor is never answered by hiding the old one.
+   */
+  async toggle(): Promise<void> {
+    // In the drawer's case, amounts already worked out for what the boxes say open again as they were.
+    if (this.resultsInDrawer() && this.previewSignal() !== null && this.shownFor() === this.askingFor()) {
+      this.resultsOpen.set(true);
+      return;
+    }
+    if (this.canHide()) {
+      this.resultsHidden.set(true);
+      return;
+    }
+    if (this.resultsHidden() && this.previewSignal() !== null && this.shownFor() === this.askingFor()) {
+      this.resultsHidden.set(false);
+      return;
+    }
+    await this.scale();
+  }
+
+  /**
+   * Escape, the scrim or the close control. Focus goes back to the button that showed them: it was busy while the
+   * amounts were worked out, so it may not be what held focus when the drawer opened.
+   */
+  closeResults(): void {
+    this.resultsOpen.set(false);
+    afterNextRender(() => this.elementRef.nativeElement.querySelector<HTMLElement>('.scaling-submit')?.focus(), {
+      injector: this.injector,
+    });
+  }
+
+  /** From the drawer's footer: put the amounts away and take the creator to the box that sets the size. */
+  tryAnotherSize(): void {
+    this.resultsOpen.set(false);
+    const id = this.mode() === 'factor' ? this.factorFieldId : this.targetYieldFieldId;
+    afterNextRender(() => this.elementRef.nativeElement.querySelector<HTMLElement>(`[id="${id}"]`)?.focus(), {
+      injector: this.injector,
+    });
   }
 
   async scale(): Promise<void> {
@@ -375,6 +565,11 @@ export class RecipeScalingPreviewComponent {
     if (outcome.status === 'scaled') {
       this.previewSignal.set(outcome.result);
       this.requestSignal.set({ status: 'done' });
+      void this.readAmounts(outcome.result, versionNumber);
+      this.shownFor.set(`${mode}:${value}`);
+      this.resultsHidden.set(false);
+      // Asked for, so shown: in the drawer's case they open beside the form, and focus comes back to the button.
+      if (this.resultsInDrawer()) this.resultsOpen.set(true);
       return;
     }
 

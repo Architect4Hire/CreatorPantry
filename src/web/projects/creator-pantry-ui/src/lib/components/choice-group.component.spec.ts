@@ -27,7 +27,7 @@ class HostComponent {
   readonly multiple = signal(false);
   readonly value = signal<readonly string[]>([]);
   readonly max = signal<number | null>(null);
-  readonly layout = signal<'stack' | 'fit'>('stack');
+  readonly layout = signal<'stack' | 'fit' | 'segmented'>('stack');
   readonly idPrefix = signal('voice-');
 }
 
@@ -178,6 +178,33 @@ describe('CpChoiceGroupComponent', () => {
   it('lays short options out as many across as fit when asked', () => {
     mount((h) => h.layout.set('fit'));
     expect(el.querySelector('.tiles')!.classList).toContain('fit');
+  });
+
+  it('joins short options in one segmented bar when asked: the same radios, the picked one ticked', () => {
+    mount((h) => {
+      h.layout.set('segmented');
+      h.options.set([
+        { value: 'factor', label: 'Factor' },
+        { value: 'yield', label: 'Yield' },
+      ]);
+      h.value.set(['factor']);
+    });
+    document.body.appendChild(el);
+
+    const bar = el.querySelector('.tiles')!;
+    expect(bar.classList).toContain('segmented');
+    expect(bar.getAttribute('role')).toBe('radiogroup');
+    // Side by side, each a full-size target, no radio dot: the picked one says so with a tick, not colour alone.
+    expect(tile('yield').getBoundingClientRect().left).toBeGreaterThan(tile('factor').getBoundingClientRect().left);
+    expect(tile('factor').getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+    expect(el.querySelector('.mark')).toBeNull();
+    expect(tile('factor').querySelector('.check')?.getAttribute('aria-hidden')).toBe('true');
+    expect(tile('yield').querySelector('.check')).toBeNull();
+
+    click('yield');
+    expect(host.value()).toEqual(['yield']);
+    expect(tile('yield').querySelector('.check')).not.toBeNull();
+    el.remove();
   });
 
   it('renders nothing but the group when there are no options', () => {

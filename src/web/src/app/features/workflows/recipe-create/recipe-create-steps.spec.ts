@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Type, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { NEVER, Observable, of } from 'rxjs';
 
@@ -21,6 +22,7 @@ import { WorkspaceMembershipService } from '../../../services/workspace-membersh
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { RecipeStudioHost } from '../../ai/recipe-studio-host';
 import { RecipeEditorComponent } from '../../recipes/recipe-editor.component';
+import { RecipeScalingPreviewComponent } from '../../recipes/recipe-scaling-preview.component';
 import { RecipeCreatePartStepComponent } from './recipe-create-part-step.component';
 import { RecipeSizesStepComponent } from '../recipe-steps/recipe-sizes-step.component';
 import { RecipeCreateStartStepComponent } from './recipe-create-start-step.component';
@@ -563,7 +565,11 @@ describe('"Create a recipe" step screens (13A.14)', () => {
 
       expect(recipes.getRecipeDetail).toHaveBeenCalledOnceWith(SLUG, 'recipe-1');
       expect(root(fixture).querySelector('cp-recipe-scaling-preview')).not.toBeNull();
-      expect(root(fixture).querySelector('details cp-recipe-display-normalization')).not.toBeNull();
+      // The step is the form; the amounts open beside it, in a drawer.
+      const scaling = fixture.debugElement.query(By.directive(RecipeScalingPreviewComponent));
+      expect((scaling.componentInstance as RecipeScalingPreviewComponent).resultsInDrawer()).toBeTrue();
+      // How amounts read is in the scaled amounts themselves now, not a tool of its own folded below them.
+      expect(root(fixture).querySelector('cp-recipe-display-normalization')).toBeNull();
       expect(port.unsaved()).toBeFalse();
       await expectAsync(port.flush()).toBeResolvedTo(true);
       expect(recipes.updateRecipe).not.toHaveBeenCalled();
