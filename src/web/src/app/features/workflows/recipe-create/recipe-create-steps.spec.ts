@@ -568,6 +568,8 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       // The step is the form; the amounts open beside it, in a drawer.
       const scaling = fixture.debugElement.query(By.directive(RecipeScalingPreviewComponent));
       expect((scaling.componentInstance as RecipeScalingPreviewComponent).resultsInDrawer()).toBeTrue();
+      // The step card names it and says nothing changes, so the panel says neither again.
+      expect((scaling.componentInstance as RecipeScalingPreviewComponent).inStep()).toBeTrue();
       // How amounts read is in the scaled amounts themselves now, not a tool of its own folded below them.
       expect(root(fixture).querySelector('cp-recipe-display-normalization')).toBeNull();
       expect(port.unsaved()).toBeFalse();

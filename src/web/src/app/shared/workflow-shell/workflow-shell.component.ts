@@ -100,7 +100,6 @@ type Command =
   | 'back'
   | 'skip'
   | 'finish'
-  | 'save-exit'
   | 'start-over'
   | 'stop'
   | 'start-again'
@@ -550,29 +549,25 @@ export class WorkflowShellComponent {
     return this.command('finish', async () => this.runs.completeRun(this.workspaceSlug(), this.run()!));
   }
 
-  saveAndExit(): Promise<void> {
-    const key = this.currentKey();
-    if (!this.run() || !key) return Promise.resolve();
-    return this.command('save-exit', async () => {
-      const registration = this.port.registration();
-      return this.runs.saveAndExit(this.workspaceSlug(), this.run()!, key, {
-        draft: registration?.draft?.() ?? null,
-        capabilityKey: registration?.capabilityKey?.() ?? null,
-      });
-    });
+  /** From the stop dialog: starting over is stopping and beginning again, already asked about there. */
+  startOverInstead(): Promise<void> {
+    this.stopping.set(false);
+    return this.startOver(false);
   }
 
-  async startOver(): Promise<void> {
+  async startOver(confirmFirst = true): Promise<void> {
     const run = this.run();
     if (!run || this.busy() !== null) return;
 
-    const agreed = await this.confirmer.confirm({
-      title: 'Start this over?',
-      message: 'You’ll begin again from the first step. This run is kept as it is, and nothing you made is deleted.',
-      confirmLabel: 'Start over',
-      cancelLabel: 'Keep going',
-      tone: 'neutral',
-    });
+    const agreed =
+      !confirmFirst ||
+      (await this.confirmer.confirm({
+        title: 'Start this over?',
+        message: 'You’ll begin again from the first step. This run is kept as it is, and nothing you made is deleted.',
+        confirmLabel: 'Start over',
+        cancelLabel: 'Keep going',
+        tone: 'neutral',
+      }));
     if (!agreed) return;
 
     this.idempotencyKey = newKey();
@@ -670,11 +665,14 @@ export class WorkflowShellComponent {
 
   /**
    * For the route's leave guard: keeps the step's work, and asks only when it cannot be kept. Moves the shell makes
-   * itself — Save and exit, Start over — are never asked about.
+   * itself — Start over, the moves that land on another run — are never asked about. Leaving also tells the run where the creator was ({@link rememberWhereLeft}), which is what "Save and exit" used to do.
    */
   async confirmLeaveIfUnsaved(): Promise<boolean> {
-    if (this.leaving || !this.port.unsaved()) return true;
-    if (await this.port.flush()) return true;
+    if (this.leaving) return true;
+    if (!this.port.unsaved() || (await this.port.flush())) {
+      await this.rememberWhereLeft();
+      return true;
+    }
 
     return this.confirmer.confirm({
       title: 'Leave without saving?',
@@ -690,6 +688,24 @@ export class WorkflowShellComponent {
   }
 
   // ---- Internals ----
+
+  /**
+   * Leaving is saving and exiting: there is no button for it, so whatever way the creator leaves — "Workflows", the
+   * sidebar, a link — the run is told where they were, the step and the work it holds, and "Pick up where you left
+   * off" can take them back there. The step's work is already kept by then. Best effort: a run that could not be
+   * told is still safe, and leaving is never held up by it.
+   */
+  private async rememberWhereLeft(): Promise<void> {
+    const run = this.run();
+    const key = this.currentKey();
+    if (!run || !key || run.status !== 'InProgress' || this.readOnly() || this.phase() !== 'step') return;
+
+    const registration = this.port.registration();
+    await this.runs.saveAndExit(this.workspaceSlug(), run, key, {
+      draft: registration?.draft?.() ?? null,
+      capabilityKey: registration?.capabilityKey?.() ?? null,
+    });
+  }
 
   /** Whether the navigation that opened this run came from a Continue on it ({@link continueRunState}). */
   private continueChosen(runId: string): boolean {
@@ -814,11 +830,6 @@ export class WorkflowShellComponent {
     switch (outcome.status) {
       case 'done':
         this.show(outcome.run);
-        if (name === 'save-exit') {
-          this.leaving = true;
-          await this.router.navigate(['/', this.workspaceSlug(), 'workflows']);
-          return;
-        }
         this.settle(outcome.run, before);
         return;
 

@@ -207,8 +207,7 @@
 
 /* The figures, and their headings over them, at the right edge, so they line up down the column. */
 .scaled-lines .line-amount,
-.scaled-lines thead th:nth-child(2),
-.scaled-lines thead th:nth-child(3) {
+.scaled-lines thead th.num {
   text-align: end;
 }
 
@@ -231,8 +230,8 @@
   line-height: var(--cp-leading-tight);
 }
 
+/* The exact amount, where the figure to measure was rounded: quiet, beside it rather than under it. */
 .line-exact {
-  font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }
 

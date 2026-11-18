@@ -475,19 +475,22 @@ describe('WorkflowShellComponent', () => {
     expect(notice!.compareDocumentPosition(primary!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('keeps every button in one row: the moves first, then Start over and Stop at its end', async () => {
+  it('keeps the step footer to the moves through the steps, and ending the run beside the steps', async () => {
     await onIngredients();
 
     const row = el().querySelector('.footer .primary-row')!;
     const labels = Array.from(row.querySelectorAll('button')).map((each) => each.textContent!.trim());
-    expect(labels).toEqual(['Back', 'Continue', 'Save and exit', 'Start over', 'Stop this run']);
-    expect(Array.from(row.querySelectorAll('.run-controls button')).map((b) => b.textContent!.trim())).toEqual([
-      'Start over',
-      'Stop this run',
-    ]);
+    // Back quiet at the start, the way on at the end. No "Save and exit": the step saves itself, and leaving keeps
+    // the place.
+    expect(labels).toEqual(['Back', 'Continue']);
+    expect(row.querySelector('.back')?.getAttribute('variant')).toBe('text');
+    expect(el().querySelector('.footer')!.textContent).toContain('You can leave and pick up here later.');
+    expect(text()).not.toContain('Save and exit');
+    // Stopping is the run's: one quiet control with its steps, and Start over is offered in its dialog.
+    expect(el().querySelector('.progress button.stop-run')?.textContent?.trim()).toBe('Stop this run');
+    expect(button('Start over')).toBeNull();
     // Nothing folded away behind a second click.
     expect(el().querySelector('details.more')).toBeNull();
-    expect(text()).not.toContain('More options');
   });
 
   it('goes Back, and offers no Back on the first step', async () => {
@@ -611,19 +614,26 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Ingredients: The recipe this step made can’t be found any more.');
   });
 
-  it("saves and exits with the step's draft and place, then leaves for Workflows", async () => {
+  it("tells the run the step's draft and place whenever the creator leaves, as Save and exit did", async () => {
     await onIngredients();
     screen.draft.set({ kind: 'Recipe', id: 'draft-1' });
     screen.capabilityKey.set('recipes.edit');
     service.saveAndExit.and.returnValue(done(run()));
 
-    await click('Save and exit');
+    // Any way out — "Workflows", the sidebar, a link — goes through the route's leave guard.
+    await expectAsync(shell().confirmLeaveIfUnsaved()).toBeResolvedTo(true);
 
     expect(service.saveAndExit).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', {
       draft: { kind: 'Recipe', id: 'draft-1' },
       capabilityKey: 'recipes.edit',
     });
-    expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows']);
+  });
+
+  it('still lets the creator leave when the run could not be told where they were', async () => {
+    await onIngredients();
+    service.saveAndExit.and.resolveTo({ status: 'unavailable', offline: true });
+
+    await expectAsync(shell().confirmLeaveIfUnsaved()).toBeResolvedTo(true);
   });
 
   // ---- A step's draft, kept on the run ----
@@ -860,16 +870,14 @@ describe('WorkflowShellComponent', () => {
     expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
   });
 
-  it('starts over only once confirmed, and retries under the same key', async () => {
+  it('starts over from the stop dialog, asked once there, and retries under the same key', async () => {
     await onIngredients();
 
-    confirm.and.resolveTo(false);
-    await click('Start over');
-    expect(service.restart).not.toHaveBeenCalled();
-
-    confirm.and.resolveTo(true);
+    await click('Stop this run');
     service.restart.and.resolveTo({ status: 'unavailable', offline: false });
-    await click('Start over');
+    await click('Start over instead');
+    // The dialog was the question: no second one before starting over.
+    expect(confirm).not.toHaveBeenCalled();
     await click('Retry');
 
     expect(service.restart).toHaveBeenCalledTimes(2);
@@ -886,8 +894,8 @@ describe('WorkflowShellComponent', () => {
 
     expect(text()).toContain('Start your recipe');
     // The run exists from the moment it was started, so it can always be stopped rather than left behind.
-    expect(button('Stop this run')).not.toBeNull();
-    expect(button('Start over')).toBeNull();
+    await click('Stop this run');
+    expect(button('Start over instead')).toBeNull();
   });
 
   it('offers Start over as soon as the step on screen holds work, before any step is done', async () => {
@@ -899,11 +907,12 @@ describe('WorkflowShellComponent', () => {
       }),
     );
     expect(el().querySelector('.test-screen')).not.toBeNull();
-    expect(button('Start over')).toBeNull();
+    await click('Stop this run');
+    expect(button('Start over instead')).toBeNull();
 
     screen.unsaved.set(true);
     await settle();
-    expect(button('Start over')).not.toBeNull();
+    expect(button('Start over instead')).not.toBeNull();
   });
 
   it('stops a run with the reason given, and shows it stopped', async () => {
@@ -1009,17 +1018,18 @@ describe('WorkflowShellComponent', () => {
     expect(service.completeStep).toHaveBeenCalledTimes(2);
   });
 
-  it('never leaves, stops or starts over unasked when the browser comes back', async () => {
+  it('never stops or starts over unasked when the browser comes back', async () => {
     await onIngredients();
-    service.saveAndExit.and.resolveTo({ status: 'unavailable', offline: true });
+    service.restart.and.resolveTo({ status: 'unavailable', offline: true });
 
-    await click('Save and exit');
+    await click('Stop this run');
+    await click('Start over instead');
     expect(text()).toContain('retry when you’re back online');
 
     window.dispatchEvent(new Event('online'));
     await settle();
 
-    expect(service.saveAndExit).toHaveBeenCalledTimes(1);
+    expect(service.restart).toHaveBeenCalledTimes(1);
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -1042,7 +1052,7 @@ describe('WorkflowShellComponent', () => {
     await onIngredients();
 
     expect(text()).toContain('You can see this run, but only the person who started it');
-    for (const label of ['Back', 'Continue', 'Save and exit', 'Start over']) {
+    for (const label of ['Back', 'Continue', 'Stop this run', 'Start over instead']) {
       expect(button(label)).withContext(label).toBeNull();
     }
   });
@@ -1193,7 +1203,8 @@ describe('WorkflowShellComponent', () => {
   it('guards the new run after Start over lands on the same page', async () => {
     const component = await onIngredients();
     service.restart.and.resolveTo({ status: 'started', run: run({ id: 'run-2' }) });
-    await click('Start over');
+    await click('Stop this run');
+    await click('Start over instead');
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
 
     // The router keeps this component for the new run: it reads it, and guards it again.

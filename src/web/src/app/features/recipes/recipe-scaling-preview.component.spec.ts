@@ -300,7 +300,13 @@ describe('RecipeScalingPreviewComponent', () => {
       ),
     );
 
-    expect(text(harness.fixture)).toContain('exact 1/3');
+    // In a column of its own, headed Exact, beside the rounded figure rather than under it.
+    const headers = Array.from(harness.fixture.nativeElement.querySelectorAll('.scaled-lines thead th')).map((th) =>
+      (th as HTMLElement).textContent?.trim(),
+    );
+    expect(headers).toEqual(['Ingredient', 'Before', 'After', 'Exact']);
+    expect(rowCells(harness.fixture, 0)[2]).toBe('0.33');
+    expect(rowCells(harness.fixture, 0)[3]).toBe('1/3');
   });
 
   it('renders a scaled range as two bounds', async () => {
@@ -540,8 +546,8 @@ describe('RecipeScalingPreviewComponent', () => {
     const cells = rowCells(harness.fixture, 0);
     expect(cells[1]).toBe('½ cup');
     expect(cells[2]).toContain('1½ cups');
-    // A kitchen fraction already is the exact amount, so "exact 3/2" is not said beside it.
-    expect(cells[2]).not.toContain('exact');
+    // A kitchen fraction already is the exact amount, so no Exact column is drawn for it.
+    expect(cells.length).toBe(3);
   });
 
   it('says the exact amount only where the decimal shown has been rounded', async () => {
@@ -564,8 +570,57 @@ describe('RecipeScalingPreviewComponent', () => {
       ),
     );
 
-    expect(rowCells(harness.fixture, 0)[2]).not.toContain('exact');
-    expect(rowCells(harness.fixture, 1)[2]).toContain('exact 3/8');
+    expect(rowCells(harness.fixture, 0)[3]).toBe('Same as after');
+    expect(rowCells(harness.fixture, 1)[3]).toBe('3/8');
+  });
+
+  it('says no exact amount a cook would not measure with', async () => {
+    const harness = await createFixture();
+    harness.fixture.componentInstance.factorValue.set(2);
+    await scale(harness, (req) =>
+      req.flush(
+        scalingPayload({
+          // A third saved as 0.333, doubled: 333/500, which 0.67 says better.
+          lines: [
+            scaledLine({ scaledQuantity: { numerator: '333', denominator: '500' }, scaledDisplayQuantity: 0.67 }),
+          ],
+        }),
+      ),
+    );
+
+    expect(rowCells(harness.fixture, 0).length).withContext('no Exact column').toBe(3);
+    expect(text(harness.fixture)).not.toContain('333/500');
+  });
+
+  it('goes straight to the choice in a guided step, whose card already names it and says nothing changes', async () => {
+    const onPage = await createFixture();
+    const page = onPage.fixture.nativeElement as HTMLElement;
+    // On the recipe page it names and explains itself.
+    expect(page.querySelector('h2.scaling-heading')?.textContent).toContain('Scale this recipe');
+    expect(page.textContent).toContain('A reference calculation');
+    expect(page.textContent).toContain('Ingredients tab');
+    TestBed.resetTestingModule();
+
+    const inStep = await createFixture({ inStep: true });
+    const step = inStep.fixture.nativeElement as HTMLElement;
+    expect(step.querySelector('h2.scaling-heading')).toBeNull();
+    expect(step.textContent).not.toContain('A reference calculation');
+    expect(step.textContent).not.toContain('Ingredients tab');
+    expect(step.querySelector('.mode [role="radiogroup"]')).not.toBeNull();
+  });
+
+  it('says nothing in a guided step about applying the scale, which its hint already covers', async () => {
+    const harness = await createFixture({ inStep: true, resultsInDrawer: true });
+    harness.fixture.componentInstance.setFactor(2);
+    harness.fixture.detectChanges();
+    const call = harness.fixture.componentInstance.toggle();
+    harness.http.expectOne(SCALE_URL).flush(scalingPayload());
+    await call;
+    harness.fixture.detectChanges();
+
+    const drawer = document.body.querySelector('section[role="dialog"]')!;
+    expect(drawer.querySelector('.scaled-lines')).not.toBeNull();
+    expect(drawer.textContent).not.toContain('needs ingredient saving');
   });
 
   it('chooses the mode from a named, segmented pair of radios, Factor picked to begin with', async () => {

@@ -54,6 +54,7 @@ type Loaded =
               [recipeYieldQuantity]="recipe.yieldQuantity"
               [recipeYieldText]="recipe.yieldText"
               [resultsInDrawer]="true"
+              [inStep]="true"
             />
           </div>
         }

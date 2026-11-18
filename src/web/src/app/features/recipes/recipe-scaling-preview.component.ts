@@ -114,6 +114,9 @@ function formatExact(
 ): string | null {
   if (lower === null) return null;
   if (statesExactly(lower, lowerShown) && (upper === null || statesExactly(upper, upperShown))) return null;
+  // Only a fraction a cook measures with. "333/500" — a third saved as 0.333, halved — says nothing the rounded
+  // decimal does not say better.
+  if (!isKitchenFraction(lower) || (upper !== null && !isKitchenFraction(upper))) return null;
 
   return upper === null ? formatQuantity(lower) : `${formatQuantity(lower)} to ${formatQuantity(upper)}`;
 }
@@ -123,6 +126,11 @@ function formatExact(
  * "exact 1/2" beside it would repeat it. A test of the server's two forms of one amount against each other, to
  * decide whether a label is worth showing; no amount is worked out from it, and both figures stay the server's.
  */
+/** Halves, thirds, quarters, eighths, sixteenths: a denominator a measuring spoon or cup has. */
+function isKitchenFraction(quantity: Quantity): boolean {
+  return Number(quantity.denominator) <= 16;
+}
+
 function statesExactly(exact: Quantity, shown: number | null): boolean {
   if (exact.denominator === '1') return true;
   return shown !== null && shown * Number(exact.denominator) === Number(exact.numerator);
@@ -178,6 +186,13 @@ export class RecipeScalingPreviewComponent {
    * nothing opens on top of a drawer.
    */
   readonly resultsInDrawer = input(false);
+
+  /**
+   * Whether the panel sits in a guided step whose card already names it and says nothing changes — the workflow's
+   * "Try it at another size". It then prints no heading, introduction or note about the editor's Ingredients tab
+   * (which that step does not have) of its own, and goes straight to the choice.
+   */
+  readonly inStep = input(false);
 
   /** Whether that drawer is showing. It holds nothing unsaved, so it closes the moment it is asked to. */
   readonly resultsOpen = signal(false);
@@ -389,6 +404,9 @@ export class RecipeScalingPreviewComponent {
   /** Whether any line has a note, so the Notes column is drawn only when it has something in it. */
   readonly hasNotes = computed(() => this.rows().some((row) => row.notes.length > 0));
 
+  /** Whether any line has an exact amount worth saying, so the Exact column is drawn only when it has one. */
+  readonly hasExact = computed(() => this.rows().some((row) => row.exact !== null));
+
   readonly rows = computed<readonly ScalingRow[]>(() => {
     const result = this.previewSignal();
     if (result === null) return [];
@@ -444,6 +462,9 @@ export class RecipeScalingPreviewComponent {
     saved: ReadonlyMap<string, string | null>,
     readings: ReadonlyMap<string, QuantityReading>,
   ): ScalingRow {
+    const afterReading = readings.get(`after:${line.id}`) ?? null;
+    // Beside a kitchen reading — "1½ cups" — the exact amount is already said.
+    const readsExactly = afterReading !== null && afterReading.presentation !== 'Decimal';
     return {
       key: line.id,
       displayText: line.displayText,
@@ -451,14 +472,16 @@ export class RecipeScalingPreviewComponent {
       // else: it means this preview is of content the page is not showing, which is worth noticing.
       before: saved.get(line.id) ?? null,
       after: formatRange(line.scaledDisplayQuantity, line.scaledDisplayQuantityUpper),
-      exact: formatExact(
-        line.scaledQuantity,
-        line.scaledQuantityUpper,
-        line.scaledDisplayQuantity,
-        line.scaledDisplayQuantityUpper,
-      ),
+      exact: readsExactly
+        ? null
+        : formatExact(
+            line.scaledQuantity,
+            line.scaledQuantityUpper,
+            line.scaledDisplayQuantity,
+            line.scaledDisplayQuantityUpper,
+          ),
       beforeReading: readings.get(`before:${line.id}`)?.text ?? null,
-      afterReading: readings.get(`after:${line.id}`) ?? null,
+      afterReading,
       wasScaled: line.wasScaled,
       notes: line.warnings.map((warning) => WARNING_TEXT[warning]),
     };
