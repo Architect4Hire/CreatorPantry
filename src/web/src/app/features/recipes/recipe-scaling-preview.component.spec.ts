@@ -300,7 +300,13 @@ describe('RecipeScalingPreviewComponent', () => {
       ),
     );
 
-    expect(text(harness.fixture)).toContain('exact 1/3');
+    // In a column of its own, headed Exact, beside the rounded figure rather than under it.
+    const headers = Array.from(harness.fixture.nativeElement.querySelectorAll('.scaled-lines thead th')).map((th) =>
+      (th as HTMLElement).textContent?.trim(),
+    );
+    expect(headers).toEqual(['Ingredient', 'Before', 'After', 'Exact']);
+    expect(rowCells(harness.fixture, 0)[2]).toBe('0.33');
+    expect(rowCells(harness.fixture, 0)[3]).toBe('1/3');
   });
 
   it('renders a scaled range as two bounds', async () => {
@@ -397,12 +403,16 @@ describe('RecipeScalingPreviewComponent', () => {
     expect(text(fixture)).toContain('can only be scaled by a factor');
   });
 
-  it('names what the recipe currently makes as the target hint', async () => {
+  it('names what the recipe currently makes as the target box’s placeholder, not a line under it', async () => {
     const { fixture } = await createFixture();
     fixture.componentInstance.setMode('yield');
     fixture.detectChanges();
 
-    expect(text(fixture)).toContain('This recipe makes 12 — 12 servings.');
+    const input = (fixture.nativeElement as HTMLElement).querySelector(
+      `#${fixture.componentInstance.targetYieldFieldId}`,
+    ) as HTMLInputElement;
+    expect(input.placeholder).toBe('This recipe makes 12 — 12 servings.');
+    expect(input.closest('cp-field')!.querySelector('small')).toBeNull();
   });
 
   // ---- Unsaved and stale ----
@@ -500,11 +510,159 @@ describe('RecipeScalingPreviewComponent', () => {
 
   // ---- Accessibility ----
 
-  it('names the mode chooser with a legend rather than a bare label', async () => {
-    const { fixture } = await createFixture();
-    const legend: HTMLLegendElement = fixture.nativeElement.querySelector('fieldset.mode legend');
+  it('reads each amount the way a cook writes it, before and after, and keeps the number where it cannot', async () => {
+    const NORMALIZE_URL = SCALE_URL.replace('/scale', '/normalize-display');
+    const withUnit: readonly RecipeIngredientGroup[] = [
+      {
+        ...SAVED_GROUPS[0],
+        ingredients: [{ ...SAVED_GROUPS[0].ingredients[0], quantity: 0.5, measurementUnitId: 'unit-cup' }],
+      },
+    ];
+    const harness = await createFixture({ savedIngredientGroups: withUnit });
+    harness.fixture.componentInstance.factorValue.set(3);
+    await scale(harness, (req) =>
+      req.flush(
+        scalingPayload({
+          lines: [scaledLine({ scaledQuantity: { numerator: '3', denominator: '2' }, scaledDisplayQuantity: 1.5 })],
+        }),
+      ),
+    );
 
-    expect(legend.textContent).toContain('How do you want to scale?');
+    // The numbers show at once; the readings are asked for, a line at a time, before and after.
+    expect(rowCells(harness.fixture, 0)[1]).toBe('0.5');
+    const reads = harness.http.match(NORMALIZE_URL);
+    expect(reads.map((read) => read.request.body.value)).toEqual([0.5, 1.5]);
+    reads[0].flush({
+      sourceVersionNumber: 3,
+      result: { text: '½ cup', presentation: 'Fraction', upperPresentation: null, precision: 2, rounding: 'ToEven' },
+    });
+    reads[1].flush({
+      sourceVersionNumber: 3,
+      result: { text: '1½ cups', presentation: 'Fraction', upperPresentation: null, precision: 2, rounding: 'ToEven' },
+    });
+    for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    harness.fixture.detectChanges();
+
+    const cells = rowCells(harness.fixture, 0);
+    expect(cells[1]).toBe('½ cup');
+    expect(cells[2]).toContain('1½ cups');
+    // A kitchen fraction already is the exact amount, so no Exact column is drawn for it.
+    expect(cells.length).toBe(3);
+  });
+
+  it('says the exact amount only where the decimal shown has been rounded', async () => {
+    const harness = await createFixture();
+    harness.fixture.componentInstance.factorValue.set(0.5);
+    await scale(harness, (req) =>
+      req.flush(
+        scalingPayload({
+          lines: [
+            // 1/2 shows as 0.5: the same amount, so "exact 1/2" would only repeat it.
+            scaledLine({ scaledQuantity: { numerator: '1', denominator: '2' }, scaledDisplayQuantity: 0.5 }),
+            // 3/8 shows as 0.38: rounded, so the exact amount is worth saying.
+            scaledLine({
+              id: 'line-2',
+              scaledQuantity: { numerator: '3', denominator: '8' },
+              scaledDisplayQuantity: 0.38,
+            }),
+          ],
+        }),
+      ),
+    );
+
+    expect(rowCells(harness.fixture, 0)[3]).toBe('Same as after');
+    expect(rowCells(harness.fixture, 1)[3]).toBe('3/8');
+  });
+
+  it('says no exact amount a cook would not measure with', async () => {
+    const harness = await createFixture();
+    harness.fixture.componentInstance.factorValue.set(2);
+    await scale(harness, (req) =>
+      req.flush(
+        scalingPayload({
+          // A third saved as 0.333, doubled: 333/500, which 0.67 says better.
+          lines: [
+            scaledLine({ scaledQuantity: { numerator: '333', denominator: '500' }, scaledDisplayQuantity: 0.67 }),
+          ],
+        }),
+      ),
+    );
+
+    expect(rowCells(harness.fixture, 0).length).withContext('no Exact column').toBe(3);
+    expect(text(harness.fixture)).not.toContain('333/500');
+  });
+
+  it('goes straight to the choice in a guided step, whose card already names it and says nothing changes', async () => {
+    const onPage = await createFixture();
+    const page = onPage.fixture.nativeElement as HTMLElement;
+    // On the recipe page it names and explains itself.
+    expect(page.querySelector('h2.scaling-heading')?.textContent).toContain('Scale this recipe');
+    expect(page.textContent).toContain('A reference calculation');
+    expect(page.textContent).toContain('Ingredients tab');
+    TestBed.resetTestingModule();
+
+    const inStep = await createFixture({ inStep: true });
+    const step = inStep.fixture.nativeElement as HTMLElement;
+    expect(step.querySelector('h2.scaling-heading')).toBeNull();
+    expect(step.textContent).not.toContain('A reference calculation');
+    expect(step.textContent).not.toContain('Ingredients tab');
+    expect(step.querySelector('.mode [role="radiogroup"]')).not.toBeNull();
+  });
+
+  it('says nothing in a guided step about applying the scale, which its hint already covers', async () => {
+    const harness = await createFixture({ inStep: true, resultsInDrawer: true });
+    harness.fixture.componentInstance.setFactor(2);
+    harness.fixture.detectChanges();
+    const call = harness.fixture.componentInstance.toggle();
+    harness.http.expectOne(SCALE_URL).flush(scalingPayload());
+    await call;
+    harness.fixture.detectChanges();
+
+    const drawer = document.body.querySelector('section[role="dialog"]')!;
+    expect(drawer.querySelector('.scaled-lines')).not.toBeNull();
+    expect(drawer.textContent).not.toContain('needs ingredient saving');
+  });
+
+  it('chooses the mode from a named, segmented pair of radios, Factor picked to begin with', async () => {
+    const { fixture } = await createFixture();
+    const root = fixture.nativeElement as HTMLElement;
+    const group = root.querySelector('.mode [role="radiogroup"]') as HTMLElement;
+
+    // Still a radio group to the keyboard and a screen reader: named, two radios, one checked.
+    expect(group.getAttribute('aria-label')).toBe('Scale by');
+    expect(group.classList).toContain('segmented');
+    const radios = Array.from(group.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+    expect(radios.map((radio) => radio.closest('label')!.textContent!.replace('✓', '').trim())).toEqual([
+      'Factor',
+      'Yield',
+    ]);
+    expect(radios.map((radio) => radio.checked)).toEqual([true, false]);
+    expect(root.querySelector('fieldset.mode')).toBeNull();
+
+    radios[1].click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.mode()).toBe('yield');
+    expect(root.querySelector(`#${fixture.componentInstance.targetYieldFieldId}`)).not.toBeNull();
+  });
+
+  it('sets each line’s before and after side by side on its own row, the after the figure that stands out', async () => {
+    const harness = await createFixture();
+    harness.fixture.componentInstance.factorValue.set(2);
+    await scale(harness, (req) => req.flush(scalingPayload()));
+
+    const row = harness.fixture.nativeElement.querySelector('.scaled-lines tbody tr') as HTMLElement;
+    const [name, before, after] = Array.from(row.children) as HTMLElement[];
+    // Real table cells, all on one line — not an "after" pushed onto a row of its own under its "before".
+    for (const cell of [before, after]) expect(getComputedStyle(cell).display).toBe('table-cell');
+    expect(Math.abs(before.getBoundingClientRect().top - name.getBoundingClientRect().top)).toBeLessThan(1);
+    expect(Math.abs(after.getBoundingClientRect().top - name.getBoundingClientRect().top)).toBeLessThan(1);
+    expect(after.getBoundingClientRect().left).toBeGreaterThanOrEqual(before.getBoundingClientRect().right - 1);
+    // No arrow: the figure to measure says it is the answer by standing out, and both figures line up at the right.
+    expect(after.querySelector('.arrow')).toBeNull();
+    expect(getComputedStyle(before).textAlign).toBe('end');
+    expect(getComputedStyle(after).textAlign).toBe('end');
+    const weight = (el: Element) => Number(getComputedStyle(el).fontWeight);
+    expect(weight(after.querySelector('.after-value')!)).toBeGreaterThan(weight(before));
   });
 
   it('gives the results table scoped headers and a caption', async () => {
@@ -513,8 +671,9 @@ describe('RecipeScalingPreviewComponent', () => {
     await scale(harness, (req) => req.flush(scalingPayload()));
 
     const headers: HTMLElement[] = Array.from(harness.fixture.nativeElement.querySelectorAll('.scaled-lines thead th'));
-    expect(headers.map((header) => header.getAttribute('scope'))).toEqual(['col', 'col', 'col', 'col']);
-    expect(headers.map((header) => header.textContent?.trim())).toEqual(['Ingredient', 'Before', 'After', 'Notes']);
+    expect(headers.map((header) => header.getAttribute('scope'))).toEqual(['col', 'col', 'col']);
+    // No line has a note here, so there is no Notes column to leave empty.
+    expect(headers.map((header) => header.textContent?.trim())).toEqual(['Ingredient', 'Before', 'After']);
 
     const rowHeader: HTMLElement = harness.fixture.nativeElement.querySelector('.scaled-lines tbody th');
     expect(rowHeader.getAttribute('scope')).toBe('row');
@@ -583,5 +742,117 @@ describe('RecipeScalingPreviewComponent', () => {
       'Set the factor to two',
       'Set the factor to three',
     ]);
+  });
+
+  it('lines the presets up with the factor box, and says what goes in it as its placeholder', async () => {
+    const { fixture } = await createFixture();
+    const root = fixture.nativeElement as HTMLElement;
+    const input = root.querySelector('.factor-control input') as HTMLInputElement;
+    const box = input.getBoundingClientRect();
+    const preset = root.querySelector('.presets button')!.getBoundingClientRect();
+
+    // Centred on the box itself.
+    expect(Math.abs(box.top + box.height / 2 - (preset.top + preset.height / 2))).toBeLessThan(2);
+    // The example is in the box, not a line of its own under it.
+    expect(input.placeholder).toBe('e.g. 2 to double it');
+    expect(input.closest('cp-field')!.querySelector('small')).toBeNull();
+  });
+
+  describe('with the amounts in a drawer (the workflow’s step)', () => {
+    /** An open drawer moves to <body>, so it is found there rather than in the fixture. */
+    const drawer = (): HTMLElement | null => document.body.querySelector<HTMLElement>('section[role="dialog"]');
+
+    async function shown(): Promise<Harness> {
+      const harness = await createFixture({ resultsInDrawer: true });
+      harness.fixture.componentInstance.setFactor(2);
+      harness.fixture.detectChanges();
+      const call = harness.fixture.componentInstance.toggle();
+      harness.http.expectOne(SCALE_URL).flush(scalingPayload());
+      await call;
+      harness.fixture.detectChanges();
+      return harness;
+    }
+
+    it('opens the amounts beside the form once they are worked out, and none under it', async () => {
+      const { fixture } = await shown();
+      const root = fixture.nativeElement as HTMLElement;
+
+      expect(drawer()?.querySelector('h2')?.textContent).toContain('Scaled amounts');
+      expect(drawer()?.querySelector('.scaled-lines')).not.toBeNull();
+      // The list says what it holds, rather than repeating the drawer's title.
+      expect(drawer()?.querySelector('cp-list-shell')?.textContent).toContain('Ingredient amounts');
+      expect(root.querySelector('.scaled-lines')).withContext('nothing under the form').toBeNull();
+      // The button only ever shows them here: putting them away is closing the drawer.
+      expect(root.querySelector('button[type="submit"]')!.textContent!.trim()).toBe('Show scaled amounts');
+    });
+
+    it('closes on Escape, gives focus back to the button, and opens again as they were without asking twice', async () => {
+      const { fixture, http } = await shown();
+
+      drawer()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(drawer()).toBeNull();
+      expect(document.activeElement?.classList).toContain('scaling-submit');
+
+      await fixture.componentInstance.toggle();
+      fixture.detectChanges();
+      http.expectNone(SCALE_URL);
+      expect(drawer()?.querySelector('.scaled-lines')).not.toBeNull();
+    });
+
+    it('takes the creator back to the factor box from its footer, to try another size', async () => {
+      const { fixture } = await shown();
+
+      const tryAgain = Array.from(drawer()!.querySelectorAll('footer button')).find((b) =>
+        b.textContent?.includes('Try another size'),
+      ) as HTMLButtonElement;
+      tryAgain.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(drawer()).toBeNull();
+      expect(document.activeElement?.id).toBe(fixture.componentInstance.factorFieldId);
+    });
+  });
+
+  it('works as a toggle: Hide once the amounts show, back without asking twice, and a new factor works them out', async () => {
+    const { fixture, http } = await createFixture();
+    const component = fixture.componentInstance;
+    const root = fixture.nativeElement as HTMLElement;
+    const label = () => root.querySelector('button[type="submit"]')!.textContent!.trim();
+    const results = () => root.querySelector('cp-list-shell');
+
+    component.setFactor(2);
+    fixture.detectChanges();
+    expect(label()).toBe('Show scaled amounts');
+
+    const first = component.toggle();
+    http.expectOne(SCALE_URL).flush(scalingPayload());
+    await first;
+    fixture.detectChanges();
+    expect(label()).toBe('Hide scaled amounts');
+    expect(results()).not.toBeNull();
+
+    await component.toggle();
+    fixture.detectChanges();
+    expect(results()).withContext('hidden').toBeNull();
+    expect(label()).toBe('Show scaled amounts');
+
+    await component.toggle();
+    fixture.detectChanges();
+    http.expectNone(SCALE_URL);
+    expect(results()).withContext('back, unchanged, without a second request').not.toBeNull();
+    expect(label()).toBe('Hide scaled amounts');
+
+    // Another factor: the button is about that one now, so it works its amounts out rather than hiding these.
+    component.setFactor(3);
+    fixture.detectChanges();
+    expect(label()).toBe('Show scaled amounts');
+    const again = component.toggle();
+    http.expectOne(SCALE_URL).flush(scalingPayload());
+    await again;
+    fixture.detectChanges();
+    expect(label()).toBe('Hide scaled amounts');
   });
 });

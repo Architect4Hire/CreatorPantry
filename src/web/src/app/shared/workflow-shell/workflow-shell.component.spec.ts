@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { Navigation, Router, provideRouter } from '@angular/router';
 
 import { ConfirmService } from '../../core/confirm.service';
 import { WorkflowResourcePointer, WorkflowRun, decodeWorkflowRun } from '../../models/workflow-run.models';
@@ -14,7 +14,8 @@ import {
   WorkflowShellComponent,
   WorkflowShellDescription,
 } from './workflow-shell.component';
-import { WorkflowStepPort } from './workflow-step-port';
+import { continueRunState } from './workflow-continue';
+import { WorkflowStepLead, WorkflowStepNeed, WorkflowStepPort } from './workflow-step-port';
 import { WorkflowStepDirective } from './workflow-step.directive';
 
 const SLUG = 'sams-kitchen';
@@ -28,6 +29,8 @@ const screen = {
   capabilityKey: signal<string | null>(null),
   results: signal<readonly WorkflowResourcePointer[]>([]),
   ready: signal(true),
+  lead: signal<WorkflowStepLead | null>(null),
+  needs: signal<WorkflowStepNeed | null>(null),
   flushResult: true,
   flushes: 0,
   /** What the screen does on the shell's own timer, which must never ask the creator anything. */
@@ -62,6 +65,8 @@ class TestStepScreenComponent {
       capabilityKey: screen.capabilityKey,
       results: screen.results,
       ready: screen.ready,
+      lead: screen.lead,
+      needs: screen.needs,
       flush: async () => {
         screen.flushes++;
         await screen.onFlush?.(port);
@@ -233,6 +238,8 @@ describe('WorkflowShellComponent', () => {
     screen.offersAutosave = true;
     screen.onFlush = null;
     screen.ready.set(true);
+    screen.lead.set(null);
+    screen.needs.set(null);
     screenPort = null;
     role = 'Owner';
     mediaMatches = {};
@@ -354,6 +361,30 @@ describe('WorkflowShellComponent', () => {
     expect(document.activeElement).toBe(before);
   });
 
+  it('opens straight on the step when the creator pressed Continue on this run to get here', async () => {
+    const router = TestBed.inject(Router);
+    const arrivedBy = (state: Record<string, string>) =>
+      spyOnProperty(router, 'lastSuccessfulNavigation', 'get').and.returnValue(
+        signal({ extras: { state } } as unknown as Navigation),
+      );
+    arrivedBy(continueRunState('run-1'));
+
+    await create(run());
+
+    expect(text()).not.toContain('Pick up where you left off');
+    expect(el().querySelector('.test-screen')?.textContent).toContain('Screen for Ingredients');
+  });
+
+  it('still asks when the Continue was pressed on another run', async () => {
+    spyOnProperty(TestBed.inject(Router), 'lastSuccessfulNavigation', 'get').and.returnValue(
+      signal({ extras: { state: continueRunState('run-2') } } as unknown as Navigation),
+    );
+
+    await create(run());
+
+    expect(text()).toContain('Pick up where you left off');
+  });
+
   it('carries on from the resume card into the step, focusing its heading and saying where it is', async () => {
     await create(run());
 
@@ -407,6 +438,31 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Your work on this step isn’t saved yet, so the run hasn’t moved.');
   });
 
+  it('says what the screen knows the step still needs, and shows it, without asking the server', async () => {
+    await onIngredients();
+    const reveal = jasmine.createSpy('reveal');
+    screen.needs.set({ message: 'Give your recipe a name, so it can be kept.', reveal });
+    service.completeStep.calls.reset();
+
+    await click('Continue');
+
+    expect(screen.flushes).toBeGreaterThan(0);
+    expect(service.completeStep).not.toHaveBeenCalled();
+    const notice = el().querySelector('.footer cp-notice[tone="warning"]');
+    expect(notice?.textContent).toContain('Give your recipe a name, so it can be kept.');
+    expect(reveal).toHaveBeenCalledTimes(1);
+
+    // Done what it asked: the notice goes at once, not at the next move.
+    screen.needs.set(null);
+    await settle();
+    expect(el().querySelector('.footer cp-notice[tone="warning"]')).toBeNull();
+
+    // And with nothing left to ask for, Continue goes to the server as before.
+    service.completeStep.and.resolveTo({ status: 'step_incomplete', missing: ['Add at least one ingredient.'] });
+    await click('Continue');
+    expect(service.completeStep).toHaveBeenCalledTimes(1);
+  });
+
   it('says what the step still needs above the buttons when the server finds it not done', async () => {
     await onIngredients();
     service.completeStep.and.resolveTo({ status: 'step_incomplete', missing: ['Add at least one ingredient.'] });
@@ -417,6 +473,24 @@ describe('WorkflowShellComponent', () => {
     expect(notice?.textContent).toContain('Add at least one ingredient.');
     const primary = el().querySelector('.primary-row');
     expect(notice!.compareDocumentPosition(primary!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('keeps the step footer to the moves through the steps, and ending the run beside the steps', async () => {
+    await onIngredients();
+
+    const row = el().querySelector('.footer .primary-row')!;
+    const labels = Array.from(row.querySelectorAll('button')).map((each) => each.textContent!.trim());
+    // Back quiet at the start, the way on at the end. No "Save and exit": the step saves itself, and leaving keeps
+    // the place.
+    expect(labels).toEqual(['Back', 'Continue']);
+    expect(row.querySelector('.back')?.getAttribute('variant')).toBe('text');
+    expect(el().querySelector('.footer')!.textContent).toContain('You can leave and pick up here later.');
+    expect(text()).not.toContain('Save and exit');
+    // Stopping is the run's: one quiet control with its steps, and Start over is offered in its dialog.
+    expect(el().querySelector('.progress button.stop-run')?.textContent?.trim()).toBe('Stop this run');
+    expect(button('Start over')).toBeNull();
+    // Nothing folded away behind a second click.
+    expect(el().querySelector('details.more')).toBeNull();
   });
 
   it('goes Back, and offers no Back on the first step', async () => {
@@ -444,6 +518,58 @@ describe('WorkflowShellComponent', () => {
 
     expect(service.skip).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'photo');
     expect(text()).toContain('Every step is done');
+  });
+
+  it('says what the step is for as a hint under its name, not behind a disclosure', async () => {
+    await create(onPhoto());
+    await click('Continue');
+
+    const hint = el().querySelector('p.hint')!;
+    expect(hint.textContent!.trim()).toBe('A picture helps.');
+    expect(el().querySelector('details.help')).toBeNull();
+    expect(text()).not.toContain('Need help with this step?');
+  });
+
+  it('heads the card with the question the screen is asking, and goes back to the step when it stops', async () => {
+    await onIngredients();
+    const heading = () => el().querySelector('#cp-workflow-step-heading')!.textContent!.trim();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('List what goes in.');
+
+    screen.lead.set({ heading: 'What goes in first?', hint: 'You can change it later.' });
+    await settle();
+    expect(heading()).toBe('What goes in first?');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('You can change it later.');
+    expect(text()).not.toContain('List what goes in.');
+    // The stepper keeps the step's own name: it says where the creator is, not what is being asked.
+    expect(el().querySelector('cp-stepper')!.textContent).toContain('Ingredients');
+
+    screen.lead.set({ heading: 'What goes in first?', hint: null });
+    await settle();
+    expect(el().querySelector('p.hint')).toBeNull();
+
+    // No heading of its own: the step's name stays, and only the line under it goes.
+    screen.lead.set({ heading: null, hint: null });
+    await settle();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')).toBeNull();
+
+    screen.lead.set(null);
+    await settle();
+    expect(heading()).toBe('Ingredients');
+    expect(el().querySelector('p.hint')!.textContent!.trim()).toBe('List what goes in.');
+  });
+
+  it('adds no sentence about whether a step is needed: an optional one offers Skip for now, and that is all', async () => {
+    await create(onPhoto());
+    await click('Continue');
+    expect(el().querySelector('.legend')).toBeNull();
+    expect(text()).not.toContain('Skip it if you don’t need it');
+    expect(button('Skip for now')).not.toBeNull();
+
+    await create(fresh());
+    expect(text()).not.toContain('needed to finish');
+    expect(button('Skip for now')).toBeNull();
   });
 
   it('shows a step with no screen of its own as links to where it is done', async () => {
@@ -488,19 +614,26 @@ describe('WorkflowShellComponent', () => {
     expect(text()).toContain('Ingredients: The recipe this step made can’t be found any more.');
   });
 
-  it("saves and exits with the step's draft and place, then leaves for Workflows", async () => {
+  it("tells the run the step's draft and place whenever the creator leaves, as Save and exit did", async () => {
     await onIngredients();
     screen.draft.set({ kind: 'Recipe', id: 'draft-1' });
     screen.capabilityKey.set('recipes.edit');
     service.saveAndExit.and.returnValue(done(run()));
 
-    await click('Save and exit');
+    // Any way out — "Workflows", the sidebar, a link — goes through the route's leave guard.
+    await expectAsync(shell().confirmLeaveIfUnsaved()).toBeResolvedTo(true);
 
     expect(service.saveAndExit).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients', {
       draft: { kind: 'Recipe', id: 'draft-1' },
       capabilityKey: 'recipes.edit',
     });
-    expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows']);
+  });
+
+  it('still lets the creator leave when the run could not be told where they were', async () => {
+    await onIngredients();
+    service.saveAndExit.and.resolveTo({ status: 'unavailable', offline: true });
+
+    await expectAsync(shell().confirmLeaveIfUnsaved()).toBeResolvedTo(true);
   });
 
   // ---- A step's draft, kept on the run ----
@@ -737,16 +870,14 @@ describe('WorkflowShellComponent', () => {
     expect(el().querySelector('button[aria-label^="Start:"]')).toBeNull();
   });
 
-  it('starts over only once confirmed, and retries under the same key', async () => {
+  it('starts over from the stop dialog, asked once there, and retries under the same key', async () => {
     await onIngredients();
 
-    confirm.and.resolveTo(false);
-    await click('Start over');
-    expect(service.restart).not.toHaveBeenCalled();
-
-    confirm.and.resolveTo(true);
+    await click('Stop this run');
     service.restart.and.resolveTo({ status: 'unavailable', offline: false });
-    await click('Start over');
+    await click('Start over instead');
+    // The dialog was the question: no second one before starting over.
+    expect(confirm).not.toHaveBeenCalled();
     await click('Retry');
 
     expect(service.restart).toHaveBeenCalledTimes(2);
@@ -758,13 +889,30 @@ describe('WorkflowShellComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
   });
 
-  it('keeps Start over and Stop behind More options, collapsed', async () => {
-    await onIngredients();
+  it('offers Stop but not Start over on a run nothing has happened on yet', async () => {
+    await create(fresh());
 
-    const more = el().querySelector<HTMLDetailsElement>('details.more')!;
-    expect(more.open).toBeFalse();
-    expect(more.textContent).toContain('Start over');
-    expect(more.textContent).toContain('Stop this run');
+    expect(text()).toContain('Start your recipe');
+    // The run exists from the moment it was started, so it can always be stopped rather than left behind.
+    await click('Stop this run');
+    expect(button('Start over instead')).toBeNull();
+  });
+
+  it('offers Start over as soon as the step on screen holds work, before any step is done', async () => {
+    // Nothing done yet, on the step this host has a screen for.
+    await create(
+      run({
+        completedStepCount: 0,
+        steps: STEPS.map((step) => ({ ...step, status: 'NotStarted', completedAt: null })),
+      }),
+    );
+    expect(el().querySelector('.test-screen')).not.toBeNull();
+    await click('Stop this run');
+    expect(button('Start over instead')).toBeNull();
+
+    screen.unsaved.set(true);
+    await settle();
+    expect(button('Start over instead')).not.toBeNull();
   });
 
   it('stops a run with the reason given, and shows it stopped', async () => {
@@ -870,17 +1018,18 @@ describe('WorkflowShellComponent', () => {
     expect(service.completeStep).toHaveBeenCalledTimes(2);
   });
 
-  it('never leaves, stops or starts over unasked when the browser comes back', async () => {
+  it('never stops or starts over unasked when the browser comes back', async () => {
     await onIngredients();
-    service.saveAndExit.and.resolveTo({ status: 'unavailable', offline: true });
+    service.restart.and.resolveTo({ status: 'unavailable', offline: true });
 
-    await click('Save and exit');
+    await click('Stop this run');
+    await click('Start over instead');
     expect(text()).toContain('retry when you’re back online');
 
     window.dispatchEvent(new Event('online'));
     await settle();
 
-    expect(service.saveAndExit).toHaveBeenCalledTimes(1);
+    expect(service.restart).toHaveBeenCalledTimes(1);
     expect(navigate).not.toHaveBeenCalled();
   });
 
@@ -903,7 +1052,7 @@ describe('WorkflowShellComponent', () => {
     await onIngredients();
 
     expect(text()).toContain('You can see this run, but only the person who started it');
-    for (const label of ['Back', 'Continue', 'Save and exit', 'Start over']) {
+    for (const label of ['Back', 'Continue', 'Stop this run', 'Start over instead']) {
       expect(button(label)).withContext(label).toBeNull();
     }
   });
@@ -1054,7 +1203,8 @@ describe('WorkflowShellComponent', () => {
   it('guards the new run after Start over lands on the same page', async () => {
     const component = await onIngredients();
     service.restart.and.resolveTo({ status: 'started', run: run({ id: 'run-2' }) });
-    await click('Start over');
+    await click('Stop this run');
+    await click('Start over instead');
     expect(navigate).toHaveBeenCalledWith(['/', SLUG, 'workflows', 'runs', 'run-2']);
 
     // The router keeps this component for the new run: it reads it, and guards it again.
@@ -1127,12 +1277,89 @@ describe('WorkflowShellComponent', () => {
     expect(primaries.map((b) => b.textContent?.trim())).toEqual(['Continue']);
   });
 
-  it('shows the stepper as a read-out, never something to tab to or click', async () => {
+  // ---- Going to a step from the list ----
+
+  /** The stepper's buttons, by the step they go to. */
+  const stepButtons = (): string[] =>
+    Array.from(el().querySelectorAll<HTMLButtonElement>('cp-stepper button')).map((b) =>
+      b.querySelector('.name')!.textContent!.replace('Go to ', '').trim(),
+    );
+  const stepButton = (title: string): HTMLButtonElement =>
+    Array.from(el().querySelectorAll<HTMLButtonElement>('cp-stepper button')).find((b) =>
+      b.textContent?.includes(title),
+    )!;
+
+  /** Back on the first step, with the second reopened by that Back: reached, so on offer going forward. */
+  function backOnStart(): WorkflowRun {
+    return run({
+      completedStepCount: 0,
+      steps: STEPS.map((step) =>
+        step['key'] === 'start'
+          ? { ...step, status: 'InProgress', completedAt: null }
+          : step['key'] === 'ingredients'
+            ? { ...step, status: 'InProgress' }
+            : step,
+      ),
+      nextAction: { ...(wireRun()['nextAction'] as object), stepKey: 'start', title: 'Start your recipe' },
+    });
+  }
+
+  it('offers every earlier step and every later one already reached, and never the step it is on', async () => {
     await onIngredients();
 
     const stepper = el().querySelector('cp-stepper')!;
     expect(stepper.closest('nav')?.getAttribute('aria-label')).toBe('Progress');
-    expect(stepper.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])').length).toBe(0);
+    // On Ingredients: Start is behind it; Add a photo has never been reached, so the way there is Continue.
+    expect(stepButtons()).toEqual(['Start your recipe']);
+  });
+
+  it('goes back to an earlier step by the run’s own Back, then shows it and takes focus to it', async () => {
+    await onIngredients();
+    service.back.and.returnValue(done(backOnStart()));
+
+    stepButton('Start your recipe').click();
+    await settle();
+
+    expect(service.back).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'ingredients');
+    expect(screen.flushes).withContext('the step on screen is kept first').toBeGreaterThan(0);
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Start your recipe');
+    expect(document.activeElement?.id).toBe('cp-workflow-step-heading');
+    // Ingredients was reopened by that Back, so it is on offer going forward again.
+    expect(stepButtons()).toEqual(['Ingredients']);
+  });
+
+  it('goes forward to a step already reached by completing the ones on the way, as Continue would', async () => {
+    await create(backOnStart());
+    await click('Continue');
+    service.completeStep.and.returnValue(done(run()));
+
+    stepButton('Ingredients').click();
+    await settle();
+
+    expect(service.completeStep).toHaveBeenCalledOnceWith(SLUG, jasmine.anything(), 'start', []);
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Ingredients');
+  });
+
+  it('stops going forward at a step that still needs something, and says what', async () => {
+    await create(backOnStart());
+    await click('Continue');
+    service.completeStep.and.resolveTo({ status: 'step_incomplete', missing: ['Say which recipe this step made.'] });
+
+    stepButton('Ingredients').click();
+    await settle();
+
+    expect(el().querySelector('#cp-workflow-step-heading')?.textContent?.trim()).toBe('Start your recipe');
+    expect(el().querySelector('.footer cp-notice[tone="warning"]')?.textContent).toContain(
+      'Say which recipe this step made.',
+    );
+  });
+
+  it('offers no step to go to when the run cannot be changed by this reader', async () => {
+    role = 'Viewer';
+    await onIngredients();
+
+    expect(shell().readOnly()).toBeTrue();
+    expect(el().querySelectorAll('cp-stepper button').length).toBe(0);
   });
 
   it('folds the steps into a disclosure on a narrow screen', async () => {

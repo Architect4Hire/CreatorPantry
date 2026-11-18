@@ -5,7 +5,6 @@ import { RecipeDetail } from '../../../models/recipe.models';
 import { WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeService } from '../../../services/recipe.service';
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
-import { RecipeDisplayNormalizationComponent } from '../../recipes/recipe-display-normalization.component';
 import { RecipeScalingPreviewComponent } from '../../recipes/recipe-scaling-preview.component';
 import { linkedRecipeId } from './recipe-run';
 
@@ -17,20 +16,14 @@ type Loaded =
 
 /**
  * "Try it at another size", in "Create a recipe" and "Improve a recipe" (13A.14, 13A.15): the recipe page's own
- * scaling preview, on the saved recipe, with how its amounts will read tucked away below. Both are previews worked out by the server — nothing here does arithmetic, and
- * nothing here changes the recipe. The step is optional and done when the creator says so, so it has nothing to
+ * scaling preview, on the saved recipe, its amounts opening in a drawer and read the way a cook writes them
+ * ("½ cup → 1 cup"). Worked out by the server — nothing here does arithmetic, and nothing here changes the recipe. The step is optional and done when the creator says so, so it has nothing to
  * keep.
  */
 @Component({
   selector: 'cp-recipe-sizes-step',
   standalone: true,
-  imports: [
-    CpButtonComponent,
-    CpNoticeComponent,
-    CpSkeletonComponent,
-    RecipeDisplayNormalizationComponent,
-    RecipeScalingPreviewComponent,
-  ],
+  imports: [CpButtonComponent, CpNoticeComponent, CpSkeletonComponent, RecipeScalingPreviewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Always present, outside the busy lines, so the step says once what it is waiting for (AU.7). -->
@@ -60,17 +53,9 @@ type Loaded =
               [savedIngredientGroups]="recipe.ingredientGroups"
               [recipeYieldQuantity]="recipe.yieldQuantity"
               [recipeYieldText]="recipe.yieldText"
+              [resultsInDrawer]="true"
+              [inStep]="true"
             />
-
-            <details class="cp-disclosure">
-              <summary>How your amounts will read</summary>
-              <cp-recipe-display-normalization
-                [workspaceSlug]="workspaceSlug()"
-                [recipeId]="recipe.id"
-                [sourceVersionNumber]="recipe.currentVersion?.versionNumber ?? null"
-                [savedIngredientGroups]="recipe.ingredientGroups"
-              />
-            </details>
           </div>
         }
       }

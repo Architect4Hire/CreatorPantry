@@ -46,6 +46,7 @@ import {
   WorkflowRunService,
 } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
+import { CONTINUE_RUN_STATE } from './workflow-continue';
 import { LONG_FORM_DEFINITION_KEY, longFormLink, longFormQuery } from './workflow-journeys';
 import { WorkflowStepFallbackComponent } from './workflow-step-fallback.component';
 import { WorkflowStepContext, WorkflowStepPort } from './workflow-step-port';
@@ -95,7 +96,17 @@ export type WorkflowShellPhase =
   | 'abandoned';
 
 type Command =
-  'continue' | 'back' | 'skip' | 'finish' | 'save-exit' | 'start-over' | 'stop' | 'start-again' | 'start-next';
+  | 'continue'
+  | 'back'
+  | 'skip'
+  | 'finish'
+  | 'start-over'
+  | 'stop'
+  | 'start-again'
+  | 'start-next'
+  /** A step chosen from the list: a run of Backs to an earlier one, or of completions to a later one. */
+  | 'jump-back'
+  | 'jump-forward';
 
 interface ActionProblem {
   readonly message: string;
@@ -195,6 +206,23 @@ export class WorkflowShellComponent {
   readonly busy = signal<Command | null>(null);
   /** What still stands in the way of the move just asked for, said above the buttons it is about. */
   readonly blocked = signal<readonly string[]>([]);
+
+  /** The screen's need that {@link blocked} is saying, so it goes once the screen no longer has it. */
+  private shownNeed: string | null = null;
+
+  /**
+   * A need Continue said is stale the moment the creator has done it — an idea drafted, a name typed and kept —
+   * so it is taken down then, rather than left standing over a screen that has moved on until the next move.
+   */
+  private readonly clearMetNeed = effect(() => {
+    const message = this.port.registration()?.needs?.()?.message ?? null;
+    untracked(() => {
+      if (this.shownNeed !== null && message !== this.shownNeed) {
+        this.shownNeed = null;
+        this.blocked.set([]);
+      }
+    });
+  });
   readonly problem = signal<ActionProblem | null>(null);
   /** Said once, after a run was found changed elsewhere and read again. */
   readonly changedElsewhere = signal(false);
@@ -239,12 +267,41 @@ export class WorkflowShellComponent {
 
   readonly isFirst = computed(() => this.stepIndex() === 0);
 
+  /**
+   * Whether there is anything to start over: progress on the run, or work the step on screen holds. On a run
+   * nothing has happened on yet, Start over would land where the creator already is, so it is not offered. Stop
+   * always is: the run exists from the moment it was started.
+   */
+  readonly hasProgress = computed(() => {
+    const run = this.run();
+    if (!run) return false;
+    const screen = this.port.registration();
+    return hasProgress(run) || (screen?.draft?.() ?? null) !== null || (screen?.unsaved() ?? false);
+  });
+
   readonly stepperSteps = computed<readonly CpStep[]>(() => {
     const run = this.run();
     const key = this.run()?.nextAction?.stepKey ?? null;
     return run
       ? run.steps.map((step) => ({ id: step.key, label: step.title, status: stepperStatusOf(step, key) }))
       : [];
+  });
+
+  /**
+   * The steps beside the step on screen, with the ones the creator can go to marked so: every earlier step, and
+   * every later one already reached — done, skipped, or reopened by a Back. A step never reached is not on offer:
+   * the way there is through the steps before it, with Continue. Nothing is on offer to someone who cannot move the
+   * run. The summary's stepper, once the run is over, stays a read-out.
+   */
+  readonly navigableSteps = computed<readonly CpStep[]>(() => {
+    const run = this.run();
+    const here = this.stepIndex();
+    if (!run || run.status !== 'InProgress' || here < 0 || this.readOnly()) return this.stepperSteps();
+
+    return this.stepperSteps().map((step, index) => ({
+      ...step,
+      selectable: index !== here && (index < here || run.steps[index].status !== 'NotStarted'),
+    }));
   });
 
   readonly done = computed(() => {
@@ -266,11 +323,17 @@ export class WorkflowShellComponent {
       : `${this.done()} of ${run.stepCount} steps done`;
   });
 
-  readonly legend = computed(() =>
-    this.step()?.requirement === 'Optional'
-      ? 'This step is optional. Skip it if it isn’t useful to you.'
-      : 'This step is needed to finish.',
-  );
+  /** The screen's own question while it asks one, heading the card in place of the step's name and help. */
+  private readonly lead = computed(() => (this.step() ? (this.port.registration()?.lead?.() ?? null) : null));
+
+  /** What heads the step's card: the screen's question, the step's name, or the end of the run. */
+  readonly cardHeading = computed(() => this.lead()?.heading ?? this.step()?.title ?? 'Every step is done');
+
+  /** The line under the heading: the question's own line while there is one, otherwise the step's help. */
+  readonly hint = computed(() => {
+    const lead = this.lead();
+    return lead ? lead.hint : (this.step()?.help ?? null);
+  });
 
   /** The journey's screen for the current step, or null for the shell's own fallback. */
   readonly stepTemplate = computed(() => {
@@ -421,6 +484,54 @@ export class WorkflowShellComponent {
     );
   }
 
+  /**
+   * Goes to a step chosen from the list, by the run's own commands — there is no "go to" on the server.
+   *
+   * Earlier: a Back at a time until the run is on it. Each Back reopens the step it lands on, so the steps between
+   * lose their tick until they are continued through again; nothing they hold is lost, and continuing re-checks
+   * each from what it already made.
+   *
+   * Later: a completion at a time — the step on screen first, kept and checked exactly as Continue would, the rest
+   * on what each made before. It stops at the first step that still needs something and says what, on that step.
+   * A completion can carry the run past a step already done, in which case a Back brings it to the one asked for.
+   */
+  goToStep(stepKey: string): Promise<void> {
+    const run = this.run();
+    const from = this.stepIndex();
+    const target = run?.steps.findIndex((step) => step.key === stepKey) ?? -1;
+    if (!run || from < 0 || target < 0 || target === from || this.readOnly()) return Promise.resolve();
+
+    const slug = this.workspaceSlug();
+    const firstKey = this.currentKey();
+
+    return this.command(target < from ? 'jump-back' : 'jump-forward', async () => {
+      let at = this.run() ?? run;
+      // Bounded: every hop moves the run one step, and a completion that overshoots is answered by Backs.
+      for (let hops = 0; hops < at.steps.length * 2; hops++) {
+        const key = currentKeyOf(at);
+        const here = key === null ? -1 : at.steps.findIndex((step) => step.key === key);
+        if (key === null || here === target || here < 0 || at.status !== 'InProgress') break;
+
+        const outcome =
+          here > target
+            ? await this.runs.back(slug, at, key)
+            : await this.runs.completeStep(
+                slug,
+                at,
+                key,
+                key === firstKey ? (this.port.registration()?.results?.() ?? []) : [],
+              );
+        if (outcome.status !== 'done') {
+          // Where it got to is kept and shown; the answer says why it went no further.
+          if (at !== this.run()) this.show(at);
+          return outcome;
+        }
+        at = outcome.run;
+      }
+      return { status: 'done', run: at } as const;
+    });
+  }
+
   back(): Promise<void> {
     const key = this.currentKey();
     if (!key || !this.run()) return Promise.resolve();
@@ -438,29 +549,25 @@ export class WorkflowShellComponent {
     return this.command('finish', async () => this.runs.completeRun(this.workspaceSlug(), this.run()!));
   }
 
-  saveAndExit(): Promise<void> {
-    const key = this.currentKey();
-    if (!this.run() || !key) return Promise.resolve();
-    return this.command('save-exit', async () => {
-      const registration = this.port.registration();
-      return this.runs.saveAndExit(this.workspaceSlug(), this.run()!, key, {
-        draft: registration?.draft?.() ?? null,
-        capabilityKey: registration?.capabilityKey?.() ?? null,
-      });
-    });
+  /** From the stop dialog: starting over is stopping and beginning again, already asked about there. */
+  startOverInstead(): Promise<void> {
+    this.stopping.set(false);
+    return this.startOver(false);
   }
 
-  async startOver(): Promise<void> {
+  async startOver(confirmFirst = true): Promise<void> {
     const run = this.run();
     if (!run || this.busy() !== null) return;
 
-    const agreed = await this.confirmer.confirm({
-      title: 'Start this over?',
-      message: 'You’ll begin again from the first step. This run is kept as it is, and nothing you made is deleted.',
-      confirmLabel: 'Start over',
-      cancelLabel: 'Keep going',
-      tone: 'neutral',
-    });
+    const agreed =
+      !confirmFirst ||
+      (await this.confirmer.confirm({
+        title: 'Start this over?',
+        message: 'You’ll begin again from the first step. This run is kept as it is, and nothing you made is deleted.',
+        confirmLabel: 'Start over',
+        cancelLabel: 'Keep going',
+        tone: 'neutral',
+      }));
     if (!agreed) return;
 
     this.idempotencyKey = newKey();
@@ -558,11 +665,14 @@ export class WorkflowShellComponent {
 
   /**
    * For the route's leave guard: keeps the step's work, and asks only when it cannot be kept. Moves the shell makes
-   * itself — Save and exit, Start over — are never asked about.
+   * itself — Start over, the moves that land on another run — are never asked about. Leaving also tells the run where the creator was ({@link rememberWhereLeft}), which is what "Save and exit" used to do.
    */
   async confirmLeaveIfUnsaved(): Promise<boolean> {
-    if (this.leaving || !this.port.unsaved()) return true;
-    if (await this.port.flush()) return true;
+    if (this.leaving) return true;
+    if (!this.port.unsaved() || (await this.port.flush())) {
+      await this.rememberWhereLeft();
+      return true;
+    }
 
     return this.confirmer.confirm({
       title: 'Leave without saving?',
@@ -579,18 +689,45 @@ export class WorkflowShellComponent {
 
   // ---- Internals ----
 
+  /**
+   * Leaving is saving and exiting: there is no button for it, so whatever way the creator leaves — "Workflows", the
+   * sidebar, a link — the run is told where they were, the step and the work it holds, and "Pick up where you left
+   * off" can take them back there. The step's work is already kept by then. Best effort: a run that could not be
+   * told is still safe, and leaving is never held up by it.
+   */
+  private async rememberWhereLeft(): Promise<void> {
+    const run = this.run();
+    const key = this.currentKey();
+    if (!run || !key || run.status !== 'InProgress' || this.readOnly() || this.phase() !== 'step') return;
+
+    const registration = this.port.registration();
+    await this.runs.saveAndExit(this.workspaceSlug(), run, key, {
+      draft: registration?.draft?.() ?? null,
+      capabilityKey: registration?.capabilityKey?.() ?? null,
+    });
+  }
+
+  /** Whether the navigation that opened this run came from a Continue on it ({@link continueRunState}). */
+  private continueChosen(runId: string): boolean {
+    const navigation = this.router.currentNavigation() ?? this.router.lastSuccessfulNavigation();
+    return navigation?.extras.state?.[CONTINUE_RUN_STATE] === runId;
+  }
+
   private async load(
     slug: string,
     runId: string,
     options: { readonly arriving: boolean; readonly saying?: string },
   ): Promise<void> {
     const ticket = ++this.loadTicket;
+    // Read before the await: the navigation that brought the creator here, and whether it was a Continue.
+    const continueChosen = options.arriving && this.continueChosen(runId);
     if (options.arriving) {
       this.phase.set('loading');
       this.run.set(null);
       this.leaving = false;
       this.problem.set(null);
       this.blocked.set([]);
+      this.shownNeed = null;
       this.changedElsewhere.set(false);
       this.refusedAsReadOnly.set(false);
       // The page's head is the run's: never the last run's goal over this one while it loads.
@@ -623,7 +760,9 @@ export class WorkflowShellComponent {
     this.show(outcome.run);
 
     if (options.arriving) {
-      this.phase.set(phaseOnArrival(outcome.run));
+      // A creator who pressed Continue on this run has already answered "Pick up where you left off".
+      const phase = phaseOnArrival(outcome.run);
+      this.phase.set(phase === 'resumable' && continueChosen ? 'step' : phase);
       return;
     }
 
@@ -647,6 +786,7 @@ export class WorkflowShellComponent {
       this.busy.set(name);
       this.problem.set(null);
       this.blocked.set([]);
+      this.shownNeed = null;
       this.changedElsewhere.set(false);
 
       try {
@@ -655,6 +795,16 @@ export class WorkflowShellComponent {
             message: 'Your work on this step isn’t saved yet, so the run hasn’t moved. Try again in a moment.',
             retry: attempt,
           });
+          return;
+        }
+
+        // What the screen knows the step still needs is said in its words and shown where, not sent to be refused.
+        const need =
+          name === 'continue' || name === 'jump-forward' ? (this.port.registration()?.needs?.() ?? null) : null;
+        if (need) {
+          this.blocked.set([need.message]);
+          this.shownNeed = need.message;
+          need.reveal?.();
           return;
         }
 
@@ -680,11 +830,6 @@ export class WorkflowShellComponent {
     switch (outcome.status) {
       case 'done':
         this.show(outcome.run);
-        if (name === 'save-exit') {
-          this.leaving = true;
-          await this.router.navigate(['/', this.workspaceSlug(), 'workflows']);
-          return;
-        }
         this.settle(outcome.run, before);
         return;
 
@@ -858,14 +1003,24 @@ export class WorkflowShellComponent {
  * Where an arriving reader lands: a run with nothing done yet goes straight to its first step, and one with
  * progress says where it was first, so coming back is never a surprise.
  */
+/** The step a run is on: its next one, or with every step done, its last, where it waits to be finished. */
+function currentKeyOf(run: WorkflowRun): string | null {
+  return run.nextAction?.stepKey ?? run.steps[run.steps.length - 1]?.key ?? null;
+}
+
 function phaseOnArrival(run: WorkflowRun): WorkflowShellPhase {
   if (run.status === 'Completed') return 'completed';
   if (run.status === 'Abandoned') return 'abandoned';
-  const started =
+  return hasProgress(run) ? 'resumable' : 'step';
+}
+
+/** Whether anything has happened on the run yet: a step done or skipped, work kept on a step, or a saved exit. */
+function hasProgress(run: WorkflowRun): boolean {
+  return (
     run.completedStepCount + run.skippedStepCount > 0 ||
     run.steps.some((step) => step.draft !== null || step.status === 'InProgress') ||
-    run.lastRoute !== null;
-  return started ? 'resumable' : 'step';
+    run.lastRoute !== null
+  );
 }
 
 function matches(query: string): boolean {

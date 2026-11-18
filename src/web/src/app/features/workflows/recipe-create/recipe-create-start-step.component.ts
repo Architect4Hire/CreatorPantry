@@ -13,7 +13,6 @@ import {
   CpButtonComponent,
   CpChoiceGroupComponent,
   CpChoiceOption,
-  CpFormSectionComponent,
   CpNoticeComponent,
   CpSkeletonComponent,
 } from '@creator-pantry/ui';
@@ -21,7 +20,11 @@ import { firstValueFrom } from 'rxjs';
 
 import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun } from '../../../models/workflow-run.models';
 import { RecipeDraftService } from '../../../services/recipe-draft.service';
-import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
+import {
+  WorkflowStepLead,
+  WorkflowStepNeed,
+  WorkflowStepPort,
+} from '../../../shared/workflow-shell/workflow-step-port';
 import { RecipeConceptStudioComponent } from '../../ai/recipe-concept-studio.component';
 import { RecipeFirstDraftReviewComponent } from '../../ai/recipe-first-draft-review.component';
 import { RecipeStudioHost } from '../../ai/recipe-studio-host';
@@ -66,7 +69,6 @@ type Stage =
   imports: [
     CpButtonComponent,
     CpChoiceGroupComponent,
-    CpFormSectionComponent,
     CpNoticeComponent,
     CpSkeletonComponent,
     RecipeConceptStudioComponent,
@@ -146,6 +148,56 @@ export class RecipeCreateStartStepComponent implements OnInit {
     return this.draft() === null && (kind === 'choose' || kind === 'write' || kind === 'ideas');
   });
 
+  /** The step's one question, which heads the step's card while it is open and names the choices. */
+  protected readonly question = 'How do you want to start?';
+
+  /**
+   * While the choice is open, the question heads the card in place of "Start your recipe" and its help, which say
+   * the same as the choices do; once there is a recipe, the step's own name and help come back.
+   */
+  private readonly lead = computed<WorkflowStepLead | null>(() => {
+    if (this.choosing() && this.ways().length > 1) {
+      return { heading: this.question, hint: 'You can change your mind until you’ve saved something.' };
+    }
+    // Once the recipe exists, "nothing becomes your recipe until you keep it" is no longer true, and what is —
+    // it's in your library — is this screen's first line, so it stands directly under the step's name instead.
+    if (this.stage().kind === 'recipe') return { heading: null, hint: null };
+    return null;
+  });
+
+  /**
+   * What Continue still needs on this step, by where it is, until there is a recipe — said in the words on screen
+   * and shown where, rather than left to the server, whose refusal names a missing record, not a thing to do.
+   */
+  private readonly needs = computed<WorkflowStepNeed | null>(() => {
+    if (this.recipeId() !== null) return null;
+    switch (this.stage().kind) {
+      case 'choose':
+        return this.ways().length > 1
+          ? {
+              message: 'Pick how you want to start: write it yourself, or get help drafting it.',
+              reveal: () => document.getElementById('recipe-start-write')?.focus(),
+            }
+          : null;
+      case 'write':
+        return {
+          message: 'Give your recipe a name, so it can be kept.',
+          reveal: () => this.editor()?.showWhatIsMissing(),
+        };
+      case 'ideas':
+        return {
+          message: 'Get concepts, choose one, then select “Draft this recipe”.',
+        };
+      case 'draft':
+        return {
+          message: 'Select “Create recipe from this draft” to make it your recipe.',
+          reveal: () => document.querySelector<HTMLElement>('.draft-accept')?.focus(),
+        };
+      default:
+        return null;
+    }
+  });
+
   protected readonly chosen = computed<readonly string[]>(() => {
     const kind = this.stage().kind;
     return kind === 'write' ? ['write'] : kind === 'ideas' ? ['help'] : [];
@@ -188,6 +240,8 @@ export class RecipeCreateStartStepComponent implements OnInit {
       }),
       // Nothing to move on with until there is a recipe: until then the screen's own action is the primary one.
       ready: computed(() => this.recipeId() !== null),
+      lead: this.lead,
+      needs: this.needs,
     });
     inject(DestroyRef).onDestroy(unregister);
 
@@ -209,6 +263,8 @@ export class RecipeCreateStartStepComponent implements OnInit {
       this.moved('Back to your ideas.');
     };
     this.studioHost.accepted = (recipeId) => this.recipeMade(recipeId, true);
+    // The brief and what came back share this step's card, so the concepts open beside it, in a drawer.
+    this.studioHost.conceptsInDrawer = true;
   }
 
   ngOnInit(): void {

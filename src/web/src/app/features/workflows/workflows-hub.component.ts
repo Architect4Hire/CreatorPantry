@@ -27,6 +27,7 @@ import {
 } from '@creator-pantry/ui';
 import { combineLatest, map } from 'rxjs';
 
+import { ConfirmService } from '../../core/confirm.service';
 import {
   CONTENT_PIPELINE_STEPS,
   CONTENT_PIPELINE_STEP_COUNT,
@@ -55,6 +56,7 @@ import { WorkflowRunService } from '../../services/workflow-run.service';
 import { WorkspaceMembershipService } from '../../services/workspace-membership.service';
 import { HANDOFF_ROUTES } from '../../shared/use-this-in/handoff-destinations';
 import { LONG_FORM_DEFINITION_KEY, longFormLink } from '../../shared/workflow-shell/workflow-journeys';
+import { continueRunState } from '../../shared/workflow-shell/workflow-continue';
 
 /** How many rows each list on the hub shows before "Show more". */
 export const WORKFLOWS_HUB_ROWS = 5;
@@ -104,6 +106,12 @@ export interface HubRow {
   readonly link: readonly string[];
   readonly action: string;
   readonly actionLabel: string;
+  /** A workflow run's id, so its row can stop it here. Absent on work kept elsewhere (long-form, this device). */
+  readonly runId?: string;
+  /** The Stop control's accessible name, naming which run it stops. */
+  readonly stopLabel?: string;
+  /** Navigation state for the link: a run opened from here opens on its step, not on "Pick up where you left off". */
+  readonly state?: Record<string, string>;
 }
 
 interface GoalLink {
@@ -250,6 +258,7 @@ export class WorkflowsHubComponent {
   private readonly memberships = inject(WorkspaceMembershipService);
   private readonly hub = inject(WorkflowHubService);
   private readonly runs = inject(WorkflowRunService);
+  private readonly confirmer = inject(ConfirmService);
   private readonly drafts = inject(ContentPipelineDraftService);
   private readonly longFormDrafts = inject(LongFormDraftService);
   private readonly injector = inject(Injector);
@@ -287,6 +296,11 @@ export class WorkflowsHubComponent {
   protected readonly retrying = signal<ReadonlySet<HubSection>>(new Set());
   protected readonly starting = signal<string | null>(null);
   protected readonly startProblems = signal<Readonly<Record<string, string>>>({});
+  /** The run being stopped from its row, and why the last stop did not go through. */
+  protected readonly stoppingRun = signal<string | null>(null);
+  protected readonly stopProblem = signal<string | null>(null);
+  /** Said once, offscreen, after a row's run is stopped: the row is gone, so nothing on screen says it. */
+  protected readonly stoppedWords = signal('');
 
   /** The owner whose reads are in hand, so the same one is not asked for twice and a late answer is not believed. */
   private readKey: string | null = null;
@@ -329,8 +343,11 @@ export class WorkflowsHubComponent {
           when,
           at: time(run.updatedAt),
           link: ['/', slug, 'workflows', 'runs', run.id],
+          state: continueRunState(run.id),
           action: 'Continue',
           actionLabel: runLinkLabel('Continue', run, when, 'last saved'),
+          runId: run.id,
+          stopLabel: runLinkLabel('Stop', run, when, 'last saved'),
         });
       }
     }
@@ -409,6 +426,7 @@ export class WorkflowsHubComponent {
           when,
           at: time(run.updatedAt),
           link: ['/', slug, 'workflows', 'runs', run.id],
+          state: continueRunState(run.id),
           action: 'Open',
           actionLabel: runLinkLabel('Open', run, when, 'last saved'),
         });
@@ -780,6 +798,73 @@ export class WorkflowsHubComponent {
   protected onSearchInput(event: Event): void {
     const target = event.target;
     this.query.set(target instanceof HTMLInputElement ? target.value : '');
+  }
+
+  /**
+   * Stops a run from its row, after the same question the run's own page asks. It is kept, with everything it
+   * made, and leaves "Continue where you left off". The list carries no version of the run, so it is read first
+   * and stopped as read; a run that changed in between is refused and said, never stopped blind.
+   */
+  protected async stopRun(row: HubRow): Promise<void> {
+    const runId = row.runId;
+    if (!runId || this.stoppingRun() !== null) return;
+
+    const agreed = await this.confirmer.confirm({
+      title: 'Stop this run?',
+      message:
+        'It’s kept as it is, with everything it made. You won’t be able to carry on with it, but you can start the journey again.',
+      confirmLabel: 'Stop this run',
+      cancelLabel: 'Keep it',
+      tone: 'danger',
+    });
+    if (!agreed) return;
+
+    const slug = this.workspaceSlug();
+    this.stopProblem.set(null);
+    this.stoppedWords.set('');
+    this.stoppingRun.set(runId);
+    try {
+      const read = await this.runs.get(slug, runId);
+      const outcome = read.status === 'found' ? await this.runs.abandon(slug, read.run, null) : read;
+      if (slug !== this.workspaceSlug()) return;
+
+      switch (outcome.status) {
+        case 'done':
+        case 'not_found':
+        case 'not_in_progress':
+          this.dropRun(runId);
+          this.stoppedWords.set(
+            outcome.status === 'done' ? `Stopped “${row.goal}”.` : `“${row.goal}” had already finished or stopped.`,
+          );
+          this.focusSection('continue');
+          return;
+        case 'forbidden':
+          this.stopProblem.set('Only the person who started it, the person it’s for, or an Editor can stop this run.');
+          return;
+        case 'conflict':
+          this.stopProblem.set('That run changed just now, so it wasn’t stopped. Try again.');
+          return;
+        default:
+          this.stopProblem.set(
+            outcome.status === 'unavailable' && outcome.offline
+              ? 'You’re offline, so the run wasn’t stopped. Try again when you’re back online.'
+              : 'The run couldn’t be stopped right now. Nothing changed. Try again.',
+          );
+      }
+    } finally {
+      this.stoppingRun.set(null);
+    }
+  }
+
+  /** Takes a stopped run out of the lists that show runs still under way. */
+  private dropRun(runId: string): void {
+    for (const page of [this.mine, this.attention]) {
+      page.update((read) =>
+        read.state === 'read'
+          ? { state: 'read', value: { ...read.value, items: read.value.items.filter((run) => run.id !== runId) } }
+          : read,
+      );
+    }
   }
 
   /** Starts a catalogue workflow as a run, and opens it in the guided shell. */

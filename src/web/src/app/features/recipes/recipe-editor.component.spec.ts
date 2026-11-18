@@ -2919,6 +2919,8 @@ describe('RecipeEditorComponent', () => {
               durationMinutes: 3,
               // Shown without being asked for, because the recipe already records one.
               showDuration: true,
+              // And the note, for the same reason.
+              showNote: true,
               // Carried on the working copy although no control edits them, so a save cannot drop them.
               techniqueId: null,
               temperatureValue: null,
@@ -4286,7 +4288,7 @@ describe('RecipeEditorComponent', () => {
       expect(document.activeElement?.id).toBe(`group-title-${component.form.instructionGroups().at(-1)!.key}`);
     });
 
-    it('opens the duration after the step text and its note, at the foot of the step, and nothing above it moves', async () => {
+    it('offers a note and a duration under the step’s words, and opens each there, moving nothing above it', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
       selectEditTab(harness, 'Instructions');
@@ -4295,25 +4297,37 @@ describe('RecipeEditorComponent', () => {
       const key = component.form.instructionGroups()[0].steps[0].key;
       const top = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().top;
       const bottom = (selector: string) => root.querySelector(selector)!.getBoundingClientRect().bottom;
+      const noteOffer = 'button[aria-label="Add a note to step 1"]';
+      const durationOffer = 'button[aria-label="Add a duration to step 1"]';
+
+      // Offered, not presented: no empty note box on a step that has no note.
+      expect(root.querySelector(`#step-note-${key}`)).toBeNull();
+      expect(root.querySelector(`#step-duration-${key}`)).toBeNull();
+      expect(top(noteOffer))
+        .withContext('the offers are under the words')
+        .toBeGreaterThanOrEqual(bottom(`#step-text-${key}`) - 1);
       const textTop = top(`#step-text-${key}`);
+
+      root.querySelector<HTMLButtonElement>(noteOffer)!.click();
+      harness.detectChanges();
+      expect(top(`#step-note-${key}`)).toBeGreaterThanOrEqual(bottom(`#step-text-${key}`) - 1);
+      expect(top(`#step-text-${key}`))
+        .withContext('nothing above the note moved')
+        .toBe(textTop);
+      expect(root.querySelector(noteOffer)).withContext('its offer has gone').toBeNull();
       const noteTop = top(`#step-note-${key}`);
 
-      root.querySelector<HTMLButtonElement>('button[aria-label="Add a duration to step 1"]')!.click();
+      root.querySelector<HTMLButtonElement>(durationOffer)!.click();
       harness.detectChanges();
-
-      expect(root.querySelector(`#step-duration-${key}`))
-        .withContext('the duration field is there')
-        .toBeTruthy();
-      // After the note, not between the text and the note.
+      // After the note, not between the text and the note, and nothing above it pushed.
       expect(top(`#step-duration-${key}`)).toBeGreaterThanOrEqual(bottom(`#step-note-${key}`) - 1);
-      // And nothing above it was pushed: the text and the note are exactly where they were.
       expect(top(`#step-text-${key}`)).toBe(textTop);
       expect(top(`#step-note-${key}`)).toBe(noteTop);
-      // The button that offered it has gone.
-      expect(root.querySelector('button[aria-label="Add a duration to step 1"]')).toBeNull();
+      expect(root.querySelector(durationOffer)).toBeNull();
+      expect(root.querySelector('.step-offers')).withContext('nothing left to offer').toBeNull();
     });
 
-    it('puts move and remove at the top right of a step, above its text, and the duration offer beneath', async () => {
+    it('reads as a numbered list: the number before the words, move and remove level with them at the right', async () => {
       const recipeService = recipeServiceSpy();
       const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
       selectEditTab(harness, 'Instructions');
@@ -4321,25 +4335,67 @@ describe('RecipeEditorComponent', () => {
       const root = harness.routeNativeElement!;
       root.style.width = '80rem';
       harness.detectChanges();
+      // The field wires required onto its control after it renders.
+      await harness.fixture.whenStable();
 
-      const stepBox = root.querySelector('.step')!.getBoundingClientRect();
-      const head = root.querySelector('.step-head')!.getBoundingClientRect();
-      const text = root
-        .querySelector(`#step-text-${component.form.instructionGroups()[0].steps[0].key}`)!
-        .getBoundingClientRect();
-      const offer = root.querySelector('button[aria-label="Add a duration to step 1"]')!.getBoundingClientRect();
+      const key = component.form.instructionGroups()[0].steps[0].key;
+      const rect = (selector: string) => root.querySelector(selector)!.getBoundingClientRect();
+      const step = rect('.step');
+      const number = rect('.step-number');
+      const text = rect(`#step-text-${key}`);
+      const controls = rect('.step-controls');
 
-      expect(head.bottom)
-        .withContext('above the text')
-        .toBeLessThanOrEqual(text.top + 1);
-      expect(stepBox.right - head.right)
-        .withContext('at the right edge of the step')
-        .toBeLessThan(40);
-      expect(offer.top)
-        .withContext('the duration offer is beneath the text')
-        .toBeGreaterThanOrEqual(text.bottom - 1);
-      expect(root.querySelector('button[aria-label="Remove step 1"]')).toBeTruthy();
-      expect(root.querySelector('.step-head button[aria-label="Move step 1 up"]')).toBeTruthy();
+      // The number is what the eye reads; "Step 1" is what a screen reader hears, as the text's own label.
+      expect(root.querySelector('.step-number')!.textContent?.trim()).toBe('1');
+      expect(root.querySelector('.step-number')!.getAttribute('aria-hidden')).toBe('true');
+      expect(root.querySelector(`label[for="step-text-${key}"]`)?.textContent).toContain('Step 1');
+      expect(root.querySelector(`#step-text-${key}`)!.getAttribute('aria-required')).toBe('true');
+
+      expect(number.right).withContext('the number before the words').toBeLessThanOrEqual(text.left);
+      expect(controls.left)
+        .withContext('the controls after the words')
+        .toBeGreaterThanOrEqual(text.right - 1);
+      expect(Math.abs(controls.top - text.top))
+        .withContext('level with the first line')
+        .toBeLessThan(4);
+      expect(step.right - controls.right)
+        .withContext('at the right edge')
+        .toBeLessThan(2);
+      // Quiet: an arrow and a cross, each named for the step it acts on — never a red "Remove step" button.
+      expect(root.querySelector('button[aria-label="Remove step 1"]')?.textContent?.trim()).toBe('✕');
+      expect(root.querySelector('.step-controls button[aria-label="Move step 1 up"]')).toBeTruthy();
+
+      // Narrow — a phone, or 200% zoom: the words keep the width, and the controls go under them.
+      root.style.width = '24rem';
+      harness.detectChanges();
+      const narrowText = rect(`#step-text-${key}`);
+      expect(rect('.step-controls').top).toBeGreaterThanOrEqual(narrowText.bottom - 1);
+      expect(root.scrollWidth)
+        .withContext('nothing spills sideways')
+        .toBeLessThanOrEqual(root.clientWidth + 1);
+    });
+
+    it('asks before removing a step with words in it, and removes an empty one at once', async () => {
+      const recipeService = recipeServiceSpy();
+      const { harness, component } = await createHarness('/cozy-fall/recipes/new', recipeService);
+      selectEditTab(harness, 'Instructions');
+      clickButton(harness, 'Add step');
+      clickButton(harness, 'Add step');
+      const root = harness.routeNativeElement!;
+      const [first] = component.form.instructionGroups()[0].steps;
+      typeInto(harness, `#step-text-${first.key}`, 'Preheat the oven.');
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Remove step 1"]')!.click();
+      await harness.fixture.whenStable();
+      expect(confirmService.isOpen).withContext('a written step asks first').toBeTrue();
+      confirmService.answer(false);
+      await harness.fixture.whenStable();
+      expect(component.form.instructionGroups()[0].steps.length).withContext('kept on "Keep it"').toBe(2);
+
+      root.querySelector<HTMLButtonElement>('button[aria-label="Remove step 2"]')!.click();
+      await harness.fixture.whenStable();
+      expect(confirmService.isOpen).withContext('an empty step does not ask').toBeFalse();
+      expect(component.form.instructionGroups()[0].steps.map((step) => step.text)).toEqual(['Preheat the oven.']);
     });
 
     it('gives the steps the full width when no nav sits beside them, and a gutter when one does', async () => {

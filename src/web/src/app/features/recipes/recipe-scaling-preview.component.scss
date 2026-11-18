@@ -52,38 +52,18 @@
   margin-bottom: var(--cp-space-5);
 }
 
+/* "Scale by" and its two answers on one line, wrapping under each other when narrow. */
 .mode {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cp-space-4);
-  margin: 0;
-  padding: var(--cp-space-3) var(--cp-space-4);
-  border: 1px solid var(--cp-border);
-  border-radius: var(--cp-radius-md);
-}
-
-.mode legend {
-  padding: 0 var(--cp-space-2);
-  font-size: var(--cp-font-size-sm);
-  font-weight: 700;
-  color: var(--cp-text);
-}
-
-.mode-choice {
-  display: flex;
   align-items: center;
-  gap: var(--cp-space-2);
-  /* A comfortable target for the label as well as the control itself. */
-  min-height: 2.5rem;
-  font-size: var(--cp-font-size-sm);
-  color: var(--cp-text);
-  cursor: pointer;
+  gap: var(--cp-space-2) var(--cp-space-3);
 }
 
-.mode-choice input:disabled,
-.mode-choice:has(input:disabled) {
-  cursor: not-allowed;
-  color: var(--cp-text-muted);
+.mode-label {
+  font-size: var(--cp-font-size-sm);
+  font-weight: 600;
+  color: var(--cp-text);
 }
 
 .mode-note {
@@ -104,12 +84,28 @@
   min-width: 12rem;
 }
 
+/* Wide enough to show what the recipe makes, its placeholder, in full; never wider than the form. */
+.input-row .yield-field {
+  min-width: min(24rem, 100%);
+}
+
+/* The box and its presets on one line, centred on each other; the presets wrap under the box when it is narrow. */
+.factor-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-3);
+}
+
+.factor-control input {
+  flex: 0 1 12rem;
+  min-width: 0;
+}
+
 .presets {
   display: flex;
   flex-wrap: wrap;
   gap: var(--cp-space-2);
-  /* Sits level with the input rather than with the label above it. */
-  padding-bottom: var(--cp-space-1);
 }
 
 .scaling-result {
@@ -176,38 +172,71 @@
 .scaled-lines th,
 .scaled-lines td {
   padding: var(--cp-space-3);
-  text-align: left;
+  text-align: start;
   vertical-align: top;
   border-bottom: 1px solid var(--cp-border);
 }
 
+.scaled-lines tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
 .scaled-lines thead th {
+  padding-block: var(--cp-space-2);
   font-size: var(--cp-font-size-xs);
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cp-text-muted);
 }
 
+/* The creator's own line, at reading weight: it is what each row is about, not a heading to shout. */
 .line-name {
-  font-weight: 700;
+  font-weight: 400;
   color: var(--cp-text);
+  overflow-wrap: anywhere;
 }
 
+/* Only as wide as their figures, so the ingredient takes the rest of the row. Table cells, laid out inside —
+   a cell given display:grid stops being a cell, which is what had stacked each "after" under its "before". */
 .line-amount {
-  display: grid;
-  gap: var(--cp-space-1);
-  justify-items: start;
+  width: 1%;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
+/* The figures, and their headings over them, at the right edge, so they line up down the column. */
+.scaled-lines .line-amount,
+.scaled-lines thead th.num {
+  text-align: end;
+}
+
+/* What the recipe says now: quiet, so the eye lands on what to measure. */
+.line-before {
+  color: var(--cp-text-muted);
+}
+
+.after-stack {
+  display: grid;
+  gap: var(--cp-space-1);
+  justify-items: end;
+}
+
+/* The figure a creator will measure out: the one thing in the row that stands out. */
+.after-value {
+  font-size: var(--cp-font-size-md);
+  font-weight: 700;
+  color: var(--cp-text);
+  line-height: var(--cp-leading-tight);
+}
+
+/* The exact amount, where the figure to measure was rounded: quiet, beside it rather than under it. */
 .line-exact {
-  font-size: var(--cp-font-size-xs);
   color: var(--cp-text-muted);
 }
 
 .line-notes {
-  min-width: 18rem;
+  min-width: 12rem;
 }
 
 /* A line that was not scaled is marked by its pill and its note as well; this is only a quieter background,

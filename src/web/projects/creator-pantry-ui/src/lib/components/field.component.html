@@ -1,4 +1,4 @@
-<label [for]="forId()"
+<label [for]="forId()" [class.sr-only]="labelHidden()"
   >{{ label() }}
   @if (required()) {
     <span aria-hidden="true">*</span>

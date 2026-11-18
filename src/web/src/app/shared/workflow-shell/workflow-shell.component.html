@@ -238,32 +238,46 @@
         @if (narrow()) {
           <details class="steps-disclosure cp-disclosure">
             <summary>{{ progressText() }}: all steps</summary>
-            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+            <cp-stepper label="Steps" [steps]="navigableSteps()" (stepSelected)="goToStep($event)" />
           </details>
         } @else {
+          <!-- A step done, or reached before, can be gone to from here: the shell moves the run there by its own
+               commands, keeping and checking each step on the way. A step never reached is not on offer. -->
           <nav aria-label="Progress">
-            <cp-stepper label="Steps" [steps]="stepperSteps()" />
+            <cp-stepper label="Steps" [steps]="navigableSteps()" (stepSelected)="goToStep($event)" />
           </nav>
+        }
+
+        <!-- Ending the run is about the run, not the step on screen, so it sits with the run's steps — one quiet
+             control, asked about in its dialog, where starting over is offered too. -->
+        @if (!readOnly() && run()?.status === 'InProgress') {
+          <button
+            cpButton
+            class="stop-run"
+            type="button"
+            variant="ghost"
+            size="sm"
+            [attr.aria-disabled]="busy() !== null || null"
+            (click)="askToStop()"
+          >
+            Stop this run
+          </button>
         }
       </div>
 
       <!-- One card for the step, headed by its name. Wide: a step's screen keeps its own measure. Its heading
            takes focus when the step changes. With every step done, the same card finishes the run. -->
-      <cp-topic-card
-        #stepCard
-        [heading]="step()?.title ?? 'Every step is done'"
-        headingId="cp-workflow-step-heading"
-        wide
-      >
+      <cp-topic-card #stepCard [heading]="cardHeading()" headingId="cp-workflow-step-heading" wide>
         @if (step(); as here) {
-          <details class="help cp-disclosure">
-            <summary>Need help with this step?</summary>
-            <p class="cp-muted">{{ here.help }}</p>
-          </details>
+          <!-- What the step is for, shown under its name rather than folded away: every step's help is a sentence
+               or two, too short to be worth a click to read. While the screen asks a question, the question heads
+               the card and its own line stands here instead. -->
+          @if (hint(); as line) {
+            <p class="hint">{{ line }}</p>
+          }
 
-          <!-- Said once, above the step's screen, from the step's own definition: no screen can forget it, and no
-               screen marks a field optional. -->
-          <p class="legend cp-muted">{{ legend() }}</p>
+          <!-- No sentence about whether the step is needed: an optional step offers "Skip for now" beside Continue,
+               which says it where it can be acted on; a required one offers none, and says why if asked to skip. -->
 
           @for (warning of current.warnings; track warning.code + warning.message) {
             <cp-notice tone="warning" role="note">{{ warning.message }}</cp-notice>
@@ -344,93 +358,64 @@
               </cp-notice>
             }
 
-            <p class="save-status">{{ saveStatus() }}</p>
+            <!-- Saving is the step's own and leaving keeps the place, so there is no "Save and exit": the line says
+                 so, and "Workflows" at the top, or any other way out, is how to leave. -->
+            <p class="save-status">{{ saveStatus() }} You can leave and pick up here later.</p>
 
+            <!-- The moves through the steps, and nothing else: Back quiet at the start, the way on at the end. What
+                 ends or restarts the run is the run's, beside its steps. -->
             <div class="cp-actions primary-row">
               @if (!isFirst()) {
                 <button
                   cpButton
+                  class="back"
                   [busy]="busy() === 'back'"
                   type="button"
-                  variant="secondary"
+                  variant="text"
                   [attr.aria-disabled]="busy() !== null || null"
                   (click)="back()"
                 >
                   {{ busy() === 'back' ? 'Going back…' : 'Back' }}
                 </button>
               }
-              @if (step()?.requirement === 'Optional') {
-                <button
-                  cpButton
-                  [busy]="busy() === 'skip'"
-                  type="button"
-                  variant="text"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="skip()"
-                >
-                  {{ busy() === 'skip' ? 'Skipping…' : 'Skip for now' }}
-                </button>
-              }
-              @if (step()) {
-                <button
-                  cpButton
-                  [busy]="busy() === 'continue'"
-                  type="button"
-                  [variant]="stepReady() ? 'primary' : 'secondary'"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="continue()"
-                >
-                  {{ busy() === 'continue' ? 'Checking…' : 'Continue' }}
-                </button>
-              } @else {
-                <button
-                  cpButton
-                  [busy]="busy() === 'finish'"
-                  type="button"
-                  variant="primary"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="finish()"
-                >
-                  {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
-                </button>
-              }
+              <span class="step-onward">
+                @if (step()?.requirement === 'Optional') {
+                  <button
+                    cpButton
+                    [busy]="busy() === 'skip'"
+                    type="button"
+                    variant="text"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="skip()"
+                  >
+                    {{ busy() === 'skip' ? 'Skipping…' : 'Skip for now' }}
+                  </button>
+                }
+                @if (step()) {
+                  <button
+                    cpButton
+                    [busy]="busy() === 'continue'"
+                    type="button"
+                    [variant]="stepReady() ? 'primary' : 'secondary'"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="continue()"
+                  >
+                    {{ busy() === 'continue' ? 'Checking…' : 'Continue' }}
+                  </button>
+                } @else {
+                  <button
+                    cpButton
+                    [busy]="busy() === 'finish'"
+                    type="button"
+                    variant="primary"
+                    [attr.aria-disabled]="busy() !== null || null"
+                    (click)="finish()"
+                  >
+                    {{ busy() === 'finish' ? 'Finishing…' : 'Finish' }}
+                  </button>
+                }
+              </span>
             </div>
-
-            <div class="cp-actions secondary-row">
-              <button
-                cpButton
-                [busy]="busy() === 'save-exit'"
-                type="button"
-                variant="ghost"
-                [attr.aria-disabled]="busy() !== null || null"
-                (click)="saveAndExit()"
-              >
-                {{ busy() === 'save-exit' ? 'Saving…' : 'Save and exit' }}
-              </button>
-            </div>
-
-            <!-- Collapsed until asked for: neither is part of doing the step. -->
-            <details class="more cp-disclosure">
-              <summary>More options</summary>
-              <div class="cp-actions more-actions">
-                <button
-                  cpButton
-                  type="button"
-                  variant="text"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="startOver()"
-                  >Start over</button
-                >
-                <button
-                  cpButton
-                  type="button"
-                  variant="secondary"
-                  [attr.aria-disabled]="busy() !== null || null"
-                  (click)="askToStop()"
-                  >Stop this run</button
-                >
-              </div>
-            </details>
           }
         </div>
       </cp-topic-card>
@@ -460,6 +445,11 @@
   </cp-field>
   <div cpDialogActions class="cp-actions">
     <button cpButton type="button" variant="secondary" (click)="cancelStop()">Keep going</button>
+    <!-- Starting over is stopping this run and beginning the journey again, so it is offered here rather than as a
+         button of its own — and only once there is something to start over from. -->
+    @if (hasProgress()) {
+      <button cpButton type="button" variant="secondary" (click)="startOverInstead()">Start over instead</button>
+    }
     <button cpButton type="button" variant="danger" (click)="stop()">Stop this run</button>
   </div>
 </cp-dialog>

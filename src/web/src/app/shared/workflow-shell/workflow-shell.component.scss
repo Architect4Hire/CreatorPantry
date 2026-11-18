@@ -27,17 +27,17 @@
 }
 
 .plain,
-.legend,
-.help p {
+.hint {
   margin: 0;
+}
+
+/* The step's hint reads as its lede, in the ink of the step. */
+.hint {
+  max-width: var(--cp-measure-prose);
 }
 
 .steps-disclosure summary {
   font-weight: 700;
-}
-
-.help summary {
-  color: var(--cp-text-muted);
 }
 
 .waiting ul,
@@ -60,12 +60,18 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.more summary {
-  color: var(--cp-text-muted);
+/* Skip and Continue: the way on, at the far end of the row from Back. */
+.step-onward {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  margin-inline-start: auto;
 }
 
-.more-actions {
-  margin-top: var(--cp-space-3);
+/* Ending the run, under its steps: quiet, and its own width. */
+.stop-run {
+  justify-self: start;
 }
 
 /* What a finished run suggests next: one row per suggestion, its action after what it is and why. */

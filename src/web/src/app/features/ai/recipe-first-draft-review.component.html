@@ -9,10 +9,8 @@
     <a cpBackLink cpPageHeadBreadcrumb [routerLink]="['/', workspaceSlug, 'ai-recipe-studio']">AI Recipe Studio</a>
     <cp-shell-nav-icon cpPageHeadIcon name="ai" />
   </cp-page-head>
-} @else if (state() !== 'accepted') {
-  <!-- Hosted, the step's card is the head: the one sentence the page rests on is said here instead. -->
-  <p class="cp-muted">{{ lede }}</p>
 }
+<!-- Hosted in a workflow, nothing is said here: the step's hint already says nothing is kept until it is. -->
 
 <!-- Always in the page, so the words are announced when they change: a live region created already holding its
      text may never be read. The skeleton below is aria-hidden, so this is the one thing said while it shows. -->
@@ -540,16 +538,14 @@
   because the case that most needs a "Check again" is the one where nothing has arrived at all.
 -->
 <ng-template #watchControls>
-  <div class="draft-watch">
-    @if (isWatching() && state() === 'watching') {
-      <!-- "Stop checking", not "Cancel": there is no route that cancels generation. -->
-      <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
-      <span class="draft-watch-note">Your request keeps running; this page just stops asking about it.</span>
-    } @else if (canCheckAgain()) {
+  <!-- Only once the page has stopped asking on its own. While it is asking there is nothing to offer: the status
+       changes once, when the draft is ready, and stopping the asking would cancel nothing. -->
+  @if (!(isWatching() && state() === 'watching') && canCheckAgain()) {
+    <div class="draft-watch">
       <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
       <span class="draft-watch-note">This page has stopped checking on its own.</span>
-    }
-  </div>
+    </div>
+  }
 </ng-template>
 
 <!--

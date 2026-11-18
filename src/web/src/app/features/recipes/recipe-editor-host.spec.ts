@@ -116,7 +116,9 @@ describe('RecipeEditorComponent, hosted (RecipeEditorHost)', () => {
     expect(root.querySelector('cp-page-head')).toBeNull();
     expect(root.querySelector('cp-tabs')).toBeNull();
     expect(root.querySelector('#recipe-tools-control')).toBeNull();
-    expect(root.textContent).toContain('are required');
+    // No legend about asterisks: the one field a hosted step needs says so itself, to the eye and to assistive tech.
+    expect(root.textContent).not.toContain('are required');
+    expect(root.querySelector('#recipe-title')?.getAttribute('aria-required')).toBe('true');
   });
 
   it('shows timing and yield together, with no legend about required fields it does not have', async () => {

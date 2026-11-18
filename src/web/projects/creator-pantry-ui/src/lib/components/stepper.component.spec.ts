@@ -85,8 +85,30 @@ describe('CpStepperComponent', () => {
     expect(getComputedStyle(rows()[0].querySelector('.glyph')!).color).toBe('rgb(7, 8, 9)');
   });
 
-  it('is a read-out: no row is a link, a button or a tab stop', () => {
+  it('is a read-out unless asked: no row is a link, a button or a tab stop', () => {
     expect(el.querySelector('a, button, [tabindex], [role="tab"], [role="button"]')).toBeNull();
+  });
+
+  it('makes a selectable step a button that says where it goes and emits its id, and never the current one', () => {
+    const chosen: string[] = [];
+    fixture.componentInstance.steps.set(STEPS.map((step) => ({ ...step, selectable: true })));
+    fixture.detectChanges();
+    const stepper = fixture.debugElement.children[0].children[0].componentInstance as CpStepperComponent;
+    stepper.stepSelected.subscribe((id) => chosen.push(id));
+
+    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>('li button'));
+    // Every step but the current one, which is where the creator already is.
+    expect(buttons.length).toBe(3);
+    expect(rows()[2].querySelector('button')).toBeNull();
+    expect(buttons[0].getAttribute('type')).toBe('button');
+    // Named for where it goes, and still saying the step's state.
+    expect(buttons[0].textContent?.replace(/\s+/g, ' ').trim()).toContain('Go to Your goals');
+    expect(buttons[0].querySelector('.word')?.textContent).toBe('Done');
+    // A full-size target.
+    expect(buttons[0].getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+
+    buttons[1].click();
+    expect(chosen).toEqual(['examples']);
   });
 
   it('follows the steps it is given as the flow moves on', () => {

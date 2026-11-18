@@ -5,6 +5,21 @@ import { WorkflowNextAction, WorkflowResourcePointer, WorkflowRun } from '../../
 /** How the shell keeps a step's draft pointer on the run: the shell's, because the run and its token are. */
 export type WorkflowDraftKeeper = (draft: WorkflowResourcePointer) => Promise<boolean>;
 
+/** What heads the step's card while its screen asks one question: the question, and a line under it. */
+export interface WorkflowStepLead {
+  /** The question, in place of the step's name; null keeps the step's name, changing only the line under it. */
+  readonly heading: string | null;
+  /** The line under the heading, in place of the step's help; null shows none, for a screen saying it itself. */
+  readonly hint: string | null;
+}
+
+/** What a step still needs before Continue can finish it, in the creator's words, and how to show them where. */
+export interface WorkflowStepNeed {
+  readonly message: string;
+  /** Takes the creator to what is missing — focuses it, and marks it where it can be marked. */
+  readonly reveal?: () => void;
+}
+
 /**
  * What a step's screen tells the shell about the work it holds. The screen owns that work — its form, its
  * validation, its own autosave into its own module's record — and the shell only asks the questions it needs to
@@ -46,6 +61,18 @@ export interface WorkflowStepRegistration {
    * the server still decides whether the step is done.
    */
   readonly ready?: Signal<boolean>;
+  /**
+   * The question the screen is asking, to head the step's card in place of the step's name and help while it
+   * asks — so a step that opens on one question says it once, rather than under a heading and a hint that say
+   * the same. Null, or left out, keeps the step's name and help; the stepper always shows the step's name.
+   */
+  readonly lead?: Signal<WorkflowStepLead | null>;
+  /**
+   * What the step still plainly needs before it can be finished, read after the screen's work is kept. While it is
+   * set, Continue says it — and reveals it — instead of asking the server, whose answer would name the missing
+   * record rather than the thing to do. Null, or left out, means nothing the screen knows of.
+   */
+  readonly needs?: Signal<WorkflowStepNeed | null>;
 }
 
 /** What a step's template is handed: the run as it stands, the step it is for, and the workspace. */

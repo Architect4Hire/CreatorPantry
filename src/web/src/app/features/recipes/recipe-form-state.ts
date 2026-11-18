@@ -600,6 +600,7 @@ export class RecipeFormState {
                   note: '',
                   durationMinutes: null,
                   showDuration: false,
+                  showNote: false,
                   techniqueId: null,
                   temperatureValue: null,
                   temperatureUnitId: null,
@@ -890,6 +891,8 @@ export class RecipeFormState {
           durationMinutes: step.durationMinutes,
           // A duration the recipe already records is shown; one it does not is offered.
           showDuration: step.durationMinutes !== null,
+          // Likewise a note: shown when the recipe has one, offered when it does not.
+          showNote: (step.note ?? '').trim() !== '',
           techniqueId: step.techniqueId,
           temperatureValue: step.temperatureValue,
           temperatureUnitId: step.temperatureUnitId,

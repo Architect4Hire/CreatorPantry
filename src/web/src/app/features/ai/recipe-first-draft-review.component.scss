@@ -226,6 +226,16 @@
   overflow-wrap: anywhere;
 }
 
+/* A field's Edit at the far end of its row, in line with the Edits of the lines and steps below. */
+.draft-field dd > button[data-edit-for] {
+  margin-inline-start: auto;
+}
+
+/* An open editor takes its own line under the value. */
+.draft-field dd > .draft-editor {
+  flex-basis: 100%;
+}
+
 /*
  * An unsupplied value is muted and italic *and* says "Not suggested" in words. The styling is the redundant
  * half: a creator reading with colour off still meets the sentence.
@@ -254,11 +264,33 @@
   padding-inline-start: var(--cp-space-5);
 }
 
+/*
+ * The words on the left and their Edit in a column of its own on the right, level with the first line — as every
+ * field's Edit is — so the page's Edits line up and none is stretched across the card. An open editor takes the
+ * whole width under the row it rewrites.
+ */
 .draft-line,
 .draft-step {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cp-space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-1) var(--cp-space-3);
+}
+
+.draft-line > *,
+.draft-step > * {
+  grid-column: 1;
+}
+
+.draft-line > button[data-edit-for],
+.draft-step > button[data-edit-for] {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+
+.draft-line > .draft-editor,
+.draft-step > .draft-editor {
+  grid-column: 1 / -1;
 }
 
 .draft-line-main,

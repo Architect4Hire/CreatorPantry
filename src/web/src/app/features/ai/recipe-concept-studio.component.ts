@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RecipeStudioHost } from './recipe-studio-host';
@@ -8,6 +9,7 @@ import {
   CpButtonComponent,
   CpCardComponent,
   CpCardGridComponent,
+  CpDrawerComponent,
   CpEmptyStateComponent,
   CpFactComponent,
   CpFactsComponent,
@@ -138,6 +140,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     AiOperationStatusComponent,
     CpButtonComponent,
     CpCardComponent,
+    CpDrawerComponent,
     CpEmptyStateComponent,
     CpFactComponent,
     CpFactsComponent,
@@ -149,6 +152,7 @@ const COULD_NOT_REACH_SERVER = "Couldn't reach the server. Try again in a moment
     CpOptionCardComponent,
     CpSkeletonComponent,
     DayNotesNoticeComponent,
+    NgTemplateOutlet,
     ShellNavIconComponent,
     UseThisInComponent,
     CpTopicCardComponent,
@@ -169,6 +173,16 @@ export class RecipeConceptStudioComponent {
 
   /** The guided step this studio sits in, when it is not on its own page; null there. See {@link RecipeStudioHost}. */
   protected readonly host = inject(RecipeStudioHost, { optional: true });
+  private readonly injector = inject(Injector);
+
+  /**
+   * Whether what came back opens in a drawer beside the brief, read once from the host. See
+   * {@link RecipeStudioHost.conceptsInDrawer}: the workflow's ideas stage, and nowhere else.
+   */
+  protected readonly conceptsInDrawer = this.host?.conceptsInDrawer ?? false;
+
+  /** Whether that drawer is showing. Opened by an accepted request or by the creator; it holds nothing unsaved. */
+  protected readonly conceptsOpen = signal(false);
 
   readonly workspaceSlug = this.host?.workspaceSlug || this.resolveWorkspaceSlug();
 
@@ -245,7 +259,7 @@ export class RecipeConceptStudioComponent {
   private readonly consecutiveFailures = signal(0);
   private readonly pollStopped = signal(false);
 
-  /** False once the creator stops checking. There is no cancel route — see {@link stopChecking}. */
+  /** Whether this page is asking after the request. Nothing offers to stop it: there is no cancel route. */
   private readonly watching = signal(true);
 
   /** Bumped to start a fresh poll loop over the same request. */
@@ -521,8 +535,6 @@ export class RecipeConceptStudioComponent {
     return proposal && (!this.host || this.host.showMaker) ? `${proposal.modelName} (${proposal.providerName})` : '';
   });
 
-  /** The workflow's sentence above the brief; the studio's own flow says it in its page lede instead. */
-  protected readonly showsHostedIntro = computed(() => this.host?.part() === 'both');
   /** Whether the brief shows: everywhere but the concepts step of the studio's own flow. */
   protected readonly showsBrief = computed(() => (this.host?.part() ?? 'both') !== 'concepts');
   /** Whether what came back shows: everywhere but the brief step of the studio's own flow. */
@@ -566,6 +578,66 @@ export class RecipeConceptStudioComponent {
   readonly canAskAgain = computed(() => {
     const operation = this.operationSignal();
     return operation !== null && isRetryableAiOutcome(operation.status, operation.failureCategory);
+  });
+
+  /** Whether a request's status and what it brought back are on screen: there is an operation, and it is readable. */
+  protected readonly showsResults = computed(() => {
+    const state = this.state();
+    return (
+      this.operation() !== null &&
+      state !== 'idle' &&
+      state !== 'loading' &&
+      state !== 'submitting' &&
+      state !== 'gone' &&
+      state !== 'forbidden'
+    );
+  });
+
+  /**
+   * Whether "Try a new brief" is offered: once there is something to start again from — concepts to set aside, none
+   * at all, or a request that ended or went. Not while one is on its way: that would let go of an answer already
+   * paid for.
+   */
+  protected readonly offersNewBrief = computed(() => {
+    const state = this.state();
+    return (
+      state === 'proposed' || state === 'gone' || ((state === 'failed' || state === 'expired') && this.canAskAgain())
+    );
+  });
+
+  /**
+   * The one line the page keeps about the concepts while their drawer is closed: where the request is, said in
+   * words, beside the way back into the drawer. Null where there is nothing to say — no request yet, or one still
+   * being sent, which the brief's own button already says. Looking a kept request up has no sentence: it draws the
+   * shape of the line instead (AU.7).
+   */
+  protected readonly conceptsSummary = computed<{
+    readonly text: string;
+    readonly tone: 'neutral' | 'success' | 'warning';
+  } | null>(() => {
+    switch (this.state()) {
+      case 'loading':
+        return { text: '', tone: 'neutral' };
+      case 'watching':
+        return { text: 'Your concepts are on their way.', tone: 'neutral' };
+      case 'proposed': {
+        const count = this.conceptCards().length;
+        if (count === 0) return { text: 'No concepts came back for this brief.', tone: 'warning' };
+        return {
+          text: count === 1 ? '1 concept is ready to compare.' : `${count} concepts are ready to compare.`,
+          tone: 'success',
+        };
+      }
+      case 'failed':
+      case 'expired':
+        return { text: this.conceptsErrorMessage(), tone: 'warning' };
+      case 'gone':
+        return { text: 'This request is no longer here. Nothing was changed.', tone: 'warning' };
+      case 'forbidden':
+        return { text: "This request can't be read with your role in this workspace.", tone: 'warning' };
+      default:
+        return null;
+    }
   });
 
   /** Whether the panel has stopped asking on its own and is waiting to be told to look again. */
@@ -640,6 +712,10 @@ export class RecipeConceptStudioComponent {
         this.requestIdSignal.set(outcome.operation.aiProposalRequestId);
         this.writeUrl();
 
+        // The creator asked for them, so the concepts open now, saying they are on their way, and land there.
+        // Only here: a refusal of any kind is about the brief, and stays beside it.
+        if (this.conceptsInDrawer) this.conceptsOpen.set(true);
+
         // The run has been paid for, so the balance on screen is already out of date.
         void this.usage.refresh();
         return;
@@ -695,6 +771,12 @@ export class RecipeConceptStudioComponent {
 
   /** Clears the form's result state so a new brief can be submitted; the typed field values are left as-is. */
   startNewBrief(): void {
+    // From the drawer, the brief is behind it: close it and put the creator in the brief's first field.
+    if (this.conceptsOpen()) {
+      this.conceptsOpen.set(false);
+      this.focusAfterRender('concept-dish-name');
+    }
+
     this.requestIdSignal.set(null);
     this.operationSignal.set(null);
     this.watchProblem.set(null);
@@ -727,14 +809,6 @@ export class RecipeConceptStudioComponent {
     this.resumeToken.update((token) => token + 1);
   }
 
-  /**
-   * Stops this page from checking. It does **not** cancel the request — the API offers asking and reading and
-   * nothing else, so a button claiming to cancel generation would promise what the server cannot honour.
-   */
-  stopChecking(): void {
-    this.watching.set(false);
-  }
-
   // -------------------------------------------------------------------------
   // Selection
   // -------------------------------------------------------------------------
@@ -746,6 +820,35 @@ export class RecipeConceptStudioComponent {
     if (!this.isSelected(concept)) this.forgetDraftAttempt();
 
     this.selectedConceptSignal.set(concept);
+
+    // Choosing finishes what the drawer is for. Drafting is the next task and happens on the page, so the drawer
+    // closes and focus goes to the chosen concept's card — after the drawer has given it back to its opener.
+    if (this.conceptsOpen()) {
+      this.conceptsOpen.set(false);
+      this.focusAfterRender('studio-selection-heading');
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // The concepts drawer
+  // -------------------------------------------------------------------------
+
+  /**
+   * Opens the concepts beside the brief. The pressed control is focused first, because a click does not focus a
+   * button in every browser and the drawer gives focus back to whatever held it when it opened.
+   */
+  openConcepts(event?: Event): void {
+    (event?.currentTarget as HTMLElement | null | undefined)?.focus();
+    this.conceptsOpen.set(true);
+  }
+
+  /** Escape, the scrim or the close control. Nothing in the drawer is unsaved, so it closes at once. */
+  closeConcepts(): void {
+    this.conceptsOpen.set(false);
+  }
+
+  private focusAfterRender(id: string): void {
+    afterNextRender(() => document.getElementById(id)?.focus(), { injector: this.injector });
   }
 
   // -------------------------------------------------------------------------

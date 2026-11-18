@@ -27,6 +27,12 @@
   max-width: var(--cp-measure-field);
 }
 
+/* Not in a toolbar, so nothing beside it sets its width: it takes the measure above rather than the browser's
+   default of about twenty characters, which cut the placeholder short. Still never wider than the page. */
+.search input {
+  width: 100%;
+}
+
 /* A short list inside a topic card: what the work is, and the one way into it. */
 .rows {
   display: grid;

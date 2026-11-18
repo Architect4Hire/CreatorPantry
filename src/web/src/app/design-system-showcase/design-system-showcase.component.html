@@ -66,6 +66,11 @@
       <cp-field label="Servings" forId="showcase-warning" warning="That is a lot of servings — is it a batch?">
         <input id="showcase-warning" type="number" value="120" />
       </cp-field>
+      <!-- labelHidden: the label names the control for a screen reader and is not drawn — for a field whose place
+           already says what it is, as a numbered recipe step does. -->
+      <cp-field label="Step 1" forId="showcase-label-hidden" [labelHidden]="true" [required]="true">
+        <textarea id="showcase-label-hidden" placeholder="A field named by its place: 'Step 1', not shown"></textarea>
+      </cp-field>
       <cp-field label="Workspace slug" forId="showcase-disabled" hint="Set automatically, cannot be edited.">
         <input id="showcase-disabled" value="cozy-fall-soups" disabled />
       </cp-field>
@@ -736,6 +741,11 @@
         [multiple]="true"
         [(value)]="showcaseChannels"
       />
+      <p class="section-note">
+        Two or three answers that switch a form between modes join in one segmented bar — still radios, the picked one
+        ticked.
+      </p>
+      <cp-choice-group label="Scale by" layout="segmented" [options]="scaleModes" [(value)]="showcaseScaleMode" />
     </div>
   </section>
 
@@ -1111,7 +1121,10 @@
     <h2 id="stepper-heading">Stepper</h2>
     <p class="section-note">
       The steps of a flow, in order, saying where the creator is: each state in a word as well as a glyph and a fill. A
-      read-out, not navigation — a flow moves by its own Back and Continue, so no row is a link.
+      read-out by default — a flow moves by its own Back and Continue. A flow that can take the creator to a step itself
+      marks it
+      <code>selectable</code>: the row becomes a button and emits <code>stepSelected</code>, as a workflow run’s does
+      for the steps behind it and the ones it has already reached.
     </p>
     <div class="showcase-stepper">
       <nav aria-label="Example progress">

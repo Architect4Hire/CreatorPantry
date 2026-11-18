@@ -57,6 +57,7 @@ import {
   runName,
 } from './dashboard-presentation';
 import { platformName } from '../../shared/publishing-names';
+import { continueRunState } from '../../shared/workflow-shell/workflow-continue';
 
 /**
  * One figure in the row across the top of the page (AU.4.1, APP-008): the server's own count as text, what it
@@ -154,6 +155,8 @@ export class DashboardComponent {
   protected readonly platformName = platformName;
   protected readonly runName = runName;
   protected readonly runLinkLabel = runLinkLabel;
+  /** Opening a run from here carries on with it, so it opens on its step (workflow-continue). */
+  protected readonly continueRunState = continueRunState;
 
   protected readonly dashboard = computed(() => {
     const state = this.state();

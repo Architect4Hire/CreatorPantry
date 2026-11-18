@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { ApplicationRef, signal } from '@angular/core';
 import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of } from 'rxjs';
@@ -532,23 +532,13 @@ describe('RecipeConceptStudioComponent', () => {
 
   // ---- Cancellation ----
 
-  it('stops polling on "Stop checking" and resumes on "Check again"', fakeAsync(() => {
+  it('offers nothing to stop while it is asking: there is no route that cancels a request', fakeAsync(() => {
     render();
     service.statuses = [found({ status: 'Running' })];
     click('Get concepts');
 
-    const callsBeforeStop = service.watchCalls;
-    expect(element().textContent).toContain('keeps running');
-    click('Stop checking');
-
-    tick(10000);
-    fixture.detectChanges();
-    expect(service.watchCalls).toBe(callsBeforeStop);
-    expect(buttonWith('Check again')).toBeTruthy();
-
-    click('Check again');
-
-    expect(service.watchCalls).toBeGreaterThan(callsBeforeStop);
+    expect(element().textContent).not.toContain('Stop checking');
+    expect(element().querySelector('.studio-watch')).toBeNull();
     discardPeriodicTasks();
   }));
 
@@ -650,12 +640,28 @@ describe('RecipeConceptStudioComponent', () => {
     expect(fixture.componentInstance.conceptsListState()).toBe('error');
     expect(element().querySelector('cp-list-shell')?.textContent).toContain("didn't finish");
   }));
-  it('reads as a form: one card, a legend, and named sections of stacked fields', fakeAsync(() => {
+  it('reads as a form: one card and named sections of stacked fields, with no legend to repeat', fakeAsync(() => {
     render();
 
     const card = element().querySelector('cp-card')!;
     expect(card).not.toBeNull();
-    expect(card.querySelector('.brief-legend')?.textContent).toContain('Every field is optional');
+    // Nothing is marked and nothing is required, so there is no "Every field is optional" sentence to read first;
+    // and with no work opened, nothing but the fields is sent, so there is nothing else to say.
+    expect(card.querySelector('.brief-legend')).toBeNull();
+    expect(card.textContent).not.toContain('Every field is optional');
+
+    // Each field shows the kind of answer as an example, rather than a section intro and a hint saying it.
+    const controls = Array.from(card.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea'));
+    expect(controls.length).toBe(12);
+    for (const control of controls) {
+      expect(control.placeholder)
+        .withContext(control.name)
+        .toMatch(/^e\.g\. /);
+    }
+    expect(card.textContent).not.toContain('What kind of recipe you');
+    expect(card.textContent).not.toContain('different take on it');
+    // The one hint kept is a caution, not an example: nothing that comes back is a dietary guarantee.
+    expect(card.textContent).toContain('Nothing that comes back is a guarantee about a diet.');
 
     const sections = Array.from(card.querySelectorAll('cp-form-section'));
     expect(sections.length).toBe(4);
@@ -1405,6 +1411,170 @@ describe('RecipeConceptStudioComponent', () => {
       expect(element().querySelector('.studio-loading-status')?.textContent).toContain('Looking for your request');
       discardPeriodicTasks();
     }));
+
+    // ---- The workflow's ideas stage: the concepts in a drawer beside the brief ----
+
+    describe('with the concepts in a drawer', () => {
+      beforeEach(() => {
+        host!.conceptsInDrawer = true;
+      });
+
+      /** An open drawer moves to <body>, so it is found there rather than in the fixture (DESIGN-SYSTEM.md). */
+      function drawer(): HTMLElement | null {
+        return document.body.querySelector<HTMLElement>('section[role="dialog"]');
+      }
+
+      function inDrawer(text: string): HTMLButtonElement {
+        const match = Array.from(drawer()?.querySelectorAll('button') ?? []).find((button) =>
+          button.textContent?.includes(text),
+        );
+        if (!match) throw new Error(`no button containing "${text}" in the drawer`);
+        return match;
+      }
+
+      /** Settles, then runs what was scheduled after the render — where focus is moved once the drawer has closed. */
+      function settleAndRender(): void {
+        settle();
+        TestBed.inject(ApplicationRef).tick();
+      }
+
+      it('shows nothing below the brief before anything is asked', fakeAsync(() => {
+        render();
+
+        expect(element().querySelector('cp-empty-state.studio-first-use')).toBeNull();
+        expect(element().querySelector('.studio-concepts-line')).toBeNull();
+        expect(drawer()).toBeNull();
+      }));
+
+      it('opens beside the brief as soon as the request is taken, saying the concepts are on their way', fakeAsync(() => {
+        render();
+        service.statuses = [found({ status: 'Running' })];
+
+        click('Get concepts');
+
+        const panel = drawer();
+        expect(panel).not.toBeNull();
+        expect(panel!.querySelector('h2')?.textContent).toContain('Recipe concepts');
+        expect(panel!.querySelector('cp-ai-operation-status')).not.toBeNull();
+        // Its own live region: the page behind it is inert while it is open.
+        expect(panel!.querySelector('p.cp-sr-only[role="status"]')).not.toBeNull();
+        // Nothing comes back under the brief.
+        expect(element().querySelector('cp-ai-operation-status')).toBeNull();
+        // Nothing to start again from while the answer is on its way.
+        expect(Array.from(panel!.querySelectorAll('button')).some((b) => b.textContent?.includes('Try a new brief')))
+          .withContext('no new brief while it is asking')
+          .toBeFalse();
+        discardPeriodicTasks();
+      }));
+
+      it('lands the concepts in the drawer, and choosing one closes it and takes focus to the choice', fakeAsync(() => {
+        render();
+        service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+        click('Get concepts');
+
+        const panel = drawer()!;
+        expect(panel.textContent).toContain('Slow-roasted tomato soup');
+        expect(panel.textContent).toContain('Quick weeknight noodles');
+        // The drawer is "Recipe concepts"; the list says what to do with them, rather than repeating it.
+        expect(panel.querySelector('cp-list-shell')?.textContent).toContain('Choose one to draft');
+
+        inDrawer('Choose this concept').click();
+        settleAndRender();
+
+        expect(drawer()).toBeNull();
+        expect(fixture.componentInstance.selectedConcept()?.title).toBe('Slow-roasted tomato soup');
+        // Drafting is the next task, and it is on the page.
+        const selection = element().querySelector('.studio-selection')!;
+        expect(document.activeElement?.id).toBe('studio-selection-heading');
+
+        // The concept by its name and summary, not a sentence repeating the heading.
+        expect(selection.querySelector('.studio-selection-title')?.textContent?.trim()).toBe(
+          'Slow-roasted tomato soup',
+        );
+        expect(selection.querySelector('.studio-selection-summary')?.textContent?.trim()).toBe('A slow weekend soup.');
+        expect(selection.textContent).not.toContain('Draft it as a recipe');
+
+        // Draft and the way back to the others in one row, the cost of drafting said under it and named by it.
+        const row = selection.querySelector('.studio-selection-actions')!;
+        expect(Array.from(row.querySelectorAll('button')).map((b) => b.textContent!.trim())).toEqual([
+          'Draft this recipe',
+          'See the other concepts',
+        ]);
+        expect(buttonWith('Draft this recipe').getAttribute('aria-describedby')).toBe('studio-selection-hint');
+        expect(selection.querySelector('#studio-selection-hint')?.textContent).toContain('Uses your AI allowance');
+
+        // Nothing here leads out of the run: handing the concept to another studio is the studio page's.
+        expect(selection.querySelector('cp-use-this-in')).toBeNull();
+
+        // And the way back to the others.
+        buttonWith('See the other concepts').click();
+        settle();
+        expect(drawer()?.textContent).toContain('Quick weeknight noodles');
+        discardPeriodicTasks();
+      }));
+
+      it('closes on Escape, keeps one line about the concepts, and reopens from it', fakeAsync(() => {
+        render();
+        service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+        click('Get concepts');
+
+        drawer()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        settle();
+
+        expect(drawer()).toBeNull();
+        expect(element().querySelector('.studio-concepts-line')?.textContent).toContain(
+          '2 concepts are ready to compare.',
+        );
+
+        buttonWith('Show concepts').click();
+        settle();
+        expect(drawer()?.textContent).toContain('Slow-roasted tomato soup');
+        discardPeriodicTasks();
+      }));
+
+      it('starts a new brief from its footer, closing it and putting the creator in the brief', fakeAsync(() => {
+        render();
+        service.statuses = [found({ status: 'Proposed', proposal: proposal(twoConcepts()) })];
+        click('Get concepts');
+
+        const button = inDrawer('Try a new brief');
+        expect(button.closest('footer')).not.toBeNull();
+        button.click();
+        settleAndRender();
+
+        expect(drawer()).toBeNull();
+        expect(fixture.componentInstance.requestId()).toBeNull();
+        expect(element().querySelector('.studio-concepts-line')).toBeNull();
+        expect(document.activeElement?.id).toBe('concept-dish-name');
+        discardPeriodicTasks();
+      }));
+
+      it('never opens for a request that was refused: what was wrong is about the brief, beside it', fakeAsync(() => {
+        render();
+        service.requestOutcome = { status: 'validation_failed', fieldErrors: { audience: ['Too long.'] } };
+
+        click('Get concepts');
+
+        expect(drawer()).toBeNull();
+        expect(element().textContent).toContain('Too long.');
+      }));
+
+      it('comes back to a kept request with the drawer closed, and a way into it', fakeAsync(() => {
+        host!.conceptRequestId = 'op-kept';
+        configure();
+        service.statuses = [
+          found({ aiProposalRequestId: 'op-kept', status: 'Proposed', proposal: proposal(twoConcepts()) }),
+        ];
+        fixture.detectChanges();
+        settle();
+        settle();
+
+        expect(drawer()).toBeNull();
+        expect(element().querySelector('.studio-concepts-line')?.textContent).toContain('ready to compare');
+        expect(buttonWith('Show concepts')).toBeTruthy();
+        discardPeriodicTasks();
+      }));
+    });
 
     // ---- One part at a time, for the studio's own flow (AU.5.2) ----
 

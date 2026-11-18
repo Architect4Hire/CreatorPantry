@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { Type, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter } from '@angular/router';
 import { NEVER, Observable, of } from 'rxjs';
 
@@ -21,6 +22,7 @@ import { WorkspaceMembershipService } from '../../../services/workspace-membersh
 import { WorkflowStepPort } from '../../../shared/workflow-shell/workflow-step-port';
 import { RecipeStudioHost } from '../../ai/recipe-studio-host';
 import { RecipeEditorComponent } from '../../recipes/recipe-editor.component';
+import { RecipeScalingPreviewComponent } from '../../recipes/recipe-scaling-preview.component';
 import { RecipeCreatePartStepComponent } from './recipe-create-part-step.component';
 import { RecipeSizesStepComponent } from '../recipe-steps/recipe-sizes-step.component';
 import { RecipeCreateStartStepComponent } from './recipe-create-start-step.component';
@@ -274,11 +276,36 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
         'How do you want to start?',
       );
+      // The question heads the step's card, so the screen draws no heading or intro of its own above the choices.
+      expect(port.registration()!.lead!()).toEqual({
+        heading: 'How do you want to start?',
+        hint: 'You can change your mind until you’ve saved something.',
+      });
+      expect(root(fixture).querySelector('cp-form-section')).toBeNull();
+      expect(root(fixture).textContent).not.toContain('How do you want to start?');
       expect(root(fixture).textContent).toContain('Write it yourself');
       expect(root(fixture).textContent).toContain('Help me draft it');
       expect(root(fixture).textContent).not.toMatch(/prompt|model|AI request/i);
       expect(editorOf(fixture)).toBeNull();
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).toBeNull();
+    });
+
+    it('says what Continue still needs at each stage, in the words on screen, and shows where', async () => {
+      const fixture = await start(startRun());
+      const need = () => port.registration()!.needs!();
+      expect(need()?.message).toBe('Pick how you want to start: write it yourself, or get help drafting it.');
+
+      await pick(fixture, 'write');
+      expect(need()?.message).toBe('Give your recipe a name, so it can be kept.');
+
+      // Nothing typed yet, so no save has said it: revealing marks the name field and takes the creator to it.
+      need()!.reveal!();
+      await settle(fixture);
+      expect(root(fixture).textContent).toContain('Give the recipe a name, so it can be kept.');
+      expect(root(fixture).querySelector('[aria-invalid="true"]')).not.toBeNull();
+
+      await pick(fixture, 'help');
+      expect(need()?.message).toBe('Get concepts, choose one, then select “Draft this recipe”.');
     });
 
     it('writes a new recipe in the editor, points the run at it once made, and names it as the step’s result', async () => {
@@ -410,6 +437,8 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       await pick(fixture, 'help');
       expect(root(fixture).querySelector('cp-recipe-concept-studio')).not.toBeNull();
       const host = studioHost(fixture);
+      // The brief and what came back share this card, so the concepts open beside it, in a drawer.
+      expect(host.conceptsInDrawer).toBeTrue();
 
       host.conceptsRequested('ideas-1');
       expect(keepDraft).toHaveBeenCalledWith({ kind: 'AiRequest', id: 'ideas-1' });
@@ -439,6 +468,19 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       expect(root(fixture).textContent).toContain('Your recipe is in your library.');
       expect(recipes.getRecipeDetail).toHaveBeenCalledWith(SLUG, 'recipe-7');
       expect(port.registration()!.ready!()).toBeTrue();
+      // Nothing left to choose: the step's own name heads the card again, and its help — "nothing becomes your
+      // recipe until you keep it", untrue now — gives way to the screen's first line, that it is in the library.
+      expect(port.registration()!.lead!()).toEqual({ heading: null, hint: null });
+      const first = root(fixture).querySelector('.start > :not(.cp-sr-only)');
+      expect(first?.tagName.toLowerCase()).toBe('cp-notice');
+      expect(first?.textContent).toContain('Your recipe is in your library.');
+      // Then straight into the fields: no legend about asterisks and no intro under "Details". The one required
+      // field still says so, to the eye and to assistive technology.
+      expect(root(fixture).querySelector('.required-legend')).toBeNull();
+      expect(root(fixture).textContent).not.toContain('The essentials creators see first.');
+      expect(root(fixture).querySelector('#recipe-title')?.getAttribute('aria-required')).toBe('true');
+      // And nothing left for Continue to ask for: there is a recipe.
+      expect(port.registration()!.needs!()).toBeNull();
     });
 
     it('is not ready to move on until there is a recipe, so its own screen holds the primary action', async () => {
@@ -446,13 +488,16 @@ describe('"Create a recipe" step screens (13A.14)', () => {
       await pick(fixture, 'help');
 
       expect(port.registration()!.ready!()).toBeFalse();
-      expect(root(fixture).textContent).toContain('How do you want to start?');
+      // The choice is still open above the ideas, so the question still heads the card.
+      expect(port.registration()!.lead!()?.heading).toBe('How do you want to start?');
+      expect(root(fixture).querySelector('cp-choice-group')).not.toBeNull();
     });
 
     it('takes the only way open at once, with nothing to choose between', async () => {
       const fixture = await start(startRun(), { ...BOTH_WAYS, actions: [BOTH_WAYS.actions[0]] });
 
       expect(root(fixture).querySelector('cp-choice-group')).toBeNull();
+      expect(port.registration()!.lead!()).withContext('no question, so the step’s own name heads the card').toBeNull();
       expect(root(fixture).querySelector('#section-details')).not.toBeNull();
     });
 
@@ -520,7 +565,13 @@ describe('"Create a recipe" step screens (13A.14)', () => {
 
       expect(recipes.getRecipeDetail).toHaveBeenCalledOnceWith(SLUG, 'recipe-1');
       expect(root(fixture).querySelector('cp-recipe-scaling-preview')).not.toBeNull();
-      expect(root(fixture).querySelector('details cp-recipe-display-normalization')).not.toBeNull();
+      // The step is the form; the amounts open beside it, in a drawer.
+      const scaling = fixture.debugElement.query(By.directive(RecipeScalingPreviewComponent));
+      expect((scaling.componentInstance as RecipeScalingPreviewComponent).resultsInDrawer()).toBeTrue();
+      // The step card names it and says nothing changes, so the panel says neither again.
+      expect((scaling.componentInstance as RecipeScalingPreviewComponent).inStep()).toBeTrue();
+      // How amounts read is in the scaled amounts themselves now, not a tool of its own folded below them.
+      expect(root(fixture).querySelector('cp-recipe-display-normalization')).toBeNull();
       expect(port.unsaved()).toBeFalse();
       await expectAsync(port.flush()).toBeResolvedTo(true);
       expect(recipes.updateRecipe).not.toHaveBeenCalled();

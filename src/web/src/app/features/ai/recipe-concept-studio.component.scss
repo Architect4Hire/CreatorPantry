@@ -94,11 +94,28 @@
   font-size: var(--cp-font-size-sm);
 }
 
-.studio-selection-text {
-  margin: 0;
+/* The chosen concept by its name, the one thing the card is about, with its summary under it at reading size. */
+.studio-selection-concept {
+  display: grid;
+  gap: var(--cp-space-1);
+  max-width: var(--cp-measure-prose);
 }
 
-/* The action and the line that says what pressing it costs and does not do, kept together when they wrap. */
+.studio-selection-title {
+  margin: 0;
+  color: var(--cp-text);
+  font-size: var(--cp-font-size-md);
+  font-weight: 700;
+  line-height: var(--cp-leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.studio-selection-summary {
+  margin: 0;
+  color: var(--cp-text-muted);
+}
+
+/* Draft, and the way back to the others, side by side; wrapping together when there is no room. */
 .studio-selection-actions {
   display: flex;
   flex-wrap: wrap;
@@ -106,7 +123,9 @@
   gap: var(--cp-space-3);
 }
 
+/* Directly under the buttons, closer to them than to what follows, since it is about the first of them. */
 .studio-selection-hint {
+  margin: calc(-1 * var(--cp-space-1)) 0 0;
   color: var(--cp-text-muted);
   font-size: var(--cp-font-size-xs);
 }
@@ -143,6 +162,23 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cp-space-4);
+}
+
+/* What came back, as one block wherever it is shown: under the brief, on the concepts step, or in the drawer. */
+.studio-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+/* The way back into the drawer, after the sentence it belongs to, wrapping beneath it when there is no room. */
+.studio-concepts-line-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-inline-start: var(--cp-space-2);
+  vertical-align: middle;
 }
 
 /* Which piece of work the ideas are for, when the studio was opened for one. */

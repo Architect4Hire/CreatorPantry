@@ -1,228 +1,82 @@
-<section class="calculation" [attr.aria-labelledby]="headingId">
-  <h2 class="calculation-heading" [id]="headingId">How a quantity reads</h2>
-  <p class="calculation-intro">
-    Presentation only — this shows how an amount would read, and changes nothing. A recipe records the number, never how
-    it reads, so there is nothing here to save: type the amount you want on the line in Ingredients.
-  </p>
+<section class="display" [attr.aria-labelledby]="headingId">
+  <h2 class="display-heading" [id]="headingId">How your amounts read</h2>
+  <p class="display-intro">Each amount as a cook would write it. Nothing in your recipe changes.</p>
 
-  @if (sourceVersionNumber() === null) {
-    <p class="calculation-blocked" role="status">
-      This recipe has no saved version yet, so there is nothing to render against. Save it first.
-    </p>
-  }
+  <!-- Always present, so its words change rather than arrive (AU.7). -->
+  <p class="cp-sr-only" role="status">{{ statusWords() }}</p>
 
-  <!-- Always present, so it is there before the catalogue is read and its words change rather than arrive (AU.7). -->
-  <p class="cp-sr-only" role="status" aria-live="polite">{{
-    catalogue().status === 'loading' ? 'Loading the unit catalogue…' : ''
-  }}</p>
+  <!-- The one option most creators want, in view; the two that rarely matter, folded away. Changing any reads
+       the whole recipe again — there is nothing to press. -->
+  <div class="display-options">
+    <cp-checkbox label="Use short units (c, g, tbsp)" [inputId]="abbreviationFieldId" [(checked)]="useAbbreviation" />
 
-  @switch (catalogue().status) {
-    @case ('loading') {
-      <!-- The form as it will arrive: a few fields' worth of lines. -->
-      <div class="calculation-loading" aria-busy="true"><cp-skeleton shape="line" [count]="3" /></div>
-    }
-    @case ('unavailable') {
-      <p class="calculation-problem" role="alert">
-        The unit catalogue couldn't be loaded, so there is no unit to render in yet.
-      </p>
-      <button type="button" cpButton variant="secondary" (click)="loadCatalogue()">Try loading units again</button>
-    }
-  }
-
-  @if (catalogue().status === 'ready') {
-    <form class="calculation-form" (ngSubmit)="render()">
-      @if (hasIngredientLines()) {
-        <cp-field
-          label="Start from an ingredient line"
-          [forId]="prefillFieldId"
-          hint="Optional. Fills the value and unit below; nothing on the line changes."
-        >
-          <select #prefill [id]="prefillFieldId" (change)="prefillFrom(prefill.value)">
-            <option value="">Choose a line…</option>
-            <!-- A line that cannot fill the form stays listed, disabled, with its reason in the option text:
-                 `disabled` alone announces nothing, and omitting the line reads as one the recipe lacks. -->
-            @for (line of ingredientLineOptions(); track line.id) {
-              <option [value]="line.id" [disabled]="line.unresolvedReason !== null">
-                {{ line.label }}{{ line.unresolvedReason ? ' — ' + line.unresolvedReason : '' }}
-              </option>
+    <details class="cp-disclosure display-more">
+      <summary>Display options</summary>
+      <cp-field-row class="display-more-fields" minColumn="14rem">
+        <cp-field label="Decimal places" [forId]="precisionFieldId" hint="Only for an amount no kitchen fraction fits.">
+          <select [id]="precisionFieldId" [ngModel]="precision()" (ngModelChange)="setPrecision($event)">
+            @for (places of precisionOptions; track places) {
+              <option [ngValue]="places">{{ places }}</option>
             }
           </select>
         </cp-field>
-      }
-
-      <div class="input-row">
-        <cp-field label="Value" [forId]="valueFieldId" [error]="valueError() ?? ''">
-          <input
-            type="number"
-            inputmode="decimal"
-            step="any"
-            min="0"
-            [id]="valueFieldId"
-            [ngModel]="value()"
-            (ngModelChange)="value.set($event)"
-            [attr.aria-invalid]="valueError() ? 'true' : null"
-            name="value"
-          />
-        </cp-field>
-
-        <cp-field
-          label="Upper value"
-          [forId]="upperFieldId"
-          [error]="upperValueError() ?? ''"
-          hint="Optional, for a range."
-        >
-          <input
-            type="number"
-            inputmode="decimal"
-            step="any"
-            min="0"
-            [id]="upperFieldId"
-            [ngModel]="upperValue()"
-            (ngModelChange)="upperValue.set($event)"
-            [attr.aria-invalid]="upperValueError() ? 'true' : null"
-            name="upperValue"
-          />
-        </cp-field>
-
-        <cp-field label="Unit" [forId]="unitFieldId" [error]="unitError() ?? ''">
-          <select
-            [id]="unitFieldId"
-            [ngModel]="unitId()"
-            (ngModelChange)="unitId.set($event)"
-            [attr.aria-invalid]="unitError() ? 'true' : null"
-            name="unit"
-          >
-            <option value="">Choose a unit…</option>
-            @for (group of unitGroups(); track group.label) {
-              <optgroup [label]="group.label">
-                @for (unit of group.units; track unit.id) {
-                  <option [value]="unit.id">{{ unit.displayName }} ({{ unit.abbreviation }})</option>
-                }
-              </optgroup>
-            }
-          </select>
-        </cp-field>
-      </div>
-
-      <div class="input-row">
-        <cp-field
-          label="Decimal places"
-          [forId]="precisionFieldId"
-          [error]="precisionError() ?? ''"
-          hint="Used only when no kitchen fraction matches."
-        >
-          <input
-            type="number"
-            inputmode="numeric"
-            step="1"
-            min="0"
-            [attr.max]="maxPrecision"
-            [id]="precisionFieldId"
-            [ngModel]="precision()"
-            (ngModelChange)="precision.set($event)"
-            [attr.aria-invalid]="precisionError() ? 'true' : null"
-            name="precision"
-          />
-        </cp-field>
-
-        <!-- Full sentences rather than enum names: CALC-002 asks for rounding to be documented, and "ToEven"
-             documents nothing to anyone who has not met the term. -->
-        <cp-field label="Rounding" [forId]="roundingFieldId" [error]="roundingError() ?? ''">
-          <select
-            [id]="roundingFieldId"
-            [ngModel]="rounding()"
-            (ngModelChange)="setRounding($event)"
-            [attr.aria-invalid]="roundingError() ? 'true' : null"
-            name="rounding"
-          >
+        <cp-field label="Rounding" [forId]="roundingFieldId" hint="Only for an amount exactly halfway between two.">
+          <select [id]="roundingFieldId" [ngModel]="rounding()" (ngModelChange)="setRounding($event)">
             @for (mode of roundingModes; track mode) {
               <option [value]="mode">{{ roundingLabels[mode] }}</option>
             }
           </select>
         </cp-field>
-      </div>
+      </cp-field-row>
+    </details>
+  </div>
 
-      <cp-checkbox
-        label="Use the short form of the unit (c, g, tbsp)"
-        [inputId]="abbreviationFieldId"
-        [(checked)]="useAbbreviation"
-      />
-
-      @if (localError(); as problem) {
-        <p class="calculation-problem" role="alert">{{ problem }}</p>
-      }
-
-      <button type="submit" cpButton [busy]="isWorking()" variant="primary" [disabled]="!canSubmit()">
-        {{ isWorking() ? 'Working…' : 'Show how it reads' }}
-      </button>
-    </form>
-  }
-
-  @if (requestProblem(); as problem) {
-    <p class="calculation-problem" role="alert">{{ problem }}</p>
-  }
-
-  <!-- A persistent region whose text changes, never a populated one inserted into the DOM: a live
-       region that appears already holding its content is not reliably announced. -->
-  <p class="calculation-announcement cp-sr-only" role="status" aria-live="polite">{{ announcement() }}</p>
-
-  @if (result(); as rendered) {
-    <div class="result-card">
-      <!-- The whole point of this section: the two are shown together, under their own labels, because they
-           are not the same fact. One is what the recipe holds; the other is only how it reads. -->
-      <dl class="canonical-pair">
-        <dt>Canonical value</dt>
-        <dd>
-          <!-- &ngsp; keeps a real space between the two spans. Without it Angular drops the whitespace-only
-               text node and the pair is announced as one run-together word. -->
-          <span class="canonical-value">{{ canonicalLabel() }}</span
-          >&ngsp;
-          <span class="canonical-note">unchanged</span>
-        </dd>
-
-        <dt>How it reads</dt>
-        <dd
-          ><span class="display-value">{{ rendered.result.text }}</span></dd
-        >
-      </dl>
-
-      <h3 class="result-subheading">How it was rendered</h3>
-      <dl class="result-detail">
-        <dt>Rendered as</dt>
-        <dd>
-          <span>{{ presentationLabel() }}</span>
-          <span class="result-plain">{{ presentationExplanation() }}</span>
-        </dd>
-
-        @if (upperPresentationLabel(); as upper) {
-          <dt>Upper bound</dt>
-          <dd>{{ upper }}</dd>
-        }
-
-        <dt>Precision</dt>
-        <dd>{{ rendered.result.precision }} decimal places</dd>
-
-        <dt>Rounding</dt>
-        <dd>{{ roundingLabel() }}</dd>
-      </dl>
-
-      <p class="result-caution">
-        <span class="caution-glyph" aria-hidden="true">⚠</span>
-        <span>
-          Presentation only. The canonical quantity above is unchanged, and nothing here is saved or fed back into the
-          recipe.
-        </span>
-      </p>
-
-      <p class="result-provenance"> Computed against version {{ rendered.sourceVersionNumber }}. Nothing was saved. </p>
-
-      <!-- Worded as a permanent rule rather than as a missing feature, because that is what it is: ING-006
-           keeps the canonical quantity unchanged, so there is nothing here an apply could ever write. -->
-      <p class="apply-unavailable">
-        There is nothing to apply. This only changes how a quantity reads, and the canonical quantity never changes.
-      </p>
+  @if (sourceVersionNumber() === null) {
+    <p class="display-note">Save the recipe first to see how its amounts read.</p>
+  } @else if (rows().length === 0) {
+    <p class="display-note">This recipe has no ingredient lines yet.</p>
+  } @else if (state() === 'unavailable') {
+    <cp-notice tone="error" role="alert">
+      Your amounts couldn’t be read just now. Nothing in your recipe changed.
+      <button cpButton type="button" variant="secondary" size="sm" (click)="readAll()">Try again</button>
+    </cp-notice>
+  } @else if (state() === 'reading' && rows().length > 0 && !hasAnyReading()) {
+    <!-- The shape of the list that is coming, said once by the status above. -->
+    <div class="display-loading" aria-busy="true">
+      <cp-skeleton shape="line" [count]="rows().length > 6 ? 6 : rows().length" />
     </div>
-  } @else if (catalogue().status === 'ready' && !isWorking() && requestProblem() === null) {
-    <p class="calculation-empty">Enter a value and choose a unit, then see how it reads.</p>
+  } @else {
+    @if (failed() > 0) {
+      <cp-notice tone="warning" role="status">
+        Some amounts couldn’t be read just now, so they show as recorded.
+        <button cpButton type="button" variant="secondary" size="sm" (click)="readAll()">Try again</button>
+      </cp-notice>
+    }
+
+    <table class="display-lines" [attr.aria-busy]="state() === 'reading' ? true : null">
+      <caption class="cp-sr-only"> How each ingredient amount reads, beside the amount the recipe records. </caption>
+      <thead>
+        <tr>
+          <th scope="col">Ingredient</th>
+          <th scope="col">Recorded as</th>
+          <th scope="col">Reads as</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <th scope="row" class="line-name">{{ row.displayText }}</th>
+            <td class="line-saved">{{ row.saved ?? '—' }}</td>
+            <td class="line-reading">
+              @if (row.reason; as reason) {
+                <span class="line-reason">{{ reason }}</span>
+              } @else {
+                {{ row.reading ?? row.saved }}
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
   }
 </section>

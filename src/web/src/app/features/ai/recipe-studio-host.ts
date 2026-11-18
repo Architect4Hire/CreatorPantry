@@ -32,6 +32,14 @@ export class RecipeStudioHost {
    * the studio's own flow, which is the studio's page, names it.
    */
   showMaker = false;
+  /**
+   * Whether what came back opens in a drawer beside the brief rather than under it. For a host that shows both on
+   * one screen — the workflow's ideas stage — where the concepts under the brief made one very long card; comparing
+   * them and choosing one is one task, so it fits a drawer (DESIGN-SYSTEM.md, "A drawer, a dialog or a page").
+   * Drafting the chosen one is not part of that task and stays on the page. The studio's own flow shows the
+   * concepts as a step of their own and leaves this off.
+   */
+  conceptsInDrawer = false;
   /** The idea request the studio resumes on, in place of `?request=`. */
   conceptRequestId: string | null = null;
   /** The draft request the review shows, in place of `?request=`. */

@@ -1,15 +1,16 @@
 <cp-form-section sectionId="section-notes" heading="Notes">
-  <cp-field label="Notes" forId="recipe-notes" [error]="form.fieldError('notes')">
+  <!-- Each field says what it holds rather than repeating the section's heading. -->
+  <cp-field label="Tips and variations" forId="recipe-notes" [error]="form.fieldError('notes')">
     <textarea
       id="recipe-notes"
-      placeholder="Tweaks to try next time, variations, things you learned"
+      placeholder="e.g. Brown the butter first for a nuttier taste"
       [ngModel]="form.notes()"
       (ngModelChange)="form.notes.set($event)"
       name="notes"
     ></textarea>
   </cp-field>
 
-  <cp-field label="Storage notes" forId="recipe-storage-notes" [error]="form.fieldError('storageNotes')">
+  <cp-field label="Storing and reheating" forId="recipe-storage-notes" [error]="form.fieldError('storageNotes')">
     <textarea
       id="recipe-storage-notes"
       placeholder="e.g. Store airtight, reheat gently"

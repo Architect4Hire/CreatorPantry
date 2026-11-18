@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 
 /** Where a step stands. `skipped` is a step the creator chose to pass over, which is not the same as done. */
 export type CpStepStatus = 'upcoming' | 'current' | 'done' | 'skipped';
@@ -10,6 +10,12 @@ export interface CpStep {
   /** The step's name, in the flow's own words. */
   readonly label: string;
   readonly status: CpStepStatus;
+  /**
+   * Whether the creator may go to this step from the list. Off unless the consumer says so, and never on the
+   * current step. Only the flow knows which steps it can reach and how — what has to be saved first, what a step
+   * still needs — so it decides, and moves itself when {@link CpStepperComponent.stepSelected} fires.
+   */
+  readonly selectable?: boolean;
 }
 
 /** A state is said in a word as well as a glyph and a fill, so it survives a display with no colour. */
@@ -33,9 +39,11 @@ const GLYPH: Readonly<Record<CpStepStatus, string>> = {
  * **Why a component.** The content pipeline and Brand setup each drew this list, with the same words and
  * two different sets of glyphs. This is that list, once.
  *
- * **A read-out, not navigation.** A row is not a link and takes no click: a flow moves by its own Back and
- * Continue, which know what has to be saved first and what the step still needs. So there is nothing here to
- * tab to, and no output.
+ * **A read-out, unless the flow says otherwise.** By default a row is not a link and takes no click: a flow moves
+ * by its own Back and Continue, which know what has to be saved first and what the step still needs. A flow that
+ * can take the creator to a step itself marks that step `selectable`: its row becomes a button, named "Go to"
+ * the step, that emits {@link stepSelected} with the step's id and does nothing else. Moving — saving first,
+ * checking each step on the way — stays the flow's. The current step is never a button.
  *
  * **Every state is said three ways.** A glyph, a word under the step's name, and for the current step a
  * border and a fill. The glyph is decoration and is hidden from a screen reader; the word is what is read.
@@ -52,9 +60,19 @@ const GLYPH: Readonly<Record<CpStepStatus, string>> = {
     <ol [attr.aria-label]="label()">
       @for (step of steps(); track step.id) {
         <li [attr.aria-current]="step.status === 'current' ? 'step' : null" [attr.data-status]="step.status">
-          <span class="glyph" aria-hidden="true">{{ glyph[step.status] }}</span>
-          <span class="name">{{ step.label }}</span>
-          <span class="word">{{ word[step.status] }}</span>
+          @if (step.selectable && step.status !== 'current') {
+            <button type="button" class="row" (click)="stepSelected.emit(step.id)">
+              <span class="glyph" aria-hidden="true">{{ glyph[step.status] }}</span>
+              <span class="name"><span class="sr-only">Go to </span>{{ step.label }}</span>
+              <span class="word">{{ word[step.status] }}</span>
+            </button>
+          } @else {
+            <span class="row">
+              <span class="glyph" aria-hidden="true">{{ glyph[step.status] }}</span>
+              <span class="name">{{ step.label }}</span>
+              <span class="word">{{ word[step.status] }}</span>
+            </span>
+          }
         </li>
       }
     </ol>
@@ -72,14 +90,42 @@ const GLYPH: Readonly<Record<CpStepStatus, string>> = {
         list-style: none;
       }
       li {
-        display: grid;
-        grid-template-columns: 1.5rem minmax(0, 1fr);
-        column-gap: var(--cp-space-2);
-        padding: var(--cp-space-2) var(--cp-space-3);
         border: 1px solid transparent;
         border-radius: var(--cp-radius-md);
         color: var(--cp-text-muted);
         overflow-wrap: anywhere;
+      }
+      /* The row is a span, or a button where the flow lets the creator go to that step: the same grid either way,
+         so a step that can be clicked looks like one that cannot until it is pointed at or focused. */
+      .row {
+        display: grid;
+        grid-template-columns: 1.5rem minmax(0, 1fr);
+        column-gap: var(--cp-space-2);
+        box-sizing: border-box;
+        width: 100%;
+        padding: var(--cp-space-2) var(--cp-space-3);
+      }
+      button.row {
+        min-height: 2.5rem;
+        border: 0;
+        border-radius: inherit;
+        background: none;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+      }
+      button.row:hover {
+        background: var(--cp-surface-subtle);
+        color: var(--cp-text);
+      }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
       /* The tool's tone, as the flow's progress (DESIGN-SYSTEM.md, "Warmth inside the app"): the primary's four on
          an untoned page. The glyph is the tone as text, so a light accent still reads beside the word. */
@@ -109,6 +155,8 @@ export class CpStepperComponent {
   readonly label = input.required<string>();
   /** The steps, in the order the flow takes them. Nothing is rendered for an empty list. */
   readonly steps = input.required<readonly CpStep[]>();
+  /** A `selectable` step was chosen. The stepper moves nothing; the flow goes there, or says why it cannot. */
+  readonly stepSelected = output<string>();
 
   protected readonly word = WORD;
   protected readonly glyph = GLYPH;

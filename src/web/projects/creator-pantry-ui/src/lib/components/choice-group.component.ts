@@ -12,7 +12,12 @@ export interface CpChoiceOption {
   readonly disabled?: boolean;
 }
 
-export type CpChoiceLayout = 'stack' | 'fit';
+/**
+ * `stack`: one tile to a line. `fit`: as many short tiles across as fit. `segmented`: two or three short answers
+ * joined in one bar, the picked one filled and ticked — a mode a form switches between ("Factor" or "Yield"). The
+ * same radios underneath, so arrow keys and announcements are unchanged; give its options a label and no hint.
+ */
+export type CpChoiceLayout = 'stack' | 'fit' | 'segmented';
 
 let cpChoiceGroupUid = 0;
 
@@ -49,6 +54,7 @@ let cpChoiceGroupUid = 0;
     [attr.aria-describedby]="describedBy() || null"
     class="tiles"
     [class.fit]="layout() === 'fit'"
+    [class.segmented]="layout() === 'segmented'"
   >
     @for (option of options(); track option.value) {
       @let picked = isPicked(option.value);
@@ -63,11 +69,18 @@ let cpChoiceGroupUid = 0;
           [disabled]="blocked"
           (change)="onChange(option.value, $event)"
         />
-        <span class="mark" [class.round]="!multiple()" aria-hidden="true">
+        @if (layout() === 'segmented') {
+          <!-- A segment says it is picked by its fill, its edge and this tick, so never by colour alone. -->
           @if (picked) {
-            <span class="glyph">{{ multiple() ? '✓' : '●' }}</span>
+            <span class="check" aria-hidden="true">✓</span>
           }
-        </span>
+        } @else {
+          <span class="mark" [class.round]="!multiple()" aria-hidden="true">
+            @if (picked) {
+              <span class="glyph">{{ multiple() ? '✓' : '●' }}</span>
+            }
+          </span>
+        }
         <span class="text">
           <span class="label">{{ option.label }}</span>
           @if (option.hint) {
@@ -199,6 +212,46 @@ let cpChoiceGroupUid = 0;
         border-color: var(--cp-border);
         background: var(--cp-surface-subtle);
       }
+      /* Segmented: the answers joined in one bar with an edge a creator can find, each a 40px segment. The picked
+         one takes the tile's picked fill and edge, and a tick. Wraps rather than overflow at a narrow width. */
+      .tiles.segmented {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: var(--cp-space-1);
+        max-width: 100%;
+        padding: var(--cp-space-1);
+        border: 1px solid var(--cp-border-control);
+        border-radius: var(--cp-radius-md);
+        background: var(--cp-surface-subtle);
+      }
+      .segmented .tile {
+        align-items: center;
+        gap: var(--cp-space-2);
+        min-block-size: 2.5rem;
+        padding: 0 var(--cp-space-4);
+        border-color: transparent;
+        border-radius: var(--cp-radius-sm);
+        background: transparent;
+      }
+      .segmented .tile:hover:not(:has(input:disabled)) {
+        transform: none;
+        border-color: transparent;
+        box-shadow: none;
+        background: var(--cp-surface);
+      }
+      .segmented .tile.picked,
+      .segmented .tile.picked:hover {
+        border-color: var(--cp-primary-text);
+        background: var(--cp-primary-soft);
+      }
+      .segmented .tile:has(input:disabled) {
+        border-color: transparent;
+        background: transparent;
+      }
+      .check {
+        color: var(--cp-primary-text);
+        font-weight: 700;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -224,6 +277,7 @@ export class CpChoiceGroupComponent {
    */
   readonly max = input<number | null>(null);
 
+  /** How the tiles are laid out; see {@link CpChoiceLayout}. */
   readonly layout = input<CpChoiceLayout>('stack');
 
   /**

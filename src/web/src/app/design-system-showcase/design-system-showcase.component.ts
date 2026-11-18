@@ -550,6 +550,11 @@ export class DesignSystemShowcaseComponent {
   readonly showcaseVoice = signal<readonly string[]>(['warm']);
   readonly showcaseTones = signal<readonly string[]>(['cozy', 'calm']);
   readonly showcaseChannels = signal<readonly string[]>(['blog']);
+  readonly scaleModes: readonly CpChoiceOption[] = [
+    { value: 'factor', label: 'Factor' },
+    { value: 'yield', label: 'Yield' },
+  ];
+  readonly showcaseScaleMode = signal<readonly string[]>(['factor']);
 
   readonly showcaseOptional = signal(false);
   readonly showcaseAbbreviate = signal(true);

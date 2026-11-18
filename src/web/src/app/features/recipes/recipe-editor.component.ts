@@ -215,8 +215,8 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   attributionText: 'Attribution',
   sourceUrl: 'Source URL',
   tags: 'Tags',
-  notes: 'Notes',
-  storageNotes: 'Storage notes',
+  notes: 'Tips and variations',
+  storageNotes: 'Storing and reheating',
   prepTimeMinutes: 'Prep time',
   cookTimeMinutes: 'Cook time',
   restTimeMinutes: 'Rest time',
@@ -364,12 +364,6 @@ export class RecipeEditorComponent {
 
   /** The sections a host shows, in form order; empty on the editor's own page, which shows them all in its tabs. */
   readonly hostedSections: readonly FormSectionId[] = this.host ? FOCUS_SECTIONS[this.host.focus] : [];
-
-  /**
-   * Whether a hosted editor says which fields are required. Not for timing and yield, which have none: a legend
-   * about asterisks over a form with no asterisks would only make the creator look for them.
-   */
-  readonly hostedShowsRequiredLegend = this.host !== null && this.host.focus !== 'yield-and-time';
 
   /**
    * Six areas, not ten tabs. Everything one Save writes is inside `edit` as anchored sections, so a single
@@ -1302,6 +1296,18 @@ export class RecipeEditorComponent {
    * there is nothing to keep. A form that cannot be saved as it stands — no name yet, or archived — answers false
    * with the reason on screen, as a refused save does.
    */
+  /**
+   * Shows what the form still needs, as a save would — the field's own error beside it — and takes the creator to
+   * the first of it. For a host whose Continue found nothing to keep yet: an untouched new recipe has no save to
+   * attempt, so nothing else would say that it needs a name.
+   */
+  showWhatIsMissing(): void {
+    if (this.form.validator.canSubmit()) return;
+    this.form.validator.attempt();
+    this.saveStateSignal.set({ status: 'validation_failed' });
+    this.revealFirstFieldError();
+  }
+
   async flush(): Promise<boolean> {
     if (!this.isDirty()) return true;
     if (this.saveStateSignal().status === 'saving') return false;

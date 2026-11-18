@@ -5,16 +5,9 @@
   >
     <cp-shell-nav-icon cpPageHeadIcon name="ai" />
   </cp-page-head>
-} @else {
-  @if (showsHostedIntro()) {
-    <!-- Hosted in the workflow, the step's card is the head: the sentence the page rests on is said here instead.
-         The studio's own flow says it in its page lede. -->
-    <p class="cp-muted"
-      >Say what you’re after and get a few different ideas back. Nothing here writes a recipe — choosing one is the
-      start of a draft.</p
-    >
-  }
 }
+<!-- Hosted in a workflow, the studio says nothing of its own above the brief: the choice that opened it ("Help me
+     draft it") has just said what it does. -->
 
 <!-- Always in the page, so the words are announced when they change: a live region created already holding its
      text may never be read. The skeletons below are aria-hidden, so this is the one thing said while they show. -->
@@ -65,29 +58,25 @@
     -->
     <cp-card class="brief-card">
       <form class="brief" (submit)="$event.preventDefault(); submit()">
-        <!-- Said once, at the top, rather than marking eleven fields "optional" one by one. -->
-        <p class="brief-legend">
-          Every field is optional — fill in as much or as little as you like.
-          @if (work().status === 'found') {
+        <!-- No legend: no field is marked, none is required, and the choice that opened the studio has already
+             said what it does. Said only when more than these fields goes with them: work the creator made. -->
+        @if (work().status === 'found') {
+          <p class="brief-legend">
             These fields are sent to the model, together with this work's themed day: its name, what you say it is
             about, its standing notes, and the titles of what you have already made for it.
-          } @else {
-            Nothing beyond these fields is sent to the model.
-          }
-        </p>
+          </p>
+        }
 
         <div class="brief-sections">
-          <cp-form-section heading="The dish" intro="What kind of recipe you're after.">
-            <cp-field
-              label="Recipe name"
-              forId="concept-dish-name"
-              hint="If you already know what it is. Every concept will be a different take on it, not a different dish."
-              [error]="fieldError('dishName')"
-            >
+          <!-- No section intros and, but for one, no field hints: each heading and label says it, and a placeholder
+               shows the kind of answer. Dietary goals keeps its hint, which is a caution, not an example. -->
+          <cp-form-section heading="The dish">
+            <cp-field label="Recipe name" forId="concept-dish-name" [error]="fieldError('dishName')">
               <input
                 id="concept-dish-name"
                 type="text"
                 name="dishName"
+                placeholder="e.g. Banana bread, or leave it open"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="dishName()"
                 (ngModelChange)="dishName.set($event)"
@@ -100,6 +89,7 @@
                 id="concept-course"
                 type="text"
                 name="course"
+                placeholder="e.g. Dessert"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="course()"
                 (ngModelChange)="course.set($event)"
@@ -112,6 +102,7 @@
                 id="concept-cuisine"
                 type="text"
                 name="cuisine"
+                placeholder="e.g. Mexican"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="cuisine()"
                 (ngModelChange)="cuisine.set($event)"
@@ -124,6 +115,7 @@
                 id="concept-season"
                 type="text"
                 name="season"
+                placeholder="e.g. Autumn"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="season()"
                 (ngModelChange)="season.set($event)"
@@ -132,12 +124,13 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section heading="Who it's for" intro="Who's cooking it, and what they have to work with.">
+          <cp-form-section heading="Who it's for">
             <cp-field label="Audience" forId="concept-audience" [error]="fieldError('audience')">
               <input
                 id="concept-audience"
                 type="text"
                 name="audience"
+                placeholder="e.g. Busy parents"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="audience()"
                 (ngModelChange)="audience.set($event)"
@@ -150,6 +143,7 @@
                 id="concept-skill"
                 type="text"
                 name="skill"
+                placeholder="e.g. Beginner"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="skill()"
                 (ngModelChange)="skill.set($event)"
@@ -162,6 +156,7 @@
                 id="concept-time-budget"
                 type="text"
                 name="timeBudget"
+                placeholder="e.g. Under 30 minutes"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="timeBudget()"
                 (ngModelChange)="timeBudget.set($event)"
@@ -170,10 +165,8 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section
-            heading="Ingredients and limits"
-            intro="What's on hand, and what to leave out. Separate items with commas."
-          >
+          <!-- The comma-separated placeholders show the format the old intro spelled out. -->
+          <cp-form-section heading="Ingredients and limits">
             <cp-field
               label="Available ingredients"
               forId="concept-available-ingredients"
@@ -182,6 +175,7 @@
               <textarea
                 id="concept-available-ingredients"
                 name="availableIngredients"
+                placeholder="e.g. Chickpeas, spinach, lemons"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="availableIngredients()"
@@ -194,6 +188,7 @@
               <textarea
                 id="concept-exclusions"
                 name="exclusions"
+                placeholder="e.g. Pork, coriander"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="exclusions()"
@@ -211,6 +206,7 @@
               <textarea
                 id="concept-dietary-goals"
                 name="dietaryGoals"
+                placeholder="e.g. Vegetarian, high protein"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="dietaryGoals()"
@@ -223,6 +219,7 @@
               <textarea
                 id="concept-equipment"
                 name="equipment"
+                placeholder="e.g. Air fryer, one sheet pan"
                 rows="2"
                 [maxlength]="listFieldMaxLength"
                 [ngModel]="equipment()"
@@ -232,17 +229,13 @@
             </cp-field>
           </cp-form-section>
 
-          <cp-form-section heading="Your voice" intro="How the pitches should read once they come back.">
-            <cp-field
-              label="Creator style"
-              forId="concept-creator-style"
-              hint="How this should sound in your voice."
-              [error]="fieldError('creatorStyle')"
-            >
+          <cp-form-section heading="Your voice">
+            <cp-field label="Creator style" forId="concept-creator-style" [error]="fieldError('creatorStyle')">
               <input
                 id="concept-creator-style"
                 type="text"
                 name="creatorStyle"
+                placeholder="e.g. Warm and chatty, with kitchen shortcuts"
                 [maxlength]="shortFieldMaxLength"
                 [ngModel]="creatorStyle()"
                 (ngModelChange)="creatorStyle.set($event)"
@@ -288,7 +281,31 @@
 
   <!-- What came back: everywhere but the brief step of the studio's own flow. -->
   @if (showsConcepts()) {
-    @if (state() === 'idle') {
+    @if (conceptsInDrawer) {
+      <!-- In the workflow the concepts open in a drawer beside the brief. While it is closed and nothing is chosen
+           yet, the page keeps one line about where the request is, and the way back in. -->
+      @if (!conceptsOpen() && !selectedConcept()) {
+        @if (conceptsSummary(); as summary) {
+          <cp-notice class="studio-concepts-line" [tone]="summary.tone" role="status">
+            @if (summary.text) {
+              {{ summary.text }}
+            } @else {
+              <cp-skeleton shape="line" />
+            }
+            <span class="studio-concepts-line-actions">
+              <button cpButton type="button" variant="secondary" size="sm" (click)="openConcepts($event)"
+                >Show concepts</button
+              >
+              @if (offersNewBrief() && state() !== 'proposed') {
+                <button cpButton type="button" variant="ghost" size="sm" (click)="startNewBrief()"
+                  >Try a new brief</button
+                >
+              }
+            </span>
+          </cp-notice>
+        }
+      }
+    } @else if (state() === 'idle') {
       <!-- Where the concepts will land, before anything has been asked: a first use, not a blank. -->
       <cp-empty-state
         class="studio-first-use"
@@ -296,7 +313,132 @@
         description="Ask, and a few different takes on your brief come back to compare side by side. Nothing is added to your recipes."
         illustration="sparkle"
       />
-    } @else if (state() === 'gone') {
+    } @else {
+      <ng-container *ngTemplateOutlet="results" />
+    }
+
+    @if (showsResults()) {
+      @if (selectedConcept(); as chosen) {
+        <!--
+        The one next step for a chosen concept, directly under the list it was chosen from — or, in the workflow,
+        where the drawer it was chosen in closed to. A named region, so it can be found again; the sentence is a
+        status, so choosing is announced. In the drawer's case focus comes here too, since the list it was on has gone.
+      -->
+        <cp-topic-card
+          class="studio-selection"
+          heading="Your chosen concept"
+          headingId="studio-selection-heading"
+          [headingLevel]="3"
+        >
+          <!-- The concept itself, by its name, not a sentence about having chosen it: the heading already says that. -->
+          <div class="studio-selection-concept">
+            <p class="studio-selection-title">{{ chosen.title }}</p>
+            @if (chosen.summary) {
+              <p class="studio-selection-summary">{{ chosen.summary }}</p>
+            }
+          </div>
+          <!-- Choosing is still announced where it does not move focus — the studio's own page. -->
+          <p class="cp-sr-only" role="status">You’ve chosen “{{ chosen.title }}”.</p>
+
+          <!-- Only when the server has actually refused this request: a spent allowance is already said once,
+             above the brief, and saying it twice on one page would be noise. -->
+          @if (draftQuotaRefusal(); as refused) {
+            <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="refused" />
+          }
+
+          @if (draftProblem(); as problem) {
+            <cp-notice tone="error" role="alert" class="studio-selection-problem">{{ problem }}</cp-notice>
+          }
+
+          <div class="studio-selection-actions">
+            <!--
+            aria-disabled rather than disabled, as on the brief's own action: a disabled button drops focus to
+            the body the moment it is pressed, and whoever pressed it most needs to hear what happened next.
+          -->
+            <button
+              cpButton
+              [busy]="drafting()"
+              type="button"
+              variant="primary"
+              class="studio-draft"
+              [attr.aria-disabled]="canDraft() ? null : 'true'"
+              [attr.aria-label]="drafting() ? 'Starting your draft of ' + chosen.title + '…' : null"
+              aria-describedby="studio-selection-hint"
+              (click)="draftChosen()"
+            >
+              {{ drafting() ? 'Starting your draft…' : 'Draft this recipe' }}
+            </button>
+            <!-- The others are in the drawer: the way back to them, beside the action rather than a row of its own. -->
+            @if (conceptsInDrawer) {
+              <button
+                cpButton
+                type="button"
+                variant="secondary"
+                [attr.aria-disabled]="drafting() || null"
+                (click)="drafting() || openConcepts($event)"
+                >See the other concepts</button
+              >
+            }
+          </div>
+          <!-- Under both buttons, about the one it describes: what drafting costs and what it does not do. -->
+          <p class="studio-selection-hint" id="studio-selection-hint">
+            Uses your AI allowance. Nothing is saved until you accept the draft.
+          </p>
+
+          <!--
+          After the one primary action, and visibly second to it: both of these are secondary buttons under a
+          quieter heading. Held while a draft is being asked for, so two requests are not on their way at once.
+          Not in the workflow: its step is making a recipe, and each of these opens another studio and leaves the
+          run, so there they would only compete with the one action the step is for.
+        -->
+          @if (handoffSource(); as source) {
+            @if (!conceptsInDrawer) {
+              <cp-use-this-in
+                class="studio-handoff"
+                heading="Or use this concept in…"
+                [workspaceSlug]="workspaceSlug"
+                [source]="source"
+                [seed]="handoffSeed()"
+                [destinations]="handoffDestinations"
+                [disabled]="drafting()"
+              />
+            }
+          }
+        </cp-topic-card>
+      }
+    }
+  }
+</div>
+
+<!--
+  The concepts, beside the brief rather than under it (the workflow only). Comparing them and choosing one is the
+  drawer's one task: choosing closes it, and drafting the chosen one happens back on the page.
+-->
+@if (conceptsInDrawer && showsConcepts()) {
+  <cp-drawer
+    [open]="conceptsOpen()"
+    heading="Recipe concepts"
+    description="Compare them and choose one. Nothing is added to your recipes."
+    size="wide"
+    closeLabel="Close concepts"
+    (closeRequested)="closeConcepts()"
+  >
+    <!-- The page behind is inert while this is open, so what is said about loading is said in here too. -->
+    <p class="cp-sr-only" role="status">{{ loadingSentence() }}</p>
+    <ng-container *ngTemplateOutlet="results" />
+
+    @if (offersNewBrief()) {
+      <button cpDrawerActions cpButton type="button" variant="secondary" (click)="startNewBrief()"
+        >Try a new brief</button
+      >
+    }
+  </cp-drawer>
+}
+
+<!-- What came back, wherever it is shown: under the brief, on the concepts step, or in the drawer. -->
+<ng-template #results>
+  <div class="studio-results">
+    @if (state() === 'gone') {
       <p class="cp-sr-only" role="alert">
         This request is no longer here. It has gone, or it belongs to a workspace you can't see.
       </p>
@@ -324,18 +466,16 @@
         [connection]="connection()"
       />
 
-      <div class="studio-watch">
-        @if (isWatching() && state() === 'watching') {
-          <!-- "Stop checking", not "Cancel": there is no route that cancels generation. -->
-          <button cpButton type="button" variant="text" size="sm" (click)="stopChecking()">Stop checking</button>
-          <span class="studio-watch-note">Your request keeps running; this page just stops asking about it.</span>
-        } @else if (canCheckAgain()) {
+      <!-- Only once the page has stopped asking on its own: while it asks, stopping would cancel nothing. -->
+      @if (!(isWatching() && state() === 'watching') && canCheckAgain()) {
+        <div class="studio-watch">
           <button cpButton type="button" variant="secondary" size="sm" (click)="checkAgain()">Check again</button>
           <span class="studio-watch-note">This page has stopped checking on its own.</span>
-        }
-      </div>
+        </div>
+      }
 
-      @if ((state() === 'failed' || state() === 'expired') && canAskAgain()) {
+      <!-- In the drawer, the footer holds "Try a new brief"; once is enough. -->
+      @if (!conceptsInDrawer && (state() === 'failed' || state() === 'expired') && canAskAgain()) {
         <div class="studio-recovery">
           <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()"
             >Try a new brief</button
@@ -346,8 +486,9 @@
       <!-- The frame every other result surface in this app reads through, so loading, error, empty and ready are
            the shell's states rather than four hand-rolled branches (frontend.md), and the concepts carry the same
            heading treatment as the recipe library and the version history. -->
+      <!-- In the drawer, the drawer is "Recipe concepts"; the list says what to do with them instead. -->
       <cp-list-shell
-        heading="Recipe concepts"
+        [heading]="conceptsInDrawer ? 'Choose one to draft' : 'Recipe concepts'"
         loadingLayout="cards"
         [state]="conceptsListState()"
         [errorMessage]="conceptsErrorMessage()"
@@ -356,7 +497,11 @@
         <div cpListShellEmpty>
           <cp-empty-state
             title="No concepts for this brief"
-            description="The model didn't return any. Change something about the brief above and ask again."
+            [description]="
+              conceptsInDrawer
+                ? 'The model didn’t return any. Try a new brief, changing something about it, and ask again.'
+                : 'The model didn’t return any. Change something about the brief above and ask again.'
+            "
             illustration="search"
             variant="no-results"
           />
@@ -430,11 +575,13 @@
             }
           </ul>
 
-          <div cpGeneratedActions>
-            <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()"
-              >Try a new brief</button
-            >
-          </div>
+          @if (!conceptsInDrawer) {
+            <div cpGeneratedActions>
+              <button cpButton type="button" variant="secondary" size="sm" (click)="startNewBrief()"
+                >Try a new brief</button
+              >
+            </div>
+          }
         </cp-generated>
       </cp-list-shell>
 
@@ -453,71 +600,6 @@
           }
         </section>
       }
-
-      @if (selectedConcept(); as chosen) {
-        <!--
-          The one next step for a chosen concept, directly under the list it was chosen from. A named region, so
-          it can be found again; the sentence is a status, so choosing is announced without moving focus.
-        -->
-        <cp-topic-card
-          class="studio-selection"
-          heading="Your chosen concept"
-          headingId="studio-selection-heading"
-          [headingLevel]="3"
-        >
-          <p class="studio-selection-text" role="status">
-            You've chosen “{{ chosen.title }}.” Draft it as a recipe to review, edit and save.
-          </p>
-
-          <!-- Only when the server has actually refused this request: a spent allowance is already said once,
-               above the brief, and saying it twice on one page would be noise. -->
-          @if (draftQuotaRefusal(); as refused) {
-            <cp-ai-allowance-notice [allowance]="allowance()" [refusal]="refused" />
-          }
-
-          @if (draftProblem(); as problem) {
-            <cp-notice tone="error" role="alert" class="studio-selection-problem">{{ problem }}</cp-notice>
-          }
-
-          <div class="studio-selection-actions">
-            <!--
-              aria-disabled rather than disabled, as on the brief's own action: a disabled button drops focus to
-              the body the moment it is pressed, and whoever pressed it most needs to hear what happened next.
-            -->
-            <button
-              cpButton
-              [busy]="drafting()"
-              type="button"
-              variant="primary"
-              class="studio-draft"
-              [attr.aria-disabled]="canDraft() ? null : 'true'"
-              [attr.aria-label]="drafting() ? 'Starting your draft of ' + chosen.title + '…' : null"
-              (click)="draftChosen()"
-            >
-              {{ drafting() ? 'Starting your draft…' : 'Draft this recipe' }}
-            </button>
-            <span class="studio-selection-hint"
-              >Uses your AI allowance. Nothing is saved until you accept the draft.</span
-            >
-          </div>
-
-          <!--
-            After the one primary action, and visibly second to it: both of these are secondary buttons under a
-            quieter heading. Held while a draft is being asked for, so two requests are not on their way at once.
-          -->
-          @if (handoffSource(); as source) {
-            <cp-use-this-in
-              class="studio-handoff"
-              heading="Or use this concept in…"
-              [workspaceSlug]="workspaceSlug"
-              [source]="source"
-              [seed]="handoffSeed()"
-              [destinations]="handoffDestinations"
-              [disabled]="drafting()"
-            />
-          }
-        </cp-topic-card>
-      }
     }
-  }
-</div>
+  </div>
+</ng-template>

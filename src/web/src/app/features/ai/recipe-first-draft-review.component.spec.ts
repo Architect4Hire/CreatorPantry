@@ -870,33 +870,21 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(text()).toContain('stopped checking on its own');
   }));
 
-  /** "Stop checking", not "Cancel": the API offers asking and reading and nothing else. */
-  it('offers to stop checking without claiming to cancel the request', fakeAsync(() => {
+  /** Nothing to press while it asks: the status changes once, and there is no route that cancels a request. */
+  it('offers nothing to stop while it is asking, and no cancel it cannot do', fakeAsync(() => {
     service.statuses = [found({ status: 'Running' })];
     render();
 
-    expect(text()).toContain('Stop checking');
-    expect(text()).toContain('Your request keeps running');
+    expect(text()).not.toContain('Stop checking');
     expect(text()).not.toContain('Cancel request');
+    expect(element().querySelector('.draft-watch')).toBeNull();
   }));
 
-  it('stops asking when told to', fakeAsync(() => {
-    service.statuses = [found({ status: 'Running' })];
+  it('asks again on "Check again" once it has stopped on its own', fakeAsync(() => {
+    service.statuses = [{ status: 'unavailable' }];
     render();
-
-    click('Stop checking');
-    const after = service.watchCalls;
     tick(30000);
     settle();
-
-    expect(service.watchCalls).toBe(after);
-  }));
-
-  it('resumes when asked to check again', fakeAsync(() => {
-    service.statuses = [found({ status: 'Running' })];
-    render();
-
-    click('Stop checking');
     const after = service.watchCalls;
 
     click('Check again');
@@ -905,6 +893,37 @@ describe('RecipeFirstDraftReviewComponent', () => {
     expect(service.watchCalls).toBeGreaterThan(after);
     tick(30000);
     settle();
+  }));
+
+  it('puts every Edit at the right of its row, its own size, level with the words it edits', fakeAsync(() => {
+    // The test build loads no global stylesheet, so the button's hidden name would otherwise be drawn and widen it.
+    const srOnly = document.createElement('style');
+    srOnly.textContent =
+      '.cp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}';
+    document.head.appendChild(srOnly);
+    service.statuses = [ready(fullDraftChanges())];
+    render();
+
+    const rows = Array.from(element().querySelectorAll<HTMLElement>('li.draft-line, li.draft-step, .draft-field dd'));
+    expect(rows.length).toBeGreaterThan(2);
+    for (const row of rows) {
+      const edit = row.querySelector<HTMLElement>(':scope > button[data-edit-for]')!;
+      const box = row.getBoundingClientRect();
+      const button = edit.getBoundingClientRect();
+      const label = edit.getAttribute('data-edit-for');
+      // Not stretched across the row: a button sized to its word, against the row's right edge.
+      expect(button.width)
+        .withContext(`${label} width`)
+        .toBeLessThan(box.width / 2);
+      expect(box.right - button.right)
+        .withContext(`${label} right edge`)
+        .toBeLessThan(2);
+      // On the row's first line, not under the words.
+      expect(button.top - box.top)
+        .withContext(`${label} top`)
+        .toBeLessThan(button.height);
+    }
+    srOnly.remove();
   }));
 
   // ---- accessibility ----------------------------------------------------------------------------------
@@ -1506,13 +1525,14 @@ describe('RecipeFirstDraftReviewComponent', () => {
       return (TestBed.inject(Router).navigate as jasmine.Spy).calls.allArgs();
     }
 
-    it('watches the draft the host names, with the page’s one sentence and no page head', fakeAsync(() => {
+    it('watches the draft the host names, with no page head and no intro of its own', fakeAsync(() => {
       service.statuses = [ready(fullDraftChanges())];
       render({});
 
       expect(fixture.componentInstance.requestId()).toBe(REQUEST_ID);
       expect(element().querySelector('cp-page-head')).toBeNull();
-      expect(text()).toContain('No recipe has been created');
+      // The step's hint says nothing is kept until it is; the review does not say it again above the status.
+      expect(text()).not.toContain('A suggestion to read and change before anything is kept');
       expect(element().querySelector('button.draft-accept')).not.toBeNull();
     }));
 

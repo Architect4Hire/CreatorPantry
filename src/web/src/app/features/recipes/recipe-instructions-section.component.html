@@ -3,7 +3,6 @@
   sectionId="section-instructions"
   heading="Instructions"
   [problem]="form.sectionProblem('instructions') ?? ''"
-  intro="The method, step by step."
 >
   <!-- At the top, as the ingredient editor's are, and the same quiet secondary buttons. -->
   <div class="toolbar">
@@ -75,7 +74,7 @@
                 </button>
                 <button
                   cpButton
-                  variant="danger"
+                  variant="ghost"
                   type="button"
                   [attr.aria-label]="'Remove group ' + (groupIndex + 1)"
                   (click)="form.removeInstructionGroup(group.key)"
@@ -86,114 +85,130 @@
             </div>
           }
 
+          <!-- A method reads as a numbered list, not a stack of cards: the number in a gutter, the step's words beside
+               it, and its controls quiet at the end of the line. A thin rule between steps, nothing boxed. -->
           <ol class="steps">
             @for (step of group.steps; track step.key; let stepIndex = $index, stepCount = $count) {
               <li class="step">
-                <!-- Move and remove at the top right of the step, level with nothing but themselves: where they are
-                     found without reading down through the step's fields first, and the same place as an
-                     ingredient line's. -->
-                <div class="step-head">
+                <!-- The number the creator reads. The field's own label, "Step N", is what a screen reader hears. -->
+                <span class="step-number" aria-hidden="true">{{ stepIndex + 1 }}</span>
+
+                <div class="step-body">
+                  <!-- The server reports a refused step at its position, so its sentence lands on the step it is
+                       about rather than on the whole method. Required, and announced so; no asterisk on every step. -->
+                  <cp-field
+                    [label]="'Step ' + (stepIndex + 1)"
+                    [labelHidden]="true"
+                    [forId]="'step-text-' + step.key"
+                    [required]="true"
+                    [error]="form.stepProblem(step.key)"
+                  >
+                    <textarea
+                      class="step-text"
+                      rows="2"
+                      [id]="'step-text-' + step.key"
+                      [ngModel]="step.text"
+                      (ngModelChange)="form.updateInstructionStep(group.key, step.key, { text: $event })"
+                      [name]="'stepText' + step.key"
+                    ></textarea>
+                  </cp-field>
+
+                  <!-- A note and a duration are offered, not presented: most steps have neither, and an empty box on
+                       every one of a dozen reads as something to fill in. A step that has one shows it; once shown it
+                       stays, because a field vanishing mid-edit is worse than an empty one. Each opens under the text,
+                       where the offer was, so nothing above it moves. -->
+                  @if (step.showNote) {
+                    <cp-field label="Note" [forId]="'step-note-' + step.key">
+                      <input
+                        [id]="'step-note-' + step.key"
+                        type="text"
+                        placeholder="A tip, a warning, a doneness cue"
+                        [ngModel]="step.note"
+                        (ngModelChange)="form.updateInstructionStep(group.key, step.key, { note: $event })"
+                        [name]="'stepNote' + step.key"
+                      />
+                    </cp-field>
+                  }
+
+                  @if (step.showDuration) {
+                    <cp-field-row [columns]="2" minColumn="10rem">
+                      <cp-field label="Duration" [forId]="'step-duration-' + step.key">
+                        <input
+                          [id]="'step-duration-' + step.key"
+                          type="number"
+                          placeholder="e.g. 10 min"
+                          min="0"
+                          [ngModel]="step.durationMinutes"
+                          (ngModelChange)="form.updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
+                          [name]="'stepDuration' + step.key"
+                        />
+                      </cp-field>
+                    </cp-field-row>
+                  }
+
+                  @if (!step.showNote || !step.showDuration) {
+                    <div class="step-offers">
+                      @if (!step.showNote) {
+                        <button
+                          cpButton
+                          variant="text"
+                          size="sm"
+                          type="button"
+                          [attr.aria-label]="'Add a note to step ' + (stepIndex + 1)"
+                          (click)="revealStepNote(group.key, step.key)"
+                        >
+                          <span aria-hidden="true">+ </span>Note
+                        </button>
+                      }
+                      @if (!step.showDuration) {
+                        <button
+                          cpButton
+                          variant="text"
+                          size="sm"
+                          type="button"
+                          [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
+                          (click)="revealStepDuration(group.key, step.key)"
+                        >
+                          <span aria-hidden="true">+ </span>Duration
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <!-- Move and remove, quiet and level with the step's first line: found without reading down the step,
+                     and never the loudest thing on it. Each says which step it acts on. -->
+                <div class="step-controls">
                   <button
                     cpButton
-                    variant="secondary"
-                    size="sm"
+                    variant="ghost"
                     type="button"
                     [disabled]="stepIndex === 0"
                     [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' up'"
                     (click)="form.moveInstructionStep(group.key, step.key, -1)"
                   >
-                    ↑
+                    <span aria-hidden="true">↑</span>
                   </button>
                   <button
                     cpButton
-                    variant="secondary"
-                    size="sm"
+                    variant="ghost"
                     type="button"
                     [disabled]="stepIndex === stepCount - 1"
                     [attr.aria-label]="'Move step ' + (stepIndex + 1) + ' down'"
                     (click)="form.moveInstructionStep(group.key, step.key, 1)"
                   >
-                    ↓
+                    <span aria-hidden="true">↓</span>
                   </button>
                   <button
                     cpButton
-                    variant="danger"
-                    size="sm"
+                    variant="ghost"
                     type="button"
                     [attr.aria-label]="'Remove step ' + (stepIndex + 1)"
-                    (click)="form.removeInstructionStep(group.key, step.key)"
+                    (click)="removeStep(group.key, step.key, stepIndex)"
                   >
-                    Remove step
+                    <span aria-hidden="true">✕</span>
                   </button>
                 </div>
-
-                <!-- The server reports a refused step at its position, so its sentence lands on the step it is
-                     about rather than on the whole method. -->
-                <cp-field
-                  [label]="'Step ' + (stepIndex + 1)"
-                  [forId]="'step-text-' + step.key"
-                  [required]="true"
-                  [error]="form.stepProblem(step.key)"
-                >
-                  <textarea
-                    [id]="'step-text-' + step.key"
-                    [ngModel]="step.text"
-                    (ngModelChange)="form.updateInstructionStep(group.key, step.key, { text: $event })"
-                    [name]="'stepText' + step.key"
-                  ></textarea>
-                </cp-field>
-
-                <cp-field label="Note" [forId]="'step-note-' + step.key">
-                  <input
-                    [id]="'step-note-' + step.key"
-                    type="text"
-                    placeholder="A tip, a warning, a doneness cue"
-                    [ngModel]="step.note"
-                    (ngModelChange)="form.updateInstructionStep(group.key, step.key, { note: $event })"
-                    [name]="'stepNote' + step.key"
-                  />
-                </cp-field>
-
-                <!-- Most steps have no duration, and a number box on every one of a dozen reads as a field
-                     the creator is expected to fill in. So it is offered rather than presented — except on a
-                     step that already records one, which is shown without being looked for. Once on it stays
-                     on, because a field disappearing mid-edit is worse than an empty one.
-                     After the step's text and its note, at the foot of the step where the button that offers it is: the
-                     field arrives where the creator was already looking, instead of opening above the note and pushing
-                     everything beneath it down. -->
-                @if (step.showDuration) {
-                  <cp-field-row [columns]="2" minColumn="10rem">
-                    <cp-field label="Duration" [forId]="'step-duration-' + step.key">
-                      <input
-                        [id]="'step-duration-' + step.key"
-                        type="number"
-                        placeholder="e.g. 10 min"
-                        min="0"
-                        [ngModel]="step.durationMinutes"
-                        (ngModelChange)="form.updateInstructionStep(group.key, step.key, { durationMinutes: $event })"
-                        [name]="'stepDuration' + step.key"
-                      />
-                    </cp-field>
-                  </cp-field-row>
-                }
-
-                @if (!step.showDuration) {
-                  <div class="step-actions">
-                    <!-- Offered with the step's other buttons, at the bottom of it, rather than as a line of text
-                         among its fields: an action that looks like a link is easy to take for part of the copy.
-                         Gone once the field is showing, and focus goes to the field it asked for. -->
-                    <button
-                      cpButton
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      [attr.aria-label]="'Add a duration to step ' + (stepIndex + 1)"
-                      (click)="revealStepDuration(group.key, step.key)"
-                    >
-                      Add a duration
-                    </button>
-                  </div>
-                }
               </li>
             }
           </ol>
